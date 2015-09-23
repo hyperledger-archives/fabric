@@ -1,2 +1,2 @@
 # obc-peer
-Peer node code
+This project is not yet ready. Comming soon!
