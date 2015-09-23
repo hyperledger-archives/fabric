@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package protos;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+
+message OpenchainMessage {
+  enum Type {
+    UNDEFINED = 0;
+    
+    DISC_HELLO = 1;
+    DISC_DISCONNECT = 2;
+    DISC_GET_PEERS = 3;
+    DISC_PEERS = 4;
+    DISC_PING = 5;
+    DISC_PONG = 6;
+
+    CHAIN_STATUS = 7;
+    CHAIN_GET_TRANSACTIONS = 8;
+    CHAIN_TRANSACTIONS = 9;
+    CHAIN_GET_BLOCK_HASHES = 10;
+    CHAIN_BLOCK_HASHES = 11;
+    CHAIN_GET_BLOCKS = 12;
+    CHAIN_BLOCKS = 13;
+    CHAIN_NEW_BLOCK = 14;
+
+    DISC_NEWMSG = 15;
+
+  }
+  Type type = 1;
+
+  google.protobuf.Timestamp timestamp = 2;
+
+  bytes payload = 3;
+
+}
+
+
+
+
+// Interface exported by the server.
+service Admin {
+
+  //
+  // Return the serve status.
+  //
+  rpc GetStatus(google.protobuf.Empty) returns (ServerStatus) {}
+
+  rpc StartServer(google.protobuf.Empty) returns (ServerStatus) {}
+
+  rpc StopServer(google.protobuf.Empty) returns (ServerStatus) {}
+
+}
+
+
+// Interface exported by the server.
+service Peer {
+
+  // Accepts a stream of OpenchainMessage during chat session,
+  // while receiving other OpenchainMessage (e.g. from other peers).
+  rpc Chat(stream OpenchainMessage) returns (stream OpenchainMessage) {}
+
+}
+
+
+message ServerStatus {
+  enum StatusCode {
+    UNDEFINED = 0;
+    STARTED = 1;
+    STOPPED = 2;
+    PAUSED = 3;
+    ERROR = 4;
+    UNKNOWN = 5;
+  }
+  StatusCode status = 1;
+}
+
+
+message ChainletIdentifier {
+  // Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
+  string Url = 1;
+}
+
+
+// Used by the Peer to identify the requesting chaincode and allows for proper access to state.
+message ChainletRequestContext {
+  ChainletIdentifier Id = 1;
+}
+
+// Provided by the Peer to the chaincode identify the requesting chaincode and allows for proper access to state.
+message ChainletExecutionContext {
+  ChainletIdentifier ChainletId = 1;
+  google.protobuf.Timestamp Timestamp = 2;
+}
+
+
+// Interface to provide support to Chainlet execution.  ChainletContext provides the context 
+// necessary for the server to respond appropriately.
+service ChainletSupport {
+
+  //
+  // Return the datetime.
+  //
+  rpc GetExecutionContext(ChainletRequestContext) returns (ChainletExecutionContext) {}
+
+
+}

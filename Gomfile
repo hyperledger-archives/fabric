@@ -1,0 +1,7 @@
+github.com/spf13/viper
+github.com/spf13/cobra
+github.com/op/go-logging
+github.com/boltdb/bolt
+github.com/looplab/fsm
+golang.org/x/crypto/sha3
+github.com/fsouza/go-dockerclient

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package protos;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "openchain.proto";
+
+
+// Interface exported by the server.
+service Devops {
+
+  // Build the chaincode package.
+  rpc Build(ChainletSpec) returns (BuildResult) {}
+
+  // Deploy the chaincode package to the chain.
+  rpc Deploy(google.protobuf.Empty) returns (DevopsResponse) {}
+
+}
+
+message DevopsResponse {
+  enum StatusCode {
+    UNDEFINED = 0;
+    SUCCESS = 1;
+    FAILURE = 2;
+  }
+  StatusCode status = 1;
+  string msg = 2;
+}
+
+message BuildResult {
+  enum StatusCode {
+    UNDEFINED = 0;
+    SUCCESS = 1;
+    FAILURE = 2;
+  }
+  StatusCode status = 1;
+  string msg = 2;
+  ChainletDeploymentSpec deploymentSpec = 3;
+}
+

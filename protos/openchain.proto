@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package protos;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+message ChainletID {
+  // Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
+  string Url = 1;
+}
+
+message ChainletMessage {
+  string function = 1;
+  repeated string args  = 2;
+}
+
+// Specification of a chainlet.  This is the actual meta-data required for defining a chainlet.
+message ChainletSpec {
+  enum Type {
+     UNDEFINED = 0;
+     GOLANG = 1;
+     NODE = 2;
+  }
+  Type type = 1;
+  ChainletID chainletID = 2;
+  ChainletMessage ctorMsg = 3; 
+}
+
+// Used to specify the deployment of a chainlet.
+message ChainletDeploymentSpec {
+  ChainletSpec chainletSpec = 1;
+  // Controls when the chaincode becomes executable.
+  google.protobuf.Timestamp effectiveDate = 2;
+
+  bytes codePackage = 3;
+}
+
+
+// Transaction defines a function call to a contract. Transactions are
+// stroed in blocks.
+// args is an array of type string so that the chaincode writer can choose whatever
+// format they wish for the arguments for their chainlet. For example, they
+// may wish to use JSON, XML, or a custom format.
+message Transaction {
+  enum Type {
+    UNDEFINED = 0;
+    
+    CHAINLET_NEW = 1;
+    CHAINLET_UPDATE = 2;
+    CHAINLET_EXECUTE = 3;
+    CHAINLET_TERMINATE = 4;
+  }
+  Type type = 1;
+
+  ChainletID chainletID = 2; 
+  string function = 3;
+  repeated string args  = 4;
+}
+
+
+message Block {
+  string proposerID = 1; 
+  google.protobuf.Timestamp Timestamp = 2;
+  repeated Transaction transactions = 3; 
+  bytes stateHash = 4;
+  bytes previousBlockHash = 5;
+}

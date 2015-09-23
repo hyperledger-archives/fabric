@@ -1,0 +1,140 @@
+---
+###############################################################################
+#
+#    CLI section
+#
+###############################################################################
+cli:
+
+    # The address that the cli process will use for callbacks from chainlets
+    address: 0.0.0.0:30304
+
+
+
+###############################################################################
+#
+#    Peer section
+#
+###############################################################################
+peer:
+
+    Dockerfile:  |
+        from golang:1.5.1
+        COPY src $GOPATH/src        
+        WORKDIR $GOPATH
+        RUN go install hub.jazz.net/openchain-peer && cp src/hub.jazz.net/openchain-peer/openchain.yaml ./bin
+
+
+    address: 0.0.0.0:30303
+
+    # Logging settings
+    logging:
+        # Logging level, can be one of [error|warning|info|debug]
+        # One of: CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
+        level: DEBUG
+
+    # Peer port to accept connections on
+    port:    30303
+    # Peer's setting for GOMAXPROCS
+    gomaxprocs: 2
+    workers: 2
+
+    # TLS Settings for p2p communications 
+    tls:
+        enabled:  false
+        cert:
+            file: testdata/server1.pem
+        key:
+            file: testdata/server1.key
+        # The server name use to verify the hostname returned by TLS handshake
+        server-host-override: 
+
+    # Peer discovery settings.  Controls how this peer discovers other peers 
+    discovery:
+
+        # The root nodes are used for bootstrapping purposes
+        rootnodes: ["127.0.0.1:30303","127.0.0.1:30303"]
+
+        ## leaving this in for example of sub map entry
+        # testNodes:
+        #    - node   : 1
+        #      ip     : 127.0.0.1
+        #      port   : 30303
+        #    - node   : 2
+        #      ip     : 127.0.0.1
+        #      port   : 30303
+
+        # Should the discovered nodes and their reputations
+        # be stored in DB and persisted between restarts
+        persist:    true
+
+        # if peer discovery is off
+        # the peer window will show
+        # only what retrieved by active
+        # peer [true/false]
+        enabled:    true
+
+        # number of workers that
+        # tastes the peers for being
+        # online [1..10]
+        workers: 8
+
+        # the period in seconds with which the discovery
+        # tries to reconnect to successful nodes
+        # 0 means the nodes are not reconnected
+        touchPeriod: 600
+
+        # the maximum nuber of nodes to reconnect to
+        # -1 for unlimited
+        touchMaxNodes: 100
+
+
+
+###############################################################################
+#
+#    VM section
+#
+###############################################################################
+vm:
+
+    # Endpoint of the vm management system.  For docker can be one of the following in general
+    # unix:///var/run/docker.sock
+    # http://localhost:4243
+    endpoint: unix:///var/run/docker.sock
+
+
+###############################################################################
+#
+#    Chainlet section
+#
+###############################################################################
+chainlet:
+    
+    golang:
+        
+        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chainlet specification. 
+        Dockerfile:  |
+            from golang:1.5.1
+            COPY src $GOPATH/src        
+            WORKDIR $GOPATH
+            
+
+# Below left in for examples of YAML usage
+receipt:     Oz-Ware Purchase Invoice
+date:        2012-08-06
+
+bill-to:  &id001
+    street: |
+            123 Tornado Alley
+            Suite 16
+    city:   East Centerville
+    state:  KS
+
+ship-to:  *id001
+
+specialDelivery:  >
+    Follow the Yellow Brick
+    Road to the Emerald City.
+    Pay no attention to the
+    man behind the curtain.
+...
