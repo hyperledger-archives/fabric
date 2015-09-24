@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"hub.jazz.net/openchain-peer/protos"
+	"github.com/openblockchain/obc-peer/protos"
 )
 
 // Blockchain defines list of blocks that make up a blockchain.
