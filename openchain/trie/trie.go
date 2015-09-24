@@ -19,7 +19,7 @@ under the License.
 
 package trie
 
-import "hub.jazz.net/openchain-peer/openchain/db"
+import "github.com/openblockchain/obc-peer/openchain/db"
 
 func NewTrie(path string) (*Trie, error) {
 	trieDb, err := db.NewDB(path)

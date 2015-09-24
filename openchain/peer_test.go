@@ -31,7 +31,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
-	pb "hub.jazz.net/openchain-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var peerClientConn *grpc.ClientConn = nil

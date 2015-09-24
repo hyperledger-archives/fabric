@@ -37,8 +37,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"hub.jazz.net/openchain-peer/openchain"
-	pb "hub.jazz.net/openchain-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var log = logging.MustGetLogger("main")

@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"hub.jazz.net/openchain-peer/protos"
+	"github.com/openblockchain/obc-peer/protos"
 )
 
 func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {

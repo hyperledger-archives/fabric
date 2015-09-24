@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	pb "hub.jazz.net/openchain-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type TestChainlet struct {

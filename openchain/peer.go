@@ -30,7 +30,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
-	pb "hub.jazz.net/openchain-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 const DefaultTimeout = time.Second * 3

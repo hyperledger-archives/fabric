@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-	pb "hub.jazz.net/openchain-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 // func Benchmark_GetExecutionContext(b *testing.B) {

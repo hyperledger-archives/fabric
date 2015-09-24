@@ -29,7 +29,7 @@ import (
 
 	google_protobuf "google/protobuf"
 
-	pb "hub.jazz.net/openchain-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var log = logging.MustGetLogger("server")

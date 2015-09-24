@@ -25,8 +25,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"hub.jazz.net/openchain-peer/openchain/chaincode"
-	pb "hub.jazz.net/openchain-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type SimpletChainlet struct {
