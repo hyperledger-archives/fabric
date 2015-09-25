@@ -21,7 +21,10 @@ package openchain
 
 import (
 	"bytes"
+	"os"
 	"testing"
+
+	"github.com/tecbot/gorocksdb"
 
 	"golang.org/x/net/context"
 
@@ -29,7 +32,19 @@ import (
 )
 
 func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
-	chain := NewBlockchain()
+
+	opts := gorocksdb.NewDefaultOptions()
+	blockchainPath := os.TempDir() + "/OpenchainDBTestChain_Transaction_ContractNew_Golang_FromFile"
+	destoryErr := gorocksdb.DestroyDb(blockchainPath, opts)
+	if destoryErr != nil {
+		t.Error("Error destroying DB", destoryErr)
+	}
+
+	chain, blockchainErr := NewBlockchain(blockchainPath, true)
+	if blockchainErr != nil {
+		t.Fail()
+		t.Logf("Error creating blockchain: %s", blockchainErr)
+	}
 	state := NewState()
 
 	// Create the Chainlet specification
@@ -38,7 +53,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 		CtorMsg:    &protos.ChainletMessage{Function: "Initialize", Args: []string{"param1"}}}
 
 	newChainletTx := protos.NewChainletDeployTransaction(*chainletSpec)
-	t.Logf("New chaincode tx: %v", newChainletTx)
+	t.Logf("New chainlet tx: %v", newChainletTx)
 	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx}, state.GetHash())
 
 	err := chain.AddBlock(context.TODO(), *block1)
@@ -50,24 +65,54 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	}
 }
 
-func TestChain1(t *testing.T) {
+func TestChainCompare(t *testing.T) {
 
-	chain1, state1 := buildSimpleChain()
+	opts := gorocksdb.NewDefaultOptions()
+
+	chain1Path := os.TempDir() + "/OpenchainDBTestChainCompare1"
+	destory1Err := gorocksdb.DestroyDb(chain1Path, opts)
+	if destory1Err != nil {
+		t.Error("Error destroying chain1 DB", destory1Err)
+	}
+
+	chain1, state1, chainErr1 := buildSimpleChain(chain1Path)
+	if chainErr1 != nil {
+		t.Fail()
+		t.Logf("Error creating chain1: %s", chainErr1)
+	}
 	t.Logf("Chain1 => %s", chain1)
 	t.Logf("State1 => %s", state1)
 
-	chain2, state2 := buildSimpleChain()
+	chain2Path := os.TempDir() + "/OpenchainDBTestChainCompare2"
+	destory2Err := gorocksdb.DestroyDb(chain2Path, opts)
+	if destory2Err != nil {
+		t.Error("Error destroying chain2 DB", destory2Err)
+	}
+
+	chain2, state2, chainErr2 := buildSimpleChain(chain2Path)
+	if chainErr2 != nil {
+		t.Fail()
+		t.Logf("Error creating chain2: %s", chainErr2)
+	}
 	t.Logf("Chain2 => %s", chain2)
 	t.Logf("State2 => %s", state2)
 
-	chain1LastBlock := chain1.blocks[len(chain1.blocks)-1]
+	chain1LastBlock, chain1LastBlockErr := chain1.GetLastBlock()
+	if chain1LastBlockErr != nil {
+		t.Fail()
+		t.Logf("Error getting last block from chain1: %s", chain1LastBlockErr)
+	}
 	hash1, err1 := chain1LastBlock.GetHash()
 	if err1 != nil {
 		t.Fail()
 		t.Logf("Error getting chain1 block hash: %s", err1)
 	}
 
-	chain2LastBlock := chain2.blocks[len(chain2.blocks)-1]
+	chain2LastBlock, chain2LastBlockErr := chain2.GetLastBlock()
+	if chain2LastBlockErr != nil {
+		t.Fail()
+		t.Logf("Error getting last block from chain2: %s", chain2LastBlockErr)
+	}
 	hash2, err2 := chain2LastBlock.GetHash()
 	if err2 != nil {
 		t.Fail()
@@ -79,10 +124,13 @@ func TestChain1(t *testing.T) {
 	}
 }
 
-func buildSimpleChain() (*Blockchain, *State) {
+func buildSimpleChain(blockchainPath string) (*Blockchain, *State, error) {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
-	chain := NewBlockchain()
+	chain, err := NewBlockchain(blockchainPath, true)
+	if err != nil {
+		return nil, nil, err
+	}
 	state := NewState()
 	// -----------------------------</Initial creation of blockchain and state>---
 
@@ -96,7 +144,7 @@ func buildSimpleChain() (*Blockchain, *State) {
 
 	// Deploy a contract
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
-	// TODO Use chaincode instead of contract?
+	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
 	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 
@@ -128,5 +176,5 @@ func buildSimpleChain() (*Blockchain, *State) {
 
 	// -----------------------------</Block 3>------------------------------------
 
-	return chain, state
+	return chain, state, nil
 }
