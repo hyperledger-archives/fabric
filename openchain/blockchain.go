@@ -31,35 +31,66 @@ import (
 
 // Blockchain defines list of blocks that make up a blockchain.
 type Blockchain struct {
-	blocks []protos.Block
+	db BlockchainDB
 }
 
 // NewBlockchain creates a new empty blockchain.
-func NewBlockchain() *Blockchain {
+func NewBlockchain(blockchainPath string, createIfMissing bool) (*Blockchain, error) {
 	blockchain := new(Blockchain)
-	return blockchain
+	db, err := OpenBlockchainDB(blockchainPath, createIfMissing)
+	if err != nil {
+		return nil, err
+	}
+	blockchain.db = *db
+	return blockchain, nil
 }
 
 // AddBlock adds a block to the blockchain.
 func (blockchain *Blockchain) AddBlock(ctx context.Context, block protos.Block) error {
-	size := len(blockchain.blocks)
-	if size > 0 {
-		previousBlock := blockchain.blocks[size-1]
-		hash, err := previousBlock.GetHash()
-		if err != nil {
-			return errors.New(fmt.Sprintf("Error adding block: %s", err))
-		}
-		block.SetPreviousBlockHash(hash)
+
+	size, sizeErr := blockchain.db.GetSize()
+	if sizeErr != nil {
+		return sizeErr
 	}
-	blockchain.blocks = append(blockchain.blocks, block)
+
+	if size > 0 {
+		previousBlock, previousBlockErr := blockchain.db.GetLastBlock()
+		if previousBlockErr != nil {
+			return previousBlockErr
+		}
+		prviousBlockHash, prviousBlockHashErr := previousBlock.GetHash()
+		if prviousBlockHashErr != nil {
+			return errors.New(fmt.Sprintf("Error adding block: %s", prviousBlockHashErr))
+		}
+		block.SetPreviousBlockHash(prviousBlockHash)
+	}
+
+	addBlockErr := blockchain.db.AddBlock(block)
+	if addBlockErr != nil {
+		return addBlockErr
+	}
 	return nil
+}
+
+// GetLastBlock returns the last block added to the blockchain
+func (blockchain *Blockchain) GetLastBlock() (*protos.Block, error) {
+	return blockchain.db.GetLastBlock()
 }
 
 func (blockchain *Blockchain) String() string {
 	var buffer bytes.Buffer
-	for i := 0; i < len(blockchain.blocks); i++ {
+	size, sizeErr := blockchain.db.GetSize()
+	if sizeErr != nil {
+		return ""
+	}
+
+	for i := uint64(0); i < size; i++ {
+		block, blockErr := blockchain.db.GetBlock(i)
+		if blockErr != nil {
+			return ""
+		}
 		buffer.WriteString("\n----------<block>----------\n")
-		buffer.WriteString(blockchain.blocks[i].String())
+		buffer.WriteString(block.String())
 		buffer.WriteString("\n----------<\\block>----------\n")
 	}
 	return buffer.String()

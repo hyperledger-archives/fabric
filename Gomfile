@@ -5,3 +5,4 @@ github.com/boltdb/bolt
 github.com/looplab/fsm
 golang.org/x/crypto/sha3
 github.com/fsouza/go-dockerclient
+github.com/tecbot/gorocksdb
