@@ -19,72 +19,52 @@ under the License.
 
 package openchain
 
-import (
-	"bytes"
-	"sort"
-
-	"golang.org/x/crypto/sha3"
-)
-
 // State is the state of all contracts after running the transactions
 // for all blocks in the blockchain.
 type State struct {
-	// This is a map of contract ID to the state.
-	contractIDToState map[string]string
+	db StateDB
 }
 
 // NewState creates a new empty state.
-func NewState() *State {
+func NewState(statePath string, createIfMissing bool) (*State, error) {
 	state := new(State)
-	state.contractIDToState = make(map[string]string)
-	return state
+	db, err := OpenStateDB(statePath, createIfMissing)
+	if err != nil {
+		return nil, err
+	}
+	state.db = *db
+	return state, nil
 }
 
-// Update the state of a contract.
-func (state *State) Update(contractID string, contractState string) {
-	state.contractIDToState[contractID] = contractState
+// Put a key-value pair for the given contract ID
+func (state *State) Put(contractID string, key, value []byte) error {
+	err := state.db.Put(contractID, key, value)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// Get the state of a contract.
-func (state *State) Get(contractID string) string {
-	return state.contractIDToState[contractID]
+// Get a value for the given contract ID and key
+func (state *State) Get(contractID string, key []byte) ([]byte, error) {
+	value, err := state.db.Get(contractID, key)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
-// Delete the state of a contract.
-func (state *State) Delete(contractID string) {
-	delete(state.contractIDToState, contractID)
+// Delete a key-value pair for a given contract ID and key
+func (state *State) Delete(contractID string, key []byte) error {
+	err := state.db.Delete(contractID, key)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetHash returns the hash of the entire state. This can be used to compare
 // the current state to value returned by block.GetStateHash().
 func (state *State) GetHash() []byte {
-	hash := make([]byte, 64)
-	sha3.ShakeSum256(hash, state.Bytes())
-	return hash
-}
-
-// Bytes returns the state as an array of bytes
-func (state *State) Bytes() []byte {
-	var buffer bytes.Buffer
-	var keyArray []string
-	for k := range state.contractIDToState {
-		keyArray = append(keyArray, k)
-	}
-	sort.Strings(keyArray)
-	for _, k := range keyArray {
-		buffer.WriteString(k)
-		buffer.WriteString(state.contractIDToState[k])
-	}
-	return buffer.Bytes()
-}
-
-func (state *State) String() string {
-	var buffer bytes.Buffer
-	for k, v := range state.contractIDToState {
-		buffer.WriteString("\nKey: ")
-		buffer.WriteString(k)
-		buffer.WriteString("Value: ")
-		buffer.WriteString(v)
-	}
-	return buffer.String()
+	return state.db.GetHash()
 }
