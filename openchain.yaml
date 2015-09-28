@@ -20,9 +20,20 @@ peer:
 
     Dockerfile:  |
         from golang:1.5.1
+        # Install RocksDB
+        RUN cd /opt  && git clone --branch v3.13.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
+        WORKDIR /opt/rocksdb
+        RUN make shared_lib
+        ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
+        RUN apt-get update && apt-get install -y \
+            libsnappy-dev      \
+            zlib1g-dev         \
+            libbz2-dev
+        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go get github.com/tecbot/gorocksdb
+        # Copy GOPATH src and install Peer
         COPY src $GOPATH/src        
         WORKDIR $GOPATH
-        RUN go install hub.jazz.net/openchain-peer && cp src/hub.jazz.net/openchain-peer/openchain.yaml ./bin
+        RUN go install github.com/openblockchain/obc-peer && cp src/github.com/openblockchain/obc-peer/openchain.yaml ./bin
 
 
     address: 0.0.0.0:30303
