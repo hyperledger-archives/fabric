@@ -45,7 +45,17 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 		t.Fail()
 		t.Logf("Error creating blockchain: %s", blockchainErr)
 	}
-	state := NewState()
+
+	statePath := os.TempDir() + "/OpenchainDBTestChain_Transaction_ContractNew_Golang_FromFileState"
+	destoryStateErr := gorocksdb.DestroyDb(statePath, opts)
+	if destoryStateErr != nil {
+		t.Error("Error destroying state DB", destoryStateErr)
+	}
+
+	state, stateErr := NewState(statePath, true)
+	if stateErr != nil {
+		t.Error("Error create state", stateErr)
+	}
 
 	// Create the Chainlet specification
 	chainletSpec := &protos.ChainletSpec{Type: protos.ChainletSpec_GOLANG,
@@ -75,7 +85,13 @@ func TestChainCompare(t *testing.T) {
 		t.Error("Error destroying chain1 DB", destory1Err)
 	}
 
-	chain1, state1, chainErr1 := buildSimpleChain(chain1Path)
+	state1Path := os.TempDir() + "/OpenchainDBTestChainCompareState1"
+	destoryState1Err := gorocksdb.DestroyDb(state1Path, opts)
+	if destoryState1Err != nil {
+		t.Error("Error destroying state1 DB", destoryState1Err)
+	}
+
+	chain1, state1, chainErr1 := buildSimpleChain(chain1Path, state1Path)
 	if chainErr1 != nil {
 		t.Fail()
 		t.Logf("Error creating chain1: %s", chainErr1)
@@ -89,7 +105,13 @@ func TestChainCompare(t *testing.T) {
 		t.Error("Error destroying chain2 DB", destory2Err)
 	}
 
-	chain2, state2, chainErr2 := buildSimpleChain(chain2Path)
+	state2Path := os.TempDir() + "/OpenchainDBTestChainCompareState2"
+	destoryState2Err := gorocksdb.DestroyDb(state2Path, opts)
+	if destoryState2Err != nil {
+		t.Error("Error destroying state2 DB", destoryState2Err)
+	}
+
+	chain2, state2, chainErr2 := buildSimpleChain(chain2Path, state2Path)
 	if chainErr2 != nil {
 		t.Fail()
 		t.Logf("Error creating chain2: %s", chainErr2)
@@ -124,14 +146,17 @@ func TestChainCompare(t *testing.T) {
 	}
 }
 
-func buildSimpleChain(blockchainPath string) (*Blockchain, *State, error) {
+func buildSimpleChain(blockchainPath, statePath string) (*Blockchain, *State, error) {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
 	chain, err := NewBlockchain(blockchainPath, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	state := NewState()
+	state, stateErr := NewState(statePath, true)
+	if stateErr != nil {
+		return nil, nil, err
+	}
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block>-------------------------------
@@ -150,7 +175,7 @@ func buildSimpleChain(blockchainPath string) (*Blockchain, *State, error) {
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Update("Contracts", "{MyContract1: {code: blahblah}}")
+	state.Put("MyContract1", []byte("code"), []byte("code example"))
 
 	// Now we add the transaction to the block 2 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
@@ -167,7 +192,7 @@ func buildSimpleChain(blockchainPath string) (*Blockchain, *State, error) {
 	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Update("MyContract", "{x: \"hello\"}")
+	state.Put("MyContract", []byte("x"), []byte("hello"))
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}

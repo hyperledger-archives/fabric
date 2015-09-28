@@ -35,7 +35,17 @@ func TestSize(t *testing.T) {
 	}
 
 	// Add a block
-	state := NewState()
+	stateDBPath := os.TempDir() + "/OpenchainStateDBTestSize"
+	destoryStateErr := gorocksdb.DestroyDb(stateDBPath, opts)
+	if destoryStateErr != nil {
+		t.Error("Error destroying state DB", destoryStateErr)
+	}
+
+	state, stateErr := NewState(stateDBPath, true)
+	if stateErr != nil {
+		t.Error("Error creating state", stateErr)
+	}
+
 	block := protos.NewBlock("sheehan", nil, state.GetHash())
 	err = blockchainDB.AddBlock(*block)
 	if err != nil {
