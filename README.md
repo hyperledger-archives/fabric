@@ -16,7 +16,7 @@ You may need to manually install some go packages that the peer project is depen
 Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md)
 
     vagrant ssh
-    cd $GOPATH/src/openblockchain/obc-peer
+    cd $GOPATH/src/github.com/openblockchain/obc-peer
     go build
 
 
@@ -25,7 +25,7 @@ Assuming you have followed the [development environment getting started instruct
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/openblockchain/obc-peer
+    cd $GOPATH/src/github.com/openblockchain/obc-peer
     ./obc-peer
 
 You should see some output similar to below (**NOTE**: rootcommand below is hardcoded in the [main.go](./main.go).  Current build will actually create an *openchain-peer* executable file).
