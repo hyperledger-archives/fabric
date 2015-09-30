@@ -6,18 +6,25 @@ This project contains the core blockchain fabric.
 
 ## Building the project
 
+Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md)
+
+To access your VM, run
+```
+vagrant ssh
+```
+
+From within the VM, follow these additional steps.
+
 ### Go package dependencies
-You may need to manually install some go packages that the peer project is dependent on.  Simply view the [Gomfile](./Gomfile) in this directory and see the packages the project depends on.  Then simply issue a '*go get ...*' command for each package listed, and example is shown below:
+You need to manually install some go packages that the peer project is dependent on.  Simply view the [Gomfile](./Gomfile) in this directory and see the packages the project depends on.  Then simply issue a `go get ...` command for each package listed, and example is shown below:
 
     go get github.com/spf13/viper
 
 ### Go build
-
-Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md)
-
-    vagrant ssh
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go build
+```
+cd $GOPATH/src/github.com/openblockchain/obc-peer
+go build
+```
 
 
 
