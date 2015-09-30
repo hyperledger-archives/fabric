@@ -3,13 +3,14 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/openblockchain/obc-peer/protos"
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 )
 
 type Blockchain struct {
-	size        uint64
+	size              uint64
+	previousBlockHash []byte
 }
 
 var blockchainInstance *Blockchain
@@ -17,10 +18,21 @@ var blockchainInstance *Blockchain
 func GetBlockChain() (*Blockchain, error) {
 	if blockchainInstance == nil {
 		blockchainInstance = new(Blockchain)
-		var err error
-		blockchainInstance.size, err = fetchBlockChainSizeFromDB()
+		size, err := fetchBlockChainSizeFromDB()
 		if err != nil {
 			return nil, err
+		}
+		blockchainInstance.size = size
+		if size > 0 {
+			previousBlock, err := fetchBlockFromDB(size - 1)
+			if err != nil {
+				return nil, err
+			}
+			previousBlockHash, err := previousBlock.GetHash()
+			if err != nil {
+				return nil, err
+			}
+			blockchainInstance.previousBlockHash = previousBlockHash
 		}
 	}
 	return blockchainInstance, nil
@@ -31,14 +43,14 @@ func (blockchain *Blockchain) GetLastBlock() (*protos.Block, error) {
 }
 
 func (blockchain *Blockchain) GetBlock(blockNumber uint64) (*protos.Block, error) {
-	return blockchain.fetchBlockFromDB(blockNumber)
+	return fetchBlockFromDB(blockNumber)
 }
 
 func (blockchain *Blockchain) GetSize() uint64 {
-	return blockchainInstance.size
+	return blockchain.size
 }
 
-func (blockchain *Blockchain) fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
+func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 	blockBytes, err := db.GetDBHandle().GetFromBlockChainCF(EncodeBlockNumberDBKey(blockNumber))
 	if err != nil {
 		return nil, err
@@ -58,19 +70,24 @@ func fetchBlockChainSizeFromDB() (uint64, error) {
 }
 
 func (blockchain *Blockchain) AddBlock(block *protos.Block) error {
-	err := blockchain.persistBlock(block, blockchain.size)
+	block.SetPreviousBlockHash(blockchain.previousBlockHash)
+	state := GetState()
+	stateHash, err := state.GetStateHash()
+	if err != nil {
+		return err
+	}
+	block.StateHash = stateHash
+	err = blockchain.persistBlock(block, blockchain.size)
 	if err != nil {
 		return err
 	}
 	blockchain.size++
+	state.ClearInMemoryChanges()
 	return nil
 }
 
 func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint64) error {
-	state, err := GetState()
-	if err != nil {
-		return err
-	}
+	state := GetState()
 	blockBytes, blockBytesErr := block.Bytes()
 	if blockBytesErr != nil {
 		return blockBytesErr
@@ -84,7 +101,7 @@ func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint
 	state.addChangesForPersistence(writeBatch)
 
 	opt := gorocksdb.NewDefaultWriteOptions()
-	err = db.GetDBHandle().DB.Write(opt, writeBatch)
+	err := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		return err
 	}

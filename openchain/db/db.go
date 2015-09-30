@@ -22,7 +22,7 @@ type OpenchainDB struct {
 var openchainDB *OpenchainDB
 var isOpen bool
 
-func GetDBHandle() (*OpenchainDB) {
+func GetDBHandle() *OpenchainDB {
 	var err error
 	if isOpen {
 		return openchainDB

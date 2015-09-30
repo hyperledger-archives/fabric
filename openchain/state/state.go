@@ -13,12 +13,12 @@ type State struct {
 
 var stateInstance *State
 
-func GetState() (*State, error) {
+func GetState() *State {
 	if stateInstance == nil {
 		state := new(State)
 		state.contractStateMap = make(map[string]*contractState)
 	}
-	return stateInstance, nil
+	return stateInstance
 }
 
 func (state *State) Get(contractId string, key string) ([]byte, error) {
@@ -58,7 +58,7 @@ func (state *State) GetStateHash() ([]byte, error) {
 }
 
 func (state *State) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
-	openChainDB := db.GetDBHandle();
+	openChainDB := db.GetDBHandle()
 	for _, contractState := range state.contractStateMap {
 		for key, updatedValue := range contractState.updatedStateMap {
 			dbKey := encodeStateDBKey(contractState.contractId, key)

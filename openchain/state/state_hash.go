@@ -13,7 +13,7 @@ type stateHash struct {
 }
 
 func (statehash *stateHash) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
-	openchainDB := db.GetDBHandle()	
+	openchainDB := db.GetDBHandle()
 	for contractId, updatedhash := range statehash.updatedHash {
 		writeBatch.PutCF(openchainDB.StateHashCF, encodeStateHashDBKey(contractId), updatedhash)
 	}
