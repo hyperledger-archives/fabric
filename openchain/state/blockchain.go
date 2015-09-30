@@ -82,6 +82,11 @@ func (blockchain *Blockchain) AddBlock(block *protos.Block) error {
 		return err
 	}
 	blockchain.size++
+	currentBlockHash, err := block.GetHash()
+	if err != nil {
+		return err
+	}
+	blockchain.previousBlockHash = currentBlockHash 
 	state.ClearInMemoryChanges()
 	return nil
 }
