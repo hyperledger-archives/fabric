@@ -36,6 +36,8 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type VM struct {
@@ -72,8 +74,36 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
+func buildVMName(spec *pb.ChainletSpec) string {
+	vmName := fmt.Sprintf("%s_%s", viper.GetString("peer.peerId"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1))
+	vmLogger.Debug("return VM name: %s", vmName)
+	return vmName
+}
+
+func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) error {
+	//inputbuf, err := vm.GetPeerPackageBytes()
+	inputbuf, err := vm.GetChaincodePackageBytes(spec)
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
+	}
+	outputbuf := bytes.NewBuffer(nil)
+	opts := docker.BuildImageOptions{
+		Name:         buildVMName(spec),
+		Pull:         true,
+		InputStream:  inputbuf,
+		OutputStream: outputbuf,
+	}
+	if err := vm.Client.BuildImage(opts); err != nil {
+		return errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+	}
+	return nil
+}
+
 func (vm *VM) BuildPeerContainer() error {
-	inputbuf, err := vm.GetPeerPackageBytes()
+	//inputbuf, err := vm.GetPeerPackageBytes()
+	inputbuf, err := vm.getPackageBytes(vm.writePeerPackage)
+
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
 	}
@@ -90,6 +120,20 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
+func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) (io.Reader, error) {
+	inputbuf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(inputbuf)
+	tr := tar.NewWriter(gw)
+	// Get the Tar contents for the image
+	err := vm.writeChaincodePackage(spec, tr)
+	tr.Close()
+	gw.Close()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error getting Peer package: %s", err))
+	}
+	return inputbuf, nil
+}
+
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
@@ -102,6 +146,39 @@ func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 		return nil, errors.New(fmt.Sprintf("Error getting Peer package: %s", err))
 	}
 	return inputbuf, nil
+}
+
+//type tarWriter func()
+
+func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, error) {
+	inputbuf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(inputbuf)
+	tr := tar.NewWriter(gw)
+	// Get the Tar contents for the image
+	err := writerFunc(tr)
+	tr.Close()
+	gw.Close()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error getting package bytes: %s", err))
+	}
+	return inputbuf, nil
+}
+
+func (vm *VM) writeChaincodePackage(spec *pb.ChainletSpec, tw *tar.Writer) error {
+	startTime := time.Now()
+
+	// Dynamically create the Dockerfile from the base config and required additions
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChainletID.Url)
+	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chainlet.golang.Dockerfile"), newRunLine)
+	dockerFileSize := int64(len([]byte(dockerFileContents)))
+
+	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
+	tw.Write([]byte(dockerFileContents))
+	err := vm.writeGopathSrc(tw)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error writing Chaincode package contents: %s", err))
+	}
+	return nil
 }
 
 func (vm *VM) writePeerPackage(tw *tar.Writer) error {
@@ -162,10 +239,10 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 				return err
 			}
 		}
-		if length, err := io.Copy(tw, fr); err != nil {
+		if _, err := io.Copy(tw, fr); err != nil {
 			return err
 		} else {
-			vmLogger.Debug("Length of entry = %d", length)
+			//vmLogger.Debug("Length of entry = %d", length)
 		}
 		return nil
 	}

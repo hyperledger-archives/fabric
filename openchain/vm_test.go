@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
 
@@ -65,6 +66,22 @@ func TestVM_BuildImage_Peer(t *testing.T) {
 		return
 	}
 	if err := vm.BuildPeerContainer(); err != nil {
+		t.Fail()
+		t.Log(err)
+	}
+}
+
+func TestVM_BuildImage_Chaincode(t *testing.T) {
+	vm, err := NewVM()
+	if err != nil {
+		t.Fail()
+		t.Logf("Error getting VM: %s", err)
+		return
+	}
+	// Build the spec
+	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+	if err := vm.BuildChaincodeContainer(spec); err != nil {
 		t.Fail()
 		t.Log(err)
 	}

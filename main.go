@@ -95,7 +95,15 @@ var vmPrimeCmd = &cobra.Command{
 	},
 }
 
-var chaincodeLang string
+var (
+	chaincodeLang     string
+	chaincodeName     string
+	chaincodeCtorJson string
+	chaincodePath     string
+)
+
+const undefinedParamValue = ""
+
 var chaincodeCmd = &cobra.Command{
 	Use:   ChainFuncFormalName,
 	Short: fmt.Sprintf("%s specific commands.", ChainFuncFormalName),
@@ -105,7 +113,7 @@ var chaincodeCmd = &cobra.Command{
 var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(ChainFuncFormalName))
 
 var chaincodeBuildCmd = &cobra.Command{
-	Use:       fmt.Sprintf("build %s", chaincodePathArgumentSpecifier),
+	Use:       "build",
 	Short:     fmt.Sprintf("Builds the specified %s.", ChainFuncFormalName),
 	Long:      fmt.Sprintf("Builds the specified %s.", ChainFuncFormalName),
 	ValidArgs: []string{"1"},
@@ -191,6 +199,9 @@ func main() {
 	mainCmd.AddCommand(vmCmd)
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", ChainFuncFormalName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name for the %s", ChainFuncFormalName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJson, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", ChainFuncFormalName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Constructor message for the %s in JSON format", ChainFuncFormalName))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
 	chaincodeCmd.AddCommand(chaincodeTestCmd)
@@ -264,13 +275,19 @@ func stop() {
 }
 
 func chaincodeBuild(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		errMsg := fmt.Sprintf("Error:  Expected path to %s\n", ChainFuncFormalName)
+	if chaincodeName == undefinedParamValue {
+		errMsg := fmt.Sprintf("Error:  must supply value for %s name parameter\n", ChainFuncFormalName)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return errors.New(errMsg)
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to compile %s '%s' using language '%s'\n", args[0], ChainFuncFormalName, chaincodeLang)))
+	if chaincodePath == undefinedParamValue {
+		errMsg := fmt.Sprintf("Error:  must supply value for %s path parameter\n", ChainFuncFormalName)
+		cmd.Out().Write([]byte(errMsg))
+		cmd.Usage()
+		return errors.New(errMsg)
+	}
+	cmd.Out().Write([]byte(fmt.Sprintf("going to compile %s with name %s, in path %s using language %s\n", ChainFuncFormalName, chaincodeName, chaincodePath, chaincodeLang)))
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
 		log.Error("Error trying to connect to local peer:", err)
@@ -280,9 +297,15 @@ func chaincodeBuild(cmd *cobra.Command, args []string) error {
 	log.Info(fmt.Sprintf("Building %s: peer...", ChainFuncFormalName))
 	devopsClient := pb.NewDevopsClient(clientConn)
 	// Build the spec
-	spec := &pb.ChainletSpec{}
+	//checkChaincodePath(chaincodePath)
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
+		ChainletID: &pb.ChainletID{Url: chaincodePath}}
 
 	buildResult, err := devopsClient.Build(context.Background(), spec)
+	if err != nil {
+		log.Error("Error building %s: %s", ChainFuncFormalName, err)
+
+	}
 	log.Info("Build result: %s", buildResult)
 
 	return nil

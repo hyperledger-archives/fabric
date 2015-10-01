@@ -21,6 +21,10 @@ package openchain
 
 import (
 	"errors"
+	"fmt"
+	"os"
+
+	"path/filepath"
 
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
@@ -45,6 +49,11 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildR
 	if spec == nil {
 		return nil, errors.New("Error in Build, expected code specification, nil received")
 	}
+	devops_logger.Debug("Received build request for chainlet spec: %v", spec)
+	err := checkSpec(spec)
+	if err != nil {
+		return nil, err
+	}
 	result := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
 	devops_logger.Debug("returning build result: %s", result)
 	return result, nil
@@ -54,4 +63,42 @@ func (*devops) Deploy(context.Context, *google_protobuf.Empty) (*pb.DevopsRespon
 	//status := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
 	//devops_logger.Debug("returning status: %s", status)
 	return nil, nil
+}
+
+// Checks to see if chaincode resides within current package capture for language.
+func checkSpec(spec *pb.ChainletSpec) error {
+
+	// Only allow GOLANG type at the moment
+	if spec.Type != pb.ChainletSpec_GOLANG {
+		return errors.New(fmt.Sprintf("Only support '%s' currently", pb.ChainletSpec_GOLANG))
+	}
+	if err := checkGolangSpec(spec); err != nil {
+		return err
+	}
+	devops_logger.Debug("Validated spec:  %v", spec)
+	return nil
+}
+
+func checkGolangSpec(spec *pb.ChainletSpec) error {
+	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChainletID.Url)
+	exists, err := pathExists(pathToCheck)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error validating chaincode path: %s", err))
+	}
+	if !exists {
+		return errors.New(fmt.Sprintf("Path to chaincode does not exist: %s", spec.ChainletID.Url))
+	}
+	return nil
+}
+
+// Returns whether the given file or directory exists or not
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
 }
