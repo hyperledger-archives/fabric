@@ -61,7 +61,7 @@ func (block *Block) GetHash() ([]byte, error) {
 	hash := make([]byte, 64)
 	data, err := block.Bytes()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not calculate has of block: %s", err))
+		return nil, errors.New(fmt.Sprintf("Could not calculate hash of block: %s", err))
 	}
 	sha3.ShakeSum256(hash, data)
 	return hash, nil
