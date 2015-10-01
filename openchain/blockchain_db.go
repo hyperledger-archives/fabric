@@ -88,7 +88,7 @@ func (blockchainDB *BlockchainDB) GetLastBlock() (*protos.Block, error) {
 	return blockchainDB.GetBlock(size - 1)
 }
 
-// GetBlock returns the sepcified block number. Like an array, block numbers
+// GetBlock returns the specified block number. Like an array, block numbers
 // start at 0.
 func (blockchainDB *BlockchainDB) GetBlock(blockNumber uint64) (*protos.Block, error) {
 
