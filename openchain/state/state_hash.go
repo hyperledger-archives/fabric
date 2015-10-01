@@ -1,3 +1,22 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 package state
 
 import (
@@ -14,32 +33,32 @@ type stateHash struct {
 
 func (statehash *stateHash) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
 	openchainDB := db.GetDBHandle()
-	for contractId, updatedhash := range statehash.updatedHash {
-		writeBatch.PutCF(openchainDB.StateHashCF, encodeStateHashDBKey(contractId), updatedhash)
+	for chaincodeId, updatedhash := range statehash.updatedHash {
+		writeBatch.PutCF(openchainDB.StateHashCF, encodeStateHashDBKey(chaincodeId), updatedhash)
 	}
 }
 
-func computeStateHash(updatedContracts map[string]*contractState) (*stateHash, error) {
+func computeStateHash(updatedChaincodes map[string]*chaincodeState) (*stateHash, error) {
 	openchainDB := db.GetDBHandle()
 	statehash := &stateHash{nil, make(map[string][]byte)}
-	for contractId, updatedContract := range updatedContracts {
-		updatedHash, err := computeContractHash(updatedContract)
+	for chaincodeId, updatedChaincode := range updatedChaincodes {
+		updatedHash, err := computeChaincodeHash(updatedChaincode)
 		if err != nil {
 			return nil, err
 		}
-		statehash.updatedHash[contractId] = updatedHash
+		statehash.updatedHash[chaincodeId] = updatedHash
 	}
 	itr := openchainDB.GetStateHashCFIterator()
 	defer itr.Close()
 	var buffer bytes.Buffer
 
 	for ; itr.Valid(); itr.Next() {
-		contractId := decodeStateHashDBKey(itr.Key().Data())
-		contractHash := statehash.updatedHash[contractId]
-		if contractHash == nil {
-			contractHash = itr.Value().Data()
+		chaincodeId := decodeStateHashDBKey(itr.Key().Data())
+		chaincodeHash := statehash.updatedHash[chaincodeId]
+		if chaincodeHash == nil {
+			chaincodeHash = itr.Value().Data()
 		}
-		buffer.Write(contractHash)
+		buffer.Write(chaincodeHash)
 	}
 	hash := make([]byte, 64)
 	sha3.ShakeSum256(hash, buffer.Bytes())
@@ -47,19 +66,19 @@ func computeStateHash(updatedContracts map[string]*contractState) (*stateHash, e
 	return statehash, nil
 }
 
-func computeContractHash(changedContract *contractState) ([]byte, error) {
+func computeChaincodeHash(changedChaincode *chaincodeState) ([]byte, error) {
 	openchainDB := db.GetDBHandle()
 	var buffer bytes.Buffer
-	buffer.Write([]byte(changedContract.contractId))
+	buffer.Write([]byte(changedChaincode.chaincodeId))
 	itr := openchainDB.GetStateCFIterator()
 	defer itr.Close()
-	itr.Seek(buildLowestStateDBKey(changedContract.contractId))
+	itr.Seek(buildLowestStateDBKey(changedChaincode.chaincodeId))
 	for ; itr.Valid(); itr.Next() {
-		contractId, key := decodeStateDBKey(itr.Key().Data())
-		if contractId != changedContract.contractId {
+		chaincodeId, key := decodeStateDBKey(itr.Key().Data())
+		if chaincodeId != changedChaincode.chaincodeId {
 			break
 		}
-		updatedValue := changedContract.updatedStateMap[key]
+		updatedValue := changedChaincode.updatedStateMap[key]
 		if updatedValue != nil && updatedValue.isDelete() {
 			continue
 		}
@@ -77,8 +96,8 @@ func computeContractHash(changedContract *contractState) ([]byte, error) {
 	return hash, nil
 }
 
-func encodeStateHashDBKey(contractId string) []byte {
-	return []byte(contractId)
+func encodeStateHashDBKey(chaincodeId string) []byte {
+	return []byte(chaincodeId)
 }
 
 func decodeStateHashDBKey(dbKey []byte) string {

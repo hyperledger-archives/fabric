@@ -1,3 +1,22 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 package state
 
 import (
@@ -6,49 +25,55 @@ import (
 	"github.com/tecbot/gorocksdb"
 )
 
+// State structure for maintaining world state. This is not thread safe
 type State struct {
-	contractStateMap map[string]*contractState
-	statehash        *stateHash
+	chaincodeStateMap map[string]*chaincodeState
+	statehash         *stateHash
 }
 
 var stateInstance *State
 
+// GetState get handle to world state
 func GetState() *State {
 	if stateInstance == nil {
 		state := new(State)
-		state.contractStateMap = make(map[string]*contractState)
+		state.chaincodeStateMap = make(map[string]*chaincodeState)
 	}
 	return stateInstance
 }
 
-func (state *State) Get(contractId string, key string) ([]byte, error) {
-	updatedValue := state.contractStateMap[contractId].Get(key)
+// Get get state for chaincodeId and key. This first looks in memory and if missing, pulls from db
+func (state *State) Get(chaincodeId string, key string) ([]byte, error) {
+	updatedValue := state.chaincodeStateMap[chaincodeId].get(key)
 	if updatedValue != nil {
 		return updatedValue.value, nil
-	} else {
-		return state.fetchStateFromDB(contractId, key)
 	}
+	return state.fetchStateFromDB(chaincodeId, key)
 }
 
-func (state *State) Set(contractId string, key string, value []byte) error {
-	contractState := getOrCreateContractState(contractId)
-	contractState.Set(key, value)
+// Set sets state to given value for chaincodeId and key. Does not immideatly writes to memory
+func (state *State) Set(chaincodeId string, key string, value []byte) error {
+	chaincodeState := getOrCreateChaincodeState(chaincodeId)
+	chaincodeState.set(key, value)
 	return nil
 }
 
-func (state *State) Delete(contractId string, key string) error {
-	contractState := getOrCreateContractState(contractId)
-	contractState.Delete(key)
+// Delete tracks the deletion of state for chaincodeId and key. Does not immideatly writes to memory
+func (state *State) Delete(chaincodeId string, key string) error {
+	chaincodeState := getOrCreateChaincodeState(chaincodeId)
+	chaincodeState.remove(key)
 	return nil
 }
 
-func (state *State) GetUpdates() map[string]*contractState {
-	return state.contractStateMap
+// GetUpdates get changes in state after most recent call to method ClearInMemoryChanges
+func (state *State) GetUpdates() map[string]*chaincodeState {
+	return state.chaincodeStateMap
 }
 
+// GetStateHash computes, if not already done, world state hash
 func (state *State) GetStateHash() ([]byte, error) {
 	if state.statehash == nil {
-		hash, err := computeStateHash(state.contractStateMap)
+		hash, err := computeStateHash(state.chaincodeStateMap)
 		if err != nil {
 			return nil, err
 		}
@@ -57,11 +82,17 @@ func (state *State) GetStateHash() ([]byte, error) {
 	return state.statehash.globalHash, nil
 }
 
+// ClearInMemoryChanges remove from memory all the changes to state
+func (state *State) ClearInMemoryChanges() {
+	state.chaincodeStateMap = make(map[string]*chaincodeState)
+	state.statehash = nil
+}
+
 func (state *State) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
 	openChainDB := db.GetDBHandle()
-	for _, contractState := range state.contractStateMap {
-		for key, updatedValue := range contractState.updatedStateMap {
-			dbKey := encodeStateDBKey(contractState.contractId, key)
+	for _, chaincodeState := range state.chaincodeStateMap {
+		for key, updatedValue := range chaincodeState.updatedStateMap {
+			dbKey := encodeStateDBKey(chaincodeState.chaincodeId, key)
 			value := updatedValue.value
 			if value != nil {
 				writeBatch.PutCF(openChainDB.StateCF, dbKey, value)
@@ -73,26 +104,23 @@ func (state *State) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
 	state.statehash.addChangesForPersistence(writeBatch)
 }
 
-func (state *State) ClearInMemoryChanges() {
-	state.contractStateMap = make(map[string]*contractState)
-	state.statehash = nil
-}
-
-func getOrCreateContractState(contractId string) *contractState {
-	contractState := stateInstance.contractStateMap[contractId]
-	if contractState == nil {
-		contractState = NewContractState(contractId)
-		stateInstance.contractStateMap[contractId] = contractState
+func getOrCreateChaincodeState(chaincodeId string) *chaincodeState {
+	chaincodeState := stateInstance.chaincodeStateMap[chaincodeId]
+	if chaincodeState == nil {
+		chaincodeState = newChaincodeState(chaincodeId)
+		stateInstance.chaincodeStateMap[chaincodeId] = chaincodeState
 	}
-	return contractState
+	return chaincodeState
 }
 
-func (state *State) fetchStateFromDB(contractId string, key string) ([]byte, error) {
-	return db.GetDBHandle().GetFromStateCF(encodeStateDBKey(contractId, key))
+func (state *State) fetchStateFromDB(chaincodeId string, key string) ([]byte, error) {
+	return db.GetDBHandle().GetFromStateCF(encodeStateDBKey(chaincodeId, key))
 }
 
-func encodeStateDBKey(contractId string, key string) []byte {
-	retKey := []byte(contractId)
+// functions for converting keys to byte[] for interacting with rocksdb
+
+func encodeStateDBKey(chaincodeId string, key string) []byte {
+	retKey := []byte(chaincodeId)
 	retKey = append(retKey, stateKeyDelimiter...)
 	keybytes := ([]byte(key))
 	retKey = append(retKey, keybytes...)
@@ -104,13 +132,15 @@ func decodeStateDBKey(dbKey []byte) (string, string) {
 	return string(split[0]), string(split[1])
 }
 
-func buildLowestStateDBKey(contractId string) []byte {
-	retKey := []byte(contractId)
+func buildLowestStateDBKey(chaincodeId string) []byte {
+	retKey := []byte(chaincodeId)
 	retKey = append(retKey, stateKeyDelimiter...)
 	return retKey
 }
 
 var stateKeyDelimiter = []byte{0x00}
+
+// Code below is for maintaining state for a chaincode
 
 type valueHolder struct {
 	value []byte
@@ -120,27 +150,27 @@ func (valueHolder *valueHolder) isDelete() bool {
 	return valueHolder.value == nil
 }
 
-type contractState struct {
-	contractId      string
+type chaincodeState struct {
+	chaincodeId     string
 	updatedStateMap map[string]*valueHolder
 }
 
-func NewContractState(contractId string) *contractState {
-	return &contractState{contractId, make(map[string]*valueHolder)}
+func newChaincodeState(chaincodeId string) *chaincodeState {
+	return &chaincodeState{chaincodeId, make(map[string]*valueHolder)}
 }
 
-func (contractState *contractState) Get(key string) *valueHolder {
-	return contractState.updatedStateMap[key]
+func (chaincodeState *chaincodeState) get(key string) *valueHolder {
+	return chaincodeState.updatedStateMap[key]
 }
 
-func (contractState *contractState) Set(key string, value []byte) {
-	contractState.updatedStateMap[key] = &valueHolder{value}
+func (chaincodeState *chaincodeState) set(key string, value []byte) {
+	chaincodeState.updatedStateMap[key] = &valueHolder{value}
 }
 
-func (contractState *contractState) Delete(key string) {
-	contractState.updatedStateMap[key] = &valueHolder{nil}
+func (chaincodeState *chaincodeState) remove(key string) {
+	chaincodeState.updatedStateMap[key] = &valueHolder{nil}
 }
 
-func (contractState *contractState) Changed() bool {
-	return len(contractState.updatedStateMap) > 0
+func (chaincodeState *chaincodeState) changed() bool {
+	return len(chaincodeState.updatedStateMap) > 0
 }

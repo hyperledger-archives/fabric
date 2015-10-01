@@ -1,9 +1,28 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 package db
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
-	"os"
 )
 
 const blockchainCF = "blockchainCF"
@@ -12,6 +31,7 @@ const statehashCF = "statehashCF"
 
 var columnfamilies = []string{blockchainCF, stateCF, statehashCF}
 
+// OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
 	DB           *gorocksdb.DB
 	BlockchainCF *gorocksdb.ColumnFamilyHandle
@@ -22,24 +42,9 @@ type OpenchainDB struct {
 var openchainDB *OpenchainDB
 var isOpen bool
 
-func GetDBHandle() *OpenchainDB {
-	var err error
-	if isOpen {
-		return openchainDB
-	}
-	openchainDB, err = open(getDBPath())
-	if err != nil {
-		panic("Could not open openchain db: " + err.Error())
-	}
-	return openchainDB
-}
-
-func getDBPath() string {
-	// get from configuration
-	return os.TempDir() + "/openchainDB"
-}
-
-func CreateDB(dbPath string) error {
+// CreateDB creates a rocks db database
+func CreateDB() error {
+	dbPath := getDBPath()
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(true)
 	var err error
@@ -60,10 +65,62 @@ func CreateDB(dbPath string) error {
 	return nil
 }
 
-func open(dbPath string) (*OpenchainDB, error) {
+// GetDBHandle returns a handle to OpenchainDB
+func GetDBHandle() *OpenchainDB {
+	var err error
+	if isOpen {
+		return openchainDB
+	}
+	openchainDB, err = openDB()
+	if err != nil {
+		panic("Could not open openchain db: " + err.Error())
+	}
+	return openchainDB
+}
+
+// GetFromBlockchainCF get value for given key from column family - blockchainCF
+func (openchainDB *OpenchainDB) GetFromBlockchainCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.BlockchainCF, key)
+}
+
+// GetFromStateCF get value for given key from column family - stateCF
+func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.StateCF, key)
+}
+
+// GetFromStateHashCF get value for given key from column family - statehashCF
+func (openchainDB *OpenchainDB) GetFromStateHashCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.StateHashCF, key)
+}
+
+// GetBlockchainCFIterator get iterator for column family - blockchainCF
+func (openchainDB *OpenchainDB) GetBlockchainCFIterator() *gorocksdb.Iterator {
+	return openchainDB.getIterator(openchainDB.BlockchainCF)
+}
+
+// GetStateCFIterator get iterator for column family - stateCF
+func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
+	return openchainDB.getIterator(openchainDB.StateCF)
+}
+
+// GetStateHashCFIterator get iterator for column family - statehashCF
+func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
+	return openchainDB.getIterator(openchainDB.StateHashCF)
+}
+
+func getDBPath() string {
+	dbPath := viper.GetString("peer.db.path")
+	if dbPath == "" {
+		panic("DB path not specified in configuration file. Please check that property 'peer.db.path' is set")
+	}
+	return dbPath
+}
+
+func openDB() (*OpenchainDB, error) {
 	if isOpen {
 		return openchainDB, nil
 	}
+	dbPath := getDBPath()
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
@@ -78,39 +135,14 @@ func open(dbPath string) (*OpenchainDB, error) {
 	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3]}, nil
 }
 
-func (openchainDB *OpenchainDB) GetFromBlockChainCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.BlockchainCF, key)
-}
-
-func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateCF, key)
-}
-
-func (openchainDB *OpenchainDB) GetFromStateHashCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateHashCF, key)
-}
-
-func (openchainDB *OpenchainDB) GetBlockChainCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.BlockchainCF)
-}
-
-func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateCF)
-}
-
-func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateHashCF)
-}
-
 func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
 	if err != nil {
 		fmt.Println("Error while trying to retrieve key:", key)
 		return nil, err
-	} else {
-		return slice.Data(), nil
 	}
+	return slice.Data(), nil
 }
 
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
