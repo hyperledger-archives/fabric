@@ -15,7 +15,7 @@ message ChainletMessage {
   repeated string args  = 2;
 }
 
-// Specification of a chainlet.  This is the actual meta-data required for defining a chainlet.
+// Specification of a chaincode.  This is the actual meta-data required for defining a chaincode.
 message ChainletSpec {
   enum Type {
      UNDEFINED = 0;
@@ -24,10 +24,10 @@ message ChainletSpec {
   }
   Type type = 1;
   ChainletID chainletID = 2;
-  ChainletMessage ctorMsg = 3; 
+  ChainletMessage ctorMsg = 3;
 }
 
-// Used to specify the deployment of a chainlet.
+// Used to specify the deployment of a chaincode.
 message ChainletDeploymentSpec {
   ChainletSpec chainletSpec = 1;
   // Controls when the chaincode becomes executable.
@@ -40,12 +40,12 @@ message ChainletDeploymentSpec {
 // Transaction defines a function call to a contract. Transactions are
 // stroed in blocks.
 // args is an array of type string so that the chaincode writer can choose whatever
-// format they wish for the arguments for their chainlet. For example, they
+// format they wish for the arguments for their chaincode. For example, they
 // may wish to use JSON, XML, or a custom format.
 message Transaction {
   enum Type {
     UNDEFINED = 0;
-    
+
     CHAINLET_NEW = 1;
     CHAINLET_UPDATE = 2;
     CHAINLET_EXECUTE = 3;
@@ -53,16 +53,16 @@ message Transaction {
   }
   Type type = 1;
 
-  ChainletID chainletID = 2; 
+  ChainletID chainletID = 2;
   string function = 3;
   repeated string args  = 4;
 }
 
 
 message Block {
-  string proposerID = 1; 
+  string proposerID = 1;
   google.protobuf.Timestamp Timestamp = 2;
-  repeated Transaction transactions = 3; 
+  repeated Transaction transactions = 3;
   bytes stateHash = 4;
   bytes previousBlockHash = 5;
 }
