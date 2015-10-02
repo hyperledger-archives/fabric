@@ -146,13 +146,13 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 
 	// Construct a blockchain with 0 blocks.
 
-	chain0Path := os.TempDir() + "/OpenchainAPITestChain0"
+	chain0Path := os.TempDir() + "/OpenchainAPITestChainBlockNumber0"
 	destroy0Err := gorocksdb.DestroyDb(chain0Path, opts)
 	if destroy0Err != nil {
 		t.Error("Error destroying chain0 DB", destroy0Err)
 	}
 
-	state0Path := os.TempDir() + "/OpenchainAPITestState0"
+	state0Path := os.TempDir() + "/OpenchainAPITestStateBlockNumber0"
 	destroyState0Err := gorocksdb.DestroyDb(state0Path, opts)
 	if destroyState0Err != nil {
 		t.Error("Error destroying state0 DB", destroyState0Err)
@@ -182,13 +182,13 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 
 	// Construct a blockchain with 3 blocks.
 
-	chain1Path := os.TempDir() + "/OpenchainAPITestChain1"
+	chain1Path := os.TempDir() + "/OpenchainAPITestChainBlockNumber1"
 	destroy1Err := gorocksdb.DestroyDb(chain1Path, opts)
 	if destroy1Err != nil {
 		t.Error("Error destroying chain1 DB", destroy1Err)
 	}
 
-	state1Path := os.TempDir() + "/OpenchainAPITestState1"
+	state1Path := os.TempDir() + "/OpenchainAPITestStateBlockNumber1"
 	destroyState1Err := gorocksdb.DestroyDb(state1Path, opts)
 	if destroyState1Err != nil {
 		t.Error("Error destroying state1 DB", destroyState1Err)
@@ -245,13 +245,13 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 
 	// Construct a blockchain with 0 blocks.
 
-	chain0Path := os.TempDir() + "/OpenchainAPITestChain0"
+	chain0Path := os.TempDir() + "/OpenchainAPITestChainBlockCount0"
 	destroy0Err := gorocksdb.DestroyDb(chain0Path, opts)
 	if destroy0Err != nil {
 		t.Error("Error destroying chain0 DB", destroy0Err)
 	}
 
-	state0Path := os.TempDir() + "/OpenchainAPITestState0"
+	state0Path := os.TempDir() + "/OpenchainAPITestStateBlockCount0"
 	destroyState0Err := gorocksdb.DestroyDb(state0Path, opts)
 	if destroyState0Err != nil {
 		t.Error("Error destroying state0 DB", destroyState0Err)
@@ -281,13 +281,13 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 
 	// Construct a blockchain with 3 blocks.
 
-	chain1Path := os.TempDir() + "/OpenchainAPITestChain1"
+	chain1Path := os.TempDir() + "/OpenchainAPITestChainBlockCount1"
 	destroy1Err := gorocksdb.DestroyDb(chain1Path, opts)
 	if destroy1Err != nil {
 		t.Error("Error destroying chain1 DB", destroy1Err)
 	}
 
-	state1Path := os.TempDir() + "/OpenchainAPITestState1"
+	state1Path := os.TempDir() + "/OpenchainAPITestStateBlockCount1"
 	destroyState1Err := gorocksdb.DestroyDb(state1Path, opts)
 	if destroyState1Err != nil {
 		t.Error("Error destroying state1 DB", destroyState1Err)
@@ -317,13 +317,13 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 
 	// Construct a blockchain with 5 blocks.
 
-	chain2Path := os.TempDir() + "/OpenchainAPITestChain2"
+	chain2Path := os.TempDir() + "/OpenchainAPITestChainBlockCount2"
 	destroy2Err := gorocksdb.DestroyDb(chain2Path, opts)
 	if destroy2Err != nil {
 		t.Error("Error destroying chain2 DB", destroy2Err)
 	}
 
-	state2Path := os.TempDir() + "/OpenchainAPITestState2"
+	state2Path := os.TempDir() + "/OpenchainAPITestStateBlockCount2"
 	destroyState2Err := gorocksdb.DestroyDb(state2Path, opts)
 	if destroyState2Err != nil {
 		t.Error("Error destroying state2 DB", destroyState2Err)
