@@ -80,13 +80,33 @@ func buildVMName(spec *pb.ChainletSpec) string {
 	return vmName
 }
 
-func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) error {
+func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
 	//inputbuf, err := vm.GetPeerPackageBytes()
-	inputbuf, err := vm.GetChaincodePackageBytes(spec)
+	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
+		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
 	}
+
+	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, bytes.NewReader(chaincodePkgBytes))
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+	}
+	// outputbuf := bytes.NewBuffer(nil)
+	// opts := docker.BuildImageOptions{
+	// 	Name:         buildVMName(spec),
+	// 	Pull:         true,
+	// 	InputStream:  inputbuf,
+	// 	OutputStream: outputbuf,
+	// }
+	// if err := vm.Client.BuildImage(opts); err != nil {
+	// 	return errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+	// }
+	return chaincodePkgBytes, nil
+}
+
+// Builds the Chaincode image using the supplied Dockerfile package contents
+func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChainletSpec, inputbuf io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         buildVMName(spec),
@@ -120,7 +140,7 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
-func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) (io.Reader, error) {
+func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) ([]byte, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
 	tr := tar.NewWriter(gw)
@@ -131,7 +151,7 @@ func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) (io.Reader, error)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error getting Peer package: %s", err))
 	}
-	return inputbuf, nil
+	return inputbuf.Bytes(), nil
 }
 
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
