@@ -33,6 +33,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/blang/semver"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -74,42 +75,38 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
-func buildVMName(spec *pb.ChainletSpec) string {
-	vmName := fmt.Sprintf("%s_%s", viper.GetString("peer.peerId"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1))
+func buildVMName(spec *pb.ChainletSpec) (string, error) {
+	// Make sure version is specfied correctly
+	version, err := semver.Make(spec.ChainletID.Version)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Error building VM name: %s", err))
+	}
+	vmName := fmt.Sprintf("%s-%s-%s", viper.GetString("peer.networkId"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1), version)
 	vmLogger.Debug("return VM name: %s", vmName)
-	return vmName
+	return vmName, nil
 }
 
 func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
-	//inputbuf, err := vm.GetPeerPackageBytes()
 	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
-
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
 	}
-
 	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, bytes.NewReader(chaincodePkgBytes))
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
 	}
-	// outputbuf := bytes.NewBuffer(nil)
-	// opts := docker.BuildImageOptions{
-	// 	Name:         buildVMName(spec),
-	// 	Pull:         true,
-	// 	InputStream:  inputbuf,
-	// 	OutputStream: outputbuf,
-	// }
-	// if err := vm.Client.BuildImage(opts); err != nil {
-	// 	return errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
-	// }
 	return chaincodePkgBytes, nil
 }
 
 // Builds the Chaincode image using the supplied Dockerfile package contents
 func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChainletSpec, inputbuf io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
+	vmName, err := buildVMName(spec)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error building chaincode using package bytes: %s", err))
+	}
 	opts := docker.BuildImageOptions{
-		Name:         buildVMName(spec),
+		Name:         vmName,
 		Pull:         true,
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,

@@ -80,7 +80,7 @@ func TestVM_BuildImage_Chaincode(t *testing.T) {
 	}
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
 	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
 		t.Fail()
 		t.Log(err)

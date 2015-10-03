@@ -54,3 +54,36 @@ func TestDevops_Build(t *testing.T) {
 	t.Logf("Build result = %s", buildResult)
 	//performHandshake(t, peerClientConn)
 }
+
+func TestDevops_Deploy(t *testing.T) {
+	devopsServer := NewDevopsServer()
+
+	// Build the spec
+	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+
+	buildResult, err := devopsServer.Deploy(context.Background(), spec)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error in Devops.Build call: %s", err)
+	}
+	t.Logf("Deploy result = %s", buildResult)
+	//performHandshake(t, peerClientConn)
+}
+
+func TestDevops_Spec_NoVersion(t *testing.T) {
+	devopsServer := NewDevopsServer()
+
+	// Build the spec
+	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+
+	buildResult, err := devopsServer.Deploy(context.Background(), spec)
+	if err == nil {
+		t.Fail()
+		t.Log("Expected error with no version specified")
+		return
+	}
+	t.Logf("Deploy result = %s, err = %s", buildResult, err)
+	//performHandshake(t, peerClientConn)
+}

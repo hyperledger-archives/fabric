@@ -27,6 +27,7 @@ import "google/protobuf/empty.proto";
 message ChainletID {
   // Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
   string Url = 1;
+  string Version = 2;
 }
 
 message ChainletMessage {

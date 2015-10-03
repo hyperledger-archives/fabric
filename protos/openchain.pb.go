@@ -2,37 +2,15 @@
 // source: openchain.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	openchain.proto
-	openchain_api.proto
-
-It has these top-level messages:
-	ChainletID
-	ChainletMessage
-	ChainletSpec
-	ChainletDeploymentSpec
-	Transaction
-	Block
-	BlockchainInfo
-	BlockNumber
-	BlockCount
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
 import google_protobuf "google/protobuf"
 
 // discarding unused import google_protobuf1 "google/protobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
 
 type ChainletSpec_Type int32
 
@@ -88,7 +66,8 @@ func (x Transaction_Type) String() string {
 
 type ChainletID struct {
 	// Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
-	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
+	Url     string `protobuf:"bytes,1,opt" json:"Url,omitempty"`
+	Version string `protobuf:"bytes,2,opt" json:"Version,omitempty"`
 }
 
 func (m *ChainletID) Reset()         { *m = ChainletID{} }
@@ -180,7 +159,7 @@ func (m *Transaction) GetChainletID() *ChainletID {
 
 type Block struct {
 	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
-	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
+	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt" json:"Timestamp,omitempty"`
 	Transactions      []*Transaction             `protobuf:"bytes,3,rep,name=transactions" json:"transactions,omitempty"`
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`
 	PreviousBlockHash []byte                     `protobuf:"bytes,5,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`

@@ -23,13 +23,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
 	"path/filepath"
 
+	"github.com/blang/semver"
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
-
-	google_protobuf "google/protobuf"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -59,10 +57,22 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildR
 	return result, nil
 }
 
-func (*devops) Deploy(context.Context, *google_protobuf.Empty) (*pb.DevopsResponse, error) {
-	//status := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
+func (*devops) makeVersion(version string) (string, error) {
+	// v1, err := semver.Make("1.0.0-beta")
+	// v2, err := semver.Make("2.0.0-beta")
+	// v1.Compare(v2)
+	return "", nil
+}
+
+func (*devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.DevopsResponse, error) {
+	response := &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: "Good to go"}
+	err := checkSpec(spec)
+	if err != nil {
+		devops_logger.Error("Invalid spec: %v\n\n error: %s", spec, err)
+		return nil, err
+	}
 	//devops_logger.Debug("returning status: %s", status)
-	return nil, nil
+	return response, nil
 }
 
 // Checks to see if chaincode resides within current package capture for language.
@@ -76,7 +86,10 @@ func checkSpec(spec *pb.ChainletSpec) error {
 		return err
 	}
 	devops_logger.Debug("Validated spec:  %v", spec)
-	return nil
+
+	// Check the version
+	_, err := semver.Make(spec.ChainletID.Version)
+	return err
 }
 
 func checkGolangSpec(spec *pb.ChainletSpec) error {

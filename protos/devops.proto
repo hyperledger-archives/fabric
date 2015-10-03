@@ -33,7 +33,7 @@ service Devops {
   rpc Build(ChainletSpec) returns (BuildResult) {}
 
   // Deploy the chaincode package to the chain.
-  rpc Deploy(google.protobuf.Empty) returns (DevopsResponse) {}
+  rpc Deploy(ChainletSpec) returns (DevopsResponse) {}
 
 }
 
