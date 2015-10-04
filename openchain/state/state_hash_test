@@ -1,0 +1,178 @@
+package state
+
+import (
+	"bytes"
+	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/tecbot/gorocksdb"
+	"testing"
+)
+
+func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
+	createTestDB()
+	defer deleteTestDB()
+	state := GetState()
+	state.Set("chaincode1", "key1", []byte("value1"))
+	state.Set("chaincode1", "key2", []byte("value2"))
+	state.Set("chaincode2", "key3", []byte("value3"))
+	state.Set("chaincode2", "key4", []byte("value4"))
+	state.Delete("chaincode2", "key3")
+	stateHash, _ := state.GetStateHash()
+	expectedHash := computeExpectedHash1([]string{"chaincode1key1value1key2value2", "chaincode2key4value4"})
+
+	if !bytes.Equal(stateHash, expectedHash) {
+		t.Fatalf("Hashes not same. Expected hash = [%x], Result hash = [%x]", expectedHash, stateHash)
+	}
+}
+
+func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
+	createTestDB()
+	defer deleteTestDB()
+	state := GetState()
+	state.ClearInMemoryChanges()
+	state.Set("chaincode1", "key1", []byte("value1"))
+	state.Set("chaincode1", "key2", []byte("value2"))
+	state.Set("chaincode2", "key3", []byte("value3"))
+	state.Set("chaincode2", "key4", []byte("value4"))
+	saveTestStateDataInDB(t)
+
+	if bytes.Equal(db.GetDBHandle().GetFromStateHashCF([]byte("chaincode1"), computeExpectedHash1([]string{"chaincode1key1value1key2value2"})
+
+	state.Delete("chaincode2", "key4")
+	state.Set("chaincode2", "key5", []byte("value5"))
+
+	stateHash, _ := state.GetStateHash()
+	expectedHash := computeExpectedHash1([]string{"chaincode1key1value1key2value2", "chaincode2key3value3key5value5"})
+
+	if !bytes.Equal(stateHash, expectedHash) {
+		t.Fatalf("Hashes not same. Expected hash = [%x], Result hash = [%x]", expectedHash, stateHash)
+	}
+}
+
+func TestComputeChaincodeHash_OnlyInMemoryChanges(t *testing.T) {
+	createTestDB()
+	defer deleteTestDB()
+
+	chaincodeState := constructTestUpdatedState(
+		"test_chaincode",
+		map[string]string{
+			// updated values
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
+			"key5": ""})
+	resultHash, err := computeChaincodeHash(chaincodeState)
+	if err != nil {
+		t.Fatalf("error: %s \n", err)
+	}
+
+	expectedHash := computeExpectedHash(
+		"test_chaincode",
+		[]string{"key1", "key2", "key3", "key4"},
+		[]string{"value1", "value2", "value3", "value4"})
+	if bytes.Compare(resultHash, expectedHash) != 0 {
+		t.Fatalf("Obtained hash value different than expected. \n\t Expected = [%x], \n\t Result = [%x]", expectedHash, resultHash)
+	}
+}
+
+func TestComputeChaincodeHash_DbAndInMemoryChanges(t *testing.T) {
+	createTestDB()
+	defer deleteTestDB()
+	// insert test data in db
+	insertTestStateDataInDB(
+		t,
+		"test_chaincode",
+		map[string]string{
+			// original values in db
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+			"key4": "value4",
+			"key5": "value5"})
+
+	// construct an updated state
+	changedState := constructTestUpdatedState(
+		"test_chaincode",
+		map[string]string{
+			// updated values
+			"key2": "new_value2",
+			"key4": ""})
+	resultHash, err := computeChaincodeHash(changedState)
+	if err != nil {
+		t.Fatalf("error: %s \n", err)
+	}
+	expectedHash := computeExpectedHash(
+		"test_chaincode",
+		[]string{"key1", "key2", "key3", "key5"},
+		[]string{"value1", "new_value2", "value3", "value5"})
+	if bytes.Compare(resultHash, expectedHash) != 0 {
+		t.Fatalf("Obtained hash value different than expected. \n\t Expected = [%x], \n\t Result = [%x]", expectedHash, resultHash)
+	}
+
+	// test with another updated state
+	changedState = constructTestUpdatedState(
+		"test_chaincode",
+		map[string]string{
+			// updated values
+			"key2": "new_value2",
+			"key4": "",
+			"key6": "value6"})
+	resultHash, err = computeChaincodeHash(changedState)
+	if err != nil {
+		t.Fatalf("error: %s \n", err)
+	}
+	expectedHash = computeExpectedHash(
+		"test_chaincode",
+		[]string{"key1", "key2", "key3", "key5", "key6"},
+		[]string{"value1", "new_value2", "value3", "value5", "value6"})
+	if bytes.Compare(resultHash, expectedHash) != 0 {
+		t.Fatalf("Obtained hash value different than expected. \n\t Expected = [%x], \n\t Result = [%x]", expectedHash, resultHash)
+	}
+}
+
+func insertTestStateDataInDB(t *testing.T, chaincodeID string, state map[string]string) {
+	chaincodeState := newChaincodeState(chaincodeID)
+	chaincodeStateMap := chaincodeState.updatedStateMap
+	for k, v := range state {
+		chaincodeStateMap[k] = &valueHolder{[]byte(v)}
+	}
+	writeBatch := gorocksdb.NewWriteBatch()
+	addChaincodeStateForPersistence(writeBatch, chaincodeState)
+	opt := gorocksdb.NewDefaultWriteOptions()
+	err := db.GetDBHandle().DB.Write(opt, writeBatch)
+	if err != nil {
+		t.Fatalf("failed to persist chaincode state to db")
+	}
+}
+
+func constructTestUpdatedState(chaincodeID string, updatedState map[string]string) *chaincodeState {
+	chaincodeState := newChaincodeState(chaincodeID)
+	for k, v := range updatedState {
+		value := []byte(v)
+		if v == "" {
+			value = nil
+		}
+		chaincodeState.updatedStateMap[k] = &valueHolder{value}
+	}
+	return chaincodeState
+}
+
+func computeExpectedHash1(chaincodeStates []string) []byte {
+	var globalHashBuffer bytes.Buffer
+	for i := range chaincodeStates {
+		var buffer bytes.Buffer
+		buffer.Write([]byte(chaincodeStates[i]))
+		globalHashBuffer.Write(computeSha3(buffer))
+	}
+	return computeSha3(globalHashBuffer)
+}
+
+func computeExpectedHash(chaincodeID string, keys []string, values []string) []byte {
+	var buffer bytes.Buffer
+	buffer.Write([]byte(chaincodeID))
+	for i := 0; i < len(keys); i++ {
+		buffer.Write([]byte(keys[i]))
+		buffer.Write([]byte(values[i]))
+	}
+	return computeSha3(buffer)
+}
