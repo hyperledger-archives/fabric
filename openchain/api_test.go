@@ -55,7 +55,7 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	chainErr1 := buildTestChain1(chain1)
 	if chainErr1 != nil {
 		t.Fail()
-		t.Logf("Error creating chain2: %s", chainErr1)
+		t.Logf("Error creating chain1: %s", chainErr1)
 	}
 	server.blockchain = chain1
 	t.Logf("Chain 1 => %s", server.blockchain)
