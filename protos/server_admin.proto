@@ -1,3 +1,22 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 syntax = "proto3";
 
 package protos;
@@ -9,7 +28,7 @@ import "google/protobuf/empty.proto";
 message OpenchainMessage {
   enum Type {
     UNDEFINED = 0;
-    
+
     DISC_HELLO = 1;
     DISC_DISCONNECT = 2;
     DISC_GET_PEERS = 3;
@@ -96,7 +115,7 @@ message ChainletExecutionContext {
 }
 
 
-// Interface to provide support to Chainlet execution.  ChainletContext provides the context 
+// Interface to provide support to Chainlet execution.  ChainletContext provides the context
 // necessary for the server to respond appropriately.
 service ChainletSupport {
 
