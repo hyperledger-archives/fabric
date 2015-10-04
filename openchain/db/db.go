@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
+	"os"
+	"path"
 )
 
 const blockchainCF = "blockchainCF"
@@ -45,20 +47,28 @@ var isOpen bool
 // CreateDB creates a rocks db database
 func CreateDB() error {
 	dbPath := getDBPath()
-	opts := gorocksdb.NewDefaultOptions()
-	opts.SetCreateIfMissing(true)
-	var err error
-	db, err := gorocksdb.OpenDb(opts, dbPath)
-	defer db.Close()
+	dbPathExists, err := dirExists(dbPath)
 	if err != nil {
-		fmt.Println("Error opening DB", err)
 		return err
 	}
+
+	if dbPathExists {
+		return fmt.Errorf("db dir [%s] already exists.", dbPath)
+	}
+	os.MkdirAll(path.Dir(dbPath), 0755)
+	opts := gorocksdb.NewDefaultOptions()
+	opts.SetCreateIfMissing(true)
+
+	db, err := gorocksdb.OpenDb(opts, dbPath)
+	if err != nil {
+		return err
+	}
+
+	defer db.Close()
 
 	for _, cf := range columnfamilies {
 		_, err = db.CreateColumnFamily(opts, cf)
 		if err != nil {
-			fmt.Println("Error creating CF:", cf, err)
 			return err
 		}
 	}
@@ -73,7 +83,7 @@ func GetDBHandle() *OpenchainDB {
 	}
 	openchainDB, err = openDB()
 	if err != nil {
-		panic("Could not open openchain db: " + err.Error())
+		panic(fmt.Sprintf("Could not open openchain db: ", err))
 	}
 	return openchainDB
 }
@@ -135,6 +145,15 @@ func openDB() (*OpenchainDB, error) {
 	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3]}, nil
 }
 
+// CloseDB releases all column family handles and closes rocksdb
+func (openchainDB *OpenchainDB) CloseDB() {
+	openchainDB.BlockchainCF.Destroy()
+	openchainDB.StateCF.Destroy()
+	openchainDB.StateHashCF.Destroy()
+	openchainDB.DB.Close()
+	isOpen = false
+}
+
 func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
@@ -148,4 +167,15 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	return openchainDB.DB.NewIteratorCF(opt, cfHandler)
+}
+
+func dirExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
