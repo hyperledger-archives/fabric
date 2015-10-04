@@ -21,6 +21,7 @@ package state
 
 import (
 	"bytes"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/tecbot/gorocksdb"
@@ -72,8 +73,8 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	return nil
 }
 
-// GetStateHash computes state hash, if called for first time or state has changed after most recent call to this function
-func (state *State) GetStateHash() ([]byte, error) {
+// GetHash computes state hash, if called for first time or state has changed after most recent call to this function
+func (state *State) GetHash() ([]byte, error) {
 	if state.recomputeHash {
 		stateLogger.Debug("Recomputing state hash...")
 		hash, err := computeStateHash(state.chaincodeStateMap)

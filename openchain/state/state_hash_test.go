@@ -2,14 +2,13 @@ package state
 
 import (
 	"bytes"
-	"github.com/openblockchain/obc-peer/openchain/db"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/db"
 )
 
 func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
-	createTestDB()
-	defer deleteTestDB()
-
+	initTestDB(t)
 	state := GetState()
 	defer state.ClearInMemoryChanges()
 
@@ -22,9 +21,7 @@ func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
 }
 
 func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
-	createTestDB()
-	defer deleteTestDB()
-
+	initTestDB(t)
 	state := GetState()
 	defer state.ClearInMemoryChanges()
 
@@ -49,7 +46,7 @@ func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
 
 func checkGlobalStateHash(t *testing.T, expectedHashStr []string) {
 	state := GetState()
-	stateHash, err := state.GetStateHash()
+	stateHash, err := state.GetHash()
 	if err != nil {
 		t.Fatalf("Error while getting hash. error = [%s]", err)
 	}

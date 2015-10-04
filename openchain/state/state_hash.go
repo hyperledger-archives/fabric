@@ -21,11 +21,12 @@ package state
 
 import (
 	"bytes"
+	"sort"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/crypto/sha3"
-	"sort"
 )
 
 var stateHashLogger = logging.MustGetLogger("stateHash")

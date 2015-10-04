@@ -2,11 +2,12 @@ package db
 
 import (
 	"bytes"
+	"os"
+	"testing"
+
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {

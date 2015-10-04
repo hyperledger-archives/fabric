@@ -21,10 +21,11 @@ package db
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/tecbot/gorocksdb"
 	"os"
 	"path"
+
+	"github.com/spf13/viper"
+	"github.com/tecbot/gorocksdb"
 )
 
 const blockchainCF = "blockchainCF"
@@ -83,7 +84,7 @@ func GetDBHandle() *OpenchainDB {
 	}
 	openchainDB, err = openDB()
 	if err != nil {
-		panic(fmt.Sprintf("Could not open openchain db: ", err))
+		panic(fmt.Sprintf("Could not open openchain db error = [%s]", err))
 	}
 	return openchainDB
 }

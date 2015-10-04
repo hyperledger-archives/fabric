@@ -22,9 +22,11 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
+	"golang.org/x/net/context"
 )
 
 // Blockchain holds basic information in memory. Operations on Blockchain are not thread-safe
@@ -75,10 +77,10 @@ func (blockchain *Blockchain) GetSize() uint64 {
 }
 
 // AddBlock add a new block to blockchain
-func (blockchain *Blockchain) AddBlock(block *protos.Block) error {
+func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block) error {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
 	state := GetState()
-	stateHash, err := state.GetStateHash()
+	stateHash, err := state.GetHash()
 	if err != nil {
 		return err
 	}

@@ -1,12 +1,13 @@
 package state
 
 import (
+	"os"
+	"testing"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -15,8 +16,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestStateChanges(t *testing.T) {
-	createTestDB()
-	defer deleteTestDB()
+	initTestDB(t)
 	state := GetState()
 	saveTestStateDataInDB(t)
 
@@ -95,29 +95,29 @@ func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte
 }
 
 // db helper functions
-func createTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
-	os.MkdirAll(dbPath, 0775)
+var testDBCreated bool
+
+func initTestDB(t *testing.T) {
+	if testDBCreated {
+		db.GetDBHandle().CloseDB()
+	}
+	removeTestDBPath()
+	err := db.CreateDB()
+	if err != nil {
+		t.Fatalf("Error in creating test db. Error = [%s]", err)
+	}
+	testDBCreated = true
 }
 
-func createTestDB() error {
-	return db.CreateDB()
-}
-
-func deleteTestDBPath() {
+func removeTestDBPath() {
 	dbPath := viper.GetString("peer.db.path")
 	os.RemoveAll(dbPath)
-}
-
-func deleteTestDB() {
-	db.GetDBHandle().CloseDB()
-	deleteTestDBPath()
 }
 
 func saveTestStateDataInDB(t *testing.T) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	state := GetState()
-	state.GetStateHash()
+	state.GetHash()
 	state.addChangesForPersistence(writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)
@@ -132,5 +132,4 @@ func setupTestConfig() {
 	level, _ := logging.LogLevel("INFO")
 	logging.SetLevel(level, "state")
 	logging.SetLevel(level, "stateHash")
-	deleteTestDBPath()
 }
