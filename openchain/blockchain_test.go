@@ -21,41 +21,14 @@ package openchain
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
-	"github.com/tecbot/gorocksdb"
-
-	"golang.org/x/net/context"
-
 	"github.com/openblockchain/obc-peer/protos"
+	"golang.org/x/net/context"
 )
 
 func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
-
-	opts := gorocksdb.NewDefaultOptions()
-	blockchainPath := os.TempDir() + "/OpenchainDBTestChain_Transaction_ContractNew_Golang_FromFile"
-	destoryErr := gorocksdb.DestroyDb(blockchainPath, opts)
-	if destoryErr != nil {
-		t.Error("Error destroying DB", destoryErr)
-	}
-
-	chain, blockchainErr := NewBlockchain(blockchainPath, true)
-	if blockchainErr != nil {
-		t.Fail()
-		t.Logf("Error creating blockchain: %s", blockchainErr)
-	}
-
-	statePath := os.TempDir() + "/OpenchainDBTestChain_Transaction_ContractNew_Golang_FromFileState"
-	destoryStateErr := gorocksdb.DestroyDb(statePath, opts)
-	if destoryStateErr != nil {
-		t.Error("Error destroying state DB", destoryStateErr)
-	}
-
-	state, stateErr := NewState(statePath, true)
-	if stateErr != nil {
-		t.Error("Error create state", stateErr)
-	}
+	chain := initTestBlockChain(t)
 
 	// Create the Chainlet specification
 	chainletSpec := &protos.ChainletSpec{Type: protos.ChainletSpec_GOLANG,
@@ -64,105 +37,69 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 
 	newChainletTx := protos.NewChainletDeployTransaction(*chainletSpec)
 	t.Logf("New chainlet tx: %v", newChainletTx)
-	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx}, state.GetHash())
 
-	err := chain.AddBlock(context.TODO(), *block1)
+	stateHash := getTestStateHash(t)
+	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx}, stateHash)
+
+	err := chain.AddBlock(context.TODO(), block1)
 	if err != nil {
 		t.Logf("Error adding block to chain: %s", err)
 		t.Fail()
 	} else {
 		t.Logf("New chain: %v", chain)
 	}
+	checkChainSize(t, 1)
 }
 
-func TestChainCompare(t *testing.T) {
+func TestChain(t *testing.T) {
+	initTestBlockChain(t)
 
-	opts := gorocksdb.NewDefaultOptions()
+	allBlocks, allStateHashes := buildSimpleChain(t)
+	checkChainSize(t, uint64(len(allBlocks)))
+	checkHash(t, getLastBlock(t).GetStateHash(), allStateHashes[len(allStateHashes)-1])
 
-	chain1Path := os.TempDir() + "/OpenchainDBTestChainCompare1"
-	destory1Err := gorocksdb.DestroyDb(chain1Path, opts)
-	if destory1Err != nil {
-		t.Error("Error destroying chain1 DB", destory1Err)
+	for i := range allStateHashes {
+		t.Logf("Cheching state hash for block number = [%d]", i)
+		checkHash(t, getBlock(t, i).GetStateHash(), allStateHashes[i])
 	}
 
-	state1Path := os.TempDir() + "/OpenchainDBTestChainCompareState1"
-	destoryState1Err := gorocksdb.DestroyDb(state1Path, opts)
-	if destoryState1Err != nil {
-		t.Error("Error destroying state1 DB", destoryState1Err)
+	for i := range allBlocks {
+		t.Logf("Cheching block hash for block number = [%d]", i)
+		checkHash(t, getBlockHash(t, getBlock(t, i)), getBlockHash(t, allBlocks[i]))
 	}
 
-	chain1, state1, chainErr1 := buildSimpleChain(chain1Path, state1Path)
-	if chainErr1 != nil {
-		t.Fail()
-		t.Logf("Error creating chain1: %s", chainErr1)
-	}
-	t.Logf("Chain1 => %s", chain1)
-	t.Logf("State1 => %s", state1)
+	checkHash(t, allBlocks[0].PreviousBlockHash, []byte{})
 
-	chain2Path := os.TempDir() + "/OpenchainDBTestChainCompare2"
-	destory2Err := gorocksdb.DestroyDb(chain2Path, opts)
-	if destory2Err != nil {
-		t.Error("Error destroying chain2 DB", destory2Err)
-	}
-
-	state2Path := os.TempDir() + "/OpenchainDBTestChainCompareState2"
-	destoryState2Err := gorocksdb.DestroyDb(state2Path, opts)
-	if destoryState2Err != nil {
-		t.Error("Error destroying state2 DB", destoryState2Err)
-	}
-
-	chain2, state2, chainErr2 := buildSimpleChain(chain2Path, state2Path)
-	if chainErr2 != nil {
-		t.Fail()
-		t.Logf("Error creating chain2: %s", chainErr2)
-	}
-	t.Logf("Chain2 => %s", chain2)
-	t.Logf("State2 => %s", state2)
-
-	chain1LastBlock, chain1LastBlockErr := chain1.GetLastBlock()
-	if chain1LastBlockErr != nil {
-		t.Fail()
-		t.Logf("Error getting last block from chain1: %s", chain1LastBlockErr)
-	}
-	hash1, err1 := chain1LastBlock.GetHash()
-	if err1 != nil {
-		t.Fail()
-		t.Logf("Error getting chain1 block hash: %s", err1)
-	}
-
-	chain2LastBlock, chain2LastBlockErr := chain2.GetLastBlock()
-	if chain2LastBlockErr != nil {
-		t.Fail()
-		t.Logf("Error getting last block from chain2: %s", chain2LastBlockErr)
-	}
-	hash2, err2 := chain2LastBlock.GetHash()
-	if err2 != nil {
-		t.Fail()
-		t.Logf("Error getting chain2 block hash: %s", err2)
-	}
-
-	if bytes.Compare(hash1, hash2) != 0 {
-		t.Error("Expected block hashes to match.")
+	i := 1
+	for i < len(allBlocks) {
+		t.Logf("Cheching previous block hash for block number = [%d]", i)
+		checkHash(t, getBlock(t, i).PreviousBlockHash, getBlockHash(t, allBlocks[i-1]))
+		i++
 	}
 }
 
-func buildSimpleChain(blockchainPath, statePath string) (*Blockchain, *State, error) {
+func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
+	var allBlocks []*protos.Block
+	var allHashes [][]byte
+
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
-	chain, err := NewBlockchain(blockchainPath, true)
+	chain, err := GetBlockchain()
 	if err != nil {
-		return nil, nil, err
+		t.Fatalf("Error while getting handle to block chain. Error = [%s]", err)
 	}
-	state, stateErr := NewState(statePath, true)
-	if stateErr != nil {
-		return nil, nil, err
-	}
+	state := GetState()
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block>-------------------------------
 	// Add the first (genesis block)
-	block1 := protos.NewBlock("sheehan", nil, state.GetHash())
-	chain.AddBlock(context.TODO(), *block1)
+	stateHash := getTestStateHash(t)
+	block1 := protos.NewBlock("sheehan", nil, stateHash)
+
+	allBlocks = append(allBlocks, block1)
+	allHashes = append(allHashes, stateHash)
+	chain.AddBlock(context.TODO(), block1)
+
 	// -----------------------------</Genisis block>------------------------------
 
 	// -----------------------------<Block 2>-------------------------------------
@@ -175,12 +112,16 @@ func buildSimpleChain(blockchainPath, statePath string) (*Blockchain, *State, er
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Put("MyContract1", []byte("code"), []byte("code example"))
+	state.Set("MyContract1", "code", []byte("code example"))
 
 	// Now we add the transaction to the block 2 and add the block to the chain
+	stateHash = getTestStateHash(t)
 	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a, state.GetHash())
-	chain.AddBlock(context.TODO(), *block2)
+	block2 := protos.NewBlock("sheehan", transactions2a, stateHash)
+
+	allBlocks = append(allBlocks, block2)
+	allHashes = append(allHashes, stateHash)
+	chain.AddBlock(context.TODO(), block2)
 
 	// -----------------------------</Block 2>------------------------------------
 
@@ -192,14 +133,93 @@ func buildSimpleChain(blockchainPath, statePath string) (*Blockchain, *State, er
 	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Put("MyContract", []byte("x"), []byte("hello"))
+	state.Set("MyContract", "x", []byte("hello"))
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
-	block3 := protos.NewBlock("sheehan", transactions3a, state.GetHash())
-	chain.AddBlock(context.TODO(), *block3)
+	stateHash = getTestStateHash(t)
+	block3 := protos.NewBlock("sheehan", transactions3a, stateHash)
+
+	allBlocks = append(allBlocks, block3)
+	allHashes = append(allHashes, stateHash)
+	chain.AddBlock(context.TODO(), block3)
 
 	// -----------------------------</Block 3>------------------------------------
 
-	return chain, state, nil
+	return allBlocks, allHashes
+}
+
+func checkHash(t *testing.T, hash []byte, expectedStateHash []byte) {
+	if !bytes.Equal(hash, expectedStateHash) {
+		t.Fatalf("State hash in block not same as exepected. Expected=[%x], found=[%x]", expectedStateHash, hash)
+	}
+	t.Logf("Hash value = [%x]", hash)
+}
+
+func getTestStateHash(t *testing.T) []byte {
+	state := GetState()
+	stateHash, err := state.GetHash()
+	if err != nil {
+		t.Fatalf("Error while getting state hash. Error = [%s]", err)
+	}
+	return stateHash
+}
+
+func getBlockHash(t *testing.T, block *protos.Block) []byte {
+	hash, err := block.GetHash()
+	if err != nil {
+		t.Fatalf("Error while getting blockhash from in-memory block. Error = [%s]", err)
+	}
+	return hash
+}
+
+func initTestBlockChain(t *testing.T) *Blockchain {
+	initTestDB(t)
+	chain := getBlockchain(t)
+	chain.size = 0
+	chain.previousBlockHash = nil
+	GetState().ClearInMemoryChanges()
+	return chain
+}
+
+func getBlockchain(t *testing.T) *Blockchain {
+	chain, err := GetBlockchain()
+	if err != nil {
+		t.Fatalf("Error while getting handle to chain. [%s]", err)
+	}
+	return chain
+}
+
+func getLastBlock(t *testing.T) *protos.Block {
+	chain := getBlockchain(t)
+	lastBlock, err := chain.GetLastBlock()
+	if err != nil {
+		t.Fatalf("Error while getting last block from chain. [%s]", err)
+	}
+	return lastBlock
+}
+
+func getBlock(t *testing.T, blockNumber int) *protos.Block {
+	chain := getBlockchain(t)
+	block, err := chain.GetBlock(uint64(blockNumber))
+	if err != nil {
+		t.Fatalf("Error while getting block from chain. [%s]", err)
+	}
+	return block
+}
+
+func checkChainSize(t *testing.T, expectedSize uint64) {
+	chain, _ := GetBlockchain()
+	chainSize := chain.GetSize()
+	chainSizeInDb, err := fetchBlockchainSizeFromDB()
+	t.Logf("Chain size in-memory=[%d] and in db=[%d]", chainSize, chainSizeInDb)
+	if err != nil {
+		t.Fatalf("Error in getting chain size from DB. Error = [%s]", err)
+	}
+	if chainSize != expectedSize {
+		t.Fatalf("wrong chain size. Expected =[%d], found=[%d]", expectedSize, chainSize)
+	}
+	if chainSize != chainSizeInDb {
+		t.Fatalf("chain size value different in DB from in-memory. in-memory=[%d], in db=[%d]", chainSize, chainSizeInDb)
+	}
 }

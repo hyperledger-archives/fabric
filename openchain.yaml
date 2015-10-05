@@ -31,7 +31,7 @@ peer:
             libbz2-dev
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go get github.com/tecbot/gorocksdb
         # Copy GOPATH src and install Peer
-        COPY src $GOPATH/src        
+        COPY src $GOPATH/src
         WORKDIR $GOPATH
         RUN go install github.com/openblockchain/obc-peer && cp src/github.com/openblockchain/obc-peer/openchain.yaml ./bin
 
@@ -50,7 +50,7 @@ peer:
     gomaxprocs: 2
     workers: 2
 
-    # TLS Settings for p2p communications 
+    # TLS Settings for p2p communications
     tls:
         enabled:  false
         cert:
@@ -58,9 +58,9 @@ peer:
         key:
             file: testdata/server1.key
         # The server name use to verify the hostname returned by TLS handshake
-        server-host-override: 
+        server-host-override:
 
-    # Peer discovery settings.  Controls how this peer discovers other peers 
+    # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 
         # The root nodes are used for bootstrapping purposes
@@ -99,6 +99,11 @@ peer:
         # -1 for unlimited
         touchMaxNodes: 100
 
+    # Peer's DB settings
+    db:
+        # location on file system
+        path: /var/openchain/db
+
 
 
 ###############################################################################
@@ -120,15 +125,15 @@ vm:
 #
 ###############################################################################
 chainlet:
-    
+
     golang:
-        
-        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chainlet specification. 
+
+        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chainlet specification.
         Dockerfile:  |
             from golang:1.5.1
-            COPY src $GOPATH/src        
+            COPY src $GOPATH/src
             WORKDIR $GOPATH
-            
+
 
 # Below left in for examples of YAML usage
 receipt:     Oz-Ware Purchase Invoice

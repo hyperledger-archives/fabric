@@ -45,16 +45,13 @@ func NewOpenchainServer() *ServerOpenchain {
 // height, current block hash, and previous block hash.
 func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockchainInfo, error) {
 	// Total number of blocks in the blockchain.
-	size, sizeErr := s.blockchain.db.GetSize()
-	if sizeErr != nil {
-		return nil, sizeErr
-	}
+	size := s.blockchain.GetSize()
 
 	// Check the number of blocks in the blockchain. If the blockchain is empty,
 	// return error. There will always be at least one block in the blockchain,
 	// the genesis block.
 	if size > 0 {
-		currentBlock, currentBlockErr := s.blockchain.db.GetLastBlock()
+		currentBlock, currentBlockErr := s.blockchain.GetLastBlock()
 		if currentBlockErr != nil {
 			return nil, currentBlockErr
 		}
@@ -74,10 +71,7 @@ func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_proto
 // blockchain. The genesis block is block zero.
 func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNumber) (*pb.Block, error) {
 	// Total number of blocks in the blockchain.
-	size, sizeErr := s.blockchain.db.GetSize()
-	if sizeErr != nil {
-		return nil, sizeErr
-	}
+	size := s.blockchain.GetSize()
 
 	// Check the number of blocks in the blockchain. If the blockchain is empty,
 	// return error. There will always be at least one block in the blockchain,
@@ -88,7 +82,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 			return nil, fmt.Errorf("Error: Requested block not in blockchain.")
 		}
 
-		block, blockErr := s.blockchain.db.GetBlock(num.Number)
+		block, blockErr := s.blockchain.GetBlock(num.Number)
 		if blockErr != nil {
 			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", blockErr)
 		}
@@ -103,10 +97,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 // structure.
 func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockCount, error) {
 	// Total number of blocks in the blockchain.
-	size, sizeErr := s.blockchain.db.GetSize()
-	if sizeErr != nil {
-		return nil, sizeErr
-	}
+	size := s.blockchain.GetSize()
 
 	// Check the number of blocks in the blockchain. If the blockchain is empty,
 	// return error. There will always be at least one block in the blockchain,
