@@ -102,7 +102,7 @@ peer:
     # Peer's DB settings
     db:
         # location on file system
-        path: /var/openchain/db
+        path: /tmp/openchain/db
 
 
 
