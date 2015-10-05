@@ -20,7 +20,6 @@ under the License.
 package protos
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -48,11 +47,10 @@ import (
 var log = logging.MustGetLogger("protos")
 
 // NewBlock creates a new Block given the input parameters
-func NewBlock(proposerID string, transactions []*Transaction, stateHash []byte) *Block {
+func NewBlock(proposerID string, transactions []*Transaction) *Block {
 	block := new(Block)
 	block.ProposerID = proposerID
 	block.Transactions = transactions
-	block.StateHash = stateHash
 	return block
 }
 
@@ -61,7 +59,7 @@ func (block *Block) GetHash() ([]byte, error) {
 	hash := make([]byte, 64)
 	data, err := block.Bytes()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not calculate hash of block: %s", err))
+		return nil, fmt.Errorf("Could not calculate hash of block: %s", err)
 	}
 	sha3.ShakeSum256(hash, data)
 	return hash, nil
@@ -96,7 +94,7 @@ func (block *Block) Bytes() ([]byte, error) {
 	data, err := proto.Marshal(block)
 	if err != nil {
 		log.Error("Error marshalling block: %s", err)
-		return nil, errors.New(fmt.Sprintf("Could not marshal block: %s", err))
+		return nil, fmt.Errorf("Could not marshal block: %s", err)
 	}
 	return data, nil
 }
