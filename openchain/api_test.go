@@ -238,15 +238,11 @@ func buildTestChain1(chain *Blockchain) error {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
 	state := GetState()
-	stateHash, err := state.GetHash()
-	if err != nil {
-		return err
-	}
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block, block #0>---------------------
 	// Add the 0th (genesis block)
-	block1 := protos.NewBlock("sheehan", nil, stateHash)
+	block1 := protos.NewBlock("sheehan", nil)
 	chain.AddBlock(context.TODO(), block1)
 	// -----------------------------</Genisis block, block #0>--------------------
 
@@ -263,12 +259,8 @@ func buildTestChain1(chain *Blockchain) error {
 	state.Set("MyContract1", "code", []byte("code example"))
 
 	// Now we add the transaction to block 1 and add the block to the chain
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
 	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a, stateHash)
+	block2 := protos.NewBlock("sheehan", transactions2a)
 	chain.AddBlock(context.TODO(), block2)
 
 	// -----------------------------</Block #1>-----------------------------------
@@ -285,11 +277,7 @@ func buildTestChain1(chain *Blockchain) error {
 
 	// Create the 2nd block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
-	block3 := protos.NewBlock("sheehan", transactions3a, stateHash)
+	block3 := protos.NewBlock("sheehan", transactions3a)
 	chain.AddBlock(context.TODO(), block3)
 
 	// -----------------------------</Block #2>-----------------------------------
@@ -304,15 +292,11 @@ func buildTestChain2(chain *Blockchain) error {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
 	state := GetState()
-	stateHash, err := state.GetHash()
-	if err != nil {
-		return err
-	}
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block, block #0>---------------------
 	// Add the 0th (genesis block)
-	block1 := protos.NewBlock("sheehan", nil, stateHash)
+	block1 := protos.NewBlock("sheehan", nil)
 	chain.AddBlock(context.TODO(), block1)
 	// -----------------------------</Genisis block, block #0>--------------------
 
@@ -330,11 +314,7 @@ func buildTestChain2(chain *Blockchain) error {
 
 	// Now we add the transaction to block 1 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
-	block2 := protos.NewBlock("sheehan", transactions2a, stateHash)
+	block2 := protos.NewBlock("sheehan", transactions2a)
 	chain.AddBlock(context.TODO(), block2)
 
 	// -----------------------------</Block #1>-----------------------------------
@@ -353,11 +333,7 @@ func buildTestChain2(chain *Blockchain) error {
 
 	// Create the 2nd block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a, transaction3b}
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
-	block3 := protos.NewBlock("sheehan", transactions3a, stateHash)
+	block3 := protos.NewBlock("sheehan", transactions3a)
 	chain.AddBlock(context.TODO(), block3)
 
 	// -----------------------------</Block #2>-----------------------------------
@@ -378,11 +354,7 @@ func buildTestChain2(chain *Blockchain) error {
 
 	// Create the 3rd block and add it to the chain
 	transactions4a := []*protos.Transaction{transaction4a, transaction4b, transaction4c}
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
-	block4 := protos.NewBlock("sheehan", transactions4a, stateHash)
+	block4 := protos.NewBlock("sheehan", transactions4a)
 	chain.AddBlock(context.TODO(), block4)
 
 	// -----------------------------</Block #3>-----------------------------------
@@ -405,11 +377,7 @@ func buildTestChain2(chain *Blockchain) error {
 
 	// Create the 4th block and add it to the chain
 	transactions5a := []*protos.Transaction{transaction5a, transaction5b, transaction5c, transaction5d}
-	stateHash, err = state.GetHash()
-	if err != nil {
-		return err
-	}
-	block5 := protos.NewBlock("sheehan", transactions5a, stateHash)
+	block5 := protos.NewBlock("sheehan", transactions5a)
 	chain.AddBlock(context.TODO(), block5)
 
 	// -----------------------------</Block #4>-----------------------------------

@@ -38,8 +38,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	newChainletTx := protos.NewChainletDeployTransaction(*chainletSpec)
 	t.Logf("New chainlet tx: %v", newChainletTx)
 
-	stateHash := getTestStateHash(t)
-	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx}, stateHash)
+	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx})
 
 	err := chain.AddBlock(context.TODO(), block1)
 	if err != nil {
@@ -94,7 +93,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// -----------------------------<Genisis block>-------------------------------
 	// Add the first (genesis block)
 	stateHash := getTestStateHash(t)
-	block1 := protos.NewBlock("sheehan", nil, stateHash)
+	block1 := protos.NewBlock("sheehan", nil)
 
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, stateHash)
@@ -117,7 +116,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// Now we add the transaction to the block 2 and add the block to the chain
 	stateHash = getTestStateHash(t)
 	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a, stateHash)
+	block2 := protos.NewBlock("sheehan", transactions2a)
 
 	allBlocks = append(allBlocks, block2)
 	allHashes = append(allHashes, stateHash)
@@ -138,7 +137,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
 	stateHash = getTestStateHash(t)
-	block3 := protos.NewBlock("sheehan", transactions3a, stateHash)
+	block3 := protos.NewBlock("sheehan", transactions3a)
 
 	allBlocks = append(allBlocks, block3)
 	allHashes = append(allHashes, stateHash)

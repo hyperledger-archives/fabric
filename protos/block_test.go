@@ -32,7 +32,7 @@ func Test_Block_CreateNew(t *testing.T) {
 
 	t.Logf("transaction: %v", transaction)
 
-	block := NewBlock("proposer1", []*Transaction{transaction}, []byte("test_data"))
+	block := NewBlock("proposer1", []*Transaction{transaction})
 	t.Logf("block: %v", block)
 	data, err := proto.Marshal(block)
 	if err != nil {
