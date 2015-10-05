@@ -30,7 +30,7 @@ import "openchain.proto";
 service Devops {
 
   // Build the chaincode package.
-  rpc Build(ChainletSpec) returns (BuildResult) {}
+  rpc Build(ChainletSpec) returns (ChainletDeploymentSpec) {}
 
   // Deploy the chaincode package to the chain.
   rpc Deploy(ChainletSpec) returns (DevopsResponse) {}

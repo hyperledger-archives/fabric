@@ -47,8 +47,8 @@ peer:
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go get github.com/tecbot/gorocksdb
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
-        WORKDIR $GOPATH
-        RUN go install github.com/openblockchain/obc-peer && cp src/github.com/openblockchain/obc-peer/openchain.yaml ./bin
+        WORKDIR $GOPATH/bin
+        RUN go install github.com/openblockchain/obc-peer && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
 
     address: 0.0.0.0:30303

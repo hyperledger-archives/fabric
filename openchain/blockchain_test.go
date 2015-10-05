@@ -34,13 +34,18 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	chainletSpec := &protos.ChainletSpec{Type: protos.ChainletSpec_GOLANG,
 		ChainletID: &protos.ChainletID{Url: "Contracts"},
 		CtorMsg:    &protos.ChainletMessage{Function: "Initialize", Args: []string{"param1"}}}
-
-	newChainletTx := protos.NewChainletDeployTransaction(*chainletSpec)
+	chainletDeploymentSepc := &protos.ChainletDeploymentSpec{ChainletSpec: chainletSpec}
+	newChainletTx, err := protos.NewChainletDeployTransaction(chainletDeploymentSepc)
+	if err != nil {
+		t.Fail()
+		t.Logf("Failed to create new chaincode Deployment Transaction: %s", err)
+		return
+	}
 	t.Logf("New chainlet tx: %v", newChainletTx)
 
 	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx})
 
-	err := chain.AddBlock(context.TODO(), block1)
+	err = chain.AddBlock(context.TODO(), block1)
 	if err != nil {
 		t.Logf("Error adding block to chain: %s", err)
 		t.Fail()

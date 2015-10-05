@@ -48,6 +48,11 @@ var peerLogger = logging.MustGetLogger("peer")
 
 // Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnection() (*grpc.ClientConn, error) {
+	return NewPeerClientConnectionWithAddress(viper.GetString("peer.address"))
+}
+
+// Returns a new grpc.ClientConn to the configured local PEER.
+func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
 		var sn string
@@ -69,7 +74,7 @@ func NewPeerClientConnection() (*grpc.ClientConn, error) {
 	opts = append(opts, grpc.WithTimeout(DefaultTimeout))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(viper.GetString("peer.address"), opts...)
+	conn, err := grpc.Dial(peerAddress, opts...)
 	if err != nil {
 		return nil, err
 	}

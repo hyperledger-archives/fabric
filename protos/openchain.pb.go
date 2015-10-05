@@ -144,6 +144,7 @@ type Transaction struct {
 	ChainletID *ChainletID      `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
 	Function   string           `protobuf:"bytes,3,opt,name=function" json:"function,omitempty"`
 	Args       []string         `protobuf:"bytes,4,rep,name=args" json:"args,omitempty"`
+	Payload    []byte           `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -153,6 +154,21 @@ func (*Transaction) ProtoMessage()    {}
 func (m *Transaction) GetChainletID() *ChainletID {
 	if m != nil {
 		return m.ChainletID
+	}
+	return nil
+}
+
+type TransactionsMessage struct {
+	Transactions []*Transaction `protobuf:"bytes,1,rep,name=transactions" json:"transactions,omitempty"`
+}
+
+func (m *TransactionsMessage) Reset()         { *m = TransactionsMessage{} }
+func (m *TransactionsMessage) String() string { return proto.CompactTextString(m) }
+func (*TransactionsMessage) ProtoMessage()    {}
+
+func (m *TransactionsMessage) GetTransactions() []*Transaction {
+	if m != nil {
+		return m.Transactions
 	}
 	return nil
 }

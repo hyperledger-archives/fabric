@@ -81,7 +81,7 @@ func buildVMName(spec *pb.ChainletSpec) (string, error) {
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Error building VM name: %s", err))
 	}
-	vmName := fmt.Sprintf("%s-%s-%s-%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1), version)
+	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1), version)
 	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }

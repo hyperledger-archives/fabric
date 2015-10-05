@@ -242,7 +242,7 @@ func serve() error {
 	// Regist Devops server
 	pb.RegisterDevopsServer(grpcServer, openchain.NewDevopsServer())
 
-	log.Info("Starting peer on address: %s", viper.GetString("peer.address"))
+	log.Info("Starting peer with id=%s, network id=%s, address=%s", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"))
 	grpcServer.Serve(lis)
 	return nil
 }
@@ -313,14 +313,14 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
 		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
 
-	buildResult, err := devopsClient.Build(context.Background(), spec)
+	chainletDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", ChainFuncFormalName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	log.Info("Build result: %s", buildResult)
+	log.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
 }
 
 func chaincodeTest(cmd *cobra.Command, args []string) error {

@@ -42,11 +42,7 @@ func NewDevopsServer() *devops {
 type devops struct {
 }
 
-func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildResult, error) {
-
-	if spec == nil {
-		return nil, errors.New("Error in Build, expected code specification, nil received")
-	}
+func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	devops_logger.Debug("Received build request for chainlet spec: %v", spec)
 	if err := checkSpec(spec); err != nil {
 		return nil, err
@@ -58,21 +54,13 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildR
 		return nil, err
 	}
 	// Build the spec
-	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
+	codePackageBytes, err := vm.BuildChaincodeContainer(spec)
+	if err != nil {
 		devops_logger.Error("Error getting VM: %s", err)
 		return nil, err
 	}
-
-	result := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
-	devops_logger.Debug("returning build result: %s", result)
-	return result, nil
-}
-
-func (*devops) makeVersion(version string) (string, error) {
-	// v1, err := semver.Make("1.0.0-beta")
-	// v2, err := semver.Make("2.0.0-beta")
-	// v1.Compare(v2)
-	return "", nil
+	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
+	return chainletDeploymentSepc, nil
 }
 
 func (*devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.DevopsResponse, error) {
@@ -88,6 +76,10 @@ func (*devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.DevopsRes
 
 // Checks to see if chaincode resides within current package capture for language.
 func checkSpec(spec *pb.ChainletSpec) error {
+	// Don't allow nil value
+	if spec == nil {
+		return errors.New("Expected chaincode specification, nil received")
+	}
 
 	// Only allow GOLANG type at the moment
 	if spec.Type != pb.ChainletSpec_GOLANG {

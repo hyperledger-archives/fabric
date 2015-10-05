@@ -23,13 +23,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type Chainlet interface {
@@ -37,12 +38,19 @@ type Chainlet interface {
 }
 
 func Start(c Chainlet) error {
+	viper.SetEnvPrefix("OPENCHAIN")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
+
+	fmt.Printf("peer.address: %s\n", getPeerAddress())
+
 	clientConn, err := newPeerClientConnection()
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error trying to connect to local peer: %s", err))
 	}
 
-	fmt.Printf("os.Args returns: %s", os.Args)
+	fmt.Printf("os.Args returns: %s\n", os.Args)
 
 	chainletSupportClient := pb.NewChainletSupportClient(clientConn)
 
@@ -51,6 +59,14 @@ func Start(c Chainlet) error {
 
 	}
 	return err
+}
+
+func getPeerAddress() string {
+	if viper.GetString("peer.address") == "" {
+		// Assume docker container, return well known docker host address
+		return "172.17.42.1:30303"
+	}
+	return viper.GetString("peer.address")
 }
 
 func newPeerClientConnection() (*grpc.ClientConn, error) {
@@ -75,7 +91,7 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 	opts = append(opts, grpc.WithTimeout(1*time.Second))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial("172.17.42.1:30303", opts...)
+	conn, err := grpc.Dial(getPeerAddress(), opts...)
 	if err != nil {
 		return nil, err
 	}
