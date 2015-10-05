@@ -23,13 +23,14 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 /**** not using actual files from file system for testing.... use these funcs if we want to do that
@@ -139,7 +140,7 @@ func TestVMCBuildImage(t *testing.T) {
 	//this creates a singleton... Peer will call it once to initialize
 	vmc := NewVMController()
 
-	var ctxt context.Context = context.Background()
+	var ctxt = context.Background()
 
 	//get the tarball for codechain
 	tarRdr, err := getCodeChainBytesInMem()

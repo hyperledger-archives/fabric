@@ -21,12 +21,12 @@ package openchain
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
+	"io"
+
 	"github.com/fsouza/go-dockerclient"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-	"io"
 )
 
 //abstract virtual image for supporting arbitrary virual machines
@@ -68,12 +68,11 @@ func (vm *dockerVM) build(ctxt context.Context, id string, reader io.Reader) err
 	switch err {
 	case nil:
 		if err = client.BuildImage(opts); err != nil {
-			return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
+			return fmt.Errorf("Error building Peer container: %s", err)
 		}
 	default:
-		return errors.New(fmt.Sprintf("Error creating docker client: %s", err))
+		return fmt.Errorf("Error creating docker client: %s", err)
 	}
-	fmt.Sprintf("built image for %s successfully", id)
 	return nil
 }
 
@@ -85,6 +84,7 @@ func (vm *dockerVM) stop(ctxt context.Context) error {
 	return nil
 }
 
+//constants for supported containers
 const (
 	DOCKER = "Docker"
 )
@@ -95,7 +95,7 @@ type image struct {
 	v    vm
 }
 
-//VMController's role
+//VMController - manages VMs
 //   . abstract construction of different types of VMs (we only care about Docker for now)
 //   . maintain an id->vm map for look ups (TODO - think about versions of same "id")
 //   . manage lifecycle of VM (start with build, start, stop ... eventually probably need fine grained management)
@@ -103,9 +103,9 @@ type VMController struct {
 	images map[string]*image
 }
 
-var vmcontroller *VMController = nil
+var vmcontroller *VMController
 
-//singletone constructor
+//NewVMController - creates/returns singleton
 func NewVMController() *VMController {
 	if vmcontroller == nil {
 		vmcontroller = new(VMController)
@@ -117,7 +117,7 @@ func NewVMController() *VMController {
 
 func (vmc *VMController) newVM(typ string) vm {
 	var (
-		v vm = nil
+		v vm
 	)
 
 	switch typ {
@@ -129,25 +129,26 @@ func (vmc *VMController) newVM(typ string) vm {
 	return v
 }
 
+//VMCReqIntf - all requests should implement this interface. 
+//The context should be passed and tested at each layer till we stop
+//note that we'd stop on the first method on the stack that does not
+//take context
 type VMCReqIntf interface {
 	do(ctxt context.Context, v vm) interface{}
 }
 
-//response from requests. resp field is a anon interface. It can hold any response
-//err should be tested first
+//VMCResp - response from requests. resp field is a anon interface.
+//It can hold any response. err should be tested first
 type VMCResp struct {
 	err  error
 	resp interface{}
 }
 
+//CreateImageReq - properties for creating an container image
 type CreateImageReq struct {
 	id     string
 	reader io.Reader
 	args   []string
-}
-
-type CreateImageResp struct {
-	success bool
 }
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) interface{} {
@@ -169,7 +170,7 @@ func (bp CreateImageReq) do(ctxt context.Context, v vm) interface{} {
 	return resp
 }
 
-//use Process as follows
+//Process should be used as follows
 //   . construct a context
 //   . construct req of the right type (e.g., CreateImageReq)
 //   . call it in a go routine
@@ -181,7 +182,7 @@ func (vmc *VMController) Process(ctxt context.Context, vmtype string, req VMCReq
 	v := vmc.newVM(vmtype)
 
 	if v == nil {
-		return nil, errors.New(fmt.Sprintf("Unknown VM type %s", vmtype))
+		return nil, fmt.Errorf("Unknown VM type %s", vmtype)
 	}
 
 	c := make(chan struct{})
