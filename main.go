@@ -133,7 +133,7 @@ var chaincodeTestCmd = &cobra.Command{
 }
 
 var chaincodeDeployCmd = &cobra.Command{
-	Use:       fmt.Sprintf("deploy %s", chaincodePathArgumentSpecifier),
+	Use:       "deploy",
 	Short:     fmt.Sprintf("Deploy the specified %s to the network.", ChainFuncFormalName),
 	Long:      fmt.Sprintf(`Will deploy the specified %s to the network.`, ChainFuncFormalName),
 	ValidArgs: []string{"1"},
@@ -200,7 +200,7 @@ func main() {
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", ChainFuncFormalName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJson, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", ChainFuncFormalName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Constructor message for the %s in JSON format", ChainFuncFormalName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", ChainFuncFormalName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", ChainFuncFormalName))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
@@ -274,7 +274,7 @@ func stop() {
 
 }
 
-func chaincodeBuild(cmd *cobra.Command, args []string) error {
+func checkChaincodeCmdParams(cmd *cobra.Command) error {
 	if chaincodeVersion == undefinedParamValue {
 		errMsg := fmt.Sprintf("Error:  must supply value for %s version parameter\n", ChainFuncFormalName)
 		cmd.Out().Write([]byte(errMsg))
@@ -287,17 +287,29 @@ func chaincodeBuild(cmd *cobra.Command, args []string) error {
 		cmd.Usage()
 		return errors.New(errMsg)
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to compile %s, in path %s using language %s\n", ChainFuncFormalName, chaincodePath, chaincodeLang)))
+	return nil
+}
+
+func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
-		log.Error("Error trying to connect to local peer:", err)
-		return errors.New(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		return nil, errors.New(fmt.Sprintf("Error trying to connect to local peer: %s", err))
 	}
-
-	log.Info(fmt.Sprintf("Building %s: peer...", ChainFuncFormalName))
 	devopsClient := pb.NewDevopsClient(clientConn)
+	return devopsClient, nil
+}
+
+func chaincodeBuild(cmd *cobra.Command, args []string) {
+	if err := checkChaincodeCmdParams(cmd); err != nil {
+		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		return
+	}
+	devopsClient, err := getDevopsClient(cmd)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		return
+	}
 	// Build the spec
-	//checkChaincodePath(chaincodePath)
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
 		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
 
@@ -306,31 +318,23 @@ func chaincodeBuild(cmd *cobra.Command, args []string) error {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", ChainFuncFormalName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
-		return errors.New(errMsg)
+		return
 	}
 	log.Info("Build result: %s", buildResult)
-
-	return nil
 }
 
 func chaincodeTest(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		errMsg := fmt.Sprintf("Error:  Expected path to %s\n", ChainFuncFormalName)
-		cmd.Out().Write([]byte(errMsg))
-		cmd.Usage()
-		return errors.New(errMsg)
+	if err := checkChaincodeCmdParams(cmd); err != nil {
+		return err
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to test %s: %s\n", ChainFuncFormalName, args[0])))
+	cmd.Out().Write([]byte(fmt.Sprintf("going to test %s: %s\n", ChainFuncFormalName, chaincodePath)))
 	return nil
 }
 
 func chaincodeDeploy(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		errMsg := fmt.Sprintf("Error:  Expected path to %s\n", ChainFuncFormalName)
-		cmd.Out().Write([]byte(errMsg))
-		cmd.Usage()
-		return errors.New(errMsg)
+	if err := checkChaincodeCmdParams(cmd); err != nil {
+		return err
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to deploy %s: %s\n", ChainFuncFormalName, args[0])))
+	cmd.Out().Write([]byte(fmt.Sprintf("going to deploy %s: %s\n", ChainFuncFormalName, chaincodePath)))
 	return nil
 }

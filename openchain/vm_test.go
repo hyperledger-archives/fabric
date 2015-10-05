@@ -30,6 +30,7 @@ import (
 )
 
 func TestVM_ListImages(t *testing.T) {
+	t.Skip("No need to invoke list images.")
 	vm, err := NewVM()
 	if err != nil {
 		t.Fail()

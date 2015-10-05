@@ -48,10 +48,21 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildR
 		return nil, errors.New("Error in Build, expected code specification, nil received")
 	}
 	devops_logger.Debug("Received build request for chainlet spec: %v", spec)
-	err := checkSpec(spec)
-	if err != nil {
+	if err := checkSpec(spec); err != nil {
 		return nil, err
 	}
+	// Get new VM and as for building of container image
+	vm, err := NewVM()
+	if err != nil {
+		devops_logger.Error("Error getting VM: %s", err)
+		return nil, err
+	}
+	// Build the spec
+	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
+		devops_logger.Error("Error getting VM: %s", err)
+		return nil, err
+	}
+
 	result := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
 	devops_logger.Debug("returning build result: %s", result)
 	return result, nil

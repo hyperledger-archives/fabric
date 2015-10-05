@@ -44,7 +44,7 @@ func TestDevops_Build(t *testing.T) {
 
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
 
 	buildResult, err := devopsServer.Build(context.Background(), spec)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestDevops_Deploy(t *testing.T) {
 
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
 
 	buildResult, err := devopsServer.Deploy(context.Background(), spec)
 	if err != nil {
