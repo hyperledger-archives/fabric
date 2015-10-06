@@ -242,7 +242,11 @@ func serve() error {
 	// Regist Devops server
 	pb.RegisterDevopsServer(grpcServer, openchain.NewDevopsServer())
 
-	log.Info("Starting peer with id=%s, network id=%s, address=%s", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"))
+	rootNode, err := openchain.GetRootNode()
+	if err != nil {
+		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
+	}
+	log.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode)
 	grpcServer.Serve(lis)
 	return nil
 }
@@ -331,10 +335,26 @@ func chaincodeTest(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func chaincodeDeploy(cmd *cobra.Command, args []string) error {
+func chaincodeDeploy(cmd *cobra.Command, args []string) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
-		return err
+		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		return
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to deploy %s: %s\n", ChainFuncFormalName, chaincodePath)))
-	return nil
+	devopsClient, err := getDevopsClient(cmd)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		return
+	}
+	// Build the spec
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+
+	chainletDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error building %s: %s\n", ChainFuncFormalName, err)
+		cmd.Out().Write([]byte(errMsg))
+		cmd.Usage()
+		return
+	}
+	log.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
 }

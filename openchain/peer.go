@@ -20,13 +20,18 @@ under the License.
 package openchain
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
@@ -116,5 +121,54 @@ func (*Peer) Chat(stream pb.Peer_ChatServer) error {
 		} else {
 			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 		}
+	}
+}
+
+func (*Peer) SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
+	var errFromChat error = nil
+	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
+	}
+	serverClient := pb.NewPeerClient(conn)
+	stream, err := serverClient.Chat(context.Background())
+	//testAcceptPeerChatStream(stream)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
+	} else {
+		defer stream.CloseSend()
+		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+		waitc := make(chan struct{})
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					// read done.
+					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
+					close(waitc)
+					return
+				}
+				if err != nil {
+					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+				}
+				if in.Type == pb.OpenchainMessage_DISC_HELLO {
+					peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
+					payload, err := proto.Marshal(transactionsMessage)
+					if err != nil {
+						errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
+						close(waitc)
+						return
+					}
+					stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
+					peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
+				} else {
+					peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+					close(waitc)
+					return
+				}
+			}
+		}()
+		<-waitc
+		return nil
 	}
 }

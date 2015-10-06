@@ -17,43 +17,16 @@ specific language governing permissions and limitations
 under the License.
 */
 
-syntax = "proto3";
+package openchain
 
-package protos;
+import "testing"
 
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
-import "openchain.proto";
+func TestDiscovery_GetRootNode(t *testing.T) {
+	rootNode, err := GetRootNode()
+	if err != nil {
+		t.Fail()
+		t.Logf("Error getting rootnode:  %s", err)
+	}
+	t.Logf("RootNode value: %s", rootNode)
 
-
-// Interface exported by the server.
-service Devops {
-
-  // Build the chaincode package.
-  rpc Build(ChainletSpec) returns (ChainletDeploymentSpec) {}
-
-  // Deploy the chaincode package to the chain.
-  rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
-
-}
-
-message DevopsResponse {
-  enum StatusCode {
-    UNDEFINED = 0;
-    SUCCESS = 1;
-    FAILURE = 2;
-  }
-  StatusCode status = 1;
-  string msg = 2;
-}
-
-message BuildResult {
-  enum StatusCode {
-    UNDEFINED = 0;
-    SUCCESS = 1;
-    FAILURE = 2;
-  }
-  StatusCode status = 1;
-  string msg = 2;
-  ChainletDeploymentSpec deploymentSpec = 3;
 }

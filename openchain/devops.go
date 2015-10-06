@@ -63,15 +63,16 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.Chainl
 	return chainletDeploymentSepc, nil
 }
 
-func (*devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.DevopsResponse, error) {
-	response := &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: "Good to go"}
-	err := checkSpec(spec)
+func (d *devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+	// First build and get the deployment spec
+	chainletDeploymentSepc, err := d.Build(ctx, spec)
+
 	if err != nil {
-		devops_logger.Error("Invalid spec: %v\n\n error: %s", spec, err)
+		devops_logger.Error("Error deploying chaincode spec: %v\n\n error: %s", spec, err)
 		return nil, err
 	}
 	//devops_logger.Debug("returning status: %s", status)
-	return response, nil
+	return chainletDeploymentSepc, nil
 }
 
 // Checks to see if chaincode resides within current package capture for language.

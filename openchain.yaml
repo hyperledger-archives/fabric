@@ -78,8 +78,8 @@ peer:
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 
-        # The root nodes are used for bootstrapping purposes
-        rootnodes: ["127.0.0.1:30303","127.0.0.1:30303"]
+        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
+        rootnode: 
 
         ## leaving this in for example of sub map entry
         # testNodes:

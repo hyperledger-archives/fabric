@@ -115,7 +115,7 @@ type DevopsClient interface {
 	// Build the chaincode package.
 	Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*DevopsResponse, error)
+	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 }
 
 type devopsClient struct {
@@ -135,8 +135,8 @@ func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc
 	return out, nil
 }
 
-func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*DevopsResponse, error) {
-	out := new(DevopsResponse)
+func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error) {
+	out := new(ChainletDeploymentSpec)
 	err := grpc.Invoke(ctx, "/protos.Devops/Deploy", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ type DevopsServer interface {
 	// Build the chaincode package.
 	Build(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(context.Context, *ChainletSpec) (*DevopsResponse, error)
+	Deploy(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 }
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
