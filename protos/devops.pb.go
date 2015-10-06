@@ -18,7 +18,7 @@ package protos
 import proto "github.com/golang/protobuf/proto"
 
 // discarding unused import google_protobuf "google/protobuf"
-import google_protobuf1 "google/protobuf"
+// discarding unused import google_protobuf1 "google/protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -113,9 +113,9 @@ var _ grpc.ClientConn
 
 type DevopsClient interface {
 	// Build the chaincode package.
-	Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*BuildResult, error)
+	Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*DevopsResponse, error)
+	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 }
 
 type devopsClient struct {
@@ -126,8 +126,8 @@ func NewDevopsClient(cc *grpc.ClientConn) DevopsClient {
 	return &devopsClient{cc}
 }
 
-func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*BuildResult, error) {
-	out := new(BuildResult)
+func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error) {
+	out := new(ChainletDeploymentSpec)
 	err := grpc.Invoke(ctx, "/protos.Devops/Build", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -135,8 +135,8 @@ func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc
 	return out, nil
 }
 
-func (c *devopsClient) Deploy(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*DevopsResponse, error) {
-	out := new(DevopsResponse)
+func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error) {
+	out := new(ChainletDeploymentSpec)
 	err := grpc.Invoke(ctx, "/protos.Devops/Deploy", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -148,9 +148,9 @@ func (c *devopsClient) Deploy(ctx context.Context, in *google_protobuf1.Empty, o
 
 type DevopsServer interface {
 	// Build the chaincode package.
-	Build(context.Context, *ChainletSpec) (*BuildResult, error)
+	Build(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(context.Context, *google_protobuf1.Empty) (*DevopsResponse, error)
+	Deploy(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 }
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
@@ -170,7 +170,7 @@ func _Devops_Build_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 }
 
 func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(google_protobuf1.Empty)
+	in := new(ChainletSpec)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}

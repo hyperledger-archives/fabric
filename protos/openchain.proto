@@ -27,6 +27,7 @@ import "google/protobuf/empty.proto";
 message ChainletID {
   // Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
   string Url = 1;
+  string Version = 2;
 }
 
 message ChainletMessage {
@@ -75,6 +76,11 @@ message Transaction {
   ChainletID chainletID = 2;
   string function = 3;
   repeated string args  = 4;
+  bytes payload = 5;
+}
+
+message TransactionsMessage {
+  repeated Transaction transactions = 1;
 }
 
 

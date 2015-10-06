@@ -38,13 +38,18 @@ func NewTransaction(chainletID ChainletID, function string, args []string) *Tran
 	return transaction
 }
 
-func NewChainletDeployTransaction(chainletSpec ChainletSpec) *Transaction {
+func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec) (*Transaction, error) {
 	transaction := new(Transaction)
 	transaction.Type = Transaction_CHAINLET_NEW
-	transaction.ChainletID = chainletSpec.GetChainletID()
-	transaction.Function = chainletSpec.GetCtorMsg().Function
-	transaction.Args = chainletSpec.GetCtorMsg().Args
-	return transaction
+	transaction.ChainletID = chainletDeploymentSpec.ChainletSpec.GetChainletID()
+	transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
+	transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
+	data, err := proto.Marshal(chainletDeploymentSpec)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error creating new chaincode transaction: %s", err))
+	}
+	transaction.Payload = data
+	return transaction, nil
 }
 
 // Bytes returns this transaction as an array of bytes

@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -54,6 +55,10 @@ func SetupTestConfig() {
 	flag.Parse()
 
 	// Now set the configuration file
+	viper.SetEnvPrefix("OPENCHAIN")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
 	viper.SetConfigName("openchain") // name of config file (without extension)
 	viper.AddConfigPath("./")        // path to look for the config file in
 	viper.AddConfigPath("./../")     // path to look for the config file in

@@ -21,11 +21,13 @@ package openchain
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/blang/semver"
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
-
-	google_protobuf "google/protobuf"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -40,18 +42,80 @@ func NewDevopsServer() *devops {
 type devops struct {
 }
 
-func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.BuildResult, error) {
-
-	if spec == nil {
-		return nil, errors.New("Error in Build, expected code specification, nil received")
+func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+	devops_logger.Debug("Received build request for chainlet spec: %v", spec)
+	if err := checkSpec(spec); err != nil {
+		return nil, err
 	}
-	result := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
-	devops_logger.Debug("returning build result: %s", result)
-	return result, nil
+	// Get new VM and as for building of container image
+	vm, err := NewVM()
+	if err != nil {
+		devops_logger.Error("Error getting VM: %s", err)
+		return nil, err
+	}
+	// Build the spec
+	codePackageBytes, err := vm.BuildChaincodeContainer(spec)
+	if err != nil {
+		devops_logger.Error("Error getting VM: %s", err)
+		return nil, err
+	}
+	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
+	return chainletDeploymentSepc, nil
 }
 
-func (*devops) Deploy(context.Context, *google_protobuf.Empty) (*pb.DevopsResponse, error) {
-	//status := &pb.BuildResult{Status: pb.BuildResult_SUCCESS}
+func (d *devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+	// First build and get the deployment spec
+	chainletDeploymentSepc, err := d.Build(ctx, spec)
+
+	if err != nil {
+		devops_logger.Error("Error deploying chaincode spec: %v\n\n error: %s", spec, err)
+		return nil, err
+	}
 	//devops_logger.Debug("returning status: %s", status)
-	return nil, nil
+	return chainletDeploymentSepc, nil
+}
+
+// Checks to see if chaincode resides within current package capture for language.
+func checkSpec(spec *pb.ChainletSpec) error {
+	// Don't allow nil value
+	if spec == nil {
+		return errors.New("Expected chaincode specification, nil received")
+	}
+
+	// Only allow GOLANG type at the moment
+	if spec.Type != pb.ChainletSpec_GOLANG {
+		return errors.New(fmt.Sprintf("Only support '%s' currently", pb.ChainletSpec_GOLANG))
+	}
+	if err := checkGolangSpec(spec); err != nil {
+		return err
+	}
+	devops_logger.Debug("Validated spec:  %v", spec)
+
+	// Check the version
+	_, err := semver.Make(spec.ChainletID.Version)
+	return err
+}
+
+func checkGolangSpec(spec *pb.ChainletSpec) error {
+	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChainletID.Url)
+	exists, err := pathExists(pathToCheck)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error validating chaincode path: %s", err))
+	}
+	if !exists {
+		return errors.New(fmt.Sprintf("Path to chaincode does not exist: %s", spec.ChainletID.Url))
+	}
+	return nil
+}
+
+// Returns whether the given file or directory exists or not
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
 }
