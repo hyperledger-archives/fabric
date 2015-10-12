@@ -31,8 +31,9 @@ import (
 const blockchainCF = "blockchainCF"
 const stateCF = "stateCF"
 const statehashCF = "statehashCF"
+const indexesCF = "indexesCF"
 
-var columnfamilies = []string{blockchainCF, stateCF, statehashCF}
+var columnfamilies = []string{blockchainCF, stateCF, statehashCF, indexesCF}
 
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
@@ -40,6 +41,7 @@ type OpenchainDB struct {
 	BlockchainCF *gorocksdb.ColumnFamilyHandle
 	StateCF      *gorocksdb.ColumnFamilyHandle
 	StateHashCF  *gorocksdb.ColumnFamilyHandle
+	IndexesCF    *gorocksdb.ColumnFamilyHandle
 }
 
 var openchainDB *OpenchainDB
@@ -104,6 +106,10 @@ func (openchainDB *OpenchainDB) GetFromStateHashCF(key []byte) ([]byte, error) {
 	return openchainDB.get(openchainDB.StateHashCF, key)
 }
 
+func (openchainDB *OpenchainDB) GetFromIndexesCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.IndexesCF, key)
+}
+
 // GetBlockchainCFIterator get iterator for column family - blockchainCF
 func (openchainDB *OpenchainDB) GetBlockchainCFIterator() *gorocksdb.Iterator {
 	return openchainDB.getIterator(openchainDB.BlockchainCF)
@@ -135,15 +141,15 @@ func openDB() (*OpenchainDB, error) {
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
-		[]string{"default", blockchainCF, stateCF, statehashCF},
-		[]*gorocksdb.Options{opts, opts, opts, opts})
+		[]string{"default", blockchainCF, stateCF, statehashCF, indexesCF},
+		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
 
 	if err != nil {
 		fmt.Println("Error opening DB", err)
 		return nil, err
 	}
 	isOpen = true
-	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3]}, nil
+	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4]}, nil
 }
 
 // CloseDB releases all column family handles and closes rocksdb

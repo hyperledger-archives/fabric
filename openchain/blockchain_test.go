@@ -153,9 +153,9 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	return allBlocks, allHashes
 }
 
-func checkHash(t *testing.T, hash []byte, expectedStateHash []byte) {
-	if !bytes.Equal(hash, expectedStateHash) {
-		t.Fatalf("State hash in block not same as exepected. Expected=[%x], found=[%x]", expectedStateHash, hash)
+func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
+	if !bytes.Equal(hash, expectedHash) {
+		t.Fatalf("hash is not same as exepected. Expected=[%x], found=[%x]", expectedHash, hash)
 	}
 	t.Logf("Hash value = [%x]", hash)
 }

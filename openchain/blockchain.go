@@ -66,14 +66,55 @@ func (blockchain *Blockchain) GetLastBlock() (*protos.Block, error) {
 	return blockchain.GetBlock(blockchain.size - 1)
 }
 
+// GetSize number of blocks in blockchain
+func (blockchain *Blockchain) GetSize() uint64 {
+	return blockchain.size
+}
+
 // GetBlock get block at arbitrary height in block chain
 func (blockchain *Blockchain) GetBlock(blockNumber uint64) (*protos.Block, error) {
 	return fetchBlockFromDB(blockNumber)
 }
 
-// GetSize number of blocks in blockchain
-func (blockchain *Blockchain) GetSize() uint64 {
-	return blockchain.size
+// GetBlockByHash get block by block hash
+func (blockchain *Blockchain) GetBlockByHash(blockHash []byte) (*protos.Block, error) {
+	return fetchBlockByHash(blockHash)
+}
+
+// GetTransactions get all transactions in a block identified by block number
+func (blockchain *Blockchain) GetTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
+	block, err := blockchain.GetBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions(), nil
+}
+
+// GetTransactionsByBlockHash get all transactions in a block identified by block hash
+func (blockchain *Blockchain) GetTransactionsByBlockHash(blockHash []byte) ([]*protos.Transaction, error) {
+	block, err := blockchain.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions(), nil
+}
+
+// GetTransaction get a transaction identified by blocknumber and index within the block
+func (blockchain *Blockchain) GetTransaction(blockNumber uint64, txIndex uint64) (*protos.Transaction, error) {
+	block, err := blockchain.GetBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions()[txIndex], nil
+}
+
+// GetTransactionByBlockHash get a transaction identified by blockhash and index within the block
+func (blockchain *Blockchain) GetTransactionByBlockHash(blockHash []byte, txIndex uint64) (*protos.Transaction, error) {
+	block, err := blockchain.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions()[txIndex], nil
 }
 
 // AddBlock add a new block to blockchain
@@ -85,7 +126,8 @@ func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block)
 		return err
 	}
 	block.StateHash = stateHash
-	err = blockchain.persistBlock(block, blockchain.size)
+	currentBlockNumber := blockchain.size
+	err = blockchain.persistBlock(block, currentBlockNumber)
 	if err != nil {
 		return err
 	}
@@ -96,6 +138,13 @@ func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block)
 	}
 	blockchain.previousBlockHash = currentBlockHash
 	state.ClearInMemoryChanges()
+
+	// TODO make the create indexes in a separate go routine because, this is not rquired for commiting a block.
+	// However, we need to decide on synchronizing with client queries
+	err = createIndexes(block, currentBlockNumber, currentBlockHash)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -105,6 +154,14 @@ func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 		return nil, err
 	}
 	return protos.UnmarshallBlock(blockBytes)
+}
+
+func fetchTransactionFromDB(blockNum uint64, txIndex uint64) (*protos.Transaction, error) {
+	block, err := fetchBlockFromDB(blockNum)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions()[txIndex], nil
 }
 
 func fetchBlockchainSizeFromDB() (uint64, error) {
