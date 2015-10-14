@@ -82,6 +82,16 @@ func TestChain(t *testing.T) {
 	}
 }
 
+func TestEmptyChain(t *testing.T) {
+	initTestBlockChain(t)
+	checkChainSize(t, 0)
+	block := getLastBlock(t)
+	if block != nil {
+		t.Fatalf("Get last block on an empty chain should return nil.")
+	}
+	t.Logf("last block = [%s]", block)
+}
+
 func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	var allBlocks []*protos.Block
 	var allHashes [][]byte
@@ -151,6 +161,17 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// -----------------------------</Block 3>------------------------------------
 
 	return allBlocks, allHashes
+}
+
+func buildTestBlock() *protos.Block {
+	transactions := []*protos.Transaction{}
+	transactions = append(transactions, buildTestTx())
+	block := protos.NewBlock("ErrorCreator", transactions)
+	return block
+}
+
+func buildTestTx() *protos.Transaction {
+	return protos.NewTransaction(protos.ChainletID{"testUrl", "1.1"}, "anyfunction", []string{"param1, param2"})
 }
 
 func checkHash(t *testing.T, hash []byte, expectedHash []byte) {

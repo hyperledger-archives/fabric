@@ -57,12 +57,19 @@ func GetBlockchain() (*Blockchain, error) {
 			}
 			blockchainInstance.previousBlockHash = previousBlockHash
 		}
+		err = startIndexer()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return blockchainInstance, nil
 }
 
 // GetLastBlock get last block in blockchain
 func (blockchain *Blockchain) GetLastBlock() (*protos.Block, error) {
+	if blockchain.size == 0 {
+		return nil, nil
+	}
 	return blockchain.GetBlock(blockchain.size - 1)
 }
 
@@ -139,12 +146,7 @@ func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block)
 	blockchain.previousBlockHash = currentBlockHash
 	state.ClearInMemoryChanges()
 
-	// TODO make the create indexes in a separate go routine because, this is not rquired for commiting a block.
-	// However, we need to decide on synchronizing with client queries
-	err = createIndexes(block, currentBlockNumber, currentBlockHash)
-	if err != nil {
-		return err
-	}
+	createIndexesAsync(block, currentBlockNumber, currentBlockHash)
 	return nil
 }
 
