@@ -20,6 +20,9 @@ under the License.
 package openchain
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -34,7 +37,57 @@ var prefixBlockHashKey = byte(1)
 var prefixTxGUIDKey = byte(2)
 var prefixAddressBlockNumCompositeKey = byte(3)
 
-var lastBlockIndexed uint64
+type blockWrapper struct {
+	block       *protos.Block
+	blockNumber uint64
+	blockHash   []byte
+}
+
+// Channel for transferring block from block chain for indexing
+var blockChan = make(chan blockWrapper)
+
+// block number tracker for making sure that client query results include upto latest block indexed
+var blockNumberTkr *blockNumberTracker
+
+// If an error occurs during indexing, store it here and index queries are returned the error
+var indexingError error
+
+func createIndexesAsync(block *protos.Block, blockNumber uint64, blockHash []byte) {
+	blockChan <- blockWrapper{block, blockNumber, blockHash}
+}
+
+func startIndexer() error {
+	lastIndexedBlockNum, err := indexPendingBlocks()
+	if err != nil {
+		return err
+	}
+
+	blockNumberTkr = newBlockNumberTracker(lastIndexedBlockNum)
+
+	go func() {
+		for {
+			indexLogger.Debug("Going to wait on channel for next block to index")
+			blockWrapper := <-blockChan
+
+			if indexingError != nil {
+				indexLogger.Debug(
+					"Not indexing block number [%d]. Because of previous error: %s.",
+					blockWrapper.blockNumber, err)
+				continue
+			}
+
+			err := createIndexes(blockWrapper.block, blockWrapper.blockNumber, blockWrapper.blockHash)
+			if err != nil {
+				indexLogger.Debug(
+					"Error occured while indexing block number [%d]. Error: %s. Further blocks will not be indexed",
+					blockWrapper.blockNumber, err)
+				indexingError = err
+			}
+			indexLogger.Debug("Finished indexing block number [%d]", blockWrapper.blockNumber)
+		}
+	}()
+	return nil
+}
 
 // createIndexes adds entries into db for creating indexes on various atributes
 func createIndexes(block *protos.Block, blockNumber uint64, blockHash []byte) error {
@@ -73,12 +126,19 @@ func createIndexes(block *protos.Block, blockNumber uint64, blockHash []byte) er
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := openchainDB.DB.Write(opt, writeBatch)
 	if err != nil {
-		return nil
+		return err
 	}
+
+	blockNumberTkr.blockIndexed(blockNumber)
 	return nil
 }
 
 func fetchBlockByHash(blockHash []byte) (*protos.Block, error) {
+	err := checkIndexingError()
+	if err != nil {
+		return nil, err
+	}
+	blockNumberTkr.waitForLastCommittedBlock()
 	blockNumberBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeBlockHashKey(blockHash))
 	if err != nil {
 		return nil, err
@@ -88,6 +148,11 @@ func fetchBlockByHash(blockHash []byte) (*protos.Block, error) {
 }
 
 func fetchTransactionByGUID(txGUID []byte) (*protos.Transaction, error) {
+	err := checkIndexingError()
+	if err != nil {
+		return nil, err
+	}
+	blockNumberTkr.waitForLastCommittedBlock()
 	blockNumTxIndexBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeTxGUIDKey(txGUID))
 	if err != nil {
 		return nil, err
@@ -181,4 +246,103 @@ func prependKeyPrefix(prefix byte, key []byte) []byte {
 	modifiedKey = append(modifiedKey, prefix)
 	modifiedKey = append(modifiedKey, key...)
 	return modifiedKey
+}
+
+func indexPendingBlocks() (lastIndexedBlockNum uint64, err error) {
+	lastIndexedBlockNumberBytes, err := db.GetDBHandle().GetFromIndexesCF(lastIndexedBlockKey)
+	if err != nil {
+		return
+	}
+	if lastIndexedBlockNumberBytes == nil {
+		return
+	}
+
+	lastIndexedBlockNum = decodeBlockNumber(lastIndexedBlockNumberBytes)
+	blockchain, err := GetBlockchain()
+	if err != nil {
+		return
+	}
+
+	if blockchain.GetSize() == 0 {
+		// chain is empty as yet
+		return
+	}
+
+	lastCommittedBlockNum := blockchain.GetSize() - 1
+	if lastCommittedBlockNum == lastIndexedBlockNum {
+		// all committed blocks are indexed
+		return
+	}
+
+	for ; lastIndexedBlockNum < lastCommittedBlockNum; lastIndexedBlockNum++ {
+		blockNumToIndex := lastIndexedBlockNum + 1
+		blockToIndex, errBlockFetch := blockchain.GetBlock(blockNumToIndex)
+		if errBlockFetch != nil {
+			err = errBlockFetch
+			return
+		}
+
+		blockHash, errBlockHash := blockToIndex.GetHash()
+		if errBlockHash != nil {
+			err = errBlockHash
+			return
+		}
+		createIndexes(blockToIndex, blockNumToIndex, blockHash)
+	}
+	return
+}
+
+func checkIndexingError() error {
+	if indexingError != nil {
+		return fmt.Errorf(
+			"An error had occured during indexing block number [%d]. So, index is out of sync. Detail of the error = %s",
+			blockNumberTkr.lastBlockIndexed+1, indexingError)
+	}
+	return nil
+}
+
+// Code related to tracking the block number that has been indexed.
+// Since, we index blocks asynchronously, there may be a case when
+// a client query arrives before a block has been indexed.
+//
+// Do we really need strict symantics such that an index query results
+// should include upto block number (or higher) that may have been committed
+// when user query arrives?
+// If a delay of a couple of blocks are allowed, we can get rid of this synchronization stuff
+type blockNumberTracker struct {
+	lastBlockIndexed uint64
+	newBlockIndexed  *sync.Cond
+}
+
+func newBlockNumberTracker(lastBlockIndexed uint64) *blockNumberTracker {
+	var lock sync.Mutex
+	blockNumberTracker := &blockNumberTracker{lastBlockIndexed, sync.NewCond(&lock)}
+	return blockNumberTracker
+}
+
+func (tracker *blockNumberTracker) blockIndexed(blockNumber uint64) {
+	tracker.newBlockIndexed.L.Lock()
+	defer tracker.newBlockIndexed.L.Unlock()
+	tracker.lastBlockIndexed = blockNumber
+	tracker.newBlockIndexed.Broadcast()
+}
+
+func (tracker *blockNumberTracker) waitForLastCommittedBlock() (err error) {
+	chain, err := GetBlockchain()
+	if err != nil || chain.GetSize() == 0 {
+		return
+	}
+
+	lastBlockCommitted := chain.GetSize() - 1
+
+	tracker.newBlockIndexed.L.Lock()
+	defer tracker.newBlockIndexed.L.Unlock()
+
+	for tracker.lastBlockIndexed < lastBlockCommitted {
+		indexLogger.Debug(
+			"Waiting for index to catch up with block chain. lastBlockCommitted=[%d] and lastBlockIndexed=[%d]",
+			lastBlockCommitted, tracker.lastBlockIndexed)
+		tracker.newBlockIndexed.Wait()
+	}
+	return
 }

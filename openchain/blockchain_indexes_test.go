@@ -21,10 +21,14 @@ package openchain
 
 import (
 	"bytes"
+	"errors"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
-	"testing"
+	"golang.org/x/net/context"
 )
 
 var chain *Blockchain
@@ -71,6 +75,42 @@ func TestIndexes_GetTransactionByBlockHashAndIndex(t *testing.T) {
 			compareProtoMessages(t, getTransactionByBlockHashAndIndex(t, getBlockHash(t, block), j), tx)
 		}
 	}
+}
+
+func TestIndexes_IndexingErrorScenario(t *testing.T) {
+	setup(t)
+	// introduce a error
+	indexingError = errors.New("Error created for testing")
+	chain := getBlockchain(t)
+
+	// index query should throw error
+	_, err := chain.GetBlockByHash(getBlockHash(t, blocks[0]))
+	if err == nil {
+		t.Fatal("Error expected here...")
+	}
+
+	// adding of new blocks should not be an issue after an index error
+	err = chain.AddBlock(context.TODO(), buildTestBlock())
+	err = chain.AddBlock(context.TODO(), buildTestBlock())
+	if err != nil {
+		t.Fatalf("Error while adding block after error in indexing: %s", err)
+	}
+	indexingError = nil
+}
+
+func TestIndexes_ClientWaitScenario(t *testing.T) {
+	setup(t)
+	chain := getBlockchain(t)
+	chain.size = chain.size + 1
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		chain.size = chain.size - 1
+		chain.AddBlock(context.TODO(), buildTestBlock())
+	}()
+
+	block := getBlockByHash(t, getBlockHash(t, blocks[0]))
+	compareProtoMessages(t, block, blocks[0])
 }
 
 func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {
