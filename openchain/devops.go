@@ -72,7 +72,18 @@ func (d *devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 		return nil, err
 	}
 	//devops_logger.Debug("returning status: %s", status)
-	return chainletDeploymentSepc, nil
+	// Now create the Transactions message and send to Peer.
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc)
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	}
+	peerAddress, err := GetRootNode()
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	}
+	// Construct the Transactions Message
+	transactionsMessage := &pb.TransactionsMessage{Transactions: []*pb.Transaction{transaction}}
+	return chainletDeploymentSepc, SendTransactionsToPeer(peerAddress, transactionsMessage)
 }
 
 // Checks to see if chaincode resides within current package capture for language.

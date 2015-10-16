@@ -41,7 +41,11 @@ func NewPeerConnectionFSM(to string) *PeerConnectionFSM {
 			{Name: "DISCONNECT", Src: []string{"created", "established"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
-			"enter_state": func(e *fsm.Event) { d.enterState(e) },
+			"enter_state":  func(e *fsm.Event) { d.enterState(e) },
+			"before_HELLO": func(e *fsm.Event) { d.beforeHello(e) },
+			"after_HELLO":  func(e *fsm.Event) { d.afterHello(e) },
+			"before_PING":  func(e *fsm.Event) { d.beforePing(e) },
+			"after_PING":   func(e *fsm.Event) { d.afterPing(e) },
 		},
 	)
 
@@ -49,5 +53,21 @@ func NewPeerConnectionFSM(to string) *PeerConnectionFSM {
 }
 
 func (d *PeerConnectionFSM) enterState(e *fsm.Event) {
-	log.Debug("The bi-directional stream to %s is %s\n", d.To, e.Dst)
+	log.Debug("The bi-directional stream to %s is %s, from event %s\n", d.To, e.Dst, e.Event)
+}
+
+func (d *PeerConnectionFSM) beforeHello(e *fsm.Event) {
+	log.Debug("Before reception of %s, dest is %s, current is %s", e.Event, e.Dst, d.FSM.Current())
+}
+
+func (d *PeerConnectionFSM) afterHello(e *fsm.Event) {
+	log.Debug("After reception of %s, dest is %s, current is %s", e.Event, e.Dst, d.FSM.Current())
+}
+
+func (d *PeerConnectionFSM) afterPing(e *fsm.Event) {
+	log.Debug("After reception of %s, dest is %s, current is %s", e.Event, e.Dst, d.FSM.Current())
+}
+
+func (d *PeerConnectionFSM) beforePing(e *fsm.Event) {
+	log.Debug("Before %s, dest is %s, current is %s", e.Event, e.Dst, d.FSM.Current())
 }

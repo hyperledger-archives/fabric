@@ -100,9 +100,8 @@ func (*Peer) Chat(stream pb.Peer_ChatServer) error {
 	peerLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
 	for {
 		in, err := stream.Recv()
-		// Appears no deadling is set as ok is 'false'
 		if err == io.EOF {
-			peerLogger.Debug("Received EOF, ending discovery handshake")
+			peerLogger.Debug("Received EOF, ending Chat")
 			return nil
 		}
 		if err != nil {
@@ -124,7 +123,7 @@ func (*Peer) Chat(stream pb.Peer_ChatServer) error {
 	}
 }
 
-func (*Peer) SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
+func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
 	var errFromChat error = nil
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
@@ -161,6 +160,8 @@ func (*Peer) SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.
 					}
 					stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
 					peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
+					close(waitc)
+					return
 				} else {
 					peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 					close(waitc)
