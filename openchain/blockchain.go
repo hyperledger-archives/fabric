@@ -189,7 +189,7 @@ func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint
 	sizeBytes := encodeUint64(blockNumber + 1)
 	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
 
-	state.addChangesForPersistence(writeBatch)
+	state.addChangesForPersistence(blockNumber, writeBatch)
 
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)

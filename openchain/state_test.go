@@ -27,7 +27,7 @@ func TestStateChanges(t *testing.T) {
 	// check from db
 	checkStateInDB(t, "chaincode1", "key1", "value1")
 
-	inMemoryState := state.chaincodeStateMap["chaincode1"]
+	inMemoryState := state.stateDelta.chaincodeStateDeltas["chaincode1"]
 	if inMemoryState != nil {
 		t.Fatalf("In-memory state should be empty here")
 	}
@@ -112,7 +112,7 @@ func saveTestStateDataInDB(t *testing.T) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	state := GetState()
 	state.GetHash()
-	state.addChangesForPersistence(writeBatch)
+	state.addChangesForPersistence(0, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {

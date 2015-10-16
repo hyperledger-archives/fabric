@@ -55,7 +55,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	checkChainSize(t, 1)
 }
 
-func TestChain(t *testing.T) {
+func TestBlockChainSimpleChain(t *testing.T) {
 	initTestBlockChain(t)
 
 	allBlocks, allStateHashes := buildSimpleChain(t)
@@ -82,7 +82,7 @@ func TestChain(t *testing.T) {
 	}
 }
 
-func TestEmptyChain(t *testing.T) {
+func TestBlockChainEmptyChain(t *testing.T) {
 	initTestBlockChain(t)
 	checkChainSize(t, 0)
 	block := getLastBlock(t)

@@ -29,46 +29,44 @@ import (
 
 // State structure for maintaining world state. This is not thread safe
 type State struct {
-	chaincodeStateMap map[string]*chaincodeState
-	statehash         *stateHash
-	recomputeHash     bool
+	stateDelta    *stateDelta
+	statehash     *stateHash
+	recomputeHash bool
 }
 
 var stateLogger = logging.MustGetLogger("state")
+
+// should this be configurable in yaml?
+var historyStateDeltaSize = uint64(500)
 var stateInstance *State
 
 // GetState get handle to world state
 func GetState() *State {
 	if stateInstance == nil {
-		stateInstance = &State{make(map[string]*chaincodeState), nil, true}
+		stateInstance = &State{newStateDelta(), nil, true}
 	}
 	return stateInstance
 }
 
 // Get get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
 func (state *State) Get(chaincodeID string, key string) ([]byte, error) {
-	chaincodeState := state.chaincodeStateMap[chaincodeID]
-	if chaincodeState != nil {
-		updatedValue := state.chaincodeStateMap[chaincodeID].get(key)
-		if updatedValue != nil {
-			return updatedValue.value, nil
-		}
+	valueHolder := state.stateDelta.get(chaincodeID, key)
+	if valueHolder != nil {
+		return valueHolder.value, nil
 	}
 	return state.fetchStateFromDB(chaincodeID, key)
 }
 
 // Set sets state to given value for chaincodeID and key. Does not immideatly writes to memory
 func (state *State) Set(chaincodeID string, key string, value []byte) error {
-	chaincodeState := getOrCreateChaincodeState(chaincodeID)
-	chaincodeState.set(key, value)
+	state.stateDelta.set(chaincodeID, key, value)
 	state.recomputeHash = true
 	return nil
 }
 
 // Delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
 func (state *State) Delete(chaincodeID string, key string) error {
-	chaincodeState := getOrCreateChaincodeState(chaincodeID)
-	chaincodeState.remove(key)
+	state.stateDelta.delete(chaincodeID, key)
 	state.recomputeHash = true
 	return nil
 }
@@ -77,7 +75,7 @@ func (state *State) Delete(chaincodeID string, key string) error {
 func (state *State) GetHash() ([]byte, error) {
 	if state.recomputeHash {
 		stateLogger.Debug("Recomputing state hash...")
-		hash, err := computeStateHash(state.chaincodeStateMap)
+		hash, err := computeStateHash(state.stateDelta)
 		if err != nil {
 			return nil, err
 		}
@@ -89,45 +87,52 @@ func (state *State) GetHash() ([]byte, error) {
 
 // ClearInMemoryChanges remove from memory all the changes to state
 func (state *State) ClearInMemoryChanges() {
-	state.chaincodeStateMap = make(map[string]*chaincodeState)
+	state.stateDelta = newStateDelta()
 }
 
 // getUpdates get changes in state after most recent call to method ClearInMemoryChanges
-func (state *State) getUpdates() map[string]*chaincodeState {
-	return state.chaincodeStateMap
+func (state *State) getStateDelta() *stateDelta {
+	return state.stateDelta
 }
 
-func (state *State) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
-	stateLogger.Debug("addChangesForPersistence()...start")
-	for _, chaincodeState := range state.chaincodeStateMap {
-		addChaincodeStateForPersistence(writeBatch, chaincodeState)
+func fetchStateDeltaFromDB(blockNumber uint64) (*stateDelta, error) {
+	stateDeltaBytes, err := db.GetDBHandle().GetFromStateCF(encodeStateDeltaKey(blockNumber))
+	if err != nil {
+		return nil, err
 	}
+	if stateDeltaBytes == nil {
+		return nil, nil
+	}
+	stateDelta := newStateDelta()
+	stateDelta.unmarshal(stateDeltaBytes)
+	return stateDelta, nil
+}
+
+func (state *State) addChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) error {
+	stateLogger.Debug("state.addChangesForPersistence()...start")
+	state.stateDelta.addChangesForPersistence(writeBatch)
+
+	serializedStateDelta, err := state.stateDelta.marshal()
+	if err != nil {
+		return err
+	}
+	cf := db.GetDBHandle().StateCF
+
+	stateLogger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)
+	writeBatch.PutCF(cf, encodeStateDeltaKey(blockNumber), serializedStateDelta)
+
+	if blockNumber >= historyStateDeltaSize {
+		blockNumberToDelete := blockNumber - historyStateDeltaSize
+		stateLogger.Debug("Deleting state-delta corresponding to block number[%d]", blockNumberToDelete)
+		writeBatch.DeleteCF(cf, encodeStateDeltaKey(blockNumberToDelete))
+	} else {
+		stateLogger.Debug("Not deleting previous state-delta. Block number [%d] is smaller than historyStateDeltaSize [%d]",
+			blockNumber, historyStateDeltaSize)
+	}
+
 	state.statehash.addChangesForPersistence(writeBatch)
-	stateLogger.Debug("addChangesForPersistence()...finished")
-}
-
-func addChaincodeStateForPersistence(writeBatch *gorocksdb.WriteBatch, chaincodeState *chaincodeState) {
-	stateLogger.Debug("addChaincodeStateForPersistence() for codechainId = [%s]", chaincodeState.chaincodeID)
-	openChainDB := db.GetDBHandle()
-	for key, updatedValue := range chaincodeState.updatedStateMap {
-		dbKey := encodeStateDBKey(chaincodeState.chaincodeID, key)
-		value := updatedValue.value
-		if value != nil {
-			writeBatch.PutCF(openChainDB.StateCF, dbKey, value)
-		} else {
-			writeBatch.DeleteCF(openChainDB.StateCF, dbKey)
-		}
-	}
-	stateLogger.Debug("addChaincodeStateForPersistence() for codechainId = [%s]", chaincodeState.chaincodeID)
-}
-
-func getOrCreateChaincodeState(chaincodeID string) *chaincodeState {
-	chaincodeState := stateInstance.chaincodeStateMap[chaincodeID]
-	if chaincodeState == nil {
-		chaincodeState = newChaincodeState(chaincodeID)
-		stateInstance.chaincodeStateMap[chaincodeID] = chaincodeState
-	}
-	return chaincodeState
+	stateLogger.Debug("state.addChangesForPersistence()...finished")
+	return nil
 }
 
 func (state *State) fetchStateFromDB(chaincodeID string, key string) ([]byte, error) {
@@ -135,6 +140,8 @@ func (state *State) fetchStateFromDB(chaincodeID string, key string) ([]byte, er
 }
 
 // functions for converting keys to byte[] for interacting with rocksdb
+
+var stateKeyDelimiter = []byte{0x00}
 
 func encodeStateDBKey(chaincodeID string, key string) []byte {
 	retKey := []byte(chaincodeID)
@@ -155,39 +162,12 @@ func buildLowestStateDBKey(chaincodeID string) []byte {
 	return retKey
 }
 
-var stateKeyDelimiter = []byte{0x00}
+var stateDeltaKeyPrefix = byte(0)
 
-// Code below is for maintaining state for a chaincode
-
-type valueHolder struct {
-	value []byte
+func encodeStateDeltaKey(blockNumber uint64) []byte {
+	return prependKeyPrefix(stateDeltaKeyPrefix, encodeBlockNumberDBKey(blockNumber))
 }
 
-func (valueHolder *valueHolder) isDelete() bool {
-	return valueHolder.value == nil
-}
-
-type chaincodeState struct {
-	chaincodeID     string
-	updatedStateMap map[string]*valueHolder
-}
-
-func newChaincodeState(chaincodeID string) *chaincodeState {
-	return &chaincodeState{chaincodeID, make(map[string]*valueHolder)}
-}
-
-func (chaincodeState *chaincodeState) get(key string) *valueHolder {
-	return chaincodeState.updatedStateMap[key]
-}
-
-func (chaincodeState *chaincodeState) set(key string, value []byte) {
-	chaincodeState.updatedStateMap[key] = &valueHolder{value}
-}
-
-func (chaincodeState *chaincodeState) remove(key string) {
-	chaincodeState.updatedStateMap[key] = &valueHolder{nil}
-}
-
-func (chaincodeState *chaincodeState) changed() bool {
-	return len(chaincodeState.updatedStateMap) > 0
+func decodeStateDeltaKey(dbkey []byte) uint64 {
+	return decodeBlockNumberDBKey(dbkey[1:])
 }
