@@ -51,11 +51,12 @@ func TestDevops_Build(t *testing.T) {
 		t.Fail()
 		t.Logf("Error in Devops.Build call: %s", err)
 	}
-	t.Logf("Build result = %s", buildResult)
+	t.Logf("Build result = %s", buildResult.ChainletSpec.ChainletID)
 	//performHandshake(t, peerClientConn)
 }
 
 func TestDevops_Deploy(t *testing.T) {
+	t.Skip("Skipping until we have the Validator system setup properly for testing.")
 	devopsServer := NewDevopsServer()
 
 	// Build the spec
@@ -67,7 +68,7 @@ func TestDevops_Deploy(t *testing.T) {
 		t.Fail()
 		t.Logf("Error in Devops.Build call: %s", err)
 	}
-	t.Logf("Deploy result = %s", buildResult)
+	t.Logf("Deploy result = %s", buildResult.ChainletSpec)
 	//performHandshake(t, peerClientConn)
 }
 

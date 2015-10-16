@@ -42,8 +42,10 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 	transaction := new(Transaction)
 	transaction.Type = Transaction_CHAINLET_NEW
 	transaction.ChainletID = chainletDeploymentSpec.ChainletSpec.GetChainletID()
-	transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
-	transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
+	if chainletDeploymentSpec.ChainletSpec.GetCtorMsg() != nil {
+		transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
+		transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
+	}
 	data, err := proto.Marshal(chainletDeploymentSpec)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error creating new chaincode transaction: %s", err))
