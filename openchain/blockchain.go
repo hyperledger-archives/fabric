@@ -33,36 +33,60 @@ import (
 type Blockchain struct {
 	size              uint64
 	previousBlockHash []byte
+	indexer           blockchainIndexer
 }
 
+var indexBlockDataSynchronously = true
 var blockchainInstance *Blockchain
 
 // GetBlockchain get handle to block chain singleton
 func GetBlockchain() (*Blockchain, error) {
 	if blockchainInstance == nil {
 		blockchainInstance = new(Blockchain)
-		size, err := fetchBlockchainSizeFromDB()
+
+		err := blockchainInstance.init()
 		if err != nil {
-			return nil, err
-		}
-		blockchainInstance.size = size
-		if size > 0 {
-			previousBlock, err := fetchBlockFromDB(size - 1)
-			if err != nil {
-				return nil, err
-			}
-			previousBlockHash, err := previousBlock.GetHash()
-			if err != nil {
-				return nil, err
-			}
-			blockchainInstance.previousBlockHash = previousBlockHash
-		}
-		err = startIndexer()
-		if err != nil {
+			blockchainInstance = nil
 			return nil, err
 		}
 	}
 	return blockchainInstance, nil
+}
+
+func (blockchain *Blockchain) init() error {
+	size, err := fetchBlockchainSizeFromDB()
+	if err != nil {
+		return err
+	}
+	blockchain.size = size
+	if size > 0 {
+		previousBlock, err := fetchBlockFromDB(size - 1)
+		if err != nil {
+			return err
+		}
+		previousBlockHash, err := previousBlock.GetHash()
+		if err != nil {
+			return err
+		}
+		blockchain.previousBlockHash = previousBlockHash
+	}
+
+	err = blockchainInstance.startIndexer()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (blockchain *Blockchain) startIndexer() (err error) {
+	if indexBlockDataSynchronously {
+		blockchain.indexer = newBlockchainIndexerSync()
+	} else {
+		blockchain.indexer = newBlockchainIndexerAsync()
+	}
+	err = blockchain.indexer.start()
+	return
 }
 
 // GetLastBlock get last block in blockchain
@@ -85,7 +109,11 @@ func (blockchain *Blockchain) GetBlock(blockNumber uint64) (*protos.Block, error
 
 // GetBlockByHash get block by block hash
 func (blockchain *Blockchain) GetBlockByHash(blockHash []byte) (*protos.Block, error) {
-	return fetchBlockByHash(blockHash)
+	blockNumber, err := blockchain.indexer.fetchBlockNumberByBlockHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return blockchain.GetBlock(blockNumber)
 }
 
 // GetTransactions get all transactions in a block identified by block number
@@ -134,19 +162,20 @@ func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block)
 	}
 	block.StateHash = stateHash
 	currentBlockNumber := blockchain.size
-	err = blockchain.persistBlock(block, currentBlockNumber)
-	if err != nil {
-		return err
-	}
-	blockchain.size++
 	currentBlockHash, err := block.GetHash()
 	if err != nil {
 		return err
 	}
+	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash)
+	if err != nil {
+		return err
+	}
+	blockchain.size++
 	blockchain.previousBlockHash = currentBlockHash
 	state.ClearInMemoryChanges()
-
-	createIndexesAsync(block, currentBlockNumber, currentBlockHash)
+	if !blockchain.indexer.isSynchronous() {
+		blockchain.indexer.createIndexesAsync(block, currentBlockNumber, currentBlockHash)
+	}
 	return nil
 }
 
@@ -177,7 +206,7 @@ func fetchBlockchainSizeFromDB() (uint64, error) {
 	return decodeToUint64(bytes), nil
 }
 
-func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint64) error {
+func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte) error {
 	state := GetState()
 	blockBytes, blockBytesErr := block.Bytes()
 	if blockBytesErr != nil {
@@ -190,6 +219,10 @@ func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint
 	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
 
 	state.addChangesForPersistence(blockNumber, writeBatch)
+
+	if blockchain.indexer.isSynchronous() {
+		blockchain.indexer.createIndexesSync(block, blockNumber, blockHash, writeBatch)
+	}
 
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)

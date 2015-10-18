@@ -21,46 +21,34 @@ package openchain
 
 import (
 	"bytes"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/protos"
-	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
-var chain *Blockchain
-var blocks []*protos.Block
-var setupDone bool
-
-func setup(t *testing.T) {
-	if setupDone {
-		return
-	}
-	viper.Set("peer.db.path", "/tmp/openchain/db")
-	chain = initTestBlockChain(t)
-	blocks, _ = buildSimpleChain(t)
-	setupDone = true
-}
-
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
-	setup(t)
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i := range blocks {
 		compareProtoMessages(t, getBlock(t, i), blocks[i])
 	}
 }
 
 func TestIndexes_GetBlockByBlockHash(t *testing.T) {
-	setup(t)
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i := range blocks {
 		compareProtoMessages(t, getBlockByHash(t, getBlockHash(t, blocks[i])), blocks[i])
 	}
 }
 
-func TestIndexes_GetTransactionByBlockNumberAndIndex(t *testing.T) {
-	setup(t)
+func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i, block := range blocks {
 		for j, tx := range block.GetTransactions() {
 			compareProtoMessages(t, getTransactionByBlockNumberAndIndex(t, i, j), tx)
@@ -68,49 +56,15 @@ func TestIndexes_GetTransactionByBlockNumberAndIndex(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetTransactionByBlockHashAndIndex(t *testing.T) {
-	setup(t)
+func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for _, block := range blocks {
 		for j, tx := range block.GetTransactions() {
 			compareProtoMessages(t, getTransactionByBlockHashAndIndex(t, getBlockHash(t, block), j), tx)
 		}
 	}
-}
-
-func TestIndexes_IndexingErrorScenario(t *testing.T) {
-	setup(t)
-	// introduce a error
-	indexingError = errors.New("Error created for testing")
-	chain := getBlockchain(t)
-
-	// index query should throw error
-	_, err := chain.GetBlockByHash(getBlockHash(t, blocks[0]))
-	if err == nil {
-		t.Fatal("Error expected here...")
-	}
-
-	// adding of new blocks should not be an issue after an index error
-	err = chain.AddBlock(context.TODO(), buildTestBlock())
-	err = chain.AddBlock(context.TODO(), buildTestBlock())
-	if err != nil {
-		t.Fatalf("Error while adding block after error in indexing: %s", err)
-	}
-	indexingError = nil
-}
-
-func TestIndexes_ClientWaitScenario(t *testing.T) {
-	setup(t)
-	chain := getBlockchain(t)
-	chain.size = chain.size + 1
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		chain.size = chain.size - 1
-		chain.AddBlock(context.TODO(), buildTestBlock())
-	}()
-
-	block := getBlockByHash(t, getBlockHash(t, blocks[0]))
-	compareProtoMessages(t, block, blocks[0])
 }
 
 func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {

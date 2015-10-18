@@ -1,11 +1,9 @@
 package openchain
 
 import (
-	"os"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -86,26 +84,6 @@ func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte
 		t.Fatalf("Error while fetching state for chaincode=[%s], key=[%s], error=[%s]", chaincodeID, key, err)
 	}
 	return value
-}
-
-// db helper functions
-var testDBCreated bool
-
-func initTestDB(t *testing.T) {
-	if testDBCreated {
-		db.GetDBHandle().CloseDB()
-	}
-	removeTestDBPath()
-	err := db.CreateDB()
-	if err != nil {
-		t.Fatalf("Error in creating test db. Error = [%s]", err)
-	}
-	testDBCreated = true
-}
-
-func removeTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
-	os.RemoveAll(dbPath)
 }
 
 func saveTestStateDataInDB(t *testing.T) {

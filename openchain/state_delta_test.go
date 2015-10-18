@@ -83,13 +83,13 @@ func TestStateDeltaPersistence(t *testing.T) {
 	// state delta for block# 1
 	stateDelta = fetchTestStateDeltaFromDB(t, 1)
 	if stateDelta != nil {
-		t.Fatalf("state delta should be nil")
+		t.Fatalf("state delta should be nil because historyStateDeltaSize is set to 2")
 	}
 
 	// state delta for block# 0
 	stateDelta = fetchTestStateDeltaFromDB(t, 0)
 	if stateDelta != nil {
-		t.Fatalf("state delta should be nil")
+		t.Fatalf("state delta should be nil because historyStateDeltaSize is set to 2")
 	}
 }
 
