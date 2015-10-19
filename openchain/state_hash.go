@@ -53,13 +53,13 @@ func (statehash *stateHash) addChangesForPersistence(writeBatch *gorocksdb.Write
 
 // computeStateHash computes hash of bytes obtained by iterating over db and updated chaincodes.
 // Add to buffer hash for each chaincode in the sorted order of chaincodeID e.g., chaincodeHash1 + chaincodeHash2 + ...
-func computeStateHash(updatedChaincodes map[string]*chaincodeState) (*stateHash, error) {
+func computeStateHash(stateDelta *stateDelta) (*stateHash, error) {
 	stateHashLogger.Debug("Computing global state hash")
 	openchainDB := db.GetDBHandle()
 	statehash := newStatehash()
 
 	// first compute hashes for updated chaincodes
-	for chaincodeID, updatedChaincode := range updatedChaincodes {
+	for chaincodeID, updatedChaincode := range stateDelta.chaincodeStateDeltas {
 		updatedHash, err := computeChaincodeHash(updatedChaincode)
 		if err != nil {
 			return nil, err
@@ -125,7 +125,7 @@ func computeStateHash(updatedChaincodes map[string]*chaincodeState) (*stateHash,
 
 // computeChaincodeHash computes hash of bytes obtained by "chaincodeID + key1 + value1 + key2 + value2 +..."
 // iterates over db + keys in the updated map of changedChaincode (sort order of keys is combined both from db and updated map)
-func computeChaincodeHash(changedChaincode *chaincodeState) ([]byte, error) {
+func computeChaincodeHash(changedChaincode *chaincodeStateDelta) ([]byte, error) {
 	stateHashLogger.Debug("Computing state hash for chaincodeID", changedChaincode.chaincodeID)
 	openchainDB := db.GetDBHandle()
 	var buffer bytes.Buffer
@@ -140,7 +140,7 @@ func computeChaincodeHash(changedChaincode *chaincodeState) ([]byte, error) {
 	itr.Seek(buildLowestStateDBKey(changedChaincode.chaincodeID))
 
 	// obtain sorted keys of update map
-	updatedKeys := getSortedMapKeys1(changedChaincode.updatedStateMap)
+	updatedKeys := getSortedMapKeys1(changedChaincode.updatedKVs)
 
 	updatedKeysIndex := 0
 	itrNext := true
@@ -170,7 +170,7 @@ func computeChaincodeHash(changedChaincode *chaincodeState) ([]byte, error) {
 			stateHashLogger.Debug("Selected db key = [%s]", finalKey)
 		case 0, 1:
 			finalKey = updatedKey
-			updatedValue := changedChaincode.updatedStateMap[updatedKey]
+			updatedValue := changedChaincode.updatedKVs[updatedKey]
 			if !updatedValue.isDelete() {
 				finalValue = updatedValue.value
 				stateHashLogger.Debug("Selected updated key = [%s]", finalKey)
@@ -196,7 +196,7 @@ func computeChaincodeHash(changedChaincode *chaincodeState) ([]byte, error) {
 		stateHashLogger.Debug("Adding remaining updated keys")
 		for ; updatedKeysIndex < len(updatedKeys); updatedKeysIndex++ {
 			updatedKey := updatedKeys[updatedKeysIndex]
-			updatedValue := changedChaincode.updatedStateMap[updatedKey]
+			updatedValue := changedChaincode.updatedKVs[updatedKey]
 			if !updatedValue.isDelete() {
 				stateHashLogger.Debug("Adding updated key = [%s]", updatedKey)
 				buffer.Write([]byte(updatedKey))

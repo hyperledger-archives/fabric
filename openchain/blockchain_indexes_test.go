@@ -21,42 +21,34 @@ package openchain
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/protos"
-	"github.com/spf13/viper"
-	"testing"
 )
 
-var chain *Blockchain
-var blocks []*protos.Block
-var setupDone bool
-
-func setup(t *testing.T) {
-	if setupDone {
-		return
-	}
-	viper.Set("peer.db.path", "/tmp/openchain/db")
-	chain = initTestBlockChain(t)
-	blocks, _ = buildSimpleChain(t)
-	setupDone = true
-}
-
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
-	setup(t)
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i := range blocks {
 		compareProtoMessages(t, getBlock(t, i), blocks[i])
 	}
 }
 
 func TestIndexes_GetBlockByBlockHash(t *testing.T) {
-	setup(t)
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i := range blocks {
 		compareProtoMessages(t, getBlockByHash(t, getBlockHash(t, blocks[i])), blocks[i])
 	}
 }
 
-func TestIndexes_GetTransactionByBlockNumberAndIndex(t *testing.T) {
-	setup(t)
+func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for i, block := range blocks {
 		for j, tx := range block.GetTransactions() {
 			compareProtoMessages(t, getTransactionByBlockNumberAndIndex(t, i, j), tx)
@@ -64,8 +56,10 @@ func TestIndexes_GetTransactionByBlockNumberAndIndex(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetTransactionByBlockHashAndIndex(t *testing.T) {
-	setup(t)
+func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
+	initTestBlockChain(t)
+	blocks, _ := buildSimpleChain(t)
+
 	for _, block := range blocks {
 		for j, tx := range block.GetTransactions() {
 			compareProtoMessages(t, getTransactionByBlockHashAndIndex(t, getBlockHash(t, block), j), tx)

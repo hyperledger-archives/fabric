@@ -1,11 +1,9 @@
 package openchain
 
 import (
-	"os"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -27,7 +25,7 @@ func TestStateChanges(t *testing.T) {
 	// check from db
 	checkStateInDB(t, "chaincode1", "key1", "value1")
 
-	inMemoryState := state.chaincodeStateMap["chaincode1"]
+	inMemoryState := state.stateDelta.chaincodeStateDeltas["chaincode1"]
 	if inMemoryState != nil {
 		t.Fatalf("In-memory state should be empty here")
 	}
@@ -88,31 +86,11 @@ func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte
 	return value
 }
 
-// db helper functions
-var testDBCreated bool
-
-func initTestDB(t *testing.T) {
-	if testDBCreated {
-		db.GetDBHandle().CloseDB()
-	}
-	removeTestDBPath()
-	err := db.CreateDB()
-	if err != nil {
-		t.Fatalf("Error in creating test db. Error = [%s]", err)
-	}
-	testDBCreated = true
-}
-
-func removeTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
-	os.RemoveAll(dbPath)
-}
-
 func saveTestStateDataInDB(t *testing.T) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	state := GetState()
 	state.GetHash()
-	state.addChangesForPersistence(writeBatch)
+	state.addChangesForPersistence(0, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {

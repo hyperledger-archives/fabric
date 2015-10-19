@@ -10,7 +10,7 @@ import (
 func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
 	initTestDB(t)
 	state := GetState()
-	defer state.ClearInMemoryChanges()
+	state.ClearInMemoryChanges()
 
 	state.Set("chaincode1", "key1", []byte("value1"))
 	state.Set("chaincode1", "key2", []byte("value2"))
@@ -23,7 +23,7 @@ func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
 func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
 	initTestDB(t)
 	state := GetState()
-	defer state.ClearInMemoryChanges()
+	state.ClearInMemoryChanges()
 
 	state.Set("chaincode1", "key1", []byte("value1"))
 	state.Set("chaincode1", "key2", []byte("value2"))

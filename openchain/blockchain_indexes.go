@@ -20,6 +20,8 @@ under the License.
 package openchain
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -28,18 +30,60 @@ import (
 )
 
 var indexLogger = logging.MustGetLogger("indexes")
-
-var lastIndexedBlockKey = []byte{byte(0)}
 var prefixBlockHashKey = byte(1)
 var prefixTxGUIDKey = byte(2)
 var prefixAddressBlockNumCompositeKey = byte(3)
 
-var lastBlockIndexed uint64
+type blockchainIndexer interface {
+	isSynchronous() bool
+	start() error
+	createIndexesSync(block *protos.Block, blockNumber uint64, blockHash []byte, writeBatch *gorocksdb.WriteBatch) error
+	createIndexesAsync(block *protos.Block, blockNumber uint64, blockHash []byte) error
+	fetchBlockNumberByBlockHash(blockHash []byte) (uint64, error)
+	fetchTransactionIndexByGUID(txGUID []byte) (uint64, uint64, error)
+	stop()
+}
 
-// createIndexes adds entries into db for creating indexes on various atributes
-func createIndexes(block *protos.Block, blockNumber uint64, blockHash []byte) error {
+// Implementation for sync indexer
+type blockchainIndexerSync struct {
+}
+
+func newBlockchainIndexerSync() *blockchainIndexerSync {
+	return &blockchainIndexerSync{}
+}
+
+func (indexer *blockchainIndexerSync) isSynchronous() bool {
+	return true
+}
+
+func (indexer *blockchainIndexerSync) start() error {
+	return nil
+}
+
+func (indexer *blockchainIndexerSync) createIndexesSync(
+	block *protos.Block, blockNumber uint64, blockHash []byte, writeBatch *gorocksdb.WriteBatch) error {
+	return addIndexDataForPersistence(block, blockNumber, blockHash, writeBatch)
+}
+
+func (indexer *blockchainIndexerSync) createIndexesAsync(block *protos.Block, blockNumber uint64, blockHash []byte) error {
+	return fmt.Errorf("Method not applicable")
+}
+
+func (indexer *blockchainIndexerSync) fetchBlockNumberByBlockHash(blockHash []byte) (uint64, error) {
+	return fetchBlockNumberByBlockHashFromDB(blockHash)
+}
+
+func (indexer *blockchainIndexerSync) fetchTransactionIndexByGUID(txGUID []byte) (uint64, uint64, error) {
+	return fetchTransactionIndexByGUIDFromDB(txGUID)
+}
+
+func (indexer *blockchainIndexerSync) stop() {
+	return
+}
+
+// Functions for persisting and retrieving index data
+func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHash []byte, writeBatch *gorocksdb.WriteBatch) error {
 	openchainDB := db.GetDBHandle()
-	writeBatch := gorocksdb.NewWriteBatch()
 	cf := openchainDB.IndexesCF
 
 	// add blockhash -> blockNumber
@@ -65,46 +109,46 @@ func createIndexes(block *protos.Block, blockNumber uint64, blockHash []byte) er
 			}
 		}
 	}
-
 	for address, txsIndexes := range addressToTxIndexesMap {
 		writeBatch.PutCF(cf, encodeAddressBlockNumCompositeKey(address, blockNumber), encodeListTxIndexes(txsIndexes))
-	}
-	writeBatch.PutCF(cf, lastIndexedBlockKey, encodeBlockNumber(blockNumber))
-	opt := gorocksdb.NewDefaultWriteOptions()
-	err := openchainDB.DB.Write(opt, writeBatch)
-	if err != nil {
-		return nil
 	}
 	return nil
 }
 
-func fetchBlockByHash(blockHash []byte) (*protos.Block, error) {
+func fetchBlockNumberByBlockHashFromDB(blockHash []byte) (uint64, error) {
 	blockNumberBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeBlockHashKey(blockHash))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	blockNumber := decodeBlockNumber(blockNumberBytes)
-	return fetchBlockFromDB(blockNumber)
+	return blockNumber, nil
 }
 
-func fetchTransactionByGUID(txGUID []byte) (*protos.Transaction, error) {
+func fetchTransactionIndexByGUIDFromDB(txGUID []byte) (uint64, uint64, error) {
 	blockNumTxIndexBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeTxGUIDKey(txGUID))
 	if err != nil {
-		return nil, err
+		return 0, 0, err
 	}
-	blockNum, txIndex, err := decodeBlockNumTxIndex(blockNumTxIndexBytes)
-	if err != nil {
-		return nil, err
-	}
-	return fetchTransactionFromDB(blockNum, txIndex)
+	return decodeBlockNumTxIndex(blockNumTxIndexBytes)
 }
 
-// fetch TxGUID
+// functions for retrieving data from proto-structures
 func getTxGUIDBytes(tx *protos.Transaction) (guid []byte) {
 	guid = []byte("TODO:Fetch guid from Tx")
 	return
 }
 
+func getTxExecutingAddress(tx *protos.Transaction) string {
+	// TODO Fetch address form tx
+	return "address1"
+}
+
+func getAuthorisedAddresses(tx *protos.Transaction) ([]string, *protos.ChainletID) {
+	// TODO fetch address from chaincode deployment tx
+	return []string{"address1", "address2"}, tx.GetChainletID()
+}
+
+// functions for encoding/decoding db keys/values for index data
 // encode / decode BlockNumber
 func encodeBlockNumber(blockNumber uint64) []byte {
 	return proto.EncodeVarint(blockNumber)
@@ -164,16 +208,6 @@ func encodeListTxIndexes(listTx []uint64) []byte {
 func encodeChainletID(c *protos.ChainletID) []byte {
 	// TODO serialize chainletID
 	return []byte{}
-}
-
-func getTxExecutingAddress(tx *protos.Transaction) string {
-	// TODO Fetch address form tx
-	return "address1"
-}
-
-func getAuthorisedAddresses(tx *protos.Transaction) ([]string, *protos.ChainletID) {
-	// TODO fetch address from chaincode deployment tx
-	return []string{"address1", "address2"}, tx.GetChainletID()
 }
 
 func prependKeyPrefix(prefix byte, key []byte) []byte {

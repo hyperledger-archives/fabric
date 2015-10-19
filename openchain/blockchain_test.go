@@ -21,7 +21,11 @@ package openchain
 
 import (
 	"bytes"
+	"os"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
@@ -55,7 +59,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	checkChainSize(t, 1)
 }
 
-func TestChain(t *testing.T) {
+func TestBlockChainSimpleChain(t *testing.T) {
 	initTestBlockChain(t)
 
 	allBlocks, allStateHashes := buildSimpleChain(t)
@@ -63,12 +67,12 @@ func TestChain(t *testing.T) {
 	checkHash(t, getLastBlock(t).GetStateHash(), allStateHashes[len(allStateHashes)-1])
 
 	for i := range allStateHashes {
-		t.Logf("Cheching state hash for block number = [%d]", i)
+		t.Logf("Checking state hash for block number = [%d]", i)
 		checkHash(t, getBlock(t, i).GetStateHash(), allStateHashes[i])
 	}
 
 	for i := range allBlocks {
-		t.Logf("Cheching block hash for block number = [%d]", i)
+		t.Logf("Checking block hash for block number = [%d]", i)
 		checkHash(t, getBlockHash(t, getBlock(t, i)), getBlockHash(t, allBlocks[i]))
 	}
 
@@ -76,10 +80,20 @@ func TestChain(t *testing.T) {
 
 	i := 1
 	for i < len(allBlocks) {
-		t.Logf("Cheching previous block hash for block number = [%d]", i)
+		t.Logf("Checking previous block hash for block number = [%d]", i)
 		checkHash(t, getBlock(t, i).PreviousBlockHash, getBlockHash(t, allBlocks[i-1]))
 		i++
 	}
+}
+
+func TestBlockChainEmptyChain(t *testing.T) {
+	initTestBlockChain(t)
+	checkChainSize(t, 0)
+	block := getLastBlock(t)
+	if block != nil {
+		t.Fatalf("Get last block on an empty chain should return nil.")
+	}
+	t.Logf("last block = [%s]", block)
 }
 
 func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
@@ -153,6 +167,17 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	return allBlocks, allHashes
 }
 
+func buildTestBlock() *protos.Block {
+	transactions := []*protos.Transaction{}
+	transactions = append(transactions, buildTestTx())
+	block := protos.NewBlock("ErrorCreator", transactions)
+	return block
+}
+
+func buildTestTx() *protos.Transaction {
+	return protos.NewTransaction(protos.ChainletID{"testUrl", "1.1"}, "anyfunction", []string{"param1, param2"})
+}
+
 func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
 	if !bytes.Equal(hash, expectedHash) {
 		t.Fatalf("hash is not same as exepected. Expected=[%x], found=[%x]", expectedHash, hash)
@@ -175,15 +200,6 @@ func getBlockHash(t *testing.T, block *protos.Block) []byte {
 		t.Fatalf("Error while getting blockhash from in-memory block. Error = [%s]", err)
 	}
 	return hash
-}
-
-func initTestBlockChain(t *testing.T) *Blockchain {
-	initTestDB(t)
-	chain := getBlockchain(t)
-	chain.size = 0
-	chain.previousBlockHash = nil
-	GetState().ClearInMemoryChanges()
-	return chain
 }
 
 func getBlockchain(t *testing.T) *Blockchain {
@@ -225,5 +241,66 @@ func checkChainSize(t *testing.T, expectedSize uint64) {
 	}
 	if chainSize != chainSizeInDb {
 		t.Fatalf("chain size value different in DB from in-memory. in-memory=[%d], in db=[%d]", chainSize, chainSizeInDb)
+	}
+}
+
+///////////////////////////
+// Test db creation and cleanup functions
+var performTestDBCleanup bool
+
+func initTestDB(t *testing.T) {
+	// cleaning up test db here so that each test does not have to call it explicitly
+	// at the end of the test
+	cleanupTestDB()
+	removeTestDBPath()
+	err := db.CreateDB()
+	if err != nil {
+		t.Fatalf("Error in creating test db. Error = [%s]", err)
+	}
+	performTestDBCleanup = true
+}
+
+func cleanupTestDB() {
+	if performTestDBCleanup {
+		db.GetDBHandle().CloseDB()
+		performTestDBCleanup = false
+	}
+}
+
+func removeTestDBPath() {
+	dbPath := viper.GetString("peer.db.path")
+	os.RemoveAll(dbPath)
+}
+
+////////////////////////////////////////////////////
+//  test block chain creation and cleanup functions
+var performTestBlockchainCleanup bool
+
+func initTestBlockChain(t *testing.T) *Blockchain {
+	// cleaning up blockchain instance for test here so that each test does
+	// not have to call it explicitly at the end of the test
+	cleanupTestBlockchain(t)
+	initTestDB(t)
+	chain := getBlockchain(t)
+	err := chain.init()
+	if err != nil {
+		t.Fatalf("Error during initializing block chain. Error: %s", err)
+	}
+	t.Logf("Reinitialized Blockchain for testing.....")
+	GetState().ClearInMemoryChanges()
+	performTestBlockchainCleanup = true
+	return chain
+}
+
+func cleanupTestBlockchain(t *testing.T) {
+	if performTestBlockchainCleanup {
+		t.Logf("Cleaning up previously created blockchain for testing.....")
+		chain := getBlockchain(t)
+		if chain.indexer != nil {
+			chain.indexer.stop()
+		}
+		chain.size = 0
+		chain.previousBlockHash = []byte{}
+		performTestBlockchainCleanup = false
 	}
 }
