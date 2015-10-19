@@ -1,28 +1,10 @@
-/*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
-
-  http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
-*/
-
 package openchain
 
 import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -113,7 +95,7 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
 	tr := tar.NewWriter(gw)
-	dockerFileContents := []byte("FROM busybox:latest\n\nCMD echo \"hello obc\"\n")
+	dockerFileContents := []byte("FROM busybox:latest\n\nCMD sleep 300")
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
@@ -155,9 +137,7 @@ func TestVMCBuildImage(t *testing.T) {
 	//creat a CreateImageReq obj and send it to VMController.Process
 	go func() {
 		defer close(c)
-		args := make([]string, 1)
-		args[0] = "-i"
-		cir := CreateImageReq{id: "simple", reader: tarRdr, args: args}
+		cir := CreateImageReq{id: "simple", reader: tarRdr}
 		_, err := vmc.Process(ctxt, "Docker", cir)
 		if err != nil {
 			t.Fail()
@@ -167,5 +147,88 @@ func TestVMCBuildImage(t *testing.T) {
 	}()
 
 	//wait for VMController to complete.
+	fmt.Println("VMCBuildImage-waiting for response")
+	<-c
+}
+
+func TestVMCStartContainer(t *testing.T) {
+	viper.SetEnvPrefix("openchain")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("vm")                    // name of config file (without extension)
+	viper.AddConfigPath("./")                    // path to look for the config file in
+	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
+		t.Fail()
+		t.Logf("Error reading config file: %s", err)
+		return
+	}
+
+	//this creates a singleton... Peer will call it once to initialize
+	vmc := NewVMController()
+
+	var ctxt = context.Background()
+
+	c := make(chan struct{})
+
+	//creat a StartImageReq obj and send it to VMController.Process
+	go func() {
+		defer close(c)
+		args := []string{"echo", "hello"}
+		var outbuf bytes.Buffer
+		sir := StartImageReq{id: "simple", args: args, instream: nil, outstream: &outbuf}
+		_, err := vmc.Process(ctxt, "Docker", sir)
+		if err != nil {
+			t.Fail()
+			t.Logf("Error starting container: %s", err)
+			return
+		}
+		fmt.Printf("Output-%s", string(outbuf.Bytes()))
+		if "hello\n" != string(outbuf.Bytes()) {
+			t.Fail()
+			t.Logf("expected hello, received : %s", string(outbuf.Bytes()))
+			return
+		}
+	}()
+
+	//wait for VMController to complete.
+	fmt.Println("VMCStartContainer-waiting for response")
+	<-c
+}
+
+func TestVMCStopContainer(t *testing.T) {
+	viper.SetEnvPrefix("openchain")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("vm")                    // name of config file (without extension)
+	viper.AddConfigPath("./")                    // path to look for the config file in
+	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
+		t.Fail()
+		t.Logf("Error reading config file: %s", err)
+		return
+	}
+
+	//this creates a singleton... Peer will call it once to initialize
+	vmc := NewVMController()
+
+	var ctxt = context.Background()
+
+	c := make(chan struct{})
+
+	//creat a StopImageReq obj and send it to VMController.Process
+	go func() {
+		defer close(c)
+		sir := StopImageReq{id: "simple", timeout: 0}
+		_, err := vmc.Process(ctxt, "Docker", sir)
+		if err != nil {
+			t.Fail()
+			t.Logf("Error stopping container: %s", err)
+			return
+		}
+	}()
+
+	//wait for VMController to complete.
+	fmt.Println("VMCStopContainer-waiting for response")
 	<-c
 }
