@@ -31,9 +31,9 @@ import (
 
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
-	build(ctxt context.Context, id string, reader io.Reader) error
-	start(ctxt context.Context) error
-	stop(ctxt context.Context) error
+	build(ctxt context.Context, id string, args []string, reader io.Reader) error
+	start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error
+	stop(ctxt context.Context, id string, timeout uint) error
 }
 
 //dockerVM is a vm. It is identified by an image id
@@ -56,7 +56,7 @@ func (vm *dockerVM) newClient() (*docker.Client, error) {
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *dockerVM) build(ctxt context.Context, id string, reader io.Reader) error {
+func (vm *dockerVM) build(ctxt context.Context, id string, args []string, reader io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,
@@ -68,20 +68,69 @@ func (vm *dockerVM) build(ctxt context.Context, id string, reader io.Reader) err
 	switch err {
 	case nil:
 		if err = client.BuildImage(opts); err != nil {
-			return fmt.Errorf("Error building Peer container: %s", err)
+			fmt.Printf("Error building Peer container: %s", err)
+			return err
 		}
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
+	config := docker.Config{Cmd: args, Image: id}
+	copts := docker.CreateContainerOptions{Name: id, Config: &config}
+	_, err = client.CreateContainer(copts)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (vm *dockerVM) start(ctxt context.Context) error {
+func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error {
+	client, err := vm.newClient()
+	if err != nil {
+		fmt.Printf("start - cannot create client %s\n", err)
+		return err
+	}
+	econfig := docker.CreateExecOptions{
+		Container:    id,
+		Cmd:          args,
+		AttachStdout: true,
+	}
+	execObj, err := client.CreateExec(econfig)
+	if err != nil {
+		//perhaps container not started
+		err = client.StartContainer(id, &docker.HostConfig{})
+		if err != nil {
+			fmt.Printf("start-could not start container %s\n", err)
+			return err
+		}
+		execObj, err = client.CreateExec(econfig)
+	}
+
+	if err != nil {
+		fmt.Printf("start-could not create exec %s\n", err)
+		return err
+	}
+	sconfig := docker.StartExecOptions{
+		Detach:       detach,
+		InputStream:  instream,
+		OutputStream: outstream,
+	}
+	err = client.StartExec(execObj.ID, sconfig)
+	if err != nil {
+		fmt.Printf("start-could not start exec %s\n", err)
+		return err
+	}
+	fmt.Printf("start-started and execed container for %s\n", id)
 	return nil
 }
 
-func (vm *dockerVM) stop(ctxt context.Context) error {
-	return nil
+func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint) error {
+	client, err := vm.newClient()
+	if err != nil {
+		fmt.Printf("start - cannot create client %s\n", err)
+		return err
+	}
+	err = client.StopContainer(id, timeout)
+	return err
 }
 
 //constants for supported containers
@@ -97,20 +146,17 @@ type image struct {
 
 //VMController - manages VMs
 //   . abstract construction of different types of VMs (we only care about Docker for now)
-//   . maintain an id->vm map for look ups (TODO - think about versions of same "id")
-//   . manage lifecycle of VM (start with build, start, stop ... eventually probably need fine grained management)
-type VMController struct {
-	images map[string]*image
-}
+//   . manage lifecycle of VM (start with build, start, stop ...
+//     eventually probably need fine grained management)
+type VMController struct{}
 
+//singleton...acess through NewVMController
 var vmcontroller *VMController
 
 //NewVMController - creates/returns singleton
 func NewVMController() *VMController {
 	if vmcontroller == nil {
 		vmcontroller = new(VMController)
-		//TODO initialize VMController
-		vmcontroller.images = map[string]*image{}
 	}
 	return vmcontroller
 }
@@ -129,12 +175,12 @@ func (vmc *VMController) newVM(typ string) vm {
 	return v
 }
 
-//VMCReqIntf - all requests should implement this interface. 
+//VMCReqIntf - all requests should implement this interface.
 //The context should be passed and tested at each layer till we stop
 //note that we'd stop on the first method on the stack that does not
 //take context
 type VMCReqIntf interface {
-	do(ctxt context.Context, v vm) interface{}
+	do(ctxt context.Context, v vm) VMCResp
 }
 
 //VMCResp - response from requests. resp field is a anon interface.
@@ -151,19 +197,48 @@ type CreateImageReq struct {
 	args   []string
 }
 
-func (bp CreateImageReq) do(ctxt context.Context, v vm) interface{} {
-	//image was constructed and exists
-	if vmcontroller.images[bp.id] != nil {
-		return VMCResp{}
-	}
-
+func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.build(ctxt, bp.id, bp.reader); err != nil {
+	if err := v.build(ctxt, bp.id, bp.args, bp.reader); err != nil {
 		resp = VMCResp{err: err}
 	} else {
-		vmargs := make([]string, len(bp.args))
-		copy(vmargs, bp.args)
-		vmcontroller.images[bp.id] = &image{id: bp.id, args: vmargs, v: v}
+		resp = VMCResp{}
+	}
+
+	return resp
+}
+
+//StartImageReq - properties for starting a container.
+type StartImageReq struct {
+	id        string
+	args      []string
+	detach    bool
+	instream  io.Reader
+	outstream io.Writer
+}
+
+func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
+	if err := v.start(ctxt, si.id, si.args, si.detach, si.instream, si.outstream); err != nil {
+		resp = VMCResp{err: err}
+	} else {
+		resp = VMCResp{}
+	}
+
+	return resp
+}
+
+//StopImageReq - properties for stopping a container.
+type StopImageReq struct {
+	id      string
+	timeout uint
+}
+
+func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
+	if err := v.stop(ctxt, si.id, si.timeout); err != nil {
+		resp = VMCResp{err: err}
+	} else {
 		resp = VMCResp{}
 	}
 
