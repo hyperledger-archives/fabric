@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 
 	"github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -236,11 +237,23 @@ func serve() error {
 	// Register the Admin server
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
 
-	// Regist ChainletSupport server
+	// Register ChainletSupport server
 	pb.RegisterChainletSupportServer(grpcServer, openchain.NewChainletSupport())
 
-	// Regist Devops server
+	// Register Devops server
 	pb.RegisterDevopsServer(grpcServer, openchain.NewDevopsServer())
+
+	// Register the ServerOpenchain server
+	serverOpenchain, err := openchain.NewOpenchainServer()
+	if err != nil {
+		log.Error("Error creating OpenchainServer: %s", err)
+		return err
+	}
+
+	pb.RegisterOpenchainServer(grpcServer, serverOpenchain)
+
+	// Create and register the REST service
+	go rest.StartOpenchainRESTServer(serverOpenchain)
 
 	rootNode, err := openchain.GetRootNode()
 	if err != nil {

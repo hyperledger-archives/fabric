@@ -22,6 +22,7 @@ package openchain
 import (
 	"bytes"
 	"encoding/binary"
+	"strconv"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/protos"
@@ -225,9 +226,13 @@ func (blockchain *Blockchain) String() string {
 		if blockErr != nil {
 			return ""
 		}
-		buffer.WriteString("\n----------<block>----------\n")
+		buffer.WriteString("\n----------<block #")
+		buffer.WriteString(strconv.FormatUint(i, 10))
+		buffer.WriteString(">----------\n")
 		buffer.WriteString(block.String())
-		buffer.WriteString("\n----------<\\block>----------\n")
+		buffer.WriteString("\n----------<\\block #")
+		buffer.WriteString(strconv.FormatUint(i, 10))
+		buffer.WriteString(">----------\n")
 	}
 	return buffer.String()
 }
