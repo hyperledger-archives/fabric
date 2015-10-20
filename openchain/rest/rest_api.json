@@ -1,0 +1,185 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Openchain API",
+        "description": "Interact with the enterprise Blockchain through Openchain API",
+        "version": "1.0.0"
+    },
+    "host": "127.0.0.1:3000",
+    "schemes": [
+        "http"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "paths": {
+        "/chain": {
+            "get": {
+                "summary": "Blockchain Information",
+                "description": "The Chain endpoint returns information about the current state of\n
+                                the blockchain such as the height, the current block hash, and the\n
+                                previous block hash.\n",
+                "tags": [
+                    "Blockchain"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Blockchain information",
+                        "schema": {
+                          "$ref": "#/definitions/BlockchainInfo"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/chain/blocks/{Block}": {
+            "parameters": [
+              {
+                "name": "Block",
+                "in": "path",
+                "description": "Block number to retrieve",
+                "type": "integer",
+                "required": true,
+              }
+            ],
+            "get": {
+                "summary": "Individual Block Information",
+                "description": "The {Block} endpoint returns information about a specific block\n
+                                within the Blockchain. Note that the genesis block is block zero.\n",
+                "tags": [
+                    "Block"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Individual Block contents",
+                        "schema": {
+                          "$ref": "#/definitions/Block"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "BlockchainInfo": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer",
+                    "format": "uint64",
+                    "description": "Current height of the blockchain."
+                },
+                "currentBlockHash": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Hash of the last block in the blockchain."
+                },
+                "previousBlockHash": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Hash of the previous block in the blockchain."
+                }
+            }
+        },
+        "Block": {
+            "type": "object",
+            "properties": {
+                "proposerID": {
+                    "type": "string",
+                    "description": "Creator/originator of the block."
+                },
+                "Timestamp": {
+                    "type": "string",
+                    "description": "Time of block creation."
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Transaction"
+                    }
+                },
+                "stateHash": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Global state hash after executing all transactions in the block."
+                },
+                "previousBlockHash": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Hash of the previous block in the blockchain."
+                }
+            }
+        },
+        "Transaction": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "default": "UNDEFINED",
+                    "enum":[
+                        "UNDEFINED",
+                        "CHAINLET_NEW",
+                        "CHAINLET_UPDATE",
+                        "CHAINLET_EXECUTE",
+                        "CHAINLET_TERMINATE"
+                    ],
+                    "description": "Transaction type."
+                },
+                "chainletID": {
+                    "$ref": "#/definitions/chainletID",
+                    "description": "Unique Chaincode identifier."
+                },
+                "function": {
+                    "type": "string",
+                    "description": "Function to execute within a Chaincode."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                   "description": "Arguments supplied to the Chaincode function."
+                },
+                "payload": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Payload supplied for Chaincode function execution."
+                }
+            }
+        },
+        "chainletID": {
+            "type": "object",
+            "properties": {
+                "Url": {
+                    "type": "string",
+                    "description": "URL uniquely identifying a Chaincode."
+                },
+                "Version": {
+                    "type": "string",
+                    "description": "Current version of a Chaincode."
+                }
+            }
+        },
+        "Error": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "A descriptive message explaining the cause of error."
+                }
+            }
+        }
+    }
+}

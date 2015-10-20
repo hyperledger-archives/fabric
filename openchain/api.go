@@ -36,9 +36,14 @@ type ServerOpenchain struct {
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
-func NewOpenchainServer() *ServerOpenchain {
-	s := new(ServerOpenchain)
-	return s
+func NewOpenchainServer() (*ServerOpenchain, error) {
+	// Get a handle to the blockchain singleton.
+	bc, err := GetBlockchain()
+	s := &ServerOpenchain{blockchain: bc}
+
+	log.Info("\nCreating new OpenchainServer: %s\n", s.blockchain)
+
+	return s, err
 }
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
@@ -64,7 +69,7 @@ func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_proto
 		return info, nil
 	}
 
-	return nil, fmt.Errorf("Error: No blocks in blockchain.")
+	return nil, fmt.Errorf("No blocks in blockchain.")
 }
 
 // GetBlockByNumber returns the data contained within a specific block in the
@@ -79,7 +84,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 	if size > 0 {
 		// If the block number requested is not in the blockchain, return error.
 		if num.Number > (size - 1) {
-			return nil, fmt.Errorf("Error: Requested block not in blockchain.")
+			return nil, fmt.Errorf("Requested block not in blockchain.")
 		}
 
 		block, blockErr := s.blockchain.GetBlock(num.Number)
@@ -90,7 +95,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 		return block, nil
 	}
 
-	return nil, fmt.Errorf("Error: No blocks in blockchain.")
+	return nil, fmt.Errorf("No blocks in blockchain.")
 }
 
 // GetBlockCount returns the current number of blocks in the blockchain data
@@ -107,5 +112,5 @@ func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1
 		return count, nil
 	}
 
-	return nil, fmt.Errorf("Error: No blocks in blockchain.")
+	return nil, fmt.Errorf("No blocks in blockchain.")
 }

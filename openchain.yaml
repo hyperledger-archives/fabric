@@ -13,15 +13,27 @@ cli:
 
 ###############################################################################
 #
+#    REST section
+#
+###############################################################################
+rest:
+
+    # The address that the REST service will listen on for incoming requests.
+    address: 0.0.0.0:5000
+
+
+
+###############################################################################
+#
 #    Peer section
 #
 ###############################################################################
 peer:
-    
+
     # Peeer Version following version semantics as described here http://semver.org/
     # The Peer supplies this version in communications with other Peers
-    version:  0.1.0 
-    
+    version:  0.1.0
+
     # The Peer id is used for identifying this Peer instance.
     id: jdoe
 
@@ -79,7 +91,7 @@ peer:
     discovery:
 
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
-        rootnode: 
+        rootnode:
 
         ## leaving this in for example of sub map entry
         # testNodes:

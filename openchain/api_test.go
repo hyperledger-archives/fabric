@@ -28,13 +28,20 @@ import (
 )
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
-	server := NewOpenchainServer()
+	// Must initialize the Blockchain singleton before initializing the
+	// OpenchainServer, as it needs that pointer.
 
 	// Construct a blockchain with 0 blocks.
-	// buildTestChain0 builds a simple blockchain data structure that contains 0
-	// blocks. This chain is created only to verify error conditions, as a
-	// blockchain will always contain at least one block, the genesis block.
+
 	chain0 := initTestBlockChain(t)
+
+	// Initialize the OpenchainServer object.
+	server, err := NewOpenchainServer()
+	if err != nil {
+		t.Logf("Error creating OpenchainServer: %s", err)
+		t.Fail()
+	}
+
 	server.blockchain = chain0
 	t.Logf("Chain 0 => %s", server.blockchain)
 
@@ -51,6 +58,7 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	}
 
 	// Construct a blockchain with 3 blocks.
+
 	chain1 := initTestBlockChain(t)
 	chainErr1 := buildTestChain1(chain1)
 	if chainErr1 != nil {
@@ -71,6 +79,7 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	}
 
 	// Construct a blockchain with 5 blocks.
+
 	chain2 := initTestBlockChain(t)
 	chainErr2 := buildTestChain2(chain2)
 	if chainErr2 != nil {
@@ -93,11 +102,20 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 }
 
 func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
-	server := NewOpenchainServer()
+	// Must initialize the Blockchain singleton before initializing the
+	// OpenchainServer, as it needs that pointer.
 
 	// Construct a blockchain with 0 blocks.
 
 	chain0 := initTestBlockChain(t)
+
+	// Initialize the OpenchainServer object.
+	server, err := NewOpenchainServer()
+	if err != nil {
+		t.Logf("Error creating OpenchainServer: %s", err)
+		t.Fail()
+	}
+
 	server.blockchain = chain0
 	t.Logf("Chain 0 => %s", server.blockchain)
 
@@ -161,10 +179,20 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 }
 
 func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
-	server := NewOpenchainServer()
+	// Must initialize the Blockchain singleton before initializing the
+	// OpenchainServer, as it needs that pointer.
 
 	// Construct a blockchain with 0 blocks.
+
 	chain0 := initTestBlockChain(t)
+
+	// Initialize the OpenchainServer object.
+	server, err := NewOpenchainServer()
+	if err != nil {
+		t.Logf("Error creating OpenchainServer: %s", err)
+		t.Fail()
+	}
+
 	server.blockchain = chain0
 	t.Logf("Chain 0 => %s", server.blockchain)
 
