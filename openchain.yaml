@@ -59,6 +59,7 @@ peer:
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go get github.com/tecbot/gorocksdb
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
+        RUN mkdir -p /var/openchain/db
         WORKDIR $GOPATH/bin
         RUN go install github.com/openblockchain/obc-peer && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
@@ -77,7 +78,6 @@ peer:
     gomaxprocs: 2
     workers: 2
 
-    #Validator configuration block
     consensus:
         validator:
             enabled: false
@@ -138,6 +138,29 @@ peer:
         # location on file system
         path: /var/openchain/db
 
+
+###############################################################################
+#
+#    Validator section
+#
+###############################################################################
+validator:
+    enabled: false
+    address: 0.0.0.0:30304
+    # TLS Settings for p2p communications
+    tls:
+        enabled:  false
+        cert:
+            file: testdata/server1.pem
+        key:
+            file: testdata/server1.key
+        # The server name use to verify the hostname returned by TLS handshake
+        server-host-override:
+    # Peer discovery settings.  Controls how this peer discovers other peers
+    discovery:
+
+        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
+        rootnode:
 
 
 ###############################################################################
