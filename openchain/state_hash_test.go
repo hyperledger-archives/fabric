@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 )
 
 func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
@@ -78,11 +79,9 @@ func computeExpectedGlobalHash(hashStr []string) []byte {
 	for i := range hashStr {
 		globalHashBuffer.Write(computeExpectedChaincodeHash(hashStr[i]))
 	}
-	return computeSha3(globalHashBuffer)
+	return util.ComputeCryptoHash(globalHashBuffer.Bytes())
 }
 
 func computeExpectedChaincodeHash(hashStr string) []byte {
-	var buffer bytes.Buffer
-	buffer.Write([]byte(hashStr))
-	return computeSha3(buffer)
+	return util.ComputeCryptoHash([]byte(hashStr))
 }

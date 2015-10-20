@@ -156,7 +156,7 @@ func (blockchain *Blockchain) GetTransactionByBlockHash(blockHash []byte, txInde
 func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block) error {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
 	state := GetState()
-	stateHash, err := state.GetHash()
+	stateHash, err := state.GetTempStateHash()
 	if err != nil {
 		return err
 	}
