@@ -175,7 +175,7 @@ func buildTestBlock() *protos.Block {
 }
 
 func buildTestTx() *protos.Transaction {
-	return protos.NewTransaction(protos.ChainletID{"testUrl", "1.1"}, "anyfunction", []string{"param1, param2"})
+	return protos.NewTransaction(protos.ChainletID{Url: "testUrl", Version: "1.1"}, "anyfunction", []string{"param1, param2"})
 }
 
 func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
@@ -187,7 +187,7 @@ func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
 
 func getTestStateHash(t *testing.T) []byte {
 	state := GetState()
-	stateHash, err := state.GetHash()
+	stateHash, err := state.GetTempStateHash()
 	if err != nil {
 		t.Fatalf("Error while getting state hash. Error = [%s]", err)
 	}
