@@ -7,6 +7,7 @@ Package protos is a generated protocol buffer package.
 
 It is generated from these files:
 	server_admin.proto
+	openchain.proto
 
 It has these top-level messages:
 	OpenchainMessage
@@ -48,6 +49,7 @@ const (
 	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 13
 	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 14
 	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 15
+	OpenchainMessage_VALIDATOR_TRANSACTIONS OpenchainMessage_Type = 16
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -67,6 +69,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	13: "CHAIN_BLOCKS",
 	14: "CHAIN_NEW_BLOCK",
 	15: "DISC_NEWMSG",
+	16: "VALIDATOR_TRANSACTIONS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -85,6 +88,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"CHAIN_BLOCKS":           13,
 	"CHAIN_NEW_BLOCK":        14,
 	"DISC_NEWMSG":            15,
+	"VALIDATOR_TRANSACTIONS": 16,
 }
 
 func (x OpenchainMessage_Type) String() string {

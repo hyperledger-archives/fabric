@@ -77,6 +77,13 @@ peer:
     gomaxprocs: 2
     workers: 2
 
+    #Validator configuration block
+    consensus:
+        validator:
+            enabled: false
+        leader:
+            address: 
+
     # TLS Settings for p2p communications
     tls:
         enabled:  false
