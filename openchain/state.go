@@ -71,9 +71,9 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	return nil
 }
 
-// GetTempStateHash computes new state hash if the stateDelta is to be applied.
+// GetHash computes new state hash if the stateDelta is to be applied.
 // Recomputes only if stateDelta has changed after most recent call to this function
-func (state *State) GetTempStateHash() ([]byte, error) {
+func (state *State) GetHash() ([]byte, error) {
 	if state.recomputeHash {
 		stateLogger.Debug("Recomputing state hash...")
 		hash, err := computeStateHash(state.stateDelta)

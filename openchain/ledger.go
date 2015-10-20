@@ -91,7 +91,22 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 // GetTempStateHash - Computes state hash by taking into account the state changes that may have taken
 // place during the execution of current transaction-batch
 func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
-	return ledger.state.GetTempStateHash()
+	return ledger.state.GetHash()
+}
+
+// GetState get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
+func (ledger *Ledger) GetState(chaincodeID string, key string) ([]byte, error) {
+	return ledger.state.Get(chaincodeID, key)
+}
+
+// SetState sets state to given value for chaincodeID and key. Does not immideatly writes to memory
+func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
+	return ledger.state.Set(chaincodeID, key, value)
+}
+
+// DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
+func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
+	return ledger.state.Delete(chaincodeID, key)
 }
 
 func (ledger *Ledger) checkValidID(id interface{}) error {
