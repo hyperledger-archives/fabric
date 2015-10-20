@@ -21,10 +21,15 @@ package openchain
 
 import (
 	"fmt"
+	"reflect"
+	"sync"
+
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
-	"sync"
 )
+
+var ledgerLogger = logging.MustGetLogger("ledger")
 
 // Ledger - the struct for openchain ledger
 type Ledger struct {
@@ -55,7 +60,7 @@ func GetLedger() (*Ledger, error) {
 
 // BeginTxBatch - gets invoked when next round of transaction-batch execution begins
 func (ledger *Ledger) BeginTxBatch(id interface{}) error {
-	err := ledger.checkValidID(id)
+	err := ledger.checkValidIDBegin()
 	if err != nil {
 		return err
 	}
@@ -67,7 +72,7 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
 func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, proof []byte) error {
-	err := ledger.checkValidID(id)
+	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
 	}
@@ -80,7 +85,8 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 // RollbackTxBatch - Descards all the state changes that may have taken place during the execution of
 // current transaction-batch
 func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
-	err := ledger.checkValidID(id)
+	ledgerLogger.Debug("RollbackTxBatch for id = [%s]", id)
+	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
 	}
@@ -109,14 +115,22 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.Delete(chaincodeID, key)
 }
 
-func (ledger *Ledger) checkValidID(id interface{}) error {
+func (ledger *Ledger) checkValidIDBegin() error {
 	if ledger.currentID != nil {
 		return fmt.Errorf("Another TxGroup [%s] already in-progress", ledger.currentID)
 	}
 	return nil
 }
 
+func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
+	if !reflect.DeepEqual(ledger.currentID, id) {
+		return fmt.Errorf("Another TxGroup [%s] already in-progress", ledger.currentID)
+	}
+	return nil
+}
+
 func (ledger *Ledger) resetForNextTxGroup() {
+	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
 	ledger.state.ClearInMemoryChanges()
 }

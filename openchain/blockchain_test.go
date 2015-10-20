@@ -25,9 +25,8 @@ import (
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/spf13/viper"
-
 	"github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -187,7 +186,7 @@ func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
 
 func getTestStateHash(t *testing.T) []byte {
 	state := GetState()
-	stateHash, err := state.GetTempStateHash()
+	stateHash, err := state.GetHash()
 	if err != nil {
 		t.Fatalf("Error while getting state hash. Error = [%s]", err)
 	}
