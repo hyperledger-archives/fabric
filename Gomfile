@@ -6,3 +6,4 @@ golang.org/x/crypto/sha3
 github.com/fsouza/go-dockerclient
 google.golang.org/grpc
 github.com/blang/semver
+github.com/gocraft/web
