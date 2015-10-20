@@ -25,8 +25,8 @@ import (
 
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/tecbot/gorocksdb"
-	"golang.org/x/crypto/sha3"
 )
 
 var stateHashLogger = logging.MustGetLogger("stateHash")
@@ -119,7 +119,7 @@ func computeStateHash(stateDelta *stateDelta) (*stateHash, error) {
 			itr.Next()
 		}
 	}
-	statehash.globalHash = computeSha3(buffer)
+	statehash.globalHash = util.ComputeCryptoHash(buffer.Bytes())
 	return statehash, nil
 }
 
@@ -218,7 +218,7 @@ func computeChaincodeHash(changedChaincode *chaincodeStateDelta) ([]byte, error)
 		}
 	}
 	stateHashLogger.Debug("Finished computing state hash for chaincodeID", changedChaincode.chaincodeID)
-	return computeSha3(buffer), nil
+	return util.ComputeCryptoHash(buffer.Bytes()), nil
 }
 
 func getSortedMapKeys1(dict map[string]*valueHolder) []string {
@@ -253,10 +253,4 @@ func decodeStateHashDBKey(dbKey []byte) string {
 
 func compareStrings(str1 string, str2 string) int {
 	return bytes.Compare([]byte(str1), []byte(str2))
-}
-
-func computeSha3(buffer bytes.Buffer) []byte {
-	hash := make([]byte, 64)
-	sha3.ShakeSum256(hash, buffer.Bytes())
-	return hash
 }

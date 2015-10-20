@@ -71,7 +71,8 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	return nil
 }
 
-// GetHash computes state hash, if called for first time or state has changed after most recent call to this function
+// GetHash computes new state hash if the stateDelta is to be applied.
+// Recomputes only if stateDelta has changed after most recent call to this function
 func (state *State) GetHash() ([]byte, error) {
 	if state.recomputeHash {
 		stateLogger.Debug("Recomputing state hash...")

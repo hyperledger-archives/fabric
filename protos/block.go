@@ -24,8 +24,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-
-	"golang.org/x/crypto/sha3"
+	"github.com/openblockchain/obc-peer/openchain/util"
 )
 
 // NewBlock creates a new block with the specified proposer ID, list of,
@@ -56,12 +55,11 @@ func NewBlock(proposerID string, transactions []*Transaction) *Block {
 
 // GetHash returns the hash of this block.
 func (block *Block) GetHash() ([]byte, error) {
-	hash := make([]byte, 64)
 	data, err := block.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("Could not calculate hash of block: %s", err)
 	}
-	sha3.ShakeSum256(hash, data)
+	hash := util.ComputeCryptoHash(data)
 	return hash, nil
 }
 
