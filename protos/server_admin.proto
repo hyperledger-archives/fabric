@@ -47,6 +47,9 @@ message OpenchainMessage {
 
     DISC_NEWMSG = 15;
 
+
+    VALIDATOR_TRANSACTIONS = 16;
+
   }
   Type type = 1;
 

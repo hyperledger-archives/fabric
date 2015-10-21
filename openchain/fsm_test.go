@@ -57,6 +57,23 @@ func TestFSM_PeerConnection(t *testing.T) {
 	}
 }
 
+func TestFSM_PeerConnection2(t *testing.T) {
+	peerConn := NewPeerConnectionFSM("10.10.10.10:30303")
+
+	err := peerConn.FSM.Event("HELLO")
+	if err != nil {
+		t.Error(err)
+	}
+	if peerConn.FSM.Current() != "established" {
+		t.Error("Expected to be in establised state")
+	}
+
+	err = peerConn.FSM.Event("DISCONNECT")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestFSM_PeerConnection_BadState_1(t *testing.T) {
 	peerConn := NewPeerConnectionFSM("10.10.10.10:30303")
 

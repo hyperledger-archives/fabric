@@ -28,10 +28,10 @@ import (
 
 	"github.com/spf13/viper"
 
+	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
-	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var peerClientConn *grpc.ClientConn = nil
@@ -125,4 +125,22 @@ func Benchmark_Chat_Parallel(b *testing.B) {
 
 func TestServer_Chat(t *testing.T) {
 	performChat(t, peerClientConn)
+}
+
+func TestPeer_FSM(t *testing.T) {
+	t.Skip("Not running at moment")
+	peerConn := NewPeerFSM("10.10.10.10:30303", nil)
+
+	err := peerConn.FSM.Event(pb.OpenchainMessage_DISC_HELLO.String())
+	if err != nil {
+		t.Error(err)
+	}
+	if peerConn.FSM.Current() != "established" {
+		t.Error("Expected to be in establised state")
+	}
+
+	err = peerConn.FSM.Event("DISCONNECT")
+	if err != nil {
+		t.Error(err)
+	}
 }
