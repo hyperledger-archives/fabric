@@ -82,7 +82,7 @@ peer:
         validator:
             enabled: false
         leader:
-            address: 
+            address:
 
     # TLS Settings for p2p communications
     tls:

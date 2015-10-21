@@ -2,10 +2,10 @@ package db
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"testing"
 
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
@@ -23,8 +23,8 @@ func TestCreateDB_DirDoesNotExist(t *testing.T) {
 	deleteTestDB()
 }
 
-func TestCreateDB_DirExists(t *testing.T) {
-	createTestDBPath()
+func TestCreateDB_NonEmptyDirExists(t *testing.T) {
+	createNonEmptyTestDBPath()
 	err := CreateDB()
 	if err == nil {
 		t.Fatal("Dir alrady exists. DB creation should throw error")
@@ -35,29 +35,31 @@ func TestCreateDB_DirExists(t *testing.T) {
 func TestWriteAndRead(t *testing.T) {
 	createTestDB()
 	defer deleteTestDB()
-	openchainDB := GetDBHandle()
-	opt := gorocksdb.NewDefaultWriteOptions()
-	writeBatch := gorocksdb.NewWriteBatch()
-	writeBatch.PutCF(openchainDB.BlockchainCF, []byte("dummyKey"), []byte("dummyValue"))
-	err := openchainDB.DB.Write(opt, writeBatch)
-	if err != nil {
-		t.Fatal("Error while writing to db")
-	}
-	value, err := openchainDB.GetFromBlockchainCF([]byte("dummyKey"))
+	performBasicReadWrite(t)
+}
 
-	if err != nil {
-		t.Fatalf("read error = [%s]", err)
-	}
+func TestOpenDB_DirDoesNotExist(t *testing.T) {
+	deleteTestDBPath()
+	defer deleteTestDB()
+	performBasicReadWrite(t)
+}
 
-	if !bytes.Equal(value, []byte("dummyValue")) {
-		t.Fatal("read error. Bytes not equal")
-	}
+func TestOpenDB_DirEmpty(t *testing.T) {
+	deleteTestDBPath()
+	createTestDBPath()
+	defer deleteTestDB()
+	performBasicReadWrite(t)
 }
 
 // db helper functions
 func createTestDBPath() {
 	dbPath := viper.GetString("peer.db.path")
 	os.MkdirAll(dbPath, 0775)
+}
+
+func createNonEmptyTestDBPath() {
+	dbPath := viper.GetString("peer.db.path")
+	os.MkdirAll(dbPath+"/tmpFile", 0775)
 }
 
 func createTestDB() error {
@@ -75,8 +77,32 @@ func deleteTestDB() {
 }
 
 func setupTestConfig() {
-	viper.Set("peer.db.path", os.TempDir()+"/openchain/db")
-	level, _ := logging.LogLevel("INFO")
-	logging.SetLevel(level, "state")
+	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AddConfigPath("./../..")   // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
 	deleteTestDBPath()
+}
+
+func performBasicReadWrite(t *testing.T) {
+	openchainDB := GetDBHandle()
+	opt := gorocksdb.NewDefaultWriteOptions()
+	writeBatch := gorocksdb.NewWriteBatch()
+	writeBatch.PutCF(openchainDB.BlockchainCF, []byte("dummyKey"), []byte("dummyValue"))
+	err := openchainDB.DB.Write(opt, writeBatch)
+	if err != nil {
+		t.Fatal("Error while writing to db")
+	}
+	value, err := openchainDB.GetFromBlockchainCF([]byte("dummyKey"))
+
+	if err != nil {
+		t.Fatalf("read error = [%s]", err)
+	}
+
+	if !bytes.Equal(value, []byte("dummyValue")) {
+		t.Fatal("read error. Bytes not equal")
+	}
 }
