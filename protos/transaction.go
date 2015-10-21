@@ -30,9 +30,10 @@ import (
 // the contractID on for which the function should be called, and the string
 // which will be the arguments. The arguments could be a string of JSON, but
 // there is no requirement.
-func NewTransaction(chainletID ChainletID, function string, args []string) *Transaction {
+func NewTransaction(chainletID ChainletID, uuid string, function string, args []string) *Transaction {
 	transaction := new(Transaction)
 	transaction.ChainletID = &chainletID
+	transaction.Uuid = uuid
 	transaction.Function = function
 	transaction.Args = args
 	return transaction
