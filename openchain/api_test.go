@@ -60,7 +60,7 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a blockchain with 3 blocks.
 
 	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1)
+	chainErr1 := buildTestChain1(chain1, t)
 	if chainErr1 != nil {
 		t.Fail()
 		t.Logf("Error creating chain1: %s", chainErr1)
@@ -81,7 +81,7 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a blockchain with 5 blocks.
 
 	chain2 := initTestBlockChain(t)
-	chainErr2 := buildTestChain2(chain2)
+	chainErr2 := buildTestChain2(chain2, t)
 	if chainErr2 != nil {
 		t.Fail()
 		t.Logf("Error creating chain2: %s", chainErr2)
@@ -135,7 +135,7 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 	// Construct a blockchain with 3 blocks.
 
 	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1)
+	chainErr1 := buildTestChain1(chain1, t)
 	if chainErr1 != nil {
 		t.Fail()
 		t.Logf("Error creating chain1: %s", chainErr1)
@@ -212,7 +212,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	// Construct a blockchain with 3 blocks.
 
 	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1)
+	chainErr1 := buildTestChain1(chain1, t)
 	if chainErr1 != nil {
 		t.Fail()
 		t.Logf("Error creating chain1: %s", chainErr1)
@@ -237,7 +237,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	// Construct a blockchain with 5 blocks.
 
 	chain2 := initTestBlockChain(t)
-	chainErr2 := buildTestChain2(chain2)
+	chainErr2 := buildTestChain2(chain2, t)
 	if chainErr2 != nil {
 		t.Fail()
 		t.Logf("Error creating chain2: %s", chainErr2)
@@ -262,7 +262,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 
 // buildTestChain1 builds a simple blockchain data structure that contains 3
 // blocks.
-func buildTestChain1(chain *Blockchain) error {
+func buildTestChain1(chain *Blockchain, t *testing.T) error {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
 	state := GetState()
@@ -280,7 +280,7 @@ func buildTestChain1(chain *Blockchain) error {
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
 	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
@@ -298,7 +298,7 @@ func buildTestChain1(chain *Blockchain) error {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
+	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
 	state.Set("MyContract", "x", []byte("hello"))
@@ -316,7 +316,7 @@ func buildTestChain1(chain *Blockchain) error {
 // blocks, with each block containing the same number of transactions as its
 // index within the blockchain. Block 0, 0 transactions. Block 1, 1 transaction,
 // and so on.
-func buildTestChain2(chain *Blockchain) error {
+func buildTestChain2(chain *Blockchain, t *testing.T) error {
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
 	state := GetState()
@@ -334,7 +334,7 @@ func buildTestChain2(chain *Blockchain) error {
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
 	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
@@ -352,8 +352,8 @@ func buildTestChain2(chain *Blockchain) error {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
-	transaction3b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, "setY", []string{"{y: \"goodbuy\"}"})
+	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction3b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
 
 	// Run this transction in the VM. The VM updates the state
 	state.Set("MyContract", "x", []byte("hello"))
@@ -371,9 +371,9 @@ func buildTestChain2(chain *Blockchain) error {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction4a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
-	transaction4b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, "setY", []string{"{y: \"goodbuy\"}"})
-	transaction4c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, "setZ", []string{"{z: \"super\"}"})
+	transaction4a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction4b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction4c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
 
 	// Run this transction in the VM. The VM updates the state
 	state.Set("MyContract", "x", []byte("hello"))
@@ -392,10 +392,10 @@ func buildTestChain2(chain *Blockchain) error {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction5a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, "setX", []string{"{x: \"hello\"}"})
-	transaction5b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, "setY", []string{"{y: \"goodbuy\"}"})
-	transaction5c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, "setZ", []string{"{z: \"super\"}"})
-	transaction5d := protos.NewTransaction(protos.ChainletID{Url: "MyMEGAContract"}, "setMEGA", []string{"{mega: \"MEGA\"}"})
+	transaction5a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction5b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction5c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	transaction5d := protos.NewTransaction(protos.ChainletID{Url: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
 
 	// Run this transction in the VM. The VM updates the state
 	state.Set("MyContract", "x", []byte("hello"))

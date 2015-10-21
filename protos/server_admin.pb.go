@@ -2,23 +2,11 @@
 // source: server_admin.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	server_admin.proto
-	openchain.proto
-
-It has these top-level messages:
-	OpenchainMessage
-	ServerStatus
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "google/protobuf"
 import google_protobuf1 "google/protobuf"
 
@@ -29,6 +17,8 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type OpenchainMessage_Type int32
 
@@ -50,6 +40,7 @@ const (
 	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 14
 	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 15
 	OpenchainMessage_VALIDATOR_TRANSACTIONS OpenchainMessage_Type = 16
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -70,6 +61,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	14: "CHAIN_NEW_BLOCK",
 	15: "DISC_NEWMSG",
 	16: "VALIDATOR_TRANSACTIONS",
+	17: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -89,6 +81,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"CHAIN_NEW_BLOCK":        14,
 	"DISC_NEWMSG":            15,
 	"VALIDATOR_TRANSACTIONS": 16,
+	"CONSENSUS":              17,
 }
 
 func (x OpenchainMessage_Type) String() string {
@@ -153,17 +146,18 @@ func (m *ServerStatus) String() string { return proto.CompactTextString(m) }
 func (*ServerStatus) ProtoMessage()    {}
 
 type ChainletIdentifier struct {
-	// Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
-	Url string `protobuf:"bytes,1,opt" json:"Url,omitempty"`
+	// URL for accessing the Chainlet, eg. https://github.com/user/SampleContract
+	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
 }
 
 func (m *ChainletIdentifier) Reset()         { *m = ChainletIdentifier{} }
 func (m *ChainletIdentifier) String() string { return proto.CompactTextString(m) }
 func (*ChainletIdentifier) ProtoMessage()    {}
 
-// Used by the Peer to identify the requesting chaincode and allows for proper access to state.
+// Used by the Peer to identify the requesting chaincode and allows for proper
+// access to state.
 type ChainletRequestContext struct {
-	Id *ChainletIdentifier `protobuf:"bytes,1,opt" json:"Id,omitempty"`
+	Id *ChainletIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
 }
 
 func (m *ChainletRequestContext) Reset()         { *m = ChainletRequestContext{} }
@@ -177,10 +171,11 @@ func (m *ChainletRequestContext) GetId() *ChainletIdentifier {
 	return nil
 }
 
-// Provided by the Peer to the chaincode identify the requesting chaincode and allows for proper access to state.
+// Provided by the Peer to the chaincode identify the requesting chaincode and
+// allows for proper access to state.
 type ChainletExecutionContext struct {
-	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt" json:"ChainletId,omitempty"`
-	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt" json:"Timestamp,omitempty"`
+	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt,name=ChainletId" json:"ChainletId,omitempty"`
+	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
 }
 
 func (m *ChainletExecutionContext) Reset()         { *m = ChainletExecutionContext{} }
@@ -213,9 +208,7 @@ var _ grpc.ClientConn
 // Client API for Admin service
 
 type AdminClient interface {
-	//
 	// Return the serve status.
-	//
 	GetStatus(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*ServerStatus, error)
 	StartServer(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*ServerStatus, error)
 	StopServer(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*ServerStatus, error)
@@ -259,9 +252,7 @@ func (c *adminClient) StopServer(ctx context.Context, in *google_protobuf1.Empty
 // Server API for Admin service
 
 type AdminServer interface {
-	//
 	// Return the serve status.
-	//
 	GetStatus(context.Context, *google_protobuf1.Empty) (*ServerStatus, error)
 	StartServer(context.Context, *google_protobuf1.Empty) (*ServerStatus, error)
 	StopServer(context.Context, *google_protobuf1.Empty) (*ServerStatus, error)
@@ -330,8 +321,8 @@ var _Admin_serviceDesc = grpc.ServiceDesc{
 // Client API for Peer service
 
 type PeerClient interface {
-	// Accepts a stream of OpenchainMessage during chat session,
-	// while receiving other OpenchainMessage (e.g. from other peers).
+	// Accepts a stream of OpenchainMessage during chat session,  while
+	// receiving other OpenchainMessage (e.g. from other peers).
 	Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error)
 }
 
@@ -377,8 +368,8 @@ func (x *peerChatClient) Recv() (*OpenchainMessage, error) {
 // Server API for Peer service
 
 type PeerServer interface {
-	// Accepts a stream of OpenchainMessage during chat session,
-	// while receiving other OpenchainMessage (e.g. from other peers).
+	// Accepts a stream of OpenchainMessage during chat session,  while
+	// receiving other OpenchainMessage (e.g. from other peers).
 	Chat(Peer_ChatServer) error
 }
 
@@ -429,9 +420,7 @@ var _Peer_serviceDesc = grpc.ServiceDesc{
 // Client API for ChainletSupport service
 
 type ChainletSupportClient interface {
-	//
 	// Return the datetime.
-	//
 	GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error)
 }
 
@@ -455,9 +444,7 @@ func (c *chainletSupportClient) GetExecutionContext(ctx context.Context, in *Cha
 // Server API for ChainletSupport service
 
 type ChainletSupportServer interface {
-	//
 	// Return the datetime.
-	//
 	GetExecutionContext(context.Context, *ChainletRequestContext) (*ChainletExecutionContext, error)
 }
 

@@ -29,6 +29,7 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -73,7 +74,12 @@ func (d *devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	}
 	//devops_logger.Debug("returning status: %s", status)
 	// Now create the Transactions message and send to Peer.
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc)
+	uuid, uuidErr := util.GenerateUUID()
+	if uuidErr != nil {
+		devops_logger.Error("Error generating UUID: %s", uuidErr)
+		return nil, uuidErr
+	}
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
