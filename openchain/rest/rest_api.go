@@ -85,28 +85,38 @@ func (s *ServerOpenchainREST) GetBlockchainInfo(rw web.ResponseWriter, req *web.
 // GetBlockByNumber returns the data contained within a specific block in the
 // blockchain. The genesis block is block zero.
 func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.Request) {
-	blockNumber, _ := strconv.ParseUint(req.PathParams["id"], 10, 64)
-	block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
+	// Parse out the Block id
+	blockNumber, err := strconv.ParseUint(req.PathParams["id"], 10, 64)
 
-	encoder := json.NewEncoder(rw)
-
-	// Check for error
+	// Check for proper Block id syntax
 	if err != nil {
 		// Failure
 		rw.WriteHeader(400)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"Block id must be an integer (uint64).\"}")
 	} else {
-		// Success
-		rw.WriteHeader(200)
-		encoder.Encode(block)
+		// Retrieve Block from blockchain
+		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
+
+		encoder := json.NewEncoder(rw)
+
+		// Check for error
+		if err != nil {
+			// Failure
+			rw.WriteHeader(400)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		} else {
+			// Success
+			rw.WriteHeader(200)
+			encoder.Encode(block)
+		}
 	}
 }
 
 // NotFound returns a custom landing page when a given openchain end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
-    rw.WriteHeader(http.StatusNotFound)
-    fmt.Fprintf(rw, "{\"Error\": \"Openchain endpoint not found.\"}")
+	rw.WriteHeader(http.StatusNotFound)
+	fmt.Fprintf(rw, "{\"Error\": \"Openchain endpoint not found.\"}")
 }
 
 // StartOpenchainRESTServer initializes the REST service and adds the required
