@@ -45,6 +45,7 @@
                 "in": "path",
                 "description": "Block number to retrieve",
                 "type": "integer",
+                "format": "uint64",
                 "required": true,
               }
             ],
