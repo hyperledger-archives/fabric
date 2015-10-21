@@ -112,6 +112,30 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	}
 }
 
+// GetState returns the value for the specified chaincode ID and key.
+func (s *ServerOpenchainREST) GetState(rw web.ResponseWriter, req *web.Request) {
+
+	// Parse out the chaincode id
+	chaincodeID := req.PathParams["chaincodeId"]
+	key := req.PathParams["key"]
+
+	// Retrieve Block from blockchain
+	val, err := s.server.GetState(context.Background(), chaincodeID, key)
+
+	encoder := json.NewEncoder(rw)
+
+	// Check for error
+	if err != nil {
+		// Failure
+		rw.WriteHeader(400)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+	} else {
+		// Success
+		rw.WriteHeader(200)
+		encoder.Encode(val)
+	}
+}
+
 // NotFound returns a custom landing page when a given openchain end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
@@ -135,6 +159,7 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain) {
 	// Add routes
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
+	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
