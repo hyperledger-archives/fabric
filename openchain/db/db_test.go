@@ -2,6 +2,7 @@ package db
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"testing"
 
@@ -40,14 +41,14 @@ func TestWriteAndRead(t *testing.T) {
 func TestOpenDB_DirDoesNotExist(t *testing.T) {
 	deleteTestDBPath()
 	defer deleteTestDB()
-	GetDBHandle()
+	performBasicReadWrite(t)
 }
 
 func TestOpenDB_DirEmpty(t *testing.T) {
 	deleteTestDBPath()
 	createTestDBPath()
 	defer deleteTestDB()
-	GetDBHandle()
+	performBasicReadWrite(t)
 }
 
 // db helper functions
@@ -76,7 +77,13 @@ func deleteTestDB() {
 }
 
 func setupTestConfig() {
-	viper.Set("peer.db.path", os.TempDir()+"/openchain/db")
+	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AddConfigPath("./../..")   // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
 	deleteTestDBPath()
 }
 
