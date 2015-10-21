@@ -216,51 +216,51 @@ func main() {
 
 }
 
-func serverValidator() error {
-	lis, err := net.Listen("tcp", viper.GetString("validator.address"))
-	if err != nil {
-		grpclog.Fatalf("failed to listen: %v", err)
-	}
-	var opts []grpc.ServerOption
-	if viper.GetBool("validator.tls.enabled") {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("validator.tls.cert.file"), viper.GetString("validator.tls.key.file"))
-		if err != nil {
-			grpclog.Fatalf("Failed to generate credentials %v", err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-	grpcServer := grpc.NewServer(opts...)
+// func serverValidator() error {
+// 	lis, err := net.Listen("tcp", viper.GetString("validator.address"))
+// 	if err != nil {
+// 		grpclog.Fatalf("failed to listen: %v", err)
+// 	}
+// 	var opts []grpc.ServerOption
+// 	if viper.GetBool("validator.tls.enabled") {
+// 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("validator.tls.cert.file"), viper.GetString("validator.tls.key.file"))
+// 		if err != nil {
+// 			grpclog.Fatalf("Failed to generate credentials %v", err)
+// 		}
+// 		opts = []grpc.ServerOption{grpc.Creds(creds)}
+// 	}
+// 	grpcServer := grpc.NewServer(opts...)
 
-	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	var peer *openchain.Peer
-	if viper.GetBool("peer.consensus.validator.enabled") {
-		log.Debug("Running as validator")
-		newValidator := openchain.NewSimpleValidator()
-		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
-	} else {
-		log.Debug("Running as peer")
-		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
-			return openchain.NewPeerFSM("", stream)
-		})
-		//pb.RegisterPeerServer(grpcServer, peer)
-	}
-	pb.RegisterPeerServer(grpcServer, peer)
+// 	// Register the Peer server
+// 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
+// 	var peer *openchain.Peer
+// 	if viper.GetBool("peer.consensus.validator.enabled") {
+// 		log.Debug("Running as validator")
+// 		newValidator := openchain.NewSimpleValidator()
+// 		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
+// 	} else {
+// 		log.Debug("Running as peer")
+// 		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
+// 			return openchain.NewPeerFSM("", stream)
+// 		})
+// 		//pb.RegisterPeerServer(grpcServer, peer)
+// 	}
+// 	pb.RegisterPeerServer(grpcServer, peer)
 
-	rootNode, err := openchain.GetRootNode()
-	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
-	}
-	log.Info("Starting validator with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
-	go grpcServer.Serve(lis)
-	return nil
-}
+// 	rootNode, err := openchain.GetRootNode()
+// 	if err != nil {
+// 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
+// 	}
+// 	log.Info("Starting validator with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+// 	go grpcServer.Serve(lis)
+// 	return nil
+// }
 
 func serve() error {
 
-	if viper.GetBool("validator.enabled") {
-		serverValidator()
-	}
+	// if viper.GetBool("validator.enabled") {
+	// 	serverValidator()
+	// }
 
 	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 	if err != nil {
@@ -281,7 +281,10 @@ func serve() error {
 	var peer *openchain.Peer
 	if viper.GetBool("peer.consensus.validator.enabled") {
 		log.Debug("Running as validator")
-		newValidator := openchain.NewSimpleValidator()
+		newValidator, err := openchain.NewSimpleValidator()
+		if err != nil {
+			return fmt.Errorf("Error creating simple Validator: %s", err)
+		}
 		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
 	} else {
 		log.Debug("Running as peer")

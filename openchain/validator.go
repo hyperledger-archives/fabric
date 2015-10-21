@@ -22,9 +22,13 @@ package openchain
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -38,9 +42,11 @@ type Validator interface {
 type SimpleValidator struct {
 	validatorStreams map[string]MessageHandler
 	peerStreams      map[string]MessageHandler
+	leader           pb.PeerClient
 }
 
-func (v *SimpleValidator) Broadcast(*pb.OpenchainMessage) error {
+func (v *SimpleValidator) Broadcast(msg *pb.OpenchainMessage) error {
+	validatorLogger.Debug("Broadcasting OpenchainMessage of type: %s", msg.Type)
 	return nil
 }
 
@@ -48,9 +54,23 @@ func (v *SimpleValidator) GetHandler(stream PeerChatStream) MessageHandler {
 	return NewValidatorFSM(v, "", stream)
 }
 
-func NewSimpleValidator() Validator {
+func NewSimpleValidator() (Validator, error) {
 	validator := &SimpleValidator{}
-	return validator
+	// Only perform if NOT the leader
+	if !viper.GetBool("peer.consensus.leader.enabled") {
+		leaderAddress := viper.GetString("peer.consensus.leader.address")
+		validatorLogger.Debug("Creating client to Peer (Leader) with address: %s", leaderAddress)
+		conn, err := NewPeerClientConnectionWithAddress(leaderAddress)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating connection to leader address=%s:  %s", leaderAddress, err)
+		}
+		serverClient := pb.NewPeerClient(conn)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating Peer client to leader address=%s:  %s", leaderAddress, err)
+		}
+		validator.leader = serverClient
+	}
+	return validator, nil
 }
 
 type ValidatorFSM struct {
@@ -97,10 +117,30 @@ func (v *ValidatorFSM) beforeHello(e *fsm.Event) {
 
 func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 	validatorLogger.Debug("Sending broadcast to all validators upon receipt of %s", pb.OpenchainMessage_DISC_HELLO.String())
-	// v.validator.Broadcast(pb.OpenchainMessage_VALIDATOR_TRANSACTIONS)
-	if err := v.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO}); err != nil {
-		e.Cancel(err)
+	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+
 	}
+	msg := e.Args[0].(*pb.OpenchainMessage)
+
+	//
+	//proto.Marshal()
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
+		return
+	}
+	request := &pbft.Request{Id: uuid, Payload: msg.Payload}
+	data, err := proto.Marshal(request)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error marshalling Request: %s", err))
+		return
+	}
+	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: data}
+	validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", msg.Type)
+	v.validator.Broadcast(newMsg)
+	// if err := v.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO}); err != nil {
+	// 	e.Cancel(err)
+	// }
 }
 
 func (v *ValidatorFSM) when(stateToCheck string) bool {
@@ -112,7 +152,7 @@ func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	if v.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
 	}
-	err := v.FSM.Event(msg.Type.String())
+	err := v.FSM.Event(msg.Type.String(), msg)
 	if err != nil {
 		if _, ok := err.(*fsm.NoTransitionError); !ok {
 			// Only allow NoTransitionError's, all others are considered true error.

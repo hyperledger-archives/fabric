@@ -17,14 +17,11 @@ It has these top-level messages:
 package pbft
 
 import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import google_protobuf "google/protobuf"
+
+// discarding unused import google_protobuf "google/protobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
 
 type Phase_Type int32
 
@@ -63,21 +60,13 @@ func (x Phase_Type) String() string {
 // it a unique ID, then packages into a "Request" message that is passed along
 // to one of its connected validators.
 type Request struct {
-	Id        uint64                     `protobuf:"varint,1,opt,name=id" json:"id,omitempty"`
-	Payload   []byte                     `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+	Id      string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
 func (m *Request) Reset()         { *m = Request{} }
 func (m *Request) String() string { return proto.CompactTextString(m) }
 func (*Request) ProtoMessage()    {}
-
-func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
 
 // Phase is the message type shared among validators during the consensus phase.
 // The "sequenceNumber" field is set by the leader when setting a "PRE_PREPARE".
@@ -86,22 +75,14 @@ func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
 // is "PREPARE_RESULT" or "COMMIT_RESULT", "payload" should carry the candidate
 // global hash.
 type Phase struct {
-	Type           Phase_Type                 `protobuf:"varint,1,opt,name=type,enum=pbft.Phase_Type" json:"type,omitempty"`
-	SequenceNumber uint64                     `protobuf:"varint,2,opt,name=sequenceNumber" json:"sequenceNumber,omitempty"`
-	Payload        []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Timestamp      *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Type           Phase_Type `protobuf:"varint,1,opt,name=type,enum=pbft.Phase_Type" json:"type,omitempty"`
+	SequenceNumber uint64     `protobuf:"varint,2,opt,name=sequenceNumber" json:"sequenceNumber,omitempty"`
+	Payload        []byte     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
 func (m *Phase) Reset()         { *m = Phase{} }
 func (m *Phase) String() string { return proto.CompactTextString(m) }
 func (*Phase) ProtoMessage()    {}
-
-func (m *Phase) GetTimestamp() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
 
 // RequestHashes contains the hashes of the "Request" messages that the leader
 // will package in a consensus round. Marshalling such a message (proto.Marshal)

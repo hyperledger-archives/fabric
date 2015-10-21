@@ -81,7 +81,8 @@ peer:
     consensus:
         validator:
             enabled: false
-        leader:
+        leader:            
+            enabled: false
             address:
 
     # TLS Settings for p2p communications

@@ -28,7 +28,7 @@ import "google/protobuf/timestamp.proto";
 // it a unique ID, then packages into a "Request" message that is passed along
 // to one of its connected validators.
 message Request {
-    uint64 id = 1;
+    string id = 1;
     bytes payload = 2;
 }
 
