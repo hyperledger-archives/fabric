@@ -30,7 +30,6 @@ import "google/protobuf/timestamp.proto";
 message Request {
     uint64 id = 1;
     bytes payload = 2;
-    google.protobuf.Timestamp timestamp = 3;
 }
 
 // Phase is the message type shared among validators during the consensus phase.
@@ -51,7 +50,6 @@ message Phase {
     Type type = 1;
     uint64 sequenceNumber = 2;
     bytes payload = 3;
-    google.protobuf.Timestamp timestamp = 4;
 }
 
 // RequestHashes contains the hashes of the "Request" messages that the leader
