@@ -224,7 +224,7 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))
 		return
 	}
-	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, Id: uuid, Payload: data})
+	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, ID: uuid, Payload: data})
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
 		return
