@@ -17,17 +17,14 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -53,7 +50,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 
 	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx})
 
-	err = chain.AddBlock(context.TODO(), block1)
+	err = chain.addBlock(context.TODO(), block1)
 	if err != nil {
 		t.Logf("Error adding block to chain: %s", err)
 		t.Fail()
@@ -106,11 +103,11 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
-	chain, err := GetBlockchain()
+	chain, err := getBlockchain()
 	if err != nil {
 		t.Fatalf("Error while getting handle to block chain. Error = [%s]", err)
 	}
-	state := GetState()
+	state := getState()
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block>-------------------------------
@@ -120,7 +117,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block1)
+	chain.addBlock(context.TODO(), block1)
 
 	// -----------------------------</Genisis block>------------------------------
 
@@ -134,7 +131,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Set("MyContract1", "code", []byte("code example"))
+	state.set("MyContract1", "code", []byte("code example"))
 
 	// Now we add the transaction to the block 2 and add the block to the chain
 	stateHash = getTestStateHash(t)
@@ -143,7 +140,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block2)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block2)
+	chain.addBlock(context.TODO(), block2)
 
 	// -----------------------------</Block 2>------------------------------------
 
@@ -155,7 +152,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
+	state.set("MyContract", "x", []byte("hello"))
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
@@ -164,18 +161,11 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block3)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block3)
+	chain.addBlock(context.TODO(), block3)
 
 	// -----------------------------</Block 3>------------------------------------
 
 	return allBlocks, allHashes
-}
-
-func buildTestBlock() *protos.Block {
-	transactions := []*protos.Transaction{}
-	transactions = append(transactions, buildTestTx())
-	block := protos.NewBlock("ErrorCreator", transactions)
-	return block
 }
 
 func buildTestTx() *protos.Transaction {
@@ -191,8 +181,8 @@ func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
 }
 
 func getTestStateHash(t *testing.T) []byte {
-	state := GetState()
-	stateHash, err := state.GetHash()
+	state := getState()
+	stateHash, err := state.getHash()
 	if err != nil {
 		t.Fatalf("Error while getting state hash. Error = [%s]", err)
 	}
@@ -207,17 +197,9 @@ func getBlockHash(t *testing.T, block *protos.Block) []byte {
 	return hash
 }
 
-func getBlockchain(t *testing.T) *Blockchain {
-	chain, err := GetBlockchain()
-	if err != nil {
-		t.Fatalf("Error while getting handle to chain. [%s]", err)
-	}
-	return chain
-}
-
 func getLastBlock(t *testing.T) *protos.Block {
-	chain := getBlockchain(t)
-	lastBlock, err := chain.GetLastBlock()
+	chain := getTestBlockchain(t)
+	lastBlock, err := chain.getLastBlock()
 	if err != nil {
 		t.Fatalf("Error while getting last block from chain. [%s]", err)
 	}
@@ -225,17 +207,24 @@ func getLastBlock(t *testing.T) *protos.Block {
 }
 
 func getBlock(t *testing.T, blockNumber int) *protos.Block {
-	chain := getBlockchain(t)
-	block, err := chain.GetBlock(uint64(blockNumber))
+	chain := getTestBlockchain(t)
+	block, err := chain.getBlock(uint64(blockNumber))
 	if err != nil {
 		t.Fatalf("Error while getting block from chain. [%s]", err)
 	}
 	return block
 }
 
+func buildTestBlock() *protos.Block {
+	transactions := []*protos.Transaction{}
+	transactions = append(transactions, buildTestTx())
+	block := protos.NewBlock("ErrorCreator", transactions)
+	return block
+}
+
 func checkChainSize(t *testing.T, expectedSize uint64) {
-	chain, _ := GetBlockchain()
-	chainSize := chain.GetSize()
+	chain, _ := getBlockchain()
+	chainSize := chain.getSize()
 	chainSizeInDb, err := fetchBlockchainSizeFromDB()
 	t.Logf("Chain size in-memory=[%d] and in db=[%d]", chainSize, chainSizeInDb)
 	if err != nil {
@@ -247,73 +236,4 @@ func checkChainSize(t *testing.T, expectedSize uint64) {
 	if chainSize != chainSizeInDb {
 		t.Fatalf("chain size value different in DB from in-memory. in-memory=[%d], in db=[%d]", chainSize, chainSizeInDb)
 	}
-}
-
-///////////////////////////
-// Test db creation and cleanup functions
-var performTestDBCleanup bool
-
-func initTestDB(t *testing.T) {
-	// cleaning up test db here so that each test does not have to call it explicitly
-	// at the end of the test
-	cleanupTestDB()
-	removeTestDBPath()
-	err := db.CreateDB()
-	if err != nil {
-		t.Fatalf("Error in creating test db. Error = [%s]", err)
-	}
-	performTestDBCleanup = true
-}
-
-func cleanupTestDB() {
-	if performTestDBCleanup {
-		db.GetDBHandle().CloseDB()
-		performTestDBCleanup = false
-	}
-}
-
-func removeTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
-	os.RemoveAll(dbPath)
-}
-
-////////////////////////////////////////////////////
-//  test block chain creation and cleanup functions
-var performTestBlockchainCleanup bool
-
-func initTestBlockChain(t *testing.T) *Blockchain {
-	// cleaning up blockchain instance for test here so that each test does
-	// not have to call it explicitly at the end of the test
-	cleanupTestBlockchain(t)
-	initTestDB(t)
-	chain := getBlockchain(t)
-	err := chain.init()
-	if err != nil {
-		t.Fatalf("Error during initializing block chain. Error: %s", err)
-	}
-	t.Logf("Reinitialized Blockchain for testing.....")
-	GetState().ClearInMemoryChanges()
-	performTestBlockchainCleanup = true
-	return chain
-}
-
-func cleanupTestBlockchain(t *testing.T) {
-	if performTestBlockchainCleanup {
-		t.Logf("Cleaning up previously created blockchain for testing.....")
-		chain := getBlockchain(t)
-		if chain.indexer != nil {
-			chain.indexer.stop()
-		}
-		chain.size = 0
-		chain.previousBlockHash = []byte{}
-		performTestBlockchainCleanup = false
-	}
-}
-
-func generateUUID(t *testing.T) string {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUID: %s", err)
-	}
-	return uuid
 }

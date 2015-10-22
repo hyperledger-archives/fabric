@@ -83,7 +83,6 @@ func setupTestConfig() {
 	if err != nil {                  // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
-
 	deleteTestDBPath()
 }
 

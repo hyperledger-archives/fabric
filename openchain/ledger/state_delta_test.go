@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"bytes"
@@ -42,26 +42,26 @@ func TestStateDeltaMarshalling(t *testing.T) {
 func TestStateDeltaPersistence(t *testing.T) {
 	initTestDB(t)
 	historyStateDeltaSize = 2
-	state := GetState()
+	state := getState()
 
-	state.ClearInMemoryChanges()
-	state.Set("chaincode1", "key1", []byte("value1"))
-	state.Set("chaincode2", "key2", []byte("value2"))
+	state.clearInMemoryChanges()
+	state.set("chaincode1", "key1", []byte("value1"))
+	state.set("chaincode2", "key2", []byte("value2"))
 	commitTestState(t, 0)
 
-	state.ClearInMemoryChanges()
-	state.Set("chaincode1", "key3", []byte("value3"))
-	state.Set("chaincode2", "key4", []byte("value4"))
+	state.clearInMemoryChanges()
+	state.set("chaincode1", "key3", []byte("value3"))
+	state.set("chaincode2", "key4", []byte("value4"))
 	commitTestState(t, 1)
 
-	state.ClearInMemoryChanges()
-	state.Set("chaincode1", "key5", []byte("value5"))
-	state.Set("chaincode2", "key6", []byte("value6"))
+	state.clearInMemoryChanges()
+	state.set("chaincode1", "key5", []byte("value5"))
+	state.set("chaincode2", "key6", []byte("value6"))
 	commitTestState(t, 2)
 
-	state.ClearInMemoryChanges()
-	state.Set("chaincode1", "key7", []byte("value7"))
-	state.Set("chaincode2", "key8", []byte("value8"))
+	state.clearInMemoryChanges()
+	state.set("chaincode1", "key7", []byte("value7"))
+	state.set("chaincode2", "key8", []byte("value8"))
 	commitTestState(t, 3)
 
 	// state delta for block# 3
@@ -97,12 +97,12 @@ func commitTestState(t *testing.T, blockNumber uint64) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	opts := gorocksdb.NewDefaultWriteOptions()
 
-	_, err := GetState().GetHash()
+	_, err := getState().getHash()
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
 
-	GetState().addChangesForPersistence(blockNumber, writeBatch)
+	getState().addChangesForPersistence(blockNumber, writeBatch)
 
 	err = db.GetDBHandle().DB.Write(opts, writeBatch)
 	if err != nil {

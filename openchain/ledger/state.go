@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ import (
 )
 
 // State structure for maintaining world state. This is not thread safe
-type State struct {
+type state struct {
 	stateDelta    *stateDelta
 	statehash     *stateHash
 	recomputeHash bool
@@ -38,18 +38,18 @@ var stateLogger = logging.MustGetLogger("state")
 
 // should this be configurable in yaml?
 var historyStateDeltaSize = uint64(500)
-var stateInstance *State
+var stateInstance *state
 
-// GetState get handle to world state
-func GetState() *State {
+// getState get handle to world state
+func getState() *state {
 	if stateInstance == nil {
-		stateInstance = &State{newStateDelta(), nil, true}
+		stateInstance = &state{newStateDelta(), nil, true}
 	}
 	return stateInstance
 }
 
-// Get get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
-func (state *State) Get(chaincodeID string, key string) ([]byte, error) {
+// get - get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
+func (state *state) get(chaincodeID string, key string) ([]byte, error) {
 	valueHolder := state.stateDelta.get(chaincodeID, key)
 	if valueHolder != nil {
 		return valueHolder.value, nil
@@ -57,23 +57,23 @@ func (state *State) Get(chaincodeID string, key string) ([]byte, error) {
 	return state.fetchStateFromDB(chaincodeID, key)
 }
 
-// Set sets state to given value for chaincodeID and key. Does not immideatly writes to memory
-func (state *State) Set(chaincodeID string, key string, value []byte) error {
+// set - sets state to given value for chaincodeID and key. Does not immideatly writes to memory
+func (state *state) set(chaincodeID string, key string, value []byte) error {
 	state.stateDelta.set(chaincodeID, key, value)
 	state.recomputeHash = true
 	return nil
 }
 
-// Delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
-func (state *State) Delete(chaincodeID string, key string) error {
+// delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
+func (state *state) delete(chaincodeID string, key string) error {
 	state.stateDelta.delete(chaincodeID, key)
 	state.recomputeHash = true
 	return nil
 }
 
-// GetHash computes new state hash if the stateDelta is to be applied.
+// getHash computes new state hash if the stateDelta is to be applied.
 // Recomputes only if stateDelta has changed after most recent call to this function
-func (state *State) GetHash() ([]byte, error) {
+func (state *state) getHash() ([]byte, error) {
 	if state.recomputeHash {
 		stateLogger.Debug("Recomputing state hash...")
 		hash, err := computeStateHash(state.stateDelta)
@@ -86,13 +86,13 @@ func (state *State) GetHash() ([]byte, error) {
 	return state.statehash.globalHash, nil
 }
 
-// ClearInMemoryChanges remove from memory all the changes to state
-func (state *State) ClearInMemoryChanges() {
+// clearInMemoryChanges remove from memory all the changes to state
+func (state *state) clearInMemoryChanges() {
 	state.stateDelta = newStateDelta()
 }
 
-// getUpdates get changes in state after most recent call to method ClearInMemoryChanges
-func (state *State) getStateDelta() *stateDelta {
+// getStateDelta get changes in state after most recent call to method clearInMemoryChanges
+func (state *state) getStateDelta() *stateDelta {
 	return state.stateDelta
 }
 
@@ -109,7 +109,7 @@ func fetchStateDeltaFromDB(blockNumber uint64) (*stateDelta, error) {
 	return stateDelta, nil
 }
 
-func (state *State) addChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) error {
+func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) error {
 	stateLogger.Debug("state.addChangesForPersistence()...start")
 	state.stateDelta.addChangesForPersistence(writeBatch)
 
@@ -136,7 +136,7 @@ func (state *State) addChangesForPersistence(blockNumber uint64, writeBatch *gor
 	return nil
 }
 
-func (state *State) fetchStateFromDB(chaincodeID string, key string) ([]byte, error) {
+func (state *state) fetchStateFromDB(chaincodeID string, key string) ([]byte, error) {
 	return db.GetDBHandle().GetFromStateCF(encodeStateDBKey(chaincodeID, key))
 }
 

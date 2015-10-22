@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ import (
 func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 	initTestBlockChain(t)
 	blocks, _ := buildSimpleChain(t)
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
@@ -39,7 +39,7 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 	t.Log("Setting an error artificially so as to client query gets an error")
 	asyncIndexer.indexerState.setError(errors.New("Error created for testing"))
 	// index query should throw error
-	_, err := chain.GetBlockByHash(getBlockHash(t, blocks[0]))
+	_, err := chain.getBlockByHash(getBlockHash(t, blocks[0]))
 	if err == nil {
 		t.Fatal("Error expected during execution of client query")
 	}
@@ -49,7 +49,7 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	initTestBlockChain(t)
 	blocks, _ := buildSimpleChain(t)
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
@@ -59,7 +59,7 @@ func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		chain.size = chain.size - 1
-		chain.AddBlock(context.TODO(), buildTestBlock())
+		chain.addBlock(context.TODO(), buildTestBlock())
 	}()
 	t.Log("Executing client query. The client would wait and will be woken up")
 	block := getBlockByHash(t, getBlockHash(t, blocks[0]))

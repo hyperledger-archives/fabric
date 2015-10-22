@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"bytes"
@@ -29,44 +29,44 @@ import (
 
 func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
 	initTestDB(t)
-	state := GetState()
-	state.ClearInMemoryChanges()
+	state := getState()
+	state.clearInMemoryChanges()
 
-	state.Set("chaincode1", "key1", []byte("value1"))
-	state.Set("chaincode1", "key2", []byte("value2"))
-	state.Set("chaincode2", "key3", []byte("value3"))
-	state.Set("chaincode2", "key4", []byte("value4"))
-	state.Delete("chaincode2", "key3")
+	state.set("chaincode1", "key1", []byte("value1"))
+	state.set("chaincode1", "key2", []byte("value2"))
+	state.set("chaincode2", "key3", []byte("value3"))
+	state.set("chaincode2", "key4", []byte("value4"))
+	state.delete("chaincode2", "key3")
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key4value4"})
 }
 
 func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
 	initTestDB(t)
-	state := GetState()
-	state.ClearInMemoryChanges()
+	state := getState()
+	state.clearInMemoryChanges()
 
-	state.Set("chaincode1", "key1", []byte("value1"))
-	state.Set("chaincode1", "key2", []byte("value2"))
-	state.Set("chaincode2", "key3", []byte("value3"))
-	state.Set("chaincode2", "key4", []byte("value4"))
+	state.set("chaincode1", "key1", []byte("value1"))
+	state.set("chaincode1", "key2", []byte("value2"))
+	state.set("chaincode2", "key3", []byte("value3"))
+	state.set("chaincode2", "key4", []byte("value4"))
 	saveTestStateDataInDB(t)
 
 	checkCodechainHashInDB(t, "chaincode1", "chaincode1key1value1key2value2")
 	checkCodechainHashInDB(t, "chaincode2", "chaincode2key3value3key4value4")
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key3value3key4value4"})
 
-	state.Delete("chaincode2", "key4")
-	state.Set("chaincode2", "key5", []byte("value5"))
+	state.delete("chaincode2", "key4")
+	state.set("chaincode2", "key5", []byte("value5"))
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key3value3key5value5"})
 
 	saveTestStateDataInDB(t)
-	state.Set("chaincode2", "key0", []byte("value0"))
+	state.set("chaincode2", "key0", []byte("value0"))
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key0value0key3value3key5value5"})
 }
 
 func checkGlobalStateHash(t *testing.T, expectedHashStr []string) {
-	state := GetState()
-	stateHash, err := state.GetHash()
+	state := getState()
+	stateHash, err := state.getHash()
 	if err != nil {
 		t.Fatalf("Error while getting hash. error = [%s]", err)
 	}
