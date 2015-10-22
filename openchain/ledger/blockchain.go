@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"bytes"
@@ -31,6 +31,7 @@ import (
 )
 
 // Blockchain holds basic information in memory. Operations on Blockchain are not thread-safe
+// TODO synchronize access to in-memory variables
 type Blockchain struct {
 	size              uint64
 	previousBlockHash []byte
@@ -153,6 +154,24 @@ func (blockchain *Blockchain) GetTransactionByBlockHash(blockHash []byte, txInde
 	return block.GetTransactions()[txIndex], nil
 }
 
+func (blockchain *Blockchain) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
+	if blockchain.GetSize() == 0 {
+		return &protos.BlockchainInfo{Height: 0}, nil
+	}
+
+	lastBlock, err := blockchain.GetLastBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	info := &protos.BlockchainInfo{
+		Height:            blockchain.GetSize(),
+		CurrentBlockHash:  blockchain.previousBlockHash,
+		PreviousBlockHash: lastBlock.PreviousBlockHash}
+
+	return info, nil
+}
+
 // AddBlock add a new block to blockchain
 func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block) error {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
@@ -184,6 +203,9 @@ func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 	blockBytes, err := db.GetDBHandle().GetFromBlockchainCF(encodeBlockNumberDBKey(blockNumber))
 	if err != nil {
 		return nil, err
+	}
+	if blockBytes == nil {
+		return nil, nil
 	}
 	return protos.UnmarshallBlock(blockBytes)
 }

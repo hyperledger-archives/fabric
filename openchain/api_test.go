@@ -21,31 +21,24 @@ package openchain
 
 import (
 	"bytes"
-	"google/protobuf"
 	"testing"
 
+	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
+	"google/protobuf"
 )
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
-	// Must initialize the Blockchain singleton before initializing the
-	// OpenchainServer, as it needs that pointer.
-
-	// Construct a blockchain with 0 blocks.
-
-	chain0 := initTestBlockChain(t)
-
+	// Construct a ledger with 0 blocks.
+	ledger.InitTestLedger(t)
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
 	}
-
-	server.blockchain = chain0
-	t.Logf("Chain 0 => %s", server.blockchain)
-
 	// Attempt to retrieve the blockchain info. There are no blocks
 	// in this blockchain, therefore this test should intentionally fail.
 	info, err := server.GetBlockchainInfo(context.Background(), &google_protobuf.Empty{})
@@ -58,19 +51,11 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a blockchain with 3 blocks.
-
-	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1, t)
-	if chainErr1 != nil {
-		t.Fail()
-		t.Logf("Error creating chain1: %s", chainErr1)
-	}
-	server.blockchain = chain1
-	t.Logf("Chain 1 => %s", server.blockchain)
+	// Construct a ledger with 3 blocks.
+	ledger1 := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger1, t)
 
 	// Attempt to retrieve the blockchain info.
-
 	info, err = server.GetBlockchainInfo(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		t.Logf("Error retrieving blockchain info: %s", err)
@@ -79,20 +64,11 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 		t.Logf("Blockchain 1 info: %v", info)
 	}
 
-	// Construct a blockchain with 5 blocks.
-
-	chain2 := initTestBlockChain(t)
-	chainErr2 := buildTestChain2(chain2, t)
-	if chainErr2 != nil {
-		t.Fail()
-		t.Logf("Error creating chain2: %s", chainErr2)
-	}
-
-	server.blockchain = chain2
-	t.Logf("Chain 2 => %s", server.blockchain)
+	// Construct a ledger with 5 blocks.
+	ledger2 := ledger.InitTestLedger(t)
+	buildTestLedger2(ledger2, t)
 
 	// Attempt to retrieve the blockchain info.
-
 	info, err = server.GetBlockchainInfo(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		t.Logf("Error retrieving blockchain info: %s", err)
@@ -103,12 +79,8 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 }
 
 func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
-	// Must initialize the Blockchain singleton before initializing the
-	// OpenchainServer, as it needs that pointer.
-
-	// Construct a blockchain with 0 blocks.
-
-	chain0 := initTestBlockChain(t)
+	// Construct a ledger with 0 blocks.
+	ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
@@ -116,9 +88,6 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
 	}
-
-	server.blockchain = chain0
-	t.Logf("Chain 0 => %s", server.blockchain)
 
 	// Attempt to retrieve the 0th block from the blockchain. There are no blocks
 	// in this blockchain, therefore this test should intentionally fail.
@@ -133,19 +102,11 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a blockchain with 3 blocks.
-
-	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1, t)
-	if chainErr1 != nil {
-		t.Fail()
-		t.Logf("Error creating chain1: %s", chainErr1)
-	}
-	server.blockchain = chain1
-	t.Logf("Chain 1 => %s", server.blockchain)
+	// Construct a ledger with 3 blocks.
+	ledger1 := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger1, t)
 
 	// Retrieve the 0th block from the blockchain.
-
 	block, err = server.GetBlockByNumber(context.Background(), &protos.BlockNumber{Number: 0})
 	if err != nil {
 		t.Logf("Error retrieving Block from blockchain: %s", err)
@@ -156,7 +117,6 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 
 	// Retrieve the 3rd block from the blockchain, blocks are numbered starting
 	// from 0.
-
 	block, err = server.GetBlockByNumber(context.Background(), &protos.BlockNumber{Number: 2})
 	if err != nil {
 		t.Logf("Error retrieving Block from blockchain: %s", err)
@@ -167,7 +127,6 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 
 	// Retrieve the 5th block from the blockchain. There are only 3 blocks in this
 	// blockchain, therefore this test should intentionally fail.
-
 	block, err = server.GetBlockByNumber(context.Background(), &protos.BlockNumber{Number: 4})
 	if err != nil {
 		// Success.
@@ -180,12 +139,11 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 }
 
 func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
-	// Must initialize the Blockchain singleton before initializing the
+	// Must initialize the ledger singleton before initializing the
 	// OpenchainServer, as it needs that pointer.
 
-	// Construct a blockchain with 0 blocks.
-
-	chain0 := initTestBlockChain(t)
+	// Construct a ledger with 0 blocks.
+	ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
@@ -194,12 +152,8 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 		t.Fail()
 	}
 
-	server.blockchain = chain0
-	t.Logf("Chain 0 => %s", server.blockchain)
-
 	// Retrieve the current number of blocks in the blockchain. There are no blocks
 	// in this blockchain, therefore this test should intentionally fail.
-
 	count, err := server.GetBlockCount(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		// Success
@@ -210,20 +164,10 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a blockchain with 3 blocks.
-
-	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1, t)
-	if chainErr1 != nil {
-		t.Fail()
-		t.Logf("Error creating chain1: %s", chainErr1)
-	}
-
-	server.blockchain = chain1
-	t.Logf("Chain 1 => %s", server.blockchain)
-
+	// Construct a ledger with 3 blocks.
+	ledger1 := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger1, t)
 	// Retrieve the current number of blocks in the blockchain. Must be 3.
-
 	count, err = server.GetBlockCount(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		t.Logf("Error retrieving BlockCount from blockchain: %s", err)
@@ -235,20 +179,10 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 		t.Logf("Current BlockCount: %v", count.Count)
 	}
 
-	// Construct a blockchain with 5 blocks.
-
-	chain2 := initTestBlockChain(t)
-	chainErr2 := buildTestChain2(chain2, t)
-	if chainErr2 != nil {
-		t.Fail()
-		t.Logf("Error creating chain2: %s", chainErr2)
-	}
-
-	server.blockchain = chain2
-	t.Logf("Chain 2 => %s", server.blockchain)
-
+	// Construct a ledger with 5 blocks.
+	ledger2 := ledger.InitTestLedger(t)
+	buildTestLedger2(ledger2, t)
 	// Retrieve the current number of blocks in the blockchain. Must be 5.
-
 	count, err = server.GetBlockCount(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		t.Logf("Error retrieving BlockCount from blockchain: %s", err)
@@ -262,6 +196,9 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 }
 
 func TestServerOpenchain_API_GetState(t *testing.T) {
+	ledger1 := ledger.InitTestLedger(t)
+	// Construct a blockchain with 3 blocks.
+	buildTestLedger1(ledger1, t)
 
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
@@ -270,19 +207,7 @@ func TestServerOpenchain_API_GetState(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a blockchain with 3 blocks.
-	chain1 := initTestBlockChain(t)
-	chainErr1 := buildTestChain1(chain1, t)
-	if chainErr1 != nil {
-		t.Fail()
-		t.Logf("Error creating chain1: %s", chainErr1)
-	}
-
-	server.blockchain = chain1
-	t.Logf("Chain 1 => %s", server.blockchain)
-
 	// Retrieve the current number of blocks in the blockchain. Must be 3.
-
 	val, stateErr := server.GetState(context.Background(), "MyContract1", "code")
 	if stateErr != nil {
 		t.Fatalf("Error retrieving state: %s", stateErr)
@@ -292,19 +217,17 @@ func TestServerOpenchain_API_GetState(t *testing.T) {
 
 }
 
-// buildTestChain1 builds a simple blockchain data structure that contains 3
-// blocks.
-func buildTestChain1(chain *Blockchain, t *testing.T) error {
-	// -----------------------------<Initial creation of blockchain and state>----
-	// Define an initial blockchain and state
-	state := GetState()
-	// -----------------------------</Initial creation of blockchain and state>---
-
-	// -----------------------------<Genisis block, block #0>---------------------
+// buildTestLedger1 builds a simple ledger data structure that contains a blockchain with 3 blocks.
+func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
+	// -----------------------------<Block #0>---------------------
 	// Add the 0th (genesis block)
-	block1 := protos.NewBlock("sheehan", nil)
-	chain.AddBlock(context.TODO(), block1)
-	// -----------------------------</Genisis block, block #0>--------------------
+	ledger1.BeginTxBatch(0)
+	err := ledger1.CommitTxBatch(0, []*protos.Transaction{}, []byte("dummy-proof"))
+	if err != nil {
+		t.Fatalf("Error in commit: %s", err)
+	}
+
+	// -----------------------------<Block #0>---------------------
 
 	// -----------------------------<Block #1>------------------------------------
 
@@ -312,53 +235,40 @@ func buildTestChain1(chain *Blockchain, t *testing.T) error {
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
 	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
-
-	// VM runs transaction2a and updates the global state with the result
+	ledger1.BeginTxBatch(1)
+	transaction1a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Set("MyContract1", "code", []byte("code example"))
-
-	// Now we add the transaction to block 1 and add the block to the chain
-	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a)
-	chain.AddBlock(context.TODO(), block2)
-
+	ledger1.SetState("MyContract1", "code", []byte("code example"))
+	ledger1.CommitTxBatch(1, []*protos.Transaction{transaction1a}, []byte("dummy-proof"))
 	// -----------------------------</Block #1>-----------------------------------
 
 	// -----------------------------<Block #2>------------------------------------
 
-	// Now we want to run the function 'setX' in 'MyContract
-
-	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	ledger1.BeginTxBatch(2)
+	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction2b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
+	ledger1.SetState("MyContract", "x", []byte("hello"))
+	ledger1.SetState("MyOtherContract", "y", []byte("goodbuy"))
 
-	// Create the 2nd block and add it to the chain
-	transactions3a := []*protos.Transaction{transaction3a}
-	block3 := protos.NewBlock("sheehan", transactions3a)
-	chain.AddBlock(context.TODO(), block3)
-
+	// Commit txbatch that creates the 2nd block on blockchain
+	ledger1.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, []byte("dummy-proof"))
 	// -----------------------------</Block #2>-----------------------------------
-	return nil
+	return
 }
 
-// buildTestChain2 builds a simple blockchain data structure that contains 5
-// blocks, with each block containing the same number of transactions as its
+// buildTestLedger2 builds a simple ledger data structure that contains a blockchain
+// of 5 blocks, with each block containing the same number of transactions as its
 // index within the blockchain. Block 0, 0 transactions. Block 1, 1 transaction,
 // and so on.
-func buildTestChain2(chain *Blockchain, t *testing.T) error {
-	// -----------------------------<Initial creation of blockchain and state>----
-	// Define an initial blockchain and state
-	state := GetState()
-	// -----------------------------</Initial creation of blockchain and state>---
-
-	// -----------------------------<Genisis block, block #0>---------------------
+func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
+	// -----------------------------<Block #0>---------------------
 	// Add the 0th (genesis block)
-	block1 := protos.NewBlock("sheehan", nil)
-	chain.AddBlock(context.TODO(), block1)
-	// -----------------------------</Genisis block, block #0>--------------------
+	ledger.BeginTxBatch(0)
+	ledger.CommitTxBatch(0, []*protos.Transaction{}, []byte("dummy-proof"))
+	// -----------------------------<Block #0>---------------------
 
 	// -----------------------------<Block #1>------------------------------------
 
@@ -366,81 +276,72 @@ func buildTestChain2(chain *Blockchain, t *testing.T) error {
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
 	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
-
-	// VM runs transaction2a and updates the global state with the result
+	ledger.BeginTxBatch(1)
+	transaction1a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Set("MyContract1", "code", []byte("code example"))
-
-	// Now we add the transaction to block 1 and add the block to the chain
-	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a)
-	chain.AddBlock(context.TODO(), block2)
+	ledger.SetState("MyContract1", "code", []byte("code example"))
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction1a}, []byte("dummy-proof"))
 
 	// -----------------------------</Block #1>-----------------------------------
 
 	// -----------------------------<Block #2>------------------------------------
 
-	// Now we want to run the function 'setX' in 'MyContract
-
-	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction3b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	ledger.BeginTxBatch(2)
+	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction2b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
-	state.Set("MyOtherContract", "y", []byte("goodbuy"))
+	ledger.SetState("MyContract", "x", []byte("hello"))
+	ledger.SetState("MyOtherContract", "y", []byte("goodbuy"))
 
-	// Create the 2nd block and add it to the chain
-	transactions3a := []*protos.Transaction{transaction3a, transaction3b}
-	block3 := protos.NewBlock("sheehan", transactions3a)
-	chain.AddBlock(context.TODO(), block3)
-
+	// Commit txbatch that creates the 2nd block on blockchain
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, []byte("dummy-proof"))
 	// -----------------------------</Block #2>-----------------------------------
 
 	// -----------------------------<Block #3>------------------------------------
 
+	ledger.BeginTxBatch(3)
+	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction3b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction3c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+
+	ledger.SetState("MyContract", "x", []byte("hello"))
+	ledger.SetState("MyOtherContract", "y", []byte("goodbuy"))
+	ledger.SetState("MyImportantContract", "z", []byte("super"))
+
+	ledger.CommitTxBatch(3, []*protos.Transaction{transaction3a, transaction3b, transaction3c}, []byte("dummy-proof"))
+
+	// -----------------------------</Block #3>-----------------------------------
+
+	// -----------------------------<Block #4>------------------------------------
+
+	ledger.BeginTxBatch(4)
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
 	transaction4a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 	transaction4b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
 	transaction4c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	transaction4d := protos.NewTransaction(protos.ChainletID{Url: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
-	state.Set("MyOtherContract", "y", []byte("goodbuy"))
-	state.Set("MyImportantContract", "z", []byte("super"))
-
-	// Create the 3rd block and add it to the chain
-	transactions4a := []*protos.Transaction{transaction4a, transaction4b, transaction4c}
-	block4 := protos.NewBlock("sheehan", transactions4a)
-	chain.AddBlock(context.TODO(), block4)
-
-	// -----------------------------</Block #3>-----------------------------------
-
-	// -----------------------------<Block #4>------------------------------------
-
-	// Now we want to run the function 'setX' in 'MyContract
-
-	// Create a transaction'
-	transaction5a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction5b := protos.NewTransaction(protos.ChainletID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
-	transaction5c := protos.NewTransaction(protos.ChainletID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
-	transaction5d := protos.NewTransaction(protos.ChainletID{Url: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
-
-	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
-	state.Set("MyOtherContract", "y", []byte("goodbuy"))
-	state.Set("MyImportantContract", "z", []byte("super"))
-	state.Set("MyMEGAContract", "mega", []byte("MEGA"))
+	ledger.SetState("MyContract", "x", []byte("hello"))
+	ledger.SetState("MyOtherContract", "y", []byte("goodbuy"))
+	ledger.SetState("MyImportantContract", "z", []byte("super"))
+	ledger.SetState("MyMEGAContract", "mega", []byte("MEGA"))
 
 	// Create the 4th block and add it to the chain
-	transactions5a := []*protos.Transaction{transaction5a, transaction5b, transaction5c, transaction5d}
-	block5 := protos.NewBlock("sheehan", transactions5a)
-	chain.AddBlock(context.TODO(), block5)
-
+	ledger.CommitTxBatch(4, []*protos.Transaction{transaction4a, transaction4b, transaction4c, transaction4d}, []byte("dummy-proof"))
 	// -----------------------------</Block #4>-----------------------------------
 
-	return nil
+	return
+}
+
+func generateUUID(t *testing.T) string {
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		t.Fatalf("Error generating UUID: %s", err)
+	}
+	return uuid
 }

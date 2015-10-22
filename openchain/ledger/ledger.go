@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
 	"fmt"
@@ -58,6 +58,9 @@ func GetLedger() (*Ledger, error) {
 	return ledger, nil
 }
 
+/////////////////// Transaction-batch related methods ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
 // BeginTxBatch - gets invoked when next round of transaction-batch execution begins
 func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	err := ledger.checkValidIDBegin()
@@ -94,6 +97,9 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
+/////////////////// world-state related methods /////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
 // GetTempStateHash - Computes state hash by taking into account the state changes that may have taken
 // place during the execution of current transaction-batch
 func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
@@ -113,6 +119,23 @@ func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) err
 // DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.Delete(chaincodeID, key)
+}
+
+/////////////////// blockchain related methods /////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
+// GetBlockchainInfo returns information about the blockchain ledger such as
+// height, current block hash, and previous block hash.
+func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
+	return ledger.blockchain.GetBlockchainInfo()
+}
+
+func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
+	return ledger.blockchain.GetBlock(blockNumber)
+}
+
+func (ledger *Ledger) GetBlockchainSize() uint64 {
+	return ledger.blockchain.GetSize()
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {

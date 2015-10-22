@@ -17,37 +17,44 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package ledger
 
 import (
+	"fmt"
+	"github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
+	"os"
 	"reflect"
 	"testing"
-
-	"github.com/openblockchain/obc-peer/protos"
 )
 
+func TestMain(m *testing.M) {
+	setupTestConfig()
+	os.Exit(m.Run())
+}
+
 func TestLedgerCommit(t *testing.T) {
-	ledger := initTestLedger(t)
-	beginTxBatch(t, 1)
+	ledger := InitTestLedger(t)
+	beginTestTxBatch(t, 1)
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	transaction := buildTestTx()
 	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
-	if !reflect.DeepEqual(getStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
+	if !reflect.DeepEqual(getTestStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
 		t.Fatalf("state value not same after Tx commit")
 	}
 }
 
 func TestLedgerRollback(t *testing.T) {
-	ledger := initTestLedger(t)
-	beginTxBatch(t, 1)
+	ledger := InitTestLedger(t)
+	beginTestTxBatch(t, 1)
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	rollbackTxBatch(t, 1)
 
-	valueAfterRollback := getStateFromLedger(t, "chaincode1", "key1")
+	valueAfterRollback := getTestStateFromLedger(t, "chaincode1", "key1")
 
 	if valueAfterRollback != nil {
 		t.Logf("Value after rollback = [%s]", valueAfterRollback)
@@ -56,7 +63,7 @@ func TestLedgerRollback(t *testing.T) {
 }
 
 func TestLedgerDifferentID(t *testing.T) {
-	ledger := initTestLedger(t)
+	ledger := InitTestLedger(t)
 	ledger.BeginTxBatch(1)
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
@@ -68,46 +75,11 @@ func TestLedgerDifferentID(t *testing.T) {
 	}
 }
 
-func initTestLedger(t *testing.T) *Ledger {
-	initTestBlockChain(t)
-	ledger := getLedger(t)
-	ledger.currentID = nil
-	return ledger
-}
-
-func getLedger(t *testing.T) *Ledger {
-	ledger, err := GetLedger()
-	if err != nil {
-		t.Fatalf("Error while creating a test ledger: %s", err)
-	}
-	return ledger
-}
-
-func getStateFromLedger(t *testing.T, chaincodeID string, key string) []byte {
-	value, err := getLedger(t).GetState(chaincodeID, key)
-	if err != nil {
-		t.Fatalf("Error while getting value from test ledger: %s", err)
-	}
-	return value
-}
-
-func beginTxBatch(t *testing.T, id interface{}) {
-	err := getLedger(t).BeginTxBatch(id)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
-	}
-}
-
-func commitTxBatch(t *testing.T, id interface{}, transactions []*protos.Transaction, proof []byte) {
-	err := getLedger(t).CommitTxBatch(id, transactions, proof)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
-	}
-}
-
-func rollbackTxBatch(t *testing.T, id interface{}) {
-	err := getLedger(t).RollbackTxBatch(id)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
+func setupTestConfig() {
+	viper.AddConfigPath("./../../")
+	viper.SetConfigName("openchain")
+	err := viper.ReadInConfig()
+	if err != nil { // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 }

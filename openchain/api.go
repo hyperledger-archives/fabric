@@ -24,95 +24,57 @@ import (
 
 	"golang.org/x/net/context"
 
-	google_protobuf1 "google/protobuf"
-
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
+	google_protobuf1 "google/protobuf"
 )
 
 // ServerOpenchain defines the Openchain server object, which holds the
 // blockchain data structure.
 type ServerOpenchain struct {
-	blockchain *Blockchain
-	ledger     *Ledger
+	ledger *ledger.Ledger
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
 func NewOpenchainServer() (*ServerOpenchain, error) {
 	// Get a handle to the blockchain singleton.
-	bc, err := GetBlockchain()
+	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, err
 	}
-
-	ledger, ledgerErr := GetLedger()
-	if ledgerErr != nil {
-		return nil, ledgerErr
-	}
-
-	s := &ServerOpenchain{bc, ledger}
-
-	log.Info("\nCreating new OpenchainServer: %s\n", s.blockchain)
-
+	s := &ServerOpenchain{ledger: ledger}
+	log.Info("\nCreating new OpenchainServer: %s\n", s.ledger)
 	return s, nil
 }
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
 // height, current block hash, and previous block hash.
 func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockchainInfo, error) {
-	// Total number of blocks in the blockchain.
-	size := s.blockchain.GetSize()
-
-	// Check the number of blocks in the blockchain. If the blockchain is empty,
-	// return error. There will always be at least one block in the blockchain,
-	// the genesis block.
-	if size > 0 {
-		currentBlock, currentBlockErr := s.blockchain.GetLastBlock()
-		if currentBlockErr != nil {
-			return nil, currentBlockErr
-		}
-		currentHash, currentHashErr := currentBlock.GetHash()
-		if currentHashErr != nil {
-			return nil, fmt.Errorf("Could not get hash of last block in blockchain: %s", currentHashErr)
-		}
-
-		info := &pb.BlockchainInfo{Height: size, CurrentBlockHash: currentHash, PreviousBlockHash: currentBlock.PreviousBlockHash}
-		return info, nil
+	blockchainInfo, err := s.ledger.GetBlockchainInfo()
+	if blockchainInfo.Height == 0 {
+		return nil, fmt.Errorf("No blocks in blockchain.")
 	}
-
-	return nil, fmt.Errorf("No blocks in blockchain.")
+	return blockchainInfo, err
 }
 
 // GetBlockByNumber returns the data contained within a specific block in the
 // blockchain. The genesis block is block zero.
 func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNumber) (*pb.Block, error) {
-	// Total number of blocks in the blockchain.
-	size := s.blockchain.GetSize()
-
-	// Check the number of blocks in the blockchain. If the blockchain is empty,
-	// return error. There will always be at least one block in the blockchain,
-	// the genesis block.
-	if size > 0 {
-		// If the block number requested is not in the blockchain, return error.
-		if num.Number > (size - 1) {
-			return nil, fmt.Errorf("Requested block not in blockchain.")
-		}
-
-		block, blockErr := s.blockchain.GetBlock(num.Number)
-		if blockErr != nil {
-			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", blockErr)
-		}
-
-		return block, nil
+	block, err := s.ledger.GetBlockByNumber(num.Number)
+	if err != nil {
+		return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
 	}
-
-	return nil, fmt.Errorf("No blocks in blockchain.")
+	if block == nil {
+		return nil, fmt.Errorf("Requested block not in blockchain.")
+	}
+	return block, nil
 }
 
 // GetBlockCount returns the current number of blocks in the blockchain data
 // structure.
 func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockCount, error) {
 	// Total number of blocks in the blockchain.
-	size := s.blockchain.GetSize()
+	size := s.ledger.GetBlockchainSize()
 
 	// Check the number of blocks in the blockchain. If the blockchain is empty,
 	// return error. There will always be at least one block in the blockchain,
