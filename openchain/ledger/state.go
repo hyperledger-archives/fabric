@@ -96,6 +96,12 @@ func (state *state) getStateDelta() *stateDelta {
 	return state.stateDelta
 }
 
+// getSnapshot returns a snapshot of the global state for the current block. stateSnapshot.Release()
+// must be called once you are done.
+func (state *state) getSnapshot() (*stateSnapshot, error) {
+	return newStateSnapshot()
+}
+
 func fetchStateDeltaFromDB(blockNumber uint64) (*stateDelta, error) {
 	stateDeltaBytes, err := db.GetDBHandle().GetFromStateCF(encodeStateDeltaKey(blockNumber))
 	if err != nil {

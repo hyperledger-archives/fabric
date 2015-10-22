@@ -133,6 +133,14 @@ func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
 	return openchainDB.getIterator(openchainDB.StateCF)
 }
 
+// GetStateCFSnapshotIterator get iterator for column family - stateCF. This iterator
+// is based on a snapshot and should be used for long running scans, such as
+// reading the entire state. Remember to call iterator.Close() and
+// snapshot.Release() to release resouces when you are done.
+func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator() (*gorocksdb.Iterator, *gorocksdb.Snapshot) {
+	return openchainDB.getSnapshotIterator(openchainDB.StateCF)
+}
+
 // GetStateHashCFIterator get iterator for column family - statehashCF
 func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
 	return openchainDB.getIterator(openchainDB.StateHashCF)
@@ -203,6 +211,14 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	return openchainDB.DB.NewIteratorCF(opt, cfHandler)
+}
+
+func (openchainDB *OpenchainDB) getSnapshotIterator(cfHandler *gorocksdb.ColumnFamilyHandle) (*gorocksdb.Iterator, *gorocksdb.Snapshot) {
+	opt := gorocksdb.NewDefaultReadOptions()
+	snapshot := openchainDB.DB.NewSnapshot()
+	opt.SetSnapshot(snapshot)
+	iter := openchainDB.DB.NewIteratorCF(opt, cfHandler)
+	return iter, snapshot
 }
 
 func dirMissingOrEmpty(path string) (bool, error) {
