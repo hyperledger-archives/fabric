@@ -118,6 +118,19 @@ func (blockchain *blockchain) getBlockByHash(blockHash []byte) (*protos.Block, e
 	return blockchain.getBlock(blockNumber)
 }
 
+func (blockchain *blockchain) getTransactionByUUID(txUUID string) (*protos.Transaction, error) {
+	blockNumber, txIndex, err := blockchain.indexer.fetchTransactionIndexByUUID(txUUID)
+	if err != nil {
+		return nil, err
+	}
+	block, err := blockchain.getBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	transaction := block.GetTransactions()[txIndex]
+	return transaction, nil
+}
+
 // getTransactions get all transactions in a block identified by block number
 func (blockchain *blockchain) getTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
 	block, err := blockchain.getBlock(blockNumber)

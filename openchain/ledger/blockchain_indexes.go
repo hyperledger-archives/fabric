@@ -31,7 +31,7 @@ import (
 
 var indexLogger = logging.MustGetLogger("indexes")
 var prefixBlockHashKey = byte(1)
-var prefixTxGUIDKey = byte(2)
+var prefixTxUUIDKey = byte(2)
 var prefixAddressBlockNumCompositeKey = byte(3)
 
 type blockchainIndexer interface {
@@ -40,7 +40,7 @@ type blockchainIndexer interface {
 	createIndexesSync(block *protos.Block, blockNumber uint64, blockHash []byte, writeBatch *gorocksdb.WriteBatch) error
 	createIndexesAsync(block *protos.Block, blockNumber uint64, blockHash []byte) error
 	fetchBlockNumberByBlockHash(blockHash []byte) (uint64, error)
-	fetchTransactionIndexByGUID(txGUID []byte) (uint64, uint64, error)
+	fetchTransactionIndexByUUID(txUUID string) (uint64, uint64, error)
 	stop()
 }
 
@@ -73,8 +73,8 @@ func (indexer *blockchainIndexerSync) fetchBlockNumberByBlockHash(blockHash []by
 	return fetchBlockNumberByBlockHashFromDB(blockHash)
 }
 
-func (indexer *blockchainIndexerSync) fetchTransactionIndexByGUID(txGUID []byte) (uint64, uint64, error) {
-	return fetchTransactionIndexByGUIDFromDB(txGUID)
+func (indexer *blockchainIndexerSync) fetchTransactionIndexByUUID(txUUID string) (uint64, uint64, error) {
+	return fetchTransactionIndexByUUIDFromDB(txUUID)
 }
 
 func (indexer *blockchainIndexerSync) stop() {
@@ -95,8 +95,8 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 
 	transactions := block.GetTransactions()
 	for txIndex, tx := range transactions {
-		// add TxGUID -> (blockNumber,indexWithinBlock)
-		writeBatch.PutCF(cf, encodeTxGUIDKey(getTxGUIDBytes(tx)), encodeBlockNumTxIndex(blockNumber, uint64(txIndex)))
+		// add TxUUID -> (blockNumber,indexWithinBlock)
+		writeBatch.PutCF(cf, encodeTxUUIDKey(tx.Uuid), encodeBlockNumTxIndex(blockNumber, uint64(txIndex)))
 
 		txExecutingAddress := getTxExecutingAddress(tx)
 		addressToTxIndexesMap[txExecutingAddress] = append(addressToTxIndexesMap[txExecutingAddress], uint64(txIndex))
@@ -124,18 +124,12 @@ func fetchBlockNumberByBlockHashFromDB(blockHash []byte) (uint64, error) {
 	return blockNumber, nil
 }
 
-func fetchTransactionIndexByGUIDFromDB(txGUID []byte) (uint64, uint64, error) {
-	blockNumTxIndexBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeTxGUIDKey(txGUID))
+func fetchTransactionIndexByUUIDFromDB(txUUID string) (uint64, uint64, error) {
+	blockNumTxIndexBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeTxUUIDKey(txUUID))
 	if err != nil {
 		return 0, 0, err
 	}
 	return decodeBlockNumTxIndex(blockNumTxIndexBytes)
-}
-
-// functions for retrieving data from proto-structures
-func getTxGUIDBytes(tx *protos.Transaction) (guid []byte) {
-	guid = []byte("TODO:Fetch guid from Tx")
-	return
 }
 
 func getTxExecutingAddress(tx *protos.Transaction) string {
@@ -185,9 +179,9 @@ func encodeBlockHashKey(blockHash []byte) []byte {
 	return prependKeyPrefix(prefixBlockHashKey, blockHash)
 }
 
-// encode TxGUIDKey
-func encodeTxGUIDKey(guidBytes []byte) []byte {
-	return prependKeyPrefix(prefixTxGUIDKey, guidBytes)
+// encode TxUUIDKey
+func encodeTxUUIDKey(txUUID string) []byte {
+	return prependKeyPrefix(prefixTxUUIDKey, []byte(txUUID))
 }
 
 func encodeAddressBlockNumCompositeKey(address string, blockNumber uint64) []byte {
