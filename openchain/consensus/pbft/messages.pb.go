@@ -13,17 +13,14 @@ It has these top-level messages:
 	Request
 	RequestHashes
 	Requests
+	PBFTArray
 */
 package pbft
 
 import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
 
 type PBFT_Type int32
 
@@ -71,7 +68,7 @@ func (x PBFT_Type) String() string {
 // "payload" should carry the candidate global hash.
 type PBFT struct {
 	Type    PBFT_Type `protobuf:"varint,1,opt,name=type,enum=pbft.PBFT_Type" json:"type,omitempty"`
-	ID      string    `protobuf:"bytes,2,opt,name=ID" json:"ID,omitempty"`
+	ID      string    `protobuf:"bytes,2,opt" json:"ID,omitempty"`
 	Payload []byte    `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
@@ -84,7 +81,7 @@ func (*PBFT) ProtoMessage()    {}
 // it a unique ID, then packages into a "Request" message that is passed along
 // to one of its connected validators.
 type Request struct {
-	ID      string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	ID      string `protobuf:"bytes,1,opt" json:"ID,omitempty"`
 	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
@@ -119,6 +116,21 @@ func (*Requests) ProtoMessage()    {}
 func (m *Requests) GetRequests() []*Request {
 	if m != nil {
 		return m.Requests
+	}
+	return nil
+}
+
+type PBFTArray struct {
+	Pbfts []*PBFT `protobuf:"bytes,1,rep,name=pbfts" json:"pbfts,omitempty"`
+}
+
+func (m *PBFTArray) Reset()         { *m = PBFTArray{} }
+func (m *PBFTArray) String() string { return proto.CompactTextString(m) }
+func (*PBFTArray) ProtoMessage()    {}
+
+func (m *PBFTArray) GetPbfts() []*PBFT {
+	if m != nil {
+		return m.Pbfts
 	}
 	return nil
 }

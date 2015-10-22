@@ -69,3 +69,8 @@ message RequestHashes {
 message Requests {
     repeated Request requests = 1;
 }
+
+message PBFTArray {
+    repeated PBFT pbfts = 1;
+}
+

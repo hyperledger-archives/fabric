@@ -154,11 +154,8 @@ type VMController struct{}
 var vmcontroller *VMController
 
 //NewVMController - creates/returns singleton
-func NewVMController() *VMController {
-	if vmcontroller == nil {
-		vmcontroller = new(VMController)
-	}
-	return vmcontroller
+func init() {
+	vmcontroller = new(VMController)
 }
 
 func (vmc *VMController) newVM(typ string) vm {
@@ -186,21 +183,21 @@ type VMCReqIntf interface {
 //VMCResp - response from requests. resp field is a anon interface.
 //It can hold any response. err should be tested first
 type VMCResp struct {
-	err  error
-	resp interface{}
+	Err  error
+	Resp interface{}
 }
 
 //CreateImageReq - properties for creating an container image
 type CreateImageReq struct {
-	id     string
-	reader io.Reader
-	args   []string
+	Id     string
+	Reader io.Reader
+	Args   []string
 }
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.build(ctxt, bp.id, bp.args, bp.reader); err != nil {
-		resp = VMCResp{err: err}
+	if err := v.build(ctxt, bp.Id, bp.Args, bp.Reader); err != nil {
+		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
 	}
@@ -210,17 +207,17 @@ func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
-	id        string
-	args      []string
-	detach    bool
-	instream  io.Reader
-	outstream io.Writer
+	Id        string
+	Args      []string
+	Detach    bool
+	Instream  io.Reader
+	Outstream io.Writer
 }
 
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.start(ctxt, si.id, si.args, si.detach, si.instream, si.outstream); err != nil {
-		resp = VMCResp{err: err}
+	if err := v.start(ctxt, si.Id, si.Args, si.Detach, si.Instream, si.Outstream); err != nil {
+		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
 	}
@@ -230,14 +227,14 @@ func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 
 //StopImageReq - properties for stopping a container.
 type StopImageReq struct {
-	id      string
-	timeout uint
+	Id      string
+	Timeout uint
 }
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.stop(ctxt, si.id, si.timeout); err != nil {
-		resp = VMCResp{err: err}
+	if err := v.stop(ctxt, si.Id, si.Timeout); err != nil {
+		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
 	}
@@ -245,16 +242,16 @@ func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
-//Process should be used as follows
+//VMCProcess should be used as follows
 //   . construct a context
 //   . construct req of the right type (e.g., CreateImageReq)
 //   . call it in a go routine
 //   . process response in the go routing
-//context can be cancelled. Process will try to cancel calling functions if it can
+//context can be cancelled. VMCProcess will try to cancel calling functions if it can
 //For instance docker clients api's such as BuildImage are not cancelable.
-//In all cases Process will wait for the called go routine to return
-func (vmc *VMController) Process(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{}, error) {
-	v := vmc.newVM(vmtype)
+//In all cases VMCProcess will wait for the called go routine to return
+func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{}, error) {
+	v := vmcontroller.newVM(vmtype)
 
 	if v == nil {
 		return nil, fmt.Errorf("Unknown VM type %s", vmtype)

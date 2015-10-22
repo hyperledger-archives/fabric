@@ -281,7 +281,7 @@ func serve() error {
 	var peer *openchain.Peer
 	if viper.GetBool("peer.consensus.validator.enabled") {
 		log.Debug("Running as validator")
-		newValidator, err := openchain.NewSimpleValidator()
+		newValidator, err := openchain.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
 		if err != nil {
 			return fmt.Errorf("Error creating simple Validator: %s", err)
 		}
