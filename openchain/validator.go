@@ -66,7 +66,7 @@ func (v *SimpleValidator) GetHandler(stream PeerChatStream) MessageHandler {
 
 func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 
-	//var errFromChat error = nil
+	var errFromChat error = nil
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error connecting to leader at address=%s:  %s", peerAddress, err))
@@ -86,7 +86,7 @@ func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 				in, err := stream.Recv()
 				if err == io.EOF {
 					// read done.
-					//errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
+					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
 					close(waitc)
 					return
 				}

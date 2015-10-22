@@ -50,7 +50,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 
 	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx})
 
-	err = chain.AddBlock(context.TODO(), block1)
+	err = chain.addBlock(context.TODO(), block1)
 	if err != nil {
 		t.Logf("Error adding block to chain: %s", err)
 		t.Fail()
@@ -103,11 +103,11 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// -----------------------------<Initial creation of blockchain and state>----
 	// Define an initial blockchain and state
-	chain, err := GetBlockchain()
+	chain, err := getBlockchain()
 	if err != nil {
 		t.Fatalf("Error while getting handle to block chain. Error = [%s]", err)
 	}
-	state := GetState()
+	state := getState()
 	// -----------------------------</Initial creation of blockchain and state>---
 
 	// -----------------------------<Genisis block>-------------------------------
@@ -117,7 +117,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block1)
+	chain.addBlock(context.TODO(), block1)
 
 	// -----------------------------</Genisis block>------------------------------
 
@@ -131,7 +131,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
-	state.Set("MyContract1", "code", []byte("code example"))
+	state.set("MyContract1", "code", []byte("code example"))
 
 	// Now we add the transaction to the block 2 and add the block to the chain
 	stateHash = getTestStateHash(t)
@@ -140,7 +140,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block2)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block2)
+	chain.addBlock(context.TODO(), block2)
 
 	// -----------------------------</Block 2>------------------------------------
 
@@ -152,7 +152,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
-	state.Set("MyContract", "x", []byte("hello"))
+	state.set("MyContract", "x", []byte("hello"))
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
@@ -161,7 +161,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	allBlocks = append(allBlocks, block3)
 	allHashes = append(allHashes, stateHash)
-	chain.AddBlock(context.TODO(), block3)
+	chain.addBlock(context.TODO(), block3)
 
 	// -----------------------------</Block 3>------------------------------------
 
@@ -181,8 +181,8 @@ func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
 }
 
 func getTestStateHash(t *testing.T) []byte {
-	state := GetState()
-	stateHash, err := state.GetHash()
+	state := getState()
+	stateHash, err := state.getHash()
 	if err != nil {
 		t.Fatalf("Error while getting state hash. Error = [%s]", err)
 	}
@@ -199,7 +199,7 @@ func getBlockHash(t *testing.T, block *protos.Block) []byte {
 
 func getLastBlock(t *testing.T) *protos.Block {
 	chain := getTestBlockchain(t)
-	lastBlock, err := chain.GetLastBlock()
+	lastBlock, err := chain.getLastBlock()
 	if err != nil {
 		t.Fatalf("Error while getting last block from chain. [%s]", err)
 	}
@@ -208,7 +208,7 @@ func getLastBlock(t *testing.T) *protos.Block {
 
 func getBlock(t *testing.T, blockNumber int) *protos.Block {
 	chain := getTestBlockchain(t)
-	block, err := chain.GetBlock(uint64(blockNumber))
+	block, err := chain.getBlock(uint64(blockNumber))
 	if err != nil {
 		t.Fatalf("Error while getting block from chain. [%s]", err)
 	}
@@ -223,8 +223,8 @@ func buildTestBlock() *protos.Block {
 }
 
 func checkChainSize(t *testing.T, expectedSize uint64) {
-	chain, _ := GetBlockchain()
-	chainSize := chain.GetSize()
+	chain, _ := getBlockchain()
+	chainSize := chain.getSize()
 	chainSizeInDb, err := fetchBlockchainSizeFromDB()
 	t.Logf("Chain size in-memory=[%d] and in db=[%d]", chainSize, chainSizeInDb)
 	if err != nil {

@@ -32,19 +32,19 @@ import (
 
 // Blockchain holds basic information in memory. Operations on Blockchain are not thread-safe
 // TODO synchronize access to in-memory variables
-type Blockchain struct {
+type blockchain struct {
 	size              uint64
 	previousBlockHash []byte
 	indexer           blockchainIndexer
 }
 
 var indexBlockDataSynchronously = true
-var blockchainInstance *Blockchain
+var blockchainInstance *blockchain
 
-// GetBlockchain get handle to block chain singleton
-func GetBlockchain() (*Blockchain, error) {
+// getBlockchain get handle to block chain singleton
+func getBlockchain() (*blockchain, error) {
 	if blockchainInstance == nil {
-		blockchainInstance = new(Blockchain)
+		blockchainInstance = new(blockchain)
 
 		err := blockchainInstance.init()
 		if err != nil {
@@ -55,7 +55,7 @@ func GetBlockchain() (*Blockchain, error) {
 	return blockchainInstance, nil
 }
 
-func (blockchain *Blockchain) init() error {
+func (blockchain *blockchain) init() error {
 	size, err := fetchBlockchainSizeFromDB()
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (blockchain *Blockchain) init() error {
 	return nil
 }
 
-func (blockchain *Blockchain) startIndexer() (err error) {
+func (blockchain *blockchain) startIndexer() (err error) {
 	if indexBlockDataSynchronously {
 		blockchain.indexer = newBlockchainIndexerSync()
 	} else {
@@ -91,92 +91,92 @@ func (blockchain *Blockchain) startIndexer() (err error) {
 	return
 }
 
-// GetLastBlock get last block in blockchain
-func (blockchain *Blockchain) GetLastBlock() (*protos.Block, error) {
+// getLastBlock get last block in blockchain
+func (blockchain *blockchain) getLastBlock() (*protos.Block, error) {
 	if blockchain.size == 0 {
 		return nil, nil
 	}
-	return blockchain.GetBlock(blockchain.size - 1)
+	return blockchain.getBlock(blockchain.size - 1)
 }
 
-// GetSize number of blocks in blockchain
-func (blockchain *Blockchain) GetSize() uint64 {
+// getSize number of blocks in blockchain
+func (blockchain *blockchain) getSize() uint64 {
 	return blockchain.size
 }
 
-// GetBlock get block at arbitrary height in block chain
-func (blockchain *Blockchain) GetBlock(blockNumber uint64) (*protos.Block, error) {
+// getBlock get block at arbitrary height in block chain
+func (blockchain *blockchain) getBlock(blockNumber uint64) (*protos.Block, error) {
 	return fetchBlockFromDB(blockNumber)
 }
 
-// GetBlockByHash get block by block hash
-func (blockchain *Blockchain) GetBlockByHash(blockHash []byte) (*protos.Block, error) {
+// getBlockByHash get block by block hash
+func (blockchain *blockchain) getBlockByHash(blockHash []byte) (*protos.Block, error) {
 	blockNumber, err := blockchain.indexer.fetchBlockNumberByBlockHash(blockHash)
 	if err != nil {
 		return nil, err
 	}
-	return blockchain.GetBlock(blockNumber)
+	return blockchain.getBlock(blockNumber)
 }
 
-// GetTransactions get all transactions in a block identified by block number
-func (blockchain *Blockchain) GetTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
-	block, err := blockchain.GetBlock(blockNumber)
+// getTransactions get all transactions in a block identified by block number
+func (blockchain *blockchain) getTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
+	block, err := blockchain.getBlock(blockNumber)
 	if err != nil {
 		return nil, err
 	}
 	return block.GetTransactions(), nil
 }
 
-// GetTransactionsByBlockHash get all transactions in a block identified by block hash
-func (blockchain *Blockchain) GetTransactionsByBlockHash(blockHash []byte) ([]*protos.Transaction, error) {
-	block, err := blockchain.GetBlockByHash(blockHash)
+// getTransactionsByBlockHash get all transactions in a block identified by block hash
+func (blockchain *blockchain) getTransactionsByBlockHash(blockHash []byte) ([]*protos.Transaction, error) {
+	block, err := blockchain.getBlockByHash(blockHash)
 	if err != nil {
 		return nil, err
 	}
 	return block.GetTransactions(), nil
 }
 
-// GetTransaction get a transaction identified by blocknumber and index within the block
-func (blockchain *Blockchain) GetTransaction(blockNumber uint64, txIndex uint64) (*protos.Transaction, error) {
-	block, err := blockchain.GetBlock(blockNumber)
+// getTransaction get a transaction identified by blocknumber and index within the block
+func (blockchain *blockchain) getTransaction(blockNumber uint64, txIndex uint64) (*protos.Transaction, error) {
+	block, err := blockchain.getBlock(blockNumber)
 	if err != nil {
 		return nil, err
 	}
 	return block.GetTransactions()[txIndex], nil
 }
 
-// GetTransactionByBlockHash get a transaction identified by blockhash and index within the block
-func (blockchain *Blockchain) GetTransactionByBlockHash(blockHash []byte, txIndex uint64) (*protos.Transaction, error) {
-	block, err := blockchain.GetBlockByHash(blockHash)
+// getTransactionByBlockHash get a transaction identified by blockhash and index within the block
+func (blockchain *blockchain) getTransactionByBlockHash(blockHash []byte, txIndex uint64) (*protos.Transaction, error) {
+	block, err := blockchain.getBlockByHash(blockHash)
 	if err != nil {
 		return nil, err
 	}
 	return block.GetTransactions()[txIndex], nil
 }
 
-func (blockchain *Blockchain) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
-	if blockchain.GetSize() == 0 {
+func (blockchain *blockchain) getBlockchainInfo() (*protos.BlockchainInfo, error) {
+	if blockchain.getSize() == 0 {
 		return &protos.BlockchainInfo{Height: 0}, nil
 	}
 
-	lastBlock, err := blockchain.GetLastBlock()
+	lastBlock, err := blockchain.getLastBlock()
 	if err != nil {
 		return nil, err
 	}
 
 	info := &protos.BlockchainInfo{
-		Height:            blockchain.GetSize(),
+		Height:            blockchain.getSize(),
 		CurrentBlockHash:  blockchain.previousBlockHash,
 		PreviousBlockHash: lastBlock.PreviousBlockHash}
 
 	return info, nil
 }
 
-// AddBlock add a new block to blockchain
-func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block) error {
+// addBlock add a new block to blockchain
+func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block) error {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
-	state := GetState()
-	stateHash, err := state.GetHash()
+	state := getState()
+	stateHash, err := state.getHash()
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (blockchain *Blockchain) AddBlock(ctx context.Context, block *protos.Block)
 	}
 	blockchain.size++
 	blockchain.previousBlockHash = currentBlockHash
-	state.ClearInMemoryChanges()
+	state.clearInMemoryChanges()
 	if !blockchain.indexer.isSynchronous() {
 		blockchain.indexer.createIndexesAsync(block, currentBlockNumber, currentBlockHash)
 	}
@@ -229,8 +229,8 @@ func fetchBlockchainSizeFromDB() (uint64, error) {
 	return decodeToUint64(bytes), nil
 }
 
-func (blockchain *Blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte) error {
-	state := GetState()
+func (blockchain *blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte) error {
+	state := getState()
 	blockBytes, blockBytesErr := block.Bytes()
 	if blockBytesErr != nil {
 		return blockBytesErr
@@ -275,11 +275,11 @@ func decodeToUint64(bytes []byte) uint64 {
 	return binary.BigEndian.Uint64(bytes)
 }
 
-func (blockchain *Blockchain) String() string {
+func (blockchain *blockchain) String() string {
 	var buffer bytes.Buffer
-	size := blockchain.GetSize()
+	size := blockchain.getSize()
 	for i := uint64(0); i < size; i++ {
-		block, blockErr := blockchain.GetBlock(i)
+		block, blockErr := blockchain.getBlock(i)
 		if blockErr != nil {
 			return ""
 		}

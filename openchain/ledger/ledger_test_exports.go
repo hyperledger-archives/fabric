@@ -69,7 +69,7 @@ func removeTestDBPath() {
 //  test block chain creation and cleanup functions
 var performTestBlockchainCleanup bool
 
-func initTestBlockChain(t *testing.T) *Blockchain {
+func initTestBlockChain(t *testing.T) *blockchain {
 	// cleaning up blockchain instance for test here so that each test does
 	// not have to call it explicitly at the end of the test
 	cleanupTestBlockchain(t)
@@ -80,7 +80,7 @@ func initTestBlockChain(t *testing.T) *Blockchain {
 		t.Fatalf("Error during initializing block chain. Error: %s", err)
 	}
 	t.Logf("Reinitialized Blockchain for testing.....")
-	GetState().ClearInMemoryChanges()
+	getState().clearInMemoryChanges()
 	performTestBlockchainCleanup = true
 	return chain
 }
@@ -143,8 +143,8 @@ func rollbackTxBatch(t *testing.T, id interface{}) {
 	}
 }
 
-func getTestBlockchain(t *testing.T) *Blockchain {
-	chain, err := GetBlockchain()
+func getTestBlockchain(t *testing.T) *blockchain {
+	chain, err := getBlockchain()
 	if err != nil {
 		t.Fatalf("Error while getting handle to chain. [%s]", err)
 	}

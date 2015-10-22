@@ -33,8 +33,8 @@ var ledgerLogger = logging.MustGetLogger("ledger")
 
 // Ledger - the struct for openchain ledger
 type Ledger struct {
-	blockchain *Blockchain
-	state      *State
+	blockchain *blockchain
+	state      *state
 	currentID  interface{}
 }
 
@@ -47,11 +47,11 @@ func GetLedger() (*Ledger, error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		if ledger == nil {
-			blockchain, err := GetBlockchain()
+			blockchain, err := getBlockchain()
 			if err != nil {
 				return nil, err
 			}
-			state := GetState()
+			state := getState()
 			ledger = &Ledger{blockchain, state, nil}
 		}
 	}
@@ -80,7 +80,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		return err
 	}
 	block := protos.NewBlock("proposerID string", transactions)
-	ledger.blockchain.AddBlock(context.TODO(), block)
+	ledger.blockchain.addBlock(context.TODO(), block)
 	ledger.resetForNextTxGroup()
 	return nil
 }
@@ -103,22 +103,22 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 // GetTempStateHash - Computes state hash by taking into account the state changes that may have taken
 // place during the execution of current transaction-batch
 func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
-	return ledger.state.GetHash()
+	return ledger.state.getHash()
 }
 
 // GetState get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
 func (ledger *Ledger) GetState(chaincodeID string, key string) ([]byte, error) {
-	return ledger.state.Get(chaincodeID, key)
+	return ledger.state.get(chaincodeID, key)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to memory
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
-	return ledger.state.Set(chaincodeID, key, value)
+	return ledger.state.set(chaincodeID, key, value)
 }
 
 // DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
-	return ledger.state.Delete(chaincodeID, key)
+	return ledger.state.delete(chaincodeID, key)
 }
 
 /////////////////// blockchain related methods /////////////////////////////////////
@@ -127,15 +127,15 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 // GetBlockchainInfo returns information about the blockchain ledger such as
 // height, current block hash, and previous block hash.
 func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
-	return ledger.blockchain.GetBlockchainInfo()
+	return ledger.blockchain.getBlockchainInfo()
 }
 
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
-	return ledger.blockchain.GetBlock(blockNumber)
+	return ledger.blockchain.getBlock(blockNumber)
 }
 
 func (ledger *Ledger) GetBlockchainSize() uint64 {
-	return ledger.blockchain.GetSize()
+	return ledger.blockchain.getSize()
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {
@@ -155,5 +155,5 @@ func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
 func (ledger *Ledger) resetForNextTxGroup() {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
-	ledger.state.ClearInMemoryChanges()
+	ledger.state.clearInMemoryChanges()
 }

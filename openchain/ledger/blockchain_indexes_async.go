@@ -144,16 +144,16 @@ func (indexer *blockchainIndexerAsync) fetchTransactionIndexByGUID(txGUID []byte
 }
 
 func (indexer *blockchainIndexerAsync) indexPendingBlocks() error {
-	blockchain, err := GetBlockchain()
+	blockchain, err := getBlockchain()
 	if err != nil {
 		return err
 	}
-	if blockchain.GetSize() == 0 {
+	if blockchain.getSize() == 0 {
 		// chain is empty as yet
 		return nil
 	}
 
-	lastCommittedBlockNum := blockchain.GetSize() - 1
+	lastCommittedBlockNum := blockchain.getSize() - 1
 	lastIndexedBlockNum := indexer.indexerState.getLastIndexedBlockNumber()
 	if lastCommittedBlockNum == lastIndexedBlockNum {
 		// all committed blocks are indexed
@@ -162,7 +162,7 @@ func (indexer *blockchainIndexerAsync) indexPendingBlocks() error {
 
 	for ; lastIndexedBlockNum < lastCommittedBlockNum; lastIndexedBlockNum++ {
 		blockNumToIndex := lastIndexedBlockNum + 1
-		blockToIndex, errBlockFetch := blockchain.GetBlock(blockNumToIndex)
+		blockToIndex, errBlockFetch := blockchain.getBlock(blockNumToIndex)
 		if errBlockFetch != nil {
 			return errBlockFetch
 		}
@@ -222,12 +222,12 @@ func (indexerState *blockchainIndexerState) getLastIndexedBlockNumber() uint64 {
 }
 
 func (indexerState *blockchainIndexerState) waitForLastCommittedBlock() (err error) {
-	chain, err := GetBlockchain()
-	if err != nil || chain.GetSize() == 0 {
+	chain, err := getBlockchain()
+	if err != nil || chain.getSize() == 0 {
 		return
 	}
 
-	lastBlockCommitted := chain.GetSize() - 1
+	lastBlockCommitted := chain.getSize() - 1
 
 	indexerState.newBlockIndexed.L.Lock()
 	defer indexerState.newBlockIndexed.L.Unlock()

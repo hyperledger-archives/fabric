@@ -147,7 +147,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 }
 
 func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
-	//var errFromChat error = nil
+	var errFromChat error = nil
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
@@ -167,7 +167,7 @@ func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.Transact
 				in, err := stream.Recv()
 				if err == io.EOF {
 					// read done.
-					//errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
+					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
 					close(waitc)
 					return
 				}
@@ -178,7 +178,7 @@ func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.Transact
 					peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
 					payload, err := proto.Marshal(transactionsMessage)
 					if err != nil {
-						//errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
+						errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
 						close(waitc)
 						return
 					}

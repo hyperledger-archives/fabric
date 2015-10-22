@@ -28,12 +28,12 @@ import (
 
 func TestStateChanges(t *testing.T) {
 	initTestDB(t)
-	state := GetState()
+	state := getState()
 	saveTestStateDataInDB(t)
 
 	// add keys
-	state.Set("chaincode1", "key1", []byte("value1"))
-	state.Set("chaincode1", "key2", []byte("value2"))
+	state.set("chaincode1", "key1", []byte("value1"))
+	state.set("chaincode1", "key2", []byte("value2"))
 
 	//chehck in-memory
 	checkStateViaInterface(t, "chaincode1", "key1", "value1")
@@ -50,13 +50,13 @@ func TestStateChanges(t *testing.T) {
 	}
 
 	// make changes when data is already in db
-	state.Set("chaincode1", "key1", []byte("new_value1"))
+	state.set("chaincode1", "key1", []byte("new_value1"))
 	checkStateViaInterface(t, "chaincode1", "key1", "new_value1")
 
-	state.Delete("chaincode1", "key2")
+	state.delete("chaincode1", "key2")
 	checkStateViaInterface(t, "chaincode1", "key2", "")
-	state.Set("chaincode2", "key3", []byte("value3"))
-	state.Set("chaincode2", "key4", []byte("value4"))
+	state.set("chaincode2", "key3", []byte("value3"))
+	state.set("chaincode2", "key4", []byte("value4"))
 
 	saveTestStateDataInDB(t)
 	checkStateInDB(t, "chaincode1", "key1", "new_value1")
@@ -97,8 +97,8 @@ func fetchStateFromDB(t *testing.T, chaincodeID string, key string) []byte {
 }
 
 func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte {
-	state := GetState()
-	value, err := state.Get(chaincodeID, key)
+	state := getState()
+	value, err := state.get(chaincodeID, key)
 	if err != nil {
 		t.Fatalf("Error while fetching state for chaincode=[%s], key=[%s], error=[%s]", chaincodeID, key, err)
 	}
@@ -107,13 +107,13 @@ func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte
 
 func saveTestStateDataInDB(t *testing.T) {
 	writeBatch := gorocksdb.NewWriteBatch()
-	state := GetState()
-	state.GetHash()
+	state := getState()
+	state.getHash()
 	state.addChangesForPersistence(0, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		t.Fatalf("failed to persist state to db")
 	}
-	state.ClearInMemoryChanges()
+	state.clearInMemoryChanges()
 }

@@ -69,7 +69,7 @@ func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 
 func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {
 	chain := getTestBlockchain(t)
-	block, err := chain.GetBlockByHash(blockHash)
+	block, err := chain.getBlockByHash(blockHash)
 	if err != nil {
 		t.Fatalf("Error while retrieving block from chain %s", err)
 	}
@@ -78,7 +78,7 @@ func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {
 
 func getTransactionByBlockNumberAndIndex(t *testing.T, blockNumber int, txIndex int) *protos.Transaction {
 	chain := getTestBlockchain(t)
-	tx, err := chain.GetTransaction(uint64(blockNumber), uint64(txIndex))
+	tx, err := chain.getTransaction(uint64(blockNumber), uint64(txIndex))
 	if err != nil {
 		t.Fatalf("Error in API blockchain.GetTransaction(): %s", err)
 	}
@@ -87,7 +87,7 @@ func getTransactionByBlockNumberAndIndex(t *testing.T, blockNumber int, txIndex 
 
 func getTransactionByBlockHashAndIndex(t *testing.T, blockHash []byte, txIndex int) *protos.Transaction {
 	chain := getTestBlockchain(t)
-	tx, err := chain.GetTransactionByBlockHash(blockHash, uint64(txIndex))
+	tx, err := chain.getTransactionByBlockHash(blockHash, uint64(txIndex))
 	if err != nil {
 		t.Fatalf("Error in API blockchain.GetTransaction(): %s", err)
 	}
