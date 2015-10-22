@@ -119,9 +119,6 @@ func TestVMCBuildImage(t *testing.T) {
 		return
 	}
 
-	//this creates a singleton... Peer will call it once to initialize
-	vmc := NewVMController()
-
 	var ctxt = context.Background()
 
 	//get the tarball for codechain
@@ -134,11 +131,11 @@ func TestVMCBuildImage(t *testing.T) {
 
 	c := make(chan struct{})
 
-	//creat a CreateImageReq obj and send it to VMController.Process
+	//creat a CreateImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		cir := CreateImageReq{id: "simple", reader: tarRdr}
-		_, err := vmc.Process(ctxt, "Docker", cir)
+		cir := CreateImageReq{Id: "simple", Reader: tarRdr}
+		_, err := VMCProcess(ctxt, "Docker", cir)
 		if err != nil {
 			t.Fail()
 			t.Logf("Error creating image: %s", err)
@@ -164,20 +161,17 @@ func TestVMCStartContainer(t *testing.T) {
 		return
 	}
 
-	//this creates a singleton... Peer will call it once to initialize
-	vmc := NewVMController()
-
 	var ctxt = context.Background()
 
 	c := make(chan struct{})
 
-	//creat a StartImageReq obj and send it to VMController.Process
+	//creat a StartImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
 		args := []string{"echo", "hello"}
 		var outbuf bytes.Buffer
-		sir := StartImageReq{id: "simple", args: args, instream: nil, outstream: &outbuf}
-		_, err := vmc.Process(ctxt, "Docker", sir)
+		sir := StartImageReq{Id: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
 			t.Logf("Error starting container: %s", err)
@@ -196,6 +190,39 @@ func TestVMCStartContainer(t *testing.T) {
 	<-c
 }
 
+func TestVMCStartContainerSync(t *testing.T) {
+	viper.SetEnvPrefix("openchain")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("vm")                    // name of config file (without extension)
+	viper.AddConfigPath("./")                    // path to look for the config file in
+	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
+		t.Fail()
+		t.Logf("Error reading config file: %s", err)
+		return
+	}
+
+	var ctxt = context.Background()
+
+	//creat a StartImageReq obj and send it to VMCProcess
+	args := []string{"echo", "hi there"}
+	var outbuf bytes.Buffer
+	sir := StartImageReq{Id: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+	_, err := VMCProcess(ctxt, "Docker", sir)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting container: %s", err)
+		return
+	}
+	fmt.Printf("Output-%s", string(outbuf.Bytes()))
+	if "hi there\n" != string(outbuf.Bytes()) {
+		t.Fail()
+		t.Logf("expected hello, received : %s", string(outbuf.Bytes()))
+		return
+	}
+}
+
 func TestVMCStopContainer(t *testing.T) {
 	viper.SetEnvPrefix("openchain")
 	viper.AutomaticEnv()
@@ -209,18 +236,15 @@ func TestVMCStopContainer(t *testing.T) {
 		return
 	}
 
-	//this creates a singleton... Peer will call it once to initialize
-	vmc := NewVMController()
-
 	var ctxt = context.Background()
 
 	c := make(chan struct{})
 
-	//creat a StopImageReq obj and send it to VMController.Process
+	//creat a StopImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		sir := StopImageReq{id: "simple", timeout: 0}
-		_, err := vmc.Process(ctxt, "Docker", sir)
+		sir := StopImageReq{Id: "simple", Timeout: 0}
+		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
 			t.Logf("Error stopping container: %s", err)

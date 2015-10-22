@@ -20,6 +20,7 @@ under the License.
 package openchain
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -34,6 +35,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -354,6 +356,43 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 		return
 	}
 	validatorLogger.Debug("Need to Execute transactions in PRE_PREPARE using Murali's code after msg of type: %s", msg.Type)
+
+	//Don't care about ID string for now
+	var id string
+
+	pbftArray := &pbft.PBFTArray{}
+	err := proto.Unmarshal(msg.Payload, pbftArray)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error unmarshaling PBFTArray: %s", err))
+		return
+	}
+	transactions := make([]*pb.Transaction, 0)
+	for _, pbft := range pbftArray.Pbfts {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(pbft.Payload, tx)
+		if err != nil {
+			e.Cancel(fmt.Errorf("Error unmarshalling transaction from PBFT: %s", err))
+			return
+		}
+		transactions = append(transactions, tx)
+	}
+	hopefulHash, errs := executeTransactions(context.Background(), transactions)
+	if errs != nil {
+		e.Cancel(fmt.Errorf("Error executing transactions pbft"))
+	}
+	//continue even if errors if hash is not nil
+	if hopefulHash == nil {
+		e.Cancel(fmt.Errorf("nil hash not broadcasting hash result"))
+		return
+	}
+	prepres, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PREPARE_RESULT, ID: id, Payload: hopefulHash})
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
+		return
+	}
+	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: prepres}
+	validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", newMsg.Type)
+	v.validator.Broadcast(newMsg)
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Execute transactions in PRE_PREPARE using Murali's code.
 	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
@@ -414,4 +453,53 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 	} else {
 		e.Cancel(fmt.Errorf("Leader remains in established state."))
 	}
+}
+
+//executeTransactions - will execute transactions on the array one by one
+//will return an array of errors one for each transaction. If the execution
+//succeeded, array element will be nil. returns state hash
+func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error) {
+	//1 for GetState().GetHash()
+	errs := make([]error, len(xacts)+1)
+	for i, t := range xacts {
+		//add "function" as an argument to be passed
+		newArgs := make([]string, len(t.Args)+1)
+		newArgs[0] = t.Function
+		copy(newArgs[1:len(t.Args)+1], t.Args)
+		//is there a payload to be passed to the container ?
+		var buf *bytes.Buffer
+		if t.Payload != nil {
+			buf = bytes.NewBuffer(t.Payload)
+		}
+		cds := &pb.ChainletDeploymentSpec{}
+		errs[i] = proto.Unmarshal(t.Payload, cds)
+		if errs[i] != nil {
+			continue
+		}
+		//create start request ...
+		var req VMCReqIntf
+		vmname, berr := buildVMName(cds.ChainletSpec)
+		if berr != nil {
+			errs[i] = berr
+			continue
+		}
+		if t.Type == pb.Transaction_CHAINLET_NEW {
+			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
+			req = CreateImageReq{Id: vmname, Args: newArgs, Reader: targz}
+		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
+			req = StartImageReq{Id: vmname, Args: newArgs, Instream: buf}
+		} else {
+			errs[i] = fmt.Errorf("Invalid transaction type %s", t.Type.String())
+		}
+		//... and execute it. err will be nil if successful
+		_, errs[i] = VMCProcess(ctxt, DOCKER, req)
+	}
+	//TODO - error processing ... for now assume everything worked
+	ledger, hasherr := ledger.GetLedger()
+	var statehash []byte
+	if hasherr == nil {
+		statehash, hasherr = ledger.GetTempStateHash()
+	}
+	errs[len(errs)-1] = hasherr
+	return statehash, errs
 }
