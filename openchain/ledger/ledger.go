@@ -121,6 +121,13 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.delete(chaincodeID, key)
 }
 
+// GetStateSnapshot returns a point-in-time view of the global state for the current block. This
+// should be used when transfering the state from one peer to another peer. You must call
+// stateSnapshot.Release() once you are done with the snapsnot to free up resources.
+func (ledger *Ledger) GetStateSnapshot() (*stateSnapshot, error) {
+	return ledger.state.getSnapshot()
+}
+
 /////////////////// blockchain related methods /////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 

@@ -76,6 +76,39 @@ func TestLedgerDifferentID(t *testing.T) {
 	}
 }
 
+func TestStateSnapshot(t *testing.T) {
+	ledger := InitTestLedger(t)
+	beginTxBatch(t, 1)
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	transaction, _ := buildTestTx()
+	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("proof"))
+
+	snapshot, err := ledger.GetStateSnapshot()
+
+	if err != nil {
+		t.Fatalf("Error fetching snapshot %s", err)
+	}
+
+	defer snapshot.Release()
+
+	var count = 0
+	for snapshot.Next() {
+		k, v := snapshot.GetRawKeyValue()
+		t.Logf("Key %v, Val %v", k, v)
+		count++
+	}
+	if count != 3 {
+		t.Fatalf("Expected 3 keys, but got %d", count)
+	}
+
+	if snapshot.GetBlockNumber() != 1 {
+		t.Fatalf("Expected blocknumber to be 1, but got %s", snapshot.GetBlockNumber())
+	}
+
+}
+
 func setupTestConfig() {
 	viper.AddConfigPath("./../../")
 	viper.SetConfigName("openchain")
