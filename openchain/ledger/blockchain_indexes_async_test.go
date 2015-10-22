@@ -30,7 +30,7 @@ import (
 func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 	initTestBlockChain(t)
 	blocks, _ := buildSimpleChain(t)
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
@@ -49,7 +49,7 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	initTestBlockChain(t)
 	blocks, _ := buildSimpleChain(t)
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}

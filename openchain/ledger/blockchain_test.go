@@ -127,7 +127,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
 	// TODO Use chainlet instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateTestUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
@@ -149,7 +149,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateTestUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
 	state.Set("MyContract", "x", []byte("hello"))
@@ -198,7 +198,7 @@ func getBlockHash(t *testing.T, block *protos.Block) []byte {
 }
 
 func getLastBlock(t *testing.T) *protos.Block {
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	lastBlock, err := chain.GetLastBlock()
 	if err != nil {
 		t.Fatalf("Error while getting last block from chain. [%s]", err)
@@ -207,7 +207,7 @@ func getLastBlock(t *testing.T) *protos.Block {
 }
 
 func getBlock(t *testing.T, blockNumber int) *protos.Block {
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	block, err := chain.GetBlock(uint64(blockNumber))
 	if err != nil {
 		t.Fatalf("Error while getting block from chain. [%s]", err)

@@ -74,7 +74,7 @@ func initTestBlockChain(t *testing.T) *Blockchain {
 	// not have to call it explicitly at the end of the test
 	cleanupTestBlockchain(t)
 	initTestDB(t)
-	chain := getBlockchain(t)
+	chain := getTestBlockchain(t)
 	err := chain.init()
 	if err != nil {
 		t.Fatalf("Error during initializing block chain. Error: %s", err)
@@ -88,7 +88,7 @@ func initTestBlockChain(t *testing.T) *Blockchain {
 func cleanupTestBlockchain(t *testing.T) {
 	if performTestBlockchainCleanup {
 		t.Logf("Cleaning up previously created blockchain for testing.....")
-		chain := getBlockchain(t)
+		chain := getTestBlockchain(t)
 		if chain.indexer != nil {
 			chain.indexer.stop()
 		}
@@ -143,7 +143,7 @@ func rollbackTxBatch(t *testing.T, id interface{}) {
 	}
 }
 
-func getBlockchain(t *testing.T) *Blockchain {
+func getTestBlockchain(t *testing.T) *Blockchain {
 	chain, err := GetBlockchain()
 	if err != nil {
 		t.Fatalf("Error while getting handle to chain. [%s]", err)

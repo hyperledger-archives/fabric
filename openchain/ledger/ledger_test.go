@@ -35,26 +35,26 @@ func TestMain(m *testing.M) {
 
 func TestLedgerCommit(t *testing.T) {
 	ledger := InitTestLedger(t)
-	beginTestTxBatch(t, 1)
+	beginTxBatch(t, 1)
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	transaction := buildTestTx()
 	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
-	if !reflect.DeepEqual(getTestStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
+	if !reflect.DeepEqual(getStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
 		t.Fatalf("state value not same after Tx commit")
 	}
 }
 
 func TestLedgerRollback(t *testing.T) {
 	ledger := InitTestLedger(t)
-	beginTestTxBatch(t, 1)
+	beginTxBatch(t, 1)
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	rollbackTxBatch(t, 1)
 
-	valueAfterRollback := getTestStateFromLedger(t, "chaincode1", "key1")
+	valueAfterRollback := getStateFromLedger(t, "chaincode1", "key1")
 
 	if valueAfterRollback != nil {
 		t.Logf("Value after rollback = [%s]", valueAfterRollback)
