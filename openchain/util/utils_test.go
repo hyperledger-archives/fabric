@@ -19,7 +19,19 @@ under the License.
 
 package util
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
+
+func TestComputeCryptoHash(t *testing.T) {
+	if bytes.Compare(ComputeCryptoHash([]byte("foobar")), ComputeCryptoHash([]byte("foobar"))) != 0 {
+		t.Fatalf("Expected hashes to match, but they did not match")
+	}
+	if bytes.Compare(ComputeCryptoHash([]byte("foobar1")), ComputeCryptoHash([]byte("foobar2"))) == 0 {
+		t.Fatalf("Expected hashes to be different, but they match")
+	}
+}
 
 func TestUUIDGeneration(t *testing.T) {
 	uuid, err := GenerateUUID()
@@ -27,7 +39,7 @@ func TestUUIDGeneration(t *testing.T) {
 		t.Fatalf("Error generating UUID. Error: %s", err)
 	}
 	if len(uuid) != 36 {
-		t.Fatalf("UUID length is not correct. Expected = 10, Got = %d", len(uuid))
+		t.Fatalf("UUID length is not correct. Expected = 36, Got = %d", len(uuid))
 	}
 	uuid2, err2 := GenerateUUID()
 	if err2 != nil {
