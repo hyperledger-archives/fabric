@@ -13,6 +13,7 @@ It has these top-level messages:
 	Phase
 	RequestHashes
 	Requests
+	PBFT
 */
 package pbft
 
@@ -53,6 +54,41 @@ var Phase_Type_value = map[string]int32{
 
 func (x Phase_Type) String() string {
 	return proto.EnumName(Phase_Type_name, int32(x))
+}
+
+type PBFT_Type int32
+
+const (
+	PBFT_UNDEFINED      PBFT_Type = 0
+	PBFT_REQUEST        PBFT_Type = 1
+	PBFT_PRE_PREPARE    PBFT_Type = 2
+	PBFT_PREPARE        PBFT_Type = 3
+	PBFT_COMMIT         PBFT_Type = 4
+	PBFT_PREPARE_RESULT PBFT_Type = 5
+	PBFT_COMMIT_RESULT  PBFT_Type = 6
+)
+
+var PBFT_Type_name = map[int32]string{
+	0: "UNDEFINED",
+	1: "REQUEST",
+	2: "PRE_PREPARE",
+	3: "PREPARE",
+	4: "COMMIT",
+	5: "PREPARE_RESULT",
+	6: "COMMIT_RESULT",
+}
+var PBFT_Type_value = map[string]int32{
+	"UNDEFINED":      0,
+	"REQUEST":        1,
+	"PRE_PREPARE":    2,
+	"PREPARE":        3,
+	"COMMIT":         4,
+	"PREPARE_RESULT": 5,
+	"COMMIT_RESULT":  6,
+}
+
+func (x PBFT_Type) String() string {
+	return proto.EnumName(PBFT_Type_name, int32(x))
 }
 
 // Request is the message passed by the peer to the validator.
@@ -115,6 +151,17 @@ func (m *Requests) GetRequests() []*Requests {
 	return nil
 }
 
+type PBFT struct {
+	Type    PBFT_Type `protobuf:"varint,1,opt,name=type,enum=pbft.PBFT_Type" json:"type,omitempty"`
+	Id      string    `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Payload []byte    `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+}
+
+func (m *PBFT) Reset()         { *m = PBFT{} }
+func (m *PBFT) String() string { return proto.CompactTextString(m) }
+func (*PBFT) ProtoMessage()    {}
+
 func init() {
 	proto.RegisterEnum("pbft.Phase_Type", Phase_Type_name, Phase_Type_value)
+	proto.RegisterEnum("pbft.PBFT_Type", PBFT_Type_name, PBFT_Type_value)
 }

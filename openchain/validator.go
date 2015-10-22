@@ -136,11 +136,12 @@ func NewSimpleValidator() (Validator, error) {
 }
 
 type ValidatorFSM struct {
-	To         string
-	ChatStream PeerChatStream
-	FSM        *fsm.FSM
-	PeerFSM    *PeerFSM
-	validator  Validator
+	To             string
+	ChatStream     PeerChatStream
+	FSM            *fsm.FSM
+	PeerFSM        *PeerFSM
+	validator      Validator
+	storedRequests map[string]*pbft.Request
 }
 
 func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream) *ValidatorFSM {
@@ -155,13 +156,32 @@ func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream)
 		fsm.Events{
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pbft.PBFT_PRE_PREPARE.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
+			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
+			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
-			"enter_state":                                               func(e *fsm.Event) { v.enterState(e) },
 			"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
 			"before_" + pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(): func(e *fsm.Event) { v.beforeChainTransactions(e) },
+			"before_" + pbft.PBFT_REQUEST.String():                      func(e *fsm.Event) { v.beforeRequest(e) },
+			"before_" + pbft.PBFT_PRE_PREPARE.String():                  func(e *fsm.Event) { v.beforePrePrepareResult(e) },
+			"before_" + pbft.PBFT_PREPARE_RESULT.String():               func(e *fsm.Event) { v.beforePrepareResult(e) },
+			"before_" + pbft.PBFT_COMMIT_RESULT.String():                func(e *fsm.Event) { v.beforeCommitResult(e) },
 		},
 	)
+	// v.FSM = fsm.NewFSM(
+	// 	"created",
+	// 	fsm.Events{
+	// 		{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
+	// 		{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
+	// 	},
+	// 	fsm.Callbacks{
+	// 		"enter_state":                                               func(e *fsm.Event) { v.enterState(e) },
+	// 		"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
+	// 		"before_" + pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(): func(e *fsm.Event) { v.beforeChainTransactions(e) },
+	// 	},
+	// )
 
 	return v
 }
@@ -191,13 +211,25 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
 		return
 	}
-	request := &pbft.Request{Id: uuid, Payload: msg.Payload}
-	data, err := proto.Marshal(request)
+	// For now unpack the lone transaction and send as the payload
+	transactionsMessage := &pb.TransactionsMessage{}
+	err = proto.Unmarshal(msg.Payload, transactionsMessage)
 	if err != nil {
-		e.Cancel(fmt.Errorf("Error marshalling Request: %s", err))
+		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
 		return
 	}
-	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: data}
+	transactionToSend := transactionsMessage.Transactions[0]
+	data, err := proto.Marshal(transactionToSend)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))
+		return
+	}
+	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, Id: uuid, Payload: data})
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
+		return
+	}
+	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: pbftData}
 	validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", msg.Type)
 	v.validator.Broadcast(newMsg)
 	// if err := v.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO}); err != nil {
@@ -211,15 +243,35 @@ func (v *ValidatorFSM) when(stateToCheck string) bool {
 
 func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
-	if v.FSM.Cannot(msg.Type.String()) {
-		return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
-	}
-	err := v.FSM.Event(msg.Type.String(), msg)
-	if err != nil {
-		if _, ok := err.(*fsm.NoTransitionError); !ok {
-			// Only allow NoTransitionError's, all others are considered true error.
-			return fmt.Errorf("Peer FSM failed while handling message (%s): current state: %s, error: %s", msg.Type.String(), v.FSM.Current(), err)
-			//t.Error("expected only 'NoTransitionError'")
+
+	if msg.Type == pb.OpenchainMessage_CONSENSUS {
+		pbft := &pbft.PBFT{}
+		err := proto.Unmarshal(msg.Payload, pbft)
+		if err != nil {
+			return fmt.Errorf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err)
+		}
+		if v.FSM.Cannot(pbft.Type.String()) {
+			return fmt.Errorf("Validator FSM cannot handle CONSENSUS message (%s) with payload size (%d) while in state: %s", pbft.Type.String(), len(pbft.Payload), v.FSM.Current())
+		}
+		v.FSM.Event(pbft.Type.String(), pbft)
+		if err != nil {
+			if _, ok := err.(*fsm.NoTransitionError); !ok {
+				// Only allow NoTransitionError's, all others are considered true error.
+				return fmt.Errorf("Validator FSM failed while handling CONSENSUS message (%s): current state: %s, error: %s", pbft.Type.String(), v.FSM.Current(), err)
+				//t.Error("expected only 'NoTransitionError'")
+			}
+		}
+	} else {
+		if v.FSM.Cannot(msg.Type.String()) {
+			return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
+		}
+		err := v.FSM.Event(msg.Type.String(), msg)
+		if err != nil {
+			if _, ok := err.(*fsm.NoTransitionError); !ok {
+				// Only allow NoTransitionError's, all others are considered true error.
+				return fmt.Errorf("Validator FSM failed while handling message (%s): current state: %s, error: %s", msg.Type.String(), v.FSM.Current(), err)
+				//t.Error("expected only 'NoTransitionError'")
+			}
 		}
 	}
 	return nil
@@ -232,4 +284,65 @@ func (v *ValidatorFSM) SendMessage(msg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Error Sending message through ChatStream: %s", err)
 	}
 	return nil
+}
+
+func (v *ValidatorFSM) beforeRequest(e *fsm.Event) {
+	// Check incoming message.
+	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+		e.Cancel(fmt.Errorf("Unexpected message received."))
+		return
+	}
+	message := e.Args[0].(*pb.OpenchainMessage)
+	// Calculate hash.
+	hash := util.ComputeCryptoHash(message.Payload)
+	hashString := string(hash[:])
+	// Extract Request message.
+	newRequest := &pbft.Request{}
+	err := proto.Unmarshal(message.Payload, newRequest)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Unmarshaling error: %v", err))
+		return
+	}
+	// Store in map.
+	if _, ok := v.storedRequests[hashString]; ok {
+		e.Cancel(fmt.Errorf("Message (hash: %v) already stored,", hashString))
+		return
+	} else {
+		v.storedRequests[hashString] = newRequest
+	}
+
+}
+
+func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
+	// Check incoming message.
+	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+
+	}
+	msg := e.Args[0].(*pb.OpenchainMessage)
+	validatorLogger.Debug("Need to Execute transactions in PRE_PREPARE using Murali's code after msg of type: %s", msg.Type)
+	// TODO: Various checks should go here -- skipped for now.
+	// TODO: Execute transactions in PRE_PREPARE using Murali's code.
+	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
+}
+
+func (v *ValidatorFSM) beforePrepareResult(e *fsm.Event) {
+	// Check incoming message.
+	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+
+	}
+	msg := e.Args[0].(*pb.OpenchainMessage)
+	validatorLogger.Debug("TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:COMMIT_RESULT message after msg of type: %s", msg.Type)
+	// TODO: Various checks should go here -- skipped for now.
+	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:COMMIT_RESULT message.
+}
+
+func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
+	// Check incoming message.
+	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+
+	}
+	msg := e.Args[0].(*pb.OpenchainMessage)
+	validatorLogger.Debug("TODO: Commit referenced transactions to blockchain after msg of type: %s", msg.Type)
+	// TODO: Various checks should go here -- skipped for now.
+	// TODO: Commit referenced transactions to blockchain.
 }

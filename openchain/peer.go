@@ -159,6 +159,7 @@ func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.Transact
 		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
 	} else {
 		defer stream.CloseSend()
+		peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
 		waitc := make(chan struct{})
 		go func() {

@@ -67,3 +67,18 @@ message RequestHashes {
 message Requests {
     repeated Requests requests = 1;
 }
+
+message PBFT {
+    enum Type {
+        UNDEFINED = 0;
+        REQUEST = 1;
+        PRE_PREPARE = 2;
+        PREPARE = 3;
+        COMMIT = 4;
+        PREPARE_RESULT = 5;
+        COMMIT_RESULT = 6;
+    }
+    Type type = 1;
+    string id = 2;
+    bytes payload = 3;
+}
