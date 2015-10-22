@@ -43,7 +43,7 @@ type LeaderFSM struct {
 	storedRequests map[string]*pbft.Request
 }
 
-func NewLeaderFSM(parent Validator, to string, peerChatStream PeerChatStream) *LeaderFSM {
+func NewLeaderFSM(parent openchain.Validator, to string, peerChatStream openchain.PeerChatStream) *LeaderFSM {
 	v := &LeaderFSM{
 		To:         to,
 		ChatStream: peerChatStream,
@@ -106,7 +106,7 @@ func (v *LeaderFSM) beforeChainTransactions(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))
 		return
 	}
-	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, Id: uuid, Payload: data})
+	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, ID: uuid, Payload: data})
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
 		return
@@ -187,24 +187,24 @@ func (v *LeaderFSM) beforeRequest(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Message (hash: %v) already stored,", hashString))
 		return
 	} else {
-		v.storedRequests[hashString] = newRequest.Payload
+		v.storedRequests[hashString] = newRequest
 	}
 	// How many Requests currently in map?
 	storedCount := len(v.storedRequests)
 	if storedCount >= 2 {
 		// First: Broadcast OpenchainMessage_CONSENSUS with PAYLOAD: PRE_PREPARE.
-		container := make([]*pbft.PBFT, storedCount)
-		for i := 0; i < storedCount; i++ {
-			container[i] = v.storedRequests[i]
+		requests := make([]*pbft.Request, storedCount)
+		for _, request := range v.storedRequests {
+			requests = append(requests, request)
 		}
 		// Marshal the array of Request messages.
-		data1, err := proto.Marshal(&pbft.PBFTarray{Requests: container})
+		data1, err := proto.Marshal(&pbft.Requests{Requests: requests})
 		if err != nil {
 			e.Cancel(fmt.Errorf("Error marshalling array of Request messages: %s", err))
 			return
 		}
 		// Marshal the PRE_PREPARE message.
-		data2, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PRE_PREPARE, Id: 0, Payload: data1})
+		data2, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PRE_PREPARE, ID: "nil", Payload: data1})
 		if err != nil {
 			e.Cancel(fmt.Errorf("Error marshalling PRE_PREPARE message: %s", err))
 			return
@@ -217,7 +217,7 @@ func (v *LeaderFSM) beforeRequest(e *fsm.Event) {
 		// TODO: Execute transactions in PRE_PREPARE using Murali's code.
 		// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
 	} else {
-		e.Cancel(fmt.Error("Leader remains in established state."))
+		e.Cancel(fmt.Errorf("Leader remains in established state."))
 	}
 
 }

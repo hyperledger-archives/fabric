@@ -21,8 +21,15 @@ syntax = "proto3";
 
 package pbft;
 
-// PBFT is a common message type to unmarshal the payload of an
+// PBFT is the common message type used to unmarshal the payload of an
 // OpenchainMessage_CONSENSUS message.
+//
+// TODO: Define the contents when the type is REQUEST.
+//
+// When it's a "PRE_PREPARE", the "ID" field is set by the leader. The "payload"
+// field is expected to contain an array of hashes corresponding to received
+// "Request" messages. When the Type is "PREPARE_RESULT" or "COMMIT_RESULT",
+// "payload" should carry the candidate global hash.
 message PBFT {
     enum Type {
         UNDEFINED = 0;
@@ -34,14 +41,8 @@ message PBFT {
         COMMIT_RESULT = 6;
     }
     Type type = 1;
-    string id = 2;
+    string ID = 2;
     bytes payload = 3;
-}
-
-// PBFTarray carries an array of PBFT messages. It is to be marshalled and set
-// as the payload of a PBFT_PRE_PREPARE message.
-message PBFTarray {
-    repeated PBFT requests = 1;
 }
 
 // Request is the message passed by the peer to the validator.
@@ -49,28 +50,8 @@ message PBFTarray {
 // it a unique ID, then packages into a "Request" message that is passed along
 // to one of its connected validators.
 message Request {
-    string id = 1;
+    string ID = 1;
     bytes payload = 2;
-}
-
-// Phase is the message type shared among validators during the consensus phase.
-// The "sequenceNumber" field is set by the leader when setting a "PRE_PREPARE".
-// The "payload" field is expected to contain an array of hashes corresponding
-// to received "Request" messages  when the Type is "PRE_PREPARE". When the Type
-// is "PREPARE_RESULT" or "COMMIT_RESULT", "payload" should carry the candidate
-// global hash.
-message Phase {
-    enum Type {
-        UNDEFINED = 0;
-        PRE_PREPARE = 1;
-        PREPARE = 2;
-        COMMIT = 3;
-        PREPARE_RESULT = 4;
-        COMMIT_RESULT = 5;
-    }
-    Type type = 1;
-    uint64 sequenceNumber = 2;
-    bytes payload = 3;
 }
 
 // RequestHashes contains the hashes of the "Request" messages that the leader
@@ -81,10 +62,10 @@ message RequestHashes {
 }
 
 // Requests will be used temporarily instead of RequestHashes. In order to use
-// "RequestHashes" a datastore is needed on every validator that maps incoming
+// "RequestHashes", a datastore is needed on every validator that maps incoming
 // "Request" messages to their hashes. Until this structure is implemented, the
 // leader should proto.Marshal() a "Requests" message for a PRE_PREPARE
 // message's "payload".
 message Requests {
-    repeated Requests requests = 1;
+    repeated Request requests = 1;
 }
