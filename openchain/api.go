@@ -33,17 +33,27 @@ import (
 // blockchain data structure.
 type ServerOpenchain struct {
 	blockchain *Blockchain
+	ledger     *Ledger
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
 func NewOpenchainServer() (*ServerOpenchain, error) {
 	// Get a handle to the blockchain singleton.
 	bc, err := GetBlockchain()
-	s := &ServerOpenchain{blockchain: bc}
+	if err != nil {
+		return nil, err
+	}
+
+	ledger, ledgerErr := GetLedger()
+	if ledgerErr != nil {
+		return nil, ledgerErr
+	}
+
+	s := &ServerOpenchain{bc, ledger}
 
 	log.Info("\nCreating new OpenchainServer: %s\n", s.blockchain)
 
-	return s, err
+	return s, nil
 }
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
@@ -113,4 +123,9 @@ func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1
 	}
 
 	return nil, fmt.Errorf("No blocks in blockchain.")
+}
+
+// GetState returns the value for a particular chaincode ID and key
+func (s *ServerOpenchain) GetState(ctx context.Context, chaincodeID, key string) ([]byte, error) {
+	return s.ledger.GetState(chaincodeID, key)
 }

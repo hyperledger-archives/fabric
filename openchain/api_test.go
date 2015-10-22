@@ -20,6 +20,7 @@ under the License.
 package openchain
 
 import (
+	"bytes"
 	"google/protobuf"
 	"testing"
 
@@ -258,6 +259,37 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	} else {
 		t.Logf("Current BlockCount: %v", count.Count)
 	}
+}
+
+func TestServerOpenchain_API_GetState(t *testing.T) {
+
+	// Initialize the OpenchainServer object.
+	server, err := NewOpenchainServer()
+	if err != nil {
+		t.Logf("Error creating OpenchainServer: %s", err)
+		t.Fail()
+	}
+
+	// Construct a blockchain with 3 blocks.
+	chain1 := initTestBlockChain(t)
+	chainErr1 := buildTestChain1(chain1, t)
+	if chainErr1 != nil {
+		t.Fail()
+		t.Logf("Error creating chain1: %s", chainErr1)
+	}
+
+	server.blockchain = chain1
+	t.Logf("Chain 1 => %s", server.blockchain)
+
+	// Retrieve the current number of blocks in the blockchain. Must be 3.
+
+	val, stateErr := server.GetState(context.Background(), "MyContract1", "code")
+	if stateErr != nil {
+		t.Fatalf("Error retrieving state: %s", stateErr)
+	} else if bytes.Compare(val, []byte("code example")) != 0 {
+		t.Fatalf("Expected %s, but got %s", []byte("code example"), val)
+	}
+
 }
 
 // buildTestChain1 builds a simple blockchain data structure that contains 3
