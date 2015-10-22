@@ -168,9 +168,9 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	return allBlocks, allHashes
 }
 
-func buildTestTx() *protos.Transaction {
+func buildTestTx() (*protos.Transaction, string) {
 	uuid, _ := util.GenerateUUID()
-	return protos.NewTransaction(protos.ChainletID{Url: "testUrl", Version: "1.1"}, uuid, "anyfunction", []string{"param1, param2"})
+	return protos.NewTransaction(protos.ChainletID{Url: "testUrl", Version: "1.1"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
 }
 
 func checkHash(t *testing.T, hash []byte, expectedHash []byte) {
@@ -217,7 +217,8 @@ func getBlock(t *testing.T, blockNumber int) *protos.Block {
 
 func buildTestBlock() *protos.Block {
 	transactions := []*protos.Transaction{}
-	transactions = append(transactions, buildTestTx())
+	tx, _ := buildTestTx()
+	transactions = append(transactions, tx)
 	block := protos.NewBlock("ErrorCreator", transactions)
 	return block
 }

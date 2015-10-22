@@ -141,6 +141,11 @@ func (ledger *Ledger) GetBlockchainSize() uint64 {
 	return ledger.blockchain.getSize()
 }
 
+//GetTransactionByUUID return transaction by it's uuid
+func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, error) {
+	return ledger.blockchain.getTransactionByUUID(txUUID)
+}
+
 func (ledger *Ledger) checkValidIDBegin() error {
 	if ledger.currentID != nil {
 		return fmt.Errorf("Another TxGroup [%s] already in-progress", ledger.currentID)

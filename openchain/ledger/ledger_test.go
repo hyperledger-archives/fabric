@@ -40,7 +40,7 @@ func TestLedgerCommit(t *testing.T) {
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
-	transaction := buildTestTx()
+	transaction, _ := buildTestTx()
 	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
 	if !reflect.DeepEqual(getStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
 		t.Fatalf("state value not same after Tx commit")
@@ -69,7 +69,7 @@ func TestLedgerDifferentID(t *testing.T) {
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
-	transaction := buildTestTx()
+	transaction, _ := buildTestTx()
 	err := ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("prrof"))
 	if err == nil {
 		t.Fatalf("ledger should throw error")

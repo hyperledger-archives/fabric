@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/protos"
+	"golang.org/x/net/context"
 )
 
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
@@ -67,6 +68,25 @@ func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 	}
 }
 
+func TestIndexes_GetTransactionByUUID(t *testing.T) {
+	initTestBlockChain(t)
+	chain := getTestBlockchain(t)
+	tx1, uuid1 := buildTestTx()
+	tx2, uuid2 := buildTestTx()
+	block1 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx1, tx2})
+	chain.addBlock(context.TODO(), block1)
+
+	tx3, uuid3 := buildTestTx()
+	tx4, uuid4 := buildTestTx()
+	block2 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx3, tx4})
+	chain.addBlock(context.TODO(), block2)
+
+	compareProtoMessages(t, getTransactionByUUID(t, uuid1), tx1)
+	compareProtoMessages(t, getTransactionByUUID(t, uuid2), tx2)
+	compareProtoMessages(t, getTransactionByUUID(t, uuid3), tx3)
+	compareProtoMessages(t, getTransactionByUUID(t, uuid4), tx4)
+}
+
 func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {
 	chain := getTestBlockchain(t)
 	block, err := chain.getBlockByHash(blockHash)
@@ -89,7 +109,16 @@ func getTransactionByBlockHashAndIndex(t *testing.T, blockHash []byte, txIndex i
 	chain := getTestBlockchain(t)
 	tx, err := chain.getTransactionByBlockHash(blockHash, uint64(txIndex))
 	if err != nil {
-		t.Fatalf("Error in API blockchain.GetTransaction(): %s", err)
+		t.Fatalf("Error in API blockchain.getTransactionByBlockHash(): %s", err)
+	}
+	return tx
+}
+
+func getTransactionByUUID(t *testing.T, txUUID string) *protos.Transaction {
+	chain := getTestBlockchain(t)
+	tx, err := chain.getTransactionByUUID(txUUID)
+	if err != nil {
+		t.Fatalf("Error in API blockchain.getTransactionByUUID(): %s", err)
 	}
 	return tx
 }
