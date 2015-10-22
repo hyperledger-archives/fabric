@@ -43,6 +43,7 @@ const DefaultTimeout = time.Second * 3
 
 type MessageHandler interface {
 	HandleMessage(msg *pb.OpenchainMessage) error
+	SendMessage(msg *pb.OpenchainMessage) error
 }
 
 type PeerChatStream interface {
@@ -127,7 +128,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 		err = handler.HandleMessage(in)
 		if err != nil {
 			peerLogger.Error("Error handling message: %s", err)
-			return err
+			//return err
 		}
 		// if in.Type == pb.OpenchainMessage_DISC_HELLO {
 		// 	peerLogger.Debug("Got %s, sending back %s", pb.OpenchainMessage_DISC_HELLO, pb.OpenchainMessage_DISC_HELLO)
@@ -158,6 +159,7 @@ func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.Transact
 		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
 	} else {
 		defer stream.CloseSend()
+		peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
 		waitc := make(chan struct{})
 		go func() {
@@ -270,5 +272,14 @@ func (d *PeerFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	// 		return nil
 	// 	}
 	// }
+	return nil
+}
+
+func (d *PeerFSM) SendMessage(msg *pb.OpenchainMessage) error {
+	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	err := d.ChatStream.Send(msg)
+	if err != nil {
+		return fmt.Errorf("Error Sending message through ChatStream: %s", err)
+	}
 	return nil
 }

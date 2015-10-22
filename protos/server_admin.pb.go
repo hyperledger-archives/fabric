@@ -2,11 +2,23 @@
 // source: server_admin.proto
 // DO NOT EDIT!
 
+/*
+Package protos is a generated protocol buffer package.
+
+It is generated from these files:
+	server_admin.proto
+	openchain.proto
+
+It has these top-level messages:
+	OpenchainMessage
+	ServerStatus
+	ChainletIdentifier
+	ChainletRequestContext
+	ChainletExecutionContext
+*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
 import google_protobuf "google/protobuf"
 import google_protobuf1 "google/protobuf"
 
@@ -17,8 +29,6 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
 
 type OpenchainMessage_Type int32
 
@@ -147,7 +157,7 @@ func (*ServerStatus) ProtoMessage()    {}
 
 type ChainletIdentifier struct {
 	// URL for accessing the Chainlet, eg. https://github.com/user/SampleContract
-	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
+	Url string `protobuf:"bytes,1,opt" json:"Url,omitempty"`
 }
 
 func (m *ChainletIdentifier) Reset()         { *m = ChainletIdentifier{} }
@@ -157,7 +167,7 @@ func (*ChainletIdentifier) ProtoMessage()    {}
 // Used by the Peer to identify the requesting chaincode and allows for proper
 // access to state.
 type ChainletRequestContext struct {
-	Id *ChainletIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
+	Id *ChainletIdentifier `protobuf:"bytes,1,opt" json:"Id,omitempty"`
 }
 
 func (m *ChainletRequestContext) Reset()         { *m = ChainletRequestContext{} }
@@ -174,8 +184,8 @@ func (m *ChainletRequestContext) GetId() *ChainletIdentifier {
 // Provided by the Peer to the chaincode identify the requesting chaincode and
 // allows for proper access to state.
 type ChainletExecutionContext struct {
-	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt,name=ChainletId" json:"ChainletId,omitempty"`
-	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
+	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt" json:"ChainletId,omitempty"`
+	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt" json:"Timestamp,omitempty"`
 }
 
 func (m *ChainletExecutionContext) Reset()         { *m = ChainletExecutionContext{} }
