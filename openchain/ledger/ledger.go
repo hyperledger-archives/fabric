@@ -130,10 +130,13 @@ func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
 	return ledger.blockchain.getBlockchainInfo()
 }
 
+// GetBlockByNumber return block given the number of the block on blockchain.
+// Lowest block on chain is block number zero
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
 	return ledger.blockchain.getBlock(blockNumber)
 }
 
+// GetBlockchainSize returns number of blocks in blockchain
 func (ledger *Ledger) GetBlockchainSize() uint64 {
 	return ledger.blockchain.getSize()
 }

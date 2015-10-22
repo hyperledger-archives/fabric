@@ -21,11 +21,12 @@ package ledger
 
 import (
 	"fmt"
-	"github.com/openblockchain/obc-peer/protos"
-	"github.com/spf13/viper"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
 )
 
 func TestMain(m *testing.M) {

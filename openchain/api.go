@@ -24,9 +24,10 @@ import (
 
 	"golang.org/x/net/context"
 
+	google_protobuf1 "google/protobuf"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
-	google_protobuf1 "google/protobuf"
 )
 
 // ServerOpenchain defines the Openchain server object, which holds the

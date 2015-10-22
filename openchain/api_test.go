@@ -23,11 +23,12 @@ import (
 	"bytes"
 	"testing"
 
+	"google/protobuf"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
-	"google/protobuf"
 )
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
