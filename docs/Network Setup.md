@@ -6,18 +6,20 @@ This document covers setting up an Openchain network on your local machine for d
 
 All commands should be run from within the Vagrant environment created in the instructions for [setting up a development environment](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md).
 
-There are three types of peers we will start
+There are three types of peers we will start:
+
 - Non-validating peer - This peer provides an API that allows clients to send transactions to the Openchain network.
 - Validating peer - A validating peer receives transactions from either a non-valdating peer or a client. A validating peer also runs chaincodes and participates in consensus.
 - Leader - A leader organizes transactions into blocks that are distributed to validating peers for consensus.
 
-The communication flow is
+The communication flow is:
 
 Client -> Non-Validating Peer -> Validating Peer -> Leader
 
 ## Starting peers
 
-Peers should be started in the following order
+Peers should be started in the following order:
+
 1. Leader
 2. Validating peer
 3. Non-validating peer
@@ -26,14 +28,14 @@ Each peer can be launched in its own terminal. Remember, these commands should b
 
 ### Launching the leader
 
-Run the following command
+Run the following command:
 ```
 docker run --rm -it -e OPENCHAIN_PEER_ID=leader -e OPENCHAIN_VM_ENDPOINT=http://172.17.42.1:4243 -e OPENCHAIN_PEER_CONSENSUS_VALIDATOR_ENABLED=true -e -OPENCHAIN_PEER_CONSENSUS_LEADER_ENABLED=true openchain-peer obc-peer peer
 ```
 
 ### Launching the validating peer
 
-1. Find the IP address of your leader by running the following command
+1. Find the IP address of your leader by running the following command:
 ```
 docker inspect `docker ps -aq`  | grep IPAddress
 ```
@@ -48,7 +50,7 @@ The validator is now launched and connected to the leader.
 
 ### Launching the non-validating peer
 
-1. Find the IP address of your validating peer by running the following command
+1. Find the IP address of your validating peer by running the following command:
 ```
 docker inspect `docker ps -aq`  | grep IPAddress
 ```
