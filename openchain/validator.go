@@ -20,7 +20,12 @@ under the License.
 package openchain
 
 import (
+	"errors"
 	"fmt"
+	"io"
+
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
@@ -43,15 +48,80 @@ type SimpleValidator struct {
 	validatorStreams map[string]MessageHandler
 	peerStreams      map[string]MessageHandler
 	leader           pb.PeerClient
+	leaderHandler    MessageHandler
 }
 
 func (v *SimpleValidator) Broadcast(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Broadcasting OpenchainMessage of type: %s", msg.Type)
+	err := v.leaderHandler.SendMessage(msg)
+	if err != nil {
+		return fmt.Errorf("Error broadcasting msg of type: %s", msg.Type)
+	}
 	return nil
 }
 
 func (v *SimpleValidator) GetHandler(stream PeerChatStream) MessageHandler {
 	return NewValidatorFSM(v, "", stream)
+}
+
+func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
+
+	var errFromChat error = nil
+	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error connecting to leader at address=%s:  %s", peerAddress, err))
+	}
+	serverClient := pb.NewPeerClient(conn)
+	stream, err := serverClient.Chat(context.Background())
+	v.leaderHandler = v.GetHandler(stream)
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error chatting with leader at address=%s:  %s", peerAddress, err))
+	} else {
+		defer stream.CloseSend()
+		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+		waitc := make(chan struct{})
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					// read done.
+					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
+					close(waitc)
+					return
+				}
+				if err != nil {
+					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+				}
+				// Call FSM.HandleMessage()
+				err = v.leaderHandler.HandleMessage(in)
+				if err != nil {
+					validatorLogger.Error("Error handling message: %s", err)
+					return
+				}
+
+				// 	if in.Type == pb.OpenchainMessage_DISC_HELLO {
+				// 		peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
+				// 		payload, err := proto.Marshal(transactionsMessage)
+				// 		if err != nil {
+				// 			errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
+				// 			close(waitc)
+				// 			return
+				// 		}
+				// 		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
+				// 		peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
+				// 		close(waitc)
+				// 		return
+				// 	} else {
+				// 		peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+				// 		close(waitc)
+				// 		return
+				// 	}
+			}
+		}()
+		<-waitc
+		return nil
+	}
 }
 
 func NewSimpleValidator() (Validator, error) {
@@ -60,15 +130,7 @@ func NewSimpleValidator() (Validator, error) {
 	if !viper.GetBool("peer.consensus.leader.enabled") {
 		leaderAddress := viper.GetString("peer.consensus.leader.address")
 		validatorLogger.Debug("Creating client to Peer (Leader) with address: %s", leaderAddress)
-		conn, err := NewPeerClientConnectionWithAddress(leaderAddress)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating connection to leader address=%s:  %s", leaderAddress, err)
-		}
-		serverClient := pb.NewPeerClient(conn)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating Peer client to leader address=%s:  %s", leaderAddress, err)
-		}
-		validator.leader = serverClient
+		go validator.chatWithLeader(leaderAddress)
 	}
 	return validator, nil
 }
@@ -159,6 +221,15 @@ func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 			return fmt.Errorf("Peer FSM failed while handling message (%s): current state: %s, error: %s", msg.Type.String(), v.FSM.Current(), err)
 			//t.Error("expected only 'NoTransitionError'")
 		}
+	}
+	return nil
+}
+
+func (v *ValidatorFSM) SendMessage(msg *pb.OpenchainMessage) error {
+	validatorLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	err := v.ChatStream.Send(msg)
+	if err != nil {
+		return fmt.Errorf("Error Sending message through ChatStream: %s", err)
 	}
 	return nil
 }

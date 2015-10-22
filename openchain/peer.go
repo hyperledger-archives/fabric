@@ -43,6 +43,7 @@ const DefaultTimeout = time.Second * 3
 
 type MessageHandler interface {
 	HandleMessage(msg *pb.OpenchainMessage) error
+	SendMessage(msg *pb.OpenchainMessage) error
 }
 
 type PeerChatStream interface {
@@ -127,7 +128,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 		err = handler.HandleMessage(in)
 		if err != nil {
 			peerLogger.Error("Error handling message: %s", err)
-			return err
+			//return err
 		}
 		// if in.Type == pb.OpenchainMessage_DISC_HELLO {
 		// 	peerLogger.Debug("Got %s, sending back %s", pb.OpenchainMessage_DISC_HELLO, pb.OpenchainMessage_DISC_HELLO)
@@ -270,5 +271,14 @@ func (d *PeerFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	// 		return nil
 	// 	}
 	// }
+	return nil
+}
+
+func (d *PeerFSM) SendMessage(msg *pb.OpenchainMessage) error {
+	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	err := d.ChatStream.Send(msg)
+	if err != nil {
+		return fmt.Errorf("Error Sending message through ChatStream: %s", err)
+	}
 	return nil
 }
