@@ -146,6 +146,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 	}
 }
 
+// testing
 func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
 	var errFromChat error = nil
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
