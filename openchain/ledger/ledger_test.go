@@ -93,6 +93,15 @@ func TestStateSnapshot(t *testing.T) {
 
 	defer snapshot.Release()
 
+	// Modify keys to ensure they do not impact the snapshot
+	beginTxBatch(t, 2)
+	ledger.DeleteState("chaincode1", "key1")
+	ledger.SetState("chaincode4", "key4", []byte("value4"))
+	ledger.SetState("chaincode5", "key5", []byte("value5"))
+	ledger.SetState("chaincode6", "key6", []byte("value6"))
+	transaction, _ = buildTestTx()
+	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
+
 	var count = 0
 	for snapshot.Next() {
 		k, v := snapshot.GetRawKeyValue()

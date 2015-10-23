@@ -108,6 +108,11 @@ func (openchainDB *OpenchainDB) GetFromBlockchainCF(key []byte) ([]byte, error) 
 	return openchainDB.get(openchainDB.BlockchainCF, key)
 }
 
+// GetFromBlockchainCFSnapshot get value for given key from column family in a DB snapshot - blockchainCF
+func (openchainDB *OpenchainDB) GetFromBlockchainCFSnapshot(snapshot *gorocksdb.Snapshot, key []byte) ([]byte, error) {
+	return openchainDB.getFromSnapshot(snapshot, openchainDB.BlockchainCF, key)
+}
+
 // GetFromStateCF get value for given key from column family - stateCF
 func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
 	return openchainDB.get(openchainDB.StateCF, key)
@@ -135,15 +140,20 @@ func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
 
 // GetStateCFSnapshotIterator get iterator for column family - stateCF. This iterator
 // is based on a snapshot and should be used for long running scans, such as
-// reading the entire state. Remember to call iterator.Close() and
-// snapshot.Release() to release resouces when you are done.
-func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator() (*gorocksdb.Iterator, *gorocksdb.Snapshot) {
-	return openchainDB.getSnapshotIterator(openchainDB.StateCF)
+// reading the entire state. Remember to call iterator.Close() when you are done.
+func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator(snapshot *gorocksdb.Snapshot) *gorocksdb.Iterator {
+	return openchainDB.getSnapshotIterator(snapshot, openchainDB.StateCF)
 }
 
 // GetStateHashCFIterator get iterator for column family - statehashCF
 func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
 	return openchainDB.getIterator(openchainDB.StateHashCF)
+}
+
+// GetSnapshot returns a point-in-time view of the DB. You MUST call snapshot.Release()
+// when you are done with the snapshot.
+func (openchainDB *OpenchainDB) GetSnapshot() *gorocksdb.Snapshot {
+	return openchainDB.DB.NewSnapshot()
 }
 
 func getDBPath() string {
@@ -208,17 +218,27 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	return slice.Data(), nil
 }
 
+func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
+	opt := gorocksdb.NewDefaultReadOptions()
+	opt.SetSnapshot(snapshot)
+	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
+	if err != nil {
+		fmt.Println("Error while trying to retrieve key:", key)
+		return nil, err
+	}
+	return slice.Data(), nil
+}
+
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	return openchainDB.DB.NewIteratorCF(opt, cfHandler)
 }
 
-func (openchainDB *OpenchainDB) getSnapshotIterator(cfHandler *gorocksdb.ColumnFamilyHandle) (*gorocksdb.Iterator, *gorocksdb.Snapshot) {
+func (openchainDB *OpenchainDB) getSnapshotIterator(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
-	snapshot := openchainDB.DB.NewSnapshot()
 	opt.SetSnapshot(snapshot)
 	iter := openchainDB.DB.NewIteratorCF(opt, cfHandler)
-	return iter, snapshot
+	return iter
 }
 
 func dirMissingOrEmpty(path string) (bool, error) {
