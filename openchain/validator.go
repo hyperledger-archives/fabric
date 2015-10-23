@@ -373,8 +373,10 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 
 	// Execute transactions
 	hopefulHash, errs := executeTransactions(context.Background(), transactions)
-	if errs != nil {
-		e.Cancel(fmt.Errorf("Error executing transactions pbft"))
+	for _, currErr := range errs {
+		if currErr != nil {
+			e.Cancel(fmt.Errorf("Error executing transactions pbft: %s", currErr))
+		}
 	}
 	//continue even if errors if hash is not nil
 	if hopefulHash == nil {
@@ -432,7 +434,7 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 	// TODO: Now commitToBlockchain()
 	validatorLogger.Debug("TODO: Now commitToBlockchain(), received %s while in state: %s", e.Event, e.FSM.Current())
 	// TODO: Various checks should go here -- skipped for now.
-	// TODO: Commit referenced transactions to blockchain.
+	// TODO: Commit referenced transactions to blockchain, uncomment Broadcast above.
 }
 
 func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
