@@ -71,6 +71,47 @@
                     }
                 }
             }
+        },
+        "/state/{chaincodeID}/{key}": {
+            "parameters": [
+              {
+                "name": "chaincodeID",
+                "in": "path",
+                "description": "Unique Chaincode identifier",
+                "type": "string",
+                "required": true,
+              },
+              {
+                "name": "key",
+                "in": "path",
+                "description": "Key to match within the Chaincode",
+                "type": "string",
+                "required": true,
+              }
+            ],
+            "get": {
+                "summary": "State information for unique chaincodeID and key",
+                "description": "The {chaincodeID}/{key} endpoint returns state information matching\n
+                                a specific chaincodeID and key. If there is no match on either the \n
+                                chaincodeID or the key, a \"null\" value is returned for the state. \n",
+                "tags": [
+                    "State"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Retrieved state value",
+                        "schema": {
+                          "$ref": "#/definitions/State"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -173,10 +214,20 @@
                 }
             }
         },
+        "State": {
+            "type": "object",
+            "properties": {
+                "State": {
+                    "type": "string",
+                    "description": "State value matching the chaincodeId and key parameters.\n
+                                    The returned value will be \"null\" if no match was found."
+                }
+            }
+        },
         "Error": {
             "type": "object",
             "properties": {
-                "message": {
+                "Error": {
                     "type": "string",
                     "description": "A descriptive message explaining the cause of error."
                 }
