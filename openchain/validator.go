@@ -173,7 +173,7 @@ func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream)
 			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PRE_PREPARE.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
-			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"commit_result_sent"}, Dst: "committed_block"},
+			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"prepare_result_sent", "commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
 			"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
@@ -350,32 +350,28 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 		return
 	}
 	msg := e.Args[0].(*pbft.PBFT)
+
+	// Don't do anything if LEADER
 	if v.validator.IsLeader() {
 		validatorLogger.Debug("Cancelling transition for leader due to event: %s", e.Event)
 		e.Cancel()
 		return
 	}
-	validatorLogger.Debug("Need to Execute transactions in PRE_PREPARE using Murali's code after msg of type: %s", msg.Type)
 
-	//Don't care about ID string for now
-	var id string
-
+	// Get transactions from message
 	pbftArray := &pbft.PBFTArray{}
 	err := proto.Unmarshal(msg.Payload, pbftArray)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error unmarshaling PBFTArray: %s", err))
 		return
 	}
-	transactions := make([]*pb.Transaction, 0)
-	for _, pbft := range pbftArray.Pbfts {
-		tx := &pb.Transaction{}
-		err := proto.Unmarshal(pbft.Payload, tx)
-		if err != nil {
-			e.Cancel(fmt.Errorf("Error unmarshalling transaction from PBFT: %s", err))
-			return
-		}
-		transactions = append(transactions, tx)
+	transactions, err := convertPBFTsToTransactions(pbftArray)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error converting PBFTs to Transactions: %s", err))
+		return
 	}
+
+	// Execute transactions
 	hopefulHash, errs := executeTransactions(context.Background(), transactions)
 	if errs != nil {
 		e.Cancel(fmt.Errorf("Error executing transactions pbft"))
@@ -385,13 +381,15 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("nil hash not broadcasting hash result"))
 		return
 	}
+	//Don't care about ID string for now
+	var id string
 	prepres, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PREPARE_RESULT, ID: id, Payload: hopefulHash})
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
 		return
 	}
 	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: prepres}
-	validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", newMsg.Type)
+	validatorLogger.Debug("Broadcasting %s after receiving message type : %s", pbft.PBFT_PREPARE_RESULT, e.Event)
 	v.validator.Broadcast(newMsg)
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Execute transactions in PRE_PREPARE using Murali's code.
@@ -408,6 +406,15 @@ func (v *ValidatorFSM) beforePrepareResult(e *fsm.Event) {
 	validatorLogger.Debug("TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:COMMIT_RESULT message after msg of type: %s", msg.Type)
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:COMMIT_RESULT message.
+	// Simply clone received PBFT message and change type, may need to be revisited
+	commitResult, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_COMMIT_RESULT, ID: msg.ID, Payload: msg.Payload})
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
+		return
+	}
+	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: commitResult}
+	validatorLogger.Debug("Getting ready to broadcast %s after receiving message type : %s", pbft.PBFT_COMMIT_RESULT, msg.Type)
+	v.validator.Broadcast(newMsg)
 }
 
 func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
@@ -417,7 +424,13 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 		return
 	}
 	msg := e.Args[0].(*pbft.PBFT)
-	validatorLogger.Debug("TODO: Commit referenced transactions to blockchain after msg of type: %s", msg.Type)
+	if e.FSM.Current() != "commit_result_sent" {
+		// Only send if have NOT already sent
+		validatorLogger.Debug("TODO: Validator received %s, needs to send its own %s", msg.Type, pbft.PBFT_COMMIT_RESULT)
+		//v.validator.Broadcast(CommitResult)
+	}
+	// TODO: Now commitToBlockchain()
+	validatorLogger.Debug("TODO: Now commitToBlockchain(), received %s while in state: %s", e.Event, e.FSM.Current())
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Commit referenced transactions to blockchain.
 }
@@ -453,6 +466,19 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 	} else {
 		e.Cancel(fmt.Errorf("Leader remains in established state."))
 	}
+}
+
+func convertPBFTsToTransactions(pbftArray *pbft.PBFTArray) ([]*pb.Transaction, error) {
+	transactions := make([]*pb.Transaction, 0)
+	for _, pbft := range pbftArray.Pbfts {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(pbft.Payload, tx)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling transaction from PBFT: %s", err)
+		}
+		transactions = append(transactions, tx)
+	}
+	return transactions, nil
 }
 
 //executeTransactions - will execute transactions on the array one by one
