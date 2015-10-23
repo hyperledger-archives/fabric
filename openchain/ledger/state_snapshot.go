@@ -32,13 +32,22 @@ type stateSnapshot struct {
 
 // newStateSnapshot creates a new snapshot of the global state for the current block.
 func newStateSnapshot() (*stateSnapshot, error) {
-	chain, err := getBlockchain()
-	iterator, snapshot := db.GetDBHandle().GetStateCFSnapshotIterator()
+	snapshot := db.GetDBHandle().GetSnapshot()
+	blockNumberBytes, err := db.GetDBHandle().GetFromBlockchainCFSnapshot(snapshot, []byte("blockCount"))
 	if err != nil {
+		snapshot.Release()
 		return nil, err
 	}
-	blockNumber := chain.getSize()
-	stateSnapshot := &stateSnapshot{blockNumber, iterator, snapshot}
+	stateIterator := db.GetDBHandle().GetStateCFSnapshotIterator(snapshot)
+
+	var blockNumber uint64 = 0
+	if blockNumberBytes != nil {
+		blockNumber = decodeToUint64(blockNumberBytes)
+	} else {
+		blockNumber = 0
+	}
+	stateSnapshot := &stateSnapshot{blockNumber, stateIterator, snapshot}
+
 	stateSnapshot.iterator.SeekToFirst()
 	return stateSnapshot, nil
 }

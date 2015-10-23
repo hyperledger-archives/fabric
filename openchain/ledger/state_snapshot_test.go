@@ -23,7 +23,6 @@ import "testing"
 
 func TestSnapshot(t *testing.T) {
 	initTestDB(t)
-	historyStateDeltaSize = 2
 	state := getState()
 
 	state.clearInMemoryChanges()
@@ -53,6 +52,13 @@ func TestSnapshot(t *testing.T) {
 	}
 
 	defer snapshot.Release()
+
+	// Modify keys to ensure they do not impact the snapshot
+	state.clearInMemoryChanges()
+	state.delete("chaincode1", "key8")
+	state.set("chaincode1", "key9", []byte("value9"))
+	state.set("chaincode2", "key10", []byte("value10"))
+	commitTestState(t, 3)
 
 	var count = 0
 	for snapshot.Next() {
