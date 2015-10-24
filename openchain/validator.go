@@ -272,24 +272,35 @@ func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 		}
 		err = v.FSM.Event(pbft.Type.String(), pbft)
 		validatorLogger.Debug("Processed pbft event: %s, current state: %s", pbft.Type, v.FSM.Current())
-
-		if err != nil {
-			if _, ok := err.(*fsm.NoTransitionError); !ok {
-				// Only allow NoTransitionError's, all others are considered true error.
-				return fmt.Errorf("Validator FSM failed while handling CONSENSUS message (%s): current state: %s, error: %s", pbft.Type.String(), v.FSM.Current(), err)
-				//t.Error("expected only 'NoTransitionError'")
-			}
-		}
+		return filterError(err)
 	} else {
 		if v.FSM.Cannot(msg.Type.String()) {
 			return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
 		}
 		err := v.FSM.Event(msg.Type.String(), msg)
-		if err != nil {
-			if _, ok := err.(*fsm.NoTransitionError); !ok {
+		return filterError(err)
+	}
+}
+
+// Filter the Errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil
+func filterError(errFromFSMEvent error) error {
+	if errFromFSMEvent != nil {
+		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {
+			if noTransitionErr.Err != nil {
 				// Only allow NoTransitionError's, all others are considered true error.
-				return fmt.Errorf("Validator FSM failed while handling message (%s): current state: %s, error: %s", msg.Type.String(), v.FSM.Current(), err)
+				return errFromFSMEvent
 				//t.Error("expected only 'NoTransitionError'")
+			} else {
+				validatorLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
+			}
+		}
+		if canceledErr, ok := errFromFSMEvent.(*fsm.CanceledError); ok {
+			if canceledErr.Err != nil {
+				// Only allow NoTransitionError's, all others are considered true error.
+				return canceledErr
+				//t.Error("expected only 'NoTransitionError'")
+			} else {
+				validatorLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 			}
 		}
 	}
@@ -315,15 +326,7 @@ func (v *ValidatorFSM) beforeRequest(e *fsm.Event) {
 	message := e.Args[0].(*pbft.PBFT)
 	// Calculate hash.
 	hash := util.ComputeCryptoHash(message.Payload)
-	//hashString := string(hash[:])
 	hashString := base64.StdEncoding.EncodeToString(hash)
-	// Extract Request message.
-	// newRequest := &pbft.Request{}
-	// err := proto.Unmarshal(message.Payload, newRequest)
-	// if err != nil {
-	// 	e.Cancel(fmt.Errorf("Unmarshaling error: %v", err))
-	// 	return
-	// }
 	// Store in map.
 	validatorLogger.Debug("Before storing requests in map for event: %s", e.Event)
 	if _, ok := v.storedRequests[hashString]; ok {
@@ -460,13 +463,16 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 		}
 		// Create new consensus message.
 		newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: data2}
-		validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", newMsg.Type)
+		validatorLogger.Debug("Broadcasting %s after receiving msg: %s", pbft.PBFT_PRE_PREPARE, e.Event)
 		v.validator.Broadcast(newMsg)
+
 		// TODO: Various checks should go here -- skipped for now.
 		// TODO: Execute transactions in PRE_PREPARE using Murali's code.
 		// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
+		validatorLogger.Debug("TODO: Execute transactions in PRE_PREPARE using Murali's code, then Broadcast %s", pbft.PBFT_PREPARE_RESULT)
 	} else {
-		e.Cancel(fmt.Errorf("Leader remains in established state."))
+		validatorLogger.Debug("StoredCount = %d, Leader going to remain in %s.", storedCount, e.FSM.Current())
+		e.Cancel()
 	}
 }
 
