@@ -184,19 +184,6 @@ func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream)
 			"before_" + pbft.PBFT_COMMIT_RESULT.String():                func(e *fsm.Event) { v.beforeCommitResult(e) },
 		},
 	)
-	// v.FSM = fsm.NewFSM(
-	// 	"created",
-	// 	fsm.Events{
-	// 		{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-	// 		{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
-	// 	},
-	// 	fsm.Callbacks{
-	// 		"enter_state":                                               func(e *fsm.Event) { v.enterState(e) },
-	// 		"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
-	// 		"before_" + pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(): func(e *fsm.Event) { v.beforeChainTransactions(e) },
-	// 	},
-	// )
-
 	return v
 }
 
@@ -212,14 +199,13 @@ func (v *ValidatorFSM) beforeHello(e *fsm.Event) {
 }
 
 func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
-	validatorLogger.Debug("Sending broadcast to all validators upon receipt of %s", pb.OpenchainMessage_DISC_HELLO.String())
+	validatorLogger.Debug("Sending broadcast to all validators upon receipt of %s", e.Event)
 	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
-
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
 	}
 	msg := e.Args[0].(*pb.OpenchainMessage)
 
-	//
-	//proto.Marshal()
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
@@ -230,6 +216,13 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 	err = proto.Unmarshal(msg.Payload, transactionsMessage)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
+		return
+	}
+	// Currently expect only 1 transaction in TransactionsMessage
+	validatorLogger.Warning("Currently expect exactly 1 transaction in TransactionsMessage")
+	numOfTransactions := len(transactionsMessage.Transactions)
+	if numOfTransactions != 1 {
+		e.Cancel(fmt.Errorf("Expected exactly one transaction in TransactionsMessage.Transactions, received %d", numOfTransactions))
 		return
 	}
 	transactionToSend := transactionsMessage.Transactions[0]
@@ -244,11 +237,8 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 		return
 	}
 	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: pbftData}
-	validatorLogger.Debug("Getting ready to create CONSENSUS from this message type : %s", msg.Type)
+	validatorLogger.Debug("Broadcasting %s with PBFT type: %s", pb.OpenchainMessage_CONSENSUS, pbft.PBFT_REQUEST)
 	v.validator.Broadcast(newMsg)
-	// if err := v.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO}); err != nil {
-	// 	e.Cancel(err)
-	// }
 }
 
 func (v *ValidatorFSM) when(stateToCheck string) bool {
@@ -258,7 +248,7 @@ func (v *ValidatorFSM) when(stateToCheck string) bool {
 func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 	if viper.GetBool("peer.consensus.leader.enabled") {
-		validatorLogger.Debug("storedRequests length = %d", len(v.storedRequests))
+		validatorLogger.Debug("Leader's storedRequests length = %d", len(v.storedRequests))
 	}
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		pbft := &pbft.PBFT{}
@@ -266,12 +256,12 @@ func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 		if err != nil {
 			return fmt.Errorf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err)
 		}
-		validatorLogger.Debug("Handling pbft type: %s", pbft.Type)
+		validatorLogger.Debug("Handling msg %s with PBFT type: %s", msg.Type, pbft.Type)
 		if v.FSM.Cannot(pbft.Type.String()) {
-			return fmt.Errorf("Validator FSM cannot handle CONSENSUS message (%s) with payload size (%d) while in state: %s", pbft.Type.String(), len(pbft.Payload), v.FSM.Current())
+			return fmt.Errorf("Validator FSM cannot handle %s message (%s) with payload size (%d) while in state: %s", pb.OpenchainMessage_CONSENSUS, pbft.Type.String(), len(pbft.Payload), v.FSM.Current())
 		}
 		err = v.FSM.Event(pbft.Type.String(), pbft)
-		validatorLogger.Debug("Processed pbft event: %s, current state: %s", pbft.Type, v.FSM.Current())
+		validatorLogger.Debug("Processed msg %s with PBFT type: %s, current state: %s", msg.Type, pbft.Type, v.FSM.Current())
 		return filterError(err)
 	} else {
 		if v.FSM.Cannot(msg.Type.String()) {
