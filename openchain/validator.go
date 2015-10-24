@@ -459,7 +459,28 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 		// TODO: Various checks should go here -- skipped for now.
 		// TODO: Execute transactions in PRE_PREPARE using Murali's code.
 		// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
-		validatorLogger.Debug("TODO: Execute transactions in PRE_PREPARE using Murali's code, then Broadcast %s", pbft.PBFT_PREPARE_RESULT)
+		//validatorLogger.Debug("TODO: Execute transactions in PRE_PREPARE using Murali's code, then Broadcast %s", pbft.PBFT_PREPARE_RESULT)
+		pbftArray := &pbft.PBFTArray{Pbfts: pbfts}
+		transactions, err := convertPBFTsToTransactions(pbftArray)
+		if err != nil {
+			e.Cancel(fmt.Errorf("Error converting PBFTs to Transactions: %s", err))
+			return
+		}
+
+		// Execute transactions
+		hopefulHash, errs := executeTransactions(context.Background(), transactions)
+		for _, currErr := range errs {
+			if currErr != nil {
+				e.Cancel(fmt.Errorf("Error executing transactions pbft: %s", currErr))
+			}
+		}
+		//continue even if errors if hash is not nil
+		if hopefulHash == nil {
+			e.Cancel(fmt.Errorf("nil hash not broadcasting hash result"))
+			return
+		}
+		validatorLogger.Debug("TODO: Executed transactions, now need to Broadcast %s", pbft.PBFT_PREPARE_RESULT)
+
 	} else {
 		validatorLogger.Debug("StoredCount = %d, Leader going to remain in %s.", storedCount, e.FSM.Current())
 		e.Cancel()
