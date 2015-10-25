@@ -111,24 +111,6 @@ func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 					validatorLogger.Error("Error handling message: %s", err)
 					return
 				}
-
-				// 	if in.Type == pb.OpenchainMessage_DISC_HELLO {
-				// 		peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
-				// 		payload, err := proto.Marshal(transactionsMessage)
-				// 		if err != nil {
-				// 			errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
-				// 			close(waitc)
-				// 			return
-				// 		}
-				// 		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
-				// 		peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
-				// 		close(waitc)
-				// 		return
-				// 	} else {
-				// 		peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-				// 		close(waitc)
-				// 		return
-				// 	}
 			}
 		}()
 		<-waitc
@@ -139,7 +121,7 @@ func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 func NewSimpleValidator(isLeader bool) (Validator, error) {
 	validator := &SimpleValidator{}
 	// Only perform if NOT the leader
-	if !viper.GetBool("peer.consensus.leader.enabled") {
+	if !isLeader {
 		leaderAddress := viper.GetString("peer.consensus.leader.address")
 		validatorLogger.Debug("Creating client to Peer (Leader) with address: %s", leaderAddress)
 		go validator.chatWithLeader(leaderAddress)
@@ -479,7 +461,17 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 			e.Cancel(fmt.Errorf("nil hash not broadcasting hash result"))
 			return
 		}
-		validatorLogger.Debug("TODO: Executed transactions, now need to Broadcast %s", pbft.PBFT_PREPARE_RESULT)
+
+		// Now Broadcast the result
+		validatorLogger.Debug("Executed transactions, now Broadcasting %s", pbft.PBFT_PREPARE_RESULT)
+		//Don't care about ID string for now
+		var id string
+		prepres, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PREPARE_RESULT, ID: id, Payload: hopefulHash})
+		if err != nil {
+			e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
+			return
+		}
+		v.validator.Broadcast(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: prepres})
 
 	} else {
 		validatorLogger.Debug("StoredCount = %d, Leader going to remain in %s.", storedCount, e.FSM.Current())
