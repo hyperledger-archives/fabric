@@ -30,7 +30,7 @@ Each peer can be launched in its own terminal. Remember, these commands should b
 
 Run the following command:
 ```
-docker run --rm -it -e OPENCHAIN_PEER_ID=leader -e OPENCHAIN_VM_ENDPOINT=http://172.17.42.1:4243 -e OPENCHAIN_PEER_CONSENSUS_VALIDATOR_ENABLED=true -e -OPENCHAIN_PEER_CONSENSUS_LEADER_ENABLED=true openchain-peer obc-peer peer
+docker run --rm -it -e OPENCHAIN_PEER_ID=leader -e OPENCHAIN_VM_ENDPOINT=http://172.17.42.1:4243 -e OPENCHAIN_PEER_CONSENSUS_VALIDATOR_ENABLED=true -e OPENCHAIN_PEER_CONSENSUS_LEADER_ENABLED=true openchain-peer obc-peer peer
 ```
 
 ### Launching the validating peer
