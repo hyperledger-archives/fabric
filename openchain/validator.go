@@ -131,12 +131,13 @@ func NewSimpleValidator(isLeader bool) (Validator, error) {
 }
 
 type ValidatorFSM struct {
-	To             string
-	ChatStream     PeerChatStream
-	FSM            *fsm.FSM
-	PeerFSM        *PeerFSM
-	validator      Validator
-	storedRequests map[string]*pbft.PBFT
+	To                  string
+	ChatStream          PeerChatStream
+	FSM                 *fsm.FSM
+	PeerFSM             *PeerFSM
+	validator           Validator
+	storedRequests      map[string]*pbft.PBFT
+	transactionsInBlock []*pb.Transaction
 }
 
 func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream) *ValidatorFSM {
@@ -358,6 +359,10 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("nil hash not broadcasting hash result"))
 		return
 	}
+
+	// Now store transactions for block and broadcast PREPARE_RESULT
+	v.transactionsInBlock = transactions
+
 	//Don't care about ID string for now
 	var id string
 	prepres, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PREPARE_RESULT, ID: id, Payload: hopefulHash})
@@ -366,8 +371,10 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 		return
 	}
 	newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: prepres}
-	validatorLogger.Debug("Broadcasting %s after receiving message type : %s", pbft.PBFT_PREPARE_RESULT, e.Event)
+	validatorLogger.Debug("Broadcasting %s after receiving message type : %s.  Also storing transaction for block of length = %d", pbft.PBFT_PREPARE_RESULT, e.Event, len(v.transactionsInBlock))
 	v.validator.Broadcast(newMsg)
+	// Store the executed transaction for the proposing Block
+
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Execute transactions in PRE_PREPARE using Murali's code.
 	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
@@ -407,7 +414,33 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 		//v.validator.Broadcast(CommitResult)
 	}
 	// TODO: Now commitToBlockchain()
-	validatorLogger.Debug("TODO: Now commitToBlockchain(), received %s while in state: %s", e.Event, e.FSM.Current())
+	validatorLogger.Debug("TODO: Now commitToBlockchain(), received %s while in state: %s.  Currently %d transactions for block", e.Event, e.FSM.Current(), len(v.transactionsInBlock))
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error getting ledger prior to commiting to block chain: %s", err))
+		return
+	}
+	if err := ledger.BeginTxBatch(msg.ID); err != nil {
+		e.Cancel(fmt.Errorf("Error Beggining Tx with ledger: %s", err))
+		return
+	}
+	// Loop through v.transactionsInBlock, and for each type CHAINLET_NEW, update the State.
+	for _, tx := range v.transactionsInBlock {
+		if tx.Type == pb.Transaction_CHAINLET_NEW {
+			chaincodeIdToUse := tx.ChainletID.Url + ":" + tx.ChainletID.Version
+			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIdToUse)
+			ledger.SetState(chaincodeIdToUse, "github.com/openblockchain/obc-peer/chaincode/id", []byte(tx.Uuid))
+		}
+	}
+	validatorLogger.Warning("Not sure what proof should be here, does not appear to be used in call")
+	proof := make([]byte, 0)
+	if err := ledger.CommitTxBatch(msg.ID, v.transactionsInBlock, proof); err != nil {
+		e.Cancel(fmt.Errorf("Error Committing Tx with ledger: %s", err))
+		return
+	}
+	validatorLogger.Debug("TODO: Need to reset the storedRequests for leader.  Also need to reset transactionsForBlock for all")
+	// if Leader, reset StoredRequests array to 0
+
 	// TODO: Various checks should go here -- skipped for now.
 	// TODO: Commit referenced transactions to blockchain, uncomment Broadcast above.
 }
@@ -462,8 +495,9 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 			return
 		}
 
-		// Now Broadcast the result
-		validatorLogger.Debug("Executed transactions, now Broadcasting %s", pbft.PBFT_PREPARE_RESULT)
+		// Now Broadcast the result and store thre reference to the transactions
+		v.transactionsInBlock = transactions
+		validatorLogger.Debug("Executed transactions, now Broadcasting %s.  Storing transactions for block with len=%d", pbft.PBFT_PREPARE_RESULT, len(v.transactionsInBlock))
 		//Don't care about ID string for now
 		var id string
 		prepres, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_PREPARE_RESULT, ID: id, Payload: hopefulHash})
