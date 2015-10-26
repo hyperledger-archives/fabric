@@ -35,15 +35,15 @@ import (
 
 var devops_logger = logging.MustGetLogger("devops")
 
-func NewDevopsServer() *devops {
-	d := new(devops)
+func NewDevopsServer() *Devops {
+	d := new(Devops)
 	return d
 }
 
-type devops struct {
+type Devops struct {
 }
 
-func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	devops_logger.Debug("Received build request for chainlet spec: %v", spec)
 	if err := checkSpec(spec); err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (*devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.Chainl
 	return chainletDeploymentSepc, nil
 }
 
-func (d *devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	// First build and get the deployment spec
 	chainletDeploymentSepc, err := d.Build(ctx, spec)
 

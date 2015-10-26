@@ -31,20 +31,32 @@ import (
 )
 
 // ServerOpenchain defines the Openchain server object, which holds the
-// blockchain data structure.
+// Ledger data structure.
 type ServerOpenchain struct {
 	ledger *ledger.Ledger
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
 func NewOpenchainServer() (*ServerOpenchain, error) {
-	// Get a handle to the blockchain singleton.
+	// Get a handle to the Ledger singleton.
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, err
 	}
 	s := &ServerOpenchain{ledger: ledger}
-	log.Info("\nCreating new OpenchainServer: %s\n", s.ledger)
+
+	log.Info("\nCreating new OpenchainServer...\n")
+	/*
+		num := ledger.GetBlockchainSize()
+		for i := uint64(0); i < num; i++ {
+			block, err := ledger.GetBlockByNumber(i)
+			if err != nil {
+				log.Info("\nError retrieving block from blockchain: %s\n", err)
+				return nil, err
+			}
+			log.Info("\n\nBlock %d:\n\n%s\n\n", i, block)
+		}
+	*/
 	return s, nil
 }
 

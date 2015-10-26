@@ -312,7 +312,8 @@ func serve() error {
 	pb.RegisterChainletSupportServer(grpcServer, openchain.NewChainletSupport())
 
 	// Register Devops server
-	pb.RegisterDevopsServer(grpcServer, openchain.NewDevopsServer())
+	serverDevops := openchain.NewDevopsServer()
+	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
 	serverOpenchain, err := openchain.NewOpenchainServer()
@@ -324,7 +325,7 @@ func serve() error {
 	pb.RegisterOpenchainServer(grpcServer, serverOpenchain)
 
 	// Create and register the REST service
-	go rest.StartOpenchainRESTServer(serverOpenchain)
+	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 
 	rootNode, err := openchain.GetRootNode()
 	if err != nil {
