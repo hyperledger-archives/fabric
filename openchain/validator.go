@@ -25,6 +25,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
@@ -428,8 +430,9 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 	for _, tx := range v.transactionsInBlock {
 		if tx.Type == pb.Transaction_CHAINLET_NEW {
 			chaincodeIdToUse := tx.ChainletID.Url + ":" + tx.ChainletID.Version
+			chaincodeIdToUse = strings.Replace(chaincodeIdToUse, string(os.PathSeparator), "_", -1)
 			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIdToUse)
-			ledger.SetState(chaincodeIdToUse, "github.com/openblockchain/obc-peer/chaincode/id", []byte(tx.Uuid))
+			ledger.SetState(chaincodeIdToUse, "github.com_openblockchain_obc-peer_chaincode_id", []byte(tx.Uuid))
 		}
 	}
 	validatorLogger.Warning("Not sure what proof should be here, does not appear to be used in call")
