@@ -83,8 +83,6 @@ The available log levels in order of increasing verbosity are: *CRITICAL | ERROR
 
 ## Generating grpc code
 
-From the <WORKSPACE>/protos directory, execute:
-
-    protoc --go_out=plugins=grpc:. server_admin.proto
-
-    protoc --go_out=plugins=grpc:. openchain.proto
+```
+/openchain/obc-dev-env/compile_protos.sh
+```

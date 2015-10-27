@@ -2,20 +2,11 @@
 // source: devops.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	devops.proto
-	openchain.proto
-
-It has these top-level messages:
-	DevopsResponse
-	BuildResult
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // discarding unused import google_protobuf "google/protobuf"
 // discarding unused import google_protobuf1 "google/protobuf"
@@ -27,6 +18,8 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type DevopsResponse_StatusCode int32
 
