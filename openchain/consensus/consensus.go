@@ -19,11 +19,9 @@ under the License.
 
 package consensus
 
-import pb "github.com/openblockchain/obc-peer/protos"
-
 // Consenter should be implemented by every consensus algorithm.
 type Consenter interface {
-	init() (err error)
-	GetParam(param string) (val string)
-	Recv(msg *pb.OpenchainMessage) (err error)
+	// init() (err error)
+	GetParam(param string) (val string, err error)
+	Recv(msg []byte) (err error)
 }
