@@ -46,7 +46,7 @@
                 "description": "Block number to retrieve",
                 "type": "integer",
                 "format": "uint64",
-                "required": true,
+                "required": true
               }
             ],
             "get": {
@@ -79,14 +79,14 @@
                 "in": "path",
                 "description": "Unique Chaincode identifier",
                 "type": "string",
-                "required": true,
+                "required": true
               },
               {
                 "name": "key",
                 "in": "path",
                 "description": "Key to match within the Chaincode",
                 "type": "string",
-                "required": true,
+                "required": true
               }
             ],
             "get": {
@@ -112,6 +112,83 @@
                     }
                 }
             }
+        },
+        "/devops/build": {
+            "parameters": [
+              {
+                "name": "ChaincodeSpec",
+                "in": "body",
+                "description": "Chaincode specification message",
+                "required": true,
+                "schema": {
+                  "$ref": "#/definitions/ChaincodeSpec"
+                }
+              }
+            ],
+            "post": {
+                "summary": "Service endpoint for building Chaincode",
+                "description": "The /devops/build endpoint receives Chaincode build requests for \n
+                                existing Chaincodes. The Chaincode and the required entities are \n
+                                packaged into a container upon receipt of the request. If the build \n
+                                is successful, an encoded codePackage is returned. Otherwise, an \n
+                                error is displayed alongside with a reason for the failure.",
+                "tags": [
+                    "Devops"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Chaincode deployment specification message",
+                        "schema": {
+                          "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/devops/deploy": {
+          "parameters": [
+            {
+              "name": "ChaincodeSpec",
+              "in": "body",
+              "description": "Chaincode specification message",
+              "required": true,
+              "schema": {
+                "$ref": "#/definitions/ChaincodeSpec"
+              }
+            }
+          ],
+          "post": {
+              "summary": "Service endpoint for deploying Chaincode",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests\n
+                              for existing Chaincodes. The Chaincode and the required entities are \n
+                              first packaged into a container and subsequently deployed to the\n
+                              blockchain. If the Chaincode build and deployment are successful,\n
+                              an encoded codePackage is returned. Otherwise, an error is displayed\n
+                              alongside with a reason for the failure.",
+              "tags": [
+                  "Devops"
+              ],
+              "responses": {
+                  "200": {
+                      "description": "Chaincode deployment specification message",
+                      "schema": {
+                        "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+          }
         }
     },
     "definitions": {
@@ -179,8 +256,8 @@
                     ],
                     "description": "Transaction type."
                 },
-                "chainletID": {
-                    "$ref": "#/definitions/chainletID",
+                "chaincodeID": {
+                    "$ref": "#/definitions/ChaincodeID",
                     "description": "Unique Chaincode identifier."
                 },
                 "function": {
@@ -198,15 +275,19 @@
                     "type": "string",
                     "format": "bytes",
                     "description": "Payload supplied for Chaincode function execution."
+                },
+                "uuid": {
+                  "type": "string",
+                  "description": "Unique transaction identifier."
                 }
             }
         },
-        "chainletID": {
+        "ChaincodeID": {
             "type": "object",
             "properties": {
                 "Url": {
                     "type": "string",
-                    "description": "URL uniquely identifying a Chaincode."
+                    "description": "URL for accessing the Chaincode."
                 },
                 "Version": {
                     "type": "string",
@@ -219,8 +300,64 @@
             "properties": {
                 "State": {
                     "type": "string",
-                    "description": "State value matching the chaincodeId and key parameters.\n
-                                    The returned value will be \"null\" if no match was found."
+                    "description": "State value matching the chaincodeId and key parameters."
+                }
+            }
+        },
+        "ChaincodeSpec": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "default": "GOLANG",
+                    "enum":[
+                        "UNDEFINED",
+                        "GOLANG",
+                        "NODE"
+                    ],
+                    "description": "Chaincode specification language."
+                },
+                "chaincodeID": {
+                    "$ref": "#/definitions/ChaincodeID",
+                    "description": "Unique Chaincode identifier."
+                },
+                "ctorMsg": {
+                    "$ref": "#/definitions/ChaincodeMessage",
+                    "description": "Specific function to execute within the Chaincode."
+                }
+            }
+        },
+        "ChaincodeDeploymentSpec": {
+            "type": "object",
+            "properties": {
+                "chaincodeSpec": {
+                    "$ref": "#/definitions/ChaincodeSpec",
+                    "description": "Chaincode specification message."
+                },
+                "effectiveDate": {
+                    "type": "string",
+                    "description": "Time of Chaincode creation/activation."
+                },
+                "codePackage": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Compiled Chaincode package."
+                }
+            }
+        },
+        "ChaincodeMessage": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "type": "string",
+                    "description": "Function to execute within a Chaincode."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                   "description": "Arguments supplied to the Chaincode function."
                 }
             }
         },
