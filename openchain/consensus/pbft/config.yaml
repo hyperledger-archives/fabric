@@ -1,0 +1,32 @@
+---
+################################################################################
+#
+#   PBFT PROPERTIES
+#
+#   - List all algorithm-specific properties here.
+#   - Nest keys where appropriate, and sort alphabetically for easier parsing.
+#
+################################################################################
+general:
+
+    # Algorithm name goes here. Set it to the package name.
+    name: pbft
+
+################################################################################
+#
+#   SECTION: TIMEOUT
+#
+#   - This applies to validating peers.
+#   - All times listed in seconds.
+#
+################################################################################
+timeout:
+
+    # Timeout if you don't receive a PRE_PREPARE message with candidate TXs by
+    # the leader within `block` seconds.
+    block: 12
+
+    # Timeout if you don't receive a message within `message` seconds.
+    message: 3
+
+...
