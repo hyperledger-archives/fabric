@@ -31,6 +31,9 @@ var logger = logging.MustGetLogger("plugin")
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
+	// cpi is the consensus programming interface
+	cpi consensus.CPI
+
 	config *viper.Viper
 	// blockTimeOut int
 }
@@ -41,8 +44,9 @@ func init() {
 }
 
 // New allocates a new instance/implementation of the consensus algorithm.
-func New() consensus.Consenter {
+func New(c consensus.CPI) consensus.Consenter {
 	instance := &Plugin{}
+	instance.cpi = c
 	// Create a link to the config file.
 	instance.config = viper.New()
 	instance.config.SetConfigName("config")

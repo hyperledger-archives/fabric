@@ -17,25 +17,14 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package consensus
+package controller
 
 import (
-	"golang.org/x/net/context"
-
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 )
 
-// Consenter is an interface for every consensus implementation
-type Consenter interface {
-	Recv(msg []byte) error
-	GetParam(param string) (val string, err error)
-}
-
-// CPI (Consensus Programming Interface) is to break the import cycle between
-// consensus and consenter implementation
-type CPI interface {
-	SetConsenter(c Consenter)
-	HandleMsg(msg *pb.OpenchainMessage) error
-	Broadcast(msg []byte) error
-	ExecTXs(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error)
+func init() {
+	helper := helper.New()
+	helper.SetConsenter(pbft.New(helper))
 }

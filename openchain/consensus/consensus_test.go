@@ -20,22 +20,21 @@ under the License.
 package consensus
 
 import (
-	"golang.org/x/net/context"
+	"testing"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// Consenter is an interface for every consensus implementation
-type Consenter interface {
-	Recv(msg []byte) error
-	GetParam(param string) (val string, err error)
+func TestSetConsenter(t *testing.T) {
+	if consenter == nil {
+		t.Fatalf("consenter is not set upon init")
+	}
 }
 
-// CPI (Consensus Programming Interface) is to break the import cycle between
-// consensus and consenter implementation
-type CPI interface {
-	SetConsenter(c Consenter)
-	HandleMsg(msg *pb.OpenchainMessage) error
-	Broadcast(msg []byte) error
-	ExecTXs(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error)
+func TestHandleMessage(t *testing.T) {
+	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: []byte("hello world")}
+	err := HandleMsg(msg)
+	if err != nil {
+		t.Fatalf("failed to handle message")
+	}
 }
