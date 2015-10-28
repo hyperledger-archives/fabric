@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"google/protobuf"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -208,6 +209,43 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	err = encoder.Encode(deployResult)
 }
 
+// Invoke executes a specified function within a target Chaincode and returns
+// a result.
+func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
+	// Decode the incoming JSON payload
+	var msg pb.ChainletMessage
+	err := jsonpb.Unmarshal(req.Body, &msg)
+
+	// Check for proper JSON syntax
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+
+		// Client must supply payload
+		if err == io.EOF {
+			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeMessage specification.\"}")
+		} else {
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		}
+		return
+	}
+
+	// Check for nil ChainletMessage
+	if msg.Function == "" {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode function.\"}")
+		return
+	}
+
+	// Invoke the Chaincode function
+	//
+	//  ...
+
+	// Return Chaincode invocation result
+	// 	encoder := json.NewEncoder(rw)
+	// 	err = encoder.Encode(msg)
+	rw.WriteHeader(http.StatusOK)
+	fmt.Fprintf(rw, "{\"Result\": \"OK\"}")
+}
+
 // NotFound returns a custom landing page when a given openchain end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
@@ -232,9 +270,13 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	// Add routes
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
+
 	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
+
 	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
+
+	router.Post("/chaincode/:chaincodeId", (*ServerOpenchainREST).Invoke)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
