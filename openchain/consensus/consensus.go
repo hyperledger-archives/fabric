@@ -25,14 +25,14 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// Consenter is an interface for every consensus implementation
+// Consenter is an interface for every consensus implementation.
 type Consenter interface {
-	Recv(msg []byte) error
 	GetParam(param string) (val string, err error)
+	Recv(msg []byte) error
 }
 
 // CPI (Consensus Programming Interface) is to break the import cycle between
-// consensus and consenter implementation
+// consensus and consenter implementation.
 type CPI interface {
 	SetConsenter(c Consenter)
 	HandleMsg(msg *pb.OpenchainMessage) error

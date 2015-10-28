@@ -26,5 +26,5 @@ import (
 
 func init() {
 	helper := helper.New()
-	helper.SetConsenter(pbft.New(helper))
+	helper.SetConsenter(pbft.New(helper)) // Added by the plugin developer.
 }

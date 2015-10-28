@@ -27,14 +27,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-var logger = logging.MustGetLogger("plugin")
+var logger = logging.MustGetLogger("consensus")
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	// cpi is the consensus programming interface
-	cpi consensus.CPI
-
-	config *viper.Viper
+	cpi    consensus.CPI // The consensus programming interface
+	config *viper.Viper  // The link to the config file
 	// blockTimeOut int
 }
 

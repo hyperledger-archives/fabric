@@ -29,7 +29,7 @@ import (
 
 var logger = logging.MustGetLogger("consensus")
 
-// Helper data structure
+// Helper data structure.
 type Helper struct {
 	consenter consensus.Consenter
 }
@@ -39,14 +39,14 @@ func New() consensus.CPI {
 	return &Helper{}
 }
 
-// SetConsenter is called from the implementor. It is a singleton
+// SetConsenter is called from the implementor. It is a singleton.
 // @c - the consenter for this consensus
 func (h *Helper) SetConsenter(c consensus.Consenter) {
-	logger.Info("Setting the consenter")
+	logger.Info("Setting the consenter.")
 	h.consenter = c
 }
 
-// HandleMsg is called by the VP FSM when OpenchainMessage.Type = CONSENSUS
+// HandleMsg is called by the VP FSM when OpenchainMessage.Type = CONSENSUS.
 func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Handle message: %s", msg.Type)
@@ -56,10 +56,10 @@ func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 
 // Broadcast sends the message to all validators. This is called by the
 // consenter to broadcast messages during consensus. We wrap the msg as
-// payload of the OpenchainMessage_CONSENSUS
+// payload of the OpenchainMessage_CONSENSUS.
 func (h *Helper) Broadcast(msg []byte) error {
 	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Broadcast a message")
+		logger.Debug("Broadcast a message.")
 	}
 
 	// TODO: Call someone to send newMsg
@@ -68,9 +68,9 @@ func (h *Helper) Broadcast(msg []byte) error {
 	return nil
 }
 
-//ExecTXs will execute transactions on the array one by one
-//will return an array of errors one for each transaction. If the execution
-//succeeded, array element will be nil. returns state hash
+// ExecTXs will execute transactions on the array one by one and
+// will return an array of errors one for each transaction. If the
+// execution succeeded, array element will be nil. Returns state hash.
 func (h *Helper) ExecTXs(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error) {
 	return nil, nil
 }
