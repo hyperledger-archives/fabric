@@ -20,16 +20,25 @@ under the License.
 package protos
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
 )
 
-// NewTransaction creates a new transaction. It defines the funcation to call,
-// the contractID on for which the function should be called, and the string
-// which will be the arguments. The arguments could be a string of JSON, but
-// there is no requirement.
+// Bytes returns this transaction as an array of bytes.
+func (transaction *Transaction) Bytes() ([]byte, error) {
+	data, err := proto.Marshal(transaction)
+	if err != nil {
+		logger.Error("Error marshalling transaction: %s", err)
+		return nil, fmt.Errorf("Could not marshal transaction: %s", err)
+	}
+	return data, nil
+}
+
+// NewTransaction creates a new transaction. It defines the function to call,
+// the chainletID on which the function should be called, and the arguments
+// string. The arguments could be a string of JSON, but there is no strict
+// requirement.
 func NewTransaction(chainletID ChainletID, uuid string, function string, args []string) *Transaction {
 	transaction := new(Transaction)
 	transaction.ChainletID = &chainletID
@@ -39,6 +48,7 @@ func NewTransaction(chainletID ChainletID, uuid string, function string, args []
 	return transaction
 }
 
+// NewChainletDeployTransaction is used to deploy chaincode.
 func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec, uuid string) (*Transaction, error) {
 	transaction := new(Transaction)
 	transaction.Type = Transaction_CHAINLET_NEW
@@ -50,18 +60,9 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 	}
 	data, err := proto.Marshal(chainletDeploymentSpec)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error creating new chaincode transaction: %s", err))
+		logger.Error("Error mashalling payload for chaincode deployment: %s", err)
+		return nil, fmt.Errorf("Could not marshal payload for chaincode deployment: %s", err)
 	}
 	transaction.Payload = data
 	return transaction, nil
-}
-
-// Bytes returns this transaction as an array of bytes
-func (transaction *Transaction) Bytes() ([]byte, error) {
-	data, err := proto.Marshal(transaction)
-	if err != nil {
-		//t.Errorf("Error marshalling block: %s", err)
-		return nil, errors.New(fmt.Sprintf("Error marshalling block: %s", err))
-	}
-	return data, nil
 }

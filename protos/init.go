@@ -17,45 +17,13 @@ specific language governing permissions and limitations
 under the License.
 */
 
-syntax = "proto3";
+package protos
 
-package protos;
+import "github.com/op/go-logging"
 
-import "chaincode.proto";
+var logger *logging.Logger
 
-// Interface exported by the server.
-service Devops {
-
-    // Build the chaincode package.
-    rpc Build(ChainletSpec) returns (ChainletDeploymentSpec) {}
-
-    // Deploy the chaincode package to the chain.
-    rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
-
-}
-
-message DevopsResponse {
-
-    enum StatusCode {
-        UNDEFINED = 0;
-        SUCCESS = 1;
-        FAILURE = 2;
-    }
-
-    StatusCode status = 1;
-    string msg = 2;
-
-}
-
-message BuildResult {
-
-    enum StatusCode {
-        UNDEFINED = 0;
-        SUCCESS = 1;
-        FAILURE = 2;
-    }
-
-    StatusCode status = 1;
-    string msg = 2;
-    ChainletDeploymentSpec deploymentSpec = 3;
+func init() {
+	// Create package logger.
+	logger = logging.MustGetLogger("protos")
 }

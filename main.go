@@ -42,22 +42,23 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-var log = logging.MustGetLogger("main")
+var logger = logging.MustGetLogger("main")
 
-const ChainFuncFormalName = "chaincode"
+// Constants go here.
+const chainFuncName = "chaincode"
+const cmdRoot = "openchain"
+const undefinedParamValue = ""
 
-const RootOfCommand = "openchain"
-
-// The main command describes the service and defaults to printing the
-// help message.
+// The main command describes the service and
+// defaults to printing the help message.
 var mainCmd = &cobra.Command{
-	Use: RootOfCommand,
+	Use: cmdRoot,
 }
 
 var peerCmd = &cobra.Command{
 	Use:   "peer",
-	Short: "Run Openchain peer.",
-	Long:  `Runs the Openchain peer that interacts with the openchain network.`,
+	Short: "Run openchain peer.",
+	Long:  `Runs the openchain peer that interacts with the openchain network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		serve()
 	},
@@ -65,8 +66,8 @@ var peerCmd = &cobra.Command{
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Status of the Openchain peer.",
-	Long:  `Outputs the status of the currently running openchain Peer.`,
+	Short: "Status of the openchain peer.",
+	Long:  `Outputs the status of the currently running openchain peer.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		status()
 	},
@@ -74,7 +75,7 @@ var statusCmd = &cobra.Command{
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stops the Openchain peer.",
+	Short: "Stop openchain peer.",
 	Long:  `Stops the currently running openchain Peer, disconnecting from the openchain network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
@@ -84,7 +85,7 @@ var stopCmd = &cobra.Command{
 var vmCmd = &cobra.Command{
 	Use:   "vm",
 	Short: "VM functionality of openchain.",
-	Long:  `interact with the VM functionality of openchain.`,
+	Long:  `Interact with the VM functionality of openchain.`,
 }
 
 var vmPrimeCmd = &cobra.Command{
@@ -96,27 +97,26 @@ var vmPrimeCmd = &cobra.Command{
 	},
 }
 
+// Chaincode-related variables.
 var (
 	chaincodeLang     string
-	chaincodeCtorJson string
+	chaincodeCtorJSON string
 	chaincodePath     string
 	chaincodeVersion  string
 )
 
-const undefinedParamValue = ""
-
 var chaincodeCmd = &cobra.Command{
-	Use:   ChainFuncFormalName,
-	Short: fmt.Sprintf("%s specific commands.", ChainFuncFormalName),
-	Long:  fmt.Sprintf("%s specific commands.", ChainFuncFormalName),
+	Use:   chainFuncName,
+	Short: fmt.Sprintf("%s specific commands.", chainFuncName),
+	Long:  fmt.Sprintf("%s specific commands.", chainFuncName),
 }
 
-var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(ChainFuncFormalName))
+var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(chainFuncName))
 
 var chaincodeBuildCmd = &cobra.Command{
 	Use:       "build",
-	Short:     fmt.Sprintf("Builds the specified %s.", ChainFuncFormalName),
-	Long:      fmt.Sprintf("Builds the specified %s.", ChainFuncFormalName),
+	Short:     fmt.Sprintf("Builds the specified %s.", chainFuncName),
+	Long:      fmt.Sprintf("Builds the specified %s.", chainFuncName),
 	ValidArgs: []string{"1"},
 	Run: func(cmd *cobra.Command, args []string) {
 		chaincodeBuild(cmd, args)
@@ -125,8 +125,8 @@ var chaincodeBuildCmd = &cobra.Command{
 
 var chaincodeTestCmd = &cobra.Command{
 	Use:       fmt.Sprintf("test %s", chaincodePathArgumentSpecifier),
-	Short:     fmt.Sprintf("Test the specified %s.", ChainFuncFormalName),
-	Long:      fmt.Sprintf(`Will test the specified %s without persisting state or modifying chain.`, ChainFuncFormalName),
+	Short:     fmt.Sprintf("Test the specified %s.", chainFuncName),
+	Long:      fmt.Sprintf(`Test the specified %s without persisting state or modifying chain.`, chainFuncName),
 	ValidArgs: []string{"1"},
 	Run: func(cmd *cobra.Command, args []string) {
 		chaincodeTest(cmd, args)
@@ -135,8 +135,8 @@ var chaincodeTestCmd = &cobra.Command{
 
 var chaincodeDeployCmd = &cobra.Command{
 	Use:       "deploy",
-	Short:     fmt.Sprintf("Deploy the specified %s to the network.", ChainFuncFormalName),
-	Long:      fmt.Sprintf(`Will deploy the specified %s to the network.`, ChainFuncFormalName),
+	Short:     fmt.Sprintf("Deploy the specified %s to the network.", chainFuncName),
+	Long:      fmt.Sprintf(`Deploy the specified %s to the network.`, chainFuncName),
 	ValidArgs: []string{"1"},
 	Run: func(cmd *cobra.Command, args []string) {
 		chaincodeDeploy(cmd, args)
@@ -146,12 +146,14 @@ var chaincodeDeployCmd = &cobra.Command{
 func main() {
 
 	runtime.GOMAXPROCS(2)
-	viper.SetEnvPrefix(RootOfCommand)
+
+	// For environment variables.
+	viper.SetEnvPrefix(cmdRoot)
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Set the flags on the server command
+	// Set the flags on the server command.
 	flags := peerCmd.Flags()
 	flags.String("peer-logging-level", "error", "Logging level, can be one of [CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG]")
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
@@ -169,27 +171,29 @@ func main() {
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
 
-	// Now set the configuration file
-	viper.SetConfigName(RootOfCommand) // name of config file (without extension)
-	viper.AddConfigPath("./")          // path to look for the config file in
-	err := viper.ReadInConfig()        // Find and read the config file
-	if err != nil {                    // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	// Now set the configuration file.
+	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
+	viper.AddConfigPath("./")    // Path to look for the config file in
+	err := viper.ReadInConfig()  // Find and read the config file
+	if err != nil {              // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error when reading %s config file: %s \n", cmdRoot, err))
 	}
 
 	level, err := logging.LogLevel(viper.GetString("peer.logging.level"))
 	if err == nil {
-		// No error, use the setting
-		logging.SetLevel(level, ChainFuncFormalName)
+		// No error, use the setting.
+		logging.SetLevel(level, chainFuncName)
+		logging.SetLevel(level, "consensus")
 		logging.SetLevel(level, "main")
-		logging.SetLevel(level, "server")
 		logging.SetLevel(level, "peer")
+		logging.SetLevel(level, "server")
 	} else {
-		log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
-		logging.SetLevel(logging.ERROR, ChainFuncFormalName)
+		logger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
+		logging.SetLevel(logging.ERROR, chainFuncName)
+		logging.SetLevel(logging.ERROR, "consensus")
 		logging.SetLevel(logging.ERROR, "main")
-		logging.SetLevel(logging.ERROR, "server")
 		logging.SetLevel(logging.ERROR, "peer")
+		logging.SetLevel(logging.ERROR, "server")
 	}
 
 	mainCmd.AddCommand(peerCmd)
@@ -199,20 +203,16 @@ func main() {
 	vmCmd.AddCommand(vmPrimeCmd)
 	mainCmd.AddCommand(vmCmd)
 
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", ChainFuncFormalName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJson, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", ChainFuncFormalName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", ChainFuncFormalName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", ChainFuncFormalName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", chainFuncName))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
 	chaincodeCmd.AddCommand(chaincodeTestCmd)
 	chaincodeCmd.AddCommand(chaincodeDeployCmd)
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
-
-	// Leaving to demonstrate how to get a sub-object in YAML
-	// testList := viper.Get("peer.discovery.testNodes")
-	// log.Info("Peer discovery test Nodes: %v", testList)
 
 }
 
@@ -280,14 +280,14 @@ func serve() error {
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peer *openchain.Peer
 	if viper.GetBool("peer.consensus.validator.enabled") {
-		log.Debug("Running as validator")
+		logger.Debug("Running as validator")
 		newValidator, err := openchain.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
 		if err != nil {
 			return fmt.Errorf("Error creating simple Validator: %s", err)
 		}
 		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
 	} else {
-		log.Debug("Running as peer")
+		logger.Debug("Running as peer")
 		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
 			return openchain.NewPeerFSM("", stream)
 		})
@@ -318,7 +318,7 @@ func serve() error {
 	// Register the ServerOpenchain server
 	serverOpenchain, err := openchain.NewOpenchainServer()
 	if err != nil {
-		log.Error("Error creating OpenchainServer: %s", err)
+		logger.Error("Error creating OpenchainServer: %s", err)
 		return err
 	}
 
@@ -331,7 +331,7 @@ func serve() error {
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
-	log.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
 	grpcServer.Serve(lis)
 	return nil
 }
@@ -339,50 +339,53 @@ func serve() error {
 func status() {
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
-		log.Error("Error trying to connect to local peer:", err)
+		logger.Error("Error trying to connect to local peer:", err)
 	}
 
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.GetStatus(context.Background(), &google_protobuf.Empty{})
-	log.Info("Current status: %s", status)
+	logger.Info("Current status: %s", status)
 }
 
 func stop() {
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
-		log.Error("Error trying to connect to local peer:", err)
+		logger.Error("Error trying to connect to local peer:", err)
 		return
 	}
 
-	log.Info("Stopping peer...")
+	logger.Info("Stopping peer...")
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-	log.Info("Current status: %s", status)
+	logger.Info("Current status: %s", status)
 
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {
+
 	if chaincodeVersion == undefinedParamValue {
-		errMsg := fmt.Sprintf("Error:  must supply value for %s version parameter\n", ChainFuncFormalName)
-		cmd.Out().Write([]byte(errMsg))
+		err := fmt.Sprintf("Error: must supply value for %s version parameter.\n", chainFuncName)
+		cmd.Out().Write([]byte(err))
 		cmd.Usage()
-		return errors.New(errMsg)
+		return errors.New(err)
 	}
+
 	if chaincodePath == undefinedParamValue {
-		errMsg := fmt.Sprintf("Error:  must supply value for %s path parameter\n", ChainFuncFormalName)
-		cmd.Out().Write([]byte(errMsg))
+		err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
+		cmd.Out().Write([]byte(err))
 		cmd.Usage()
-		return errors.New(errMsg)
+		return errors.New(err)
 	}
+
 	return nil
 }
 
 func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		return nil, fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
 	devopsClient := pb.NewDevopsClient(clientConn)
 	return devopsClient, nil
@@ -390,12 +393,12 @@ func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 
 func chaincodeBuild(cmd *cobra.Command, args []string) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
-		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
 	// Build the spec
@@ -404,30 +407,30 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 
 	chainletDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
-		errMsg := fmt.Sprintf("Error building %s: %s\n", ChainFuncFormalName, err)
+		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	log.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
+	logger.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
 }
 
 func chaincodeTest(cmd *cobra.Command, args []string) error {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
 		return err
 	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to test %s: %s\n", ChainFuncFormalName, chaincodePath)))
+	cmd.Out().Write([]byte(fmt.Sprintf("going to test %s: %s\n", chainFuncName, chaincodePath)))
 	return nil
 }
 
 func chaincodeDeploy(cmd *cobra.Command, args []string) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
-		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		log.Error(fmt.Sprintf("Error building %s: %s", ChainFuncFormalName, err))
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
 	// Build the spec
@@ -436,10 +439,10 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 	chainletDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
-		errMsg := fmt.Sprintf("Error building %s: %s\n", ChainFuncFormalName, err)
+		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	log.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
+	logger.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
 }

@@ -7,7 +7,6 @@ package protos
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "google/protobuf"
 import google_protobuf1 "google/protobuf"
 
 import (
@@ -19,74 +18,6 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-type OpenchainMessage_Type int32
-
-const (
-	OpenchainMessage_UNDEFINED              OpenchainMessage_Type = 0
-	OpenchainMessage_DISC_HELLO             OpenchainMessage_Type = 1
-	OpenchainMessage_DISC_DISCONNECT        OpenchainMessage_Type = 2
-	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
-	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
-	OpenchainMessage_DISC_PING              OpenchainMessage_Type = 5
-	OpenchainMessage_DISC_PONG              OpenchainMessage_Type = 6
-	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_TRANSACTIONS     OpenchainMessage_Type = 9
-	OpenchainMessage_CHAIN_GET_BLOCK_HASHES OpenchainMessage_Type = 10
-	OpenchainMessage_CHAIN_BLOCK_HASHES     OpenchainMessage_Type = 11
-	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 12
-	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 13
-	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 14
-	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 15
-	OpenchainMessage_VALIDATOR_TRANSACTIONS OpenchainMessage_Type = 16
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
-)
-
-var OpenchainMessage_Type_name = map[int32]string{
-	0:  "UNDEFINED",
-	1:  "DISC_HELLO",
-	2:  "DISC_DISCONNECT",
-	3:  "DISC_GET_PEERS",
-	4:  "DISC_PEERS",
-	5:  "DISC_PING",
-	6:  "DISC_PONG",
-	7:  "CHAIN_STATUS",
-	8:  "CHAIN_GET_TRANSACTIONS",
-	9:  "CHAIN_TRANSACTIONS",
-	10: "CHAIN_GET_BLOCK_HASHES",
-	11: "CHAIN_BLOCK_HASHES",
-	12: "CHAIN_GET_BLOCKS",
-	13: "CHAIN_BLOCKS",
-	14: "CHAIN_NEW_BLOCK",
-	15: "DISC_NEWMSG",
-	16: "VALIDATOR_TRANSACTIONS",
-	17: "CONSENSUS",
-}
-var OpenchainMessage_Type_value = map[string]int32{
-	"UNDEFINED":              0,
-	"DISC_HELLO":             1,
-	"DISC_DISCONNECT":        2,
-	"DISC_GET_PEERS":         3,
-	"DISC_PEERS":             4,
-	"DISC_PING":              5,
-	"DISC_PONG":              6,
-	"CHAIN_STATUS":           7,
-	"CHAIN_GET_TRANSACTIONS": 8,
-	"CHAIN_TRANSACTIONS":     9,
-	"CHAIN_GET_BLOCK_HASHES": 10,
-	"CHAIN_BLOCK_HASHES":     11,
-	"CHAIN_GET_BLOCKS":       12,
-	"CHAIN_BLOCKS":           13,
-	"CHAIN_NEW_BLOCK":        14,
-	"DISC_NEWMSG":            15,
-	"VALIDATOR_TRANSACTIONS": 16,
-	"CONSENSUS":              17,
-}
-
-func (x OpenchainMessage_Type) String() string {
-	return proto.EnumName(OpenchainMessage_Type_name, int32(x))
-}
 
 type ServerStatus_StatusCode int32
 
@@ -120,23 +51,6 @@ func (x ServerStatus_StatusCode) String() string {
 	return proto.EnumName(ServerStatus_StatusCode_name, int32(x))
 }
 
-type OpenchainMessage struct {
-	Type      OpenchainMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.OpenchainMessage_Type" json:"type,omitempty"`
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
-	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-}
-
-func (m *OpenchainMessage) Reset()         { *m = OpenchainMessage{} }
-func (m *OpenchainMessage) String() string { return proto.CompactTextString(m) }
-func (*OpenchainMessage) ProtoMessage()    {}
-
-func (m *OpenchainMessage) GetTimestamp() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
 type ServerStatus struct {
 	Status ServerStatus_StatusCode `protobuf:"varint,1,opt,name=status,enum=protos.ServerStatus_StatusCode" json:"status,omitempty"`
 }
@@ -145,59 +59,7 @@ func (m *ServerStatus) Reset()         { *m = ServerStatus{} }
 func (m *ServerStatus) String() string { return proto.CompactTextString(m) }
 func (*ServerStatus) ProtoMessage()    {}
 
-type ChainletIdentifier struct {
-	// URL for accessing the Chainlet, eg. https://github.com/user/SampleContract
-	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
-}
-
-func (m *ChainletIdentifier) Reset()         { *m = ChainletIdentifier{} }
-func (m *ChainletIdentifier) String() string { return proto.CompactTextString(m) }
-func (*ChainletIdentifier) ProtoMessage()    {}
-
-// Used by the Peer to identify the requesting chaincode and allows for proper
-// access to state.
-type ChainletRequestContext struct {
-	Id *ChainletIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
-}
-
-func (m *ChainletRequestContext) Reset()         { *m = ChainletRequestContext{} }
-func (m *ChainletRequestContext) String() string { return proto.CompactTextString(m) }
-func (*ChainletRequestContext) ProtoMessage()    {}
-
-func (m *ChainletRequestContext) GetId() *ChainletIdentifier {
-	if m != nil {
-		return m.Id
-	}
-	return nil
-}
-
-// Provided by the Peer to the chaincode identify the requesting chaincode and
-// allows for proper access to state.
-type ChainletExecutionContext struct {
-	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt,name=ChainletId" json:"ChainletId,omitempty"`
-	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
-}
-
-func (m *ChainletExecutionContext) Reset()         { *m = ChainletExecutionContext{} }
-func (m *ChainletExecutionContext) String() string { return proto.CompactTextString(m) }
-func (*ChainletExecutionContext) ProtoMessage()    {}
-
-func (m *ChainletExecutionContext) GetChainletId() *ChainletIdentifier {
-	if m != nil {
-		return m.ChainletId
-	}
-	return nil
-}
-
-func (m *ChainletExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
 func init() {
-	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
 	proto.RegisterEnum("protos.ServerStatus_StatusCode", ServerStatus_StatusCode_name, ServerStatus_StatusCode_value)
 }
 
@@ -262,9 +124,9 @@ func RegisterAdminServer(s *grpc.Server, srv AdminServer) {
 	s.RegisterService(&_Admin_serviceDesc, srv)
 }
 
-func _Admin_GetStatus_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Admin_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(google_protobuf1.Empty)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(AdminServer).GetStatus(ctx, in)
@@ -274,9 +136,9 @@ func _Admin_GetStatus_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
-func _Admin_StartServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Admin_StartServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(google_protobuf1.Empty)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(AdminServer).StartServer(ctx, in)
@@ -286,9 +148,9 @@ func _Admin_StartServer_Handler(srv interface{}, ctx context.Context, codec grpc
 	return out, nil
 }
 
-func _Admin_StopServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Admin_StopServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(google_protobuf1.Empty)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(AdminServer).StopServer(ctx, in)
@@ -313,164 +175,6 @@ var _Admin_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopServer",
 			Handler:    _Admin_StopServer_Handler,
-		},
-	},
-	Streams: []grpc.StreamDesc{},
-}
-
-// Client API for Peer service
-
-type PeerClient interface {
-	// Accepts a stream of OpenchainMessage during chat session,  while
-	// receiving other OpenchainMessage (e.g. from other peers).
-	Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error)
-}
-
-type peerClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewPeerClient(cc *grpc.ClientConn) PeerClient {
-	return &peerClient{cc}
-}
-
-func (c *peerClient) Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Peer_serviceDesc.Streams[0], c.cc, "/protos.Peer/Chat", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &peerChatClient{stream}
-	return x, nil
-}
-
-type Peer_ChatClient interface {
-	Send(*OpenchainMessage) error
-	Recv() (*OpenchainMessage, error)
-	grpc.ClientStream
-}
-
-type peerChatClient struct {
-	grpc.ClientStream
-}
-
-func (x *peerChatClient) Send(m *OpenchainMessage) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *peerChatClient) Recv() (*OpenchainMessage, error) {
-	m := new(OpenchainMessage)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Server API for Peer service
-
-type PeerServer interface {
-	// Accepts a stream of OpenchainMessage during chat session,  while
-	// receiving other OpenchainMessage (e.g. from other peers).
-	Chat(Peer_ChatServer) error
-}
-
-func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
-	s.RegisterService(&_Peer_serviceDesc, srv)
-}
-
-func _Peer_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(PeerServer).Chat(&peerChatServer{stream})
-}
-
-type Peer_ChatServer interface {
-	Send(*OpenchainMessage) error
-	Recv() (*OpenchainMessage, error)
-	grpc.ServerStream
-}
-
-type peerChatServer struct {
-	grpc.ServerStream
-}
-
-func (x *peerChatServer) Send(m *OpenchainMessage) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *peerChatServer) Recv() (*OpenchainMessage, error) {
-	m := new(OpenchainMessage)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-var _Peer_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protos.Peer",
-	HandlerType: (*PeerServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Chat",
-			Handler:       _Peer_Chat_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
-}
-
-// Client API for ChainletSupport service
-
-type ChainletSupportClient interface {
-	// Return the datetime.
-	GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error)
-}
-
-type chainletSupportClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewChainletSupportClient(cc *grpc.ClientConn) ChainletSupportClient {
-	return &chainletSupportClient{cc}
-}
-
-func (c *chainletSupportClient) GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error) {
-	out := new(ChainletExecutionContext)
-	err := grpc.Invoke(ctx, "/protos.ChainletSupport/GetExecutionContext", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Server API for ChainletSupport service
-
-type ChainletSupportServer interface {
-	// Return the datetime.
-	GetExecutionContext(context.Context, *ChainletRequestContext) (*ChainletExecutionContext, error)
-}
-
-func RegisterChainletSupportServer(s *grpc.Server, srv ChainletSupportServer) {
-	s.RegisterService(&_ChainletSupport_serviceDesc, srv)
-}
-
-func _ChainletSupport_GetExecutionContext_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(ChainletRequestContext)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ChainletSupportServer).GetExecutionContext(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-var _ChainletSupport_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protos.ChainletSupport",
-	HandlerType: (*ChainletSupportServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetExecutionContext",
-			Handler:    _ChainletSupport_GetExecutionContext_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
