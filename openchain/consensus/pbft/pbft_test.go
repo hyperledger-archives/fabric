@@ -20,11 +20,14 @@ under the License.
 package pbft
 
 import "testing"
+import "github.com/openblockchain/obc-peer/openchain/consensus/helper"
 
 // Runs when the package is loaded.
 func TestGetParam(t *testing.T) {
 	// Create new algorithm instance.
-	instance := New()
+	helperInstance := helper.New()
+	instance := New(helperInstance)
+	helperInstance.SetConsenter(instance)
 	// For a key that exists.
 	key := "general.name"
 	// Expected value.
