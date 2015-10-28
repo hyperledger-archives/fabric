@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package consensus
+package controller
 
 import (
 	"testing"
@@ -25,16 +25,20 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func TestSetConsenter(t *testing.T) {
-	if consenter == nil {
-		t.Fatalf("consenter is not set upon init")
+func TestHandleMessage(t *testing.T) {
+	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: []byte("hello world")}
+	helper := GetHelper()
+	err := helper.HandleMsg(msg)
+	if err != nil {
+		t.Fatalf("failed to handle message")
 	}
 }
 
-func TestHandleMessage(t *testing.T) {
-	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: []byte("hello world")}
-	err := HandleMsg(msg)
+func TestBroadcastMessage(t *testing.T) {
+	msg := []byte("hello world")
+	helper := GetHelper()
+	err := helper.Broadcast(msg)
 	if err != nil {
-		t.Fatalf("failed to handle message")
+		t.Fatalf("failed to broadcast message")
 	}
 }
