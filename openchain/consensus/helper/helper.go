@@ -20,14 +20,12 @@ under the License.
 package helper
 
 import (
-	"golang.org/x/net/context"
-
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
-)
 
-var logger = logging.MustGetLogger("consensus")
+	"github.com/op/go-logging"
+	"golang.org/x/net/context"
+)
 
 // Helper data structure.
 type Helper struct {
@@ -36,20 +34,25 @@ type Helper struct {
 
 // New is a constructor returning a consensus.CPI
 func New() consensus.CPI {
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Creating a new helper.")
+	}
 	return &Helper{}
 }
 
 // SetConsenter is called from the implementor. It is a singleton.
 // @c - the consenter for this consensus
 func (h *Helper) SetConsenter(c consensus.Consenter) {
-	logger.Info("Setting the consenter.")
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Setting the helper's consenter.")
+	}
 	h.consenter = c
 }
 
 // HandleMsg is called by the VP FSM when OpenchainMessage.Type = CONSENSUS.
 func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Handle message: %s", msg.Type)
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Handling message: %s", msg.Type)
 	}
 	return h.consenter.Recv(msg.Payload)
 }
@@ -58,11 +61,11 @@ func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 // consenter to broadcast messages during consensus. We wrap the msg as
 // payload of the OpenchainMessage_CONSENSUS.
 func (h *Helper) Broadcast(msg []byte) error {
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Broadcast a message.")
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Broadcasting a message.")
 	}
 
-	// TODO: Call someone to send newMsg
+	// TODO: Call someone to send newMsg.
 	// newMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}
 
 	return nil

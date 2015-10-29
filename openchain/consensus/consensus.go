@@ -20,10 +20,18 @@ under the License.
 package consensus
 
 import (
-	"golang.org/x/net/context"
-
 	pb "github.com/openblockchain/obc-peer/protos"
+
+	"github.com/op/go-logging"
+	"golang.org/x/net/context"
 )
+
+// Package-level logger.
+var Logger *logging.Logger
+
+func init() {
+	Logger = logging.MustGetLogger("consensus")
+}
 
 // Consenter is an interface for every consensus implementation.
 type Consenter interface {

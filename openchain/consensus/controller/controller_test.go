@@ -30,7 +30,7 @@ func TestHandleMessage(t *testing.T) {
 	helper := GetHelper()
 	err := helper.HandleMsg(msg)
 	if err != nil {
-		t.Fatalf("failed to handle message")
+		t.Fatalf("Failed to handle message: %s", err)
 	}
 }
 
@@ -39,6 +39,6 @@ func TestBroadcastMessage(t *testing.T) {
 	helper := GetHelper()
 	err := helper.Broadcast(msg)
 	if err != nil {
-		t.Fatalf("failed to broadcast message")
+		t.Fatalf("Failed to broadcast message: %s", err)
 	}
 }
