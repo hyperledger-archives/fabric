@@ -20,6 +20,7 @@ under the License.
 package openchain
 
 import (
+	"io"
 	"time"
 
 	"github.com/op/go-logging"
@@ -35,6 +36,11 @@ var chainletLog = logging.MustGetLogger("chaincode")
 func NewChainletSupport() *chainletSupport {
 	s := new(chainletSupport)
 	return s
+}
+
+type ChaincodeStream interface {
+	Send(*pb.ChaincodeMessage) error
+	Recv() (*pb.ChaincodeMessage, error)
 }
 
 type chainletSupport struct {
@@ -53,7 +59,7 @@ type chainletSupport struct {
 // 	}
 // }
 
-func (*chainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
+func (c *chainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
 	//chainletId := &pb.ChainletIdentifier{Url: "github."}
 	timeStamp := &google_protobuf.Timestamp{Seconds: time.Now().UnixNano(), Nanos: 0}
 	executionContext := &pb.ChainletExecutionContext{ChainletId: requestContext.GetId(),
@@ -61,4 +67,34 @@ func (*chainletSupport) GetExecutionContext(context context.Context, requestCont
 
 	chainletLog.Debug("returning execution context: %s", executionContext)
 	return executionContext, nil
+}
+
+func (c *chainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
+	deadline, ok := stream.Context().Deadline()
+	peerLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
+	//peerChatFSM := NewPeerFSM("", stream)
+	//handler := p.handlerFactory(stream)
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			peerLogger.Debug("Received EOF, ending Chat")
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// err = handler.HandleMessage(in)
+		// if err != nil {
+		// 	peerLogger.Error("Error handling message: %s", err)
+		// 	//return err
+		// }
+		if in.Type == pb.ChaincodeMessage_REGISTER {
+			peerLogger.Debug("Got %s, sending back %s", pb.ChaincodeMessage_REGISTER, pb.ChaincodeMessage_REGISTERED)
+			if err := stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTERED}); err != nil {
+				return err
+			}
+		} else {
+			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+		}
+	}
 }

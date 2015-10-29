@@ -22,9 +22,12 @@ package chaincode
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/net/context"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
@@ -35,6 +38,9 @@ import (
 
 type Chainlet interface {
 	Run(chainletSupportClient pb.ChainletSupportClient) error
+}
+
+type ChaincodeStub struct {
 }
 
 func Start(c Chainlet) error {
@@ -96,4 +102,42 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 		return nil, err
 	}
 	return conn, err
+}
+
+func (cs *ChaincodeStub) chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
+
+	var errFromChat error = nil
+	stream, err := chainletSupportClient.Register(context.Background())
+	//v.leaderHandler = v.GetHandler(stream)
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error chatting with leader at address=%s:  %s", peerAddress, err))
+	} else {
+		defer stream.CloseSend()
+		stream.Send(&pb.OpenchainMessage{Type: pb.ChaincodeMessage_REGISTER})
+		waitc := make(chan struct{})
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					// read done.
+					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
+					close(waitc)
+					return
+				}
+				if err != nil {
+					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+				}
+
+				// // Call FSM.HandleMessage()
+				// err = v.leaderHandler.HandleMessage(in)
+				// if err != nil {
+				// 	validatorLogger.Error("Error handling message: %s", err)
+				// 	return
+				// }
+			}
+		}()
+		<-waitc
+		return nil
+	}
 }
