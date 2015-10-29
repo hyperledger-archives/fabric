@@ -94,13 +94,13 @@ func (v *LeaderFSM) beforeChainTransactions(e *fsm.Event) {
 		return
 	}
 	// For now unpack the lone transaction and send as the payload
-	transactionsMessage := &pb.TransactionsMessage{}
-	err = proto.Unmarshal(msg.Payload, transactionsMessage)
+	transactionBlock := &pb.TransactionBlock{}
+	err = proto.Unmarshal(msg.Payload, transactionBlock)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
 		return
 	}
-	transactionToSend := transactionsMessage.Transactions[0]
+	transactionToSend := transactionBlock.Transactions[0]
 	data, err := proto.Marshal(transactionToSend)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))

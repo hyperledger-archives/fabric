@@ -197,20 +197,20 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 		return
 	}
 	// For now unpack the lone transaction and send as the payload
-	transactionsMessage := &pb.TransactionsMessage{}
-	err = proto.Unmarshal(msg.Payload, transactionsMessage)
+	transactionBlock := &pb.TransactionBlock{}
+	err = proto.Unmarshal(msg.Payload, transactionBlock)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
 		return
 	}
-	// Currently expect only 1 transaction in TransactionsMessage
-	validatorLogger.Warning("Currently expect exactly 1 transaction in TransactionsMessage")
-	numOfTransactions := len(transactionsMessage.Transactions)
+	// Currently expect only 1 transaction in TransactionBlock.
+	validatorLogger.Warning("Currently expect exactly 1 transaction in TransactionBlock")
+	numOfTransactions := len(transactionBlock.Transactions)
 	if numOfTransactions != 1 {
-		e.Cancel(fmt.Errorf("Expected exactly one transaction in TransactionsMessage.Transactions, received %d", numOfTransactions))
+		e.Cancel(fmt.Errorf("Expected exactly one transaction in TransactionBlock.Transactions, received %d", numOfTransactions))
 		return
 	}
-	transactionToSend := transactionsMessage.Transactions[0]
+	transactionToSend := transactionBlock.Transactions[0]
 	data, err := proto.Marshal(transactionToSend)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))

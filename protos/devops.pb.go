@@ -8,9 +8,6 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-// discarding unused import google_protobuf "google/protobuf"
-// discarding unused import google_protobuf1 "google/protobuf"
-
 import (
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
@@ -150,9 +147,9 @@ func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
 	s.RegisterService(&_Devops_serviceDesc, srv)
 }
 
-func _Devops_Build_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Devops_Build_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ChainletSpec)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(DevopsServer).Build(ctx, in)
@@ -162,9 +159,9 @@ func _Devops_Build_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 	return out, nil
 }
 
-func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ChainletSpec)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(DevopsServer).Deploy(ctx, in)

@@ -147,7 +147,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 }
 
 // testing
-func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.TransactionsMessage) error {
+func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.TransactionBlock) error {
 	var errFromChat error = nil
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
@@ -177,7 +177,7 @@ func SendTransactionsToPeer(peerAddress string, transactionsMessage *pb.Transact
 				}
 				if in.Type == pb.OpenchainMessage_DISC_HELLO {
 					peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
-					payload, err := proto.Marshal(transactionsMessage)
+					payload, err := proto.Marshal(transactionBlock)
 					if err != nil {
 						errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
 						close(waitc)

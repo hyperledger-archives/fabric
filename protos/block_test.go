@@ -26,20 +26,20 @@ import (
 )
 
 func Test_Block_CreateNew(t *testing.T) {
-	//transaction := new(Transaction)
 
 	transaction := &Transaction{ChainletID: &ChainletID{Url: "contract_001"}, Function: "func1", Args: []string{"arg1", "arg2"}}
-
-	t.Logf("transaction: %v", transaction)
+	t.Logf("Transaction: %v", transaction)
 
 	block := NewBlock("proposer1", []*Transaction{transaction})
-	t.Logf("block: %v", block)
+	t.Logf("Block: %v", block)
+
 	data, err := proto.Marshal(block)
 	if err != nil {
 		t.Errorf("Error marshalling block: %s", err)
 	}
-	t.Logf("data = %v", data)
+	t.Logf("Marshalled data: %v", data)
 
+	// TODO: This doesn't seem like a proper test. Needs to be edited.
 	blockUnmarshalled := &Block{}
 	proto.Unmarshal(data, blockUnmarshalled)
 	t.Logf("Unmarshalled block := %v", blockUnmarshalled)

@@ -21,74 +21,92 @@ syntax = "proto3";
 
 package protos;
 
+import "chaincode.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 
-message ChainletID {
-  // Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
-  string Url = 1;
-  string Version = 2;
-}
-
-message ChainletMessage {
-  string function = 1;
-  repeated string args  = 2;
-}
-
-// Specification of a chaincode.  This is the actual meta-data required for defining a chaincode.
-message ChainletSpec {
-  enum Type {
-     UNDEFINED = 0;
-     GOLANG = 1;
-     NODE = 2;
-  }
-  Type type = 1;
-  ChainletID chainletID = 2;
-  ChainletMessage ctorMsg = 3;
-}
-
-// Used to specify the deployment of a chaincode.
-message ChainletDeploymentSpec {
-  ChainletSpec chainletSpec = 1;
-  // Controls when the chaincode becomes executable.
-  google.protobuf.Timestamp effectiveDate = 2;
-
-  bytes codePackage = 3;
-}
-
-
-// Transaction defines a function call to a contract. Transactions are
-// stroed in blocks.
-// args is an array of type string so that the chaincode writer can choose whatever
-// format they wish for the arguments for their chaincode. For example, they
-// may wish to use JSON, XML, or a custom format.
+// Transaction defines a function call to a contract.
+// `args` is an array of type string so that the chaincode writer can choose
+// whatever format they wish for the arguments for their chaincode.
+// For example, they may wish to use JSON, XML, or a custom format.
+// TODO: Defined remaining fields.
 message Transaction {
-  enum Type {
-    UNDEFINED = 0;
 
-    CHAINLET_NEW = 1;
-    CHAINLET_UPDATE = 2;
-    CHAINLET_EXECUTE = 3;
-    CHAINLET_TERMINATE = 4;
-  }
-  Type type = 1;
+    enum Type {
+        UNDEFINED = 0;
+        CHAINLET_NEW = 1;
+        CHAINLET_UPDATE = 2;
+        CHAINLET_EXECUTE = 3;
+        CHAINLET_TERMINATE = 4;
+    }
 
-  ChainletID chainletID = 2;
-  string function = 3;
-  repeated string args  = 4;
-  bytes payload = 5;
-  string uuid = 6;
+    Type type = 1;
+    ChainletID chainletID = 2;
+    string function = 3;
+    repeated string args  = 4;
+    bytes payload = 5;
+    string uuid = 6;
+
 }
 
-message TransactionsMessage {
-  repeated Transaction transactions = 1;
+// TransactionBlock carries a batch of transactions.
+message TransactionBlock {
+
+    repeated Transaction transactions = 1;
+
 }
 
-
+// TODO: Explain when this message type is used.
+// TODO: Explain fields.
+// TODO: Rename field names according to style guide:
+// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
 message Block {
-  string proposerID = 1;
-  google.protobuf.Timestamp Timestamp = 2;
-  repeated Transaction transactions = 3;
-  bytes stateHash = 4;
-  bytes previousBlockHash = 5;
+
+    string proposerID = 1;
+    google.protobuf.Timestamp Timestamp = 2;
+    repeated Transaction transactions = 3;
+    bytes stateHash = 4;
+    bytes previousBlockHash = 5;
+
+}
+
+// Interface exported by the server.
+service Peer {
+
+    // Accepts a stream of OpenchainMessage during chat session, while receiving
+    // other OpenchainMessage (e.g. from other peers).
+    rpc Chat(stream OpenchainMessage) returns (stream OpenchainMessage) {}
+
+}
+
+message OpenchainMessage {
+
+    enum Type {
+        UNDEFINED = 0;
+        DISC_HELLO = 1;
+        DISC_DISCONNECT = 2;
+        DISC_GET_PEERS = 3;
+        DISC_PEERS = 4;
+        DISC_PING = 5;
+        DISC_PONG = 6;
+
+        CHAIN_STATUS = 7;
+        CHAIN_GET_TRANSACTIONS = 8;
+        CHAIN_TRANSACTIONS = 9;
+        CHAIN_GET_BLOCK_HASHES = 10;
+        CHAIN_BLOCK_HASHES = 11;
+        CHAIN_GET_BLOCKS = 12;
+        CHAIN_BLOCKS = 13;
+        CHAIN_NEW_BLOCK = 14;
+
+        DISC_NEWMSG = 15;
+
+        VALIDATOR_TRANSACTIONS = 16;
+
+        CONSENSUS = 17;
+    }
+
+    Type type = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    bytes payload = 3;
+
 }

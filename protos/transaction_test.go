@@ -26,33 +26,20 @@ import (
 )
 
 func Test_Transaction_CreateNew(t *testing.T) {
-	//transaction := new(Transaction)
 
-	transaction := &Transaction{ChainletID: &ChainletID{Url: "Contract001"}}
-	//transaction.ContractID = *proto.String("Contract001")
-	t.Logf("transaction: %v", transaction)
-	data, err := proto.Marshal(transaction)
+	tx := &Transaction{ChainletID: &ChainletID{Url: "Contract001"}}
+	t.Logf("Transaction: %v", tx)
+
+	data, err := proto.Marshal(tx)
 	if err != nil {
 		t.Errorf("Error marshalling transaction: %s", err)
 	}
-	t.Logf("data = %v", data)
+	t.Logf("Marshalled data: %v", data)
 
-	transcationUnmarshalled := &Transaction{}
-	proto.Unmarshal(data, transcationUnmarshalled)
-	t.Logf("Unmarshalled transaction := %v", transcationUnmarshalled)
-	t.Logf("transcation Function := %s", transcationUnmarshalled.Function)
-	// peerConn := NewPeerConnectionFSM("10.10.10.10:30303")
+	// TODO: This doesn't seem like a proper test. Needs to be edited.
+	txUnmarshalled := &Transaction{}
+	proto.Unmarshal(data, txUnmarshalled)
+	t.Logf("Unmarshalled transaction: %v", txUnmarshalled)
+	t.Logf("Transaction function: %s", txUnmarshalled.Function)
 
-	// err := peerConn.FSM.Event("HELLO")
-	// if err != nil {
-	// 	t.Error(err)
-	// }
-	// if peerConn.FSM.Current() != "established" {
-	// 	t.Error("Expected to be in establised state")
-	// }
-
-	// err = peerConn.FSM.Event("DISCONNECT")
-	// if err != nil {
-	// 	t.Error(err)
-	// }
 }

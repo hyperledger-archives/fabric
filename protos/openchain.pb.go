@@ -2,27 +2,6 @@
 // source: openchain.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	openchain.proto
-	server_admin.proto
-
-It has these top-level messages:
-	ChainletID
-	ChainletMessage
-	ChainletSpec
-	ChainletDeploymentSpec
-	Transaction
-	TransactionsMessage
-	Block
-	OpenchainMessage
-	ServerStatus
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
@@ -30,35 +9,15 @@ import fmt "fmt"
 import math "math"
 import google_protobuf "google/protobuf"
 
-// discarding unused import google_protobuf1 "google/protobuf"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-type ChainletSpec_Type int32
-
-const (
-	ChainletSpec_UNDEFINED ChainletSpec_Type = 0
-	ChainletSpec_GOLANG    ChainletSpec_Type = 1
-	ChainletSpec_NODE      ChainletSpec_Type = 2
-)
-
-var ChainletSpec_Type_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "GOLANG",
-	2: "NODE",
-}
-var ChainletSpec_Type_value = map[string]int32{
-	"UNDEFINED": 0,
-	"GOLANG":    1,
-	"NODE":      2,
-}
-
-func (x ChainletSpec_Type) String() string {
-	return proto.EnumName(ChainletSpec_Type_name, int32(x))
-}
 
 type Transaction_Type int32
 
@@ -89,81 +48,79 @@ func (x Transaction_Type) String() string {
 	return proto.EnumName(Transaction_Type_name, int32(x))
 }
 
-type ChainletID struct {
-	// Url for accessing the Chainlet, eg. https://github.com/mydomain/SampleContract
-	Url     string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
-	Version string `protobuf:"bytes,2,opt,name=Version" json:"Version,omitempty"`
+type OpenchainMessage_Type int32
+
+const (
+	OpenchainMessage_UNDEFINED              OpenchainMessage_Type = 0
+	OpenchainMessage_DISC_HELLO             OpenchainMessage_Type = 1
+	OpenchainMessage_DISC_DISCONNECT        OpenchainMessage_Type = 2
+	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
+	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
+	OpenchainMessage_DISC_PING              OpenchainMessage_Type = 5
+	OpenchainMessage_DISC_PONG              OpenchainMessage_Type = 6
+	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
+	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
+	OpenchainMessage_CHAIN_TRANSACTIONS     OpenchainMessage_Type = 9
+	OpenchainMessage_CHAIN_GET_BLOCK_HASHES OpenchainMessage_Type = 10
+	OpenchainMessage_CHAIN_BLOCK_HASHES     OpenchainMessage_Type = 11
+	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 12
+	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 13
+	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 14
+	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 15
+	OpenchainMessage_VALIDATOR_TRANSACTIONS OpenchainMessage_Type = 16
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
+)
+
+var OpenchainMessage_Type_name = map[int32]string{
+	0:  "UNDEFINED",
+	1:  "DISC_HELLO",
+	2:  "DISC_DISCONNECT",
+	3:  "DISC_GET_PEERS",
+	4:  "DISC_PEERS",
+	5:  "DISC_PING",
+	6:  "DISC_PONG",
+	7:  "CHAIN_STATUS",
+	8:  "CHAIN_GET_TRANSACTIONS",
+	9:  "CHAIN_TRANSACTIONS",
+	10: "CHAIN_GET_BLOCK_HASHES",
+	11: "CHAIN_BLOCK_HASHES",
+	12: "CHAIN_GET_BLOCKS",
+	13: "CHAIN_BLOCKS",
+	14: "CHAIN_NEW_BLOCK",
+	15: "DISC_NEWMSG",
+	16: "VALIDATOR_TRANSACTIONS",
+	17: "CONSENSUS",
+}
+var OpenchainMessage_Type_value = map[string]int32{
+	"UNDEFINED":              0,
+	"DISC_HELLO":             1,
+	"DISC_DISCONNECT":        2,
+	"DISC_GET_PEERS":         3,
+	"DISC_PEERS":             4,
+	"DISC_PING":              5,
+	"DISC_PONG":              6,
+	"CHAIN_STATUS":           7,
+	"CHAIN_GET_TRANSACTIONS": 8,
+	"CHAIN_TRANSACTIONS":     9,
+	"CHAIN_GET_BLOCK_HASHES": 10,
+	"CHAIN_BLOCK_HASHES":     11,
+	"CHAIN_GET_BLOCKS":       12,
+	"CHAIN_BLOCKS":           13,
+	"CHAIN_NEW_BLOCK":        14,
+	"DISC_NEWMSG":            15,
+	"VALIDATOR_TRANSACTIONS": 16,
+	"CONSENSUS":              17,
 }
 
-func (m *ChainletID) Reset()         { *m = ChainletID{} }
-func (m *ChainletID) String() string { return proto.CompactTextString(m) }
-func (*ChainletID) ProtoMessage()    {}
-
-type ChainletMessage struct {
-	Function string   `protobuf:"bytes,1,opt,name=function" json:"function,omitempty"`
-	Args     []string `protobuf:"bytes,2,rep,name=args" json:"args,omitempty"`
+func (x OpenchainMessage_Type) String() string {
+	return proto.EnumName(OpenchainMessage_Type_name, int32(x))
 }
 
-func (m *ChainletMessage) Reset()         { *m = ChainletMessage{} }
-func (m *ChainletMessage) String() string { return proto.CompactTextString(m) }
-func (*ChainletMessage) ProtoMessage()    {}
-
-// Specification of a chaincode.  This is the actual meta-data required for defining a chaincode.
-type ChainletSpec struct {
-	Type       ChainletSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChainletSpec_Type" json:"type,omitempty"`
-	ChainletID *ChainletID       `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	CtorMsg    *ChainletMessage  `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
-}
-
-func (m *ChainletSpec) Reset()         { *m = ChainletSpec{} }
-func (m *ChainletSpec) String() string { return proto.CompactTextString(m) }
-func (*ChainletSpec) ProtoMessage()    {}
-
-func (m *ChainletSpec) GetChainletID() *ChainletID {
-	if m != nil {
-		return m.ChainletID
-	}
-	return nil
-}
-
-func (m *ChainletSpec) GetCtorMsg() *ChainletMessage {
-	if m != nil {
-		return m.CtorMsg
-	}
-	return nil
-}
-
-// Used to specify the deployment of a chaincode.
-type ChainletDeploymentSpec struct {
-	ChainletSpec *ChainletSpec `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
-	// Controls when the chaincode becomes executable.
-	EffectiveDate *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
-	CodePackage   []byte                     `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
-}
-
-func (m *ChainletDeploymentSpec) Reset()         { *m = ChainletDeploymentSpec{} }
-func (m *ChainletDeploymentSpec) String() string { return proto.CompactTextString(m) }
-func (*ChainletDeploymentSpec) ProtoMessage()    {}
-
-func (m *ChainletDeploymentSpec) GetChainletSpec() *ChainletSpec {
-	if m != nil {
-		return m.ChainletSpec
-	}
-	return nil
-}
-
-func (m *ChainletDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.EffectiveDate
-	}
-	return nil
-}
-
-// Transaction defines a function call to a contract. Transactions are
-// stroed in blocks.
-// args is an array of type string so that the chaincode writer can choose whatever
-// format they wish for the arguments for their chaincode. For example, they
-// may wish to use JSON, XML, or a custom format.
+// Transaction defines a function call to a contract.
+// `args` is an array of type string so that the chaincode writer can choose
+// whatever format they wish for the arguments for their chaincode.
+// For example, they may wish to use JSON, XML, or a custom format.
+// TODO: Defined remaining fields.
 type Transaction struct {
 	Type       Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
 	ChainletID *ChainletID      `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
@@ -184,21 +141,26 @@ func (m *Transaction) GetChainletID() *ChainletID {
 	return nil
 }
 
-type TransactionsMessage struct {
+// TransactionBlock carries a batch of transactions.
+type TransactionBlock struct {
 	Transactions []*Transaction `protobuf:"bytes,1,rep,name=transactions" json:"transactions,omitempty"`
 }
 
-func (m *TransactionsMessage) Reset()         { *m = TransactionsMessage{} }
-func (m *TransactionsMessage) String() string { return proto.CompactTextString(m) }
-func (*TransactionsMessage) ProtoMessage()    {}
+func (m *TransactionBlock) Reset()         { *m = TransactionBlock{} }
+func (m *TransactionBlock) String() string { return proto.CompactTextString(m) }
+func (*TransactionBlock) ProtoMessage()    {}
 
-func (m *TransactionsMessage) GetTransactions() []*Transaction {
+func (m *TransactionBlock) GetTransactions() []*Transaction {
 	if m != nil {
 		return m.Transactions
 	}
 	return nil
 }
 
+// TODO: Explain when this message type is used.
+// TODO: Explain fields.
+// TODO: Rename field names according to style guide:
+// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
 type Block struct {
 	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
 	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
@@ -225,7 +187,127 @@ func (m *Block) GetTransactions() []*Transaction {
 	return nil
 }
 
+type OpenchainMessage struct {
+	Type      OpenchainMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.OpenchainMessage_Type" json:"type,omitempty"`
+	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+}
+
+func (m *OpenchainMessage) Reset()         { *m = OpenchainMessage{} }
+func (m *OpenchainMessage) String() string { return proto.CompactTextString(m) }
+func (*OpenchainMessage) ProtoMessage()    {}
+
+func (m *OpenchainMessage) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
 func init() {
-	proto.RegisterEnum("protos.ChainletSpec_Type", ChainletSpec_Type_name, ChainletSpec_Type_value)
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
+	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// Client API for Peer service
+
+type PeerClient interface {
+	// Accepts a stream of OpenchainMessage during chat session, while receiving
+	// other OpenchainMessage (e.g. from other peers).
+	Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error)
+}
+
+type peerClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewPeerClient(cc *grpc.ClientConn) PeerClient {
+	return &peerClient{cc}
+}
+
+func (c *peerClient) Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Peer_serviceDesc.Streams[0], c.cc, "/protos.Peer/Chat", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &peerChatClient{stream}
+	return x, nil
+}
+
+type Peer_ChatClient interface {
+	Send(*OpenchainMessage) error
+	Recv() (*OpenchainMessage, error)
+	grpc.ClientStream
+}
+
+type peerChatClient struct {
+	grpc.ClientStream
+}
+
+func (x *peerChatClient) Send(m *OpenchainMessage) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *peerChatClient) Recv() (*OpenchainMessage, error) {
+	m := new(OpenchainMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Server API for Peer service
+
+type PeerServer interface {
+	// Accepts a stream of OpenchainMessage during chat session, while receiving
+	// other OpenchainMessage (e.g. from other peers).
+	Chat(Peer_ChatServer) error
+}
+
+func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
+	s.RegisterService(&_Peer_serviceDesc, srv)
+}
+
+func _Peer_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PeerServer).Chat(&peerChatServer{stream})
+}
+
+type Peer_ChatServer interface {
+	Send(*OpenchainMessage) error
+	Recv() (*OpenchainMessage, error)
+	grpc.ServerStream
+}
+
+type peerChatServer struct {
+	grpc.ServerStream
+}
+
+func (x *peerChatServer) Send(m *OpenchainMessage) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *peerChatServer) Recv() (*OpenchainMessage, error) {
+	m := new(OpenchainMessage)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _Peer_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.Peer",
+	HandlerType: (*PeerServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Chat",
+			Handler:       _Peer_Chat_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 }
