@@ -47,6 +47,7 @@ peer:
 
     Dockerfile:  |
         from golang:1.5.1
+        ENV GO15VENDOREXPERIMENT=1
         # Install RocksDB
         RUN cd /opt  && git clone --branch v3.13.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
         WORKDIR /opt/rocksdb
@@ -56,12 +57,11 @@ peer:
             libsnappy-dev      \
             zlib1g-dev         \
             libbz2-dev
-        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go get github.com/tecbot/gorocksdb
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
-        WORKDIR $GOPATH/bin
-        RUN go install github.com/openblockchain/obc-peer && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
+        WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/
+        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
 
     address: 0.0.0.0:30303
@@ -81,7 +81,7 @@ peer:
     consensus:
         validator:
             enabled: false
-        leader:            
+        leader:
             enabled: false
             address:
 
@@ -189,6 +189,7 @@ chainlet:
         # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chainlet specification.
         Dockerfile:  |
             from golang:1.5.1
+            ENV GO15VENDOREXPERIMENT=1
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
