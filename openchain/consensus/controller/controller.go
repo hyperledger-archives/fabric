@@ -19,18 +19,22 @@ under the License.
 
 package controller
 
-import "github.com/openblockchain/obc-peer/openchain/consensus/pbft"
-import "github.com/openblockchain/obc-peer/openchain/consensus/helper"
+import (
+	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+)
 
-//var helper helper.Helper
-var h *helper.Helper
+var h consensus.CPI
 
 func init() {
-	h := helper.New()
-	h.SetConsenter(pbft.New(h)) // Added by the plugin developer.
+	// Create helper.
+	h = helper.New()
+	// Added by the plugin developer.
+	h.SetConsenter(pbft.New(h))
 }
 
-// GetHelper returns the helper
-func GetHelper() *helper.Helper {
+// GetHelper returns the helper.
+func GetHelper() consensus.CPI {
 	return h
 }

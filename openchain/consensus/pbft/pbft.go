@@ -22,12 +22,11 @@ package pbft
 import (
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
-
-var logger = logging.MustGetLogger("consensus")
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
@@ -43,12 +42,24 @@ func init() {
 
 // New allocates a new instance/implementation of the consensus algorithm.
 func New(c consensus.CPI) consensus.Consenter {
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Creating the consenter.")
+	}
 	instance := &Plugin{}
+
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Setting the consenter's CPI.")
+	}
 	instance.cpi = c
+
 	// Create a link to the config file.
+	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
+		consensus.Logger.Debug("Linking to the consenter's config file.")
+	}
 	instance.config = viper.New()
 	instance.config.SetConfigName("config")
 	instance.config.AddConfigPath("./")
+	instance.config.AddConfigPath("../pbft/")
 	err := instance.config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
@@ -71,6 +82,11 @@ func (instance *Plugin) GetParam(param string) (val string, err error) {
 
 // Recv allows the algorithm to receive (and process) a message.
 func (instance *Plugin) Recv(msg []byte) (err error) {
+
 	// TODO: Add logic here.
+	if consensus.Logger.IsEnabledFor(logging.INFO) {
+		consensus.Logger.Info("Message received.")
+	}
+
 	return nil
 }
