@@ -55,7 +55,7 @@ The **peer** command will run peer process. You can then use the other commands 
 To run all tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go test $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
+    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
 
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test name. To run tests with verbose output use the `-v` flag. For example, to run TestGetFoo function, change to the directory containing the `foo_test.go` and enter:
 
