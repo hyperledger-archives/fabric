@@ -235,11 +235,6 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 			return nil
 		}
 
-		// Allow only go files and yaml
-		if !(strings.HasSuffix(path, ".go") || strings.HasSuffix(path, ".yaml")) {
-			return nil
-		}
-
 		fr, err := os.Open(path)
 		if err != nil {
 			return err

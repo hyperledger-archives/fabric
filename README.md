@@ -15,18 +15,11 @@ vagrant ssh
 
 From within the VM, follow these additional steps.
 
-### Go package dependencies
-You need to manually install some go packages that the peer project is dependent on. Simply view the [Gomfile](./Gomfile) in this directory and see the packages the project depends on. Then simply issue a `go get ...` command for each package listed, and example is shown below:
-
-    go get github.com/spf13/viper
-
 ### Go build
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
 go build
 ```
-
-
 
 ## Run
 
