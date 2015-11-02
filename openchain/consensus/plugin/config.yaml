@@ -9,8 +9,8 @@
 ################################################################################
 general:
 
-    # Algorithm/plugin name goes here. Set it to the package name.
-    name: pbft
+    # Algorithm/plugin name goes here.
+    name: plugin
 
 ################################################################################
 #
