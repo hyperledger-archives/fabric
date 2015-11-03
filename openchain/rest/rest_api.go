@@ -27,6 +27,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"golang.org/x/net/context"
 
@@ -63,9 +64,14 @@ func (s *ServerOpenchainREST) SetOpenchainServer(rw web.ResponseWriter, req *web
 }
 
 // SetResponseType is a middleware function that sets the appropriate response
-// header. Currently, it is set to "application/json".
+// headers. Currently, it is setting the "Content-Type" to "application/json" as
+// well as the necessary headers in order to enable CORS for Swagger usage.
 func (s *ServerOpenchainREST) SetResponseType(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
 	rw.Header().Set("Content-Type", "application/json")
+
+	// Enable CORS
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Headers", "accept, content-type")
 
 	next(rw, req)
 }
@@ -154,13 +160,19 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 
 	// Check for proper JSON syntax
 	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		return
 	}
 
 	// Check for nil ChainletSpec
 	if spec.ChainletID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
 		return
 	}
@@ -186,13 +198,19 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	// Check for proper JSON syntax
 	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		return
 	}
 
 	// Check for nil ChainletSpec
 	if spec.ChainletID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
 		return
 	}
@@ -218,13 +236,18 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 
 	// Check for proper JSON syntax
 	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
 
 		// Client must supply payload
 		if err == io.EOF {
 			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeMessage specification.\"}")
 		} else {
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		}
 		return
 	}
