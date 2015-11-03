@@ -22,15 +22,15 @@ package openchain
 import (
 	"errors"
 	"fmt"
+	google_protobuf "google/protobuf"
 	"os"
 	"path/filepath"
 
 	"github.com/blang/semver"
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
-
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"golang.org/x/net/context"
 )
 
 var devops_logger = logging.MustGetLogger("devops")
@@ -90,6 +90,29 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
 	return chainletDeploymentSepc, SendTransactionsToPeer(peerAddress, transactionBlock)
+}
+
+func (d *Devops) Invoke(ctx context.Context, chaincodeInvocation *pb.ChaincodeInvocation) (*google_protobuf.Empty, error) {
+
+	// Now create the Transactions message and send to Peer.
+	uuid, uuidErr := util.GenerateUUID()
+	if uuidErr != nil {
+		devops_logger.Error("Error generating UUID: %s", uuidErr)
+		return nil, uuidErr
+	}
+	transaction, err := pb.NewChainletInvokeTransaction(chaincodeInvocation, uuid)
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	}
+	peerAddress, err := GetRootNode()
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	}
+	// Construct the transactions block.
+	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
+	peerLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
+	//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
+	return &google_protobuf.Empty{}, nil
 }
 
 // Checks to see if chaincode resides within current package capture for language.

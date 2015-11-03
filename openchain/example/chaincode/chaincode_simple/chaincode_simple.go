@@ -23,9 +23,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -42,7 +43,7 @@ func (t *SimpletChainlet) Run(chainletSupportClient pb.ChainletSupportClient) er
 }
 
 func main() {
-	err := chaincode.Start(new(SimpletChainlet))
+	err := shim.Start(new(SimpletChainlet))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}

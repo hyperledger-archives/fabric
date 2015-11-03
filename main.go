@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 
 	"github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -143,6 +144,16 @@ var chaincodeDeployCmd = &cobra.Command{
 	},
 }
 
+var chaincodeInvokeCmd = &cobra.Command{
+	Use:       "invoke",
+	Short:     fmt.Sprintf("Invoke the specified %s.", chainFuncName),
+	Long:      fmt.Sprintf(`Invoke the specified %s.`, chainFuncName),
+	ValidArgs: []string{"1"},
+	Run: func(cmd *cobra.Command, args []string) {
+		chaincodeInvoke(cmd, args)
+	},
+}
+
 func main() {
 
 	runtime.GOMAXPROCS(2)
@@ -211,6 +222,8 @@ func main() {
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
 	chaincodeCmd.AddCommand(chaincodeTestCmd)
 	chaincodeCmd.AddCommand(chaincodeDeployCmd)
+	chaincodeCmd.AddCommand(chaincodeInvokeCmd)
+
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
 
@@ -309,7 +322,7 @@ func serve() error {
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
 
 	// Register ChainletSupport server
-	pb.RegisterChainletSupportServer(grpcServer, openchain.NewChainletSupport())
+	pb.RegisterChainletSupportServer(grpcServer, chaincode.NewChainletSupport())
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer()
@@ -445,4 +458,33 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	logger.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
+}
+
+func chaincodeInvoke(cmd *cobra.Command, args []string) {
+	if err := checkChaincodeCmdParams(cmd); err != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
+	devopsClient, err := getDevopsClient(cmd)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
+	// Build the spec
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+
+	msg := &pb.ChainletMessage{Function: "func1", Args: []string{"arg1", "arg2"}}
+
+	// Build the ChaincodeInvocation message
+	invocation := &pb.ChaincodeInvocation{ChainletSpec: spec, Message: msg}
+
+	_, err = devopsClient.Invoke(context.Background(), invocation)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error invoking %s: %s\n", chainFuncName, err)
+		cmd.Out().Write([]byte(errMsg))
+		cmd.Usage()
+		return
+	}
+	logger.Info("Succesffuly invoked transaction: %s", invocation)
 }

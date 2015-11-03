@@ -40,6 +40,15 @@ message ChainletMessage {
 
 }
 
+// Carries the chaincode function and its arguments.
+message ChaincodeInvocation {
+
+    ChainletSpec chainletSpec = 1;
+    ChainletMessage message = 2;
+
+}
+
+
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
 message ChainletSpec {
@@ -89,11 +98,31 @@ message ChainletExecutionContext {
 
 }
 
+message ChaincodeMessage {
+
+    enum Type {
+        UNDEFINED = 0;
+        REGISTER = 1;
+        REGISTERED = 2;
+
+        REQUEST = 3;
+        RESPONSE = 4;
+    }
+
+    Type type = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    bytes payload = 3;
+
+}
+
 // Interface that provides support to chaincode execution. ChainletContext
 // provides the context necessary for the server to respond appropriately.
 service ChainletSupport {
 
     // Return the datetime.
     rpc GetExecutionContext(ChainletRequestContext) returns (ChainletExecutionContext) {}
+
+    rpc Register(stream ChaincodeMessage) returns (stream ChaincodeMessage) {}
+
 
 }
