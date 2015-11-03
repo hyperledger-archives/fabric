@@ -33,7 +33,6 @@ import (
 
 	gp "google/protobuf"
 
-	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -50,40 +49,35 @@ func init() {
 // Structure definitions go here.
 // =============================================================================
 
-// layer carries fields related to the consensus algorithm.
+// consensusLayer carries fields related to the consensus algorithm.
 // - config: The link to the config file.
-// - receiver: One of those is needed per connection. Carries the FSM that
+// - receiver: One of those is needed per connection. May hold the FSM that
 // regulates the state transitions, data structures for incoming messages, etc.
 // TODO: Replace `receiver` with `receivers` whose type is
 // `map[string]messageHandler`.
 // - plugin: General, plugin-specific properties that relate to the validator
 // go here. E.g. a "leader" flag.
-type layer struct {
+type consensusLayer struct {
 	config   *viper.Viper
 	receiver messageHandler
-	plugin   plugin.Layer
+	plugin   plugin.ConsensusLayer
 }
 
-// streamReceiver carries the FSM that sits on the receiving side of a stream
-// and defines the acceptable states, triggers, and associated callbacks for a
-// single link between two peers. It also implements the `messageHandler`
-// interface, and therefore provides the means through which we send or receive
-// a message from a stream. TODO: Some of this functionality will need to be
-// moved to the `comm` layer. Keeping it here for now so that we can have a
-// working prototype.
-// - fsm: The FSM that defines the possible states, the allowed messages on each
-// state, and what to do upon reception of a message.
-// - parent: Link to the parent consensusLayer. TODO: Double-check whether this
-// is necessary.
-// - plugin: For plugin-specific fields/structures that relate to the stream.
-// For example, data stores for a stream's messages belong here.
-// - stream: The stream on which this `streamReceiver` operates. TODO: I'd like
-// this switched to type `*pb.Peer_ChatClient` but I'm switching to
+// streamReceiver implements the `messageHandler` interface, and therefore
+// provides the means through which we send or receive a message from a stream.
+// TODO: Some of this functionality will need to be moved to the `comm` layer.
+// Keeping it here for now so that we can have a working prototype.
+// - `parent`: Link to the parent `consensusLayer`.
+// - `plugin`: For plugin-specific fields/structures that relate to the stream.
+// For example, the FSM that sits on the receiving side of a stream and defines
+// the acceptable states, triggers, and associated callbacks for a single link
+// between two peers. Or data stores for a stream's messages.
+// - `stream`: The stream on which this `streamReceiver` operates. TODO: I'd
+// like this switched to type `*pb.Peer_ChatClient` but I'm switching to
 // `PeerChatStream` to maintain compatibility with Jeff's `peer.go`.
 type streamReceiver struct {
-	fsm    *fsm.FSM
 	parent Consenter
-	plugin interface{}
+	plugin plugin.StreamReceiver
 	stream openchain.PeerChatStream
 }
 
@@ -91,22 +85,19 @@ type streamReceiver struct {
 // Interface definitions go here.
 // =============================================================================
 
-// Consenter is the interface implemented by: `layer`.
-// - Broadcast(msg []byte): Used to broadcast a message. A `streamReceiver` r
-// will do r.parent.Broadcast(msg) which will in turn go through the map of
-// established receivers stored in r.parent and do a r.stream.SendMessage(msg)
-// on each one of them.
-// - ExecTXs(ctxt context.Context, txs []*pb.Transaction: Execute TXs on the
+// Consenter is the interface implemented by: `consensusLayer`.
+// - `Broadcast(msg []byte)` Used to broadcast a message. A `streamReceiver` r
+// will do `r.parent.Broadcast(msg)` which will in turn go through the map of
+// established receivers stored in `r.parent` and do a
+// `r.stream.SendMessage(msg)` on each one of them.
+// - `ExecTXs(ctxt context.Context, txs []*pb.Transaction)`: Execute TXs on the
 // underlying VM.
-// - GetParam(param string): A getter for the values listed in the plugin's
-// `config.yaml`.
 // - GetReceiver(stream openchain.PeerChatStream): Attaches a `streamReceiver`
-// for that stream to the peer's `consensusLayer` thus allowing them to transact
-// on this link.
+// for that stream to the validating peer's `consensusLayer` thus allowing them
+// to transact on this link.
 type Consenter interface {
 	Broadcast(msg []byte) error
 	ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, []error)
-	GetParam(param string) (val string, err error)
 	GetReceiver(stream openchain.PeerChatStream) messageHandler
 }
 
@@ -150,27 +141,6 @@ func (layer *consensusLayer) Broadcast(payload []byte) error {
 	}
 
 	return nil
-}
-
-// GetParam is a getter for the values listed in the plugin's `config.yaml`.
-func (layer *consensusLayer) GetParam(param string) (val string, err error) {
-
-	if Logger.IsEnabledFor(logging.DEBUG) {
-		Logger.Debug("Reading config value for parameter: %s", param)
-	}
-
-	if ok := layer.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config.", param)
-		return "nil", err
-	}
-
-	val = layer.config.GetString(param)
-
-	if Logger.IsEnabledFor(logging.DEBUG) {
-		Logger.Debug("Config value for parameter %s read successfully: %s", param, val)
-	}
-
-	return val, nil
 }
 
 // ExecTXs will execute all the transactions listed in the `txs` array
@@ -324,7 +294,7 @@ func NewLayer() Consenter {
 	return layer
 }
 
-// newReceivers creates a new `streamReceiver`.
+// newReceiver creates a new `streamReceiver`.
 func newReceiver(parent Consenter, stream openchain.PeerChatStream) *streamReceiver {
 
 	if Logger.IsEnabledFor(logging.DEBUG) {
@@ -334,7 +304,6 @@ func newReceiver(parent Consenter, stream openchain.PeerChatStream) *streamRecei
 	receiver := &streamReceiver{parent: parent, stream: stream}
 
 	// Pointing to the developer's own implementation in the `plugin` package.
-	receiver.fsm = plugin.NewFSM()
 	receiver.plugin = plugin.NewReceiverMember()
 
 	if Logger.IsEnabledFor(logging.DEBUG) {
@@ -347,33 +316,6 @@ func newReceiver(parent Consenter, stream openchain.PeerChatStream) *streamRecei
 // =============================================================================
 // Misc. functions go here.
 // =============================================================================
-
-// FilterError filters the FSM errors to allow NoTransitionError and
-// CanceledError to not propogate for cases where embedded err == nil.
-// This should be called by the plugin developer whenever FSM state transitions
-// are attempted. TODO: Maybe move to the `utils` package.
-func FilterError(fsmError error) error {
-
-	if fsmError != nil {
-
-		if noTransitionErr, ok := fsmError.(*fsm.NoTransitionError); ok {
-			if noTransitionErr.Err != nil {
-				// Only allow `NoTransitionError` errors, all others are considered true error.
-				return fsmError
-			}
-			Logger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
-		}
-		if canceledErr, ok := fsmError.(*fsm.CanceledError); ok {
-			if canceledErr.Err != nil {
-				// Only allow NoTransitionError's, all others are considered true error.
-				return canceledErr
-			}
-			Logger.Debug("Ignoring CanceledError: %s", canceledErr)
-		}
-	}
-
-	return nil
-}
 
 // Adding this function here as an example of transacting with a specific peer.
 // It may make sense to have the VP `go chatWithPeer(currentLeader)` upon
