@@ -33,6 +33,7 @@ var format = logging.MustStringFormatter(
 // time this is logged, the Redacted() function will be called.
 type Password string
 
+// Redacted for hiding the characers of password
 func (p Password) Redacted() interface{} {
 	return logging.Redact(string(p))
 }
