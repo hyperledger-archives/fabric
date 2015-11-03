@@ -57,6 +57,8 @@ To run all tests, in one window, run `./obc-peer peer`. In a second window
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
 
+Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
+
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test name. To run tests with verbose output use the `-v` flag. For example, to run TestGetFoo function, change to the directory containing the `foo_test.go` and enter:
 
     go test -test.v -run=TestGetFoo
