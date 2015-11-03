@@ -42,6 +42,35 @@ func (x ChainletSpec_Type) String() string {
 	return proto.EnumName(ChainletSpec_Type_name, int32(x))
 }
 
+type ChaincodeMessage_Type int32
+
+const (
+	ChaincodeMessage_UNDEFINED  ChaincodeMessage_Type = 0
+	ChaincodeMessage_REGISTER   ChaincodeMessage_Type = 1
+	ChaincodeMessage_REGISTERED ChaincodeMessage_Type = 2
+	ChaincodeMessage_REQUEST    ChaincodeMessage_Type = 3
+	ChaincodeMessage_RESPONSE   ChaincodeMessage_Type = 4
+)
+
+var ChaincodeMessage_Type_name = map[int32]string{
+	0: "UNDEFINED",
+	1: "REGISTER",
+	2: "REGISTERED",
+	3: "REQUEST",
+	4: "RESPONSE",
+}
+var ChaincodeMessage_Type_value = map[string]int32{
+	"UNDEFINED":  0,
+	"REGISTER":   1,
+	"REGISTERED": 2,
+	"REQUEST":    3,
+	"RESPONSE":   4,
+}
+
+func (x ChaincodeMessage_Type) String() string {
+	return proto.EnumName(ChaincodeMessage_Type_name, int32(x))
+}
+
 // Carries the URL where the chaincode resides and the chaincode version.
 // TODO: Merge with ChainletIDentifier.
 type ChainletID struct {
@@ -62,6 +91,30 @@ type ChainletMessage struct {
 func (m *ChainletMessage) Reset()         { *m = ChainletMessage{} }
 func (m *ChainletMessage) String() string { return proto.CompactTextString(m) }
 func (*ChainletMessage) ProtoMessage()    {}
+
+// Carries the chaincode function and its arguments.
+type ChaincodeInvocation struct {
+	ChainletSpec *ChainletSpec    `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
+	Message      *ChainletMessage `protobuf:"bytes,2,opt,name=message" json:"message,omitempty"`
+}
+
+func (m *ChaincodeInvocation) Reset()         { *m = ChaincodeInvocation{} }
+func (m *ChaincodeInvocation) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInvocation) ProtoMessage()    {}
+
+func (m *ChaincodeInvocation) GetChainletSpec() *ChainletSpec {
+	if m != nil {
+		return m.ChainletSpec
+	}
+	return nil
+}
+
+func (m *ChaincodeInvocation) GetMessage() *ChainletMessage {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
 
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
@@ -168,8 +221,26 @@ func (m *ChainletExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
 	return nil
 }
 
+type ChaincodeMessage struct {
+	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
+	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+}
+
+func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
+func (m *ChaincodeMessage) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeMessage) ProtoMessage()    {}
+
+func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("protos.ChainletSpec_Type", ChainletSpec_Type_name, ChainletSpec_Type_value)
+	proto.RegisterEnum("protos.ChaincodeMessage_Type", ChaincodeMessage_Type_name, ChaincodeMessage_Type_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -181,6 +252,7 @@ var _ grpc.ClientConn
 type ChainletSupportClient interface {
 	// Return the datetime.
 	GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error)
+	Register(ctx context.Context, opts ...grpc.CallOption) (ChainletSupport_RegisterClient, error)
 }
 
 type chainletSupportClient struct {
@@ -200,11 +272,43 @@ func (c *chainletSupportClient) GetExecutionContext(ctx context.Context, in *Cha
 	return out, nil
 }
 
+func (c *chainletSupportClient) Register(ctx context.Context, opts ...grpc.CallOption) (ChainletSupport_RegisterClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_ChainletSupport_serviceDesc.Streams[0], c.cc, "/protos.ChainletSupport/Register", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &chainletSupportRegisterClient{stream}
+	return x, nil
+}
+
+type ChainletSupport_RegisterClient interface {
+	Send(*ChaincodeMessage) error
+	Recv() (*ChaincodeMessage, error)
+	grpc.ClientStream
+}
+
+type chainletSupportRegisterClient struct {
+	grpc.ClientStream
+}
+
+func (x *chainletSupportRegisterClient) Send(m *ChaincodeMessage) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *chainletSupportRegisterClient) Recv() (*ChaincodeMessage, error) {
+	m := new(ChaincodeMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Server API for ChainletSupport service
 
 type ChainletSupportServer interface {
 	// Return the datetime.
 	GetExecutionContext(context.Context, *ChainletRequestContext) (*ChainletExecutionContext, error)
+	Register(ChainletSupport_RegisterServer) error
 }
 
 func RegisterChainletSupportServer(s *grpc.Server, srv ChainletSupportServer) {
@@ -223,6 +327,32 @@ func _ChainletSupport_GetExecutionContext_Handler(srv interface{}, ctx context.C
 	return out, nil
 }
 
+func _ChainletSupport_Register_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ChainletSupportServer).Register(&chainletSupportRegisterServer{stream})
+}
+
+type ChainletSupport_RegisterServer interface {
+	Send(*ChaincodeMessage) error
+	Recv() (*ChaincodeMessage, error)
+	grpc.ServerStream
+}
+
+type chainletSupportRegisterServer struct {
+	grpc.ServerStream
+}
+
+func (x *chainletSupportRegisterServer) Send(m *ChaincodeMessage) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *chainletSupportRegisterServer) Recv() (*ChaincodeMessage, error) {
+	m := new(ChaincodeMessage)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _ChainletSupport_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.ChainletSupport",
 	HandlerType: (*ChainletSupportServer)(nil),
@@ -232,5 +362,12 @@ var _ChainletSupport_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ChainletSupport_GetExecutionContext_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Register",
+			Handler:       _ChainletSupport_Register_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 }

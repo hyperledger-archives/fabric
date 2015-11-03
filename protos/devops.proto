@@ -22,6 +22,7 @@ syntax = "proto3";
 package protos;
 
 import "chaincode.proto";
+import "google/protobuf/empty.proto";
 
 // Interface exported by the server.
 service Devops {
@@ -31,6 +32,9 @@ service Devops {
 
     // Deploy the chaincode package to the chain.
     rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
+
+    // Invoke chaincode.
+    rpc Invoke(ChaincodeInvocation) returns (google.protobuf.Empty) {}
 
 }
 

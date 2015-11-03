@@ -1,9 +1,0 @@
-github.com/spf13/viper
-github.com/spf13/cobra
-github.com/op/go-logging
-github.com/looplab/fsm
-golang.org/x/crypto/sha3
-github.com/fsouza/go-dockerclient
-google.golang.org/grpc
-github.com/blang/semver
-github.com/gocraft/web

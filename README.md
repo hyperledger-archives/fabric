@@ -15,18 +15,11 @@ vagrant ssh
 
 From within the VM, follow these additional steps.
 
-### Go package dependencies
-You need to manually install some go packages that the peer project is dependent on. Simply view the [Gomfile](./Gomfile) in this directory and see the packages the project depends on. Then simply issue a `go get ...` command for each package listed, and example is shown below:
-
-    go get github.com/spf13/viper
-
 ### Go build
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
 go build
 ```
-
-
 
 ## Run
 
@@ -62,7 +55,9 @@ The **peer** command will run peer process. You can then use the other commands 
 To run all tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go test github.com/openblockchain/obc-peer/...
+    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
+
+Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
 
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test name. To run tests with verbose output use the `-v` flag. For example, to run TestGetFoo function, change to the directory containing the `foo_test.go` and enter:
 
@@ -73,7 +68,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
 Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](https://github.com/spf13/cobra) libraries.
 
-There is an **openchain.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overriden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'OPENCHAIN_'*. For example, logging level manipulation through the environment is shown below:
+There is an **openchain.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'OPENCHAIN_'*. For example, logging level manipulation through the environment is shown below:
 
     OPENCHAIN_PEER_LOGGING_LEVEL=CRITICAL ./obc-peer
 
@@ -84,7 +79,39 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
 ## Generating grpc code
-
+If you modify ant .proto files, run the following command to generate new .pb.go files.
 ```
 /obc-dev-env/compile_protos.sh
+```
+
+## Adding or updating a Go packages
+Openchain uses the [Go 1.5 Vendor Experiment](https://docs.google.com/document/d/1Bz5-UB7g2uPBdOx-rw5t9MxJwkfpx90cqG9AFL0JAYo/edit) for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. This is enabled because the GO15VENDOREXPERIMENT environment variable is set to 1 in the Vagrant environment. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
+```
+# Add external packages.
+govendor add +external
+
+# Add a specific package.
+govendor add github.com/kardianos/osext
+
+# Update vendor packages.
+govendor update +vendor
+
+# Revert back to normal GOPATH packages.
+govendor remove +vendor
+
+# List package.
+govendor list
+```
+
+## Building outside of Vagrant
+This is not recommended, however some users may wish to build Openchain outside of Vagrant if they use an editor with built in Go tooling. The instructions are
+
+1. Follow all steps required to setup and run a Vagrant image.
+- Make you you have [Go 1.5.1](https://golang.org/) or later installed
+- Set the GO15VENDOREXPERIMENT environmental variable to 1. `export GO15VENDOREXPERIMENT=1`
+- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md)
+- Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB
+```
+cd $GOPATH/src/github.com/openblockchain/obc-peer
+CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
