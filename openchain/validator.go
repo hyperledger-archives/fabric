@@ -22,7 +22,6 @@ package openchain
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -44,12 +43,14 @@ import (
 
 var validatorLogger = logging.MustGetLogger("validator")
 
+// Validator responsible for simple PBFT Consensus type functonality.
 type Validator interface {
 	Broadcast(*pb.OpenchainMessage) error
 	GetHandler(stream PeerChatStream) MessageHandler
 	IsLeader() bool
 }
 
+// SimpleValidator simple implementation of consensus functionaluty, assumes 1 Validator and 1 Leader
 type SimpleValidator struct {
 	validatorStreams map[string]MessageHandler
 	peerStreams      map[string]MessageHandler
@@ -57,10 +58,12 @@ type SimpleValidator struct {
 	isLeader         bool
 }
 
+// IsLeader returns true if the Validator is also configured as the Leadre in the context of Simple PBFT consensus.
 func (v *SimpleValidator) IsLeader() bool {
 	return v.isLeader
 }
 
+// Broadcast support for broadcasting to all connected Validators. In the case of simple validator, there is 1 Validator and 1 leader.
 func (v *SimpleValidator) Broadcast(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Broadcasting OpenchainMessage of type: %s", msg.Type)
 	err := v.leaderHandler.SendMessage(msg)
@@ -70,56 +73,57 @@ func (v *SimpleValidator) Broadcast(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
+// GetHandler handler factory function.  In simple validating case stores the reference as the leaderHandler
 func (v *SimpleValidator) GetHandler(stream PeerChatStream) MessageHandler {
 	if v.isLeader {
-		v.leaderHandler = NewValidatorFSM(v, "", stream)
+		v.leaderHandler = newValidatorFSM(v, "", stream)
 		return v.leaderHandler
 	}
-	return NewValidatorFSM(v, "", stream)
+	return newValidatorFSM(v, "", stream)
 }
 
 func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 
-	var errFromChat error = nil
+	var errFromChat error
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error connecting to leader at address=%s:  %s", peerAddress, err))
+		return fmt.Errorf("Error connecting to leader at address=%s:  %s", peerAddress, err)
 	}
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	v.leaderHandler = v.GetHandler(stream)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error chatting with leader at address=%s:  %s", peerAddress, err))
-	} else {
-		defer stream.CloseSend()
-		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
-		waitc := make(chan struct{})
-		go func() {
-			for {
-				in, err := stream.Recv()
-				if err == io.EOF {
-					// read done.
-					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
-					close(waitc)
-					return
-				}
-				if err != nil {
-					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
-				}
-				// Call FSM.HandleMessage()
-				err = v.leaderHandler.HandleMessage(in)
-				if err != nil {
-					validatorLogger.Error("Error handling message: %s", err)
-					return
-				}
-			}
-		}()
-		<-waitc
-		return nil
+		return fmt.Errorf("Error chatting with leader at address=%s:  %s", peerAddress, err)
 	}
+	defer stream.CloseSend()
+	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO)
+				close(waitc)
+				return
+			}
+			if err != nil {
+				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+			}
+			// Call FSM.HandleMessage()
+			err = v.leaderHandler.HandleMessage(in)
+			if err != nil {
+				validatorLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+				return
+			}
+		}
+	}()
+	<-waitc
+	return nil
 }
 
+// NewSimpleValidator returns a new simple Validator which implements simple PBFT consensus. (aka 1 Validator and 1 Leader)
 func NewSimpleValidator(isLeader bool) (Validator, error) {
 	validator := &SimpleValidator{}
 	// Only perform if NOT the leader
@@ -132,7 +136,7 @@ func NewSimpleValidator(isLeader bool) (Validator, error) {
 	return validator, nil
 }
 
-type ValidatorFSM struct {
+type validatorFSM struct {
 	To                  string
 	ChatStream          PeerChatStream
 	FSM                 *fsm.FSM
@@ -142,8 +146,8 @@ type ValidatorFSM struct {
 	transactionsInBlock []*pb.Transaction
 }
 
-func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream) *ValidatorFSM {
-	v := &ValidatorFSM{
+func newValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream) *validatorFSM {
+	v := &validatorFSM{
 		To:         to,
 		ChatStream: peerChatStream,
 		validator:  parent,
@@ -172,18 +176,18 @@ func NewValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream)
 	return v
 }
 
-func (v *ValidatorFSM) enterState(e *fsm.Event) {
+func (v *validatorFSM) enterState(e *fsm.Event) {
 	validatorLogger.Debug("The Validators's bi-directional stream to %s is %s, from event %s\n", v.To, e.Dst, e.Event)
 }
 
-func (v *ValidatorFSM) beforeHello(e *fsm.Event) {
+func (v *validatorFSM) beforeHello(e *fsm.Event) {
 	validatorLogger.Debug("Sending back %s", pb.OpenchainMessage_DISC_HELLO.String())
 	if err := v.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO}); err != nil {
 		e.Cancel(err)
 	}
 }
 
-func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
+func (v *validatorFSM) beforeChainTransactions(e *fsm.Event) {
 	validatorLogger.Debug("Sending broadcast to all validators upon receipt of %s", e.Event)
 	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -226,15 +230,16 @@ func (v *ValidatorFSM) beforeChainTransactions(e *fsm.Event) {
 	v.validator.Broadcast(newMsg)
 }
 
-func (v *ValidatorFSM) when(stateToCheck string) bool {
+func (v *validatorFSM) when(stateToCheck string) bool {
 	return v.FSM.Is(stateToCheck)
 }
 
-func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
+func (v *validatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 	if viper.GetBool("peer.consensus.leader.enabled") {
 		validatorLogger.Debug("Leader's storedRequests length = %d", len(v.storedRequests))
 	}
+	// If consensus message, need to unmarshal payload into a PBFT structure
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		pbft := &pbft.PBFT{}
 		err := proto.Unmarshal(msg.Payload, pbft)
@@ -248,13 +253,14 @@ func (v *ValidatorFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 		err = v.FSM.Event(pbft.Type.String(), pbft)
 		validatorLogger.Debug("Processed msg %s with PBFT type: %s, current state: %s", msg.Type, pbft.Type, v.FSM.Current())
 		return filterError(err)
-	} else {
-		if v.FSM.Cannot(msg.Type.String()) {
-			return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
-		}
-		err := v.FSM.Event(msg.Type.String(), msg)
-		return filterError(err)
 	}
+	// Not a consensus msg, get Type from msg directly
+	if v.FSM.Cannot(msg.Type.String()) {
+		return fmt.Errorf("Validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), v.FSM.Current())
+	}
+	err := v.FSM.Event(msg.Type.String(), msg)
+	return filterError(err)
+
 }
 
 // Filter the Errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil
@@ -265,24 +271,22 @@ func filterError(errFromFSMEvent error) error {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return errFromFSMEvent
 				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				validatorLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 			}
+			validatorLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 		}
 		if canceledErr, ok := errFromFSMEvent.(*fsm.CanceledError); ok {
 			if canceledErr.Err != nil {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return canceledErr
 				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				validatorLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 			}
+			validatorLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 		}
 	}
 	return nil
 }
 
-func (v *ValidatorFSM) SendMessage(msg *pb.OpenchainMessage) error {
+func (v *validatorFSM) SendMessage(msg *pb.OpenchainMessage) error {
 	validatorLogger.Debug("Sending message to stream of type: %s ", msg.Type)
 	err := v.ChatStream.Send(msg)
 	if err != nil {
@@ -291,7 +295,7 @@ func (v *ValidatorFSM) SendMessage(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (v *ValidatorFSM) beforeRequest(e *fsm.Event) {
+func (v *validatorFSM) beforeRequest(e *fsm.Event) {
 	validatorLogger.Debug("Handling beforeRequest for event: %s", e.Event)
 	// Check incoming message.
 	if _, ok := e.Args[0].(*pbft.PBFT); !ok {
@@ -307,10 +311,9 @@ func (v *ValidatorFSM) beforeRequest(e *fsm.Event) {
 	if _, ok := v.storedRequests[hashString]; ok {
 		e.Cancel(fmt.Errorf("Message (hash: %v) already stored,", hashString))
 		return
-	} else {
-		v.storedRequests[hashString] = message
-		validatorLogger.Debug("Stored newRequest in map (length %d) under key (%s), value isNil (%v)", len(v.storedRequests), hashString, message == nil)
 	}
+	v.storedRequests[hashString] = message
+	validatorLogger.Debug("Stored newRequest in map (length %d) under key (%s), value isNil (%v)", len(v.storedRequests), hashString, message == nil)
 	if v.validator.IsLeader() {
 		v.broadcastPrePrepareAndPrepare(e)
 	} else {
@@ -321,7 +324,7 @@ func (v *ValidatorFSM) beforeRequest(e *fsm.Event) {
 
 }
 
-func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
+func (v *validatorFSM) beforePrePrepareResult(e *fsm.Event) {
 	// Check incoming message.
 	if _, ok := e.Args[0].(*pbft.PBFT); !ok {
 		e.Cancel(fmt.Errorf("Unexpected message received."))
@@ -382,7 +385,7 @@ func (v *ValidatorFSM) beforePrePrepareResult(e *fsm.Event) {
 	// TODO: Create OpenchainMessage_CONSENSUS message where PAYLOAD is a PHASE:PREPARE_RESULT message.
 }
 
-func (v *ValidatorFSM) beforePrepareResult(e *fsm.Event) {
+func (v *validatorFSM) beforePrepareResult(e *fsm.Event) {
 	// Check incoming message.
 	if _, ok := e.Args[0].(*pbft.PBFT); !ok {
 		e.Cancel(fmt.Errorf("Unexpected message received."))
@@ -403,7 +406,7 @@ func (v *ValidatorFSM) beforePrepareResult(e *fsm.Event) {
 	v.validator.Broadcast(newMsg)
 }
 
-func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
+func (v *validatorFSM) beforeCommitResult(e *fsm.Event) {
 	// Check incoming message.
 	if _, ok := e.Args[0].(*pbft.PBFT); !ok {
 		e.Cancel(fmt.Errorf("Unexpected message received."))
@@ -429,14 +432,14 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 	// Loop through v.transactionsInBlock, and for each type CHAINLET_NEW, update the State.
 	for _, tx := range v.transactionsInBlock {
 		if tx.Type == pb.Transaction_CHAINLET_NEW {
-			chaincodeIdToUse := tx.ChainletID.Url + ":" + tx.ChainletID.Version
-			chaincodeIdToUse = strings.Replace(chaincodeIdToUse, string(os.PathSeparator), "_", -1)
-			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIdToUse)
-			ledger.SetState(chaincodeIdToUse, "github.com_openblockchain_obc-peer_chaincode_id", []byte(tx.Uuid))
+			chaincodeIDToUse := tx.ChainletID.Url + ":" + tx.ChainletID.Version
+			chaincodeIDToUse = strings.Replace(chaincodeIDToUse, string(os.PathSeparator), ".", -1)
+			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIDToUse)
+			ledger.SetState(chaincodeIDToUse, "github.com.openblockchain.obc-peer.openchain.chaincode_id", []byte(tx.Uuid))
 		}
 	}
 	validatorLogger.Warning("Not sure what proof should be here, does not appear to be used in call")
-	proof := make([]byte, 0)
+	var proof []byte
 	if err := ledger.CommitTxBatch(msg.ID, v.transactionsInBlock, proof); err != nil {
 		e.Cancel(fmt.Errorf("Error Committing Tx with ledger: %s", err))
 		return
@@ -448,12 +451,12 @@ func (v *ValidatorFSM) beforeCommitResult(e *fsm.Event) {
 	// TODO: Commit referenced transactions to blockchain, uncomment Broadcast above.
 }
 
-func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
+func (v *validatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 	// How many Requests currently in map?
 	storedCount := len(v.storedRequests)
 	if storedCount >= 2 {
 		// First: Broadcast OpenchainMessage_CONSENSUS with PAYLOAD: PRE_PREPARE.
-		pbfts := make([]*pbft.PBFT, 0)
+		var pbfts []*pbft.PBFT
 		for _, pbft := range v.storedRequests {
 			pbfts = append(pbfts, pbft)
 		}
@@ -517,7 +520,7 @@ func (v *ValidatorFSM) broadcastPrePrepareAndPrepare(e *fsm.Event) {
 }
 
 func convertPBFTsToTransactions(pbftArray *pbft.PBFTArray) ([]*pb.Transaction, error) {
-	transactions := make([]*pb.Transaction, 0)
+	var transactions []*pb.Transaction
 	for _, pbft := range pbftArray.Pbfts {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(pbft.Payload, tx)
