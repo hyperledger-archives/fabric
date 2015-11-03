@@ -47,6 +47,25 @@ func init() {
 }
 
 // =============================================================================
+// Old definitions that are deprecrated and will be removed soon go here.
+// =============================================================================
+
+// ConsenterDeprecated is an interface for every consensus implementation.
+type ConsenterDeprecated interface {
+	GetParam(param string) (val string, err error)
+	Recv(msg []byte) error
+}
+
+// CPI (Consensus Programming Interface) is to break the import cycle between
+// consensus and consenter implementation.
+type CPI interface {
+	SetConsenter(c Consenter)
+	HandleMsg(msg *pb.OpenchainMessage) error
+	Broadcast(msg []byte) error
+	ExecTXs(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error)
+}
+
+// =============================================================================
 // Structure definitions go here.
 // =============================================================================
 
