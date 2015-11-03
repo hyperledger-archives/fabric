@@ -555,7 +555,7 @@ func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte,
 		}
 		//create start request ...
 		var req VMCReqIntf
-		vmname, berr := buildVMName(cds.ChainletSpec)
+		vmname, berr := BuildVMName(cds.ChainletSpec)
 		if berr != nil {
 			errs[i] = berr
 			continue

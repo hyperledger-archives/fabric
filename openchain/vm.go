@@ -77,7 +77,7 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
-func buildVMName(spec *pb.ChainletSpec) (string, error) {
+func BuildVMName(spec *pb.ChainletSpec) (string, error) {
 	// Make sure version is specfied correctly
 	version, err := semver.Make(spec.ChainletID.Version)
 	if err != nil {
@@ -104,7 +104,7 @@ func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
 // Builds the Chaincode image using the supplied Dockerfile package contents
 func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChainletSpec, inputbuf io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
-	vmName, err := buildVMName(spec)
+	vmName, err := BuildVMName(spec)
 	if err != nil {
 		return fmt.Errorf("Error building chaincode using package bytes: %s", err)
 	}

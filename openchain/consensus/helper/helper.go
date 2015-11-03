@@ -29,7 +29,7 @@ import (
 
 // Helper data structure.
 type Helper struct {
-	consenter consensus.ConsenterDeprecated
+	consenter consensus.Consenter
 }
 
 // New is a constructor returning a consensus.CPI
@@ -42,7 +42,7 @@ func New() consensus.CPI {
 
 // SetConsenter is called from the implementor. It is a singleton.
 // @c - the consenter for this consensus
-func (h *Helper) SetConsenter(c consensus.ConsenterDeprecated) {
+func (h *Helper) SetConsenter(c consensus.Consenter) {
 	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
 		consensus.Logger.Debug("Setting the helper's consenter.")
 	}

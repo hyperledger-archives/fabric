@@ -41,7 +41,7 @@ func init() {
 }
 
 // New allocates a new instance/implementation of the consensus algorithm.
-func New(c consensus.CPI) consensus.ConsenterDeprecated {
+func New(c consensus.CPI) consensus.Consenter {
 	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
 		consensus.Logger.Debug("Creating the consenter.")
 	}
