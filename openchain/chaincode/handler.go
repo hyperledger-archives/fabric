@@ -12,32 +12,35 @@ import (
 
 var chaincodeLogger = logging.MustGetLogger("chaincode")
 
+// PeerChaincodeStream interface for stream between Peer and chaincode instance.
 type PeerChaincodeStream interface {
 	Send(*pb.ChaincodeMessage) error
 	Recv() (*pb.ChaincodeMessage, error)
 }
 
+// MessageHandler interface for handling chaincode messages (common between Peer chaincode support and chaincode)
 type MessageHandler interface {
 	HandleMessage(msg *pb.ChaincodeMessage) error
 	//SendMessage(msg *pb.ChaincodeMessage) error
 }
 
-type ChaincodeHandler struct {
+// Handler responsbile for managment of Peer's side of chaincode stream
+type Handler struct {
 	ChatStream      PeerChaincodeStream
 	FSM             *fsm.FSM
 	ChaincodeID     *pb.ChainletID
-	chainletSupport *chainletSupport
+	chainletSupport *ChainletSupport
 	registered      bool
 }
 
-func (c *ChaincodeHandler) deregister() error {
+func (c *Handler) deregister() error {
 	if c.registered {
 		c.chainletSupport.deregisterHandler(c)
 	}
 	return nil
 }
 
-func (c *ChaincodeHandler) processStream() error {
+func (c *Handler) processStream() error {
 	for {
 		in, err := c.ChatStream.Recv()
 		// Defer the deregistering of the this handler.
@@ -47,7 +50,7 @@ func (c *ChaincodeHandler) processStream() error {
 			return err
 		}
 		if err != nil {
-			chainletLog.Error("Error handling chaincode support stream: %s", err)
+			chainletLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
 			return err
 		}
 		err = c.HandleMessage(in)
@@ -57,16 +60,16 @@ func (c *ChaincodeHandler) processStream() error {
 	}
 }
 
-// Main loop for handling the associated Chaincode stream
-func HandleChaincodeStream(chainletSupport *chainletSupport, stream pb.ChainletSupport_RegisterServer) error {
+// HandleChaincodeStream Main loop for handling the associated Chaincode stream
+func HandleChaincodeStream(chainletSupport *ChainletSupport, stream pb.ChainletSupport_RegisterServer) error {
 	deadline, ok := stream.Context().Deadline()
 	chainletLog.Debug("Current context deadline = %s, ok = %v", deadline, ok)
 	handler := newChaincodeSupportHandler(chainletSupport, stream)
 	return handler.processStream()
 }
 
-func newChaincodeSupportHandler(chainletSupport *chainletSupport, peerChatStream PeerChaincodeStream) *ChaincodeHandler {
-	v := &ChaincodeHandler{
+func newChaincodeSupportHandler(chainletSupport *ChainletSupport, peerChatStream PeerChaincodeStream) *Handler {
+	v := &Handler{
 		ChatStream: peerChatStream,
 	}
 	v.chainletSupport = chainletSupport
@@ -83,7 +86,7 @@ func newChaincodeSupportHandler(chainletSupport *chainletSupport, peerChatStream
 	return v
 }
 
-func (c *ChaincodeHandler) beforeRegister(e *fsm.Event) {
+func (c *Handler) beforeRegister(e *fsm.Event) {
 	chaincodeLogger.Debug("Received %s", e.Event)
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
@@ -115,7 +118,8 @@ func (c *ChaincodeHandler) beforeRegister(e *fsm.Event) {
 	c.registered = true
 }
 
-func (c *ChaincodeHandler) HandleMessage(msg *pb.ChaincodeMessage) error {
+// HandleMessage implementation of MessageHandler interface.  Peer's handling of Chaincode messages.
+func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
 	if c.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), c.FSM.Current())
@@ -131,19 +135,16 @@ func filterError(errFromFSMEvent error) error {
 			if noTransitionErr.Err != nil {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return errFromFSMEvent
-				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				chaincodeLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 			}
+			chaincodeLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 		}
 		if canceledErr, ok := errFromFSMEvent.(*fsm.CanceledError); ok {
 			if canceledErr.Err != nil {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return canceledErr
 				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				chaincodeLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 			}
+			chaincodeLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 		}
 	}
 	return nil

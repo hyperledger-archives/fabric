@@ -331,7 +331,7 @@ func serve() error {
 	// Register the ServerOpenchain server
 	serverOpenchain, err := openchain.NewOpenchainServer()
 	if err != nil {
-		logger.Error("Error creating OpenchainServer: %s", err)
+		logger.Error(fmt.Sprintf("Error creating OpenchainServer: %s", err))
 		return err
 	}
 

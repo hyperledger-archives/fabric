@@ -47,7 +47,7 @@ func TestChainletSupport_GetExecutionContext(t *testing.T) {
 	t.Skip("TODO: Have to rework chaincode testing.")
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
-		t.Logf("Error trying to connect to local peer:", err)
+		t.Logf("Error trying to connect to local peer: %s", err)
 		t.Fail()
 		return
 	}

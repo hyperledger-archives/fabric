@@ -34,26 +34,30 @@ import (
 
 var chainletLog = logging.MustGetLogger("chaincode")
 
-type HandlerMap struct {
+type handlerMap struct {
 	sync.RWMutex
-	m map[string]*ChaincodeHandler
+	m map[string]*Handler
 }
 
-func NewChainletSupport() *chainletSupport {
-	s := new(chainletSupport)
-	s.handlerMap = &HandlerMap{m: make(map[string]*ChaincodeHandler)}
+// NewChainletSupport Creates a new ChainletSupport instance
+func NewChainletSupport() *ChainletSupport {
+	s := new(ChainletSupport)
+	s.handlerMap = &handlerMap{m: make(map[string]*Handler)}
 	return s
 }
 
-type ChaincodeStream interface {
-	Send(*pb.ChaincodeMessage) error
-	Recv() (*pb.ChaincodeMessage, error)
+// // ChaincodeStream standard stream for ChaincodeMessage type.
+// type ChaincodeStream interface {
+// 	Send(*pb.ChaincodeMessage) error
+// 	Recv() (*pb.ChaincodeMessage, error)
+// }
+
+// ChainletSupport responsible for providing interfacing with chaincodes from the Peer.
+type ChainletSupport struct {
+	handlerMap *handlerMap
 }
 
-type chainletSupport struct {
-	handlerMap *HandlerMap
-}
-
+// DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
 type DuplicateChaincodeHandlerError struct {
 	ChaincodeID *pb.ChainletID
 }
@@ -62,18 +66,18 @@ func (d *DuplicateChaincodeHandlerError) Error() string {
 	return fmt.Sprintf("Duplicate chaincodeID error: %s", d.ChaincodeID)
 }
 
-func newDuplicateChaincodeHandlerError(chaincodeHandler *ChaincodeHandler) error {
+func newDuplicateChaincodeHandlerError(chaincodeHandler *Handler) error {
 	return &DuplicateChaincodeHandlerError{ChaincodeID: chaincodeHandler.ChaincodeID}
 }
 
-func getHandlerKey(chaincodehandler *ChaincodeHandler) (string, error) {
+func getHandlerKey(chaincodehandler *Handler) (string, error) {
 	if chaincodehandler.ChaincodeID == nil {
 		return "", fmt.Errorf("Could not find chaincode handler with nil ChaincodeID")
 	}
 	return chaincodehandler.ChaincodeID.Url + ":" + chaincodehandler.ChaincodeID.Version, nil
 }
 
-func (c *chainletSupport) registerHandler(chaincodehandler *ChaincodeHandler) error {
+func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
 	key, err := getHandlerKey(chaincodehandler)
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
@@ -89,7 +93,7 @@ func (c *chainletSupport) registerHandler(chaincodehandler *ChaincodeHandler) er
 	return nil
 }
 
-func (c *chainletSupport) deregisterHandler(chaincodehandler *ChaincodeHandler) error {
+func (c *ChainletSupport) deregisterHandler(chaincodehandler *Handler) error {
 	key, err := getHandlerKey(chaincodehandler)
 	if err != nil {
 		return fmt.Errorf("Error deregistering handler: %s", err)
@@ -105,7 +109,8 @@ func (c *chainletSupport) deregisterHandler(chaincodehandler *ChaincodeHandler) 
 	return nil
 }
 
-func (c *chainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
+// GetExecutionContext returns the execution context.  DEPRECATED. TO be removed.
+func (c *ChainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
 	//chainletId := &pb.ChainletIdentifier{Url: "github."}
 	timeStamp := &google_protobuf.Timestamp{Seconds: time.Now().UnixNano(), Nanos: 0}
 	executionContext := &pb.ChainletExecutionContext{ChainletId: requestContext.GetId(),
@@ -115,6 +120,7 @@ func (c *chainletSupport) GetExecutionContext(context context.Context, requestCo
 	return executionContext, nil
 }
 
-func (c *chainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
+// Register the bidi stream entry point called by chaincode to register with the Peer.
+func (c *ChainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
 	return HandleChaincodeStream(c, stream)
 }

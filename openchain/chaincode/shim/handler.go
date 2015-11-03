@@ -5,14 +5,8 @@ import (
 
 	"github.com/looplab/fsm"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-type MessageHandler interface {
-	HandleMessage(msg *pb.ChaincodeMessage) error
-	//SendMessage(msg *pb.ChaincodeMessage) error
-}
 
 type ChaincodeHandler struct {
 	To         string
@@ -31,10 +25,6 @@ func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 		fsm.Events{
 			{Name: pb.ChaincodeMessage_REGISTERED.String(), Src: []string{"created"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
-			{Name: pbft.PBFT_PRE_PREPARE.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
-			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
-			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"prepare_result_sent", "commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.beforeRegistered(e) },

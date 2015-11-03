@@ -39,13 +39,15 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-const DefaultTimeout = time.Second * 3
+const defaultTimeout = time.Second * 3
 
+// MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 }
 
+// PeerChatStream interface supported by stream between Peers
 type PeerChatStream interface {
 	Send(*pb.OpenchainMessage) error
 	Recv() (*pb.OpenchainMessage, error)
@@ -57,12 +59,12 @@ func testAcceptPeerChatStream(PeerChatStream) {
 
 var peerLogger = logging.MustGetLogger("peer")
 
-// Returns a new grpc.ClientConn to the configured local PEER.
+// NewPeerClientConnection Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnection() (*grpc.ClientConn, error) {
 	return NewPeerClientConnectionWithAddress(viper.GetString("peer.address"))
 }
 
-// Returns a new grpc.ClientConn to the configured local PEER.
+// NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -82,7 +84,7 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 	}
-	opts = append(opts, grpc.WithTimeout(DefaultTimeout))
+	opts = append(opts, grpc.WithTimeout(defaultTimeout))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithInsecure())
 	conn, err := grpc.Dial(peerAddress, opts...)
@@ -92,15 +94,12 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 	return conn, err
 }
 
+// Peer implementation of the Peer service
 type Peer struct {
 	handlerFactory func(PeerChatStream) MessageHandler
 }
 
-func NewPeer() *Peer {
-	peer := new(Peer)
-	return peer
-}
-
+// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
 func NewPeerWithHandler(handlerFact func(PeerChatStream) MessageHandler) (*Peer, error) {
 	peer := new(Peer)
 	if handlerFact == nil {
@@ -110,6 +109,7 @@ func NewPeerWithHandler(handlerFact func(PeerChatStream) MessageHandler) (*Peer,
 	return peer, nil
 }
 
+// Chat implementation of the the Chat bidi streaming RPC function
 func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 	testAcceptPeerChatStream(stream)
 	deadline, ok := stream.Context().Deadline()
@@ -127,7 +127,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
-			peerLogger.Error("Error handling message: %s", err)
+			peerLogger.Error(fmt.Sprintf("Error handling message: %s", err))
 			//return err
 		}
 		// if in.Type == pb.OpenchainMessage_DISC_HELLO {
@@ -146,65 +146,65 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 	}
 }
 
-// testing
+// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
 func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.TransactionBlock) error {
-	var errFromChat error = nil
+	var errFromChat error
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
+		return fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
 	}
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	//testAcceptPeerChatStream(stream)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))
-	} else {
-		defer stream.CloseSend()
-		peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
-		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
-		waitc := make(chan struct{})
-		go func() {
-			for {
-				in, err := stream.Recv()
-				if err == io.EOF {
-					// read done.
-					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))
-					close(waitc)
-					return
-				}
-				if err != nil {
-					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
-				}
-				if in.Type == pb.OpenchainMessage_DISC_HELLO {
-					peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
-					payload, err := proto.Marshal(transactionBlock)
-					if err != nil {
-						errFromChat = errors.New(fmt.Sprintf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err))
-						close(waitc)
-						return
-					}
-					stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
-					peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
-					close(waitc)
-					return
-				} else {
-					peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-					close(waitc)
-					return
-				}
-			}
-		}()
-		<-waitc
-		return nil
+		return fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
 	}
+	defer stream.CloseSend()
+	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
+	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO)
+				close(waitc)
+				return
+			}
+			if err != nil {
+				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+			}
+			if in.Type == pb.OpenchainMessage_DISC_HELLO {
+				peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
+				payload, err := proto.Marshal(transactionBlock)
+				if err != nil {
+					errFromChat = fmt.Errorf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err)
+					close(waitc)
+					return
+				}
+				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
+				peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
+				close(waitc)
+				return
+			}
+			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+			close(waitc)
+			return
+		}
+	}()
+	<-waitc
+	return nil
 }
 
+// PeerFSM peer handler implementation. TODO:  Consider renaming.
 type PeerFSM struct {
 	To         string
 	ChatStream PeerChatStream
 	FSM        *fsm.FSM
 }
 
+// NewPeerFSM constructs new PeerFSM
 func NewPeerFSM(to string, peerChatStream PeerChatStream) *PeerFSM {
 	d := &PeerFSM{
 		To:         to,
@@ -250,6 +250,7 @@ func (d *PeerFSM) when(stateToCheck string) bool {
 	return d.FSM.Is(stateToCheck)
 }
 
+// HandleMessage handles the Openchain messages for the Peer.
 func (d *PeerFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	peerLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 	if d.FSM.Cannot(msg.Type.String()) {
@@ -276,6 +277,7 @@ func (d *PeerFSM) HandleMessage(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
+// SendMessage sends a message to the remote PEER through the stream
 func (d *PeerFSM) SendMessage(msg *pb.OpenchainMessage) error {
 	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
 	err := d.ChatStream.Send(msg)
