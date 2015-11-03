@@ -280,14 +280,15 @@ func serve() error {
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peer *openchain.Peer
 	if viper.GetBool("peer.consensus.validator.enabled") {
-		logger.Debug("Running as validator")
+		logger.Debug("Running as validating peer")
+		// TODO: remove the leader flag below when leader election is enabled
 		newValidator, err := openchain.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
 		if err != nil {
 			return fmt.Errorf("Error creating simple Validator: %s", err)
 		}
 		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
 	} else {
-		logger.Debug("Running as peer")
+		logger.Debug("Running as non-validating peer")
 		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
 			return openchain.NewPeerFSM("", stream)
 		})
