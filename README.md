@@ -66,7 +66,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
 Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](https://github.com/spf13/cobra) libraries.
 
-There is an **openchain.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overriden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'OPENCHAIN_'*. For example, logging level manipulation through the environment is shown below:
+There is an **openchain.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'OPENCHAIN_'*. For example, logging level manipulation through the environment is shown below:
 
     OPENCHAIN_PEER_LOGGING_LEVEL=CRITICAL ./obc-peer
 
@@ -77,7 +77,26 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
 ## Generating grpc code
-
+If you modify ant .proto files, run the following command to generate new .pb.go files.
 ```
 /obc-dev-env/compile_protos.sh
+```
+
+## Adding or updating a Go packages
+Openchain uses the [Go 1.5 Vendor Experiment](https://docs.google.com/document/d/1Bz5-UB7g2uPBdOx-rw5t9MxJwkfpx90cqG9AFL0JAYo/edit) for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. This is enabled because the GO15VENDOREXPERIMENT environment variable is set to 1 in the Vagrant environment. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
+```
+# Add external packages.
+govendor add +external
+
+# Add a specific package.
+govendor add github.com/kardianos/osext
+
+# Update vendor packages.
+govendor update +vendor
+
+# Revert back to normal GOPATH packages.
+govendor remove +vendor
+
+# List package.
+govendor list
 ```
