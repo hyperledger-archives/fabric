@@ -16,9 +16,7 @@
         "/chain": {
             "get": {
                 "summary": "Blockchain Information",
-                "description": "The Chain endpoint returns information about the current state of\n
-                                the blockchain such as the height, the current block hash, and the\n
-                                previous block hash.\n",
+                "description": "The Chain endpoint returns information about the current state of the blockchain such as the height, the current block hash, and the previous block hash.",
                 "tags": [
                     "Blockchain"
                 ],
@@ -26,7 +24,7 @@
                     "200": {
                         "description": "Blockchain information",
                         "schema": {
-                          "$ref": "#/definitions/BlockchainInfo"
+                           "$ref": "#/definitions/BlockchainInfo"
                         }
                     },
                     "default": {
@@ -39,28 +37,25 @@
             }
         },
         "/chain/blocks/{Block}": {
-            "parameters": [
-              {
-                "name": "Block",
-                "in": "path",
-                "description": "Block number to retrieve",
-                "type": "integer",
-                "format": "uint64",
-                "required": true
-              }
-            ],
             "get": {
                 "summary": "Individual Block Information",
-                "description": "The {Block} endpoint returns information about a specific block\n
-                                within the Blockchain. Note that the genesis block is block zero.\n",
+                "description": "The {Block} endpoint returns information about a specific block within the Blockchain. Note that the genesis block is block zero.",
                 "tags": [
                     "Block"
                 ],
+                "parameters": [{
+                    "name": "Block",
+                    "in": "path",
+                    "description": "Block number to retrieve",
+                    "type": "integer",
+                    "format": "uint64",
+                    "required": true
+                }],
                 "responses": {
                     "200": {
                         "description": "Individual Block contents",
                         "schema": {
-                          "$ref": "#/definitions/Block"
+                           "$ref": "#/definitions/Block"
                         }
                     },
                     "default": {
@@ -73,35 +68,30 @@
             }
         },
         "/state/{chaincodeID}/{key}": {
-            "parameters": [
-              {
-                "name": "chaincodeID",
-                "in": "path",
-                "description": "Unique Chaincode identifier",
-                "type": "string",
-                "required": true
-              },
-              {
-                "name": "key",
-                "in": "path",
-                "description": "Key to match within the Chaincode",
-                "type": "string",
-                "required": true
-              }
-            ],
             "get": {
                 "summary": "State information for unique chaincodeID and key",
-                "description": "The {chaincodeID}/{key} endpoint returns state information matching\n
-                                a specific chaincodeID and key. If there is no match on either the \n
-                                chaincodeID or the key, a \"null\" value is returned for the state. \n",
+                "description": "The {chaincodeID}/{key} endpoint returns state information matching a specific chaincodeID and key. If there is no match on either the chaincodeID or the key, a \"null\" value is returned for the state.",
                 "tags": [
                     "State"
                 ],
+                "parameters": [{
+                    "name": "chaincodeID",
+                    "in": "path",
+                    "description": "Unique Chaincode identifier",
+                    "type": "string",
+                    "required": true
+                }, {
+                    "name": "key",
+                    "in": "path",
+                    "description": "Key to match within the Chaincode",
+                    "type": "string",
+                    "required": true
+                }],
                 "responses": {
                     "200": {
                         "description": "Retrieved state value",
                         "schema": {
-                          "$ref": "#/definitions/State"
+                           "$ref": "#/definitions/State"
                         }
                     },
                     "default": {
@@ -114,32 +104,26 @@
             }
         },
         "/devops/build": {
-            "parameters": [
-              {
-                "name": "ChaincodeSpec",
-                "in": "body",
-                "description": "Chaincode specification message",
-                "required": true,
-                "schema": {
-                  "$ref": "#/definitions/ChaincodeSpec"
-                }
-              }
-            ],
             "post": {
                 "summary": "Service endpoint for building Chaincode",
-                "description": "The /devops/build endpoint receives Chaincode build requests for \n
-                                existing Chaincodes. The Chaincode and the required entities are \n
-                                packaged into a container upon receipt of the request. If the build \n
-                                is successful, an encoded codePackage is returned. Otherwise, an \n
-                                error is displayed alongside with a reason for the failure.",
+                "description": "The /devops/build endpoint receives Chaincode build requests for existing Chaincodes. The Chaincode and the required entities are packaged into a container upon receipt of the request. If the build is successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
                 "tags": [
                     "Devops"
                 ],
+                "parameters": [{
+                    "name": "ChaincodeSpec",
+                    "in": "body",
+                    "description": "Chaincode specification message",
+                    "required": true,
+                    "schema": {
+                       "$ref": "#/definitions/ChaincodeSpec"
+                    }
+                }],
                 "responses": {
                     "200": {
                         "description": "Chaincode deployment specification message",
                         "schema": {
-                          "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                           "$ref": "#/definitions/ChaincodeDeploymentSpec"
                         }
                     },
                     "default": {
@@ -152,33 +136,26 @@
             }
         },
         "/devops/deploy": {
-          "parameters": [
-            {
-              "name": "ChaincodeSpec",
-              "in": "body",
-              "description": "Chaincode specification message",
-              "required": true,
-              "schema": {
-                "$ref": "#/definitions/ChaincodeSpec"
-              }
-            }
-          ],
-          "post": {
+           "post": {
               "summary": "Service endpoint for deploying Chaincode",
-              "description": "The /devops/deploy endpoint receives Chaincode deployment requests\n
-                              for existing Chaincodes. The Chaincode and the required entities are \n
-                              first packaged into a container and subsequently deployed to the\n
-                              blockchain. If the Chaincode build and deployment are successful,\n
-                              an encoded codePackage is returned. Otherwise, an error is displayed\n
-                              alongside with a reason for the failure.",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests for existing Chaincodes. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
+              "parameters": [{
+                 "name": "ChaincodeSpec",
+                 "in": "body",
+                 "description": "Chaincode specification message",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/ChaincodeSpec"
+                 }
+              }],
               "responses": {
                   "200": {
                       "description": "Chaincode deployment specification message",
                       "schema": {
-                        "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                         "$ref": "#/definitions/ChaincodeDeploymentSpec"
                       }
                   },
                   "default": {
@@ -188,7 +165,7 @@
                       }
                   }
               }
-          }
+           }
         }
     },
     "definitions": {
@@ -269,7 +246,7 @@
                     "items": {
                         "type": "string"
                     },
-                   "description": "Arguments supplied to the Chaincode function."
+                    "description": "Arguments supplied to the Chaincode function."
                 },
                 "payload": {
                     "type": "string",
@@ -277,8 +254,8 @@
                     "description": "Payload supplied for Chaincode function execution."
                 },
                 "uuid": {
-                  "type": "string",
-                  "description": "Unique transaction identifier."
+                   "type": "string",
+                   "description": "Unique transaction identifier."
                 }
             }
         },
@@ -357,7 +334,7 @@
                     "items": {
                         "type": "string"
                     },
-                   "description": "Arguments supplied to the Chaincode function."
+                    "description": "Arguments supplied to the Chaincode function."
                 }
             }
         },

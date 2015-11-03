@@ -23,9 +23,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"google/protobuf"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"golang.org/x/net/context"
 
@@ -62,9 +64,14 @@ func (s *ServerOpenchainREST) SetOpenchainServer(rw web.ResponseWriter, req *web
 }
 
 // SetResponseType is a middleware function that sets the appropriate response
-// header. Currently, it is set to "application/json".
+// headers. Currently, it is setting the "Content-Type" to "application/json" as
+// well as the necessary headers in order to enable CORS for Swagger usage.
 func (s *ServerOpenchainREST) SetResponseType(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
 	rw.Header().Set("Content-Type", "application/json")
+
+	// Enable CORS
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Headers", "accept, content-type")
 
 	next(rw, req)
 }
@@ -153,13 +160,19 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 
 	// Check for proper JSON syntax
 	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		return
 	}
 
 	// Check for nil ChainletSpec
 	if spec.ChainletID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
 		return
 	}
@@ -185,13 +198,19 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	// Check for proper JSON syntax
 	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		return
 	}
 
 	// Check for nil ChainletSpec
 	if spec.ChainletID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
 		return
 	}
@@ -206,6 +225,48 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	encoder := json.NewEncoder(rw)
 	err = encoder.Encode(deployResult)
+}
+
+// Invoke executes a specified function within a target Chaincode and returns
+// a result.
+func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
+	// Decode the incoming JSON payload
+	var msg pb.ChainletMessage
+	err := jsonpb.Unmarshal(req.Body, &msg)
+
+	// Check for proper JSON syntax
+	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character
+		// as otherwise the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+		rw.WriteHeader(http.StatusBadRequest)
+
+		// Client must supply payload
+		if err == io.EOF {
+			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeMessage specification.\"}")
+		} else {
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+		}
+		return
+	}
+
+	// Check for nil ChainletMessage
+	if msg.Function == "" {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode function.\"}")
+		return
+	}
+
+	// Invoke the Chaincode function
+	//
+	//  ...
+
+	// Return Chaincode invocation result
+	// 	encoder := json.NewEncoder(rw)
+	// 	err = encoder.Encode(msg)
+	rw.WriteHeader(http.StatusOK)
+	fmt.Fprintf(rw, "{\"Result\": \"OK\"}")
 }
 
 // NotFound returns a custom landing page when a given openchain end point
@@ -232,9 +293,13 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	// Add routes
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
+
 	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
+
 	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
+
+	router.Post("/chaincode/:chaincodeId", (*ServerOpenchainREST).Invoke)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
