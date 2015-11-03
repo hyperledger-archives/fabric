@@ -20,7 +20,6 @@ under the License.
 package shim
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,13 +39,16 @@ import (
 
 var chaincodeLogger = logging.MustGetLogger("chaincode")
 
+// Chainlet standard chaincode callback interface
 type Chainlet interface {
 	Run(chainletSupportClient pb.ChainletSupportClient) error
 }
 
+// ChaincodeStub placeholder for shim side handling.
 type ChaincodeStub struct {
 }
 
+// Start entry point for chaincodes bootstrap
 func Start(c Chainlet) error {
 	viper.SetEnvPrefix("OPENCHAIN")
 	viper.AutomaticEnv()
@@ -57,7 +59,7 @@ func Start(c Chainlet) error {
 
 	clientConn, err := newPeerClientConnection()
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		return fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
 
 	fmt.Printf("os.Args returns: %s\n", os.Args)
@@ -113,44 +115,43 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 
 func chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
 
-	var errFromChat error = nil
+	var errFromChat error
 	stream, err := chainletSupportClient.Register(context.Background())
 	handler := NewChaincodeHandler(getPeerAddress(), stream)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err))
-	} else {
-		defer stream.CloseSend()
-		// Send the ChainletID during register.
-		chainletID := &pb.ChainletID{Url: viper.GetString("chainlet.id.url"), Version: viper.GetString("chainlet.id.version")}
-		payload, err := proto.Marshal(chainletID)
-		if err != nil {
-			return fmt.Errorf("Error marshalling chainletID during chaincode registration: %s", err)
-		}
-		stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
-		waitc := make(chan struct{})
-		go func() {
-			for {
-				in, err := stream.Recv()
-				if err == io.EOF {
-					// read done.
-					errFromChat = errors.New(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO))
-					close(waitc)
-					return
-				}
-				if err != nil {
-					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
-				}
-
-				// Call FSM.HandleMessage()
-				err = handler.HandleMessage(in)
-				if err != nil {
-					chaincodeLogger.Error("Error handling message: %s", err)
-					return
-				}
-			}
-		}()
-		<-waitc
-		return nil
+		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)
 	}
+	defer stream.CloseSend()
+	// Send the ChainletID during register.
+	chainletID := &pb.ChainletID{Url: viper.GetString("chainlet.id.url"), Version: viper.GetString("chainlet.id.version")}
+	payload, err := proto.Marshal(chainletID)
+	if err != nil {
+		return fmt.Errorf("Error marshalling chainletID during chaincode registration: %s", err)
+	}
+	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
+				close(waitc)
+				return
+			}
+			if err != nil {
+				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+			}
+
+			// Call FSM.HandleMessage()
+			err = handler.HandleMessage(in)
+			if err != nil {
+				chaincodeLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+				return
+			}
+		}
+	}()
+	<-waitc
+	return nil
 }
