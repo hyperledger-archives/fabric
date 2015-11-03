@@ -23,7 +23,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,10 +40,12 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+// VM implemenation of VM management functionality.
 type VM struct {
 	Client *docker.Client
 }
 
+// NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
 	endpoint := viper.GetString("vm.endpoint")
 	log.Info("Creating VM with endpoint: %s", endpoint)
@@ -58,6 +59,7 @@ func NewVM() (*VM, error) {
 
 var vmLogger = logging.MustGetLogger("peer")
 
+// ListImages list the images available
 func (vm *VM) ListImages(context context.Context) error {
 	imgs, err := vm.Client.ListImages(docker.ListImagesOptions{All: false})
 	if err != nil {
@@ -79,21 +81,22 @@ func buildVMName(spec *pb.ChainletSpec) (string, error) {
 	// Make sure version is specfied correctly
 	version, err := semver.Make(spec.ChainletID.Version)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Error building VM name: %s", err))
+		return "", fmt.Errorf("Error building VM name: %s", err)
 	}
 	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1), version)
 	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }
 
+// BuildChaincodeContainer builds the container for the supplied chaincode specification
 func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
 	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, bytes.NewReader(chaincodePkgBytes))
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	return chaincodePkgBytes, nil
 }
@@ -103,7 +106,7 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainl
 	outputbuf := bytes.NewBuffer(nil)
 	vmName, err := buildVMName(spec)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error building chaincode using package bytes: %s", err))
+		return fmt.Errorf("Error building chaincode using package bytes: %s", err)
 	}
 	opts := docker.BuildImageOptions{
 		Name:         vmName,
@@ -112,17 +115,18 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainl
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		return errors.New(fmt.Sprintf("Error building Chaincode container: %s", err))
+		return fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	return nil
 }
 
+// BuildPeerContainer builds the image for the Peer to be used in development network
 func (vm *VM) BuildPeerContainer() error {
 	//inputbuf, err := vm.GetPeerPackageBytes()
 	inputbuf, err := vm.getPackageBytes(vm.writePeerPackage)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
+		return fmt.Errorf("Error building Peer container: %s", err)
 	}
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
@@ -132,11 +136,12 @@ func (vm *VM) BuildPeerContainer() error {
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		return errors.New(fmt.Sprintf("Error building Peer container: %s", err))
+		return fmt.Errorf("Error building Peer container: %s", err)
 	}
 	return nil
 }
 
+// GetChaincodePackageBytes returns the gzipped tar image used for docker build of supplied Chaincode package
 func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) ([]byte, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
@@ -146,11 +151,12 @@ func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) ([]byte, error) {
 	tr.Close()
 	gw.Close()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error getting Peer package: %s", err))
+		return nil, fmt.Errorf("Error getting Peer package: %s", err)
 	}
 	return inputbuf.Bytes(), nil
 }
 
+// GetPeerPackageBytes returns the gzipped tar image used for docker build of Peer
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
@@ -160,7 +166,7 @@ func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	tr.Close()
 	gw.Close()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error getting Peer package: %s", err))
+		return nil, fmt.Errorf("Error getting Peer package: %s", err)
 	}
 	return inputbuf, nil
 }
@@ -176,7 +182,7 @@ func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, er
 	tr.Close()
 	gw.Close()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error getting package bytes: %s", err))
+		return nil, fmt.Errorf("Error getting package bytes: %s", err)
 	}
 	return inputbuf, nil
 }
@@ -193,7 +199,7 @@ func (vm *VM) writeChaincodePackage(spec *pb.ChainletSpec, tw *tar.Writer) error
 	tw.Write([]byte(dockerFileContents))
 	err := vm.writeGopathSrc(tw)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error writing Chaincode package contents: %s", err))
+		return fmt.Errorf("Error writing Chaincode package contents: %s", err)
 	}
 	return nil
 }
@@ -208,14 +214,14 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 	tw.Write([]byte(dockerFileContents))
 	err := vm.writeGopathSrc(tw)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error writing Peer package contents: %s", err))
+		return fmt.Errorf("Error writing Peer package contents: %s", err)
 	}
 	return nil
 }
 
 func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
-	root_directory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
-	vmLogger.Info("root_directory = %s", root_directory)
+	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
+	vmLogger.Info("rootDirectory = %s", rootDirectory)
 	//inputbuf := bytes.NewBuffer(nil)
 	//tw := tar.NewWriter(inputbuf)
 
@@ -223,10 +229,10 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 		if info.Mode().IsDir() {
 			return nil
 		}
-		// Because of scoping we can reference the external root_directory variable
-		new_path := fmt.Sprintf("src%s", path[len(root_directory):])
-		//new_path := path[len(root_directory):]
-		if len(new_path) == 0 {
+		// Because of scoping we can reference the external rootDirectory variable
+		newPath := fmt.Sprintf("src%s", path[len(rootDirectory):])
+		//newPath := path[len(rootDirectory):]
+		if len(newPath) == 0 {
 			return nil
 		}
 
@@ -241,33 +247,30 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 		}
 		defer fr.Close()
 
-		if h, err := tar.FileInfoHeader(info, new_path); err != nil {
+		h, err := tar.FileInfoHeader(info, newPath)
+		if err != nil {
 			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
 			return err
-		} else {
-			h.Name = new_path
-			if err = tw.WriteHeader(h); err != nil {
-				vmLogger.Error(fmt.Sprintf("Error writing header: %s", err))
-				return err
-			}
+		}
+		h.Name = newPath
+		if err = tw.WriteHeader(h); err != nil {
+			vmLogger.Error(fmt.Sprintf("Error writing header: %s", err))
+			return err
 		}
 		if _, err := io.Copy(tw, fr); err != nil {
 			return err
-		} else {
-			//vmLogger.Debug("Length of entry = %d", length)
 		}
 		return nil
 	}
 
-	if err := filepath.Walk(root_directory, walkFn); err != nil {
-		vmLogger.Info("Error walking root_directory: %s", err)
+	if err := filepath.Walk(rootDirectory, walkFn); err != nil {
+		vmLogger.Info("Error walking rootDirectory: %s", err)
 		return err
-	} else {
-		// Write the tar file out
-		if err := tw.Close(); err != nil {
-			return err
-		}
-		//ioutil.WriteFile("/tmp/chainlet_deployment.tar", inputbuf.Bytes(), 0644)
 	}
+	// Write the tar file out
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	//ioutil.WriteFile("/tmp/chainlet_deployment.tar", inputbuf.Bytes(), 0644)
 	return nil
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config the config wrapper structure
 type Config struct {
 }
 
@@ -36,6 +37,7 @@ func init() {
 
 }
 
+// SetupTestLogging setup the logging during test execution
 func SetupTestLogging() {
 	level, err := logging.LogLevel(viper.GetString("peer.logging.level"))
 	if err == nil {
@@ -51,6 +53,7 @@ func SetupTestLogging() {
 	}
 }
 
+// SetupTestConfig setup the config during test execution
 func SetupTestConfig() {
 	flag.Parse()
 
