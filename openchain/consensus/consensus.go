@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -86,23 +87,22 @@ type streamReceiver struct {
 // =============================================================================
 
 // Consenter is the interface implemented by: `consensusLayer`.
-// - `Broadcast(msg []byte)` Used to broadcast a message. A `streamReceiver` r
-// will do `r.parent.Broadcast(msg)` which will in turn go through the map of
+// - `Broadcast` is used to broadcast a message. A `streamReceiver` r will do
+// `r.parent.Broadcast(msg)` which will in turn go through the map of
 // established receivers stored in `r.parent` and do a
 // `r.stream.SendMessage(msg)` on each one of them.
-// - `ExecTXs(ctxt context.Context, txs []*pb.Transaction)`: Execute TXs on the
-// underlying VM.
-// - GetReceiver(stream openchain.PeerChatStream): Attaches a `streamReceiver`
-// for that stream to the validating peer's `consensusLayer` thus allowing them
-// to transact on this link.
+// - `ExecTX`: Execute TXs on the underlying VM.
+// - `GetReceiver`: Attaches a `streamReceiver` for that stream to the
+// validating peer's `consensusLayer` thus allowing them to transact on this
+// link.
 type Consenter interface {
 	Broadcast(msg []byte) error
 	ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, []error)
 	GetReceiver(stream openchain.PeerChatStream) messageHandler
 }
 
-// messageHandler is the interface implemented by: `streamReceiver`.
-// The `handleMessage` definition will be written by the plugin developer.
+// messageHandler is the interface implemented by: `streamReceiver`. Note that
+// the `handleMessage` definition should be written by the plugin developer.
 type messageHandler interface {
 	handleMessage(msg *pb.OpenchainMessage) error
 	sendMessage(msg *pb.OpenchainMessage) error
@@ -236,7 +236,9 @@ func (receiver *streamReceiver) handleMessage(msg *pb.OpenchainMessage) error {
 		Logger.Debug("Passing the message to the plugin's messageHandler.")
 	}
 
-	return plugin.handleMessage(receiver, msg)
+	pluginPointer := reflect.ValueOf(receiver).Elem().FieldByName("plugin").Addr()
+
+	return plugin.HandleMessage(pluginPointer, msg)
 }
 
 // sendMessage invokes the Send() method on the stream (type: PeerChatStream).
