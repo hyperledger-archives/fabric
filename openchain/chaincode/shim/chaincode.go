@@ -117,7 +117,7 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
 
 	var errFromChat error
 	stream, err := chainletSupportClient.Register(context.Background())
-	handler := NewChaincodeHandler(getPeerAddress(), stream)
+	handler := newChaincodeHandler(getPeerAddress(), stream)
 
 	if err != nil {
 		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)

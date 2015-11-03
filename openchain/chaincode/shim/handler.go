@@ -8,14 +8,16 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type ChaincodeHandler struct {
+// Handler handler implementation for shim side of chaincode
+type Handler struct {
 	To         string
 	ChatStream chaincode.PeerChaincodeStream
 	FSM        *fsm.FSM
 }
 
-func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream) *ChaincodeHandler {
-	v := &ChaincodeHandler{
+// newChaincodeHandler return a new instance of the shim side handler
+func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream) *Handler {
+	v := &Handler{
 		To:         to,
 		ChatStream: peerChatStream,
 	}
@@ -33,7 +35,7 @@ func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 	return v
 }
 
-func (c *ChaincodeHandler) beforeRegistered(e *fsm.Event) {
+func (c *Handler) beforeRegistered(e *fsm.Event) {
 	chaincodeLogger.Debug("Received  back %s, ready for invocations", pb.ChaincodeMessage_REGISTERED)
 	if _, ok := e.Args[0].(*pb.ChaincodeMessage); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -46,7 +48,8 @@ func (c *ChaincodeHandler) beforeRegistered(e *fsm.Event) {
 	// }
 }
 
-func (c *ChaincodeHandler) HandleMessage(msg *pb.ChaincodeMessage) error {
+// HandleMessage message handling loop for shim side of chaincode/Peer stream
+func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
 	if c.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), c.FSM.Current())
@@ -63,18 +66,16 @@ func filterError(errFromFSMEvent error) error {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return errFromFSMEvent
 				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				chaincodeLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 			}
+			chaincodeLogger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
 		}
 		if canceledErr, ok := errFromFSMEvent.(*fsm.CanceledError); ok {
 			if canceledErr.Err != nil {
 				// Only allow NoTransitionError's, all others are considered true error.
 				return canceledErr
 				//t.Error("expected only 'NoTransitionError'")
-			} else {
-				chaincodeLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 			}
+			chaincodeLogger.Debug("Ignoring CanceledError: %s", canceledErr)
 		}
 	}
 	return nil

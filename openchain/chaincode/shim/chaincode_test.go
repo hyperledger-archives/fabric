@@ -20,7 +20,6 @@ under the License.
 package shim
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -35,7 +34,7 @@ type TestChainlet struct {
 func (t *TestChainlet) Run(chainletSupportClient pb.ChainletSupportClient) error {
 	status, err := chainletSupportClient.GetExecutionContext(context.Background(), &pb.ChainletRequestContext{})
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error getting execution context: %s\n", err))
+		return fmt.Errorf("Error getting execution context: %s\n", err)
 	}
 	fmt.Printf("Current status: %v  err: %v\n", status, err)
 	return nil
