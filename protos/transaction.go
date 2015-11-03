@@ -29,7 +29,7 @@ import (
 func (transaction *Transaction) Bytes() ([]byte, error) {
 	data, err := proto.Marshal(transaction)
 	if err != nil {
-		logger.Error("Error marshalling transaction: %s", err)
+		logger.Error(fmt.Sprintf("Error marshalling transaction: %s", err))
 		return nil, fmt.Errorf("Could not marshal transaction: %s", err)
 	}
 	return data, nil
@@ -60,8 +60,22 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 	}
 	data, err := proto.Marshal(chainletDeploymentSpec)
 	if err != nil {
-		logger.Error("Error mashalling payload for chaincode deployment: %s", err)
+		logger.Error(fmt.Sprintf("Error mashalling payload for chaincode deployment: %s", err))
 		return nil, fmt.Errorf("Could not marshal payload for chaincode deployment: %s", err)
+	}
+	transaction.Payload = data
+	return transaction, nil
+}
+
+// NewChainletInvokeTransaction is used to deploy chaincode.
+func NewChainletInvokeTransaction(chaincodeInvocation *ChaincodeInvocation, uuid string) (*Transaction, error) {
+	transaction := new(Transaction)
+	transaction.Type = Transaction_CHAINLET_EXECUTE
+	transaction.Uuid = uuid
+	transaction.ChainletID = chaincodeInvocation.ChainletSpec.GetChainletID()
+	data, err := proto.Marshal(chaincodeInvocation)
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
 	}
 	transaction.Payload = data
 	return transaction, nil

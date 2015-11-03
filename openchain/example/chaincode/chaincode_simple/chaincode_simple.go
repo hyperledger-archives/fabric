@@ -20,29 +20,31 @@ under the License.
 package main
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
 
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type SimpletChainlet struct {
+// SimpleChainlet example simple Chaincode implementation
+type SimpleChainlet struct {
 }
 
-func (t *SimpletChainlet) Run(chainletSupportClient pb.ChainletSupportClient) error {
+// Run callback representing the invocation of a chaincode
+func (t *SimpleChainlet) Run(chainletSupportClient pb.ChainletSupportClient) error {
 	status, err := chainletSupportClient.GetExecutionContext(context.Background(), &pb.ChainletRequestContext{})
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error getting execution context: %s\n", err))
+		return fmt.Errorf("Error getting execution context: %s\n", err)
 	}
 	fmt.Printf("Current status: %v  err: %v\n", status, err)
 	return nil
 }
 
 func main() {
-	err := chaincode.Start(new(SimpletChainlet))
+	err := shim.Start(new(SimpleChainlet))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}

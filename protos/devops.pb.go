@@ -2,11 +2,37 @@
 // source: devops.proto
 // DO NOT EDIT!
 
+/*
+Package protos is a generated protocol buffer package.
+
+It is generated from these files:
+	devops.proto
+	openchain.proto
+	chaincode.proto
+
+It has these top-level messages:
+	DevopsResponse
+	BuildResult
+	Transaction
+	TransactionBlock
+	Block
+	OpenchainMessage
+	ChainletID
+	ChainletMessage
+	ChaincodeInvocation
+	ChainletSpec
+	ChainletDeploymentSpec
+	ChainletIdentifier
+	ChainletRequestContext
+	ChainletExecutionContext
+	ChaincodeMessage
+*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import google_protobuf1 "google/protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -106,6 +132,8 @@ type DevopsClient interface {
 	Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
 	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
+	// Invoke chaincode.
+	Invoke(ctx context.Context, in *ChaincodeInvocation, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type devopsClient struct {
@@ -134,6 +162,15 @@ func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grp
 	return out, nil
 }
 
+func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocation, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/protos.Devops/Invoke", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Devops service
 
 type DevopsServer interface {
@@ -141,6 +178,8 @@ type DevopsServer interface {
 	Build(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
 	Deploy(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
+	// Invoke chaincode.
+	Invoke(context.Context, *ChaincodeInvocation) (*google_protobuf1.Empty, error)
 }
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
@@ -171,6 +210,18 @@ func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return out, nil
 }
 
+func _Devops_Invoke_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ChaincodeInvocation)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(DevopsServer).Invoke(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Devops_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.Devops",
 	HandlerType: (*DevopsServer)(nil),
@@ -182,6 +233,10 @@ var _Devops_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Deploy",
 			Handler:    _Devops_Deploy_Handler,
+		},
+		{
+			MethodName: "Invoke",
+			Handler:    _Devops_Invoke_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

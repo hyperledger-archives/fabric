@@ -34,12 +34,14 @@ import (
 
 var log = logging.MustGetLogger("server")
 
-func NewAdminServer() *serverAdmin {
-	s := new(serverAdmin)
+// NewAdminServer creates and returns a Admin service instance.
+func NewAdminServer() *ServerAdmin {
+	s := new(ServerAdmin)
 	return s
 }
 
-type serverAdmin struct {
+// ServerAdmin implementation of the Admin service for the Peer
+type ServerAdmin struct {
 }
 
 func worker(id int, die chan bool) {
@@ -55,7 +57,8 @@ func worker(id int, die chan bool) {
 	}
 }
 
-func (*serverAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
+// GetStatus reports the status of the server
+func (*ServerAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN}
 	die := make(chan bool)
 	log.Debug("Creating %d workers", viper.GetInt("peer.workers"))
@@ -69,13 +72,15 @@ func (*serverAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.Serv
 	return status, nil
 }
 
-func (*serverAdmin) StartServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
+// StartServer starts the server
+func (*ServerAdmin) StartServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STARTED}
 	log.Debug("returning status: %s", status)
 	return status, nil
 }
 
-func (*serverAdmin) StopServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
+// StopServer stops the server
+func (*ServerAdmin) StopServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STOPPED}
 	log.Debug("returning status: %s", status)
 	return status, nil

@@ -21,6 +21,7 @@ package openchain
 
 import "github.com/spf13/viper"
 
+// GetRootNode place holder function for providing a boostrap address for a Validating Peer.
 func GetRootNode() (string, error) {
 	return viper.GetString("peer.discovery.rootnode"), nil
 }
