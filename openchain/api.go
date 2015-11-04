@@ -102,5 +102,5 @@ func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1
 
 // GetState returns the value for a particular chaincode ID and key
 func (s *ServerOpenchain) GetState(ctx context.Context, chaincodeID, key string) ([]byte, error) {
-	return s.ledger.GetState(chaincodeID, key)
+	return s.ledger.GetState(chaincodeID, key, true)
 }
