@@ -1,4 +1,4 @@
-package openchain
+package container
 
 import (
 	"archive/tar"
@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -107,18 +105,6 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 }
 
 func TestVMCBuildImage(t *testing.T) {
-	viper.SetEnvPrefix("openchain")
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("vm")                    // name of config file (without extension)
-	viper.AddConfigPath("./")                    // path to look for the config file in
-	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
-		t.Fail()
-		t.Logf("Error reading config file: %s", err)
-		return
-	}
-
 	var ctxt = context.Background()
 
 	//get the tarball for codechain
@@ -134,7 +120,7 @@ func TestVMCBuildImage(t *testing.T) {
 	//creat a CreateImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		cir := CreateImageReq{Id: "simple", Reader: tarRdr}
+		cir := CreateImageReq{ID: "simple", Reader: tarRdr}
 		_, err := VMCProcess(ctxt, "Docker", cir)
 		if err != nil {
 			t.Fail()
@@ -149,17 +135,6 @@ func TestVMCBuildImage(t *testing.T) {
 }
 
 func TestVMCStartContainer(t *testing.T) {
-	viper.SetEnvPrefix("openchain")
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("vm")                    // name of config file (without extension)
-	viper.AddConfigPath("./")                    // path to look for the config file in
-	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
-		t.Fail()
-		t.Logf("Error reading config file: %s", err)
-		return
-	}
 
 	var ctxt = context.Background()
 
@@ -170,7 +145,7 @@ func TestVMCStartContainer(t *testing.T) {
 		defer close(c)
 		args := []string{"echo", "hello"}
 		var outbuf bytes.Buffer
-		sir := StartImageReq{Id: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+		sir := StartImageReq{ID: "simple", Args: args, Instream: nil, Outstream: &outbuf}
 		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
@@ -191,24 +166,12 @@ func TestVMCStartContainer(t *testing.T) {
 }
 
 func TestVMCStartContainerSync(t *testing.T) {
-	viper.SetEnvPrefix("openchain")
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("vm")                    // name of config file (without extension)
-	viper.AddConfigPath("./")                    // path to look for the config file in
-	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
-		t.Fail()
-		t.Logf("Error reading config file: %s", err)
-		return
-	}
-
 	var ctxt = context.Background()
 
 	//creat a StartImageReq obj and send it to VMCProcess
 	args := []string{"echo", "hi there"}
 	var outbuf bytes.Buffer
-	sir := StartImageReq{Id: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+	sir := StartImageReq{ID: "simple", Args: args, Instream: nil, Outstream: &outbuf}
 	_, err := VMCProcess(ctxt, "Docker", sir)
 	if err != nil {
 		t.Fail()
@@ -224,18 +187,6 @@ func TestVMCStartContainerSync(t *testing.T) {
 }
 
 func TestVMCStopContainer(t *testing.T) {
-	viper.SetEnvPrefix("openchain")
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("vm")                    // name of config file (without extension)
-	viper.AddConfigPath("./")                    // path to look for the config file in
-	if err := viper.ReadInConfig(); err != nil { // Find and read the config file
-		t.Fail()
-		t.Logf("Error reading config file: %s", err)
-		return
-	}
-
 	var ctxt = context.Background()
 
 	c := make(chan struct{})
@@ -243,7 +194,7 @@ func TestVMCStopContainer(t *testing.T) {
 	//creat a StopImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		sir := StopImageReq{Id: "simple", Timeout: 0}
+		sir := StopImageReq{ID: "simple", Timeout: 0}
 		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()

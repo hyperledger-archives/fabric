@@ -38,6 +38,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -554,22 +555,22 @@ func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte,
 			continue
 		}
 		//create start request ...
-		var req VMCReqIntf
-		vmname, berr := BuildVMName(cds.ChainletSpec)
+		var req container.VMCReqIntf
+		vmname, berr := container.BuildVMName(cds.ChainletSpec)
 		if berr != nil {
 			errs[i] = berr
 			continue
 		}
 		if t.Type == pb.Transaction_CHAINLET_NEW {
 			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-			req = CreateImageReq{Id: vmname, Args: newArgs, Reader: targz}
+			req = container.CreateImageReq{ID: vmname, Args: newArgs, Reader: targz}
 		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
-			req = StartImageReq{Id: vmname, Args: newArgs, Instream: buf}
+			req = container.StartImageReq{ID: vmname, Args: newArgs, Instream: buf}
 		} else {
 			errs[i] = fmt.Errorf("Invalid transaction type %s", t.Type.String())
 		}
 		//... and execute it. err will be nil if successful
-		_, errs[i] = VMCProcess(ctxt, DOCKER, req)
+		_, errs[i] = container.VMCProcess(ctxt, container.DOCKER, req)
 	}
 	//TODO - error processing ... for now assume everything worked
 	ledger, hasherr := ledger.GetLedger()

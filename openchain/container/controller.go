@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package container
 
 import (
 	"bytes"
@@ -189,14 +189,14 @@ type VMCResp struct {
 
 //CreateImageReq - properties for creating an container image
 type CreateImageReq struct {
-	Id     string
+	ID     string
 	Reader io.Reader
 	Args   []string
 }
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.build(ctxt, bp.Id, bp.Args, bp.Reader); err != nil {
+	if err := v.build(ctxt, bp.ID, bp.Args, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -207,7 +207,7 @@ func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
-	Id        string
+	ID        string
 	Args      []string
 	Detach    bool
 	Instream  io.Reader
@@ -216,7 +216,7 @@ type StartImageReq struct {
 
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.start(ctxt, si.Id, si.Args, si.Detach, si.Instream, si.Outstream); err != nil {
+	if err := v.start(ctxt, si.ID, si.Args, si.Detach, si.Instream, si.Outstream); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -227,13 +227,13 @@ func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 
 //StopImageReq - properties for stopping a container.
 type StopImageReq struct {
-	Id      string
+	ID      string
 	Timeout uint
 }
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.stop(ctxt, si.Id, si.Timeout); err != nil {
+	if err := v.stop(ctxt, si.ID, si.Timeout); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}

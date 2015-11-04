@@ -29,6 +29,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
@@ -52,7 +53,7 @@ func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.Chainl
 		return nil, err
 	}
 	// Get new VM and as for building of container image
-	vm, err := NewVM()
+	vm, err := container.NewVM()
 	if err != nil {
 		devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
 		return nil, err

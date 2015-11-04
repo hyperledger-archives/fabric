@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package container
 
 import (
 	"archive/tar"
@@ -33,11 +33,11 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/blang/semver"
-	"github.com/fsouza/go-dockerclient"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/fsouza/go-dockerclient"
+	"github.com/op/go-logging"
 )
 
 // VM implemenation of VM management functionality.
@@ -48,7 +48,7 @@ type VM struct {
 // NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
 	endpoint := viper.GetString("vm.endpoint")
-	log.Info("Creating VM with endpoint: %s", endpoint)
+	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
 	client, err := docker.NewClient(endpoint)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func NewVM() (*VM, error) {
 	return VM, nil
 }
 
-var vmLogger = logging.MustGetLogger("peer")
+var vmLogger = logging.MustGetLogger("container")
 
 // ListImages list the images available
 func (vm *VM) ListImages(context context.Context) error {
@@ -77,6 +77,7 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
+// BuildVMName gets the container name given the chainlet spec
 func BuildVMName(spec *pb.ChainletSpec) (string, error) {
 	// Make sure version is specfied correctly
 	version, err := semver.Make(spec.ChainletID.Version)
