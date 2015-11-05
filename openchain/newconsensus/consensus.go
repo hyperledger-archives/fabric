@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/newconsensus/plugin"
@@ -322,65 +321,4 @@ func newReceiver(parent Consenter, stream pb.Peer_ChatClient) *streamReceiver {
 	}
 
 	return receiver
-}
-
-// =============================================================================
-// Misc. functions go here.
-// =============================================================================
-
-// Adding this function here as an example of transacting with a specific peer.
-// It may make sense to have the VP `go chatWithPeer(currentLeader)` upon
-// up so that we have the link with the leader established and good to go.
-func (layer *consensusLayer) chatWithPeer(peerAddress string) error {
-
-	var ans error
-
-	connection, err := openchain.NewPeerClientConnectionWithAddress(peerAddress)
-	if err != nil {
-		return fmt.Errorf("Connecting to peer at address %s failed: %s", peerAddress, err)
-	}
-
-	// Variable name taken from the PB generated files. Not intuitive, I know.
-	peerClient := pb.NewPeerClient(connection)
-	// stream's type is pb.Peer_ChatClient
-	stream, err := peerClient.Chat(context.Background())
-
-	// Retrieve agent for that stream.
-	agent := layer.GetReceiver(stream)
-
-	if err != nil {
-		return fmt.Errorf("Error chatting with peer at address %s: %s", peerAddress, err)
-	}
-
-	// Never forget.
-	defer stream.CloseSend()
-
-	// Send a 'hello' message.
-	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
-
-	// Now wait.
-	waitc := make(chan struct{})
-
-	// Launch goroutine to receive reply and let the FSM take over.
-	go func() {
-		for {
-			// Receive incoming messages.
-			in, err := stream.Recv()
-			if err != nil {
-				ans = fmt.Errorf("Error receiving from stream with peer at address %s: %s", peerAddress, err)
-				close(waitc)
-				return
-			}
-			// Pass the message to the stream agent.
-			err = agent.handleMessage(in)
-			if err != nil {
-				ans = fmt.Errorf("Error handling message received from peer at address %s: %s", peerAddress, err)
-				close(waitc)
-				return
-			}
-		}
-	}()
-
-	<-waitc
-	return ans
 }
