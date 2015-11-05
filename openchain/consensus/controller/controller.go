@@ -20,21 +20,25 @@ under the License.
 package controller
 
 import (
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 )
 
+var logger *logging.Logger
 var h consensus.CPI
 
 func init() {
-	// Create helper.
-	h = helper.New()
-	// Added by the plugin developer.
-	h.SetConsenter(pbft.New(h))
+
+	logger = logging.MustGetLogger("controller")
+
+	h = helper.New()            // Create a consensus helper object that links the `consensus` package with the plugin's package.
+	h.SetConsenter(pbft.New(h)) // Edit this to link a different plugin.
 }
 
 // GetHelper returns the helper.
 func GetHelper() consensus.CPI {
+
 	return h
 }

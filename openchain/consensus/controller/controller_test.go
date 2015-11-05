@@ -22,23 +22,67 @@ package controller
 import (
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func TestHandleMessage(t *testing.T) {
-	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: []byte("hello world")}
+func TestHandleMsg(t *testing.T) {
+
+	var err error
+
 	helper := GetHelper()
-	err := helper.HandleMsg(msg)
+
+	msg := &pb.OpenchainMessage{Payload: []byte("hello world")}
+
+	msg.Type = pb.OpenchainMessage_UNDEFINED
+	err = helper.HandleMsg(msg)
+	if err == nil {
+		t.Fatalf("Helper shouldn't handle message type: %s", msg.Type)
+	}
+
+	msg.Type = pb.OpenchainMessage_CHAIN_TRANSACTIONS
+	err = helper.HandleMsg(msg)
 	if err != nil {
-		t.Fatalf("Failed to handle message: %s", err)
+		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
+	}
+
+	msg.Type = pb.OpenchainMessage_CONSENSUS
+	nestedMsg := &pbft.Unpack{
+		Type:    pbft.Unpack_PREPARE,
+		Payload: []byte("hello world"),
+	}
+	newPayload, _ := proto.Marshal(nestedMsg)
+	msg.Payload = newPayload
+	err = helper.HandleMsg(msg)
+	if err != nil {
+		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
 	}
 }
 
 func TestBroadcastMessage(t *testing.T) {
-	msg := []byte("hello world")
+
 	helper := GetHelper()
-	err := helper.Broadcast(msg)
+
+	msgPayload := []byte("hello world")
+
+	err := helper.Broadcast(msgPayload)
 	if err != nil {
 		t.Fatalf("Failed to broadcast message: %s", err)
+	}
+}
+
+// TODO: Write unit test for ExecTXs().
+
+func TestUnicastMessage(t *testing.T) {
+
+	helper := GetHelper()
+
+	msgPayload := []byte("hello world")
+	receiver := "vp2" // TODO: Replace with proper receiver.
+
+	err := helper.Unicast(msgPayload, receiver)
+	if err != nil {
+		t.Fatalf("Failed to unicast message to %s: %s", receiver, err)
 	}
 }
