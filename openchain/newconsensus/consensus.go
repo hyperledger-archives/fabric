@@ -28,6 +28,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/newconsensus/plugin"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -193,22 +194,22 @@ func (layer *consensusLayer) ExecTXs(ctxt context.Context, txs []*pb.Transaction
 			continue
 		}
 		// Create start request...
-		var req openchain.VMCReqIntf
-		vmName, bErr := openchain.BuildVMName(cds.ChainletSpec)
+		var req container.VMCReqIntf
+		vmName, bErr := container.BuildVMName(cds.ChainletSpec)
 		if bErr != nil {
 			errors[i] = bErr
 			continue
 		}
 		if t.Type == pb.Transaction_CHAINLET_NEW {
 			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-			req = openchain.CreateImageReq{Id: vmName, Args: newArgs, Reader: targz}
+			req = container.CreateImageReq{ID: vmName, Args: newArgs, Reader: targz}
 		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
-			req = openchain.StartImageReq{Id: vmName, Args: newArgs, Instream: buf}
+			req = container.StartImageReq{ID: vmName, Args: newArgs, Instream: buf}
 		} else {
 			errors[i] = fmt.Errorf("Invalid transaction type: %s", t.Type.String())
 		}
 		// ...and execute it. `err` will be nil if successful
-		_, errors[i] = openchain.VMCProcess(ctxt, openchain.DOCKER, req)
+		_, errors[i] = container.VMCProcess(ctxt, container.DOCKER, req)
 	}
 
 	// TODO: Error processing goes here. For now, assume everything worked fine.

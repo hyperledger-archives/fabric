@@ -17,17 +17,23 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package container
 
 import (
 	"archive/tar"
 	"bytes"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
+
+func TestMain(m *testing.M) {
+	SetupTestConfig()
+	os.Exit(m.Run())
+}
 
 func TestVM_ListImages(t *testing.T) {
 	t.Skip("No need to invoke list images.")

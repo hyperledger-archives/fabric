@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/viper"
 
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -89,7 +90,7 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 }
 
 func sendLargeMsg(t testing.TB) (*pb.OpenchainMessage, error) {
-	vm, err := NewVM()
+	vm, err := container.NewVM()
 	if err != nil {
 		t.Fail()
 		t.Logf("Error getting VM: %s", err)
