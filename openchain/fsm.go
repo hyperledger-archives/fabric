@@ -21,11 +21,13 @@ package openchain
 
 import "github.com/looplab/fsm"
 
+// PeerConnectionFSM example FSM for demonstration purposes.
 type PeerConnectionFSM struct {
 	To  string
 	FSM *fsm.FSM
 }
 
+// NewPeerConnectionFSM creates and returns a PeerConnectionFSM
 func NewPeerConnectionFSM(to string) *PeerConnectionFSM {
 	d := &PeerConnectionFSM{
 		To: to,

@@ -29,12 +29,13 @@ import (
 	"github.com/spf13/viper"
 
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
 
-var peerClientConn *grpc.ClientConn = nil
+var peerClientConn *grpc.ClientConn
 
 func TestMain(m *testing.M) {
 	SetupTestConfig()
@@ -55,42 +56,41 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	if err != nil {
 		t.Logf("%v.performChat(_) = _, %v", serverClient, err)
 		return err
-	} else {
-		defer stream.CloseSend()
-		stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
-		waitc := make(chan struct{})
-		go func() {
-			for {
-				in, err := stream.Recv()
-				if err == io.EOF {
-					// read done.
-					close(waitc)
-					return
-				}
-				if err != nil {
-					grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
-				}
-				if in.Type == pb.OpenchainMessage_DISC_HELLO {
-					t.Logf("Received message: %s", in.Type)
-					stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS})
-				} else if in.Type == pb.OpenchainMessage_DISC_PEERS {
-					//stream.Send(&pb.DiscoveryMessage{Type: pb.DiscoveryMessage_PEERS})
-					t.Logf("Received message: %s", in.Type)
-					t.Logf("Closing stream and channel")
-					//stream.CloseSend()
-					close(waitc)
-					return
-				}
-
-			}
-		}()
-		<-waitc
-		return nil
 	}
+	defer stream.CloseSend()
+	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				close(waitc)
+				return
+			}
+			if err != nil {
+				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+			}
+			if in.Type == pb.OpenchainMessage_DISC_HELLO {
+				t.Logf("Received message: %s", in.Type)
+				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS})
+			} else if in.Type == pb.OpenchainMessage_DISC_PEERS {
+				//stream.Send(&pb.DiscoveryMessage{Type: pb.DiscoveryMessage_PEERS})
+				t.Logf("Received message: %s", in.Type)
+				t.Logf("Closing stream and channel")
+				//stream.CloseSend()
+				close(waitc)
+				return
+			}
+
+		}
+	}()
+	<-waitc
+	return nil
 }
 
 func sendLargeMsg(t testing.TB) (*pb.OpenchainMessage, error) {
-	vm, err := NewVM()
+	vm, err := container.NewVM()
 	if err != nil {
 		t.Fail()
 		t.Logf("Error getting VM: %s", err)

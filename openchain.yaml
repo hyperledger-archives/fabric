@@ -183,6 +183,11 @@ vm:
 #
 ###############################################################################
 chainlet:
+    
+    # The id is used by the Chaincode stub to register the executing ChaincodeID with the Peerand is generally supplied through ENV variables
+    id:
+        url:
+        version:
 
     golang:
 
