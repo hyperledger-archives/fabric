@@ -22,70 +22,253 @@ package pbft
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	pb "github.com/openblockchain/obc-peer/protos"
 
+	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
+// =============================================================================
+// Init.
+// =============================================================================
+
+// Package-level logger.
+var logger *logging.Logger
+
+func init() {
+	logger = logging.MustGetLogger("plugin")
+}
+
+// =============================================================================
+// Custom structure definitions go here.
+// =============================================================================
+
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi    consensus.CPI // The consensus programming interface
-	config *viper.Viper  // The link to the config file
-	// blockTimeOut int
+	cpi      consensus.CPI      // The consensus programming interface
+	config   *viper.Viper       // The link to the config file
+	fsm      *fsm.FSM           // Holds the finite state machine.
+	leader   bool               // Is this validating peer the current leader?
+	msgStore map[string]*Unpack // Where we store incoming `REQUEST` messages.
 }
 
-// Runs when the package is loaded.
-func init() {
-	// TODO: Empty for now. Populate as needed.
+// =============================================================================
+// Custom interface definitions go here.
+// =============================================================================
+
+type validator interface {
+	getParam(param string) (val string, err error)
+	isLeader() bool
+	setLeader(flag bool) bool
 }
 
-// New allocates a new instance/implementation of the consensus algorithm.
-func New(c consensus.CPI) consensus.Consenter {
-	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
-		consensus.Logger.Debug("Creating the consenter.")
+// =============================================================================
+// Constructors go here.
+// =============================================================================
+
+// New creates an implementation-specific structure that will be held in the
+// consensus `helper` object. (See `controller` and `helper` packages for more.)
+func New(c consensus.CPI) *Plugin {
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Creating the consenter.")
 	}
 	instance := &Plugin{}
 
-	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
-		consensus.Logger.Debug("Setting the consenter's CPI.")
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Setting the consenter's CPI.")
 	}
 	instance.cpi = c
 
+	// TODO: Initialize the algorithm here.
+	// You may want to set the fields of `instance` using `instance.GetParam()`.
+	// e.g. instance.blockTimeOut = strconv.Atoi(instance.getParam("timeout.block"))
+
 	// Create a link to the config file.
-	if consensus.Logger.IsEnabledFor(logging.DEBUG) {
-		consensus.Logger.Debug("Linking to the consenter's config file.")
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Linking to the consenter's config file.")
 	}
 	instance.config = viper.New()
 	instance.config.SetConfigName("config")
 	instance.config.AddConfigPath("./")
-	instance.config.AddConfigPath("../pbft/")
+	instance.config.AddConfigPath("../pbft/") // For when you run a test from `controller`.
 	err := instance.config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
-	// TODO: Initialize the algorithm here.
-	// You'll want to set the fields of `instance` using `instance.GetParam()`.
-	// e.g. instance.blockTimeOut = strconv.Atoi(instance.GetParam("timeout.block"))
+
+	// Create the FSM.
+	instance.fsm = newFSM()
+
+	// Create the data store for incoming messages.
+	instance.msgStore = make(map[string]*Unpack)
+
 	return instance
 }
 
-// GetParam is a getter for the values listed in `config.yaml`.
-func (instance *Plugin) GetParam(param string) (val string, err error) {
+// newFSM defines the possible states of the algorithm, the allowed transitions,
+// and the callbacks that should be executed upon each transition. TODO: Replace
+// with actual FSM.
+func newFSM() (f *fsm.FSM) {
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Creating a new FSM.")
+	}
+
+	f = fsm.NewFSM(
+		"closed",
+		fsm.Events{
+			{Name: "open", Src: []string{"closed"}, Dst: "open"},
+			{Name: "close", Src: []string{"open"}, Dst: "closed"},
+		},
+		fsm.Callbacks{},
+	)
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("FSM created.")
+	}
+
+	return
+
+}
+
+// =============================================================================
+// Consenter interface implementation goes here.
+// =============================================================================
+
+// RecvMsg allows the algorithm to receive and process a message. The message
+// that reaches here is either `OpenchainMessage_REQUEST` or
+// `OpenchainMessage_CONSENSUS`.
+func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
+
+	// Declare so that you can filter it later if need be.
+	var err error
+
+	if logger.IsEnabledFor(logging.INFO) {
+		logger.Info("Message type %s received.", msg.Type)
+	}
+
+	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
+	// definitions are updated.
+	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTIONS {
+
+		// Create new `Unpack` message.
+		nestedMsg := &Unpack{
+			Type:    Unpack_REQUEST,
+			Payload: msg.Payload, // The original payload. (A marshalled `pb.Transaction`.)
+		}
+
+		// Serialize it.
+		newPayload, err := proto.Marshal(nestedMsg)
+		if err != nil {
+			return fmt.Errorf("Error marshalling message type: %s", nestedMsg.Type)
+		}
+
+		// Broadcast this message to all the validating peers.
+		return instance.cpi.Broadcast(newPayload)
+	}
+
+	// TODO: Message that reached here is `OpenchainMessage_CONSENSUS`.
+	// Process it accordingly. You most likely want to pass it to
+	// `instance.fsm`.
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Unpacking message.")
+	}
+
+	// Unpack to the common message template.
+	extractedMsg := &Unpack{}
+
+	err = proto.Unmarshal(msg.Payload, extractedMsg)
+	if err != nil {
+		return fmt.Errorf("Error unpacking payload from message: %s", err)
+	}
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Message unpacked.")
+	}
+
+	/* if instance.fsm.Cannot(extractedMsg.Type.String()) {
+		return fmt.Errorf("FSM cannot handle message type %s while in state: %s", extractedMsg.Type.String(), instance.fsm.Current())
+	}
+
+	// If the message type is allowed in that state, trigger the respective event in the FSM.
+	err = instance.fsm.Event(extractedMsg.Type.String(), extractedMsg)
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Processed message of type %s, current state is: %s", extractedMsg.Type, instance.fsm.Current())
+	}
+
+	return filterError(err) */
+
+	return nil
+}
+
+// =============================================================================
+// Custom interface implementation goes here.
+// =============================================================================
+
+// getParam is a getter for the values listed in `config.yaml`.
+func (instance *Plugin) getParam(param string) (val string, err error) {
 	if ok := instance.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config.", param)
+		err := fmt.Errorf("Key %s does not exist in algo config", param)
 		return "nil", err
 	}
 	val = instance.config.GetString(param)
 	return val, nil
 }
 
-// Recv allows the algorithm to receive (and process) a message.
-func (instance *Plugin) Recv(msg []byte) (err error) {
+// isLeader allows us to check whether a validating peer is the current leader.
+func (instance *Plugin) isLeader() bool {
 
-	// TODO: Add logic here.
-	if consensus.Logger.IsEnabledFor(logging.INFO) {
-		consensus.Logger.Info("Message received.")
+	return instance.leader
+}
+
+// setLeader flags a validating peer as the leader. This is a temporary state.
+func (instance *Plugin) setLeader(flag bool) bool {
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Setting the leader flag.")
+	}
+
+	instance.leader = flag
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Leader flag set.")
+	}
+
+	return instance.leader
+}
+
+// =============================================================================
+// Misc. helper functions go here.
+// =============================================================================
+
+// filterError filters the FSM errors to allow NoTransitionError and
+// CanceledError to not propogate for cases where embedded err == nil.
+// This should be called by the plugin developer whenever FSM state transitions
+// are attempted.
+func filterError(fsmError error) error {
+
+	if fsmError != nil {
+
+		if noTransitionErr, ok := fsmError.(*fsm.NoTransitionError); ok {
+			if noTransitionErr.Err != nil {
+				// Only allow `NoTransitionError` errors, all others are considered true error.
+				return fsmError
+			}
+			logger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
+		}
+		if canceledErr, ok := fsmError.(*fsm.CanceledError); ok {
+			if canceledErr.Err != nil {
+				// Only allow NoTransitionError's, all others are considered true error.
+				return canceledErr
+			}
+			logger.Debug("Ignoring CanceledError: %s", canceledErr)
+		}
 	}
 
 	return nil

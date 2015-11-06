@@ -9,6 +9,7 @@ It is generated from these files:
 	messages.proto
 
 It has these top-level messages:
+	Unpack
 	PBFT
 	Request
 	RequestHashes
@@ -25,6 +26,41 @@ import math "math"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+type Unpack_Type int32
+
+const (
+	Unpack_UNDEFINED      Unpack_Type = 0
+	Unpack_REQUEST        Unpack_Type = 1
+	Unpack_PRE_PREPARE    Unpack_Type = 2
+	Unpack_PREPARE        Unpack_Type = 3
+	Unpack_COMMIT         Unpack_Type = 4
+	Unpack_PREPARE_RESULT Unpack_Type = 5
+	Unpack_COMMIT_RESULT  Unpack_Type = 6
+)
+
+var Unpack_Type_name = map[int32]string{
+	0: "UNDEFINED",
+	1: "REQUEST",
+	2: "PRE_PREPARE",
+	3: "PREPARE",
+	4: "COMMIT",
+	5: "PREPARE_RESULT",
+	6: "COMMIT_RESULT",
+}
+var Unpack_Type_value = map[string]int32{
+	"UNDEFINED":      0,
+	"REQUEST":        1,
+	"PRE_PREPARE":    2,
+	"PREPARE":        3,
+	"COMMIT":         4,
+	"PREPARE_RESULT": 5,
+	"COMMIT_RESULT":  6,
+}
+
+func (x Unpack_Type) String() string {
+	return proto.EnumName(Unpack_Type_name, int32(x))
+}
 
 type PBFT_Type int32
 
@@ -61,15 +97,15 @@ func (x PBFT_Type) String() string {
 	return proto.EnumName(PBFT_Type_name, int32(x))
 }
 
-// PBFT is the common message type used to unmarshal the payload of an
-// OpenchainMessage_CONSENSUS message.
-//
-// TODO: Define the contents when the type is REQUEST.
-//
-// When it's a "PRE_PREPARE", the "ID" field is set by the leader. The "payload"
-// field is expected to contain an array of hashes corresponding to received
-// "Request" messages. When the Type is "PREPARE_RESULT" or "COMMIT_RESULT",
-// "payload" should carry the candidate global hash.
+type Unpack struct {
+	Type    Unpack_Type `protobuf:"varint,1,opt,name=type,enum=pbft.Unpack_Type" json:"type,omitempty"`
+	Payload []byte      `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+}
+
+func (m *Unpack) Reset()         { *m = Unpack{} }
+func (m *Unpack) String() string { return proto.CompactTextString(m) }
+func (*Unpack) ProtoMessage()    {}
+
 type PBFT struct {
 	Type    PBFT_Type `protobuf:"varint,1,opt,name=type,enum=pbft.PBFT_Type" json:"type,omitempty"`
 	ID      string    `protobuf:"bytes,2,opt,name=ID" json:"ID,omitempty"`
@@ -80,10 +116,6 @@ func (m *PBFT) Reset()         { *m = PBFT{} }
 func (m *PBFT) String() string { return proto.CompactTextString(m) }
 func (*PBFT) ProtoMessage()    {}
 
-// Request is the message passed by the peer to the validator.
-// The peer receives a client request to deploy or invoke a chaincode, assigns
-// it a unique ID, then packages into a "Request" message that is passed along
-// to one of its connected validators.
 type Request struct {
 	ID      string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
 	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
@@ -93,9 +125,6 @@ func (m *Request) Reset()         { *m = Request{} }
 func (m *Request) String() string { return proto.CompactTextString(m) }
 func (*Request) ProtoMessage()    {}
 
-// RequestHashes contains the hashes of the "Request" messages that the leader
-// will package in a consensus round. Marshalling such a message (proto.Marshal)
-// should generate the "payload" of a PRE_PREPARE message (see "Phase" message).
 type RequestHashes struct {
 	Hashes []string `protobuf:"bytes,1,rep,name=hashes" json:"hashes,omitempty"`
 }
@@ -104,11 +133,6 @@ func (m *RequestHashes) Reset()         { *m = RequestHashes{} }
 func (m *RequestHashes) String() string { return proto.CompactTextString(m) }
 func (*RequestHashes) ProtoMessage()    {}
 
-// Requests will be used temporarily instead of RequestHashes. In order to use
-// "RequestHashes", a datastore is needed on every validator that maps incoming
-// "Request" messages to their hashes. Until this structure is implemented, the
-// leader should proto.Marshal() a "Requests" message for a PRE_PREPARE
-// message's "payload".
 type Requests struct {
 	Requests []*Request `protobuf:"bytes,1,rep,name=requests" json:"requests,omitempty"`
 }
@@ -140,5 +164,6 @@ func (m *PBFTArray) GetPbfts() []*PBFT {
 }
 
 func init() {
+	proto.RegisterEnum("pbft.Unpack_Type", Unpack_Type_name, Unpack_Type_value)
 	proto.RegisterEnum("pbft.PBFT_Type", PBFT_Type_name, PBFT_Type_value)
 }
