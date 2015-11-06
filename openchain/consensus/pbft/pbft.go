@@ -153,7 +153,7 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 
 	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
 	// definitions are updated.
-	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTIONS {
+	if msg.Type == pb.OpenchainMessage_REQUEST {
 
 		// Create new `Unpack` message.
 		nestedMsg := &Unpack{

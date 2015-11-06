@@ -89,7 +89,7 @@ func TestRecvMsg(t *testing.T) {
 
 	msg := &pb.OpenchainMessage{Payload: []byte("hello world")}
 
-	msg.Type = pb.OpenchainMessage_CHAIN_TRANSACTIONS
+	msg.Type = pb.OpenchainMessage_REQUEST
 	err = instance.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)

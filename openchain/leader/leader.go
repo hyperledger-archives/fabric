@@ -54,17 +54,17 @@ func NewLeaderFSM(parent openchain.Validator, to string, peerChatStream openchai
 		"created",
 		fsm.Events{
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_REQUEST.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
 			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
-			"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
-			"before_" + pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(): func(e *fsm.Event) { v.beforeChainTransactions(e) },
-			"before_" + pbft.PBFT_REQUEST.String():                      func(e *fsm.Event) { v.beforeRequest(e) },
-			"before_" + pbft.PBFT_PREPARE_RESULT.String():               func(e *fsm.Event) { v.beforePrepareResult(e) },
-			"before_" + pbft.PBFT_COMMIT_RESULT.String():                func(e *fsm.Event) { v.beforeCommitResult(e) },
+			"before_" + pb.OpenchainMessage_DISC_HELLO.String(): func(e *fsm.Event) { v.beforeHello(e) },
+			"before_" + pb.OpenchainMessage_REQUEST.String():    func(e *fsm.Event) { v.beforeChainTransactions(e) },
+			"before_" + pbft.PBFT_REQUEST.String():              func(e *fsm.Event) { v.beforeRequest(e) },
+			"before_" + pbft.PBFT_PREPARE_RESULT.String():       func(e *fsm.Event) { v.beforePrepareResult(e) },
+			"before_" + pbft.PBFT_COMMIT_RESULT.String():        func(e *fsm.Event) { v.beforeCommitResult(e) },
 		},
 	)
 
