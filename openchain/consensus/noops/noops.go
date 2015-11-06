@@ -40,8 +40,8 @@ func New(c consensus.CPI) consensus.Consenter {
 	return i
 }
 
-// Recv allows the algorithm to receive (and process) a message.
-func (i *Noops) Recv(msg pb.OpenchainMessage) (err error) {
+// RecvMsg is called when there is a pb.OpenchainMessage_REQUEST message
+func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) (err error) {
 	logger.Info("Message received %s", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
