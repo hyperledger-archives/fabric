@@ -183,7 +183,7 @@ func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.Transaction
 					close(waitc)
 					return
 				}
-				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
+				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_REQUEST, Payload: payload})
 				peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
 				close(waitc)
 				return
@@ -215,7 +215,6 @@ func NewPeerFSM(to string, peerChatStream PeerChatStream) *PeerFSM {
 		"created",
 		fsm.Events{
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_DISC_PING.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_DISC_GET_PEERS.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_DISC_PEERS.String(), Src: []string{"established"}, Dst: "established"},
 		},

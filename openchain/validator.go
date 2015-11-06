@@ -36,9 +36,9 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/openchain/container"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -159,19 +159,19 @@ func newValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream)
 		"created",
 		fsm.Events{
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_REQUEST.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PRE_PREPARE.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
 			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"prepare_result_sent", "commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
-			"before_" + pb.OpenchainMessage_DISC_HELLO.String():         func(e *fsm.Event) { v.beforeHello(e) },
-			"before_" + pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(): func(e *fsm.Event) { v.beforeChainTransactions(e) },
-			"before_" + pbft.PBFT_REQUEST.String():                      func(e *fsm.Event) { v.beforeRequest(e) },
-			"before_" + pbft.PBFT_PRE_PREPARE.String():                  func(e *fsm.Event) { v.beforePrePrepareResult(e) },
-			"before_" + pbft.PBFT_PREPARE_RESULT.String():               func(e *fsm.Event) { v.beforePrepareResult(e) },
-			"before_" + pbft.PBFT_COMMIT_RESULT.String():                func(e *fsm.Event) { v.beforeCommitResult(e) },
+			"before_" + pb.OpenchainMessage_DISC_HELLO.String(): func(e *fsm.Event) { v.beforeHello(e) },
+			"before_" + pb.OpenchainMessage_REQUEST.String():    func(e *fsm.Event) { v.beforeChainTransactions(e) },
+			"before_" + pbft.PBFT_REQUEST.String():              func(e *fsm.Event) { v.beforeRequest(e) },
+			"before_" + pbft.PBFT_PRE_PREPARE.String():          func(e *fsm.Event) { v.beforePrePrepareResult(e) },
+			"before_" + pbft.PBFT_PREPARE_RESULT.String():       func(e *fsm.Event) { v.beforePrepareResult(e) },
+			"before_" + pbft.PBFT_COMMIT_RESULT.String():        func(e *fsm.Event) { v.beforeCommitResult(e) },
 		},
 	)
 	return v

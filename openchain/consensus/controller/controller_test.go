@@ -41,7 +41,7 @@ func TestHandleMsg(t *testing.T) {
 		t.Fatalf("Helper shouldn't handle message type: %s", msg.Type)
 	}
 
-	msg.Type = pb.OpenchainMessage_CHAIN_TRANSACTIONS
+	msg.Type = pb.OpenchainMessage_REQUEST
 	err = helper.HandleMsg(msg)
 	if err != nil {
 		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)

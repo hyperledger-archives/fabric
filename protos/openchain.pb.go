@@ -56,19 +56,15 @@ const (
 	OpenchainMessage_DISC_DISCONNECT        OpenchainMessage_Type = 2
 	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
 	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
-	OpenchainMessage_DISC_PING              OpenchainMessage_Type = 5
-	OpenchainMessage_DISC_PONG              OpenchainMessage_Type = 6
+	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 5
 	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
 	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
 	OpenchainMessage_CHAIN_TRANSACTIONS     OpenchainMessage_Type = 9
-	OpenchainMessage_CHAIN_GET_BLOCK_HASHES OpenchainMessage_Type = 10
-	OpenchainMessage_CHAIN_BLOCK_HASHES     OpenchainMessage_Type = 11
-	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 12
-	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 13
-	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 14
-	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 15
-	OpenchainMessage_VALIDATOR_TRANSACTIONS OpenchainMessage_Type = 16
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
+	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 10
+	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 11
+	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 12
+	OpenchainMessage_REQUEST                OpenchainMessage_Type = 14
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -77,19 +73,15 @@ var OpenchainMessage_Type_name = map[int32]string{
 	2:  "DISC_DISCONNECT",
 	3:  "DISC_GET_PEERS",
 	4:  "DISC_PEERS",
-	5:  "DISC_PING",
-	6:  "DISC_PONG",
+	5:  "DISC_NEWMSG",
 	7:  "CHAIN_STATUS",
 	8:  "CHAIN_GET_TRANSACTIONS",
 	9:  "CHAIN_TRANSACTIONS",
-	10: "CHAIN_GET_BLOCK_HASHES",
-	11: "CHAIN_BLOCK_HASHES",
-	12: "CHAIN_GET_BLOCKS",
-	13: "CHAIN_BLOCKS",
-	14: "CHAIN_NEW_BLOCK",
-	15: "DISC_NEWMSG",
-	16: "VALIDATOR_TRANSACTIONS",
-	17: "CONSENSUS",
+	10: "CHAIN_GET_BLOCKS",
+	11: "CHAIN_BLOCKS",
+	12: "CHAIN_NEW_BLOCK",
+	14: "REQUEST",
+	15: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -97,19 +89,15 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"DISC_DISCONNECT":        2,
 	"DISC_GET_PEERS":         3,
 	"DISC_PEERS":             4,
-	"DISC_PING":              5,
-	"DISC_PONG":              6,
+	"DISC_NEWMSG":            5,
 	"CHAIN_STATUS":           7,
 	"CHAIN_GET_TRANSACTIONS": 8,
 	"CHAIN_TRANSACTIONS":     9,
-	"CHAIN_GET_BLOCK_HASHES": 10,
-	"CHAIN_BLOCK_HASHES":     11,
-	"CHAIN_GET_BLOCKS":       12,
-	"CHAIN_BLOCKS":           13,
-	"CHAIN_NEW_BLOCK":        14,
-	"DISC_NEWMSG":            15,
-	"VALIDATOR_TRANSACTIONS": 16,
-	"CONSENSUS":              17,
+	"CHAIN_GET_BLOCKS":       10,
+	"CHAIN_BLOCKS":           11,
+	"CHAIN_NEW_BLOCK":        12,
+	"REQUEST":                14,
+	"CONSENSUS":              15,
 }
 
 func (x OpenchainMessage_Type) String() string {

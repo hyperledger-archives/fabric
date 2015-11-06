@@ -45,7 +45,7 @@ func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 		"created",
 		fsm.Events{
 			{Name: pb.ChaincodeMessage_REGISTERED.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_CHAIN_TRANSACTIONS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_REQUEST.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.beforeRegistered(e) },

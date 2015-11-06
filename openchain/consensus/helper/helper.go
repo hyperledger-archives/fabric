@@ -99,7 +99,7 @@ func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
 	// definitions are updated.
 	switch msg.Type {
-	case pb.OpenchainMessage_CHAIN_TRANSACTIONS:
+	case pb.OpenchainMessage_REQUEST:
 		return h.consenter.RecvMsg(msg)
 	case pb.OpenchainMessage_CONSENSUS:
 		return h.consenter.RecvMsg(msg)
