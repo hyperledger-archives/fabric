@@ -104,9 +104,17 @@ message ChaincodeMessage {
         UNDEFINED = 0;
         REGISTER = 1;
         REGISTERED = 2;
-
-        REQUEST = 3;
-        RESPONSE = 4;
+	INIT = 3;
+	TRANSACTION = 4;
+	COMPLETED = 5;
+	ERROR = 6;
+	GET_STATE = 7;
+	PUT_STATE = 8;
+	DEL_STATE = 9;
+	INVOKE_CHAINCODE = 10;
+	RESPONSE = 11;
+	QUERY = 12;
+	QUERY_COMPLETED = 13;
     }
 
     Type type = 1;

@@ -2,6 +2,23 @@
 // source: chaincode.proto
 // DO NOT EDIT!
 
+/*
+Package protos is a generated protocol buffer package.
+
+It is generated from these files:
+	chaincode.proto
+
+It has these top-level messages:
+	ChainletID
+	ChainletMessage
+	ChaincodeInvocation
+	ChainletSpec
+	ChainletDeploymentSpec
+	ChainletIdentifier
+	ChainletRequestContext
+	ChainletExecutionContext
+	ChaincodeMessage
+*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
@@ -45,26 +62,53 @@ func (x ChainletSpec_Type) String() string {
 type ChaincodeMessage_Type int32
 
 const (
-	ChaincodeMessage_UNDEFINED  ChaincodeMessage_Type = 0
-	ChaincodeMessage_REGISTER   ChaincodeMessage_Type = 1
-	ChaincodeMessage_REGISTERED ChaincodeMessage_Type = 2
-	ChaincodeMessage_REQUEST    ChaincodeMessage_Type = 3
-	ChaincodeMessage_RESPONSE   ChaincodeMessage_Type = 4
+	ChaincodeMessage_UNDEFINED        ChaincodeMessage_Type = 0
+	ChaincodeMessage_REGISTER         ChaincodeMessage_Type = 1
+	ChaincodeMessage_REGISTERED       ChaincodeMessage_Type = 2
+	ChaincodeMessage_INIT             ChaincodeMessage_Type = 3
+	ChaincodeMessage_TRANSACTION      ChaincodeMessage_Type = 4
+	ChaincodeMessage_COMPLETED        ChaincodeMessage_Type = 5
+	ChaincodeMessage_ERROR            ChaincodeMessage_Type = 6
+	ChaincodeMessage_GET_STATE        ChaincodeMessage_Type = 7
+	ChaincodeMessage_PUT_STATE        ChaincodeMessage_Type = 8
+	ChaincodeMessage_DEL_STATE        ChaincodeMessage_Type = 9
+	ChaincodeMessage_INVOKE_CHAINCODE ChaincodeMessage_Type = 10
+	ChaincodeMessage_RESPONSE         ChaincodeMessage_Type = 11
+	ChaincodeMessage_QUERY            ChaincodeMessage_Type = 12
+	ChaincodeMessage_QUERY_COMPLETED  ChaincodeMessage_Type = 13
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "REGISTER",
-	2: "REGISTERED",
-	3: "REQUEST",
-	4: "RESPONSE",
+	0:  "UNDEFINED",
+	1:  "REGISTER",
+	2:  "REGISTERED",
+	3:  "INIT",
+	4:  "TRANSACTION",
+	5:  "COMPLETED",
+	6:  "ERROR",
+	7:  "GET_STATE",
+	8:  "PUT_STATE",
+	9:  "DEL_STATE",
+	10: "INVOKE_CHAINCODE",
+	11: "RESPONSE",
+	12: "QUERY",
+	13: "QUERY_COMPLETED",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
-	"UNDEFINED":  0,
-	"REGISTER":   1,
-	"REGISTERED": 2,
-	"REQUEST":    3,
-	"RESPONSE":   4,
+	"UNDEFINED":        0,
+	"REGISTER":         1,
+	"REGISTERED":       2,
+	"INIT":             3,
+	"TRANSACTION":      4,
+	"COMPLETED":        5,
+	"ERROR":            6,
+	"GET_STATE":        7,
+	"PUT_STATE":        8,
+	"DEL_STATE":        9,
+	"INVOKE_CHAINCODE": 10,
+	"RESPONSE":         11,
+	"QUERY":            12,
+	"QUERY_COMPLETED":  13,
 }
 
 func (x ChaincodeMessage_Type) String() string {
