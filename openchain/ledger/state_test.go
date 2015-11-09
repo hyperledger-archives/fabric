@@ -98,7 +98,7 @@ func fetchStateFromDB(t *testing.T, chaincodeID string, key string) []byte {
 
 func fetchStateViaInterface(t *testing.T, chaincodeID string, key string) []byte {
 	state := getState()
-	value, err := state.get(chaincodeID, key)
+	value, err := state.get(chaincodeID, key, false)
 	if err != nil {
 		t.Fatalf("Error while fetching state for chaincode=[%s], key=[%s], error=[%s]", chaincodeID, key, err)
 	}
