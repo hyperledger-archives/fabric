@@ -108,7 +108,7 @@ type DevopsClient interface {
 	// Deploy the chaincode package to the chain.
 	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
 	// Invoke chaincode.
-	Invoke(ctx context.Context, in *ChaincodeInvocation, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type devopsClient struct {
@@ -137,7 +137,7 @@ func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grp
 	return out, nil
 }
 
-func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocation, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/protos.Devops/Invoke", in, out, c.cc, opts...)
 	if err != nil {
@@ -154,7 +154,7 @@ type DevopsServer interface {
 	// Deploy the chaincode package to the chain.
 	Deploy(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
 	// Invoke chaincode.
-	Invoke(context.Context, *ChaincodeInvocation) (*google_protobuf1.Empty, error)
+	Invoke(context.Context, *ChaincodeInvocationSpec) (*google_protobuf1.Empty, error)
 }
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
@@ -186,7 +186,7 @@ func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _Devops_Invoke_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ChaincodeInvocation)
+	in := new(ChaincodeInvocationSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}

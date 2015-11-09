@@ -39,12 +39,26 @@ func (transaction *Transaction) Bytes() ([]byte, error) {
 // the chainletID on which the function should be called, and the arguments
 // string. The arguments could be a string of JSON, but there is no strict
 // requirement.
-func NewTransaction(chainletID ChainletID, uuid string, function string, args []string) *Transaction {
+
+func NewTransaction(chainletID ChainletID, uuid string, function string, arguments []string) *Transaction {
 	transaction := new(Transaction)
 	transaction.ChainletID = &chainletID
 	transaction.Uuid = uuid
-	transaction.Function = function
-	transaction.Args = args
+
+	/*
+	// Build the spec
+	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
+		ChainletID: chainletID, ChaincodeInput: &pb.ChaincodeInput{Function: function, Args: arguments}}
+
+	// Build the ChaincodeInvocationSpec message
+	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
+
+	data, err := proto.Marshal(invocation)
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
+	}
+	transaction.Payload = data
+	*/
 	return transaction
 }
 
@@ -54,10 +68,10 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 	transaction.Type = Transaction_CHAINLET_NEW
 	transaction.Uuid = uuid
 	transaction.ChainletID = chainletDeploymentSpec.ChainletSpec.GetChainletID()
-	if chainletDeploymentSpec.ChainletSpec.GetCtorMsg() != nil {
-		transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
-		transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
-	}
+	//if chainletDeploymentSpec.ChainletSpec.GetCtorMsg() != nil {
+	//	transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
+	//	transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
+	//}
 	data, err := proto.Marshal(chainletDeploymentSpec)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error mashalling payload for chaincode deployment: %s", err))
@@ -68,12 +82,12 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 }
 
 // NewChainletInvokeTransaction is used to deploy chaincode.
-func NewChainletInvokeTransaction(chaincodeInvocation *ChaincodeInvocation, uuid string) (*Transaction, error) {
+func NewChainletInvokeTransaction(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string) (*Transaction, error) {
 	transaction := new(Transaction)
 	transaction.Type = Transaction_CHAINLET_EXECUTE
 	transaction.Uuid = uuid
-	transaction.ChainletID = chaincodeInvocation.ChainletSpec.GetChainletID()
-	data, err := proto.Marshal(chaincodeInvocation)
+	transaction.ChainletID = chaincodeInvocationSpec.ChainletSpec.GetChainletID()
+	data, err := proto.Marshal(chaincodeInvocationSpec)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
 	}

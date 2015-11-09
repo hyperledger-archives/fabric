@@ -541,9 +541,10 @@ func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte,
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
 		//add "function" as an argument to be passed
-		newArgs := make([]string, len(t.Args)+1)
-		newArgs[0] = t.Function
-		copy(newArgs[1:len(t.Args)+1], t.Args)
+		newArgs := make([]string, 10)
+		//newArgs := make([]string, len(t.Args)+1)
+		//newArgs[0] = t.Function
+		//copy(newArgs[1:len(t.Args)+1], t.Args)
 		//is there a payload to be passed to the container ?
 		var buf *bytes.Buffer
 		if t.Payload != nil {

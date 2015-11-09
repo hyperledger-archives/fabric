@@ -17,25 +17,28 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package shim
+package main
 
 import (
 	"fmt"
-	"testing"
+	"encoding/json"
+
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
 
 	"golang.org/x/net/context"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type TestChaincode struct {
+// SimpleChaincode example simple Chaincode implementation
+type SimpleChaincode struct {
 }
 
-// Used by the test chaincode
-var A, B string
-var Aval, Bval int
-
-func (t *TestChaincode) Run(stub ChaincodeStub, function string, args []string) ([]byte, error) {
+// Run callback representing the invocation of a chaincode
+// This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
+func (t *SimpleChaincode) Run(stub ChaincodeStub, function string, args []string) ([]byte, error) {
+	var A, B string
+	var Aval, Bval int
 	var err error
 
 	// Handle different functions
@@ -56,7 +59,6 @@ func (t *TestChaincode) Run(stub ChaincodeStub, function string, args []string) 
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
 
-		/*
 		// Write the state to the ledger
 		err = stub.PutState(A, []byte(strconv.Itoa(Aval))
 		if err != nil {
@@ -68,51 +70,21 @@ func (t *TestChaincode) Run(stub ChaincodeStub, function string, args []string) 
 		if err != nil {
 			return nil, err
 		}
-		*/
-	} else if function == "invoke" {
-		// Transaction makes payment of X units from A to B
-		X, err = strconv.Atoi(args[0])
-		Aval = Aval - X
-		Bval = Bval + X
+	} else if input.funcName == "invoke" {
+		// To be implemented
 	}
 	
 	return nil, nil
 }
 
-func (t *TestChaincode) Query(stub ChaincodeStub, args []byte) ([]byte, error) {
+// Query callback representing the query of a chaincode
+func (t *SimpleChaincode) Query(stub ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }
 
-func TestChaincode(t *testing.T) {
-	// Start the chaincode
-	go func() {
-		err := Start(new(TestChaincode))
-		if err != nil {
-			t.Logf("Error Start(ing) chaincode: %s", err)
-			t.Fail()
-		}
+func main() {
+	err := shim.Start(new(SimpleChaincode))
+	if err != nil {
+		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
-
-	// Invoke deploy
-	payload := `{"funcName" : "init", "args" : ["A", "100", "B", "100"]}`
-	msg : = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload} 
-	err := handler.FSM.Event(pb.ChaincodeMessage_INIT.String(), msg)
-
-	// Ensure deploy completes
-	time.Sleep(2 * time.Second)
-
-	// Invoke transaction
-	payload := `{"funcName" : "init", "args" : ["10"]}`
-	msg : = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload} 
-	err := handler.FSM.Event(pb.ChaincodeMessage_TRANSACTION.String(), msg)
-	
-	// Ensure deploy completes
-	time.Sleep(2 * time.Second)
-
-	// Check result
-	if Aval != 90 || Bval != 110 {
-		t.Error("Transaction did not execute or incorrect execution")	
-	}
-
-	fmt.Printf("Transaction executed successfully")
 }

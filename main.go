@@ -25,6 +25,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"encoding/json"
 
 	"golang.org/x/net/context"
 
@@ -393,6 +394,18 @@ func checkChaincodeCmdParams(cmd *cobra.Command) error {
 		return errors.New(err)
 	}
 
+	if chaincodeCtorJSON != "{}" {
+		// Check to ensure the JSON has "function" and "args" keys
+		input := &pb.ChaincodeMessage{}
+		jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input)
+		if jsonerr != nil {
+			err := fmt.Sprintf("Error: must supply 'function' and 'args' keys in %s constructor parameter.\n", chainFuncName)
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return errors.New(err)
+		}
+	}
+
 	return nil
 }
 
@@ -448,8 +461,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	// Build the spec
+	input := &pb.ChaincodeInput{}
+	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
 	chainletDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
@@ -472,13 +490,18 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 		return
 	}
 	// Build the spec
+	input := &pb.ChaincodeInput{}
+	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
-	msg := &pb.ChainletMessage{Function: "func1", Args: []string{"arg1", "arg2"}}
+	//msg := &pb.ChaincodeInput{Function: "func1", Args: []string{"arg1", "arg2"}}
 
-	// Build the ChaincodeInvocation message
-	invocation := &pb.ChaincodeInvocation{ChainletSpec: spec, Message: msg}
+	// Build the ChaincodeInvocationSpec message
+	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
 
 	_, err = devopsClient.Invoke(context.Background(), invocation)
 	if err != nil {

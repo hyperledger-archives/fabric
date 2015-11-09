@@ -231,7 +231,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 // a result.
 func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	// Decode the incoming JSON payload
-	var msg pb.ChainletMessage
+	var msg pb.ChaincodeInput
 	err := jsonpb.Unmarshal(req.Body, &msg)
 
 	// Check for proper JSON syntax
@@ -252,7 +252,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check for nil ChainletMessage
+	// Check for nil ChaincodeInput
 	if msg.Function == "" {
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode function.\"}")
 		return

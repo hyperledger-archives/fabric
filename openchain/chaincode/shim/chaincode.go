@@ -37,27 +37,37 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+// Logger for the shim package.
 var chaincodeLogger = logging.MustGetLogger("chaincode")
 
-// Chainlet standard chaincode callback interface
-type Chainlet interface {
-	Run(chainletSupportClient pb.ChainletSupportClient) error
+// Handler to shim that handles all control logic.
+var handler *Handler
+
+// Standard chaincode callback interface - this is the interface the chaincode developer needs to implement.
+type Chaincode interface {
+	// Run method will be called during init and for every transaction
+	//Run(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
+	Run(stub ChaincodeStub, function string, args []string) ([]byte, error)
+	// Query is to be used for read-only access to chaincode state
+	//Query(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
+	Query(stub ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
-// ChaincodeStub placeholder for shim side handling.
+// ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
 }
 
-// Start entry point for chaincodes bootstrap
-func Start(c Chainlet) error {
+// Start entry point for chaincodes bootstrap.
+func Start(cc Chaincode) error {
 	viper.SetEnvPrefix("OPENCHAIN")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	fmt.Printf("peer.address: %s\n", getPeerAddress())
+	fmt.Printf("peer.address: %s\n", GetPeerAddress())
 
-	clientConn, err := newPeerClientConnection()
+	// Establish connection with validating peer
+	clientConn, err := NewPeerClientConnection()
 	if err != nil {
 		return fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
@@ -66,15 +76,16 @@ func Start(c Chainlet) error {
 
 	chainletSupportClient := pb.NewChainletSupportClient(clientConn)
 
-	chatWithPeer(chainletSupportClient)
+	//err = c.Run(chainletSupportClient)
+	//if err != nil {
+	//}
+	// Handle message exchange with validating peer
+	err = ChatWithPeer(chainletSupportClient, cc)
 
-	if err != nil {
-
-	}
 	return err
 }
 
-func getPeerAddress() string {
+func GetPeerAddress() string {
 	if viper.GetString("peer.address") == "" {
 		// Assume docker container, return well known docker host address
 		return "172.17.42.1:30303"
@@ -82,7 +93,7 @@ func getPeerAddress() string {
 	return viper.GetString("peer.address")
 }
 
-func newPeerClientConnection() (*grpc.ClientConn, error) {
+func NewPeerClientConnection() (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
 		var sn string
@@ -104,29 +115,37 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 	opts = append(opts, grpc.WithTimeout(1*time.Second))
 	opts = append(opts, grpc.WithBlock())
 	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(getPeerAddress(), opts...)
+	conn, err := grpc.Dial(GetPeerAddress(), opts...)
 	if err != nil {
 		return nil, err
 	}
 	return conn, err
 }
 
-func chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
+func ChatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) error {
 
 	var errFromChat error
+	// Establish stream with validating peer
 	stream, err := chainletSupportClient.Register(context.Background())
-	handler := newChaincodeHandler(getPeerAddress(), stream)
+	if err != nil {
+		return fmt.Errorf("Error chatting with leader at address=%s:  %s", GetPeerAddress(), err)
+	}
 
-	if err != nil {
-		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)
-	}
+	// Create the chaincode stub which will be passed to the chaincode
+	stub := new(ChaincodeStub)
+
+	// Create the shim handler responsible for all control logic
+	handler = NewChaincodeHandler(GetPeerAddress(), stream, cc, stub)
+
 	defer stream.CloseSend()
-	// Send the ChainletID during register.
-	chainletID := &pb.ChainletID{Url: viper.GetString("chainlet.id.url"), Version: viper.GetString("chainlet.id.version")}
-	payload, err := proto.Marshal(chainletID)
+	// Send the ChaincodeID during register.
+	chaincodeID := &pb.ChainletID{Url: viper.GetString("chainlet.id.url"), Version: viper.GetString("chainlet.id.version")}
+	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
-		return fmt.Errorf("Error marshalling chainletID during chaincode registration: %s", err)
+		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
 	}
+	// Register on the stream
+	chaincodeLogger.Debug("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
 	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
@@ -134,12 +153,12 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
 			in, err := stream.Recv()
 			if err == io.EOF {
 				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
+				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", GetPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
 				close(waitc)
 				return
 			}
 			if err != nil {
-				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+				grpclog.Fatalf("Failed to receive a Registered message from server : %v", err)
 			}
 
 			// Call FSM.HandleMessage()
@@ -153,3 +172,25 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient) error {
 	<-waitc
 	return nil
 }
+
+// This is the method chaincode will call to get state.
+func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
+	return handler.HandleGetState(key)
+}
+
+// This is the method chaincode will call to put state.
+func (stub *ChaincodeStub) PutState(key string, value []byte) error {
+	return handler.HandlePutState(key, value)
+}
+
+// This is the method chaincode will call to delete state.
+func (stub *ChaincodeStub) DelState(key string) error {
+	return handler.HandleDelState(key)
+}
+
+// This is the method chaincode will call to invoke another chaincode
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
+	return handler.HandleInvokeChaincode(chaincodeID, args)
+}
+
+

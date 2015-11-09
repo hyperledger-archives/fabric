@@ -42,11 +42,8 @@ message Transaction {
 
     Type type = 1;
     ChainletID chainletID = 2;
-    string function = 3;
-    repeated string args  = 4;
-    bytes payload = 5;
-    string uuid = 6;
-    google.protobuf.Timestamp timestamp = 7;
+    bytes payload = 3;
+    string uuid = 4;
 
 }
 

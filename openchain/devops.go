@@ -98,7 +98,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
-func (d *Devops) Invoke(ctx context.Context, chaincodeInvocation *pb.ChaincodeInvocation) (*google_protobuf.Empty, error) {
+func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*google_protobuf.Empty, error) {
 
 	// Now create the Transactions message and send to Peer.
 	uuid, uuidErr := util.GenerateUUID()
@@ -106,7 +106,7 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocation *pb.ChaincodeIn
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletInvokeTransaction(chaincodeInvocation, uuid)
+	transaction, err := pb.NewChainletInvokeTransaction(chaincodeInvocationSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}

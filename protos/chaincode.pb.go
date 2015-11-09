@@ -113,35 +113,27 @@ func (m *ChainletID) String() string { return proto.CompactTextString(m) }
 func (*ChainletID) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
-type ChainletMessage struct {
+type ChaincodeInput struct {
 	Function string   `protobuf:"bytes,1,opt,name=function" json:"function,omitempty"`
 	Args     []string `protobuf:"bytes,2,rep,name=args" json:"args,omitempty"`
 }
 
-func (m *ChainletMessage) Reset()         { *m = ChainletMessage{} }
-func (m *ChainletMessage) String() string { return proto.CompactTextString(m) }
-func (*ChainletMessage) ProtoMessage()    {}
+func (m *ChaincodeInput) Reset()         { *m = ChaincodeInput{} }
+func (m *ChaincodeInput) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInput) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
-type ChaincodeInvocation struct {
-	ChainletSpec *ChainletSpec    `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
-	Message      *ChainletMessage `protobuf:"bytes,2,opt,name=message" json:"message,omitempty"`
+type ChaincodeInvocationSpec struct {
+	ChainletSpec *ChainletSpec `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
 }
 
-func (m *ChaincodeInvocation) Reset()         { *m = ChaincodeInvocation{} }
-func (m *ChaincodeInvocation) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeInvocation) ProtoMessage()    {}
+func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
+func (m *ChaincodeInvocationSpec) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInvocationSpec) ProtoMessage()    {}
 
-func (m *ChaincodeInvocation) GetChainletSpec() *ChainletSpec {
+func (m *ChaincodeInvocationSpec) GetChainletSpec() *ChainletSpec {
 	if m != nil {
 		return m.ChainletSpec
-	}
-	return nil
-}
-
-func (m *ChaincodeInvocation) GetMessage() *ChainletMessage {
-	if m != nil {
-		return m.Message
 	}
 	return nil
 }
@@ -151,7 +143,7 @@ func (m *ChaincodeInvocation) GetMessage() *ChainletMessage {
 type ChainletSpec struct {
 	Type       ChainletSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChainletSpec_Type" json:"type,omitempty"`
 	ChainletID *ChainletID       `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	CtorMsg    *ChainletMessage  `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	CtorMsg    *ChaincodeInput   `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
 	Timeout    int32             `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
 }
 
@@ -166,7 +158,7 @@ func (m *ChainletSpec) GetChainletID() *ChainletID {
 	return nil
 }
 
-func (m *ChainletSpec) GetCtorMsg() *ChainletMessage {
+func (m *ChainletSpec) GetCtorMsg() *ChaincodeInput {
 	if m != nil {
 		return m.CtorMsg
 	}

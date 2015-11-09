@@ -33,7 +33,7 @@ message ChainletID {
 }
 
 // Carries the chaincode function and its arguments.
-message ChainletMessage {
+message ChaincodeInput {
 
     string function = 1;
     repeated string args  = 2;
@@ -41,10 +41,10 @@ message ChainletMessage {
 }
 
 // Carries the chaincode function and its arguments.
-message ChaincodeInvocation {
+message ChaincodeInvocationSpec {
 
     ChainletSpec chainletSpec = 1;
-    ChainletMessage message = 2;
+    //ChaincodeInput message = 2;
 
 }
 
@@ -61,7 +61,7 @@ message ChainletSpec {
 
     Type type = 1;
     ChainletID chainletID = 2;
-    ChainletMessage ctorMsg = 3;
+    ChaincodeInput ctorMsg = 3;
     int32 timeout = 4; 
 }
 
