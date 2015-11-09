@@ -35,7 +35,7 @@ type TestChaincode struct {
 var A, B string
 var Aval, Bval int
 
-func (t *TestChaincode) Run(stub ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *TestChaincode) Run(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
 	var err error
 
 	// Handle different functions
@@ -79,7 +79,7 @@ func (t *TestChaincode) Run(stub ChaincodeStub, function string, args []string) 
 	return nil, nil
 }
 
-func (t *TestChaincode) Query(stub ChaincodeStub, args []byte) ([]byte, error) {
+func (t *TestChaincode) Query(stub *ChaincodeStub, args []byte) ([]byte, error) {
 	return nil, nil
 }
 

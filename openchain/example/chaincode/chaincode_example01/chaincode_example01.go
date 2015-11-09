@@ -36,7 +36,7 @@ type SimpleChaincode struct {
 
 // Run callback representing the invocation of a chaincode
 // This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
-func (t *SimpleChaincode) Run(stub ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
 	var A, B string
 	var Aval, Bval int
 	var err error

@@ -47,10 +47,10 @@ var handler *Handler
 type Chaincode interface {
 	// Run method will be called during init and for every transaction
 	//Run(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
-	Run(stub ChaincodeStub, function string, args []string) ([]byte, error)
+	Run(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 	// Query is to be used for read-only access to chaincode state
 	//Query(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
-	Query(stub ChaincodeStub, function string, args []string) ([]byte, error)
+	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
 // ChaincodeStub for shim side handling.
@@ -132,7 +132,7 @@ func ChatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) 
 	}
 
 	// Create the chaincode stub which will be passed to the chaincode
-	stub := new(ChaincodeStub)
+	stub := &ChaincodeStub{}
 
 	// Create the shim handler responsible for all control logic
 	handler = NewChaincodeHandler(GetPeerAddress(), stream, cc, stub)
