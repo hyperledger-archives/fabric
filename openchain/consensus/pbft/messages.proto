@@ -50,6 +50,39 @@ message Unpack {
     bytes payload = 2;
 }
 
+// Passed on by a proxy peer to a validating peer, and from there on broadcasted
+// to the entire network of validating peers. TODO: Rename to `Request`.
+message Request2 {
+
+    string UID = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
+    bytes payload = 2;  // Marshal the first and only element of a TransactionBlock message.
+}
+
+message PrePrepare {
+
+    string view = 1; // The IP of the leader. TODO: Temporary definiton until we figure out an identity scheme for all peers.
+    uint64 sequence_number = 2;
+    repeated string request_digests = 3;
+}
+
+message PrepareResult {
+
+    string view = 1;
+    uint64 sequence_number = 2;
+    repeated string request_digests = 3;
+    string global_hash = 4;
+    repeated string tx_errors = 5;
+}
+
+message CommitResult {
+
+    string view = 1;
+    uint64 sequence_number = 2;
+    repeated string request_digests = 3;
+    string global_hash = 4;
+    repeated string tx_errors = 5;
+}
+
 // =============================================================================
 // Old definitions go here. Deprecated, will be removed soon.
 // =============================================================================
@@ -65,7 +98,7 @@ message PBFT {
         PREPARE_RESULT = 5;
         COMMIT_RESULT = 6;
     }
-    
+
     Type type = 1;
     string ID = 2;
     bytes payload = 3;
