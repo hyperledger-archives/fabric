@@ -128,6 +128,12 @@ func (ledger *Ledger) GetStateSnapshot() (*stateSnapshot, error) {
 	return ledger.state.getSnapshot()
 }
 
+// GetStateDelta will return the state delta for the specified block if
+// available.
+func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
+	return fetchStateDeltaFromDB(blockNumber)
+}
+
 /////////////////// blockchain related methods /////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
