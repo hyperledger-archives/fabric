@@ -66,8 +66,6 @@ func Start(c Chainlet) error {
 
 	chainletSupportClient := pb.NewChainletSupportClient(clientConn)
 
-	err = c.Run(chainletSupportClient)
-
 	chatWithPeer(chainletSupportClient)
 
 	if err != nil {

@@ -23,8 +23,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
+	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/blang/semver"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
@@ -273,3 +277,16 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 		return nil, ctxt.Err()
 	}
 }
+
+// GetVMName gets the container name given the chaincode name and version 
+func GetVMName(chaincodeID *pb.ChainletID) (string, error) {
+	// Make sure version is specfied correctly
+	version, err := semver.Make(chaincodeID.Version)
+	if err != nil {
+		return "", fmt.Errorf("Error building VM name: %s", err)
+	}
+	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(chaincodeID.Url, string(os.PathSeparator), ".", -1), version)
+	vmLogger.Debug("return VM name: %s", vmName)
+	return vmName, nil
+}
+

@@ -26,7 +26,8 @@ const (
 	Transaction_CHAINLET_NEW       Transaction_Type = 1
 	Transaction_CHAINLET_UPDATE    Transaction_Type = 2
 	Transaction_CHAINLET_EXECUTE   Transaction_Type = 3
-	Transaction_CHAINLET_TERMINATE Transaction_Type = 4
+	Transaction_CHAINLET_QUERY     Transaction_Type = 4
+	Transaction_CHAINLET_TERMINATE Transaction_Type = 5
 )
 
 var Transaction_Type_name = map[int32]string{
@@ -34,14 +35,16 @@ var Transaction_Type_name = map[int32]string{
 	1: "CHAINLET_NEW",
 	2: "CHAINLET_UPDATE",
 	3: "CHAINLET_EXECUTE",
-	4: "CHAINLET_TERMINATE",
+	4: "CHAINLET_QUERY",
+	5: "CHAINLET_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
 	"UNDEFINED":          0,
 	"CHAINLET_NEW":       1,
 	"CHAINLET_UPDATE":    2,
 	"CHAINLET_EXECUTE":   3,
-	"CHAINLET_TERMINATE": 4,
+	"CHAINLET_QUERY":     4,
+	"CHAINLET_TERMINATE": 5,
 }
 
 func (x Transaction_Type) String() string {

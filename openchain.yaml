@@ -198,6 +198,8 @@ chainlet:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    #timeout for starting up a container and waiting for Register to come through
+    startuptimeout: 5000
 
 # Below left in for examples of YAML usage
 receipt:     Oz-Ware Purchase Invoice

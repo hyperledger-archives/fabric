@@ -62,7 +62,7 @@ message ChainletSpec {
     Type type = 1;
     ChainletID chainletID = 2;
     ChainletMessage ctorMsg = 3;
-
+    int32 timeout = 4; 
 }
 
 // Specify the deployment of a chaincode.
@@ -98,6 +98,13 @@ message ChainletExecutionContext {
 
 }
 
+message ChaincodeResponse {
+    bool success = 1;
+    string valueType = 2;
+    bytes value = 3;
+    string uuid = 4;
+}
+
 message ChaincodeMessage {
 
     enum Type {
@@ -105,21 +112,23 @@ message ChaincodeMessage {
         REGISTER = 1;
         REGISTERED = 2;
 	INIT = 3;
-	TRANSACTION = 4;
-	COMPLETED = 5;
-	ERROR = 6;
-	GET_STATE = 7;
-	PUT_STATE = 8;
-	DEL_STATE = 9;
-	INVOKE_CHAINCODE = 10;
-	RESPONSE = 11;
-	QUERY = 12;
-	QUERY_COMPLETED = 13;
+	READY = 4;
+	TRANSACTION = 5;
+	COMPLETED = 6;
+	ERROR = 7;
+	GET_STATE = 8;
+	PUT_STATE = 9;
+	DEL_STATE = 10;
+	INVOKE_CHAINCODE = 11;
+	RESPONSE = 12;
+	QUERY = 13;
+	QUERY_COMPLETED = 14;
     }
 
     Type type = 1;
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
+    string uuid = 4;
 
 }
 

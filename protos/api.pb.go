@@ -24,6 +24,7 @@ It has these top-level messages:
 	ChainletIdentifier
 	ChainletRequestContext
 	ChainletExecutionContext
+	ChaincodeResponse
 	ChaincodeMessage
 	DevopsResponse
 	BuildResult

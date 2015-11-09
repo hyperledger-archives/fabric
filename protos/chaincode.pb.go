@@ -2,23 +2,6 @@
 // source: chaincode.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	chaincode.proto
-
-It has these top-level messages:
-	ChainletID
-	ChainletMessage
-	ChaincodeInvocation
-	ChainletSpec
-	ChainletDeploymentSpec
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
-	ChaincodeMessage
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
@@ -66,16 +49,17 @@ const (
 	ChaincodeMessage_REGISTER         ChaincodeMessage_Type = 1
 	ChaincodeMessage_REGISTERED       ChaincodeMessage_Type = 2
 	ChaincodeMessage_INIT             ChaincodeMessage_Type = 3
-	ChaincodeMessage_TRANSACTION      ChaincodeMessage_Type = 4
-	ChaincodeMessage_COMPLETED        ChaincodeMessage_Type = 5
-	ChaincodeMessage_ERROR            ChaincodeMessage_Type = 6
-	ChaincodeMessage_GET_STATE        ChaincodeMessage_Type = 7
-	ChaincodeMessage_PUT_STATE        ChaincodeMessage_Type = 8
-	ChaincodeMessage_DEL_STATE        ChaincodeMessage_Type = 9
-	ChaincodeMessage_INVOKE_CHAINCODE ChaincodeMessage_Type = 10
-	ChaincodeMessage_RESPONSE         ChaincodeMessage_Type = 11
-	ChaincodeMessage_QUERY            ChaincodeMessage_Type = 12
-	ChaincodeMessage_QUERY_COMPLETED  ChaincodeMessage_Type = 13
+	ChaincodeMessage_READY            ChaincodeMessage_Type = 4
+	ChaincodeMessage_TRANSACTION      ChaincodeMessage_Type = 5
+	ChaincodeMessage_COMPLETED        ChaincodeMessage_Type = 6
+	ChaincodeMessage_ERROR            ChaincodeMessage_Type = 7
+	ChaincodeMessage_GET_STATE        ChaincodeMessage_Type = 8
+	ChaincodeMessage_PUT_STATE        ChaincodeMessage_Type = 9
+	ChaincodeMessage_DEL_STATE        ChaincodeMessage_Type = 10
+	ChaincodeMessage_INVOKE_CHAINCODE ChaincodeMessage_Type = 11
+	ChaincodeMessage_RESPONSE         ChaincodeMessage_Type = 12
+	ChaincodeMessage_QUERY            ChaincodeMessage_Type = 13
+	ChaincodeMessage_QUERY_COMPLETED  ChaincodeMessage_Type = 14
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
@@ -83,32 +67,34 @@ var ChaincodeMessage_Type_name = map[int32]string{
 	1:  "REGISTER",
 	2:  "REGISTERED",
 	3:  "INIT",
-	4:  "TRANSACTION",
-	5:  "COMPLETED",
-	6:  "ERROR",
-	7:  "GET_STATE",
-	8:  "PUT_STATE",
-	9:  "DEL_STATE",
-	10: "INVOKE_CHAINCODE",
-	11: "RESPONSE",
-	12: "QUERY",
-	13: "QUERY_COMPLETED",
+	4:  "READY",
+	5:  "TRANSACTION",
+	6:  "COMPLETED",
+	7:  "ERROR",
+	8:  "GET_STATE",
+	9:  "PUT_STATE",
+	10: "DEL_STATE",
+	11: "INVOKE_CHAINCODE",
+	12: "RESPONSE",
+	13: "QUERY",
+	14: "QUERY_COMPLETED",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
 	"UNDEFINED":        0,
 	"REGISTER":         1,
 	"REGISTERED":       2,
 	"INIT":             3,
-	"TRANSACTION":      4,
-	"COMPLETED":        5,
-	"ERROR":            6,
-	"GET_STATE":        7,
-	"PUT_STATE":        8,
-	"DEL_STATE":        9,
-	"INVOKE_CHAINCODE": 10,
-	"RESPONSE":         11,
-	"QUERY":            12,
-	"QUERY_COMPLETED":  13,
+	"READY":            4,
+	"TRANSACTION":      5,
+	"COMPLETED":        6,
+	"ERROR":            7,
+	"GET_STATE":        8,
+	"PUT_STATE":        9,
+	"DEL_STATE":        10,
+	"INVOKE_CHAINCODE": 11,
+	"RESPONSE":         12,
+	"QUERY":            13,
+	"QUERY_COMPLETED":  14,
 }
 
 func (x ChaincodeMessage_Type) String() string {
@@ -166,6 +152,7 @@ type ChainletSpec struct {
 	Type       ChainletSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChainletSpec_Type" json:"type,omitempty"`
 	ChainletID *ChainletID       `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
 	CtorMsg    *ChainletMessage  `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Timeout    int32             `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
 }
 
 func (m *ChainletSpec) Reset()         { *m = ChainletSpec{} }
@@ -265,10 +252,22 @@ func (m *ChainletExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
 	return nil
 }
 
+type ChaincodeResponse struct {
+	Success   bool   `protobuf:"varint,1,opt,name=success" json:"success,omitempty"`
+	ValueType string `protobuf:"bytes,2,opt,name=valueType" json:"valueType,omitempty"`
+	Value     []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Uuid      string `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+}
+
+func (m *ChaincodeResponse) Reset()         { *m = ChaincodeResponse{} }
+func (m *ChaincodeResponse) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeResponse) ProtoMessage()    {}
+
 type ChaincodeMessage struct {
 	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid      string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
