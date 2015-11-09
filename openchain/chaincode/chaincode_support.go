@@ -48,10 +48,12 @@ const (
 //this needs to be a first class, top-level object... for now, lets just have a placeholder
 var chains map[ChainName]*ChainletSupport
 var CC_STARTUP_TIMEOUT time.Duration
+var CC_FROM_CMD_LINE bool
 
 func init() {
 	chains = make(map[ChainName]*ChainletSupport)
 	to,err := strconv.Atoi(viper.GetString("chainlet.startuptimeout"))
+	CC_FROM_CMD_LINE = viper.GetBool("validator.chaincode_from_command_line")
 	if err != nil { //what went wrong ?
 		fmt.Printf("could not retrive timeout var...setting to 5secs\n")
 		to = 5000
@@ -127,7 +129,6 @@ func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
 	}
         //a placeholder, unregistered handler will be setup by query or transaction processing that comes
 	//through via consensus. In this case we swap the handler and give it the notify channel 
-	var notfy chan struct{}
 	if h2 != nil {
 		chaincodehandler.readyNotify = h2.readyNotify
 		delete(c.handlerMap.m, key)
@@ -140,8 +141,6 @@ func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.responseNotifiers = make (map[string]chan *pb.ChaincodeMessage)
 
-	chaincodeLogger.Debug("notifying launcher that the chaincode %s is ready", key)
-	notfy<-struct{}{}
 	chaincodeLogger.Debug("registered handler complete for chaincode %s", key)
 
 	return nil
@@ -202,6 +201,51 @@ func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, c
 	}
 }
 
+func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
+	c.handlerMap.Lock()
+
+	var alreadyRunning bool = true
+	//if its in the map, there must be a connected stream...nothing to do
+	if _, ok := c.handlerMap.m[chaincode]; ok {
+		c.handlerMap.Unlock()
+		chainletLog.Debug("[LaunchChainCode]chaincode is running: %s", chaincode)
+		return alreadyRunning,nil
+	}
+
+	alreadyRunning = false
+	//register placeholder Handler. This will be transferred in registerHandler
+	notfy := make(chan bool, 1)
+	c.handlerMap.m[chaincode] = &Handler{ readyNotify: notfy }
+
+	c.handlerMap.Unlock()
+
+	//launch the chaincode
+	//creat a StartImageReq obj and send it to VMCProcess
+	sir := container.StartImageReq{ID: chaincode}
+	_, err := container.VMCProcess(context, "Docker", sir)
+	if err != nil {
+        	err = fmt.Errorf("Error starting container: %s", err)
+		c.handlerMap.Lock()
+		delete(c.handlerMap.m, chaincode)
+		c.handlerMap.Unlock()
+		return alreadyRunning,err
+	}
+
+	//wait for REGISTER state
+	select {
+	case ok := <-notfy:
+		if !ok {
+			err = fmt.Errorf("registration failed for %s(tx:%s)", chaincode, uuid)
+		}
+	case <-time.After(CC_STARTUP_TIMEOUT):
+		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", chaincode, uuid)
+	}
+	if err != nil {
+		//TODO stop the container
+	}
+	return alreadyRunning, err
+}
+
 //LaunchChainCode - will launch the chaincode if not running (if running return nil) and will wait for
 //handler for the chaincode to get into FSM (ready state)
 func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletID, *pb.ChainletMessage, error) {
@@ -236,46 +280,28 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 	if err != nil {
 		return cID,cMsg,err
 	}
-	c.handlerMap.Lock()
-	//if its in the map, there must be a connected stream...nothing to do
-	if _, ok := c.handlerMap.m[chaincode]; ok {
-		c.handlerMap.Unlock()
-		chainletLog.Debug("[LaunchChainCode]chaincode is running: %s", chaincode)
-		return cID,cMsg,nil
-	}
 
-	//register placeholder Handler. This will be transferred in registerHandler
-	notfy := make(chan bool, 1)
-	c.handlerMap.m[chaincode] = &Handler{ readyNotify: notfy }
-
-	c.handlerMap.Unlock()
-
-	//launch the chaincode
-	//creat a StartImageReq obj and send it to VMCProcess
-	sir := container.StartImageReq{ID: chaincode}
-	_, err = container.VMCProcess(context, "Docker", sir)
-	if err != nil {
-	        err = fmt.Errorf("Error starting container: %s", err)
-		c.handlerMap.Lock()
-		delete(c.handlerMap.m, chaincode)
-		c.handlerMap.Unlock()
-		return cID,cMsg,err
-	}
-
-	//wait for REGISTER state
-	select {
-	case ok := <-notfy:
-		if !ok {
-			return cID, cMsg,fmt.Errorf("registration failed for %s(tx:%s)", chaincode, t.Uuid)
+	//from here on : if we launch the container and get an error, we need to stop the container
+	if !CC_FROM_CMD_LINE  {
+		alreadyRunning,err := c.launchAndWaitForRegister(context, chaincode, t.Uuid)
+		if err != nil {
+			return cID,cMsg,err
 		}
-	case <-time.After(CC_STARTUP_TIMEOUT):
-		return cID, cMsg,fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", chaincode, t.Uuid)
+		if alreadyRunning {
+			return cID,cMsg,nil
+		}
 	}
 
-	//send init (if (f,args)) and wait for ready state
-	err = c.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
 	if err != nil {
-		return cID,cMsg, fmt.Errorf("Failed to init chaincode(%s)", err)
+		//send init (if (f,args)) and wait for ready state
+		err = c.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
+		if err != nil {
+			err = fmt.Errorf("Failed to init chaincode(%s)", err)
+		}
+	}
+
+	if !CC_FROM_CMD_LINE && err != nil {
+		//TODO stop container
 	}
 	return cID,cMsg,err
 }

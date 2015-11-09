@@ -163,7 +163,7 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
-
+    chaincode_from_command_line: true
 ###############################################################################
 #
 #    VM section

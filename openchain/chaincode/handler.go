@@ -162,6 +162,7 @@ func (c *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 	c.ChaincodeID = chainletID
 	err = c.chainletSupport.registerHandler(c)
 	if err != nil {
+		//if CC_FROM_CMD_LINE readyNotify will be nil
 		if c.readyNotify != nil {
 			c.readyNotify <- false
 		}
@@ -211,7 +212,7 @@ func (c *Handler) beforeCompletedEvent(e *fsm.Event, state string) {
 }
 
 func (c *Handler) beforeInitState(e *fsm.Event, state string) {
-	chainletLog.Debug("Before state %s", state)
+	chainletLog.Debug("Before state %s.. notifying waiter that we are up", state)
 	c.readyNotify <- true
 }
 
@@ -282,6 +283,10 @@ func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), c.FSM.Current())
 	}
 	err := c.FSM.Event(msg.Type.String(), msg)
+
+	if c.FSM.Current() == ESTABLISHED_STATE {
+		err = c.FSM.Event(pb.ChaincodeMessage_READY.String())
+	}
 
 	return filterError(err)
 }
