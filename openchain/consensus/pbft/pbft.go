@@ -151,8 +151,6 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 		logger.Info("Message type %s received.", msg.Type)
 	}
 
-	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
-	// definitions are updated.
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 
 		// Create new `Unpack` message.

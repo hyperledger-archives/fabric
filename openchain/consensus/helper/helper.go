@@ -30,10 +30,10 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/vendor/github.com/op/go-logging"
 
 	gp "google/protobuf"
 
-	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 )
 
@@ -96,8 +96,6 @@ func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 		logger.Debug("Handling an incoming message.")
 	}
 
-	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
-	// definitions are updated.
 	switch msg.Type {
 	case pb.OpenchainMessage_REQUEST:
 		return h.consenter.RecvMsg(msg)
