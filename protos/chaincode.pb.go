@@ -244,17 +244,6 @@ func (m *ChainletExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
 	return nil
 }
 
-type ChaincodeResponse struct {
-	Success   bool   `protobuf:"varint,1,opt,name=success" json:"success,omitempty"`
-	ValueType string `protobuf:"bytes,2,opt,name=valueType" json:"valueType,omitempty"`
-	Value     []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Uuid      string `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-}
-
-func (m *ChaincodeResponse) Reset()         { *m = ChaincodeResponse{} }
-func (m *ChaincodeResponse) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeResponse) ProtoMessage()    {}
-
 type ChaincodeMessage struct {
 	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`

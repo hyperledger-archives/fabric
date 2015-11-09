@@ -98,13 +98,6 @@ message ChainletExecutionContext {
 
 }
 
-message ChaincodeResponse {
-    bool success = 1;
-    string valueType = 2;
-    bytes value = 3;
-    string uuid = 4;
-}
-
 message ChaincodeMessage {
 
     enum Type {

@@ -64,10 +64,9 @@ type Handler struct {
 	FSM             *fsm.FSM
 	ChaincodeID     *pb.ChainletID
 	chainletSupport *ChainletSupport
-	initArgs	[]string
 	registered      bool
-	readyNotify	chan struct{}
-	responseNotifiers map[string] chan *pb.ChaincodeResponse
+	readyNotify	chan bool
+	responseNotifiers map[string] chan *pb.ChaincodeMessage
 }
 
 func (c *Handler) deregister() error {
@@ -134,7 +133,7 @@ func newChaincodeSupportHandler(chainletSupport *ChainletSupport, peerChatStream
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTER.String(): func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
 			"before_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
-			"enter_" + INIT_STATE: func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
 			"enter_" + READY_STATE: func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
 			"enter_" + BUSYINIT_STATE: func(e *fsm.Event) { v.enterBusyInitState(e, v.FSM.Current()) },
 			"enter_" + BUSYXACT_STATE: func(e *fsm.Event) { v.enterBusyXactState(e, v.FSM.Current()) },
@@ -163,18 +162,23 @@ func (c *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 	c.ChaincodeID = chainletID
 	err = c.chainletSupport.registerHandler(c)
 	if err != nil {
+		if c.readyNotify != nil {
+			c.readyNotify <- false
+		}
 		e.Cancel(err)
 		return
 	}
 
 	chainletLog.Debug("Got %s for chainldetID = %s, sending back %s", e.Event, chainletID, pb.ChaincodeMessage_REGISTERED)
 	if err := c.ChatStream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTERED}); err != nil {
+		c.readyNotify <- false
 		e.Cancel(fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_REGISTERED, err))
 		return
 	}
+	c.readyNotify <- true
 }
 
-func (c *Handler) notify(msg *pb.ChaincodeResponse) {
+func (c *Handler) notify(msg *pb.ChaincodeMessage) {
 	c.Lock()
 	defer c.Unlock()
 	notfy := c.responseNotifiers[msg.Uuid]
@@ -185,6 +189,7 @@ func (c *Handler) notify(msg *pb.ChaincodeResponse) {
 		fmt.Printf("notified Uuid:%s\n", msg.Uuid)
 	}
 }
+
 func (c *Handler) beforeCompletedEvent(e *fsm.Event, state string) {
 	chaincodeLogger.Debug("Received %s in state %s", e.Event, state)
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
@@ -192,10 +197,10 @@ func (c *Handler) beforeCompletedEvent(e *fsm.Event, state string) {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	resp := &pb.ChaincodeResponse{}
+	resp := &pb.ChaincodeMessage{}
 	err := proto.Unmarshal(msg.Payload, resp)
 	if err != nil {
-		e.Cancel(fmt.Errorf("Error in received %s, could NOT unmarshal ChaincodeResponse info: %s", pb.ChaincodeMessage_COMPLETED, err))
+		e.Cancel(fmt.Errorf("Error in received %s, could NOT unmarshal ChaincodeMessage info: %s", pb.ChaincodeMessage_COMPLETED, err))
 		return
 	}
 
@@ -205,8 +210,9 @@ func (c *Handler) beforeCompletedEvent(e *fsm.Event, state string) {
 	return
 }
 
-func (c *Handler) enterInitState(e *fsm.Event, state string) {
-	chainletLog.Debug("Entered state %s", state)
+func (c *Handler) beforeInitState(e *fsm.Event, state string) {
+	chainletLog.Debug("Before state %s", state)
+	c.readyNotify <- true
 }
 
 func (c *Handler) enterReadyState(e *fsm.Event, state string) {
@@ -231,21 +237,34 @@ func (c *Handler) enterEndState(e *fsm.Event, state string) {
 
 //if initArgs is set (should be for "deploy" only) move to Init
 //else move to ready
-func (c *Handler) initOrReady() error {
+func (c *Handler) initOrReady(uuid string, f *string, initArgs []string) (chan *pb.ChaincodeMessage, error) {
 	var event string
-	if c.initArgs != nil {
-		funcArgsMsg := &pb.ChainletMessage{Function: "", Args: c.initArgs}
+	var notfy chan *pb.ChaincodeMessage
+	if f != nil || initArgs != nil {
+		var f2 string
+		if f != nil {
+			f2 = *f
+		}
+		funcArgsMsg := &pb.ChainletMessage{Function: f2, Args: initArgs}
 		payload, err := proto.Marshal(funcArgsMsg)
 		if err != nil {
-			return err
+			return nil,err
+		}
+		notfy,err := c.createNotifier(uuid)
+		if err != nil {
+			return nil,err
 		}
 		ccMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload}
 		if err = c.ChatStream.Send(ccMsg); err != nil {
-			return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
+			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)), Uuid: uuid }
+			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 		}
 		event = pb.ChaincodeMessage_INIT.String()
 	} else {
 		event = pb.ChaincodeMessage_READY.String()
+		//TODO this is really cheating... I should really notify when the state moves to READY...
+		//but this is an internal move(not from chaincode, so lets just do it for now)
+		notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Uuid: uuid }
 	}
 	err := c.FSM.Event(event)
 	if err != nil {
@@ -253,8 +272,9 @@ func (c *Handler) initOrReady() error {
 	} else {
 		fmt.Printf("Successful event initiation\n")
 	}
-	return err
+	return notfy, err
 }
+
 // HandleMessage implementation of MessageHandler interface.  Peer's handling of Chaincode messages.
 func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
@@ -262,12 +282,7 @@ func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), c.FSM.Current())
 	}
 	err := c.FSM.Event(msg.Type.String(), msg)
-        if err == nil {
-		//decide to go to INIT or READY
-		if c.FSM.Current() == ESTABLISHED_STATE {
-			err = c.initOrReady()
-		}
-	}
+
 	return filterError(err)
 }
 
@@ -293,11 +308,44 @@ func filterError(errFromFSMEvent error) error {
 	return nil
 }
 
-func (c *Handler) SendMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeResponse, error) {
+func (c *Handler) deleteNotifier(uuid string) {
+	c.Lock()
+	if c.responseNotifiers != nil {
+		delete(c.responseNotifiers,uuid)
+	}
+	c.Unlock()
+}
+func (c *Handler) createNotifier(uuid string) (chan *pb.ChaincodeMessage, error) {
+	if c.responseNotifiers == nil {
+		return nil,fmt.Errorf("cannot create notifier for Uuid:%s", uuid)
+	}
+	c.Lock()
+	defer c.Unlock()
+	if c.responseNotifiers[uuid] != nil {
+		return nil, fmt.Errorf("Uuid:%s exists", uuid)
+	}
+	c.responseNotifiers[uuid] = make(chan *pb.ChaincodeMessage, 1)
+	return c.responseNotifiers[uuid],nil
+}
+
+func (c *Handler) SendMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessage, error) {
+	notfy,err := c.createNotifier(msg.Uuid)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.ChatStream.Send(msg); err != nil {
+		c.deleteNotifier(msg.Uuid)
+		return nil, fmt.Errorf("SendMessage error sending %s(%s)", msg.Uuid, err)
+	}
+	return notfy, nil
+}
+
+/****************
+func (c *Handler) initEvent() (chan *pb.ChaincodeMessage, error) {
 	if c.responseNotifiers == nil {
 		return nil,fmt.Errorf("SendMessage called before registration for Uuid:%s", msg.Uuid)
 	}
-	var notfy chan *pb.ChaincodeResponse
+	var notfy chan *pb.ChaincodeMessage
 	c.Lock()
 	if c.responseNotifiers[msg.Uuid] != nil {
 		c.Unlock()
@@ -305,13 +353,13 @@ func (c *Handler) SendMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeRespo
 	}
 	//note the explicit use of buffer 1. We won't block if the receiver times outi and does not wait
 	//for our response
-	c.responseNotifiers[msg.Uuid] = make(chan *pb.ChaincodeResponse, 1)
+	c.responseNotifiers[msg.Uuid] = make(chan *pb.ChaincodeMessage, 1)
 	c.Unlock()
+
 	if err := c.ChatStream.Send(msg); err != nil {
-		c.Lock()
-		delete(c.responseNotifiers,msg.Uuid)
-		c.Unlock()
+		deleteNotifier(msg.Uuid)
 		return nil, fmt.Errorf("SendMessage error sending %s(%s)", msg.Uuid, err)
 	}
 	return notfy, nil
 }
+*******************/

@@ -35,6 +35,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
@@ -354,7 +355,7 @@ func (v *validatorFSM) beforePrePrepareResult(e *fsm.Event) {
 	}
 
 	// Execute transactions
-	hopefulHash, errs := executeTransactions(context.Background(), transactions)
+	hopefulHash, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DEFAULTCHAIN, transactions)
 	for _, currErr := range errs {
 		if currErr != nil {
 			e.Cancel(fmt.Errorf("Error executing transactions pbft: %s", currErr))

@@ -32,7 +32,8 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func  executeTransaction(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([]byte, error) {
+//Execute - execute transaction or a query
+func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([]byte, error) {
 	//add "function" as an argument to be passed
 	newArgs := make([]string, len(t.Args)+1)
 	newArgs[0] = t.Function
@@ -44,14 +45,16 @@ func  executeTransaction(ctxt context.Context, chain *ChainletSupport, t *pb.Tra
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
 		}
+
 		//launch and wait for Register
 		_,_,err = chain.LaunchChaincode(ctxt, t)
 		if err != nil {
+			//TODO rollback transaction as init might have set state
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
 	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
 		//will launch if necessary (and wait for Register)
-		cID,cMsg, err := chain.LaunchChaincode(ctxt, t)
+		cID,cMsg,err := chain.LaunchChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
@@ -69,16 +72,28 @@ func  executeTransaction(ctxt context.Context, chain *ChainletSupport, t *pb.Tra
 			return nil, fmt.Errorf("Failed to retrieve chaincode spec(%s)", err)
 		}
 		
-		ccMsg,err := CreateTransactionMessage(t.Uuid, cMsg)
-		if(err != nil){
-			return nil, fmt.Errorf("Failed to create transation message(%s)", err)
-		}
-		
-		resp,err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
-		if err != nil || resp == nil {
+		var ccMsg *pb.ChaincodeMessage
+		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
+			ccMsg,err = CreateTransactionMessage(t.Uuid, cMsg)
+			return nil, fmt.Errorf("Failed to transaction message(%s)", err)
 		} else {
-			if resp.Success {
+			ccMsg,err = CreateQueryMessage(t.Uuid, cMsg)
+			return nil, fmt.Errorf("Failed to query message(%s)", err)
+		}
+
+		resp,err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
+
+		if err != nil {
+			//TODO rollback transaction....
+			return nil, fmt.Errorf("Failed to execute transaction(%s)", err)
+		} else if resp == nil {
+			//TODO rollback transaction....
+			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
+		} else {
+			if resp.Type == pb.ChaincodeMessage_COMPLETED {
+				return 	resp.Payload, nil
 			} else {
+				return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 			}
 		}
 
@@ -98,7 +113,7 @@ func  ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tra
 	}
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
-		_,errs[i] = executeTransaction(ctxt,chain,t)
+		_,errs[i] = Execute(ctxt,chain,t)
 	}
 	//TODO - error processing ... for now assume everything worked
 	ledger, hasherr := ledger.GetLedger()
