@@ -25,15 +25,15 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	gp "google/protobuf"
+
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
-	"github.com/openblockchain/obc-peer/vendor/github.com/op/go-logging"
 
-	gp "google/protobuf"
-
+	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 )
 
