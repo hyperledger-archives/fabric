@@ -110,12 +110,13 @@ func (x OpenchainMessage_Type) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type       Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChainletID *ChainletID      `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	Function   string           `protobuf:"bytes,3,opt,name=function" json:"function,omitempty"`
-	Args       []string         `protobuf:"bytes,4,rep,name=args" json:"args,omitempty"`
-	Payload    []byte           `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid       string           `protobuf:"bytes,6,opt,name=uuid" json:"uuid,omitempty"`
+	Type       Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChainletID *ChainletID                `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
+	Function   string                     `protobuf:"bytes,3,opt,name=function" json:"function,omitempty"`
+	Args       []string                   `protobuf:"bytes,4,rep,name=args" json:"args,omitempty"`
+	Payload    []byte                     `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid       string                     `protobuf:"bytes,6,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,7,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -125,6 +126,13 @@ func (*Transaction) ProtoMessage()    {}
 func (m *Transaction) GetChainletID() *ChainletID {
 	if m != nil {
 		return m.ChainletID
+	}
+	return nil
+}
+
+func (m *Transaction) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
 	}
 	return nil
 }

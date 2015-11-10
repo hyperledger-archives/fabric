@@ -19,8 +19,11 @@ under the License.
 
 package pbft
 
-import "testing"
 import (
+	gp "google/protobuf"
+	"testing"
+	"time"
+
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
 	pb "github.com/openblockchain/obc-peer/protos"
 
@@ -88,7 +91,8 @@ func TestRecvMsg(t *testing.T) {
 	var err error
 
 	// Create a message of type: `OpenchainMessage_REQUEST`.
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW}
+	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
 	txBlockPacked, err := proto.Marshal(txBlock)
 	if err != nil {

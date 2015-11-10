@@ -184,9 +184,10 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 
 		// Create new `Unpack_REQUEST2` message. TODO: Rename to `REQUEST`.
+
 		reqMsg := &Request2{
-			UID:     tx.Uuid,
-			Payload: txPacked,
+			Timestamp: tx.Timestamp,
+			Payload:   txPacked,
 		}
 
 		if logger.IsEnabledFor(logging.DEBUG) {

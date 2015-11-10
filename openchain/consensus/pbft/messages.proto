@@ -19,6 +19,8 @@ under the License.
 
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package pbft;
 
 // =============================================================================
@@ -54,7 +56,7 @@ message Unpack {
 // to the entire network of validating peers. TODO: Rename to `Request`.
 message Request2 {
 
-    string UID = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
+    google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
     bytes payload = 2;  // Marshal the first and only element of a TransactionBlock message.
 }
 
