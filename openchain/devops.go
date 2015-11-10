@@ -28,6 +28,7 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -164,4 +165,21 @@ func pathExists(path string) (bool, error) {
 		return false, nil
 	}
 	return true, err
+}
+
+// Deploy deploys the supplied chaincode image to the validators through a transaction
+func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
+	// First build and get the deployment spec
+	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: []byte("")}
+
+	uuid, uuidErr := util.GenerateUUID()
+	if uuidErr != nil {
+		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
+		return nil, uuidErr
+	}
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	}
+	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
 }

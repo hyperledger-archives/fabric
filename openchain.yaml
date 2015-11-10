@@ -163,7 +163,15 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
-    chaincode_from_command_line: true
+    #options are "user_runs_chaincode", "system_run_chaincode"
+    #"user_runs_chaincode" - user runs the chaincode after starting validator
+    #                        from command line or from docker
+    #"validator_runs_chaincode" - validator will run chaincode in a container
+    #                             on demand
+    #In development mode, "user_runs_chaincode" will provide quick turnaround
+    #time during initial phases of development
+
+    chaincoderunmode: user_runs_chaincode
 ###############################################################################
 #
 #    VM section

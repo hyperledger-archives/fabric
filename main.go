@@ -20,9 +20,11 @@ under the License.
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"strings"
 	"encoding/json"
@@ -62,7 +64,7 @@ var peerCmd = &cobra.Command{
 	Short: "Run openchain peer.",
 	Long:  `Runs the openchain peer that interacts with the openchain network.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		serve()
+		serve(args)
 	},
 }
 
@@ -270,12 +272,11 @@ func main() {
 // 	return nil
 // }
 
-func serve() error {
+func serve(args []string) error {
 
 	// if viper.GetBool("validator.enabled") {
 	// 	serverValidator()
 	// }
-
 	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
@@ -347,6 +348,11 @@ func serve() error {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+
+	
+	if len(args) > 0 && args[0] == "cli" {
+		go doCLI()
+	}
 	grpcServer.Serve(lis)
 	return nil
 }
@@ -511,4 +517,48 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 		return
 	}
 	logger.Info("Succesffuly invoked transaction: %s", invocation)
+}
+
+func doCLI() {
+    wio :=bufio.NewWriter(os.Stdout)
+    rio :=bufio.NewReader(os.Stdin)
+    help := "deploy <chaincodeid> <version> <funcname> <arg> <arg>...\n"
+    for {
+        wio.WriteString(">")
+        wio.Flush()
+        line, _:= rio.ReadString('\n')
+        if line == "q\n" {
+            break
+        }
+        toks := strings.Split(line, "\n") //get rid of /n
+        toks = strings.Split(toks[0], " ")
+        if toks == nil || len(toks) < 1 {
+            wio.WriteString("invalid input " + line + "\n" )
+            continue
+        }
+        if toks[0] == "help" {
+            wio.WriteString(help)
+            continue
+        }
+        switch toks[0] {
+        case "deploy" :
+              fallthrough
+        case "d" :
+              if len(toks) < 5 {
+                  wio.WriteString(help)
+                  continue
+              }
+	      chainletID := toks[1]
+	      version := toks[2]
+              spec := &pb.ChainletSpec { Type: 1, ChainletID: &pb.ChainletID{ Url: chainletID, Version: version }, CtorMsg: &pb.ChaincodeInput{ Function : toks[3], Args: toks[4:] } }
+              _,err := openchain.DeployLocal(context.Background(), spec)
+              if err != nil {
+                  wio.WriteString("Error transacting : " + fmt.Sprintf("%s",err) +  "\n")
+              } else {
+                  wio.WriteString("Success\n")
+              }
+        default:
+            wio.WriteString(help)
+        }
+    }
 }

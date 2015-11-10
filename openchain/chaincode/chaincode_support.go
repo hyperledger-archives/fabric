@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,22 +44,41 @@ var chainletLog = logging.MustGetLogger("chaincode")
 type ChainName string
 const (
 	DEFAULTCHAIN ChainName = "default"
+	USERRUNSCHAINCODE string = "user_runs_chaincode"
 )
 
 //this needs to be a first class, top-level object... for now, lets just have a placeholder
 var chains map[ChainName]*ChainletSupport
 var CC_STARTUP_TIMEOUT time.Duration
-var CC_FROM_CMD_LINE bool
+var USER_RUNS_CC bool
 
 func init() {
+	viper.SetEnvPrefix("OPENCHAIN")
+	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AddConfigPath("./")  // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {
+		fmt.Printf("Error reading viper :%s\n", err)
+	}
+
 	chains = make(map[ChainName]*ChainletSupport)
 	to,err := strconv.Atoi(viper.GetString("chainlet.startuptimeout"))
-	CC_FROM_CMD_LINE = viper.GetBool("validator.chaincode_from_command_line")
 	if err != nil { //what went wrong ?
 		fmt.Printf("could not retrive timeout var...setting to 5secs\n")
 		to = 5000
 	}
 	CC_STARTUP_TIMEOUT = time.Duration(to)*time.Millisecond
+
+	mode := viper.GetString("validator.chaincoderunmode")
+	if mode == USERRUNSCHAINCODE {
+		USER_RUNS_CC = true
+	} else {
+		USER_RUNS_CC = false
+	}
+	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s]\n", to, mode)
 }
 
 type handlerMap struct {
@@ -106,15 +126,15 @@ func newDuplicateChaincodeHandlerError(chaincodeHandler *Handler) error {
 	return &DuplicateChaincodeHandlerError{ChaincodeID: chaincodeHandler.ChaincodeID}
 }
 
-func getHandlerKey(chaincodehandler *Handler) (string, error) {
-	if chaincodehandler.ChaincodeID == nil {
+func getHandlerKey(cID *pb.ChainletID) (string, error) {
+	if cID == nil {
 		return "", fmt.Errorf("Could not find chaincode handler with nil ChaincodeID")
 	}
-	return chaincodehandler.ChaincodeID.Url + ":" + chaincodehandler.ChaincodeID.Version, nil
+	return cID.Url + ":" + cID.Version, nil
 }
 
 func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
-	key, err := getHandlerKey(chaincodehandler)
+	key, err := getHandlerKey(chaincodehandler.ChaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
 	}
@@ -147,7 +167,7 @@ func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
 }
 
 func (c *ChainletSupport) deregisterHandler(chaincodehandler *Handler) error {
-	key, err := getHandlerKey(chaincodehandler)
+	key, err := getHandlerKey(chaincodehandler.ChaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error deregistering handler: %s", err)
 	}
@@ -190,15 +210,18 @@ func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, c
 	if notfy,err = handler.initOrReady(uuid, f, initArgs); err != nil {
 		return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
-	select {
-	case ccMsg := <- notfy:
-		if ccMsg.Type == pb.ChaincodeMessage_ERROR {
-			return fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload) )
+	if notfy != nil {
+		select {
+		case ccMsg := <- notfy:
+			if ccMsg.Type == pb.ChaincodeMessage_ERROR {
+				return fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload) )
+			}
+			return nil
+		case <-time.After(timeout):
+			return fmt.Errorf("Timeout expired while executing send init message")
 		}
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("Timeout expired while executing send init message")
 	}
+	return err
 }
 
 func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
@@ -276,14 +299,15 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 		c.handlerMap.Unlock()
 	        return nil,nil,fmt.Errorf("invalid transaction type: %d", t.Type)
 	}
-	chaincode, err := container.GetVMName(cID)
+	chaincode, err := getHandlerKey(cID)
 	if err != nil {
 		return cID,cMsg,err
 	}
 
 	//from here on : if we launch the container and get an error, we need to stop the container
-	if !CC_FROM_CMD_LINE  {
-		alreadyRunning,err := c.launchAndWaitForRegister(context, chaincode, t.Uuid)
+	if !USER_RUNS_CC  {
+		vmname, err := container.GetVMName(cID)
+		alreadyRunning,err := c.launchAndWaitForRegister(context, vmname, t.Uuid)
 		if err != nil {
 			return cID,cMsg,err
 		}
@@ -292,7 +316,7 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 		}
 	}
 
-	if err != nil {
+	if err == nil {
 		//send init (if (f,args)) and wait for ready state
 		err = c.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
 		if err != nil {
@@ -300,13 +324,17 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 		}
 	}
 
-	if !CC_FROM_CMD_LINE && err != nil {
+	if !USER_RUNS_CC && err != nil {
 		//TODO stop container
 	}
 	return cID,cMsg,err
 }
 
 func (c *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
+	if USER_RUNS_CC {
+		chainletLog.Debug("command line chaincode won't deploy")
+		return nil, nil
+	}
 	//build the chaincode
 	cds := &pb.ChainletDeploymentSpec{}
 	err := proto.Unmarshal(t.Payload, cds)
