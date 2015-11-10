@@ -72,7 +72,7 @@ func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.BeforeRegistered(e) },
 			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.BeforeInit(e) },
-			"before_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.BeforeInit(e) },
+			"before_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.BeforeTransaction(e) },
 			"before_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.BeforeResponse(e) },
 			"before_" + pb.ChaincodeMessage_ERROR.String(): func(e *fsm.Event) { v.BeforeResponse(e) },
 		},

@@ -22,20 +22,23 @@ package shim
 import (
 	"fmt"
 	"testing"
+	"errors"
+	"strconv"
+	"time"
 
-	"golang.org/x/net/context"
+	"github.com/golang/protobuf/proto"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type TestChaincode struct {
+type SimpleChaincode struct {
 }
 
 // Used by the test chaincode
 var A, B string
-var Aval, Bval int
+var Aval, Bval, X int
 
-func (t *TestChaincode) Run(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
 	var err error
 
 	// Handle different functions
@@ -79,33 +82,62 @@ func (t *TestChaincode) Run(stub *ChaincodeStub, function string, args []string)
 	return nil, nil
 }
 
-func (t *TestChaincode) Query(stub *ChaincodeStub, args []byte) ([]byte, error) {
+func (t *SimpleChaincode) Query(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }
 
 func TestChaincode(t *testing.T) {
 	// Start the chaincode
 	go func() {
-		err := Start(new(TestChaincode))
+		err := Start(new(SimpleChaincode))
 		if err != nil {
 			t.Logf("Error Start(ing) chaincode: %s", err)
 			t.Fail()
 		}
-	}
+	}()
+	time.Sleep(2 * time.Second)
 
 	// Invoke deploy
-	payload := `{"funcName" : "init", "args" : ["A", "100", "B", "100"]}`
-	msg : = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload} 
-	err := handler.FSM.Event(pb.ChaincodeMessage_INIT.String(), msg)
+	//payload := `{"Function" : "init", "Args" : ["A", "100", "B", "100"]}`
+	input := &pb.ChaincodeInput{Function: "init", Args: []string{"A", "100", "B", "100"}}
+
+	fmt.Printf("function is %s\n",input.Function)
+	payloadData,err := proto.Marshal(input)
+	if err != nil {
+		t.Logf("Init failed: %s", err)
+		t.Fail()
+		return
+	}
+
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payloadData} 
+	err = handler.FSM.Event(pb.ChaincodeMessage_INIT.String(), msg)
+	if err != nil {
+		t.Logf("Init failed: %s", err)
+		t.Fail()
+		return
+	}
 
 	// Ensure deploy completes
 	time.Sleep(2 * time.Second)
 
 	// Invoke transaction
-	payload := `{"funcName" : "init", "args" : ["10"]}`
-	msg : = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload} 
-	err := handler.FSM.Event(pb.ChaincodeMessage_TRANSACTION.String(), msg)
-	
+	//payload = `{"funcName" : "init", "args" : ["10"]}`
+	input = &pb.ChaincodeInput{Function: "invoke", Args: []string{"10"}}
+	fmt.Printf("function is %s\n",input.Function)
+	payloadData,err = proto.Marshal(input)
+	if err != nil {
+		t.Logf("Init failed: %s", err)
+		t.Fail()
+		return
+	}
+	msg2 := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_TRANSACTION, Payload: payloadData} 
+	err = handler.FSM.Event(pb.ChaincodeMessage_TRANSACTION.String(), msg2)
+	if err != nil {
+		t.Logf("Transaction failed: %s", err)
+		t.Fail()
+		return
+	}
+
 	// Ensure deploy completes
 	time.Sleep(2 * time.Second)
 
@@ -114,5 +146,5 @@ func TestChaincode(t *testing.T) {
 		t.Error("Transaction did not execute or incorrect execution")	
 	}
 
-	fmt.Printf("Transaction executed successfully")
+	fmt.Printf("Transaction executed successfully. Aval = %d, Bval = %d\n", Aval, Bval)
 }
