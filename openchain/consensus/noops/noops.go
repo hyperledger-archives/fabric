@@ -47,7 +47,7 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) (err error) {
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 		msg.Type = pb.OpenchainMessage_CONSENSUS
 		logger.Debug("Broadcasting %s", msg.Type)
-		cpi.Broadcast(msg) // broadcast to others so they can exec the tx
+		i.cpi.Broadcast(msg.Payload) // broadcast to others so they can exec the tx
 		// the msg must be pb.OpenchainMessage_CONSENSUS
 		logger.Debug("Executing transaction %s", msg.Type)
 		return nil // cpi.ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error)

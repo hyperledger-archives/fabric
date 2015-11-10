@@ -19,8 +19,11 @@ under the License.
 
 package pbft
 
-import "testing"
 import (
+	gp "google/protobuf"
+	"testing"
+	"time"
+
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
 	pb "github.com/openblockchain/obc-peer/protos"
 
@@ -87,23 +90,36 @@ func TestRecvMsg(t *testing.T) {
 	// Do not access through `helperInstance.consenter.`
 	var err error
 
-	msg := &pb.OpenchainMessage{Payload: []byte("hello world")}
-
-	msg.Type = pb.OpenchainMessage_REQUEST
+	// Create a message of type: `OpenchainMessage_REQUEST`.
+	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
+	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
+	txBlockPacked, err := proto.Marshal(txBlock)
+	if err != nil {
+		t.Fatalf("Failed to marshal TX block: %s", err)
+	}
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_REQUEST,
+		Payload: txBlockPacked,
+	}
 	err = instance.RecvMsg(msg)
 	if err != nil {
-		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
+		t.Fatalf("Failed to handle OpenchainMessage:%s message: %s", msg.Type, err)
 	}
 
+	// Create a message of type: `OpenchainMessage_CONSENSUS`.
 	msg.Type = pb.OpenchainMessage_CONSENSUS
 	nestedMsg := &Unpack{
 		Type:    Unpack_PREPARE,
 		Payload: []byte("hello world"),
 	}
-	newPayload, _ := proto.Marshal(nestedMsg)
+	newPayload, err := proto.Marshal(nestedMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
+	}
 	msg.Payload = newPayload
 	err = instance.RecvMsg(msg)
 	if err != nil {
-		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
+		t.Fatalf("Failed to handle message OpenchainMessage:%s message: %s", msg.Type, err)
 	}
 }

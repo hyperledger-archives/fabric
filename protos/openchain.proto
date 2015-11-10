@@ -45,6 +45,7 @@ message Transaction {
     repeated string args  = 4;
     bytes payload = 5;
     string uuid = 6;
+    google.protobuf.Timestamp timestamp = 7;
 
 }
 

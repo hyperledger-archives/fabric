@@ -148,23 +148,80 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 	var err error
 
 	if logger.IsEnabledFor(logging.INFO) {
-		logger.Info("Message type %s received.", msg.Type)
+		logger.Info("OpenchainMessage:%s received.", msg.Type)
 	}
 
-	// TODO: Change to `pb.OpenchainMessage_REQUEST` once the protobuf
-	// definitions are updated.
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 
+		// Unmarshal `msg.Payload`.
+		txBatch := &pb.TransactionBlock{}
+		err = proto.Unmarshal(msg.Payload, txBatch)
+		if err != nil {
+			return fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+		}
+
+		numTx := len(txBatch.Transactions)
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
+		}
+
+		// Extract transaction.
+		if numTx != 1 {
+			return fmt.Errorf("OpenchainMessage:%s should carry 1 transaction instead of: %d", msg.Type, numTx)
+		}
+
+		tx := txBatch.Transactions[0]
+
+		// Marshal transaction.
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			return fmt.Errorf("Error marshalling single transaction.")
+		}
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Marshaled single transaction.")
+		}
+
+		// Create new `Unpack_REQUEST2` message. TODO: Rename to `REQUEST`.
+
+		reqMsg := &Request2{
+			Timestamp: tx.Timestamp,
+			Payload:   txPacked,
+		}
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Created REQUEST message.")
+		}
+
+		// Marshal this.
+		reqMsgPacked, err := proto.Marshal(reqMsg)
+		if err != nil {
+			return fmt.Errorf("Error marshalling REQUEST message.")
+		}
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Marshalled REQUEST message.")
+		}
+
 		// Create new `Unpack` message.
-		nestedMsg := &Unpack{
+		unpackMsg := &Unpack{
 			Type:    Unpack_REQUEST,
-			Payload: msg.Payload, // The original payload. (A marshalled `pb.Transaction`.)
+			Payload: reqMsgPacked,
+		}
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Created Unpack:%s message.", unpackMsg.Type)
 		}
 
 		// Serialize it.
-		newPayload, err := proto.Marshal(nestedMsg)
+		newPayload, err := proto.Marshal(unpackMsg)
 		if err != nil {
-			return fmt.Errorf("Error marshalling message type: %s", nestedMsg.Type)
+			return fmt.Errorf("Error marshalling Unpack:%s message.", unpackMsg.Type)
+		}
+
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Marshalled Unpack:%s message.", unpackMsg.Type)
 		}
 
 		// Broadcast this message to all the validating peers.
