@@ -194,6 +194,7 @@ func (c *ChainletSupport) GetExecutionContext(context context.Context, requestCo
 }
 
 func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
+	fmt.Printf("Inside sendInitOrReady")
 	c.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -226,16 +227,15 @@ func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, c
 
 func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
 	c.handlerMap.Lock()
-
-	var alreadyRunning bool = true
 	//if its in the map, there must be a connected stream...nothing to do
 	if _, ok := c.handlerMap.m[chaincode]; ok {
+		chainletLog.Debug("[launchAndWaitForRegister] chaincode is running and ready: %s", chaincode)
 		c.handlerMap.Unlock()
-		chainletLog.Debug("[LaunchChainCode]chaincode is running: %s", chaincode)
-		return alreadyRunning,nil
+		return true, nil
 	}
+	c.handlerMap.Unlock()
 
-	alreadyRunning = false
+	alreadyRunning := false
 	//register placeholder Handler. This will be transferred in registerHandler
 	notfy := make(chan bool, 1)
 	c.handlerMap.m[chaincode] = &Handler{ readyNotify: notfy }
@@ -304,15 +304,23 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 		return cID,cMsg,err
 	}
 
+	c.handlerMap.Lock()
+	//if its in the map, there must be a connected stream...nothing to do
+	if handler, ok := c.handlerMap.m[chaincode]; ok {
+		if handler.FSM.Current() == READY_STATE {
+			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
+			c.handlerMap.Unlock()
+			return cID,cMsg,nil
+		}
+	}
+	c.handlerMap.Unlock()
+
 	//from here on : if we launch the container and get an error, we need to stop the container
 	if !USER_RUNS_CC  {
 		vmname, err := container.GetVMName(cID)
-		alreadyRunning,err := c.launchAndWaitForRegister(context, vmname, t.Uuid)
+		_,err = c.launchAndWaitForRegister(context, vmname, t.Uuid)
 		if err != nil {
 			return cID,cMsg,err
-		}
-		if alreadyRunning {
-			return cID,cMsg,nil
 		}
 	}
 
@@ -332,7 +340,7 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 
 func (c *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
 	if USER_RUNS_CC {
-		chainletLog.Debug("command line chaincode won't deploy")
+		chainletLog.Debug("command line, not deploying chaincode")
 		return nil, nil
 	}
 	//build the chaincode
@@ -407,6 +415,7 @@ func (c *ChainletSupport) Register(stream pb.ChainletSupport_RegisterServer) err
 func CreateTransactionMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMessage,error) {
 	payload, err := proto.Marshal(cMsg)
 	if err != nil {
+		fmt.Printf(err.Error())
 		return nil,err
 	}
 	return &pb.ChaincodeMessage { Type: pb.ChaincodeMessage_TRANSACTION, Payload: payload, Uuid: uuid }, nil
@@ -433,7 +442,7 @@ func (c* ChainletSupport) Execute(ctxt context.Context, chaincode string, msg *p
 	
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy,err = handler.SendMessage(msg); err != nil {
+	if notfy,err = handler.sendExecuteMessage(msg); err != nil {
 		return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
 	select {

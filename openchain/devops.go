@@ -26,13 +26,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/viper"
 	"github.com/blang/semver"
 	"github.com/op/go-logging"
+	"golang.org/x/net/context"
+	
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	pb "github.com/openblockchain/obc-peer/protos"
-	"golang.org/x/net/context"
 )
 
 var devopsLogger = logging.MustGetLogger("devops")
@@ -49,30 +51,34 @@ type Devops struct {
 
 // Build builds the supplied chaincode image
 func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
-	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
-	if err := checkSpec(spec); err != nil {
-		return nil, err
+	mode := viper.GetString("validator.chaincoderunmode")
+	var codePackageBytes []byte
+	if mode != chaincode.USERRUNSCHAINCODE {
+		devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
+		if err := checkSpec(spec); err != nil {
+			return nil, err
+		}
+		// Get new VM and as for building of container image
+		vm, err := container.NewVM()
+		if err != nil {
+			devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
+			return nil, err
+		}
+		// Build the spec
+		codePackageBytes, err = vm.BuildChaincodeContainer(spec)
+		if err != nil {
+			devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
+			return nil, err
+		}
 	}
-	// Get new VM and as for building of container image
-	vm, err := container.NewVM()
-	if err != nil {
-		devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
-		return nil, err
-	}
-	// Build the spec
-	codePackageBytes, err := vm.BuildChaincodeContainer(spec)
-	if err != nil {
-		devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
-		return nil, err
-	}
-	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
-	return chainletDeploymentSepc, nil
+	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
+	return chainletDeploymentSpec, nil
 }
 
 // Deploy deploys the supplied chaincode image to the validators through a transaction
 func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSepc, err := d.Build(ctx, spec)
+	chainletDeploymentSpec, err := d.Build(ctx, spec)
 
 	if err != nil {
 		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
@@ -85,17 +91,24 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
+	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
+	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
+	return chainletDeploymentSpec, execErr
+	
+	/*** TODO: Uncomment from here
 	peerAddress, err := GetRootNode()
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	return chainletDeploymentSepc, SendTransactionsToPeer(peerAddress, transactionBlock)
+
+	return chainletDeploymentSpec, SendTransactionsToPeer(peerAddress, transactionBlock)
+	***/
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
@@ -111,6 +124,12 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
+
+	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
+	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
+	return &google_protobuf.Empty{}, execErr
+	
+	/**** TODO: Uncomment from here
 	peerAddress, err := GetRootNode()
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
@@ -120,6 +139,7 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 	peerLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
 	//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
 	return &google_protobuf.Empty{}, nil
+	*****/ 
 }
 
 // Checks to see if chaincode resides within current package capture for language.
@@ -170,16 +190,17 @@ func pathExists(path string) (bool, error) {
 // Deploy deploys the supplied chaincode image to the validators through a transaction
 func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: []byte("")}
+	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: []byte("")}
 
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
 }
+

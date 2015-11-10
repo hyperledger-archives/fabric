@@ -47,7 +47,7 @@ func init() {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream, chaincode Chaincode, stub *ChaincodeStub) *Handler {
+func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream, chaincode Chaincode, stub *ChaincodeStub) *Handler {
 	v := &Handler{
 		To:         to,
 		ChatStream: peerChatStream,
@@ -70,18 +70,18 @@ func NewChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 			{Name: pb.ChaincodeMessage_RESPONSE.String(), Src: []string{"transaction"}, Dst: "transaction"},
 		},
 		fsm.Callbacks{
-			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.BeforeRegistered(e) },
-			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.BeforeInit(e) },
-			"before_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.BeforeTransaction(e) },
-			"before_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.BeforeResponse(e) },
-			"before_" + pb.ChaincodeMessage_ERROR.String(): func(e *fsm.Event) { v.BeforeResponse(e) },
+			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.beforeRegistered(e) },
+			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInit(e) },
+			"before_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
+			"before_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.beforeResponse(e) },
+			"before_" + pb.ChaincodeMessage_ERROR.String(): func(e *fsm.Event) { v.beforeResponse(e) },
 		},
 	)
 	return v
 }
 
-// BeforeRegistered is called to handle the REGISTERED message.
-func (handler *Handler) BeforeRegistered(e *fsm.Event) {
+// beforeRegistered is called to handle the REGISTERED message.
+func (handler *Handler) beforeRegistered(e *fsm.Event) {
 	if _, ok := e.Args[0].(*pb.ChaincodeMessage); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -90,7 +90,7 @@ func (handler *Handler) BeforeRegistered(e *fsm.Event) {
 }
 
 // BeforeInit is called to initialize the chaincode.
-func (handler *Handler) BeforeInit(e *fsm.Event) {
+func (handler *Handler) beforeInit(e *fsm.Event) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -135,7 +135,7 @@ func (handler *Handler) BeforeInit(e *fsm.Event) {
 }
 
 // BeforeTransaction is called to invoke a transaction on the chaincode.
-func (handler *Handler) BeforeTransaction(e *fsm.Event) {
+func (handler *Handler) beforeTransaction(e *fsm.Event) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -180,7 +180,7 @@ func (handler *Handler) BeforeTransaction(e *fsm.Event) {
 }
 
 // BeforeResponse is called to deliver a response or error to the chaincode stub.
-func (handler *Handler) BeforeResponse(e *fsm.Event) {
+func (handler *Handler) beforeResponse(e *fsm.Event) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -193,7 +193,7 @@ func (handler *Handler) BeforeResponse(e *fsm.Event) {
 
 // TODO: Implement method to get and put entire state map and not one key at a time?
 // HandleGetState communicates with the validator to fetch the requested state information from the ledger.
-func (handler *Handler) HandleGetState(key string) ([]byte, error) {
+func (handler *Handler) handleGetState(key string) ([]byte, error) {
 	// Send GET_STATE message to validator chaincode support
 	payload := []byte(key)
 	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_GET_STATE, Payload: payload}
@@ -225,7 +225,7 @@ func (handler *Handler) HandleGetState(key string) ([]byte, error) {
 }
 
 // HandlePutState communicates with the validator to put state information into the ledger.
-func (handler *Handler) HandlePutState(key string, value []byte) error {
+func (handler *Handler) handlePutState(key string, value []byte) error {
 	// Send PUT_STATE message to validator chaincode support
 	// TODO: Need protobuf here to merge key and value?
 	payload := []byte(key)
@@ -258,7 +258,7 @@ func (handler *Handler) HandlePutState(key string, value []byte) error {
 }
 
 // HandleDelState communicates with the validator to delete a key from the state in the ledger.
-func (handler *Handler) HandleDelState(key string) error {
+func (handler *Handler) handleDelState(key string) error {
 	// Send DEL_STATE message to validator chaincode support
 	payload := []byte(key)
 	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_DEL_STATE, Payload: payload}
@@ -290,23 +290,23 @@ func (handler *Handler) HandleDelState(key string) error {
 }
 
 // HandleInvokeChaincode communicates with the validator to invoke another chaincode.
-func (handler *Handler) HandleInvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
+func (handler *Handler) handleInvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
 	// TODO: To be implemented
 	return nil, nil
 }
 
 // HandleMessage message handles loop for shim side of chaincode/validator stream.
-func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
+func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
 	if handler.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 	}
 	err := handler.FSM.Event(msg.Type.String(), msg)
-	return FilterError(err)
+	return filterError(err)
 }
 
-// FilterError filters the errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil.
-func FilterError(errFromFSMEvent error) error {
+// filterError filters the errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil.
+func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {
 			if noTransitionErr.Err != nil {

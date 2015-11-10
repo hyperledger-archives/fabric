@@ -283,7 +283,7 @@ func (c *Handler) initOrReady(uuid string, f *string, initArgs []string) (chan *
 
 // HandleMessage implementation of MessageHandler interface.  Peer's handling of Chaincode messages.
 func (c *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
-	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
+	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s in state %s", msg.Type, c.FSM.Current())
 	if c.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), c.FSM.Current())
 	}
@@ -334,7 +334,7 @@ func (c *Handler) createNotifier(uuid string) (chan *pb.ChaincodeMessage, error)
 	return c.responseNotifiers[uuid],nil
 }
 
-func (c *Handler) SendMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessage, error) {
+func (c *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessage, error) {
 	notfy,err := c.createNotifier(msg.Uuid)
 	if err != nil {
 		return nil, err
@@ -342,6 +342,10 @@ func (c *Handler) SendMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessa
 	if err := c.ChatStream.Send(msg); err != nil {
 		c.deleteNotifier(msg.Uuid)
 		return nil, fmt.Errorf("SendMessage error sending %s(%s)", msg.Uuid, err)
+	}
+
+	if msg.Type.String() == pb.ChaincodeMessage_TRANSACTION.String() {
+		c.FSM.Event(msg.Type.String(), msg)
 	}
 	return notfy, nil
 }

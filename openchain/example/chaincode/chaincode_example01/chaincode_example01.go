@@ -34,6 +34,9 @@ import (
 type SimpleChaincode struct {
 }
 
+var A, B string
+var Aval, Bval, X int
+
 // Run callback representing the invocation of a chaincode
 // This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
 func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -58,6 +61,7 @@ func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []strin
 		if err != nil {
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
+		fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
 		// Write the state to the ledger
 		err = stub.PutState(A, []byte(strconv.Itoa(Aval))
@@ -70,8 +74,12 @@ func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []strin
 		if err != nil {
 			return nil, err
 		}
-	} else if input.funcName == "invoke" {
-		// To be implemented
+	} else if function == "invoke" {
+		// Transaction makes payment of X units from A to B
+		X, err = strconv.Atoi(args[0])
+		Aval = Aval - X
+		Bval = Bval + X
+		fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 	}
 	
 	return nil, nil

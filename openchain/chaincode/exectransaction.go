@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/container"
+	//"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -60,13 +60,15 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		}
 
 		//this should work because it worked above...
-		chaincode, _ := container.GetVMName(cID)
+		chaincode, _ := getHandlerKey(cID)
 
 		if(err != nil){
 			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
 		}
-		
-		timeout, err := getTimeout(cID)
+	
+		// TODO: Need to comment next line and uncomment call to getTimeout, when transaction blocks are being created	
+		timeout := time.Duration(2000 * time.Millisecond)
+		//timeout, err := getTimeout(cID)
 		
 		if(err != nil){
 			return nil, fmt.Errorf("Failed to retrieve chaincode spec(%s)", err)
@@ -75,14 +77,17 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		var ccMsg *pb.ChaincodeMessage
 		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
 			ccMsg,err = CreateTransactionMessage(t.Uuid, cMsg)
-			return nil, fmt.Errorf("Failed to transaction message(%s)", err)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to transaction message(%s)", err)
+			}
 		} else {
 			ccMsg,err = CreateQueryMessage(t.Uuid, cMsg)
-			return nil, fmt.Errorf("Failed to query message(%s)", err)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to query message(%s)", err)
+			}
 		}
 
 		resp,err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
-
 		if err != nil {
 			//TODO rollback transaction....
 			return nil, fmt.Errorf("Failed to execute transaction(%s)", err)
