@@ -104,7 +104,7 @@ func TestRecvMsg(t *testing.T) {
 	}
 	err = instance.RecvMsg(msg)
 	if err != nil {
-		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
+		t.Fatalf("Failed to handle OpenchainMessage:%s message: %s", msg.Type, err)
 	}
 
 	// Create a message of type: `OpenchainMessage_CONSENSUS`.
@@ -120,6 +120,6 @@ func TestRecvMsg(t *testing.T) {
 	msg.Payload = newPayload
 	err = instance.RecvMsg(msg)
 	if err != nil {
-		t.Fatalf("Failed to handle message type %s: %s", msg.Type, err)
+		t.Fatalf("Failed to handle message OpenchainMessage:%s message: %s", msg.Type, err)
 	}
 }
