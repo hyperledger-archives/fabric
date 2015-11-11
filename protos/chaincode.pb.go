@@ -2,6 +2,24 @@
 // source: chaincode.proto
 // DO NOT EDIT!
 
+/*
+Package protos is a generated protocol buffer package.
+
+It is generated from these files:
+	chaincode.proto
+
+It has these top-level messages:
+	ChainletID
+	ChaincodeInput
+	ChaincodeInvocationSpec
+	ChainletSpec
+	ChainletDeploymentSpec
+	ChainletIdentifier
+	ChainletRequestContext
+	ChainletExecutionContext
+	ChaincodeMessage
+	PutStateInfo
+*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"
@@ -261,6 +279,15 @@ func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
 	}
 	return nil
 }
+
+type PutStateInfo struct {
+	Key   string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (m *PutStateInfo) Reset()         { *m = PutStateInfo{} }
+func (m *PutStateInfo) String() string { return proto.CompactTextString(m) }
+func (*PutStateInfo) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("protos.ChainletSpec_Type", ChainletSpec_Type_name, ChainletSpec_Type_value)

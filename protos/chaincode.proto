@@ -125,6 +125,11 @@ message ChaincodeMessage {
 
 }
 
+message PutStateInfo {
+    string key = 1;
+    bytes value = 2;
+}
+
 // Interface that provides support to chaincode execution. ChainletContext
 // provides the context necessary for the server to respond appropriately.
 service ChainletSupport {

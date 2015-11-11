@@ -47,9 +47,12 @@ const (
 	USERRUNSCHAINCODE string = "user_runs_chaincode"
 )
 
+// chains is a map between different blockchains and their ChainletSupport.
 //this needs to be a first class, top-level object... for now, lets just have a placeholder
 var chains map[ChainName]*ChainletSupport
+// Timeout after which deploy will fail.
 var CC_STARTUP_TIMEOUT time.Duration
+// USER_RUNS_CC is true when user is running the chaincode in dev mode and no container is launched.
 var USER_RUNS_CC bool
 
 func init() {
@@ -81,9 +84,11 @@ func init() {
 	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s]\n", to, mode)
 }
 
+// handlerMap maps chaincodeIDs to their handlers, and maps Uuids to bool
 type handlerMap struct {
 	sync.RWMutex
-	m map[string]*Handler
+	// Handlers for each chaincode
+	chaincodeMap map[string]*Handler
 }
 
 func GetChain(name ChainName) *ChainletSupport {
@@ -93,7 +98,7 @@ func GetChain(name ChainName) *ChainletSupport {
 // NewChainletSupport Creates a new ChainletSupport instance
 func NewChainletSupport() *ChainletSupport {
 	//we need to pass chainname when we do multiple chains...till then use DEFAULTCHAIN
-	s := &ChainletSupport{ name: DEFAULTCHAIN, handlerMap: &handlerMap{m: make(map[string]*Handler)}}
+	s := &ChainletSupport{ name: DEFAULTCHAIN, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
 	//initialize global chain
 	chains[DEFAULTCHAIN] = s
@@ -126,23 +131,24 @@ func newDuplicateChaincodeHandlerError(chaincodeHandler *Handler) error {
 	return &DuplicateChaincodeHandlerError{ChaincodeID: chaincodeHandler.ChaincodeID}
 }
 
-func getHandlerKey(cID *pb.ChainletID) (string, error) {
+// getChaincodeID constructs the ID from pb.ChainletID; used by handlerMap
+func getChaincodeID(cID *pb.ChainletID) (string, error) {
 	if cID == nil {
-		return "", fmt.Errorf("Could not find chaincode handler with nil ChaincodeID")
+		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
 	}
 	return cID.Url + ":" + cID.Version, nil
 }
 
-func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
-	key, err := getHandlerKey(chaincodehandler.ChaincodeID)
+func (chainletSupport *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
+	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
 	}
-	c.handlerMap.Lock()
-	defer c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Lock()
+	defer chainletSupport.handlerMap.Unlock()
 
 	var h2 *Handler
-	if h2, ok := c.handlerMap.m[key]; ok == true && h2.registered == true {
+	if h2, ok := chainletSupport.handlerMap.chaincodeMap[key]; ok == true && h2.registered == true {
 	        chaincodeLogger.Debug("duplicate registered handler(key:%s) return error", key)
 		// Duplicate, return error
 		return newDuplicateChaincodeHandlerError(chaincodehandler)
@@ -151,39 +157,40 @@ func (c *ChainletSupport) registerHandler(chaincodehandler *Handler) error {
 	//through via consensus. In this case we swap the handler and give it the notify channel 
 	if h2 != nil {
 		chaincodehandler.readyNotify = h2.readyNotify
-		delete(c.handlerMap.m, key)
+		delete(chainletSupport.handlerMap.chaincodeMap, key)
 	}
 
-	c.handlerMap.m[key] = chaincodehandler
+	chainletSupport.handlerMap.chaincodeMap[key] = chaincodehandler
 
 	chaincodehandler.registered = true
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.responseNotifiers = make (map[string]chan *pb.ChaincodeMessage)
+	chaincodehandler.uuidMap = make(map[string]bool)
 
 	chaincodeLogger.Debug("registered handler complete for chaincode %s", key)
 
 	return nil
 }
 
-func (c *ChainletSupport) deregisterHandler(chaincodehandler *Handler) error {
-	key, err := getHandlerKey(chaincodehandler.ChaincodeID)
+func (chainletSupport *ChainletSupport) deregisterHandler(chaincodehandler *Handler) error {
+	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error deregistering handler: %s", err)
 	}
-	c.handlerMap.Lock()
-	defer c.handlerMap.Unlock()
-	if _, ok := c.handlerMap.m[key]; !ok {
+	chainletSupport.handlerMap.Lock()
+	defer chainletSupport.handlerMap.Unlock()
+	if _, ok := chainletSupport.handlerMap.chaincodeMap[key]; !ok {
 		// Handler NOT found
 		return fmt.Errorf("Error deregistering handler, could not find handler with key: %s", key)
 	}
-	delete(c.handlerMap.m, key)
+	delete(chainletSupport.handlerMap.chaincodeMap, key)
 	chaincodeLogger.Debug("Deregistered handler with key: %s", key)
 	return nil
 }
 
 // GetExecutionContext returns the execution context.  DEPRECATED. TO be removed.
-func (c *ChainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
+func (chainletSupport *ChainletSupport) GetExecutionContext(context context.Context, requestContext *pb.ChainletRequestContext) (*pb.ChainletExecutionContext, error) {
 	//chainletId := &pb.ChainletIdentifier{Url: "github."}
 	timeStamp := &google_protobuf.Timestamp{Seconds: time.Now().UnixNano(), Nanos: 0}
 	executionContext := &pb.ChainletExecutionContext{ChainletId: requestContext.GetId(),
@@ -193,18 +200,19 @@ func (c *ChainletSupport) GetExecutionContext(context context.Context, requestCo
 	return executionContext, nil
 }
 
-func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
+// Based on state of chaincode send either init or ready to move to ready state
+func(chainletSupport *ChainletSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
 	fmt.Printf("Inside sendInitOrReady")
-	c.handlerMap.Lock()
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
 	var ok bool
-	if handler, ok = c.handlerMap.m[chaincode]; !ok {
-		c.handlerMap.Unlock()
+	if handler, ok = chainletSupport.handlerMap.chaincodeMap[chaincode]; !ok {
+		chainletSupport.handlerMap.Unlock()
 		chainletLog.Debug("[sendInitOrRead]handler not found for chaincode %s", chaincode)
 		return fmt.Errorf("handler not found for chaincode %s", chaincode)
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
@@ -225,22 +233,23 @@ func(c *ChainletSupport) sendInitOrReady(context context.Context, uuid string, c
 	return err
 }
 
-func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
-	c.handlerMap.Lock()
+// launchAndWaitForRegister will launch container if not already running
+func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
-	if _, ok := c.handlerMap.m[chaincode]; ok {
+	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
 		chainletLog.Debug("[launchAndWaitForRegister] chaincode is running and ready: %s", chaincode)
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 		return true, nil
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	alreadyRunning := false
 	//register placeholder Handler. This will be transferred in registerHandler
 	notfy := make(chan bool, 1)
-	c.handlerMap.m[chaincode] = &Handler{ readyNotify: notfy }
+	chainletSupport.handlerMap.chaincodeMap[chaincode] = &Handler{ readyNotify: notfy }
 
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	//launch the chaincode
 	//creat a StartImageReq obj and send it to VMCProcess
@@ -248,9 +257,9 @@ func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chai
 	_, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil {
         	err = fmt.Errorf("Error starting container: %s", err)
-		c.handlerMap.Lock()
-		delete(c.handlerMap.m, chaincode)
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Lock()
+		delete(chainletSupport.handlerMap.chaincodeMap, chaincode)
+		chainletSupport.handlerMap.Unlock()
 		return alreadyRunning,err
 	}
 
@@ -271,7 +280,7 @@ func (c *ChainletSupport) launchAndWaitForRegister(context context.Context, chai
 
 //LaunchChainCode - will launch the chaincode if not running (if running return nil) and will wait for
 //handler for the chaincode to get into FSM (ready state)
-func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletID, *pb.ChainletMessage, error) {
+func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletID, *pb.ChaincodeInput, error) {
 	//build the chaincode
 	var cID *pb.ChainletID
 	var cMsg *pb.ChainletMessage
@@ -296,29 +305,29 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 		cID = ci.ChainletSpec.ChainletID
 		cMsg = ci.Message
 	} else {
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 	        return nil,nil,fmt.Errorf("invalid transaction type: %d", t.Type)
 	}
-	chaincode, err := getHandlerKey(cID)
+	chaincode, err := getChaincodeID(cID)
 	if err != nil {
 		return cID,cMsg,err
 	}
 
-	c.handlerMap.Lock()
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
-	if handler, ok := c.handlerMap.m[chaincode]; ok {
+	if handler, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
 		if handler.FSM.Current() == READY_STATE {
 			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
-			c.handlerMap.Unlock()
+			chainletSupport.handlerMap.Unlock()
 			return cID,cMsg,nil
 		}
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	//from here on : if we launch the container and get an error, we need to stop the container
 	if !USER_RUNS_CC  {
 		vmname, err := container.GetVMName(cID)
-		_,err = c.launchAndWaitForRegister(context, vmname, t.Uuid)
+		_,err = chainletSupport.launchAndWaitForRegister(context, vmname, t.Uuid)
 		if err != nil {
 			return cID,cMsg,err
 		}
@@ -326,7 +335,7 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = c.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
+		err = chainletSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
 		if err != nil {
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
 		}
@@ -338,7 +347,7 @@ func (c *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transac
 	return cID,cMsg,err
 }
 
-func (c *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
+func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
 	if USER_RUNS_CC {
 		chainletLog.Debug("command line, not deploying chaincode")
 		return nil, nil
@@ -353,14 +362,14 @@ func (c *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transac
 	if err != nil {
 		return cds, err
 	}
-	c.handlerMap.Lock()
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...and we are trying to build the code ?!
-	if _, ok := c.handlerMap.m[chaincode]; ok {
+	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
 		chainletLog.Debug("deploy ?!! there's a chaincode with that name running: %s", chaincode)
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 		return cds, nil
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	//create build request ...
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
@@ -375,7 +384,8 @@ func (c *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transac
 	return cds, err
 }
 
-func (c *ChainletSupport) SendTransaction(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
+// Sends a transaction or query message to the chaincode
+func (chainletSupport *ChainletSupport) SendTransaction(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChainletDeploymentSpec{}
 	err := proto.Unmarshal(t.Payload, cds)
@@ -386,14 +396,14 @@ func (c *ChainletSupport) SendTransaction(context context.Context, t *pb.Transac
 	if err != nil {
 		return cds, err
 	}
-	c.handlerMap.Lock()
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...and we are trying to build the code ?!
-	if _, ok := c.handlerMap.m[chaincode]; ok {
+	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
 		chainletLog.Debug("deploy ?!! there's a chaincode with that name running: %s", chaincode)
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 		return cds, nil
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	//create build request ...
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
@@ -429,16 +439,16 @@ func CreateQueryMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMes
 	return &pb.ChaincodeMessage { Type: pb.ChaincodeMessage_QUERY, Payload: payload, Uuid: uuid }, nil
 }
 
-func (c* ChainletSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
-	c.handlerMap.Lock()
+func (chainletSupport *ChainletSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
+	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
-	handler,ok := c.handlerMap.m[chaincode]
+	handler,ok := chainletSupport.handlerMap.chaincodeMap[chaincode]
 	if !ok {
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 		chainletLog.Debug("[Execute]chaincode is not running: %s", chaincode)
 		return nil, fmt.Errorf("Cannot execute transaction or query for %s", chaincode)
 	}
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 	
 	var notfy chan *pb.ChaincodeMessage
 	var err error

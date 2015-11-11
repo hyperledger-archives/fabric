@@ -60,7 +60,7 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		}
 
 		//this should work because it worked above...
-		chaincode, _ := getHandlerKey(cID)
+		chaincode, _ := getChaincodeID(cID)
 
 		if(err != nil){
 			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
