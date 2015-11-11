@@ -55,6 +55,7 @@ type Chaincode interface {
 
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
+	Uuid string
 }
 
 // Start entry point for chaincodes bootstrap.
@@ -132,10 +133,10 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) 
 	}
 
 	// Create the chaincode stub which will be passed to the chaincode
-	stub := &ChaincodeStub{}
+	//stub := &ChaincodeStub{}
 
 	// Create the shim handler responsible for all control logic
-	handler = newChaincodeHandler(getPeerAddress(), stream, cc, stub)
+	handler = newChaincodeHandler(getPeerAddress(), stream, cc)
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
@@ -175,20 +176,20 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) 
 
 // This is the method chaincode will call to get state.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
-	return handler.handleGetState(key)
+	return handler.handleGetState(key, stub.Uuid)
 }
 
 // This is the method chaincode will call to put state.
 func (stub *ChaincodeStub) PutState(key string, value []byte) error {
-	return handler.handlePutState(key, value)
+	return handler.handlePutState(key, value, stub.Uuid)
 }
 
 // This is the method chaincode will call to delete state.
 func (stub *ChaincodeStub) DelState(key string) error {
-	return handler.handleDelState(key)
+	return handler.handleDelState(key, stub.Uuid)
 }
 
 // This is the method chaincode will call to invoke another chaincode
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeID, args)
+	return handler.handleInvokeChaincode(chaincodeID, args, stub.Uuid)
 }

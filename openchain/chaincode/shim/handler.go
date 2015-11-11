@@ -36,7 +36,7 @@ type Handler struct {
 	ChatStream chaincode.PeerChaincodeStream
 	FSM        *fsm.FSM
 	cc         Chaincode  
-	ccStub     *ChaincodeStub
+	//ccStub     *ChaincodeStub
 }
 
 // responseChannel is the channel on which responses are communicated by the shim to the chaincodeStub.
@@ -47,12 +47,12 @@ func init() {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream, chaincode Chaincode, stub *ChaincodeStub) *Handler {
+func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream, chaincode Chaincode) *Handler {
 	v := &Handler{
 		To:         to,
 		ChatStream: peerChatStream,
 		cc:         chaincode,
-		ccStub:     stub,	
+		//ccStub:     stub,	
 	}
 
 	// Create the shim side FSM
@@ -114,7 +114,10 @@ func (handler *Handler) beforeInit(e *fsm.Event) {
 		}	
 
 		// Call chaincode's Run
-		res, err := handler.cc.Run(handler.ccStub, input.Function, input.Args)
+		// Create the ChaincodeStub which the chaincode can use to callback
+		stub := new(ChaincodeStub)
+		stub.Uuid = msg.Uuid
+		res, err := handler.cc.Run(stub, input.Function, input.Args)
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
@@ -159,7 +162,10 @@ func (handler *Handler) beforeTransaction(e *fsm.Event) {
 		}	
 
 		// Call chaincode's Run
-		res, err := handler.cc.Run(handler.ccStub, input.Function, input.Args)
+		// Create the ChaincodeStub which the chaincode can use to callback
+		stub := new(ChaincodeStub)
+		stub.Uuid = msg.Uuid
+		res, err := handler.cc.Run(stub, input.Function, input.Args)
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
@@ -193,10 +199,10 @@ func (handler *Handler) beforeResponse(e *fsm.Event) {
 
 // TODO: Implement method to get and put entire state map and not one key at a time?
 // HandleGetState communicates with the validator to fetch the requested state information from the ledger.
-func (handler *Handler) handleGetState(key string) ([]byte, error) {
+func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) {
 	// Send GET_STATE message to validator chaincode support
 	payload := []byte(key)
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_GET_STATE, Payload: payload}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_GET_STATE, Payload: payload, Uuid: uuid}
 	handler.ChatStream.Send(msg)
 	chaincodeLogger.Debug("Sending %s", pb.ChaincodeMessage_GET_STATE)
 
@@ -209,12 +215,12 @@ func (handler *Handler) handleGetState(key string) ([]byte, error) {
 
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
 		// Success response
-		chaincodeLogger.Debug("Received %s. Payload %s", pb.ChaincodeMessage_RESPONSE, responseMsg.Payload)
+		chaincodeLogger.Debug("Received %s. Payload %s, Uuid %s", pb.ChaincodeMessage_RESPONSE, responseMsg.Payload, responseMsg.Uuid)
 		return responseMsg.Payload, nil
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
-		chaincodeLogger.Debug("Received %s. Payload %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload)
+		chaincodeLogger.Debug("Received %s. Payload %s, Uuid %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload, responseMsg.Uuid)
 		n := bytes.IndexByte(responseMsg.Payload, 0)
 		return nil, errors.New(string(responseMsg.Payload[:n]))
 	}
@@ -225,11 +231,11 @@ func (handler *Handler) handleGetState(key string) ([]byte, error) {
 }
 
 // HandlePutState communicates with the validator to put state information into the ledger.
-func (handler *Handler) handlePutState(key string, value []byte) error {
+func (handler *Handler) handlePutState(key string, value []byte, uuid string) error {
 	// Send PUT_STATE message to validator chaincode support
 	// TODO: Need protobuf here to merge key and value?
 	payload := []byte(key)
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_PUT_STATE, Payload: payload}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_PUT_STATE, Payload: payload, Uuid: uuid}
 	handler.ChatStream.Send(msg)
 	chaincodeLogger.Debug("Sending %s", pb.ChaincodeMessage_PUT_STATE)
 
@@ -258,10 +264,10 @@ func (handler *Handler) handlePutState(key string, value []byte) error {
 }
 
 // HandleDelState communicates with the validator to delete a key from the state in the ledger.
-func (handler *Handler) handleDelState(key string) error {
+func (handler *Handler) handleDelState(key string, uuid string) error {
 	// Send DEL_STATE message to validator chaincode support
 	payload := []byte(key)
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_DEL_STATE, Payload: payload}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_DEL_STATE, Payload: payload, Uuid: uuid}
 	handler.ChatStream.Send(msg)
 	chaincodeLogger.Debug("Sending %s", pb.ChaincodeMessage_DEL_STATE)
 
@@ -290,7 +296,7 @@ func (handler *Handler) handleDelState(key string) error {
 }
 
 // HandleInvokeChaincode communicates with the validator to invoke another chaincode.
-func (handler *Handler) handleInvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
+func (handler *Handler) handleInvokeChaincode(chaincodeID string, args []byte, uuid string) ([]byte, error) {
 	// TODO: To be implemented
 	return nil, nil
 }
