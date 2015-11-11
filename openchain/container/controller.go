@@ -35,7 +35,7 @@ import (
 
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
-	build(ctxt context.Context, id string, args []string, reader io.Reader) error
+	build(ctxt context.Context, id string, args []string, env []string, reader io.Reader) error
 	start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error
 	stop(ctxt context.Context, id string, timeout uint) error
 }
@@ -49,7 +49,6 @@ type dockerVM struct {
 func (vm *dockerVM) newClient() (*docker.Client, error) {
 	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
 	endpoint := viper.GetString("vm.endpoint")
-	fmt.Printf("Creating dockerVM with endpoint: %s\n", endpoint)
 	client, err := docker.NewClient(endpoint)
 	if err != nil {
 		return nil, err
@@ -60,7 +59,7 @@ func (vm *dockerVM) newClient() (*docker.Client, error) {
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *dockerVM) build(ctxt context.Context, id string, args []string, reader io.Reader) error {
+func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []string, reader io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,
@@ -75,15 +74,19 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, reader
 			fmt.Printf("Error building Peer container: %s", err)
 			return err
 		}
+		vmLogger.Debug("Created image: %s", id)
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
-	config := docker.Config{Cmd: args, Image: id}
-	copts := docker.CreateContainerOptions{Name: id, Config: &config}
+	config := docker.Config{Cmd: args, Image: id, Env: env}
+	containerID := strings.Replace(id, ":", "_", -1)
+	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
+	vmLogger.Debug("Create image: %s", containerID)
 	_, err = client.CreateContainer(copts)
 	if err != nil {
 		return err
 	}
+	vmLogger.Debug("Created container: %s", id)
 	return nil
 }
 
@@ -93,37 +96,13 @@ func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach
 		fmt.Printf("start - cannot create client %s\n", err)
 		return err
 	}
-	econfig := docker.CreateExecOptions{
-		Container:    id,
-		Cmd:          args,
-		AttachStdout: true,
-	}
-	execObj, err := client.CreateExec(econfig)
+	id = strings.Replace(id, ":", "_", -1)
+	err = client.StartContainer(id, &docker.HostConfig{ NetworkMode: "host"})
 	if err != nil {
-		//perhaps container not started
-		err = client.StartContainer(id, &docker.HostConfig{})
-		if err != nil {
-			fmt.Printf("start-could not start container %s\n", err)
-			return err
-		}
-		execObj, err = client.CreateExec(econfig)
-	}
-
-	if err != nil {
-		fmt.Printf("start-could not create exec %s\n", err)
+		fmt.Printf("start-could not start container %s\n", err)
 		return err
 	}
-	sconfig := docker.StartExecOptions{
-		Detach:       detach,
-		InputStream:  instream,
-		OutputStream: outstream,
-	}
-	err = client.StartExec(execObj.ID, sconfig)
-	if err != nil {
-		fmt.Printf("start-could not start exec %s\n", err)
-		return err
-	}
-	fmt.Printf("start-started and execed container for %s\n", id)
+	vmLogger.Debug("Started container %s", id)
 	return nil
 }
 
@@ -133,7 +112,9 @@ func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint) error {
 		fmt.Printf("start - cannot create client %s\n", err)
 		return err
 	}
+	id = strings.Replace(id, ":", "_", -1)
 	err = client.StopContainer(id, timeout)
+	vmLogger.Debug("Stopped container %s", id)
 	return err
 }
 
@@ -196,11 +177,12 @@ type CreateImageReq struct {
 	ID     string
 	Reader io.Reader
 	Args   []string
+	Env    []string
 }
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.build(ctxt, bp.ID, bp.Args, bp.Reader); err != nil {
+	if err := v.build(ctxt, bp.ID, bp.Args, bp.Env, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -289,4 +271,49 @@ func GetVMName(chaincodeID *pb.ChainletID) (string, error) {
 	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }
+
+/******************* 
+ * OLD ... leavethis here as sample for "client.CreateExec" in case we need it at some point
+func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error {
+	client, err := vm.newClient()
+	if err != nil {
+		fmt.Printf("start - cannot create client %s\n", err)
+		return err
+	}
+	id = strings.Replace(id, ":", "_", -1)
+	fmt.Printf("starting container %s\n", id)
+	econfig := docker.CreateExecOptions{
+		Container:    id,
+		Cmd:          args,
+		AttachStdout: true,
+	}
+	execObj, err := client.CreateExec(econfig)
+	if err != nil {
+		//perhaps container not started
+		err = client.StartContainer(id, &docker.HostConfig{})
+		if err != nil {
+			fmt.Printf("start-could not start container %s\n", err)
+			return err
+		}
+		execObj, err = client.CreateExec(econfig)
+	}
+
+	if err != nil {
+		fmt.Printf("start-could not create exec %s\n", err)
+		return err
+	}
+	sconfig := docker.StartExecOptions{
+		Detach:       detach,
+		InputStream:  instream,
+		OutputStream: outstream,
+	}
+	err = client.StartExec(execObj.ID, sconfig)
+	if err != nil {
+		fmt.Printf("start-could not start exec %s\n", err)
+		return err
+	}
+	fmt.Printf("start-started and execed container for %s\n", id)
+	return nil
+}
+****************************/
 

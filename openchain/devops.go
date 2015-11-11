@@ -51,7 +51,7 @@ type Devops struct {
 
 // Build builds the supplied chaincode image
 func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
-	mode := viper.GetString("validator.chaincoderunmode")
+	mode := viper.GetString("chainlet.chaincoderunmode")
 	var codePackageBytes []byte
 	if mode != chaincode.USERRUNSCHAINCODE {
 		devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
@@ -187,20 +187,50 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-// Deploy deploys the supplied chaincode image to the validators through a transaction
+func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
+	mode := viper.GetString("chainlet.chaincoderunmode")
+	var codePackageBytes []byte
+	if mode != chaincode.USERRUNSCHAINCODE {
+		if err := checkSpec(spec); err != nil {
+			devopsLogger.Debug("check spec failed: %s", err)
+			return nil, err
+		}
+		// Get new VM and as for building of container image
+		vm, err := container.NewVM()
+		if err != nil {
+			devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
+			return nil, err
+		}
+		// Build the spec
+		codePackageBytes, err = vm.BuildChaincodeContainer(spec)
+		if err != nil {
+			devopsLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
+			return nil, err
+		}
+	}
+	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
+	return chainletDeploymentSepc, nil
+}
+
 func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: []byte("")}
+	chainletDeploymentSepc, err := BuildLocal(ctx, spec)
 
+	if err != nil {
+		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
+		return nil, err
+	}
+	//devopsLogger.Debug("returning status: %s", status)
+	// Now create the Transactions message and send to Peer.
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
 }
-

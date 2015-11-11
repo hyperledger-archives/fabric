@@ -27,15 +27,22 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	//"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
+
+// PeerChaincodeStream interface for stream between Peer and chaincode instance.
+type PeerChaincodeStream interface {
+        Send(*pb.ChaincodeMessage) error
+        Recv() (*pb.ChaincodeMessage, error)
+}
+
 
 // Handler handler implementation for shim side of chaincode.
 type Handler struct {
 	sync.RWMutex	
 	To         string
-	ChatStream chaincode.PeerChaincodeStream
+	ChatStream PeerChaincodeStream
 	FSM        *fsm.FSM
 	cc         Chaincode  
 	// Multiple queries (and one transaction) with different Uuids can be executing in parallel for this chaincode

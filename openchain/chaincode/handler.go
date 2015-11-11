@@ -224,10 +224,10 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 	defer handler.Unlock()
 	notfy := handler.responseNotifiers[msg.Uuid]
 	if notfy == nil {
-		fmt.Printf("notifier Uuid:%s does not exist\n", msg.Uuid)
+		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
 		notfy<-msg
-		fmt.Printf("notified Uuid:%s\n", msg.Uuid)
+		chaincodeLogger.Debug("notified Uuid:%s", msg.Uuid)
 	}
 }
 
@@ -496,9 +496,8 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	err := handler.FSM.Event(event)
 	if err != nil {
 		fmt.Printf("Err : %s\n", err)
-	} else {
-		fmt.Printf("Successful event initiation\n")
 	}
+
 	return notfy, err
 }
 

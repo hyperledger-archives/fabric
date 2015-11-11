@@ -45,6 +45,8 @@ type ChainName string
 const (
 	DEFAULTCHAIN ChainName = "default"
 	USERRUNSCHAINCODE string = "user_runs_chaincode"
+	CHAINCODEINSTALLPATH_DEFAULT string = "/go/bin"
+	PEERADDRESS_DEFAULT string = "0.0.0.0:30303"
 )
 
 // chains is a map between different blockchains and their ChainletSupport.
@@ -52,8 +54,10 @@ const (
 var chains map[ChainName]*ChainletSupport
 // Timeout after which deploy will fail.
 var CC_STARTUP_TIMEOUT time.Duration
+var CHAINCODEINSTALLPATH string
 // USER_RUNS_CC is true when user is running the chaincode in dev mode and no container is launched.
 var USER_RUNS_CC bool
+var PEERADDRESS string
 
 func init() {
 	viper.SetEnvPrefix("OPENCHAIN")
@@ -62,6 +66,7 @@ func init() {
 	viper.SetEnvKeyReplacer(replacer)
 	viper.SetConfigName("openchain") // name of config file (without extension)
 	viper.AddConfigPath("./")  // path to look for the config file in
+	viper.AddConfigPath("./../../")  // path to look for the config file in
 	err := viper.ReadInConfig()      // Find and read the config file
 	if err != nil {
 		fmt.Printf("Error reading viper :%s\n", err)
@@ -75,13 +80,24 @@ func init() {
 	}
 	CC_STARTUP_TIMEOUT = time.Duration(to)*time.Millisecond
 
-	mode := viper.GetString("validator.chaincoderunmode")
+	mode := viper.GetString("chainlet.chaincoderunmode")
 	if mode == USERRUNSCHAINCODE {
 		USER_RUNS_CC = true
 	} else {
 		USER_RUNS_CC = false
 	}
-	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s]\n", to, mode)
+
+	CHAINCODEINSTALLPATH := viper.GetString("chainlet.chaincodeinstallpath")
+	if CHAINCODEINSTALLPATH == "" {
+		CHAINCODEINSTALLPATH = CHAINCODEINSTALLPATH_DEFAULT
+	}
+
+	PEERADDRESS = viper.GetString("peer.address")
+	if PEERADDRESS == "" {
+		PEERADDRESS = PEERADDRESS_DEFAULT
+	}
+
+	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s, peer address-%s]\n", to, mode, PEERADDRESS)
 }
 
 // handlerMap maps chaincodeIDs to their handlers, and maps Uuids to bool
@@ -147,8 +163,8 @@ func (chainletSupport *ChainletSupport) registerHandler(chaincodehandler *Handle
 	chainletSupport.handlerMap.Lock()
 	defer chainletSupport.handlerMap.Unlock()
 
-	var h2 *Handler
-	if h2, ok := chainletSupport.handlerMap.chaincodeMap[key]; ok == true && h2.registered == true {
+	h2, ok := chainletSupport.handlerMap.chaincodeMap[key]
+	if ok && h2.registered == true {
 	        chaincodeLogger.Debug("duplicate registered handler(key:%s) return error", key)
 		// Duplicate, return error
 		return newDuplicateChaincodeHandlerError(chaincodehandler)
@@ -235,6 +251,14 @@ func(chainletSupport *ChainletSupport) sendInitOrReady(context context.Context, 
 
 // launchAndWaitForRegister will launch container if not already running
 func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
+	vmname, err := container.GetVMName(cID)
+	if err != nil {
+		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting vm name: %s", err)
+	}
+	chaincode, err := getHandlerKey(cID)
+	if err != nil {
+		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting chaincode: %s", err)
+	}
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
@@ -242,8 +266,6 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 		chainletSupport.handlerMap.Unlock()
 		return true, nil
 	}
-	chainletSupport.handlerMap.Unlock()
-
 	alreadyRunning := false
 	//register placeholder Handler. This will be transferred in registerHandler
 	notfy := make(chan bool, 1)
@@ -253,8 +275,8 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 
 	//launch the chaincode
 	//creat a StartImageReq obj and send it to VMCProcess
-	sir := container.StartImageReq{ID: chaincode}
-	_, err := container.VMCProcess(context, "Docker", sir)
+	sir := container.StartImageReq{ID: vmname, Detach: true}
+	_, err = container.VMCProcess(context, "Docker", sir)
 	if err != nil {
         	err = fmt.Errorf("Error starting container: %s", err)
 		chainletSupport.handlerMap.Lock()
@@ -267,15 +289,53 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 	select {
 	case ok := <-notfy:
 		if !ok {
-			err = fmt.Errorf("registration failed for %s(tx:%s)", chaincode, uuid)
+			err = fmt.Errorf("registration failed for %s(tx:%s)", vmname, uuid)
 		}
 	case <-time.After(CC_STARTUP_TIMEOUT):
-		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", chaincode, uuid)
+		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", vmname, uuid)
+		c.handlerMap.Lock()
+		delete(c.handlerMap.m, chaincode)
+		c.handlerMap.Unlock()
 	}
 	if err != nil {
 		//TODO stop the container
 	}
 	return alreadyRunning, err
+}
+
+func (c *ChainletSupport) stopChaincode(context context.Context, cID *pb.ChainletID) error {
+	vmname, err := container.GetVMName(cID)
+	if err != nil {
+		return fmt.Errorf("[stopChaincode]Error getting vm name: %s", err)
+	}
+
+	chaincode, err := getHandlerKey(cID)
+	if err != nil {
+		return fmt.Errorf("[stopChaincode]Error getting chaincode: %s", err)
+	}
+
+	//launch the chaincode
+	//creat a StartImageReq obj and send it to VMCProcess
+	sir := container.StartImageReq{ID: vmname, Detach: true}
+
+	_, err = container.VMCProcess(context, "Docker", sir)
+	if err != nil {
+        	err = fmt.Errorf("Error stopping container: %s", err)
+		//but proceed to cleanup
+	}
+
+	c.handlerMap.Lock()
+	if _, ok := c.handlerMap.m[chaincode]; !ok {
+		//nothing to do
+		c.handlerMap.Unlock()
+		return nil
+	}
+
+	delete(c.handlerMap.m, chaincode)
+
+	c.handlerMap.Unlock()
+
+	return err
 }
 
 //LaunchChainCode - will launch the chaincode if not running (if running return nil) and will wait for
@@ -326,8 +386,7 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 
 	//from here on : if we launch the container and get an error, we need to stop the container
 	if !USER_RUNS_CC  {
-		vmname, err := container.GetVMName(cID)
-		_,err = chainletSupport.launchAndWaitForRegister(context, vmname, t.Uuid)
+		_,err = chainletSupport.launchAndWaitForRegister(context, cID, t.Uuid)
 		if err != nil {
 			return cID,cMsg,err
 		}
@@ -338,12 +397,13 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 		err = chainletSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
 		if err != nil {
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
+			errIgnore := c.stopChaincode(context, cID)
+			if errIgnore != nil {
+				chainletLog.Debug("stop failed %s(%s)", errIgnore, err)
+			}
 		}
 	}
 
-	if !USER_RUNS_CC && err != nil {
-		//TODO stop container
-	}
 	return cID,cMsg,err
 }
 
@@ -358,7 +418,8 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	if err != nil {
 		return nil, err
 	}
-	chaincode, err := container.GetVMName(cds.ChainletSpec.ChainletID)
+	cID := cds.ChainletSpec.ChainletID
+	chaincode, err := getHandlerKey(cID)
 	if err != nil {
 		return cds, err
 	}
@@ -367,14 +428,36 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
 		chainletLog.Debug("deploy ?!! there's a chaincode with that name running: %s", chaincode)
 		chainletSupport.handlerMap.Unlock()
-		return cds, nil
+		return cds, fmt.Errorf("deploy attempted but a chaincode with same name running %s", chaincode)
 	}
 	chainletSupport.handlerMap.Unlock()
 
 	//create build request ...
+	vmname, err := container.GetVMName(cds.ChainletSpec.ChainletID)
+	
+	//openchain.yaml in the container likely will not have the right url:version. We know the right
+	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	cir := &container.CreateImageReq{ID: chaincode, Reader: targz}
+	envs := []string{"OPENCHAIN_CHAINLET_ID_URL="+cID.Url,"OPENCHAIN_CHAINLET_ID_VERSION="+cID.Version,"OPENCHAIN_PEER_ADDRESS="+ PEERADDRESS }
+        toks := strings.Split(vmname, ":")
+	if toks == nil {
+		return cds, fmt.Errorf("cannot get version from %s", vmname)
+	}
+		
+        toks = strings.Split(toks[0], ".")
+	if toks == nil {
+		return cds, fmt.Errorf("cannot get path components from %s", vmname)
+	}
 
+	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
+	//       need to revisit executable name assignment
+	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+	//     exec is "chaincode_example01"
+	exec := []string{CHAINCODEINSTALLPATH + toks[len(toks)-1]}
+
+	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
+
+	chainletLog.Debug("deploying vmname %s", vmname)
 	//create image and create container
 	_, err = container.VMCProcess(context, "Docker", cir)
 	if err != nil {
@@ -384,39 +467,6 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	return cds, err
 }
 
-// Sends a transaction or query message to the chaincode
-func (chainletSupport *ChainletSupport) SendTransaction(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
-	//build the chaincode
-	cds := &pb.ChainletDeploymentSpec{}
-	err := proto.Unmarshal(t.Payload, cds)
-	if err != nil {
-		return nil, err
-	}
-	chaincode, err := container.GetVMName(cds.ChainletSpec.ChainletID)
-	if err != nil {
-		return cds, err
-	}
-	chainletSupport.handlerMap.Lock()
-	//if its in the map, there must be a connected stream...and we are trying to build the code ?!
-	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
-		chainletLog.Debug("deploy ?!! there's a chaincode with that name running: %s", chaincode)
-		chainletSupport.handlerMap.Unlock()
-		return cds, nil
-	}
-	chainletSupport.handlerMap.Unlock()
-
-	//create build request ...
-	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	cir := &container.CreateImageReq{ID: chaincode, Reader: targz}
-
-	//create image and create container
-	_, err = container.VMCProcess(context, "Docker", cir)
-	if err != nil {
-	        err = fmt.Errorf("Error starting container: %s", err)
-	}
-
-	return cds, err
-}
 // Register the bidi stream entry point called by chaincode to register with the Peer.
 func (c *ChainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
 	return HandleChaincodeStream(c, stream)

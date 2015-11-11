@@ -163,15 +163,6 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
-    #options are "user_runs_chaincode", "system_run_chaincode"
-    #"user_runs_chaincode" - user runs the chaincode after starting validator
-    #                        from command line or from docker
-    #"validator_runs_chaincode" - validator will run chaincode in a container
-    #                             on demand
-    #In development mode, "user_runs_chaincode" will provide quick turnaround
-    #time during initial phases of development
-
-    chaincoderunmode: user_runs_chaincode
 ###############################################################################
 #
 #    VM section
@@ -207,7 +198,19 @@ chainlet:
             WORKDIR $GOPATH
 
     #timeout for starting up a container and waiting for Register to come through
-    startuptimeout: 5000
+    startuptimeout: 20000
+
+    #chaincoderunmode - options are "user_runs_chaincode", "validator_runs_chaincode"
+    #"user_runs_chaincode" - user runs the chaincode after starting validator
+    #                        from command line or from docker
+    #"validator_runs_chaincode" - validator will run chaincode in a container
+    #                             on demand
+    #In development mode, "user_runs_chaincode" will provide quick turnaround
+    #time during initial phases of development
+
+    chaincoderunmode: user_runs_chaincode
+
+    chaincodeinstallpath: /go/bin
 
 # Below left in for examples of YAML usage
 receipt:     Oz-Ware Purchase Invoice

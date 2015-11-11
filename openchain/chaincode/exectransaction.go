@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
-	//"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -120,7 +119,6 @@ func  ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tra
 	for i, t := range xacts {
 		_,errs[i] = Execute(ctxt,chain,t)
 	}
-	//TODO - error processing ... for now assume everything worked
 	ledger, hasherr := ledger.GetLedger()
 	var statehash []byte
 	if hasherr == nil {
