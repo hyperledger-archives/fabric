@@ -9,16 +9,11 @@ It is generated from these files:
 	messages.proto
 
 It has these top-level messages:
-	Unpack
-	Request2
-	PrePrepare
-	PrepareResult
-	CommitResult
-	PBFT
+	Message
 	Request
-	RequestHashes
-	Requests
-	PBFTArray
+	PrePrepare
+	Prepare
+	Commit
 */
 package pbft
 
@@ -32,97 +27,167 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type Unpack_Type int32
-
-const (
-	Unpack_UNDEFINED      Unpack_Type = 0
-	Unpack_REQUEST        Unpack_Type = 1
-	Unpack_PRE_PREPARE    Unpack_Type = 2
-	Unpack_PREPARE        Unpack_Type = 3
-	Unpack_COMMIT         Unpack_Type = 4
-	Unpack_PREPARE_RESULT Unpack_Type = 5
-	Unpack_COMMIT_RESULT  Unpack_Type = 6
-)
-
-var Unpack_Type_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "REQUEST",
-	2: "PRE_PREPARE",
-	3: "PREPARE",
-	4: "COMMIT",
-	5: "PREPARE_RESULT",
-	6: "COMMIT_RESULT",
-}
-var Unpack_Type_value = map[string]int32{
-	"UNDEFINED":      0,
-	"REQUEST":        1,
-	"PRE_PREPARE":    2,
-	"PREPARE":        3,
-	"COMMIT":         4,
-	"PREPARE_RESULT": 5,
-	"COMMIT_RESULT":  6,
+type Message struct {
+	// Types that are valid to be assigned to Payload:
+	//	*Message_Request
+	//	*Message_PrePrepare
+	//	*Message_Prepare
+	//	*Message_Commit
+	Payload isMessage_Payload `protobuf_oneof:"payload"`
 }
 
-func (x Unpack_Type) String() string {
-	return proto.EnumName(Unpack_Type_name, int32(x))
+func (m *Message) Reset()         { *m = Message{} }
+func (m *Message) String() string { return proto.CompactTextString(m) }
+func (*Message) ProtoMessage()    {}
+
+type isMessage_Payload interface {
+	isMessage_Payload()
 }
 
-type PBFT_Type int32
-
-const (
-	PBFT_UNDEFINED      PBFT_Type = 0
-	PBFT_REQUEST        PBFT_Type = 1
-	PBFT_PRE_PREPARE    PBFT_Type = 2
-	PBFT_PREPARE        PBFT_Type = 3
-	PBFT_COMMIT         PBFT_Type = 4
-	PBFT_PREPARE_RESULT PBFT_Type = 5
-	PBFT_COMMIT_RESULT  PBFT_Type = 6
-)
-
-var PBFT_Type_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "REQUEST",
-	2: "PRE_PREPARE",
-	3: "PREPARE",
-	4: "COMMIT",
-	5: "PREPARE_RESULT",
-	6: "COMMIT_RESULT",
+type Message_Request struct {
+	Request *Request `protobuf:"bytes,1,opt,name=request,oneof"`
 }
-var PBFT_Type_value = map[string]int32{
-	"UNDEFINED":      0,
-	"REQUEST":        1,
-	"PRE_PREPARE":    2,
-	"PREPARE":        3,
-	"COMMIT":         4,
-	"PREPARE_RESULT": 5,
-	"COMMIT_RESULT":  6,
+type Message_PrePrepare struct {
+	PrePrepare *PrePrepare `protobuf:"bytes,2,opt,name=prePrepare,oneof"`
+}
+type Message_Prepare struct {
+	Prepare *Prepare `protobuf:"bytes,3,opt,name=prepare,oneof"`
+}
+type Message_Commit struct {
+	Commit *Commit `protobuf:"bytes,4,opt,name=commit,oneof"`
 }
 
-func (x PBFT_Type) String() string {
-	return proto.EnumName(PBFT_Type_name, int32(x))
+func (*Message_Request) isMessage_Payload()    {}
+func (*Message_PrePrepare) isMessage_Payload() {}
+func (*Message_Prepare) isMessage_Payload()    {}
+func (*Message_Commit) isMessage_Payload()     {}
+
+func (m *Message) GetPayload() isMessage_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
 }
 
-type Unpack struct {
-	Type    Unpack_Type `protobuf:"varint,1,opt,name=type,enum=pbft.Unpack_Type" json:"type,omitempty"`
-	Payload []byte      `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+func (m *Message) GetRequest() *Request {
+	if x, ok := m.GetPayload().(*Message_Request); ok {
+		return x.Request
+	}
+	return nil
 }
 
-func (m *Unpack) Reset()         { *m = Unpack{} }
-func (m *Unpack) String() string { return proto.CompactTextString(m) }
-func (*Unpack) ProtoMessage()    {}
-
-// Passed on by a proxy peer to a validating peer, and from there on broadcasted
-// to the entire network of validating peers. TODO: Rename to `Request`.
-type Request2 struct {
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
-	Payload   []byte                     `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+func (m *Message) GetPrePrepare() *PrePrepare {
+	if x, ok := m.GetPayload().(*Message_PrePrepare); ok {
+		return x.PrePrepare
+	}
+	return nil
 }
 
-func (m *Request2) Reset()         { *m = Request2{} }
-func (m *Request2) String() string { return proto.CompactTextString(m) }
-func (*Request2) ProtoMessage()    {}
+func (m *Message) GetPrepare() *Prepare {
+	if x, ok := m.GetPayload().(*Message_Prepare); ok {
+		return x.Prepare
+	}
+	return nil
+}
 
-func (m *Request2) GetTimestamp() *google_protobuf.Timestamp {
+func (m *Message) GetCommit() *Commit {
+	if x, ok := m.GetPayload().(*Message_Commit); ok {
+		return x.Commit
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
+		(*Message_Request)(nil),
+		(*Message_PrePrepare)(nil),
+		(*Message_Prepare)(nil),
+		(*Message_Commit)(nil),
+	}
+}
+
+func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Message)
+	// payload
+	switch x := m.Payload.(type) {
+	case *Message_Request:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Request); err != nil {
+			return err
+		}
+	case *Message_PrePrepare:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.PrePrepare); err != nil {
+			return err
+		}
+	case *Message_Prepare:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Prepare); err != nil {
+			return err
+		}
+	case *Message_Commit:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Commit); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Message.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Message)
+	switch tag {
+	case 1: // payload.request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_Request{msg}
+		return true, err
+	case 2: // payload.prePrepare
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(PrePrepare)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_PrePrepare{msg}
+		return true, err
+	case 3: // payload.prepare
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Prepare)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_Prepare{msg}
+		return true, err
+	case 4: // payload.commit
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Commit)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_Commit{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+type Request struct {
+	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	Transaction []byte                     `protobuf:"bytes,2,opt,name=transaction,proto3" json:"transaction,omitempty"`
+}
+
+func (m *Request) Reset()         { *m = Request{} }
+func (m *Request) String() string { return proto.CompactTextString(m) }
+func (*Request) ProtoMessage()    {}
+
+func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -130,97 +195,32 @@ func (m *Request2) GetTimestamp() *google_protobuf.Timestamp {
 }
 
 type PrePrepare struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
-	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigests []string `protobuf:"bytes,3,rep,name=request_digests" json:"request_digests,omitempty"`
+	View           uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequenceNumber" json:"sequenceNumber,omitempty"`
+	RequestDigest  [][]byte `protobuf:"bytes,3,rep,name=requestDigest,proto3" json:"requestDigest,omitempty"`
 }
 
 func (m *PrePrepare) Reset()         { *m = PrePrepare{} }
 func (m *PrePrepare) String() string { return proto.CompactTextString(m) }
 func (*PrePrepare) ProtoMessage()    {}
 
-type PrepareResult struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
-	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigests []string `protobuf:"bytes,3,rep,name=request_digests" json:"request_digests,omitempty"`
-	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
-	TxErrors       []string `protobuf:"bytes,5,rep,name=tx_errors" json:"tx_errors,omitempty"`
+type Prepare struct {
+	View           uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequenceNumber" json:"sequenceNumber,omitempty"`
+	RequestDigest  string `protobuf:"bytes,3,opt,name=requestDigest" json:"requestDigest,omitempty"`
+	ReplicaId      uint64 `protobuf:"varint,4,opt,name=replicaId" json:"replicaId,omitempty"`
 }
 
-func (m *PrepareResult) Reset()         { *m = PrepareResult{} }
-func (m *PrepareResult) String() string { return proto.CompactTextString(m) }
-func (*PrepareResult) ProtoMessage()    {}
+func (m *Prepare) Reset()         { *m = Prepare{} }
+func (m *Prepare) String() string { return proto.CompactTextString(m) }
+func (*Prepare) ProtoMessage()    {}
 
-type CommitResult struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
-	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigests []string `protobuf:"bytes,3,rep,name=request_digests" json:"request_digests,omitempty"`
-	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
-	TxErrors       []string `protobuf:"bytes,5,rep,name=tx_errors" json:"tx_errors,omitempty"`
+type Commit struct {
+	View           uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequenceNumber" json:"sequenceNumber,omitempty"`
+	ReplicaId      uint64 `protobuf:"varint,3,opt,name=replicaId" json:"replicaId,omitempty"`
 }
 
-func (m *CommitResult) Reset()         { *m = CommitResult{} }
-func (m *CommitResult) String() string { return proto.CompactTextString(m) }
-func (*CommitResult) ProtoMessage()    {}
-
-type PBFT struct {
-	Type    PBFT_Type `protobuf:"varint,1,opt,name=type,enum=pbft.PBFT_Type" json:"type,omitempty"`
-	ID      string    `protobuf:"bytes,2,opt,name=ID" json:"ID,omitempty"`
-	Payload []byte    `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-}
-
-func (m *PBFT) Reset()         { *m = PBFT{} }
-func (m *PBFT) String() string { return proto.CompactTextString(m) }
-func (*PBFT) ProtoMessage()    {}
-
-type Request struct {
-	ID      string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
-	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
-}
-
-func (m *Request) Reset()         { *m = Request{} }
-func (m *Request) String() string { return proto.CompactTextString(m) }
-func (*Request) ProtoMessage()    {}
-
-type RequestHashes struct {
-	Hashes []string `protobuf:"bytes,1,rep,name=hashes" json:"hashes,omitempty"`
-}
-
-func (m *RequestHashes) Reset()         { *m = RequestHashes{} }
-func (m *RequestHashes) String() string { return proto.CompactTextString(m) }
-func (*RequestHashes) ProtoMessage()    {}
-
-type Requests struct {
-	Requests []*Request `protobuf:"bytes,1,rep,name=requests" json:"requests,omitempty"`
-}
-
-func (m *Requests) Reset()         { *m = Requests{} }
-func (m *Requests) String() string { return proto.CompactTextString(m) }
-func (*Requests) ProtoMessage()    {}
-
-func (m *Requests) GetRequests() []*Request {
-	if m != nil {
-		return m.Requests
-	}
-	return nil
-}
-
-type PBFTArray struct {
-	Pbfts []*PBFT `protobuf:"bytes,1,rep,name=pbfts" json:"pbfts,omitempty"`
-}
-
-func (m *PBFTArray) Reset()         { *m = PBFTArray{} }
-func (m *PBFTArray) String() string { return proto.CompactTextString(m) }
-func (*PBFTArray) ProtoMessage()    {}
-
-func (m *PBFTArray) GetPbfts() []*PBFT {
-	if m != nil {
-		return m.Pbfts
-	}
-	return nil
-}
-
-func init() {
-	proto.RegisterEnum("pbft.Unpack_Type", Unpack_Type_name, Unpack_Type_value)
-	proto.RegisterEnum("pbft.PBFT_Type", PBFT_Type_name, PBFT_Type_value)
-}
+func (m *Commit) Reset()         { *m = Commit{} }
+func (m *Commit) String() string { return proto.CompactTextString(m) }
+func (*Commit) ProtoMessage()    {}

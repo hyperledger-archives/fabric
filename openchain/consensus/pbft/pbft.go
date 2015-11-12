@@ -49,10 +49,10 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi      consensus.CPI      // The consensus programming interface
-	config   *viper.Viper       // The link to the config file
-	leader   bool               // Is this validating peer the current leader?
-	msgStore map[string]*Unpack // Where we store incoming `REQUEST` messages.
+	cpi      consensus.CPI       // The consensus programming interface
+	config   *viper.Viper        // The link to the config file
+	leader   bool                // Is this validating peer the current leader?
+	msgStore map[string]*Request // Where we store incoming `REQUEST` messages.
 }
 
 // =============================================================================
@@ -101,7 +101,7 @@ func New(c consensus.CPI) *Plugin {
 	}
 
 	// Create the data store for incoming messages.
-	instance.msgStore = make(map[string]*Unpack)
+	instance.msgStore = make(map[string]*Request)
 
 	return instance
 }
@@ -117,30 +117,17 @@ func New(c consensus.CPI) *Plugin {
 func (instance *Plugin) Request(transaction []byte) (err error) {
 	logger.Info("new request received")
 
-	// TODO: Rename to `REQUEST`.
-	reqMsg := &Request2{
-		Timestamp: &pb.Timestamp{Seconds: time.Now().Unix()},
-		Payload:   transaction,
+	req := &Request{
+		Timestamp:   &pb.Timestamp{Seconds: time.Now().Unix()},
+		Transaction: transaction,
 	}
-	reqMsgPacked, err := proto.Marshal(reqMsg)
+	reqMsg, err := proto.Marshal(&Message{Payload: &Message_Request{req}})
 	if err != nil {
 		err = fmt.Errorf("Error marshalling REQUEST message: ", err)
 		logger.Error("", err)
 		return err
 	}
-
-	unpackMsg := &Unpack{
-		Type:    Unpack_REQUEST,
-		Payload: reqMsgPacked,
-	}
-	newPayload, err := proto.Marshal(unpackMsg)
-	if err != nil {
-		err = fmt.Errorf("Error marshalling Unpack:%s message: %s", unpackMsg.Type, err)
-		logger.Error("", err)
-		return err
-	}
-
-	return instance.cpi.Broadcast(newPayload)
+	return instance.cpi.Broadcast(reqMsg)
 }
 
 // RecvMsg is called on the receiving peers for all messages PBFT
@@ -148,7 +135,7 @@ func (instance *Plugin) Request(transaction []byte) (err error) {
 func (instance *Plugin) RecvMsg(payload []byte) (err error) {
 	logger.Info("PBFT message received")
 
-	extractedMsg := &Unpack{}
+	extractedMsg := &Message{}
 	err = proto.Unmarshal(payload, extractedMsg)
 	if err != nil {
 		err = fmt.Errorf("Error unpacking payload from message: %s", err)
@@ -156,9 +143,17 @@ func (instance *Plugin) RecvMsg(payload []byte) (err error) {
 		return err
 	}
 
-	logger.Error("implement me")
+	if msg := extractedMsg.GetRequest(); msg != nil {
+		logger.Debug("received request, timestamp=%d", msg.Timestamp)
+	} else if msg := extractedMsg.GetPrePrepare(); msg != nil {
+		logger.Debug("received pre-prepare, view=%d sequenceNumber=%d digest=%x",
+			msg.View, msg.SequenceNumber, msg.RequestDigest)
+	} else {
+		err = fmt.Errorf("Received unknown message type")
+		logger.Error("", err)
+	}
 
-	return nil
+	return
 }
 
 // =============================================================================

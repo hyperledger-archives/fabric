@@ -100,9 +100,8 @@ func TestRecvMsg(t *testing.T) {
 	// Do not access through `helperInstance.consenter.`
 	var err error
 
-	nestedMsg := &Unpack{
-		Type:    Unpack_PREPARE,
-		Payload: []byte("hello world"),
+	nestedMsg := &Message{
+		&Message_Request{&Request{Transaction: []byte("hi there")}},
 	}
 	newPayload, err := proto.Marshal(nestedMsg)
 	if err != nil {
