@@ -21,10 +21,12 @@ package pbft
 
 import (
 	"fmt"
+	"time"
+
+	pb "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
@@ -139,127 +141,53 @@ func newFSM() (f *fsm.FSM) {
 // Consenter interface implementation goes here.
 // =============================================================================
 
-// RecvMsg allows the algorithm to receive and process a message. The message
-// that reaches here is either `OpenchainMessage_REQUEST` or
-// `OpenchainMessage_CONSENSUS`.
-func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
+// Request is used to post a new transaction request to PBFT.  This
+// peer takes over the role of a client and broadcasts the request to
+// all replicas.  Eventually every peer will pass the transaction to
+// CPI.ExecTx.
+func (instance *Plugin) Request(transaction []byte) (err error) {
+	logger.Info("new request received")
 
-	// Declare so that you can filter it later if need be.
-	var err error
-
-	if logger.IsEnabledFor(logging.INFO) {
-		logger.Info("OpenchainMessage:%s received.", msg.Type)
+	// TODO: Rename to `REQUEST`.
+	reqMsg := &Request2{
+		Timestamp: &pb.Timestamp{Seconds: time.Now().Unix()},
+		Payload:   transaction,
 	}
-
-	if msg.Type == pb.OpenchainMessage_REQUEST {
-
-		// Unmarshal `msg.Payload`.
-		txBatch := &pb.TransactionBlock{}
-		err = proto.Unmarshal(msg.Payload, txBatch)
-		if err != nil {
-			return fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
-		}
-
-		numTx := len(txBatch.Transactions)
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
-		}
-
-		// Extract transaction.
-		if numTx != 1 {
-			return fmt.Errorf("OpenchainMessage:%s should carry 1 transaction instead of: %d", msg.Type, numTx)
-		}
-
-		tx := txBatch.Transactions[0]
-
-		// Marshal transaction.
-		txPacked, err := proto.Marshal(tx)
-		if err != nil {
-			return fmt.Errorf("Error marshalling single transaction.")
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshaled single transaction.")
-		}
-
-		// Create new `Unpack_REQUEST2` message. TODO: Rename to `REQUEST`.
-
-		reqMsg := &Request2{
-			Timestamp: tx.Timestamp,
-			Payload:   txPacked,
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Created REQUEST message.")
-		}
-
-		// Marshal this.
-		reqMsgPacked, err := proto.Marshal(reqMsg)
-		if err != nil {
-			return fmt.Errorf("Error marshalling REQUEST message.")
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshalled REQUEST message.")
-		}
-
-		// Create new `Unpack` message.
-		unpackMsg := &Unpack{
-			Type:    Unpack_REQUEST,
-			Payload: reqMsgPacked,
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Created Unpack:%s message.", unpackMsg.Type)
-		}
-
-		// Serialize it.
-		newPayload, err := proto.Marshal(unpackMsg)
-		if err != nil {
-			return fmt.Errorf("Error marshalling Unpack:%s message.", unpackMsg.Type)
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshalled Unpack:%s message.", unpackMsg.Type)
-		}
-
-		// Broadcast this message to all the validating peers.
-		return instance.cpi.Broadcast(newPayload)
-	}
-
-	// TODO: Message that reached here is `OpenchainMessage_CONSENSUS`.
-	// Process it accordingly. You most likely want to pass it to
-	// `instance.fsm`.
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Unpacking message.")
-	}
-
-	// Unpack to the common message template.
-	extractedMsg := &Unpack{}
-
-	err = proto.Unmarshal(msg.Payload, extractedMsg)
+	reqMsgPacked, err := proto.Marshal(reqMsg)
 	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
+		err = fmt.Errorf("Error marshalling REQUEST message: ", err)
+		logger.Error("", err)
+		return err
 	}
 
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Message unpacked.")
+	unpackMsg := &Unpack{
+		Type:    Unpack_REQUEST,
+		Payload: reqMsgPacked,
+	}
+	newPayload, err := proto.Marshal(unpackMsg)
+	if err != nil {
+		err = fmt.Errorf("Error marshalling Unpack:%s message: %s", unpackMsg.Type, err)
+		logger.Error("", err)
+		return err
 	}
 
-	/* if instance.fsm.Cannot(extractedMsg.Type.String()) {
-		return fmt.Errorf("FSM cannot handle message type %s while in state: %s", extractedMsg.Type.String(), instance.fsm.Current())
+	return instance.cpi.Broadcast(newPayload)
+}
+
+// RecvMsg is called on the receiving peers for all messages PBFT
+// sends via Broadcast or Unicast
+func (instance *Plugin) RecvMsg(payload []byte) (err error) {
+	logger.Info("PBFT message received")
+
+	extractedMsg := &Unpack{}
+	err = proto.Unmarshal(payload, extractedMsg)
+	if err != nil {
+		err = fmt.Errorf("Error unpacking payload from message: %s", err)
+		logger.Error("", err)
+		return err
 	}
 
-	// If the message type is allowed in that state, trigger the respective event in the FSM.
-	err = instance.fsm.Event(extractedMsg.Type.String(), extractedMsg)
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Processed message of type %s, current state is: %s", extractedMsg.Type, instance.fsm.Current())
-	}
-
-	return filterError(err) */
+	logger.Error("implement me")
 
 	return nil
 }

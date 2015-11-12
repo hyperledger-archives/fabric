@@ -20,10 +20,7 @@ under the License.
 package consensus
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
-
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 )
 
 // =============================================================================
@@ -43,14 +40,18 @@ func init() {
 
 // Consenter should be implemented by every consensus algorithm implementation (plugin).
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
+	// inject an opaque transaction into the consensus layer
+	Request(transaction []byte) error
+	// receive message as sent via CPI.Broadcast and CPI.Unicast
+	RecvMsg(msgPayload []byte) error
 }
 
 // CPI (Consensus Programming Interface)
 type CPI interface {
-	SetConsenter(c Consenter)                                             // Is called by the controller package, links `helper` with the plugin package.
-	HandleMsg(msg *pb.OpenchainMessage) error                             // Routes to the Consenter's `RecvMsg()`.
-	Broadcast(msgPayload []byte) error                                    // May be called by the Consenter's `RecvMsg()` after the processing is done.
-	ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) // Is called by the Consenter's `RecvMsg()` during processing.
-	Unicast(msgPayload []byte, receiver string) error                     // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	// deliver msgPayload to all other Consenter.RecvMsg
+	Broadcast(msgPayload []byte) error
+	// deliver msgPayload to one specific Consenter.RecvMsg
+	Unicast(msgPayload []byte, receiver string) error
+	// execute opaque transaction passed in via Consenter.Request
+	ExecTx(transaction []byte) ([]byte, error)
 }
