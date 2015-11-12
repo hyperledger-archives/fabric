@@ -63,7 +63,7 @@ type Helper struct {
 // =============================================================================
 
 // New constructs the consensus helper object.
-func New() consensus.CPI {
+func New() *Helper {
 
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Creating a new helper.")
@@ -98,9 +98,9 @@ func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
 
 	switch msg.Type {
 	case pb.OpenchainMessage_REQUEST:
-		return h.consenter.RecvMsg(msg)
+		return h.consenter.Request(msg.Payload)
 	case pb.OpenchainMessage_CONSENSUS:
-		return h.consenter.RecvMsg(msg)
+		return h.consenter.RecvMsg(msg.Payload)
 	default:
 		return fmt.Errorf("Cannot process message type: %s", msg.Type)
 	}
@@ -130,18 +130,28 @@ func (h *Helper) Broadcast(msgPayload []byte) error {
 	return nil
 }
 
-// ExecTXs will execute all the transactions listed in the `txs` array
-// one-by-one. If all the executions are successful, it returns the candidate
-// global state hash, and nil error array.
-func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, []error) {
+// ExecTx takes an opaque transaction from the Consenter.  This
+// transaction is originally passed to the Consenter via its Request
+// method.
+//
+// transaction is actually a marshalled TransactionBlock; ExecTx will
+// execute all contained transactions one-by-one.  If all the
+// executions are successful, it returns the candidate global state
+// hash, and no error.
+func (h *Helper) ExecTx(transaction []byte) (stateHash []byte, err error) {
 
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executing the transactions.")
 	}
 
-	// +1 is state hash.
-	errors := make([]error, len(txs)+1)
-	for i, t := range txs {
+	txBatch := &pb.TransactionBlock{}
+	err = proto.Unmarshal(transaction, txBatch)
+	if err != nil {
+		logger.Error("could not unmarshal TransactionBlock", err)
+		return
+	}
+
+	for _, t := range txBatch.Transactions {
 		// Add "function" as an argument to be passed.
 		newArgs := make([]string, len(t.Args)+1)
 		newArgs[0] = t.Function
@@ -152,45 +162,52 @@ func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, [
 			buf = bytes.NewBuffer(t.Payload)
 		}
 		cds := &pb.ChainletDeploymentSpec{}
-		errors[i] = proto.Unmarshal(t.Payload, cds)
-		if errors[i] != nil {
-			continue
+		err = proto.Unmarshal(t.Payload, cds)
+		if err != nil {
+			logger.Error("could not unmarshal ChainletDeploymentSpec", err)
+			return
 		}
+
 		// Create start request...
 		var req container.VMCReqIntf
-		vmName, bErr := container.BuildVMName(cds.ChainletSpec)
-		if bErr != nil {
-			errors[i] = bErr
-			continue
+		vmName, vmErr := container.BuildVMName(cds.ChainletSpec)
+		if err != nil {
+			err = vmErr
+			logger.Error("could not build vmname", err)
+			return
 		}
+
 		if t.Type == pb.Transaction_CHAINLET_NEW {
 			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 			req = container.CreateImageReq{ID: vmName, Args: newArgs, Reader: targz}
 		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
 			req = container.StartImageReq{ID: vmName, Args: newArgs, Instream: buf}
 		} else {
-			errors[i] = fmt.Errorf("Invalid transaction type: %s", t.Type.String())
+			err = fmt.Errorf("Invalid transaction type: %s", t.Type.String())
+			logger.Error("", err)
+			return
 		}
-		// ...and execute it. `err` will be nil if successful
-		_, errors[i] = container.VMCProcess(ctxt, container.DOCKER, req)
-	}
 
-	// TODO: Error processing goes here. For now, assume everything worked fine.
+		ctxt := context.Background() // XXX get ctx from stack?
+
+		// ...and execute it. `err` will be nil if successful
+		_, err = container.VMCProcess(ctxt, container.DOCKER, req)
+		if err != nil {
+			logger.Error("could not execute transaction in vm process", err)
+			return
+		}
+	}
 
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executed the transactions.")
 	}
 
-	// Calculate candidate global state hash.
-	var stateHash []byte
-
-	theLedger, hashErr := ledger.GetLedger()
-	if hashErr == nil {
-		stateHash, hashErr = theLedger.GetTempStateHash()
+	theLedger, err := ledger.GetLedger()
+	if err == nil {
+		stateHash, err = theLedger.GetTempStateHash()
 	}
-	errors[len(errors)-1] = hashErr
 
-	return stateHash, errors
+	return stateHash, err
 }
 
 // Unicast is called by the validating peer to send a CONSENSUS message to a
