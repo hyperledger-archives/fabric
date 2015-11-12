@@ -53,10 +53,7 @@ func (validator *Validator) Init() (error) {
 
 // TransactionPreValidation verifies that the transaction is
 // well formed with the respect to the security layer
-// prescriptions (i.e. signature verification)
-// In addition, the method verifies that the validator
-// is allowed to validate the transaction and if this is the case
-// the method decrypts all the relevant fields.
+// prescriptions (i.e. signature verification).
 func (validator *Validator) TransactionPreValidation(tx *pb.Transaction) (*pb.Transaction, error) {
 	if (!validator.isInitialized) {
 		return nil, ErrModuleNotInitialized
@@ -64,3 +61,16 @@ func (validator *Validator) TransactionPreValidation(tx *pb.Transaction) (*pb.Tr
 
 	return tx, nil
 }
+
+// TransactionPreValidation verifies that the transaction is
+// well formed with the respect to the security layer
+// prescriptions (i.e. signature verification). If this is the case,
+// the method prepares the transaction to be executed.
+func (validator *Validator) TransactionPreExecution(tx *pb.Transaction) (*pb.Transaction, error) {
+	if (!validator.isInitialized) {
+		return nil, ErrModuleNotInitialized
+	}
+
+	return tx, nil
+}
+
