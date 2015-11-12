@@ -30,6 +30,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/net/context"
 )
 
 func TestEnvOverride(t *testing.T) {
@@ -203,4 +204,49 @@ func TestStoreRetrieve(t *testing.T) {
 	if !bytes.Equal(reqMsgPacked, newMsgPacked) {
 		t.Logf("Retrieved REQUEST message is not identical to original one")
 	}
+}
+
+//
+// Test with fake network
+//
+
+type testnetwork struct {
+	replicas []*instance
+}
+
+type instance struct {
+	id     int
+	plugin *Plugin
+	net    *testnetwork
+}
+
+func (*instance) Unicast(payload []byte, receiver string) error { panic("invalid") }
+func (*instance) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) {
+	panic("invalid")
+}
+
+func (inst *instance) Broadcast(payload []byte) error {
+	for i, replica := range inst.net.replicas {
+		if i == inst.id {
+			continue
+		}
+
+		replica.plugin.RecvMsg(payload)
+	}
+
+	return nil
+}
+
+func TestNetwork(t *testing.T) {
+	const f = 2
+	const nreplica = 2*f + 1
+	net := &testnetwork{make([]*instance, nreplica)}
+	for i := range net.replicas {
+		inst := &instance{id: i, net: net}
+		inst.plugin = New(inst)
+		net.replicas[i] = inst
+	}
+
+	req := []*pb.Transaction{&pb.Transaction{Payload: []byte("hi there")}}
+	net.replicas[0].plugin.Request(req)
 }
