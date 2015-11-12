@@ -22,6 +22,7 @@ package pbft
 import (
 	"os"
 
+	"bytes"
 	gp "google/protobuf"
 	"testing"
 	"time"
@@ -159,5 +160,48 @@ func TestRecvMsg(t *testing.T) {
 	err = instance.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("Failed to handle message OpenchainMessage:%s message: %s", msg.Type, err)
+	}
+}
+
+func TestStoreRetrieve(t *testing.T) {
+
+	// Create new algorithm instance.
+	helperInstance := helper.New()
+	instance := New(helperInstance)
+	helperInstance.SetConsenter(instance)
+
+	// Create a `REQUEST` message.
+	reqMsg := &Request2{Payload: []byte("helloworld")}
+	// Marshal it.
+	reqMsgPacked, err := proto.Marshal(reqMsg)
+	if err != nil {
+		t.Fatalf("Error marshalling REQUEST message.")
+	}
+
+	// Get its hash.
+	digest := hashMsg(reqMsgPacked)
+
+	// Store it.
+	count := instance.storeRequest(digest, reqMsg)
+
+	if count != 1 {
+		t.Fatalf("Expected message count in map is 1, instead got: %d", count)
+	}
+
+	t.Logf("Map: %+v\n", instance.msgStore)
+
+	newMsg, err := instance.retrieveRequest(digest)
+	if err != nil {
+		t.Fatalf("Error retrieving REQUEST message from map.")
+	}
+	// Marshal it.
+	newMsgPacked, err := proto.Marshal(newMsg)
+	if err != nil {
+		t.Fatalf("Error marshalling retrieved REQUEST message.")
+	}
+
+	// Are the two messages the same?
+	if !bytes.Equal(reqMsgPacked, newMsgPacked) {
+		t.Logf("Retrieved REQUEST message is not identical to original one.")
 	}
 }
