@@ -225,7 +225,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		t.Logf("Incorrect result. Bval is wrong for <%s>", chaincodeID)
 		return
 	}
-
+	fmt.Printf("Aval = %d, Bval = %d\n",Aval, Bval)
 	fmt.Printf("Test passed")
 	t.Logf("Test passed")
 }

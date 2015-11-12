@@ -182,7 +182,11 @@ func (handler *Handler) deleteUuidEntry(uuid string) {
 func (handler *Handler) notifyDuringStartup(val bool) {
 	//if USER_RUNS_CC readyNotify will be nil
 	if handler.readyNotify != nil {
+		chaincodeLogger.Debug("Notifying during startup")
 		handler.readyNotify <- val
+		chaincodeLogger.Debug("Notified during startup")
+	} else {
+		chaincodeLogger.Debug("readyNotify is nil!!!!")
 	}
 }
 
@@ -226,6 +230,7 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 	if notfy == nil {
 		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
+		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
 		notfy<-msg
 		chaincodeLogger.Debug("notified Uuid:%s", msg.Uuid)
 	}
@@ -489,9 +494,6 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	} else {
 		chaincodeLogger.Debug("sending READY")
 		event = pb.ChaincodeMessage_READY.String()
-		//TODO this is really cheating... I should really notify when the state moves to READY...
-		//but this is an internal move(not from chaincode, so lets just do it for now)
-		notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Uuid: uuid }
 	}
 	err := handler.FSM.Event(event)
 	if err != nil {

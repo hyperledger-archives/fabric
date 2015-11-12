@@ -396,12 +396,14 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 		//send init (if (f,args)) and wait for ready state
 		err = chainletSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
 		if err != nil {
+			chainletLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
 			errIgnore := c.stopChaincode(context, cID)
 			if errIgnore != nil {
 				chainletLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}
 		}
+		chainletLog.Debug("sending init completed")
 	}
 
 	return cID,cMsg,err
@@ -412,6 +414,7 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 		chainletLog.Debug("command line, not deploying chaincode")
 		return nil, nil
 	}
+
 	//build the chaincode
 	cds := &pb.ChainletDeploymentSpec{}
 	err := proto.Unmarshal(t.Payload, cds)
