@@ -112,3 +112,47 @@ func TestRecvMsg(t *testing.T) {
 		t.Fatalf("Failed to handle message: %s", err)
 	}
 }
+
+//
+// Test with fake network
+//
+
+type testnetwork struct {
+	replicas []*instance
+}
+
+type instance struct {
+	id     int
+	plugin *Plugin
+	net    *testnetwork
+}
+
+func (*instance) Unicast(payload []byte, receiver string) error { panic("invalid") }
+func (*instance) ExecTx([]byte) ([]byte, error) {
+	panic("invalid")
+}
+
+func (inst *instance) Broadcast(payload []byte) error {
+	for i, replica := range inst.net.replicas {
+		if i == inst.id {
+			continue
+		}
+
+		replica.plugin.RecvMsg(payload)
+	}
+
+	return nil
+}
+
+func TestNetwork(t *testing.T) {
+	const f = 2
+	const nreplica = 2*f + 1
+	net := &testnetwork{make([]*instance, nreplica)}
+	for i := range net.replicas {
+		inst := &instance{id: i, net: net}
+		inst.plugin = New(inst)
+		net.replicas[i] = inst
+	}
+
+	net.replicas[0].plugin.Request([]byte("hi there"))
+}
