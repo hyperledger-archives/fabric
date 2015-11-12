@@ -96,8 +96,8 @@ func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 		},
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.beforeRegistered(e) },
-			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInit(e) },
-			"before_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
+			"after_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInit(e) },
+			"after_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
 			"before_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.beforeResponse(e) },
 			"before_" + pb.ChaincodeMessage_ERROR.String(): func(e *fsm.Event) { v.beforeResponse(e) },
 		},
@@ -124,6 +124,14 @@ func (handler *Handler) beforeInit(e *fsm.Event) {
 	chaincodeLogger.Debug("Received %s(uuid:%s), initializing chaincode", pb.ChaincodeMessage_INIT, msg.Uuid)
 	
 	// Call the chaincode's Run function to initialize
+	defer handler.handleInit(msg)
+}
+
+// Handles request to initialize chaincode
+func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the beforeInit function is exited. Interesting bug fix!!
 	go func() {
 		// Get the function and args from Payload
 		input := &pb.ChaincodeInput{}
@@ -133,8 +141,8 @@ func (handler *Handler) beforeInit(e *fsm.Event) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
-			handler.ChatStream.Send(errMsg)
 			handler.FSM.Event(errMsg.Type.String(), errMsg)
+			handler.ChatStream.Send(errMsg)
 			return
 		}	
 
@@ -148,18 +156,17 @@ func (handler *Handler) beforeInit(e *fsm.Event) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Init failed. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
-			handler.ChatStream.Send(errMsg)
 			handler.FSM.Event(errMsg.Type.String(), errMsg)
+			handler.ChatStream.Send(errMsg)
 			return
 		} 
 
 		// Send COMPLETED message to chaincode support and change state
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid} 
 		chaincodeLogger.Debug("Init succeeded. Sending %s(%s)", pb.ChaincodeMessage_COMPLETED, completedMsg.Uuid)
-		handler.ChatStream.Send(completedMsg)
 		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
+		handler.ChatStream.Send(completedMsg)
 	}()
-	return
 }
 
 // BeforeTransaction is called to invoke a transaction on the chaincode.
@@ -172,6 +179,15 @@ func (handler *Handler) beforeTransaction(e *fsm.Event) {
 	chaincodeLogger.Debug("Received %s, invoking transaction on chaincode", pb.ChaincodeMessage_TRANSACTION)
 	
 	// Call the chaincode's Run function
+	defer handler.handleTransaction(msg)
+	return
+}
+
+// Handles request to execute a transaction
+func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the beforeInit function is exited. Interesting bug fix!!
 	go func() {
 		// Get the function and args from Payload
 		input := &pb.ChaincodeInput{}
@@ -181,8 +197,8 @@ func (handler *Handler) beforeTransaction(e *fsm.Event) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
-			handler.ChatStream.Send(errMsg)
 			handler.FSM.Event(errMsg.Type.String(), errMsg)
+			handler.ChatStream.Send(errMsg)
 			return
 		}	
 
@@ -196,18 +212,17 @@ func (handler *Handler) beforeTransaction(e *fsm.Event) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Transaction execution failed. Sending %s", pb.ChaincodeMessage_ERROR)
 			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
-			handler.ChatStream.Send(errorMsg)
 			handler.FSM.Event(errorMsg.Type.String(), errorMsg)
+			handler.ChatStream.Send(errorMsg)
 			return
 		} 
 
 		// Send COMPLETED message to chaincode support and change state
 		chaincodeLogger.Debug("Transaction completed. Sending %s", pb.ChaincodeMessage_COMPLETED)
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid} 
-		handler.ChatStream.Send(completedMsg)
 		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
+		handler.ChatStream.Send(completedMsg)
 	}()
-	return
 }
 
 // BeforeResponse is called to deliver a response or error to the chaincode stub.
@@ -367,7 +382,12 @@ func (handler *Handler) handleInvokeChaincode(chaincodeID string, args []byte, u
 func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
 	if handler.FSM.Cannot(msg.Type.String()) {
-		return fmt.Errorf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
+		errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
+		err := errors.New(errStr)
+		payload := []byte(err.Error())
+		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+		handler.ChatStream.Send(errorMsg)
+		return err
 	}
 	err := handler.FSM.Event(msg.Type.String(), msg)
 	return filterError(err)

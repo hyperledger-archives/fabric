@@ -25,6 +25,7 @@ import (
 	"os"
 	"testing"
 	"strconv"
+	"time"
 
 	"golang.org/x/net/context"
 	"github.com/spf13/viper"
@@ -169,12 +170,14 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		return
 	}
 
+	//time.Sleep(time.Second * 2)
 	fmt.Printf("Going to invoke")
 	f = "invoke"
 	args = []string{ "a", "b", "10" }
         spec = &pb.ChainletSpec { Type: 1, ChainletID: &pb.ChainletID{ Url: url, Version: version }, CtorMsg: &pb.ChaincodeInput{ Function : f, Args: args } }
 	_,err = invoke(ctxt, spec)
 	if err != nil {
+		time.Sleep(10 * time.Second)
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID, err)
 		return

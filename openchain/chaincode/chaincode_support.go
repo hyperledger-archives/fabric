@@ -380,6 +380,8 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
 			chainletSupport.handlerMap.Unlock()
 			return cID,cMsg,nil
+		} else {
+			chainletLog.Debug("Container not in READY state. It is in state %s", handler.FSM.Current())
 		}
 	}
 	chainletSupport.handlerMap.Unlock()

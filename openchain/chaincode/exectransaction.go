@@ -51,6 +51,7 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 			//TODO rollback transaction as init might have set state
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
+		fmt.Printf("LaunchChaincode exited. Init complete\n")		
 	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID,cMsg,err := chain.LaunchChaincode(ctxt, t)
@@ -66,7 +67,7 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		}
 	
 		// TODO: Need to comment next line and uncomment call to getTimeout, when transaction blocks are being created	
-		timeout := time.Duration(2000 * time.Millisecond)
+		timeout := time.Duration(30000) * time.Millisecond
 		//timeout, err := getTimeout(cID)
 		
 		if(err != nil){
