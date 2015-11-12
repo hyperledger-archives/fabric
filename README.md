@@ -63,6 +63,15 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
     go test -test.v -run=TestGetFoo
 
+## Setting Up a Network For Development
+
+To set up the Openchain network composed of a leader, validator, and a peer node, follow the instructions on the [Network Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/Network%20Setup.md) page.
+
+Note, that before you proceed with setting up the testing network, you must first run the full Openchain testing suite as described above. Running the full test suite will create the required openchain-peer Docker image. If you fail to run the test suite, the docker commands in the network setup instructions will fail.
+
+# Openchain API - Working with CLI, REST, and Node.js
+
+When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-peer/blob/master/docs/Network%20Setup.md) page.
 
 ## Configuration
 
