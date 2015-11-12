@@ -43,6 +43,25 @@ func TestInvokeTransactionPreValidation(t *testing.T) {
 	}
 }
 
+func TestDeployTransactionPreExecution(t *testing.T) {
+	res, err := validator.TransactionPreExecution(mockDeployTransaction());
+	if (res == nil) {
+		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
+	}
+	if (err != nil) {
+		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+	}
+}
+
+func TestInvokeTransactionPreExecution(t *testing.T) {
+	res, err := validator.TransactionPreExecution(mockInvokeTransaction());
+	if (res == nil) {
+		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
+	}
+	if (err != nil) {
+		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+	}
+}
 
 
 func mockDeployTransaction() (*pb.Transaction) {
