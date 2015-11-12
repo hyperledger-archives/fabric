@@ -21,6 +21,7 @@ package pbft
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -30,6 +31,11 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
+
+// =============================================================================
+// Constants
+// =============================================================================
+const configPrefix = "OPENCHAIN_PBFT"
 
 // =============================================================================
 // Init.
@@ -92,6 +98,13 @@ func New(c consensus.CPI) *Plugin {
 		logger.Debug("Linking to the consenter's config file.")
 	}
 	instance.config = viper.New()
+
+	// For environment variables.
+	instance.config.SetEnvPrefix(configPrefix)
+	instance.config.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	instance.config.SetEnvKeyReplacer(replacer)
+
 	instance.config.SetConfigName("config")
 	instance.config.AddConfigPath("./")
 	instance.config.AddConfigPath("../pbft/") // For when you run a test from `controller`.

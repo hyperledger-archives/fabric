@@ -20,6 +20,8 @@ under the License.
 package pbft
 
 import (
+	"os"
+
 	gp "google/protobuf"
 	"testing"
 	"time"
@@ -29,6 +31,42 @@ import (
 
 	"github.com/golang/protobuf/proto"
 )
+
+func TestEnvOverride(t *testing.T) {
+
+	// For a key that exists.
+	key := "general.name"
+	// Env override name
+	envName := "OPENCHAIN_PBFT_GENERAL_NAME"
+	// Value to override default value with
+	overrideValue := "overide_test"
+
+	// Create new algorithm instance.
+	helperInstance := helper.New()
+	instance := New(helperInstance)
+
+	// Test key.
+	if ok := instance.config.IsSet("general.name"); !ok {
+		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set.", key)
+	}
+
+	os.Setenv(envName, overrideValue)
+	// The override config value will cause other calls to fail unless unset
+	defer func() {
+		os.Unsetenv(envName)
+	}()
+
+	if ok := instance.config.IsSet("general.name"); !ok {
+		t.Fatalf("Env override in place, and key \"%s\" is not set.", key)
+	}
+
+	// Read key.
+	configVal := instance.config.GetString("general.name")
+	if configVal != overrideValue {
+		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\".", key, overrideValue, configVal)
+	}
+
+}
 
 func TestGetParam(t *testing.T) {
 
