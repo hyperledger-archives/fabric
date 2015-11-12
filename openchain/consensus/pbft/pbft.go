@@ -20,10 +20,12 @@ under the License.
 package pbft
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/looplab/fsm"
@@ -48,11 +50,11 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi      consensus.CPI      // The consensus programming interface
-	config   *viper.Viper       // The link to the config file
-	fsm      *fsm.FSM           // Holds the finite state machine.
-	leader   bool               // Is this validating peer the current leader?
-	msgStore map[string]*Unpack // Where we store incoming `REQUEST` messages.
+	cpi      consensus.CPI        // The consensus programming interface
+	config   *viper.Viper         // The link to the config file
+	fsm      *fsm.FSM             // Holds the finite state machine.
+	leader   bool                 // Is this validating peer the current leader?
+	msgStore map[string]*Request2 // Where we store incoming `REQUEST` messages.
 }
 
 // =============================================================================
@@ -62,7 +64,9 @@ type Plugin struct {
 type validator interface {
 	getParam(param string) (val string, err error)
 	isLeader() bool
+	retrieveRequest(digest string) (reqMsg *Request2, err error)
 	setLeader(flag bool) bool
+	storeRequest(digest string, reqMsg *Request2) (count int)
 }
 
 // =============================================================================
@@ -104,7 +108,7 @@ func New(c consensus.CPI) *Plugin {
 	instance.fsm = newFSM()
 
 	// Create the data store for incoming messages.
-	instance.msgStore = make(map[string]*Unpack)
+	instance.msgStore = make(map[string]*Request2)
 
 	return instance
 }
@@ -153,48 +157,13 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 
-		// Unmarshal `msg.Payload`.
-		txBatch := &pb.TransactionBlock{}
-		err = proto.Unmarshal(msg.Payload, txBatch)
+		// Convert to a `REQUEST` message.
+		reqMsg, err := convertToRequest(msg)
 		if err != nil {
-			return fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+			return err
 		}
 
-		numTx := len(txBatch.Transactions)
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
-		}
-
-		// Extract transaction.
-		if numTx != 1 {
-			return fmt.Errorf("OpenchainMessage:%s should carry 1 transaction instead of: %d", msg.Type, numTx)
-		}
-
-		tx := txBatch.Transactions[0]
-
-		// Marshal transaction.
-		txPacked, err := proto.Marshal(tx)
-		if err != nil {
-			return fmt.Errorf("Error marshalling single transaction.")
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshaled single transaction.")
-		}
-
-		// Create new `Unpack_REQUEST2` message. TODO: Rename to `REQUEST`.
-
-		reqMsg := &Request2{
-			Timestamp: tx.Timestamp,
-			Payload:   txPacked,
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Created REQUEST message.")
-		}
-
-		// Marshal this.
+		// Marshal the `REQUEST` message.
 		reqMsgPacked, err := proto.Marshal(reqMsg)
 		if err != nil {
 			return fmt.Errorf("Error marshalling REQUEST message.")
@@ -203,6 +172,10 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 		if logger.IsEnabledFor(logging.DEBUG) {
 			logger.Debug("Marshalled REQUEST message.")
 		}
+
+		// Hash and store the `REQUEST` message.
+		digest := hashMsg(reqMsgPacked)
+		_ = instance.storeRequest(digest, reqMsg)
 
 		// Create new `Unpack` message.
 		unpackMsg := &Unpack{
@@ -268,7 +241,7 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 // Custom interface implementation goes here.
 // =============================================================================
 
-// getParam is a getter for the values listed in `config.yaml`.
+// A getter for the values listed in `config.yaml`.
 func (instance *Plugin) getParam(param string) (val string, err error) {
 	if ok := instance.config.IsSet(param); !ok {
 		err := fmt.Errorf("Key %s does not exist in algo config", param)
@@ -278,13 +251,28 @@ func (instance *Plugin) getParam(param string) (val string, err error) {
 	return val, nil
 }
 
-// isLeader allows us to check whether a validating peer is the current leader.
+// Allows us to check whether a validating peer is the current leader.
 func (instance *Plugin) isLeader() bool {
 
 	return instance.leader
 }
 
-// setLeader flags a validating peer as the leader. This is a temporary state.
+// retrieve
+func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Request2, err error) {
+
+	if val, ok := instance.msgStore[digest]; ok {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Message with digest %s found in map.", digest)
+		}
+		return val, nil
+	}
+
+	err = fmt.Errorf("Message with digest %s does not exist in map.", digest)
+	return nil, err
+
+}
+
+// Flags a validating peer as the leader. This is a temporary state.
 func (instance *Plugin) setLeader(flag bool) bool {
 
 	if logger.IsEnabledFor(logging.DEBUG) {
@@ -300,14 +288,80 @@ func (instance *Plugin) setLeader(flag bool) bool {
 	return instance.leader
 }
 
+// Maps a `REQUEST` message to its digest and stores it for future reference.
+func (instance *Plugin) storeRequest(digest string, reqMsg *Request2) (count int) {
+
+	if _, ok := instance.msgStore[digest]; ok {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Message with digest %s already exists in map.", digest)
+		}
+	}
+
+	instance.msgStore[digest] = reqMsg
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Stored REQUEST message in map.")
+	}
+
+	count = len(instance.msgStore)
+	return
+}
+
 // =============================================================================
 // Misc. helper functions go here.
 // =============================================================================
 
-// filterError filters the FSM errors to allow NoTransitionError and
-// CanceledError to not propogate for cases where embedded err == nil.
-// This should be called by the plugin developer whenever FSM state transitions
-// are attempted.
+// Receives an `OpenchainMessage_REQUEST`, turns it into a `REQUEST` message.
+func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Request2, err error) {
+
+	txBatch := &pb.TransactionBlock{}
+	err = proto.Unmarshal(msg.Payload, txBatch)
+	if err != nil {
+		err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+		return
+	}
+
+	numTx := len(txBatch.Transactions)
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
+	}
+
+	// Extract transaction.
+	if numTx != 1 {
+		err = fmt.Errorf("OpenchainMessage:%s should carry 1 transaction instead of: %d", msg.Type, numTx)
+		return
+	}
+
+	tx := txBatch.Transactions[0]
+
+	// Marshal transaction.
+	txPacked, err := proto.Marshal(tx)
+	if err != nil {
+		err = fmt.Errorf("Error marshalling single transaction.")
+		return
+	}
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Marshaled single transaction.")
+	}
+
+	// Create new `Unpack_REQUEST2` message.
+
+	reqMsg = &Request2{
+		Timestamp: tx.Timestamp,
+		Payload:   txPacked,
+	}
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Created REQUEST message.")
+	}
+
+	return
+}
+
+// Filter the FSM errors to allow NoTransitionError and CanceledError to not
+// propogate for cases where embedded err == nil. This should be called by the
+// plugin developer whenever FSM state transitions are attempted.
 func filterError(fsmError error) error {
 
 	if fsmError != nil {
@@ -329,4 +383,16 @@ func filterError(fsmError error) error {
 	}
 
 	return nil
+}
+
+// Calculate the digest of a marshalled message.
+func hashMsg(packedMsg []byte) (digest string) {
+
+	digest = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedMsg))
+
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Digest of marshalled message is: %s", digest)
+	}
+
+	return
 }
