@@ -20,6 +20,7 @@
                 "tags": [
                     "Blockchain"
                 ],
+                "operationId": "getChain",
                 "responses": {
                     "200": {
                         "description": "Blockchain information",
@@ -43,6 +44,7 @@
                 "tags": [
                     "Block"
                 ],
+                "operationId": "getBlock",
                 "parameters": [{
                     "name": "Block",
                     "in": "path",
@@ -74,6 +76,7 @@
                 "tags": [
                     "State"
                 ],
+                "operationId": "getChaincodeState",
                 "parameters": [{
                     "name": "chaincodeID",
                     "in": "path",
@@ -110,20 +113,21 @@
                 "tags": [
                     "Devops"
                 ],
+                "operationId": "chaincodeBuild",
                 "parameters": [{
                     "name": "ChaincodeSpec",
                     "in": "body",
                     "description": "Chaincode specification message",
                     "required": true,
                     "schema": {
-                       "$ref": "#/definitions/ChaincodeSpec"
+                       "$ref": "#/definitions/ChainletSpec"
                     }
                 }],
                 "responses": {
                     "200": {
                         "description": "Chaincode deployment specification message",
                         "schema": {
-                           "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                           "$ref": "#/definitions/ChainletDeploymentSpec"
                         }
                     },
                     "default": {
@@ -142,20 +146,21 @@
               "tags": [
                   "Devops"
               ],
+              "operationId": "chaincodeDeploy",
               "parameters": [{
                  "name": "ChaincodeSpec",
                  "in": "body",
                  "description": "Chaincode specification message",
                  "required": true,
                  "schema": {
-                    "$ref": "#/definitions/ChaincodeSpec"
+                    "$ref": "#/definitions/ChainletSpec"
                  }
               }],
               "responses": {
                   "200": {
                       "description": "Chaincode deployment specification message",
                       "schema": {
-                         "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                         "$ref": "#/definitions/ChainletDeploymentSpec"
                       }
                   },
                   "default": {
@@ -233,8 +238,8 @@
                     ],
                     "description": "Transaction type."
                 },
-                "chaincodeID": {
-                    "$ref": "#/definitions/ChaincodeID",
+                "chainletID": {
+                    "$ref": "#/definitions/ChainletID",
                     "description": "Unique Chaincode identifier."
                 },
                 "function": {
@@ -259,14 +264,14 @@
                 }
             }
         },
-        "ChaincodeID": {
+        "ChainletID": {
             "type": "object",
             "properties": {
-                "Url": {
+                "url": {
                     "type": "string",
                     "description": "URL for accessing the Chaincode."
                 },
-                "Version": {
+                "version": {
                     "type": "string",
                     "description": "Current version of a Chaincode."
                 }
@@ -281,7 +286,7 @@
                 }
             }
         },
-        "ChaincodeSpec": {
+        "ChainletSpec": {
             "type": "object",
             "properties": {
                 "type": {
@@ -294,21 +299,21 @@
                     ],
                     "description": "Chaincode specification language."
                 },
-                "chaincodeID": {
-                    "$ref": "#/definitions/ChaincodeID",
+                "chainletID": {
+                    "$ref": "#/definitions/ChainletID",
                     "description": "Unique Chaincode identifier."
                 },
                 "ctorMsg": {
-                    "$ref": "#/definitions/ChaincodeMessage",
+                    "$ref": "#/definitions/ChainletMessage",
                     "description": "Specific function to execute within the Chaincode."
                 }
             }
         },
-        "ChaincodeDeploymentSpec": {
+        "ChainletDeploymentSpec": {
             "type": "object",
             "properties": {
-                "chaincodeSpec": {
-                    "$ref": "#/definitions/ChaincodeSpec",
+                "chainletSpec": {
+                    "$ref": "#/definitions/ChainletSpec",
                     "description": "Chaincode specification message."
                 },
                 "effectiveDate": {
@@ -322,7 +327,7 @@
                 }
             }
         },
-        "ChaincodeMessage": {
+        "ChainletMessage": {
             "type": "object",
             "properties": {
                 "function": {
