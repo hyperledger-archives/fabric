@@ -20,6 +20,7 @@ under the License.
 package pbft
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
@@ -77,27 +78,60 @@ func TestLeader(t *testing.T) {
 	}
 }
 
+type mockCpi struct {
+	broadcastMsg [][]byte
+	execTx       [][]byte
+}
+
+func NewMock() *mockCpi {
+	mock := &mockCpi{
+		make([][]byte, 0),
+		make([][]byte, 0),
+	}
+	return mock
+}
+
+func (mock *mockCpi) Broadcast(msg []byte) error {
+	mock.broadcastMsg = append(mock.broadcastMsg, msg)
+	return nil
+}
+
+func (mock *mockCpi) Unicast(msg []byte, dest string) error {
+	panic("not implemented")
+}
+
+func (mock *mockCpi) ExecTx(msg []byte) ([]byte, error) {
+	mock.execTx = append(mock.execTx, msg)
+	return []byte("hash"), nil
+}
+
 func TestRequest(t *testing.T) {
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
+	mock := NewMock()
+	instance := New(mock)
 
 	var err error
 
-	err = instance.Request([]byte("hi there"))
+	req := []byte("hi there")
+	err = instance.Request(req)
 	if err != nil {
 		t.Fatalf("Failed to handle request: %s", err)
+	}
+
+	msgRaw := mock.broadcastMsg[0]
+	msg := &Message{}
+	err = proto.Unmarshal(msgRaw, msg)
+	if err != nil {
+		t.Fatal("could not unmarshal message")
+	}
+	if !bytes.Equal(msg.GetRequest().Transaction, req) {
+		t.Fatalf("expected request broadcast, got something else: %x != %x", req, msg)
 	}
 }
 
 func TestRecvMsg(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
 
-	// Create new algorithm instance.
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
-
-	// Do not access through `helperInstance.consenter.`
 	var err error
 
 	nestedMsg := &Message{
@@ -111,6 +145,17 @@ func TestRecvMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to handle message: %s", err)
 	}
+
+	if len(mock.broadcastMsg) != 0 {
+		t.Fatal("unexpected message")
+	}
+
+	// msgRaw := mock.broadcastMsg[0]
+	// msg := &Message{}
+	// err = proto.Unmarshal(msgRaw, msg)
+	// if err != nil {
+	// 	t.Fatal("could not unmarshal message")
+	// }
 }
 
 //
