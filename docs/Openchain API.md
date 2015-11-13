@@ -143,9 +143,10 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 3. Start up an http-server on your local machine to serve up the rest_api.json.
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
-
-    `http-server -a 0.0.0.0 -p 5554 --cors`
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
+    http-server -a 0.0.0.0 -p 5554 --cors
+    ```
 
 4. Make sure that you are successfully able to access the API description document within your browser at this link:
 
@@ -159,15 +160,17 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 7. Start up the peer node with no connections to a leader or validator as follows.
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
-
-    `./obc-peer peer`
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    ./obc-peer peer
+    ```
 
 8. Construct a test blockchain on the local peer node by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks.
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
-
-    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    ```
 
 10. Go back to the Swagger-UI interface inside your browser and load the API description.
 
@@ -220,7 +223,6 @@ message BlockchainInfo {
 #### Devops
 
 **POST /devops/build**
-
 **POST /devops/deploy**
 
 Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
@@ -303,23 +305,25 @@ You can interface to the obc-peer process from a Node.js application in one of t
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
-
-    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    ```
 
 4. Set up HTTP server to serve up the Openchain API Swagger doc at a non-public URL:
 
-    `npm install http-server -g`
-
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
-
-    `http-server -a 0.0.0.0 -p 5554 --cors`
+    ```
+    npm install http-server -g
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
+    http-server -a 0.0.0.0 -p 5554 --cors
+    ```
 
 5. Download [OpenchainSample_1.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.zip)
 
-    `unzip OpenchainSample_1.zip -d OpenchainSample_1`
-
-    `cd OpenchainSample_1`
+    ```
+    unzip OpenchainSample_1.zip -d OpenchainSample_1
+    cd OpenchainSample_1
+    ```
 
 6. Update the api_url within [openchain.js](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js) to the appropriate URL if it is not already the default
 
@@ -347,15 +351,17 @@ You will observe several responses on the console, thought the program will appe
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
-
-    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    ```
 
 5. Download [OpenchainSample_2.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_2.zip)
 
-    `unzip OpenchainSample_2.zip -d OpenchainSample_2`
-
-    `cd OpenchainSample_1`
+    ```
+    unzip OpenchainSample_2.zip -d OpenchainSample_2
+    cd OpenchainSample_1
+    ```
 
 6. Run the Node.js app
 
