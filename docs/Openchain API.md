@@ -188,7 +188,7 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 #### Block
 
-**GET /chain/blocks/{Block}**
+* **GET /chain/blocks/{Block}**
 
 Invoke the Block API to retrieve the contents of various blocks from the blockchain data structure. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
 
@@ -206,7 +206,7 @@ message Block {
 
 #### Chain
 
-**GET /chain**
+* **GET /chain**
 
 Invoke the Chain API to retrieve the information on the current state of the blockchain. The returned BlockchainInfo message is defined inside [api.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/api.proto) .
 
@@ -222,8 +222,8 @@ message BlockchainInfo {
 
 #### Devops
 
-**POST /devops/build**
-**POST /devops/deploy**
+* **POST /devops/build**
+* **POST /devops/deploy**
 
 Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
@@ -272,7 +272,7 @@ An example of a valid ChainletSpec message is shown below. The url parameter rep
 
 #### State
 
-**GET /state/{chaincodeID}/{key}**
+* **GET /state/{chaincodeID}/{key}**
 
 Invoke the State endpoint to retrieve the value stored for a given key of a specific chainCode. Think of the chaincodeID and key as a compound key. You can create a valid query for the state as you know the value of the state being set inside the testing code. Take a look at buildTestLedger2 method inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This method creates the blockchain you are querying against. You will see calls to SetState(chaincodeID string, key string, value []byte) method, which sets the sate of a particular chainCode and key to a specific value. You will see the following being set, among others:
 
