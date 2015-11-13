@@ -2,24 +2,6 @@
 // source: chaincode.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	chaincode.proto
-
-It has these top-level messages:
-	ChainletID
-	ChaincodeInput
-	ChaincodeInvocationSpec
-	ChainletSpec
-	ChainletDeploymentSpec
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
-	ChaincodeMessage
-	PutStateInfo
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"

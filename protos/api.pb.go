@@ -25,6 +25,7 @@ It has these top-level messages:
 	ChainletRequestContext
 	ChainletExecutionContext
 	ChaincodeMessage
+	PutStateInfo
 	DevopsResponse
 	BuildResult
 	Transaction

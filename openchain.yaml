@@ -208,7 +208,7 @@ chainlet:
     #In development mode, "user_runs_chaincode" will provide quick turnaround
     #time during initial phases of development
 
-    chaincoderunmode: user_runs_chaincode
+    chaincoderunmode: validator_runs_chaincode
 
     chaincodeinstallpath: /go/bin
 

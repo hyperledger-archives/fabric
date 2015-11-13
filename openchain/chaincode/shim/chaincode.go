@@ -64,6 +64,12 @@ func Start(cc Chaincode) error {
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AddConfigPath("./../../../")        // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
 
 	fmt.Printf("peer.address: %s\n", getPeerAddress())
 
@@ -87,10 +93,12 @@ func Start(cc Chaincode) error {
 }
 
 func getPeerAddress() string {
+	//fmt.Printf("Peer address from viper is: %s", viper.GetString("peer.address"))
 	if viper.GetString("peer.address") == "" {
 		// Assume docker container, return well known docker host address
 		return "172.17.42.1:30303"
 	}
+	
 	return viper.GetString("peer.address")
 }
 

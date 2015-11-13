@@ -20,16 +20,13 @@ under the License.
 package helper
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"time"
 
 	gp "google/protobuf"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -138,7 +135,9 @@ func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, [
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executing the transactions.")
 	}
+	return chaincode.ExecuteTransactions(ctxt, chaincode.DEFAULTCHAIN, txs)	
 
+	/******************************
 	// +1 is state hash.
 	errors := make([]error, len(txs)+1)
 	for i, t := range txs {
@@ -191,6 +190,7 @@ func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, [
 	errors[len(errors)-1] = hashErr
 
 	return stateHash, errors
+	******************************/
 }
 
 // Unicast is called by the validating peer to send a CONSENSUS message to a
