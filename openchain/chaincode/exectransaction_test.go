@@ -170,7 +170,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		return
 	}
 
-	//time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 	fmt.Printf("Going to invoke")
 	f = "invoke"
 	args = []string{ "a", "b", "10" }

@@ -96,10 +96,12 @@ func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream
 		},
 		fsm.Callbacks{
 			"before_" + pb.ChaincodeMessage_REGISTERED.String(): func(e *fsm.Event) { v.beforeRegistered(e) },
-			"after_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInit(e) },
-			"after_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
+			//"after_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeInit(e) },
+			//"after_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
 			"before_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.beforeResponse(e) },
 			"before_" + pb.ChaincodeMessage_ERROR.String(): func(e *fsm.Event) { v.beforeResponse(e) },
+			"enter_init": func(e *fsm.Event) { v.enterInitState(e) },
+			"enter_transaction": func(e *fsm.Event) { v.enterTransactionState(e) },
 		},
 	)
 	return v
@@ -112,19 +114,6 @@ func (handler *Handler) beforeRegistered(e *fsm.Event) {
 		return
 	}
 	chaincodeLogger.Debug("Received %s, ready for invocations", pb.ChaincodeMessage_REGISTERED)
-}
-
-// BeforeInit is called to initialize the chaincode.
-func (handler *Handler) beforeInit(e *fsm.Event) {
-	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
-	if !ok {
-		e.Cancel(fmt.Errorf("Received unexpected message type"))
-		return
-	}
-	chaincodeLogger.Debug("Received %s(uuid:%s), initializing chaincode", pb.ChaincodeMessage_INIT, msg.Uuid)
-	
-	// Call the chaincode's Run function to initialize
-	defer handler.handleInit(msg)
 }
 
 // Handles request to initialize chaincode
@@ -169,18 +158,19 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 	}()
 }
 
-// BeforeTransaction is called to invoke a transaction on the chaincode.
-func (handler *Handler) beforeTransaction(e *fsm.Event) {
+// enterInitState will initialize the chaincode if entering init from established
+func (handler *Handler) enterInitState(e *fsm.Event) {
+	chaincodeLogger.Debug("(enterInitState)Entered state %s", handler.FSM.Current())
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	chaincodeLogger.Debug("Received %s, invoking transaction on chaincode", pb.ChaincodeMessage_TRANSACTION)
-	
-	// Call the chaincode's Run function
-	defer handler.handleTransaction(msg)
-	return
+	chaincodeLogger.Debug("Received %s(uuid:%s), initializing chaincode", pb.ChaincodeMessage_INIT, msg.Uuid)
+	if msg.Type.String() == pb.ChaincodeMessage_INIT.String() {
+		// Call the chaincode's Run function to initialize
+		handler.handleInit(msg)
+	}
 }
 
 // Handles request to execute a transaction
@@ -223,6 +213,21 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
 		handler.ChatStream.Send(completedMsg)
 	}()
+}
+
+// enterTransactionState will execute chaincode's Run if coming from a TRANSACTION event
+func (handler *Handler) enterTransactionState(e *fsm.Event) {
+	chaincodeLogger.Debug("(enterTransactionState)Entered state %s", handler.FSM.Current())
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	chaincodeLogger.Debug("Received %s, invoking transaction on chaincode", pb.ChaincodeMessage_TRANSACTION)
+	if msg.Type.String() == pb.ChaincodeMessage_TRANSACTION.String() {
+		// Call the chaincode's Run function to invoke transaction
+		handler.handleTransaction(msg)
+	}
 }
 
 // BeforeResponse is called to deliver a response or error to the chaincode stub.

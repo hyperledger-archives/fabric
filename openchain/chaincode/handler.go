@@ -209,18 +209,17 @@ func (handler *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 	handler.ChaincodeID = chainletID
 	err = handler.chainletSupport.registerHandler(handler)
 	if err != nil {
-		defer handler.notifyDuringStartup(false)
 		e.Cancel(err)
+		handler.notifyDuringStartup(false)
 		return
 	}
 
 	chaincodeLogger.Debug("Got %s for chainldetID = %s, sending back %s", e.Event, chainletID, pb.ChaincodeMessage_REGISTERED)
 	if err := handler.ChatStream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTERED}); err != nil {
-		defer handler.notifyDuringStartup(false)
 		e.Cancel(fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_REGISTERED, err))
+		handler.notifyDuringStartup(false)
 		return
 	}
-	defer handler.notifyDuringStartup(true)
 }
 
 func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
@@ -245,16 +244,14 @@ func (handler *Handler) beforeCompletedEvent(e *fsm.Event, state string) {
 		return
 	}
 	chaincodeLogger.Debug("beforeCompleted uuid:%s", msg.Uuid)
-	// Now notify
-	defer handler.notify(msg)
-
+	// Notify on channel once into READY state
 	return
 }
 
 // beforeInitState is invoked before an init message is sent to the chaincode.
 func (handler *Handler) beforeInitState(e *fsm.Event, state string) {
 	chaincodeLogger.Debug("Before state %s.. notifying waiter that we are up", state)
-	defer handler.notifyDuringStartup(true)
+	handler.notifyDuringStartup(true)
 }
 
 // beforeGetState handles a GET_STATE request from the chaincode.
@@ -496,9 +493,19 @@ func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 
 func (handler *Handler) enterEstablishedState(e *fsm.Event, state string) {
 	chaincodeLogger.Debug("(enterEstablishedState)Entered state %s", state)
+	handler.notifyDuringStartup(true)
+	chaincodeLogger.Debug("(enterEstablishedState)Entered state; notified %s", state)
 }
 
 func (handler *Handler) enterReadyState(e *fsm.Event, state string) {
+	// Now notify
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	handler.notify(msg)
+
 	chaincodeLogger.Debug("(enterReadyState)Entered state %s", state)
 }
 
