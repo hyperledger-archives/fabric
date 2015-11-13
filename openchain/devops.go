@@ -26,14 +26,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/viper"
 	"github.com/blang/semver"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-	
+
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -98,7 +98,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
 	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return chainletDeploymentSpec, execErr
-	
+
 	/*** TODO: Uncomment from here
 	peerAddress, err := GetRootNode()
 	if err != nil {
@@ -106,7 +106,6 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	}
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-
 	return chainletDeploymentSpec, SendTransactionsToPeer(peerAddress, transactionBlock)
 	***/
 }
@@ -128,7 +127,7 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
 	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return &google_protobuf.Empty{}, execErr
-	
+
 	/**** TODO: Uncomment from here
 	peerAddress, err := GetRootNode()
 	if err != nil {
@@ -136,10 +135,10 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 	}
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	peerLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
+	devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
 	//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
 	return &google_protobuf.Empty{}, nil
-	*****/ 
+	*****/
 }
 
 // Checks to see if chaincode resides within current package capture for language.

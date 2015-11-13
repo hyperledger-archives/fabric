@@ -17,20 +17,32 @@ It has these top-level messages:
 	BlockNumber
 	BlockCount
 	ChainletID
+<<<<<<< HEAD
 	ChaincodeInput
 	ChaincodeInvocationSpec
+=======
+	ChainletMessage
+	ChaincodeInvocation
+>>>>>>> Reworked Peer/Handler design.
 	ChainletSpec
 	ChainletDeploymentSpec
 	ChainletIdentifier
 	ChainletRequestContext
 	ChainletExecutionContext
 	ChaincodeMessage
+<<<<<<< HEAD
 	PutStateInfo
+=======
+>>>>>>> Reworked Peer/Handler design.
 	DevopsResponse
 	BuildResult
 	Transaction
 	TransactionBlock
 	Block
+	PeerAddress
+	PeerID
+	PeerEndpoint
+	PeersMessage
 	OpenchainMessage
 	ServerStatus
 */

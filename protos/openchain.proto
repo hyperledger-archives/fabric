@@ -78,6 +78,25 @@ service Peer {
 
 }
 
+message PeerAddress {
+    string host = 1;
+    int32 port = 2;
+}
+
+message PeerID {
+    string name = 1;
+}
+
+message PeerEndpoint {
+    PeerID ID = 1; 
+    string address = 2;
+}
+
+message PeersMessage {
+    repeated PeerEndpoint peers = 1;
+}
+
+
 message OpenchainMessage {
 
     enum Type {

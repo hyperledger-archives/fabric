@@ -184,6 +184,54 @@ func (m *Block) GetTransactions() []*Transaction {
 	return nil
 }
 
+type PeerAddress struct {
+	Host string `protobuf:"bytes,1,opt,name=host" json:"host,omitempty"`
+	Port int32  `protobuf:"varint,2,opt,name=port" json:"port,omitempty"`
+}
+
+func (m *PeerAddress) Reset()         { *m = PeerAddress{} }
+func (m *PeerAddress) String() string { return proto.CompactTextString(m) }
+func (*PeerAddress) ProtoMessage()    {}
+
+type PeerID struct {
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+}
+
+func (m *PeerID) Reset()         { *m = PeerID{} }
+func (m *PeerID) String() string { return proto.CompactTextString(m) }
+func (*PeerID) ProtoMessage()    {}
+
+type PeerEndpoint struct {
+	ID      *PeerID `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Address string  `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+}
+
+func (m *PeerEndpoint) Reset()         { *m = PeerEndpoint{} }
+func (m *PeerEndpoint) String() string { return proto.CompactTextString(m) }
+func (*PeerEndpoint) ProtoMessage()    {}
+
+func (m *PeerEndpoint) GetID() *PeerID {
+	if m != nil {
+		return m.ID
+	}
+	return nil
+}
+
+type PeersMessage struct {
+	Peers []*PeerEndpoint `protobuf:"bytes,1,rep,name=peers" json:"peers,omitempty"`
+}
+
+func (m *PeersMessage) Reset()         { *m = PeersMessage{} }
+func (m *PeersMessage) String() string { return proto.CompactTextString(m) }
+func (*PeersMessage) ProtoMessage()    {}
+
+func (m *PeersMessage) GetPeers() []*PeerEndpoint {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
 type OpenchainMessage struct {
 	Type      OpenchainMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.OpenchainMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
