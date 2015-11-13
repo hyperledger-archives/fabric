@@ -29,7 +29,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
-	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
@@ -58,7 +57,6 @@ func init() {
 type Plugin struct {
 	cpi      consensus.CPI        // The consensus programming interface
 	config   *viper.Viper         // The link to the config file
-	fsm      *fsm.FSM             // Holds the finite state machine.
 	leader   bool                 // Is this validating peer the current leader?
 	msgStore map[string]*Request2 // Where we store incoming `REQUEST` messages.
 }
@@ -117,39 +115,10 @@ func New(c consensus.CPI) *Plugin {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
 
-	// Create the FSM.
-	instance.fsm = newFSM()
-
 	// Create the data store for incoming messages.
 	instance.msgStore = make(map[string]*Request2)
 
 	return instance
-}
-
-// newFSM defines the possible states of the algorithm, the allowed transitions,
-// and the callbacks that should be executed upon each transition. TODO: Replace
-// with actual FSM.
-func newFSM() (f *fsm.FSM) {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Creating a new FSM.")
-	}
-
-	f = fsm.NewFSM(
-		"closed",
-		fsm.Events{
-			{Name: "open", Src: []string{"closed"}, Dst: "open"},
-			{Name: "close", Src: []string{"open"}, Dst: "closed"},
-		},
-		fsm.Callbacks{},
-	)
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("FSM created.")
-	}
-
-	return
-
 }
 
 // =============================================================================
@@ -370,32 +339,6 @@ func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Request2, err error) {
 	}
 
 	return
-}
-
-// Filter the FSM errors to allow NoTransitionError and CanceledError to not
-// propogate for cases where embedded err == nil. This should be called by the
-// plugin developer whenever FSM state transitions are attempted.
-func filterError(fsmError error) error {
-
-	if fsmError != nil {
-
-		if noTransitionErr, ok := fsmError.(*fsm.NoTransitionError); ok {
-			if noTransitionErr.Err != nil {
-				// Only allow `NoTransitionError` errors, all others are considered true error.
-				return fsmError
-			}
-			logger.Debug("Ignoring NoTransitionError: %s", noTransitionErr)
-		}
-		if canceledErr, ok := fsmError.(*fsm.CanceledError); ok {
-			if canceledErr.Err != nil {
-				// Only allow NoTransitionError's, all others are considered true error.
-				return canceledErr
-			}
-			logger.Debug("Ignoring CanceledError: %s", canceledErr)
-		}
-	}
-
-	return nil
 }
 
 // Calculate the digest of a marshalled message.
