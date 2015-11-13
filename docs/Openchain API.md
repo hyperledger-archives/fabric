@@ -292,7 +292,7 @@ By assigning the following chaincodeID and key parameters within the REST call, 
 
 You can interface to the obc-peer process from a Node.js application in one of two ways. Both approaches rely on the Swagger API description document, [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). Use the approach the you find the most convenient.
 
-### [OpenchainSample_1](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js)
+### [OpenchainSample_1](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20Samples/openchain_1.js)
 
 * Demonstrates interfacing to the obc-peer project from a Node.js app.
 * Utilizes the Node.js swagger-js plugin: https://github.com/swagger-api/swagger-js
@@ -320,14 +320,14 @@ You can interface to the obc-peer process from a Node.js application in one of t
     http-server -a 0.0.0.0 -p 5554 --cors
     ```
 
-5. Download [OpenchainSample_1.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.zip)
+5. Download [OpenchainSample_1.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20Samples/OpenchainSample_1.zip)
 
     ```
     unzip OpenchainSample_1.zip -d OpenchainSample_1
     cd OpenchainSample_1
     ```
 
-6. Update the api_url within [openchain.js](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js) to the appropriate URL if it is not already the default
+6. Update the api_url within [openchain.js](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20Samples/openchain_1.js) to the appropriate URL if it is not already the default
 
     `var api_url = 'http://localhost:5554/rest_api.json';`
 
@@ -337,7 +337,7 @@ You can interface to the obc-peer process from a Node.js application in one of t
 
 You will observe several responses on the console, thought the program will appear to hang for a few moments at the end. This is normal, as is it waiting for a build request for a Docker container to complete.
 
-### [OpenchainSample_2](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js)
+### [OpenchainSample_2](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20Samples/openchain_2.js)
 
 * Demonstrates an alternative way of interfacing to the obc-peer project from a Node.js app.
 * Utilizes the TypeScript description of Openchain REST api generated through the Swagger-Editor.
@@ -358,7 +358,7 @@ You will observe several responses on the console, thought the program will appe
     go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
     ```
 
-5. Download [OpenchainSample_2.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_2.zip)
+5. Download [OpenchainSample_2.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20Samples/OpenchainSample_2.zip)
 
     ```
     unzip OpenchainSample_2.zip -d OpenchainSample_2
