@@ -4,9 +4,9 @@
 
 This document covers the available APIs to connect to an Openchain peer node. The three approaches described are:
 
-1. [CLI Interface](## Openchain CLI)
-2. [REST interface](## Openchain REST API)
-3. [Node.js](Node.js)
+1. [CLI Interface](#openchain-cli)
+2. [REST interface](#openchain-rest-api)
+3. [Node.js](#nodejs)
 
 ## Openchain CLI:
 
@@ -136,12 +136,12 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 2. Install the Node.js http-server package with the command below:
 
-    npm install http-server -g
+    `npm install http-server -g`
 
 3. Start up an http-server on your local machine to serve up the rest_api.json.
 
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
-    http-server -a 0.0.0.0 -p 5554 --cors
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
+    http-server -a 0.0.0.0 -p 5554 --cors`
 
 4. Make sure that you are successfully able to access the API description document within your browser at this link:
 
@@ -167,9 +167,14 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 ### REST Endpoints
 
+* [Block](#block)
+* [Chain](#chain)
+* [Devops](#devops)
+* [State](#state)
+
 #### Block
 
-    GET /chain/blocks/{Block}
+    * GET /chain/blocks/{Block}
 
 Invoke the Block API to retrieve the contents of various blocks from the blockchain data structure. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
 
@@ -187,7 +192,7 @@ message Block {
 
 #### Chain
 
-    GET /chain
+    * GET /chain
 
 Invoke the Chain API to retrieve the information on the current state of the blockchain. The returned BlockchainInfo message is defined inside [api.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/api.proto) .
 
@@ -203,8 +208,8 @@ message BlockchainInfo {
 
 #### Devops
 
-    POST /devops/build
-    POST /devops/deploy
+    * POST /devops/build
+    * POST /devops/deploy
 
 Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
@@ -255,7 +260,7 @@ The build/deploy process will take a little time as the docker image is being cr
 
 This endpoint will likely go away as the Openchain API matures. Accessing the state of a chainCode directly from the application layer presents security issues. Instead of allowing the application developer to directly access the state, we anticipate to retrieve the state of a given chainCode via a getter function within the chainCode itself. This getter function will be implemented by the chainCode developer to respond with whatever they see fit for describing the value of the state. The getter function will be invoked as a query transaction (equivalent to call in Ethereum) on the chainCode from the application layer and will therefore not be recorded as a transaction on the blockchain.
 
-    GET /state/{chaincodeID}/{key}
+    * GET /state/{chaincodeID}/{key}
 
 Invoke the State endpoint to retrieve the value stored for a given key of a specific chainCode. Think of the chaincodeID and key as a compound key. You can create a valid query for the state as you know the value of the state being set inside the testing code. Take a look at buildTestLedger2 method inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This method creates the blockchain you are querying against. You will see calls to SetState(chaincodeID string, key string, value []byte) method, which sets the sate of a particular chainCode and key to a specific value. You will see the following being set, among others:
 
