@@ -119,12 +119,36 @@ func TestLeader(t *testing.T) {
 	}
 }
 
-func TestRecvMsg(t *testing.T) {
+type mockCpi struct {
+	broadcastMsg [][]byte
+	execTx       [][]*pb.Transaction
+}
 
-	// Create new algorithm instance
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
+func NewMock() *mockCpi {
+	mock := &mockCpi{
+		make([][]byte, 0),
+		make([][]*pb.Transaction, 0),
+	}
+	return mock
+}
+
+func (mock *mockCpi) Broadcast(msg []byte) error {
+	mock.broadcastMsg = append(mock.broadcastMsg, msg)
+	return nil
+}
+
+func (mock *mockCpi) Unicast(msg []byte, dest string) error {
+	panic("not implemented")
+}
+
+func (mock *mockCpi) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) {
+	mock.execTx = append(mock.execTx, txs)
+	return []byte("hash"), make([]error, len(txs)+1)
+}
+
+func TestRecvRequest(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
 
 	// Do not access through `helperInstance.consenter`
 	var err error
@@ -146,8 +170,30 @@ func TestRecvMsg(t *testing.T) {
 		t.Fatalf("Failed to handle OpenchainMessage:%s message: %s", msg.Type, err)
 	}
 
-	// Create a message of type: `OpenchainMessage_CONSENSUS`
-	msg.Type = pb.OpenchainMessage_CONSENSUS
+	msgRaw := mock.broadcastMsg[0]
+	if msgRaw == nil {
+		t.Fatalf("expected broadcast after request")
+	}
+	msgUnpack := &Unpack{}
+	err = proto.Unmarshal(msgRaw, msgUnpack)
+	if err != nil {
+		t.Fatal("could not unmarshal message, %x", msgRaw)
+	}
+	if msgUnpack.Type != Unpack_REQUEST {
+		t.Fatalf("expected request broadcast")
+	}
+	msgReq := &Request2{}
+	err = proto.Unmarshal(msgUnpack.Payload, msgReq)
+	if err != nil {
+		t.Fatal("could not unmarshal message")
+	}
+	// TODO test for correct transaction passing
+}
+
+func TestRecvMsg(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
+
 	nestedMsg := &Unpack{
 		Type:    Unpack_PREPARE,
 		Payload: []byte("hello world"),
@@ -156,19 +202,31 @@ func TestRecvMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
 	}
-	msg.Payload = newPayload
+	// Create a message of type: `OpenchainMessage_CONSENSUS`
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: newPayload,
+	}
 	err = instance.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("Failed to handle message OpenchainMessage:%s message: %s", msg.Type, err)
 	}
+
+	if len(mock.broadcastMsg) != 0 {
+		t.Fatal("unexpected message")
+	}
+
+	// msgRaw := mock.broadcastMsg[0]
+	// msg := &Message{}
+	// err = proto.Unmarshal(msgRaw, msg)
+	// if err != nil {
+	// 	t.Fatal("could not unmarshal message")
+	// }
 }
 
 func TestStoreRetrieve(t *testing.T) {
-
-	// Create new algorithm instance
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
+	mock := NewMock()
+	instance := New(mock)
 
 	// Create a `REQUEST` message
 	reqMsg := &Request2{Payload: []byte("hello world")}
@@ -231,7 +289,11 @@ func (inst *instance) Broadcast(payload []byte) error {
 			continue
 		}
 
-		replica.plugin.RecvMsg(payload)
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CONSENSUS,
+			Payload: payload,
+		}
+		replica.plugin.RecvMsg(msg)
 	}
 
 	return nil
@@ -247,6 +309,17 @@ func TestNetwork(t *testing.T) {
 		net.replicas[i] = inst
 	}
 
-	req := []*pb.Transaction{&pb.Transaction{Payload: []byte("hi there")}}
-	net.replicas[0].plugin.Request(req)
+	// Create a message of type: `OpenchainMessage_REQUEST`
+	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
+	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
+	txBlockPacked, err := proto.Marshal(txBlock)
+	if err != nil {
+		t.Fatalf("Failed to marshal TX block: %s", err)
+	}
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_REQUEST,
+		Payload: txBlockPacked,
+	}
+	net.replicas[0].plugin.RecvMsg(msg)
 }
