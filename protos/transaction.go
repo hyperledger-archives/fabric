@@ -39,7 +39,6 @@ func (transaction *Transaction) Bytes() ([]byte, error) {
 // the chainletID on which the function should be called, and the arguments
 // string. The arguments could be a string of JSON, but there is no strict
 // requirement.
-
 func NewTransaction(chainletID ChainletID, uuid string, function string, arguments []string) *Transaction {
 	transaction := new(Transaction)
 	transaction.ChainletID = &chainletID

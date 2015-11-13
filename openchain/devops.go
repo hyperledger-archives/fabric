@@ -191,7 +191,7 @@ func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDep
 	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
 	mode := viper.GetString("chainlet.chaincoderunmode")
 	var codePackageBytes []byte
-	if mode != chaincode.USERRUNSCHAINCODE {
+	if mode != chaincode.UserRunsChaincode {
 		if err := checkSpec(spec); err != nil {
 			devopsLogger.Debug("check spec failed: %s", err)
 			return nil, err
@@ -209,13 +209,13 @@ func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDep
 			return nil, err
 		}
 	}
-	chainletDeploymentSepc := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
-	return chainletDeploymentSepc, nil
+	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
+	return chainletDeploymentSpec, nil
 }
 
 func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSepc, err := BuildLocal(ctx, spec)
+	chainletDeploymentSpec, err := BuildLocal(ctx, spec)
 
 	if err != nil {
 		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
@@ -228,9 +228,9 @@ func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
+	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
+	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 }

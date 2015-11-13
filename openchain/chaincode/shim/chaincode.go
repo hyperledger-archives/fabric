@@ -43,7 +43,7 @@ var chaincodeLogger = logging.MustGetLogger("chaincode")
 // Handler to shim that handles all control logic.
 var handler *Handler
 
-// Standard chaincode callback interface - this is the interface the chaincode developer needs to implement.
+// Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
 	// Run method will be called during init and for every transaction
 	//Run(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
@@ -55,7 +55,7 @@ type Chaincode interface {
 
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
-	Uuid string
+	UUID string
 }
 
 // Start entry point for chaincodes bootstrap.
@@ -182,22 +182,22 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) 
 	return nil
 }
 
-// This is the method chaincode will call to get state.
+// GetState function can be invoked by a chaincode to get a state from the ledger.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
-	return handler.handleGetState(key, stub.Uuid)
+	return handler.handleGetState(key, stub.UUID)
 }
 
-// This is the method chaincode will call to put state.
+// PutState function can be invoked by a chaincode to put state into the ledger.
 func (stub *ChaincodeStub) PutState(key string, value []byte) error {
-	return handler.handlePutState(key, value, stub.Uuid)
+	return handler.handlePutState(key, value, stub.UUID)
 }
 
-// This is the method chaincode will call to delete state.
+// DelState function can be invoked by a chaincode to del state from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
-	return handler.handleDelState(key, stub.Uuid)
+	return handler.handleDelState(key, stub.UUID)
 }
 
-// This is the method chaincode will call to invoke another chaincode
+// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeID string, args []byte) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeID, args, stub.Uuid)
+	return handler.handleInvokeChaincode(chaincodeID, args, stub.UUID)
 }

@@ -41,23 +41,27 @@ import (
 
 var chainletLog = logging.MustGetLogger("chaincode")
 
+// ChainName is the name of the chain to which this chaincode support belongs to.
 type ChainName string
 const (
-	DEFAULTCHAIN ChainName = "default"
-	USERRUNSCHAINCODE string = "user_runs_chaincode"
-	CHAINCODEINSTALLPATH_DEFAULT string = "/go/bin"
-	PEERADDRESS_DEFAULT string = "0.0.0.0:30303"
+	// defaultChain is the name of the default chain. 
+	defaultChain ChainName = "default"
+	userRunsChaincode string = "user_runs_chaincode"
+	chaincodeInstallPathDefault string = "/go/bin"
+	peerAddressDefault string = "0.0.0.0:30303"
 )
 
 // chains is a map between different blockchains and their ChainletSupport.
 //this needs to be a first class, top-level object... for now, lets just have a placeholder
 var chains map[ChainName]*ChainletSupport
-// Timeout after which deploy will fail.
-var CC_STARTUP_TIMEOUT time.Duration
-var CHAINCODEINSTALLPATH string
-// USER_RUNS_CC is true when user is running the chaincode in dev mode and no container is launched.
-var USER_RUNS_CC bool
-var PEERADDRESS string
+// ccStartupTimeout is the timeout after which deploy will fail.
+var ccStartupTimeout time.Duration
+var chaincodeInstallPath string
+
+// UserRunsCC is true when user is running the chaincode in dev mode and no container is launched.
+var UserRunsCC bool
+
+var peerAddress string
 
 func init() {
 	viper.SetEnvPrefix("OPENCHAIN")
@@ -78,26 +82,26 @@ func init() {
 		fmt.Printf("could not retrive timeout var...setting to 5secs\n")
 		to = 5000
 	}
-	CC_STARTUP_TIMEOUT = time.Duration(to)*time.Millisecond
+	ccStartupTimeout = time.Duration(to)*time.Millisecond
 
 	mode := viper.GetString("chainlet.chaincoderunmode")
-	if mode == USERRUNSCHAINCODE {
-		USER_RUNS_CC = true
+	if mode == cserRunsChaincode {
+		UserRunsCC = true
 	} else {
-		USER_RUNS_CC = false
+		UserRunsCC = false
 	}
 
-	CHAINCODEINSTALLPATH := viper.GetString("chainlet.chaincodeinstallpath")
-	if CHAINCODEINSTALLPATH == "" {
-		CHAINCODEINSTALLPATH = CHAINCODEINSTALLPATH_DEFAULT
+	chaincodeInstallPath = viper.GetString("chainlet.chaincodeinstallpath")
+	if chaincodeInstallPath == "" {
+		chaincodeInstallPath = chaincodeInstallPathDefault
 	}
 
-	PEERADDRESS = viper.GetString("peer.address")
-	if PEERADDRESS == "" {
-		PEERADDRESS = PEERADDRESS_DEFAULT
+	peerAddress = viper.GetString("peer.address")
+	if peerAddress == "" {
+		peerAddress = peerAddressDefault
 	}
 
-	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s, peer address-%s]\n", to, mode, PEERADDRESS)
+	fmt.Printf("chainlet env using [startuptimeout-%d, chaincode run mode-%s, peer address-%s]\n", to, mode, peerAddress)
 }
 
 // handlerMap maps chaincodeIDs to their handlers, and maps Uuids to bool
@@ -107,11 +111,12 @@ type handlerMap struct {
 	chaincodeMap map[string]*Handler
 }
 
+// GetChain returns the name of the chain to which this chaincode support belongs
 func GetChain(name ChainName) *ChainletSupport {
 	return chains[name]
 }
 
-// NewChainletSupport Creates a new ChainletSupport instance
+// NewChainletSupport creates a new ChainletSupport instance
 func NewChainletSupport() *ChainletSupport {
 	//we need to pass chainname when we do multiple chains...till then use DEFAULTCHAIN
 	s := &ChainletSupport{ name: DEFAULTCHAIN, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
@@ -291,7 +296,7 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 		if !ok {
 			err = fmt.Errorf("registration failed for %s(tx:%s)", vmname, uuid)
 		}
-	case <-time.After(CC_STARTUP_TIMEOUT):
+	case <-time.After(ccStartupTimeout):
 		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", vmname, uuid)
 		c.handlerMap.Lock()
 		delete(c.handlerMap.m, chaincode)
@@ -338,8 +343,7 @@ func (c *ChainletSupport) stopChaincode(context context.Context, cID *pb.Chainle
 	return err
 }
 
-//LaunchChainCode - will launch the chaincode if not running (if running return nil) and will wait for
-//handler for the chaincode to get into FSM (ready state)
+// LaunchChaincode will launch the chaincode if not running (if running return nil) and will wait for handler of the chaincode to get into FSM ready state.
 func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletID, *pb.ChaincodeInput, error) {
 	//build the chaincode
 	var cID *pb.ChainletID
@@ -376,18 +380,17 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	if handler, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
-		if handler.FSM.Current() == READY_STATE {
+		if handler.FSM.Current() == readyState {
 			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
 			chainletSupport.handlerMap.Unlock()
 			return cID,cMsg,nil
-		} else {
-			chainletLog.Debug("Container not in READY state. It is in state %s", handler.FSM.Current())
-		}
+		} 
+		chainletLog.Debug("Container not in READY state. It is in state %s", handler.FSM.Current())
 	}
 	chainletSupport.handlerMap.Unlock()
 
 	//from here on : if we launch the container and get an error, we need to stop the container
-	if !USER_RUNS_CC  {
+	if !UserRunsCC  {
 		_,err = chainletSupport.launchAndWaitForRegister(context, cID, t.Uuid)
 		if err != nil {
 			chainletLog.Debug("launchAndWaitForRegister failed %s", err)
@@ -397,7 +400,7 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chainletSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, CC_STARTUP_TIMEOUT)
+		err = chainletSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, ccStartupTimeout)
 		if err != nil {
 			chainletLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
@@ -414,8 +417,9 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 	return cID,cMsg,err
 }
 
+// DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
 func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletDeploymentSpec, error) {
-	if USER_RUNS_CC {
+	if UserRunsCC {
 		chainletLog.Debug("command line, not deploying chaincode")
 		return nil, nil
 	}
@@ -446,7 +450,7 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	//openchain.yaml in the container likely will not have the right url:version. We know the right
 	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINLET_ID_URL="+cID.Url,"OPENCHAIN_CHAINLET_ID_VERSION="+cID.Version,"OPENCHAIN_PEER_ADDRESS="+ PEERADDRESS }
+	envs := []string{"OPENCHAIN_CHAINLET_ID_URL="+cID.Url,"OPENCHAIN_CHAINLET_ID_VERSION="+cID.Version,"OPENCHAIN_PEER_ADDRESS="+ peerAddress }
         toks := strings.Split(vmname, ":")
 	if toks == nil {
 		return cds, fmt.Errorf("cannot get version from %s", vmname)
@@ -461,7 +465,7 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	//       need to revisit executable name assignment
 	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
 	//     exec is "chaincode_example01"
-	exec := []string{CHAINCODEINSTALLPATH + toks[len(toks)-1]}
+	exec := []string{chaincodeInstallPath + toks[len(toks)-1]}
 
 	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
 
@@ -476,11 +480,12 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 }
 
 // Register the bidi stream entry point called by chaincode to register with the Peer.
-func (c *ChainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
-	return HandleChaincodeStream(c, stream)
+func (chainletSupport *ChainletSupport) Register(stream pb.ChainletSupport_RegisterServer) error {
+	return HandleChaincodeStream(chainletSupport, stream)
 }
 
-func CreateTransactionMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMessage,error) {
+// createTransactionMessage creates a transaction message.
+func createTransactionMessage(uuid string, cMsg *pb.ChaincodeInput) (*pb.ChaincodeMessage,error) {
 	payload, err := proto.Marshal(cMsg)
 	if err != nil {
 		fmt.Printf(err.Error())
@@ -489,7 +494,8 @@ func CreateTransactionMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.Chainc
 	return &pb.ChaincodeMessage { Type: pb.ChaincodeMessage_TRANSACTION, Payload: payload, Uuid: uuid }, nil
 }
 
-func CreateQueryMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMessage,error) {
+// createQueryMessage creates a query message.
+func createQueryMessage(uuid string, cMsg *pb.ChaincodeInput) (*pb.ChaincodeMessage,error) {
 	payload, err := proto.Marshal(cMsg)
 	if err != nil {
 		return nil,err
@@ -497,6 +503,7 @@ func CreateQueryMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMes
 	return &pb.ChaincodeMessage { Type: pb.ChaincodeMessage_QUERY, Payload: payload, Uuid: uuid }, nil
 }
 
+// Execute executes a transaction and waits for it to complete until a timeout value.
 func (chainletSupport *ChainletSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
 	chainletSupport.handlerMap.Lock()
 	//we expect the chaincode to be running... sanity check
