@@ -530,6 +530,7 @@ func (handler *Handler) enterEndState(e *fsm.Event, state string) {
 func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (chan *pb.ChaincodeMessage, error) {
 	var event string
 	var notfy chan *pb.ChaincodeMessage
+	var ccMsg *pb.ChaincodeMessage
 	if f != nil || initArgs != nil {
 		chaincodeLogger.Debug("sending INIT")
 		var f2 string
@@ -545,7 +546,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		if err != nil {
 			return nil,err
 		}
-		ccMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
+		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
 		if err = handler.ChatStream.Send(ccMsg); err != nil {
 			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)), Uuid: uuid }
 			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
@@ -553,9 +554,15 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		event = pb.ChaincodeMessage_INIT.String()
 	} else {
 		chaincodeLogger.Debug("sending READY")
+		var payload []byte
+		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_READY, Payload: payload, Uuid: uuid}
+		if err := handler.ChatStream.Send(ccMsg); err != nil {
+			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)), Uuid: uuid }
+			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)
+		}
 		event = pb.ChaincodeMessage_READY.String()
 	}
-	eventErr := handler.FSM.Event(event)
+	eventErr := handler.FSM.Event(event,ccMsg )
 	if eventErr != nil {
 		fmt.Printf("Failed to trigger FSM event READY : %s\n", eventErr)
 	}
