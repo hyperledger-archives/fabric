@@ -93,7 +93,7 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
 	tr := tar.NewWriter(gw)
-	dockerFileContents := []byte("FROM busybox:latest\n\nCMD sleep 300")
+	dockerFileContents := []byte("FROM busybox:latest\n\nCMD echo hello")
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
@@ -120,7 +120,7 @@ func TestVMCBuildImage(t *testing.T) {
 	//creat a CreateImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		cir := CreateImageReq{ID: "simple", Reader: tarRdr}
+		cir := CreateImageReq{ID: "simple", Reader: tarRdr, AttachStdout: true}
 		_, err := VMCProcess(ctxt, "Docker", cir)
 		if err != nil {
 			t.Fail()
@@ -140,22 +140,14 @@ func TestVMCStartContainer(t *testing.T) {
 
 	c := make(chan struct{})
 
-	//creat a StartImageReq obj and send it to VMCProcess
+	//create a StartImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		args := []string{"echo", "hello"}
-		var outbuf bytes.Buffer
-		sir := StartImageReq{ID: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+		sir := StartImageReq{ID: "simple"}
 		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
 			t.Logf("Error starting container: %s", err)
-			return
-		}
-		fmt.Printf("Output-%s", string(outbuf.Bytes()))
-		if "hello\n" != string(outbuf.Bytes()) {
-			t.Fail()
-			t.Logf("expected hello, received : %s", string(outbuf.Bytes()))
 			return
 		}
 	}()
@@ -163,27 +155,23 @@ func TestVMCStartContainer(t *testing.T) {
 	//wait for VMController to complete.
 	fmt.Println("VMCStartContainer-waiting for response")
 	<-c
+	stopr := StopImageReq{ID: "simple", Timeout: 0}
+	VMCProcess(ctxt, "Docker", stopr)
 }
 
-func TestVMCStartContainerSync(t *testing.T) {
+func TestVMCSyncStartContainer(t *testing.T) {
 	var ctxt = context.Background()
 
 	//creat a StartImageReq obj and send it to VMCProcess
-	args := []string{"echo", "hi there"}
-	var outbuf bytes.Buffer
-	sir := StartImageReq{ID: "simple", Args: args, Instream: nil, Outstream: &outbuf}
+	sir := StartImageReq{ID: "simple"}
 	_, err := VMCProcess(ctxt, "Docker", sir)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error starting container: %s", err)
 		return
 	}
-	fmt.Printf("Output-%s", string(outbuf.Bytes()))
-	if "hi there\n" != string(outbuf.Bytes()) {
-		t.Fail()
-		t.Logf("expected hello, received : %s", string(outbuf.Bytes()))
-		return
-	}
+	stopr := StopImageReq{ID: "simple", Timeout: 0}
+	VMCProcess(ctxt, "Docker", stopr)
 }
 
 func TestVMCStopContainer(t *testing.T) {

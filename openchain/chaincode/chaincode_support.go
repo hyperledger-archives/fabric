@@ -496,7 +496,7 @@ func CreateQueryMessage(uuid string, cMsg *pb.ChainletMessage) (*pb.ChaincodeMes
 
 func (chainletSupport *ChainletSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
 	chainletSupport.handlerMap.Lock()
-	//if its in the map, there must be a connected stream...nothing to do
+	//we expect the chaincode to be running... sanity check
 	handler,ok := chainletSupport.handlerMap.chaincodeMap[chaincode]
 	if !ok {
 		chainletSupport.handlerMap.Unlock()
