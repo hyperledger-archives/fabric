@@ -47,7 +47,7 @@ Deploy first calls the build command (above) to create the docker image and subs
 
 `./obc-peer chaincode deploy --path=github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple --version=0.1.0`
 
-The difference between the two commands is evident when you execute them. During the build command you will only observe processing on the local peer node, but during the deploy command you will note processing on the leader and validator nodes as well. Activity is seen on the leader and validator nodes as they are processing the transaction and going through consensus. The response to the chainCode build and deploy commands is defined by ChainletDeploymentSpec inside [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto). Note, the we are currently in the process of replacing all instances of "chainlet" with "chainCode" as we found that terminology more suitable. You will still see references to chainlet in the code as we are going through this transition process.
+The difference between the two commands is evident when you execute them. During the build command you will only observe processing on the local peer node, but during the deploy command you will note processing on the leader and validator nodes as well. Activity is seen on the leader and validator nodes as they are processing the transaction and going through consensus. The response to the chainCode build and deploy commands is defined by ChainletDeploymentSpec inside [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
 ```
 message ChainletDeploymentSpec {
@@ -59,6 +59,8 @@ message ChainletDeploymentSpec {
 
 }
 ```
+
+**Note:** we are currently in the process of replacing all instances of "chainlet" with "chainCode" as we found that terminology more suitable. You will still see references to chainlet in the code as we are going through this transition process.
 
 ### Verify Results
 
@@ -103,7 +105,8 @@ The response to this query will be quite large, on the order of 20Mb, as it cont
     "transactions":[{
         "type":1,
         "chainletID": {
-            "url":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple","version":"0.5.0"
+            "url":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
+            "version":"0.5.0"
         },
         "payload":"ClwIARJYCk9naXRod...",
         "uuid":"abdcec99-ae5e-415e-a8be-1fca8e38ba71"
@@ -141,6 +144,7 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 3. Start up an http-server on your local machine to serve up the rest_api.json.
 
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
+
     `http-server -a 0.0.0.0 -p 5554 --cors`
 
 4. Make sure that you are successfully able to access the API description document within your browser at this link:
@@ -156,11 +160,13 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 7. Start up the peer node with no connections to a leader or validator as follows.
 
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+
     `./obc-peer peer`
 
 8. Construct a test blockchain on the local peer node by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks.
 
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+
     `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 10. Go back to the Swagger-UI interface inside your browser and load the API description.
@@ -259,7 +265,7 @@ An example of a valid ChainletSpec message is shown below. The url parameter rep
 }
 ```
 
-The build/deploy process will take a little time as the docker image is being created. The response, containing the encoded payload, will be quite large.
+**Note:** The build/deploy process will take a little time as the docker image is being created. The response, containing the encoded payload, will be quite large.
 
 #### State
 
@@ -297,17 +303,21 @@ You can interface to the obc-peer process from a Node.js application in one of t
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+
     `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 4. Set up HTTP server to serve up the Openchain API Swagger doc at a non-public URL:
 
     `npm install http-server -g`
+
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
+
     `http-server -a 0.0.0.0 -p 5554 --cors`
 
 5. Download [OpenchainSample_1.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.zip)
 
     `unzip OpenchainSample_1.zip -d OpenchainSample_1`
+
     `cd OpenchainSample_1`
 
 6. Update the api_url within [openchain.js](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js) to the appropriate URL if it is not already the default
@@ -337,11 +347,13 @@ You will observe several responses on the console, thought the program will appe
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
     `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+
     `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 5. Download [OpenchainSample_2.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_2.zip)
 
     `unzip OpenchainSample_2.zip -d OpenchainSample_2`
+
     `cd OpenchainSample_1`
 
 6. Run the Node.js app
