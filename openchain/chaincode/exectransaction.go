@@ -96,9 +96,8 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		} else {
 			if resp.Type == pb.ChaincodeMessage_COMPLETED {
 				return 	resp.Payload, nil
-			} else {
-				return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 			}
+			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 		}
 
 	} else {
@@ -128,7 +127,7 @@ func  ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tra
 	return statehash, errs
 }
 
-var failedToGetChainCodeSpecForTransaction error = errors.New("Failed to get ChainCodeSpec from Transaction")
+var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
 
 func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
@@ -147,5 +146,5 @@ func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 		}
 	}
 	
-	return -1, failedToGetChainCodeSpecForTransaction
+	return -1, errFailedToGetChainCodeSpecForTransaction
 }

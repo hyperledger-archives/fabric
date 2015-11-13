@@ -26,9 +26,9 @@ import (
 	"os"
 	"strings"
 
-	pb "github.com/openblockchain/obc-peer/protos"
-	"github.com/fsouza/go-dockerclient"
 	"github.com/blang/semver"
+	"github.com/fsouza/go-dockerclient"
+	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
@@ -78,7 +78,7 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
-	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout }
+	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
 	containerID := strings.Replace(id, ":", "_", -1)
 	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
 	vmLogger.Debug("Create image: %s", containerID)
@@ -97,7 +97,7 @@ func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
-	err = client.StartContainer(id, &docker.HostConfig{ NetworkMode: "host"})
+	err = client.StartContainer(id, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
 		fmt.Printf("start-could not start container %s\n", err)
 		return err
@@ -174,12 +174,12 @@ type VMCResp struct {
 
 //CreateImageReq - properties for creating an container image
 type CreateImageReq struct {
-	ID     string
-	Reader io.Reader
-	AttachStdin bool
+	ID           string
+	Reader       io.Reader
+	AttachStdin  bool
 	AttachStdout bool
-	Args   []string
-	Env    []string
+	Args         []string
+	Env          []string
 }
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
@@ -262,7 +262,7 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	}
 }
 
-// GetVMName gets the container name given the chaincode name and version 
+// GetVMName gets the container name given the chaincode name and version
 func GetVMName(chaincodeID *pb.ChainletID) (string, error) {
 	// Make sure version is specfied correctly
 	version, err := semver.Make(chaincodeID.Version)
@@ -274,7 +274,7 @@ func GetVMName(chaincodeID *pb.ChainletID) (string, error) {
 	return vmName, nil
 }
 
-/******************* 
+/*******************
  * OLD ... leavethis here as sample for "client.CreateExec" in case we need it at some point
 func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error {
 	client, err := vm.newClient()
@@ -318,4 +318,3 @@ func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach
 	return nil
 }
 ****************************/
-

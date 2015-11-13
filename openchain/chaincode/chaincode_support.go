@@ -380,7 +380,7 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	if handler, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
-		if handler.FSM.Current() == readyState {
+		if handler.FSM.Current() == readystate {
 			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
 			chainletSupport.handlerMap.Unlock()
 			return cID,cMsg,nil

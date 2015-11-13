@@ -187,6 +187,7 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
+//BuildLocal builds a given chainlet code
 func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
 	mode := viper.GetString("chainlet.chaincoderunmode")
@@ -213,6 +214,7 @@ func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDep
 	return chainletDeploymentSpec, nil
 }
 
+// DeployLocal deploys the supplied chaincode image to the local peer
 func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	// First build and get the deployment spec
 	chainletDeploymentSpec, err := BuildLocal(ctx, spec)
