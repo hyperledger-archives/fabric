@@ -131,7 +131,7 @@ message Block {
 
 ## Openchain REST API:
 
-You can experiment with the Openchain REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. However, if you choose to work with the REST API directly through Swagger for a nicer UI, please set up the Swagger-UI package locally on your machine per the instructions [here](#to-set-up-swagger-ui). The APIs we are working on are not public at this time and therefore we can not upload them directly to Swagger.io.
+You can experiment with the Openchain REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. However, if you choose to work with the REST API directly through [Swagger](http://swagger.io/) for a nicer UI, please set up the Swagger-UI package locally on your machine per the instructions [here](#to-set-up-swagger-ui). The APIs we are working on are not public at this time and therefore we can not upload them directly to Swagger.io.
 
 ### REST Endpoints
 
@@ -247,7 +247,7 @@ By assigning the following chaincodeID and key parameters within the REST call, 
 
 ### To set up Swagger-UI
 
-Swagger is a convenient package that allows us to describe and document our API in a single file. The Openchain REST API is described inside [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). To interact with the peer node directly through the Swagger-UI, please follow the instructions below.
+[Swagger](http://swagger.io/) is a convenient package that allows us to describe and document our API in a single file. The Openchain REST API is described inside [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). To interact with the peer node directly through the Swagger-UI, please follow the instructions below.
 
 1. Make sure you have Node.js installed on your local machine. If it is not installed, please download the [Node.js](https://nodejs.org/en/download/) package and install it.
 
