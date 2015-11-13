@@ -63,7 +63,7 @@ type Helper struct {
 // =============================================================================
 
 // New constructs the consensus helper object.
-func New() consensus.CPI {
+func New() *Helper {
 
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Creating a new helper.")
