@@ -71,7 +71,7 @@ An example of the response is below.
 ```
 {
     "height":1,
-    "currentBlockHash":"4Yc4yCO95wcpWHW2NLFlf76OGURBBxYZMf3yUyvrEXs5TMai9qNKfy9Yn/Ahp7lewqSTutYlUBenNCgRuts84A=="
+    "currentBlockHash":"4Yc4yCO95wcpWHW2NLFlf76OGURBBxYZMf3yUyvrEXs5TMai9qNKfy9Yn/=="
 }
 ```
 
@@ -140,41 +140,46 @@ You can experiment with the Openchain REST API through any tool of your choice. 
 
 3. Start up an http-server on your local machine to serve up the rest_api.json.
 
-    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
-    http-server -a 0.0.0.0 -p 5554 --cors`
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
+    `http-server -a 0.0.0.0 -p 5554 --cors`
 
 4. Make sure that you are successfully able to access the API description document within your browser at this link:
 
-    http://localhost:5554/rest_api.json
+    `http://localhost:5554/rest_api.json`
 
 5. Download the Swagger-UI package with the following command:
 
-    git clone https://github.com/swagger-api/swagger-ui.git
+    `git clone https://github.com/swagger-api/swagger-ui.git`
 
 6. Navigate to the /swagger-ui/dist directory and click on the index.html file to bring up the Swagger-UI interface inside your browser.
 
 7. Start up the peer node with no connections to a leader or validator as follows.
 
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    ./obc-peer peer
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+    `./obc-peer peer`
 
 8. Construct a test blockchain on the local peer node by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks.
 
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 10. Go back to the Swagger-UI interface inside your browser and load the API description.
 
 ### REST Endpoints
 
 * [Block](#block)
+  * GET /chain/blocks/{Block}
 * [Chain](#chain)
+  * GET /chain
 * [Devops](#devops)
+  * POST /devops/build
+  * POST /devops/deploy
 * [State](#state)
+  * GET /state/{chaincodeID}/{key}
 
 #### Block
 
-    * GET /chain/blocks/{Block}
+**GET /chain/blocks/{Block}**
 
 Invoke the Block API to retrieve the contents of various blocks from the blockchain data structure. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
 
@@ -192,7 +197,7 @@ message Block {
 
 #### Chain
 
-    * GET /chain
+**GET /chain**
 
 Invoke the Chain API to retrieve the information on the current state of the blockchain. The returned BlockchainInfo message is defined inside [api.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/api.proto) .
 
@@ -208,8 +213,8 @@ message BlockchainInfo {
 
 #### Devops
 
-    * POST /devops/build
-    * POST /devops/deploy
+**POST /devops/build**
+**POST /devops/deploy**
 
 Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
@@ -258,9 +263,7 @@ The build/deploy process will take a little time as the docker image is being cr
 
 #### State
 
-This endpoint will likely go away as the Openchain API matures. Accessing the state of a chainCode directly from the application layer presents security issues. Instead of allowing the application developer to directly access the state, we anticipate to retrieve the state of a given chainCode via a getter function within the chainCode itself. This getter function will be implemented by the chainCode developer to respond with whatever they see fit for describing the value of the state. The getter function will be invoked as a query transaction (equivalent to call in Ethereum) on the chainCode from the application layer and will therefore not be recorded as a transaction on the blockchain.
-
-    * GET /state/{chaincodeID}/{key}
+**GET /state/{chaincodeID}/{key}**
 
 Invoke the State endpoint to retrieve the value stored for a given key of a specific chainCode. Think of the chaincodeID and key as a compound key. You can create a valid query for the state as you know the value of the state being set inside the testing code. Take a look at buildTestLedger2 method inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This method creates the blockchain you are querying against. You will see calls to SetState(chaincodeID string, key string, value []byte) method, which sets the sate of a particular chainCode and key to a specific value. You will see the following being set, among others:
 
@@ -271,6 +274,8 @@ MyOtherContract + y --> goodbuy
 ```
 
 By assigning the following chaincodeID and key parameters within the REST call, you can confirm that the state is being set appropriately.
+
+**Note:** This endpoint will likely go away as the Openchain API matures. Accessing the state of a chainCode directly from the application layer presents security issues. Instead of allowing the application developer to directly access the state, we anticipate to retrieve the state of a given chainCode via a getter function within the chainCode itself. This getter function will be implemented by the chainCode developer to respond with whatever they see fit for describing the value of the state. The getter function will be invoked as a query transaction (equivalent to call in Ethereum) on the chainCode from the application layer and will therefore not be recorded as a transaction on the blockchain.
 
 ## Node.js
 
@@ -287,31 +292,31 @@ You can interface to the obc-peer process from a Node.js application in one of t
 
 2. Run local peer node only (not complete network) with:
 
-    ./obc-peer peer
+    `./obc-peer peer`
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 4. Set up HTTP server to serve up the Openchain API Swagger doc at a non-public URL:
 
-    npm install http-server -g
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
-    http-server -a 0.0.0.0 -p 5554 --cors
+    `npm install http-server -g`
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest`
+    `http-server -a 0.0.0.0 -p 5554 --cors`
 
 5. Download [OpenchainSample_1.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.zip)
 
-    unzip OpenchainSample_1.zip -d OpenchainSample_1
-    cd OpenchainSample_1
+    `unzip OpenchainSample_1.zip -d OpenchainSample_1`
+    `cd OpenchainSample_1`
 
 6. Update the api_url within [openchain.js](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_1.js) to the appropriate URL if it is not already the default
 
-    var api_url = 'http://localhost:5554/rest_api.json';
+    `var api_url = 'http://localhost:5554/rest_api.json';`
 
 7. Run the Node.js app
 
-    node ./openchain.js
+    `node ./openchain.js`
 
 You will observe several responses on the console, thought the program will appear to hang for a few moments at the end. This is normal, as is it waiting for a build request for a Docker container to complete.
 
@@ -327,21 +332,21 @@ You will observe several responses on the console, thought the program will appe
 
 2. Run local peer node only (not complete network) with:
 
-    ./obc-peer peer
+    `./obc-peer peer`
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows:
 
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    `cd /opt/gopath/src/github.com/openblockchain/obc-peer`
+    `go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain`
 
 5. Download [OpenchainSample_2.zip](https://github.com/openblockchain/obc-peer/blob/master/docs/OpenchainSample_2.zip)
 
-    unzip OpenchainSample_2.zip -d OpenchainSample_2
-    cd OpenchainSample_1
+    `unzip OpenchainSample_2.zip -d OpenchainSample_2`
+    `cd OpenchainSample_1`
 
 6. Run the Node.js app
 
-    node ./openchain.js
+    `node ./openchain.js`
 
 You will observe several responses on the console, thought the program will appear to hang for a few moments at the end. This is normal, as is it waiting for a build request for a Docker container to complete.
 
@@ -349,11 +354,11 @@ You will observe several responses on the console, thought the program will appe
 
 If you update the [rest_api.json](https://github.com/angrbrd/obc-peer/blob/master/openchain/rest/rest_api.json) Swagger description, you must regenerate the associated TypeScript file for your Node.js application.
 
-Swagger produces a TypeScriptfile as part of it's Swagger-Editor package. To use Swagger-Editor please set it up locally on your machine. The APIs we are working on are not public at this time and therefore we can not upload them to the Swagger.io server. To set up the Swagger-Editor please follow the steps below.
+Swagger produces TypeScriptfile files with its Swagger-Editor package. If you would like to use Swagger-Editor, please set it up locally on your machine. The APIs we are working on are not public at this time and therefore we can not upload them to the Swagger.io server. To set up the Swagger-Editor please follow the steps below.
 
 1. Download the latest release of [Swagger-Editor](https://github.com/swagger-api/swagger-editor).
 2. Unpack .zip
 3. cd swagger-editor/swagger-editor
 4. http-server -a 0.0.0.0 -p 8000 --cors
-5. Go to the Swagger-Editor in your browser, and import the API description
-6. Generate the TypeScript file for Node.js from the "Generate Client" menu
+5. Go to the Swagger-Editor in your browser, and import the API description.
+6. Generate the TypeScript file for Node.js from the "Generate Client" menu.
