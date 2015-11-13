@@ -131,48 +131,7 @@ message Block {
 
 ## Openchain REST API:
 
-You can experiment with the Openchain REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. However, if you choose to work with the REST API directly through Swagger for a nicer UI, please set up the Swagger-UI package locally on your machine. The APIs we are working on are not public at this time and therefore we can not upload them directly to the Swagger.io.
-
-### To set up Swagger-UI
-
-1. Make sure you have Node.js installed on your local machine. If it is not installed, please download the [Node.js](https://nodejs.org/en/download/) package and install it.
-
-2. Install the Node.js http-server package with the command below:
-
-    `npm install http-server -g`
-
-3. Start up an http-server on your local machine to serve up the rest_api.json.
-
-    ```
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
-    http-server -a 0.0.0.0 -p 5554 --cors
-    ```
-
-4. Make sure that you are successfully able to access the API description document within your browser at this link:
-
-    `http://localhost:5554/rest_api.json`
-
-5. Download the Swagger-UI package with the following command:
-
-    `git clone https://github.com/swagger-api/swagger-ui.git`
-
-6. Navigate to the /swagger-ui/dist directory and click on the index.html file to bring up the Swagger-UI interface inside your browser.
-
-7. Start up the peer node with no connections to a leader or validator as follows.
-
-    ```
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    ./obc-peer peer
-    ```
-
-8. Construct a test blockchain on the local peer node by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks.
-
-    ```
-    cd /opt/gopath/src/github.com/openblockchain/obc-peer
-    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
-    ```
-
-10. Go back to the Swagger-UI interface inside your browser and load the API description.
+You can experiment with the Openchain REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. However, if you choose to work with the REST API directly through Swagger for a nicer UI, please set up the Swagger-UI package locally on your machine per the instructions [here](#to-set-up-swagger-ui). The APIs we are working on are not public at this time and therefore we can not upload them directly to Swagger.io.
 
 ### REST Endpoints
 
@@ -286,6 +245,49 @@ By assigning the following chaincodeID and key parameters within the REST call, 
 
 **Note:** This endpoint will likely go away as the Openchain API matures. Accessing the state of a chainCode directly from the application layer presents security issues. Instead of allowing the application developer to directly access the state, we anticipate to retrieve the state of a given chainCode via a getter function within the chainCode itself. This getter function will be implemented by the chainCode developer to respond with whatever they see fit for describing the value of the state. The getter function will be invoked as a query transaction (equivalent to call in Ethereum) on the chainCode from the application layer and will therefore not be recorded as a transaction on the blockchain.
 
+### To set up Swagger-UI
+
+Swagger is a convenient package that allows us to describe and document our API in a single file. The Openchain REST API is described inside [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). To interact with the peer node directly through the Swagger-UI, please follow the instructions below.
+
+1. Make sure you have Node.js installed on your local machine. If it is not installed, please download the [Node.js](https://nodejs.org/en/download/) package and install it.
+
+2. Install the Node.js http-server package with the command below:
+
+    `npm install http-server -g`
+
+3. Start up an http-server on your local machine to serve up the rest_api.json.
+
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer/openchain/rest
+    http-server -a 0.0.0.0 -p 5554 --cors
+    ```
+
+4. Make sure that you are successfully able to access the API description document within your browser at this link:
+
+    `http://localhost:5554/rest_api.json`
+
+5. Download the Swagger-UI package with the following command:
+
+    `git clone https://github.com/swagger-api/swagger-ui.git`
+
+6. Navigate to the /swagger-ui/dist directory and click on the index.html file to bring up the Swagger-UI interface inside your browser.
+
+7. Start up the peer node with no connections to a leader or validator as follows.
+
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    ./obc-peer peer
+    ```
+
+8. Construct a test blockchain on the local peer node by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks.
+
+    ```
+    cd /opt/gopath/src/github.com/openblockchain/obc-peer
+    go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
+    ```
+
+10. Go back to the Swagger-UI interface inside your browser and load the API description.
+
 ## Node.js
 
 You can interface to the obc-peer process from a Node.js application in one of two ways. Both approaches rely on the Swagger API description document, [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). Use the approach the you find the most convenient.
@@ -371,9 +373,9 @@ You will observe several responses on the console, thought the program will appe
 
 ### To Regenerate TypeScript
 
-If you update the [rest_api.json](https://github.com/angrbrd/obc-peer/blob/master/openchain/rest/rest_api.json) Swagger description, you must regenerate the associated TypeScript file for your Node.js application.
+If you update the [rest_api.json](https://github.com/angrbrd/obc-peer/blob/master/openchain/rest/rest_api.json) Swagger description, you must regenerate the associated TypeScript file for your Node.js application. The current TypeScript file describing the Openchain API is [api.ts](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/api.ts).
 
-Swagger produces TypeScriptfile files with its Swagger-Editor package. If you would like to use Swagger-Editor, please set it up locally on your machine. The APIs we are working on are not public at this time and therefore we can not upload them to the Swagger.io server. To set up the Swagger-Editor please follow the steps below.
+Swagger produces TypeScriptfile files with its Swagger-Editor package. If you would like to use Swagger-Editor, please set it up locally on your machine. The APIs we are working on are not public at this time and therefore we can not upload them directly to Swagger.io. To set up the Swagger-Editor please follow the steps below.
 
 1. Download the latest release of [Swagger-Editor](https://github.com/swagger-api/swagger-editor).
 2. Unpack .zip
