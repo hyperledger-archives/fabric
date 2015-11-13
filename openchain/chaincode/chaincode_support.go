@@ -390,6 +390,7 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 	if !USER_RUNS_CC  {
 		_,err = chainletSupport.launchAndWaitForRegister(context, cID, t.Uuid)
 		if err != nil {
+			chainletLog.Debug("launchAndWaitForRegister failed %s", err)
 			return cID,cMsg,err
 		}
 	}
@@ -407,6 +408,8 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 		}
 		chainletLog.Debug("sending init completed")
 	}
+
+	chainletLog.Debug("LaunchChaincode complete\n")		
 
 	return cID,cMsg,err
 }

@@ -51,7 +51,6 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 			//TODO rollback transaction as init might have set state
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
-		fmt.Printf("LaunchChaincode exited. Init complete\n")		
 	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID,cMsg,err := chain.LaunchChaincode(ctxt, t)
