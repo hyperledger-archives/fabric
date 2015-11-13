@@ -154,7 +154,6 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Send COMPLETED message to chaincode support and change state
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid} 
 		chaincodeLogger.Debug("Init succeeded. Sending %s(%s)", pb.ChaincodeMessage_COMPLETED, completedMsg.Uuid)
-		chaincodeLogger.Debug("Current state is %s", handler.FSM.Current())
 		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
 		handler.ChatStream.Send(completedMsg)
 	}()

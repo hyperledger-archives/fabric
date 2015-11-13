@@ -104,7 +104,7 @@ func TestChaincode(t *testing.T) {
 	fmt.Printf("function is %s\n",input.Function)
 	payloadData,err := proto.Marshal(input)
 	if err != nil {
-		t.Logf("Init failed: %s", err)
+		t.Logf("Failed to marshal: %s", err)
 		t.Fail()
 		return
 	}
@@ -116,13 +116,12 @@ func TestChaincode(t *testing.T) {
 		t.Fail()
 		return
 	}
-
 	// Ensure deploy completes
 	time.Sleep(2 * time.Second)
 
 	// Invoke transaction
 	//payload = `{"funcName" : "init", "args" : ["10"]}`
-	input = &pb.ChaincodeInput{Function: "invoke", Args: []string{"10"}}
+	input = &pb.ChaincodeInput{Function: "invoke", Args: []string{"a","b","10"}}
 	fmt.Printf("function is %s\n",input.Function)
 	payloadData,err = proto.Marshal(input)
 	if err != nil {
