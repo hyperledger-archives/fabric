@@ -42,10 +42,6 @@ import (
 
 const defaultTimeout = time.Second * 3
 
-type MessageHandlerFactory interface {
-	GetHandler(coord MessageHandlerCoordinator, stream ChatStream, initiatedStream bool, next MessageHandler) (MessageHandler, error)
-}
-
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
 	HandleMessage(msg *pb.OpenchainMessage) error
@@ -54,6 +50,7 @@ type MessageHandler interface {
 	Stop() error
 }
 
+// MessageHandlerCoordinator responsible for coordinating between the registered MessageHandler's
 type MessageHandlerCoordinator interface {
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
@@ -147,9 +144,8 @@ type handlerMap struct {
 
 // Peer implementation of the Peer service
 type Peer struct {
-	handlerFactory   func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
-	handlerFactories []MessageHandlerFactory
-	handlerMap       *handlerMap
+	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+	handlerMap     *handlerMap
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
@@ -169,7 +165,7 @@ func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
 	return p.handleChat(stream.Context(), stream, false)
 }
 
-// Chat implementation of the the Chat bidi streaming RPC function
+// GetPeers returns the currently registered PeerEndpoints
 func (p *Peer) GetPeers() (*pb.PeersMessage, error) {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
@@ -185,8 +181,8 @@ func (p *Peer) GetPeers() (*pb.PeersMessage, error) {
 	return peersMessage, nil
 }
 
+// PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
 func (p *Peer) PeersDiscovered(peersMessage *pb.PeersMessage) error {
-
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	thisPeersEndpoint, err := GetPeerEndpoint()
@@ -217,6 +213,7 @@ func getHandlerKeyFromPeerEndpoint(peerEndpoint *pb.PeerEndpoint) string {
 	return peerEndpoint.ID.Name
 }
 
+// RegisterHandler register a MessageHandler with this coordinator
 func (p *Peer) RegisterHandler(messageHandler MessageHandler) error {
 	key, err := getHandlerKey(messageHandler)
 	if err != nil {
@@ -233,6 +230,7 @@ func (p *Peer) RegisterHandler(messageHandler MessageHandler) error {
 	return nil
 }
 
+// DeregisterHandler deregisters an already registered MessageHandler for this coordinator
 func (p *Peer) DeregisterHandler(messageHandler MessageHandler) error {
 	key, err := getHandlerKey(messageHandler)
 	if err != nil {
@@ -249,6 +247,7 @@ func (p *Peer) DeregisterHandler(messageHandler MessageHandler) error {
 	return nil
 }
 
+// Broadcast broadcast a message to each of the currently registered PeerEndpoints.
 func (p *Peer) Broadcast(msg *pb.OpenchainMessage) []error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()

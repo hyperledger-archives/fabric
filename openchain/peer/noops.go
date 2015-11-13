@@ -20,25 +20,33 @@ under the License.
 package peer
 
 import (
+	"fmt"
+
 	"github.com/op/go-logging"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var logger = logging.MustGetLogger("noops")
 
+// Noops the Noops structure associated with the Noops MessageHandler
 type Noops struct {
-	Handler     // The consensus programming interface
-	NextHandler MessageHandler
+	Coordinator MessageHandlerCoordinator
+	ChatStream  ChatStream
+	doneChan    chan bool
+	PeerHandler MessageHandler
 }
 
+// NewNoopsHandler constructs a new Noops MessageHandler
 func NewNoopsHandler(coord MessageHandlerCoordinator, stream ChatStream, initiatedStream bool, next MessageHandler) (MessageHandler, error) {
 	d := &Noops{
-		Handler: Handler{
-			ChatStream:      stream,
-			Coordinator:     coord,
-			initiatedStream: initiatedStream,
-		},
-		NextHandler: next,
+		ChatStream:  stream,
+		Coordinator: coord,
+		PeerHandler: next,
+	}
+	var err error
+	d.PeerHandler, err = NewPeerHandler(coord, stream, initiatedStream, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 	d.doneChan = make(chan bool)
 
@@ -64,5 +72,31 @@ func (i *Noops) HandleMessage(msg *pb.OpenchainMessage) error {
 		return nil
 	}
 	logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
-	return i.NextHandler.HandleMessage(msg)
+	return i.PeerHandler.HandleMessage(msg)
+}
+
+// SendMessage sends a message to the remote PEER through the stream
+func (i *Noops) SendMessage(msg *pb.OpenchainMessage) error {
+	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	err := i.ChatStream.Send(msg)
+	if err != nil {
+		return fmt.Errorf("Error Sending message through ChatStream: %s", err)
+	}
+	return nil
+}
+
+// Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer)
+func (i *Noops) Stop() error {
+	// Deregister the handler
+	err := i.PeerHandler.Stop()
+	i.doneChan <- true
+	if err != nil {
+		return fmt.Errorf("Error stopping Noops handler: %s", err)
+	}
+	return nil
+}
+
+// To return the PeerEndpoint this Handler is connected to by delegating to the contained PeerHandler.
+func (i *Noops) To() (pb.PeerEndpoint, error) {
+	return i.PeerHandler.To()
 }

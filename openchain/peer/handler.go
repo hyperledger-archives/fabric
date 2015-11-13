@@ -90,10 +90,12 @@ func (d *Handler) enterState(e *fsm.Event) {
 	peerLogger.Debug("The Peer's bi-directional stream to %s is %s, from event %s\n", d.ToPeerEndpoint, e.Dst, e.Event)
 }
 
+// To return the PeerEndpoint this Handler is connected to.
 func (d *Handler) To() (pb.PeerEndpoint, error) {
 	return *(d.ToPeerEndpoint), nil
 }
 
+// Stop stops this handler, which will trigger the Deregister from the MessageHandlerCoordinator.
 func (d *Handler) Stop() error {
 	// Deregister the handler
 	err := d.Coordinator.DeregisterHandler(d)
