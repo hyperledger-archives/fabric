@@ -67,7 +67,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
 To set up the Openchain network composed of a leader, validator, and a peer node, follow the instructions on the [Network Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/Network%20Setup.md) page.
 
-Note, that before you proceed with setting up the testing network, you must first run the full Openchain testing suite as described above. Running the full test suite will download the required Docker image. If you fail to run the test suite, the Docker commands in the network setup instructions will fail.
+**Note:** Before you proceed with setting up the testing network, you must first run the full Openchain testing suite as described above. Running the full test suite will download the required Docker image. If you fail to run the test suite, the Docker commands in the network setup instructions will fail.
 
 ## Working with CLI, REST, and Node.js
 

@@ -5,7 +5,7 @@
 This document covers the available APIs to connect to an Openchain peer node. The three approaches described are:
 
 1. [CLI Interface](#openchain-cli)
-2. [REST interface](#openchain-rest-api)
+2. [REST Interface](#openchain-rest-api)
 3. [Node.js](#nodejs)
 
 ## Openchain CLI:
@@ -60,7 +60,7 @@ message ChainletDeploymentSpec {
 }
 ```
 
-**Note:** we are currently in the process of replacing all instances of "chainlet" with "chainCode" as we found that terminology more suitable. You will still see references to chainlet in the code as we are going through this transition process.
+**Note:** We are currently in the process of replacing all instances of "chainlet" with "chainCode" as we found that terminology more suitable. You will still see references to chainlet in the code as we are going through this transition process.
 
 ### Verify Results
 
@@ -220,6 +220,7 @@ message BlockchainInfo {
 #### Devops
 
 **POST /devops/build**
+
 **POST /devops/deploy**
 
 Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
