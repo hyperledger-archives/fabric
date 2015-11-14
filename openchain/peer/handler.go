@@ -183,6 +183,11 @@ func (d *Handler) beforePeers(e *fsm.Event) {
 	peerLogger.Debug("Received PeersMessage with Peers: %s", peersMessage)
 	d.Coordinator.PeersDiscovered(peersMessage)
 
+	// // Can be used to demonstrate Broadcast function
+	// if viper.GetString("peer.id") == "jdoe" {
+	// 	d.Coordinator.Broadcast(&pb.OpenchainMessage{Type: pb.OpenchainMessage_UNDEFINED})
+	// }
+
 }
 
 func (d *Handler) when(stateToCheck string) bool {
