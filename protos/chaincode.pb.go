@@ -45,26 +45,56 @@ func (x ChainletSpec_Type) String() string {
 type ChaincodeMessage_Type int32
 
 const (
-	ChaincodeMessage_UNDEFINED  ChaincodeMessage_Type = 0
-	ChaincodeMessage_REGISTER   ChaincodeMessage_Type = 1
-	ChaincodeMessage_REGISTERED ChaincodeMessage_Type = 2
-	ChaincodeMessage_REQUEST    ChaincodeMessage_Type = 3
-	ChaincodeMessage_RESPONSE   ChaincodeMessage_Type = 4
+	ChaincodeMessage_UNDEFINED        ChaincodeMessage_Type = 0
+	ChaincodeMessage_REGISTER         ChaincodeMessage_Type = 1
+	ChaincodeMessage_REGISTERED       ChaincodeMessage_Type = 2
+	ChaincodeMessage_INIT             ChaincodeMessage_Type = 3
+	ChaincodeMessage_READY            ChaincodeMessage_Type = 4
+	ChaincodeMessage_TRANSACTION      ChaincodeMessage_Type = 5
+	ChaincodeMessage_COMPLETED        ChaincodeMessage_Type = 6
+	ChaincodeMessage_ERROR            ChaincodeMessage_Type = 7
+	ChaincodeMessage_GET_STATE        ChaincodeMessage_Type = 8
+	ChaincodeMessage_PUT_STATE        ChaincodeMessage_Type = 9
+	ChaincodeMessage_DEL_STATE        ChaincodeMessage_Type = 10
+	ChaincodeMessage_INVOKE_CHAINCODE ChaincodeMessage_Type = 11
+	ChaincodeMessage_RESPONSE         ChaincodeMessage_Type = 12
+	ChaincodeMessage_QUERY            ChaincodeMessage_Type = 13
+	ChaincodeMessage_QUERY_COMPLETED  ChaincodeMessage_Type = 14
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "REGISTER",
-	2: "REGISTERED",
-	3: "REQUEST",
-	4: "RESPONSE",
+	0:  "UNDEFINED",
+	1:  "REGISTER",
+	2:  "REGISTERED",
+	3:  "INIT",
+	4:  "READY",
+	5:  "TRANSACTION",
+	6:  "COMPLETED",
+	7:  "ERROR",
+	8:  "GET_STATE",
+	9:  "PUT_STATE",
+	10: "DEL_STATE",
+	11: "INVOKE_CHAINCODE",
+	12: "RESPONSE",
+	13: "QUERY",
+	14: "QUERY_COMPLETED",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
-	"UNDEFINED":  0,
-	"REGISTER":   1,
-	"REGISTERED": 2,
-	"REQUEST":    3,
-	"RESPONSE":   4,
+	"UNDEFINED":        0,
+	"REGISTER":         1,
+	"REGISTERED":       2,
+	"INIT":             3,
+	"READY":            4,
+	"TRANSACTION":      5,
+	"COMPLETED":        6,
+	"ERROR":            7,
+	"GET_STATE":        8,
+	"PUT_STATE":        9,
+	"DEL_STATE":        10,
+	"INVOKE_CHAINCODE": 11,
+	"RESPONSE":         12,
+	"QUERY":            13,
+	"QUERY_COMPLETED":  14,
 }
 
 func (x ChaincodeMessage_Type) String() string {
@@ -83,35 +113,27 @@ func (m *ChainletID) String() string { return proto.CompactTextString(m) }
 func (*ChainletID) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
-type ChainletMessage struct {
+type ChaincodeInput struct {
 	Function string   `protobuf:"bytes,1,opt,name=function" json:"function,omitempty"`
 	Args     []string `protobuf:"bytes,2,rep,name=args" json:"args,omitempty"`
 }
 
-func (m *ChainletMessage) Reset()         { *m = ChainletMessage{} }
-func (m *ChainletMessage) String() string { return proto.CompactTextString(m) }
-func (*ChainletMessage) ProtoMessage()    {}
+func (m *ChaincodeInput) Reset()         { *m = ChaincodeInput{} }
+func (m *ChaincodeInput) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInput) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
-type ChaincodeInvocation struct {
-	ChainletSpec *ChainletSpec    `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
-	Message      *ChainletMessage `protobuf:"bytes,2,opt,name=message" json:"message,omitempty"`
+type ChaincodeInvocationSpec struct {
+	ChainletSpec *ChainletSpec `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
 }
 
-func (m *ChaincodeInvocation) Reset()         { *m = ChaincodeInvocation{} }
-func (m *ChaincodeInvocation) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeInvocation) ProtoMessage()    {}
+func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
+func (m *ChaincodeInvocationSpec) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInvocationSpec) ProtoMessage()    {}
 
-func (m *ChaincodeInvocation) GetChainletSpec() *ChainletSpec {
+func (m *ChaincodeInvocationSpec) GetChainletSpec() *ChainletSpec {
 	if m != nil {
 		return m.ChainletSpec
-	}
-	return nil
-}
-
-func (m *ChaincodeInvocation) GetMessage() *ChainletMessage {
-	if m != nil {
-		return m.Message
 	}
 	return nil
 }
@@ -121,7 +143,8 @@ func (m *ChaincodeInvocation) GetMessage() *ChainletMessage {
 type ChainletSpec struct {
 	Type       ChainletSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChainletSpec_Type" json:"type,omitempty"`
 	ChainletID *ChainletID       `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	CtorMsg    *ChainletMessage  `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	CtorMsg    *ChaincodeInput   `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Timeout    int32             `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
 }
 
 func (m *ChainletSpec) Reset()         { *m = ChainletSpec{} }
@@ -135,7 +158,7 @@ func (m *ChainletSpec) GetChainletID() *ChainletID {
 	return nil
 }
 
-func (m *ChainletSpec) GetCtorMsg() *ChainletMessage {
+func (m *ChainletSpec) GetCtorMsg() *ChaincodeInput {
 	if m != nil {
 		return m.CtorMsg
 	}
@@ -225,6 +248,7 @@ type ChaincodeMessage struct {
 	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid      string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
@@ -237,6 +261,15 @@ func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
 	}
 	return nil
 }
+
+type PutStateInfo struct {
+	Key   string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (m *PutStateInfo) Reset()         { *m = PutStateInfo{} }
+func (m *PutStateInfo) String() string { return proto.CompactTextString(m) }
+func (*PutStateInfo) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("protos.ChainletSpec_Type", ChainletSpec_Type_name, ChainletSpec_Type_value)

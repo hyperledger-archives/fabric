@@ -17,14 +17,15 @@ It has these top-level messages:
 	BlockNumber
 	BlockCount
 	ChainletID
-	ChainletMessage
-	ChaincodeInvocation
+	ChaincodeInput
+	ChaincodeInvocationSpec
 	ChainletSpec
 	ChainletDeploymentSpec
 	ChainletIdentifier
 	ChainletRequestContext
 	ChainletExecutionContext
 	ChaincodeMessage
+	PutStateInfo
 	DevopsResponse
 	BuildResult
 	Transaction

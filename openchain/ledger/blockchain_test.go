@@ -34,7 +34,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	// Create the Chainlet specification
 	chainletSpec := &protos.ChainletSpec{Type: protos.ChainletSpec_GOLANG,
 		ChainletID: &protos.ChainletID{Url: "Contracts"},
-		CtorMsg:    &protos.ChainletMessage{Function: "Initialize", Args: []string{"param1"}}}
+		CtorMsg:    &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
 	chainletDeploymentSepc := &protos.ChainletDeploymentSpec{ChainletSpec: chainletSpec}
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {

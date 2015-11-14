@@ -34,7 +34,7 @@ service Devops {
     rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
 
     // Invoke chaincode.
-    rpc Invoke(ChaincodeInvocation) returns (google.protobuf.Empty) {}
+    rpc Invoke(ChaincodeInvocationSpec) returns (google.protobuf.Empty) {}
 
 }
 

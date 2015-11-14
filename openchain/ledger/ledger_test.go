@@ -113,7 +113,7 @@ func TestStateSnapshot(t *testing.T) {
 	}
 
 	if snapshot.GetBlockNumber() != 1 {
-		t.Fatalf("Expected blocknumber to be 1, but got %s", snapshot.GetBlockNumber())
+		t.Fatalf("Expected blocknumber to be 1, but got %d", snapshot.GetBlockNumber())
 	}
 
 }

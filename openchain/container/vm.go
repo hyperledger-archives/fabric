@@ -35,9 +35,9 @@ import (
 	"github.com/blang/semver"
 	"github.com/spf13/viper"
 
-	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 // VM implemenation of VM management functionality.
