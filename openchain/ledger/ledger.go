@@ -106,9 +106,10 @@ func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
 	return ledger.state.getHash()
 }
 
-// GetState get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
-func (ledger *Ledger) GetState(chaincodeID string, key string) ([]byte, error) {
-	return ledger.state.get(chaincodeID, key)
+// GetState get state for chaincodeID and key. If committed is false, this first looks in memory
+// and if missing, pulls from db.  If committed is true, this pulls from the db only.
+func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) ([]byte, error) {
+	return ledger.state.get(chaincodeID, key, committed)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to memory
@@ -126,6 +127,12 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
 func (ledger *Ledger) GetStateSnapshot() (*stateSnapshot, error) {
 	return ledger.state.getSnapshot()
+}
+
+// GetStateDelta will return the state delta for the specified block if
+// available.
+func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
+	return fetchStateDeltaFromDB(blockNumber)
 }
 
 /////////////////// blockchain related methods /////////////////////////////////////

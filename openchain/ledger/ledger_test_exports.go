@@ -115,7 +115,7 @@ func getLedger(t *testing.T) *Ledger {
 }
 
 func getStateFromLedger(t *testing.T, chaincodeID string, key string) []byte {
-	value, err := getLedger(t).GetState(chaincodeID, key)
+	value, err := getLedger(t).GetState(chaincodeID, key, false)
 	if err != nil {
 		t.Fatalf("Error while getting value from test ledger: %s", err)
 	}

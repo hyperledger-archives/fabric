@@ -48,11 +48,14 @@ func getState() *state {
 	return stateInstance
 }
 
-// get - get state for chaincodeID and key. This first looks in memory and if missing, pulls from db
-func (state *state) get(chaincodeID string, key string) ([]byte, error) {
-	valueHolder := state.stateDelta.get(chaincodeID, key)
-	if valueHolder != nil {
-		return valueHolder.value, nil
+// get - get state for chaincodeID and key. If committed is false, this first looks in memory and if missing,
+// pulls from db. If committed is true, this pulls from the db only.
+func (state *state) get(chaincodeID string, key string, committed bool) ([]byte, error) {
+	if !committed {
+		valueHolder := state.stateDelta.get(chaincodeID, key)
+		if valueHolder != nil {
+			return valueHolder.value, nil
+		}
 	}
 	return state.fetchStateFromDB(chaincodeID, key)
 }

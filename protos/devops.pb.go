@@ -2,31 +2,6 @@
 // source: devops.proto
 // DO NOT EDIT!
 
-/*
-Package protos is a generated protocol buffer package.
-
-It is generated from these files:
-	devops.proto
-	openchain.proto
-	chaincode.proto
-
-It has these top-level messages:
-	DevopsResponse
-	BuildResult
-	Transaction
-	TransactionBlock
-	Block
-	OpenchainMessage
-	ChainletID
-	ChainletMessage
-	ChaincodeInvocation
-	ChainletSpec
-	ChainletDeploymentSpec
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
-	ChaincodeMessage
-*/
 package protos
 
 import proto "github.com/golang/protobuf/proto"

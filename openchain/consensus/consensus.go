@@ -26,24 +26,31 @@ import (
 	"golang.org/x/net/context"
 )
 
+// =============================================================================
+// Init.
+// =============================================================================
+
 // Package-level logger.
-var Logger *logging.Logger
+var logger *logging.Logger
 
 func init() {
-	Logger = logging.MustGetLogger("consensus")
+	logger = logging.MustGetLogger("consensus")
 }
 
-// Consenter is an interface for every consensus implementation.
+// =============================================================================
+// Interface definitions go here.
+// =============================================================================
+
+// Consenter should be implemented by every consensus algorithm implementation (plugin).
 type Consenter interface {
-	GetParam(param string) (val string, err error)
-	Recv(msg []byte) error
+	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
 }
 
-// CPI (Consensus Programming Interface) is to break the import cycle between
-// consensus and consenter implementation.
+// CPI (Consensus Programming Interface)
 type CPI interface {
-	SetConsenter(c Consenter)
-	HandleMsg(msg *pb.OpenchainMessage) error
-	Broadcast(msg []byte) error
-	ExecTXs(ctxt context.Context, xacts []*pb.Transaction) ([]byte, []error)
+	SetConsenter(c Consenter)                                             // Is called by the controller package, links `helper` with the plugin package.
+	HandleMsg(msg *pb.OpenchainMessage) error                             // Routes to the Consenter's `RecvMsg()`.
+	Broadcast(msgPayload []byte) error                                    // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) // Is called by the Consenter's `RecvMsg()` during processing.
+	Unicast(msgPayload []byte, receiver string) error                     // May be called by the Consenter's `RecvMsg()` after the processing is done.
 }
