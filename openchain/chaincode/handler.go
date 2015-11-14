@@ -296,7 +296,9 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 
 		// Invoke ledger to get state
 		chaincodeID,_ := getChaincodeID(handler.ChaincodeID)
-		res, err := ledgerObj.GetState(chaincodeID, key)
+		// ToDo: Eventually, once consensus is plugged in, we need to set bool to true for ledger
+		res, err := ledgerObj.GetState(chaincodeID, key, false)
+		chaincodeLogger.Debug("Got state %s from ledger",string(res))
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -536,7 +538,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		if f != nil {
 			f2 = *f
 		}
-		funcArgsMsg := &pb.ChainletMessage{Function: f2, Args: initArgs}
+		funcArgsMsg := &pb.ChaincodeInput{Function: f2, Args: initArgs}
 		payload, err := proto.Marshal(funcArgsMsg)
 		if err != nil {
 			return nil,err

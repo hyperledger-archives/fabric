@@ -355,7 +355,7 @@ func (v *validatorFSM) beforePrePrepareResult(e *fsm.Event) {
 	}
 
 	// Execute transactions
-	hopefulHash, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DEFAULTCHAIN, transactions)
+	hopefulHash, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, transactions)
 	for _, currErr := range errs {
 		if currErr != nil {
 			e.Cancel(fmt.Errorf("Error executing transactions pbft: %s", currErr))

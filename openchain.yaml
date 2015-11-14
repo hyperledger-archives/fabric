@@ -210,7 +210,7 @@ chainlet:
 
     chaincoderunmode: validator_runs_chaincode
 
-    chaincodeinstallpath: /go/bin
+    chaincodeinstallpath: /go/bin/
 
 # Below left in for examples of YAML usage
 receipt:     Oz-Ware Purchase Invoice

@@ -53,7 +53,7 @@ type Devops struct {
 func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	mode := viper.GetString("chainlet.chaincoderunmode")
 	var codePackageBytes []byte
-	if mode != chaincode.USERRUNSCHAINCODE {
+	if mode != chaincode.UserRunsChaincode {
 		devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
 		if err := checkSpec(spec); err != nil {
 			return nil, err
@@ -96,7 +96,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
-	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
+	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return chainletDeploymentSpec, execErr
 	
 	/*** TODO: Uncomment from here
@@ -126,7 +126,7 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 	}
 
 	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
-	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DEFAULTCHAIN), transaction)
+	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return &google_protobuf.Empty{}, execErr
 	
 	/**** TODO: Uncomment from here

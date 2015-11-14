@@ -44,10 +44,11 @@ var chainletLog = logging.MustGetLogger("chaincode")
 // ChainName is the name of the chain to which this chaincode support belongs to.
 type ChainName string
 const (
-	// defaultChain is the name of the default chain. 
-	defaultChain ChainName = "default"
-	userRunsChaincode string = "user_runs_chaincode"
-	chaincodeInstallPathDefault string = "/go/bin"
+	// DefaultChain is the name of the default chain. 
+	DefaultChain ChainName = "default"
+	// UserRunsChaincode property allows user to run chaincode in development environment
+	UserRunsChaincode string = "user_runs_chaincode"
+	chaincodeInstallPathDefault string = "/go/bin/"
 	peerAddressDefault string = "0.0.0.0:30303"
 )
 
@@ -85,7 +86,7 @@ func init() {
 	ccStartupTimeout = time.Duration(to)*time.Millisecond
 
 	mode := viper.GetString("chainlet.chaincoderunmode")
-	if mode == cserRunsChaincode {
+	if mode == UserRunsChaincode {
 		UserRunsCC = true
 	} else {
 		UserRunsCC = false
@@ -118,11 +119,11 @@ func GetChain(name ChainName) *ChainletSupport {
 
 // NewChainletSupport creates a new ChainletSupport instance
 func NewChainletSupport() *ChainletSupport {
-	//we need to pass chainname when we do multiple chains...till then use DEFAULTCHAIN
-	s := &ChainletSupport{ name: DEFAULTCHAIN, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
+	//we need to pass chainname when we do multiple chains...till then use DefaultChain
+	s := &ChainletSupport{ name: DefaultChain, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
 	//initialize global chain
-	chains[DEFAULTCHAIN] = s
+	chains[DefaultChain] = s
 
 	return s
 }
@@ -223,7 +224,6 @@ func (chainletSupport *ChainletSupport) GetExecutionContext(context context.Cont
 
 // Based on state of chaincode send either init or ready to move to ready state
 func(chainletSupport *ChainletSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
-	fmt.Printf("Inside sendInitOrReady")
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -255,15 +255,16 @@ func(chainletSupport *ChainletSupport) sendInitOrReady(context context.Context, 
 }
 
 // launchAndWaitForRegister will launch container if not already running
-func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context.Context, chaincode string, uuid string) (bool,error) {
+func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context.Context, cID *pb.ChainletID, uuid string) (bool,error) {
 	vmname, err := container.GetVMName(cID)
 	if err != nil {
 		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting vm name: %s", err)
 	}
-	chaincode, err := getHandlerKey(cID)
+	chaincode, err := getChaincodeID(cID)
 	if err != nil {
 		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting chaincode: %s", err)
 	}
+
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
@@ -298,9 +299,9 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 		}
 	case <-time.After(ccStartupTimeout):
 		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", vmname, uuid)
-		c.handlerMap.Lock()
-		delete(c.handlerMap.m, chaincode)
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Lock()
+		delete(chainletSupport.handlerMap.chaincodeMap, chaincode)
+		chainletSupport.handlerMap.Unlock()
 	}
 	if err != nil {
 		//TODO stop the container
@@ -308,13 +309,13 @@ func (chainletSupport *ChainletSupport) launchAndWaitForRegister(context context
 	return alreadyRunning, err
 }
 
-func (c *ChainletSupport) stopChaincode(context context.Context, cID *pb.ChainletID) error {
+func (chainletSupport *ChainletSupport) stopChaincode(context context.Context, cID *pb.ChainletID) error {
 	vmname, err := container.GetVMName(cID)
 	if err != nil {
 		return fmt.Errorf("[stopChaincode]Error getting vm name: %s", err)
 	}
 
-	chaincode, err := getHandlerKey(cID)
+	chaincode, err := getChaincodeID(cID)
 	if err != nil {
 		return fmt.Errorf("[stopChaincode]Error getting chaincode: %s", err)
 	}
@@ -329,16 +330,16 @@ func (c *ChainletSupport) stopChaincode(context context.Context, cID *pb.Chainle
 		//but proceed to cleanup
 	}
 
-	c.handlerMap.Lock()
-	if _, ok := c.handlerMap.m[chaincode]; !ok {
+	chainletSupport.handlerMap.Lock()
+	if _, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; !ok {
 		//nothing to do
-		c.handlerMap.Unlock()
+		chainletSupport.handlerMap.Unlock()
 		return nil
 	}
 
-	delete(c.handlerMap.m, chaincode)
+	delete(chainletSupport.handlerMap.chaincodeMap, chaincode)
 
-	c.handlerMap.Unlock()
+	chainletSupport.handlerMap.Unlock()
 
 	return err
 }
@@ -347,7 +348,7 @@ func (c *ChainletSupport) stopChaincode(context context.Context, cID *pb.Chainle
 func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChainletID, *pb.ChaincodeInput, error) {
 	//build the chaincode
 	var cID *pb.ChainletID
-	var cMsg *pb.ChainletMessage
+	var cMsg *pb.ChaincodeInput
 	var f *string
 	var initargs []string
 	if t.Type == pb.Transaction_CHAINLET_NEW {
@@ -361,13 +362,13 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 		f = &cMsg.Function
 		initargs = cMsg.Args
 	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
-		ci := &pb.ChaincodeInvocation {}
+		ci := &pb.ChaincodeInvocationSpec {}
 		err := proto.Unmarshal(t.Payload, ci)
 		if err != nil {
 			return nil,nil,err
 		}
 		cID = ci.ChainletSpec.ChainletID
-		cMsg = ci.Message
+		cMsg = ci.ChainletSpec.CtorMsg
 	} else {
 		chainletSupport.handlerMap.Unlock()
 	        return nil,nil,fmt.Errorf("invalid transaction type: %d", t.Type)
@@ -404,7 +405,7 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 		if err != nil {
 			chainletLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
-			errIgnore := c.stopChaincode(context, cID)
+			errIgnore := chainletSupport.stopChaincode(context, cID)
 			if errIgnore != nil {
 				chainletLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}
@@ -431,7 +432,7 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 		return nil, err
 	}
 	cID := cds.ChainletSpec.ChainletID
-	chaincode, err := getHandlerKey(cID)
+	chaincode, err := getChaincodeID(cID)
 	if err != nil {
 		return cds, err
 	}
@@ -466,6 +467,7 @@ func (chainletSupport *ChainletSupport) DeployChaincode(context context.Context,
 	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
 	//     exec is "chaincode_example01"
 	exec := []string{chaincodeInstallPath + toks[len(toks)-1]}
+	chainletLog.Debug("Executable is %s",exec[0])
 
 	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
 

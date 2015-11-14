@@ -33,11 +33,6 @@ import (
 
 //Execute - execute transaction or a query
 func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([]byte, error) {
-	//add "function" as an argument to be passed
-	newArgs := make([]string, len(t.Args)+1)
-	newArgs[0] = t.Function
-	copy(newArgs[1:len(t.Args)+1], t.Args)
-
 	var err error
 	if t.Type == pb.Transaction_CHAINLET_NEW {
 		_,err := chain.DeployChaincode(ctxt, t)
@@ -75,12 +70,12 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		
 		var ccMsg *pb.ChaincodeMessage
 		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
-			ccMsg,err = CreateTransactionMessage(t.Uuid, cMsg)
+			ccMsg,err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to transaction message(%s)", err)
 			}
 		} else {
-			ccMsg,err = CreateQueryMessage(t.Uuid, cMsg)
+			ccMsg,err = createQueryMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to query message(%s)", err)
 			}
@@ -133,7 +128,7 @@ func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
 		chaincodeID := cID.Url + ":" + cID.Version
-		txUUID, err := ledger.GetState(chaincodeID, "github.com_openblockchain_obc-peer_chaincode_id")
+		txUUID, err := ledger.GetState(chaincodeID, "github.com_openblockchain_obc-peer_chaincode_id", true)
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))
 			if err == nil {

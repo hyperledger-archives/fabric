@@ -44,6 +44,7 @@ message Transaction {
     ChainletID chainletID = 2;
     bytes payload = 3;
     string uuid = 4;
+    google.protobuf.Timestamp timestamp = 5;
 
 }
 

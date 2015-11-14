@@ -72,7 +72,7 @@ func (handler *Handler) deleteChannel(uuid string) {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func newChaincodeHandler(to string, peerChatStream chaincode.PeerChaincodeStream, chaincode Chaincode) *Handler {
+func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
 	v := &Handler{
 		To:         to,
 		ChatStream: peerChatStream,
@@ -139,7 +139,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Call chaincode's Run
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
-		stub.Uuid = msg.Uuid
+		stub.UUID = msg.Uuid
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
 		if err != nil {
 			payload := []byte(err.Error())
@@ -196,7 +196,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		// Call chaincode's Run
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
-		stub.Uuid = msg.Uuid
+		stub.UUID = msg.Uuid
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
 		if err != nil {
 			payload := []byte(err.Error())

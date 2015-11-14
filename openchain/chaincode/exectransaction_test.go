@@ -71,7 +71,7 @@ func deploy(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	return Execute(ctx, GetChain(DEFAULTCHAIN), transaction)
+	return Execute(ctx, GetChain(DefaultChain), transaction)
 }
 
 func invoke(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
@@ -86,7 +86,7 @@ func invoke(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	return Execute(ctx, GetChain(DEFAULTCHAIN), transaction)
+	return Execute(ctx, GetChain(DefaultChain), transaction)
 }
 
 func closeListenerAndSleep(l net.Listener) {
@@ -108,9 +108,9 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	//lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 
 	//use a different address than what we usually use for "peer"
-	//we override the PEERADDRESS set in chaincode_support.go
-        PEERADDRESS = "0.0.0.0:40303"
-	lis, err := net.Listen("tcp", PEERADDRESS)
+	//we override the peerAddress set in chaincode_support.go
+        peerAddress = "0.0.0.0:40303"
+	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error starting peer listener %s", err)
@@ -120,8 +120,8 @@ func TestExecuteDeployTransaction(t *testing.T) {
 
 	pb.RegisterChainletSupportServer(grpcServer, NewChainletSupport())
 	
-        //Override USER_RUNS_CC if set to true
-        USER_RUNS_CC = false
+        //Override UserRunsCC if set to true
+        UserRunsCC = false
 
 	go grpcServer.Serve(lis)
 
@@ -155,10 +155,10 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	grpcServer := grpc.NewServer(opts...)
 
 	//use a different address than what we usually use for "peer"
-	//we override the PEERADDRESS set in chaincode_support.go
-        PEERADDRESS = "0.0.0.0:40303"
+	//we override the peerAddress set in chaincode_support.go
+        peerAddress = "0.0.0.0:40303"
 
-	lis, err := net.Listen("tcp", PEERADDRESS)
+	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error starting peer listener %s", err)
@@ -167,8 +167,8 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	pb.RegisterChainletSupportServer(grpcServer, NewChainletSupport())
 	
-        //Override USER_RUNS_CC if set to true
-        USER_RUNS_CC = false
+        //Override UserRunsCC if set to true
+        UserRunsCC = false
 
 	go grpcServer.Serve(lis)
 
@@ -213,13 +213,14 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	// Invoke ledger to get state
 	var Aval, Bval int
-	resbytes, resErr := ledgerObj.GetState(chaincodeID, "a")
+	resbytes, resErr := ledgerObj.GetState(chaincodeID, "a", false)
 	if resErr != nil {
 		t.Fail()
 		t.Logf("Error retrieving state from ledger for <%s>: %s", chaincodeID, resErr)
 		closeListenerAndSleep(lis)
 		return
 	} 
+	fmt.Printf("Got string: %s\n", string(resbytes))
 	Aval, resErr = strconv.Atoi(string(resbytes))
 	if resErr != nil {
 		t.Fail()
@@ -234,7 +235,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		return
 	}
 
-	resbytes, resErr = ledgerObj.GetState(chaincodeID, "b")
+	resbytes, resErr = ledgerObj.GetState(chaincodeID, "b", false)
 	if resErr != nil {
 		t.Fail()
 		t.Logf("Error retrieving state from ledger for <%s>: %s", chaincodeID, resErr)
