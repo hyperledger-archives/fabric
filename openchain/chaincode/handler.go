@@ -33,14 +33,14 @@ import (
 )
 
 const (
-	createdstate		= "created"	//start state
-	establishedstate	= "established"	//in: CREATED, rcv:  REGISTER, send: REGISTERED, INIT
-	initstate		= "init"	//in:ESTABLISHED, rcv:-, send: INIT
-	readystate		= "ready"	//in:ESTABLISHED,TRANSACTION, rcv:COMPLETED
-	transactionstate	= "transaction"	//in:READY, rcv: xact from consensus, send: TRANSACTION
-	busyinitstate		= "busyinit"	//in:INIT, rcv: PUT_STATE, DEL_STATE, INVOKE_CHAINCODE 
-	busyxactstate		= "busyxact"	//in:TRANSACION, rcv: PUT_STATE, DEL_STATE, INVOKE_CHAINCODE
-	endstate		= "end"		//in:INIT,ESTABLISHED, rcv: error, terminate container
+	createdstate     = "created"     //start state
+	establishedstate = "established" //in: CREATED, rcv:  REGISTER, send: REGISTERED, INIT
+	initstate        = "init"        //in:ESTABLISHED, rcv:-, send: INIT
+	readystate       = "ready"       //in:ESTABLISHED,TRANSACTION, rcv:COMPLETED
+	transactionstate = "transaction" //in:READY, rcv: xact from consensus, send: TRANSACTION
+	busyinitstate    = "busyinit"    //in:INIT, rcv: PUT_STATE, DEL_STATE, INVOKE_CHAINCODE
+	busyxactstate    = "busyxact"    //in:TRANSACION, rcv: PUT_STATE, DEL_STATE, INVOKE_CHAINCODE
+	endstate         = "end"         //in:INIT,ESTABLISHED, rcv: error, terminate container
 
 )
 
@@ -61,15 +61,15 @@ type MessageHandler interface {
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
-	ChatStream      PeerChaincodeStream
-	FSM             *fsm.FSM
-	ChaincodeID     *pb.ChainletID
-	chainletSupport *ChainletSupport
-	registered      bool
-	readyNotify	chan bool
-	responseNotifiers map[string] chan *pb.ChaincodeMessage
+	ChatStream        PeerChaincodeStream
+	FSM               *fsm.FSM
+	ChaincodeID       *pb.ChainletID
+	chainletSupport   *ChainletSupport
+	registered        bool
+	readyNotify       chan bool
+	responseNotifiers map[string]chan *pb.ChaincodeMessage
 	// Uuids of all in-progress state invocations
-	uuidMap 	map[string]bool
+	uuidMap map[string]bool
 }
 
 func (handler *Handler) deregister() error {
@@ -127,7 +127,7 @@ func newChaincodeSupportHandler(chainletSupport *ChainletSupport, peerChatStream
 			{Name: pb.ChaincodeMessage_PUT_STATE.String(), Src: []string{initstate}, Dst: busyinitstate},
 			{Name: pb.ChaincodeMessage_DEL_STATE.String(), Src: []string{initstate}, Dst: busyinitstate},
 			{Name: pb.ChaincodeMessage_INVOKE_CHAINCODE.String(), Src: []string{initstate}, Dst: busyinitstate},
-			{Name: pb.ChaincodeMessage_COMPLETED.String(), Src: []string{initstate,transactionstate}, Dst: readystate}, 
+			{Name: pb.ChaincodeMessage_COMPLETED.String(), Src: []string{initstate, transactionstate}, Dst: readystate},
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{initstate}, Dst: initstate},
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{transactionstate}, Dst: transactionstate},
@@ -140,18 +140,18 @@ func newChaincodeSupportHandler(chainletSupport *ChainletSupport, peerChatStream
 			{Name: pb.ChaincodeMessage_RESPONSE.String(), Src: []string{busyxactstate}, Dst: transactionstate},
 		},
 		fsm.Callbacks{
-			"before_" + pb.ChaincodeMessage_REGISTER.String(): func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_REGISTER.String():  func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
 			"before_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_INIT.String(): func(e *fsm.Event) { v.beforeinitstate(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_GET_STATE.String(): func(e *fsm.Event) { v.beforeGetState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_PUT_STATE.String(): func(e *fsm.Event) { v.beforePutState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_DEL_STATE.String(): func(e *fsm.Event) { v.beforeDelState(e, v.FSM.Current()) },
-			"enter_" + establishedstate: func(e *fsm.Event) { v.enterestablishedstate(e, v.FSM.Current()) },
-			"enter_" + readystate: func(e *fsm.Event) { v.enterreadystate(e, v.FSM.Current()) },
-			"enter_" + busyinitstate: func(e *fsm.Event) { v.enterbusyinitstate(e, v.FSM.Current()) },
-			"enter_" + busyxactstate: func(e *fsm.Event) { v.enterBusyXactState(e, v.FSM.Current()) },
-			"enter_" + transactionstate: func(e *fsm.Event) { v.entertransactionstate(e, v.FSM.Current()) },
-			"enter_" + endstate: func(e *fsm.Event) { v.enterendstate(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_INIT.String():      func(e *fsm.Event) { v.beforeinitstate(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_GET_STATE.String():  func(e *fsm.Event) { v.beforeGetState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_PUT_STATE.String():  func(e *fsm.Event) { v.beforePutState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_DEL_STATE.String():  func(e *fsm.Event) { v.beforeDelState(e, v.FSM.Current()) },
+			"enter_" + establishedstate:                        func(e *fsm.Event) { v.enterestablishedstate(e, v.FSM.Current()) },
+			"enter_" + readystate:                              func(e *fsm.Event) { v.enterreadystate(e, v.FSM.Current()) },
+			"enter_" + busyinitstate:                           func(e *fsm.Event) { v.enterbusyinitstate(e, v.FSM.Current()) },
+			"enter_" + busyxactstate:                           func(e *fsm.Event) { v.enterBusyXactState(e, v.FSM.Current()) },
+			"enter_" + transactionstate:                        func(e *fsm.Event) { v.entertransactionstate(e, v.FSM.Current()) },
+			"enter_" + endstate:                                func(e *fsm.Event) { v.enterendstate(e, v.FSM.Current()) },
 		},
 	)
 	return v
@@ -173,7 +173,7 @@ func (handler *Handler) createUUIDEntry(uuid string) bool {
 func (handler *Handler) deleteUUIDEntry(uuid string) {
 	handler.Lock()
 	if handler.uuidMap != nil {
-		delete(handler.uuidMap,uuid)
+		delete(handler.uuidMap, uuid)
 	}
 	handler.Unlock()
 }
@@ -229,7 +229,7 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
 		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
-		notfy<-msg
+		notfy <- msg
 		chaincodeLogger.Debug("notified Uuid:%s", msg.Uuid)
 	}
 }
@@ -289,30 +289,30 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			chaincodeLogger.Debug("Failed to get chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 			return
 		}
 
 		// Invoke ledger to get state
-		chaincodeID,_ := getChaincodeID(handler.ChaincodeID)
+		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
 		// ToDo: Eventually, once consensus is plugged in, we need to set bool to true for ledger
 		res, err := ledgerObj.GetState(chaincodeID, key, false)
-		chaincodeLogger.Debug("Got state %s from ledger",string(res))
+		chaincodeLogger.Debug("Got state %s from ledger", string(res))
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
 			chaincodeLogger.Debug("Failed to get chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 		} else {
 			// Send response msg back to chaincode. GetState will not trigger event
 			chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid} 
+			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			handler.ChatStream.Send(responseMsg)
 		}
 
@@ -348,7 +348,7 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 		}
 
 		putStateInfo := &pb.PutStateInfo{}
-		unmarshalErr := proto.Unmarshal(msg.Payload, putStateInfo) 
+		unmarshalErr := proto.Unmarshal(msg.Payload, putStateInfo)
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
@@ -359,7 +359,7 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 			}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 			return
 		}
@@ -376,13 +376,13 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 			}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 			return
 		}
 
 		// Invoke ledger to set state
-		chaincodeID,_ := getChaincodeID(handler.ChaincodeID)
+		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
 		err := ledgerObj.SetState(chaincodeID, putStateInfo.Key, putStateInfo.Value)
 		if err != nil {
 			// Send error msg back to chaincode and trigger event
@@ -393,7 +393,7 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 			if eventErr != nil {
 				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
 			}
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
 			handler.ChatStream.Send(errMsg)
@@ -401,7 +401,7 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 			// Send response msg back to chaincode. GetState will not trigger event
 			chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
 			var res []byte
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid} 
+			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
 			eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
 			if eventErr != nil {
@@ -454,12 +454,12 @@ func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 			}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 			return
 		}
 
-		chaincodeID,_ := getChaincodeID(handler.ChaincodeID)
+		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
 		err := ledgerObj.DeleteState(chaincodeID, key)
 		if err != nil {
 			// Send error msg back to chaincode and trigger event
@@ -470,7 +470,7 @@ func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 			if eventErr != nil {
 				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
 			}
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid} 
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
 			handler.ChatStream.Send(errMsg)
@@ -478,7 +478,7 @@ func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 			// Send response msg back to chaincode. DelState will not trigger event
 			var res []byte
 			chaincodeLogger.Debug("Deleted state. Sending %s", pb.ChaincodeMessage_RESPONSE)
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid} 
+			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
 			eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
 			if eventErr != nil {
@@ -541,15 +541,15 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		funcArgsMsg := &pb.ChaincodeInput{Function: f2, Args: initArgs}
 		payload, err := proto.Marshal(funcArgsMsg)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
-		notfy,err = handler.createNotifier(uuid)
+		notfy, err = handler.createNotifier(uuid)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
 		if err = handler.ChatStream.Send(ccMsg); err != nil {
-			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)), Uuid: uuid }
+			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)), Uuid: uuid}
 			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 		}
 		event = pb.ChaincodeMessage_INIT.String()
@@ -558,12 +558,12 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		var payload []byte
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_READY, Payload: payload, Uuid: uuid}
 		if err := handler.ChatStream.Send(ccMsg); err != nil {
-			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)), Uuid: uuid }
+			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)), Uuid: uuid}
 			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)
 		}
 		event = pb.ChaincodeMessage_READY.String()
 	}
-	eventErr := handler.FSM.Event(event,ccMsg )
+	eventErr := handler.FSM.Event(event, ccMsg)
 	if eventErr != nil {
 		fmt.Printf("Failed to trigger FSM event READY : %s\n", eventErr)
 	}
@@ -611,13 +611,13 @@ func filterError(errFromFSMEvent error) error {
 func (handler *Handler) deleteNotifier(uuid string) {
 	handler.Lock()
 	if handler.responseNotifiers != nil {
-		delete(handler.responseNotifiers,uuid)
+		delete(handler.responseNotifiers, uuid)
 	}
 	handler.Unlock()
 }
 func (handler *Handler) createNotifier(uuid string) (chan *pb.ChaincodeMessage, error) {
 	if handler.responseNotifiers == nil {
-		return nil,fmt.Errorf("cannot create notifier for Uuid:%s", uuid)
+		return nil, fmt.Errorf("cannot create notifier for Uuid:%s", uuid)
 	}
 	handler.Lock()
 	defer handler.Unlock()
@@ -625,11 +625,11 @@ func (handler *Handler) createNotifier(uuid string) (chan *pb.ChaincodeMessage, 
 		return nil, fmt.Errorf("Uuid:%s exists", uuid)
 	}
 	handler.responseNotifiers[uuid] = make(chan *pb.ChaincodeMessage, 1)
-	return handler.responseNotifiers[uuid],nil
+	return handler.responseNotifiers[uuid], nil
 }
 
 func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessage, error) {
-	notfy,err := handler.createNotifier(msg.Uuid)
+	notfy, err := handler.createNotifier(msg.Uuid)
 	if err != nil {
 		return nil, err
 	}
@@ -642,7 +642,7 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage) (chan *pb.C
 		eventErr := handler.FSM.Event(msg.Type.String(), msg)
 		if eventErr != nil {
 			chaincodeLogger.Debug("Failed to trigger FSM event TRANSACTION: %s", eventErr)
-	}
+		}
 
 	}
 	return notfy, nil

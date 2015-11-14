@@ -31,6 +31,10 @@ It has these top-level messages:
 	Transaction
 	TransactionBlock
 	Block
+	PeerAddress
+	PeerID
+	PeerEndpoint
+	PeersMessage
 	OpenchainMessage
 	ServerStatus
 */

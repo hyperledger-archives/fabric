@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package peer
 
 import (
 	"fmt"
@@ -28,17 +28,17 @@ import (
 
 	"github.com/spf13/viper"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/config"
 	"github.com/openblockchain/obc-peer/openchain/container"
+	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
 )
 
 var peerClientConn *grpc.ClientConn
 
 func TestMain(m *testing.M) {
-	SetupTestConfig()
+	config.SetupTestConfig("./../..")
 
 	tmpConn, err := NewPeerClientConnection()
 	if err != nil {
@@ -52,7 +52,6 @@ func TestMain(m *testing.M) {
 func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
-	testAcceptPeerChatStream(stream)
 	if err != nil {
 		t.Logf("%v.performChat(_) = _, %v", serverClient, err)
 		return err
@@ -61,15 +60,17 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
 	waitc := make(chan struct{})
 	go func() {
+		// Be sure to close the channel
+		defer close(waitc)
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
-				// read done.
-				close(waitc)
+				t.Logf("Received EOR, exiting chat")
 				return
 			}
 			if err != nil {
-				grpclog.Fatalf("Failed to receive a DiscoverMessage from server : %v", err)
+				t.Errorf("stream closed with unexpected error: %s", err)
+				return
 			}
 			if in.Type == pb.OpenchainMessage_DISC_HELLO {
 				t.Logf("Received message: %s", in.Type)
@@ -78,8 +79,6 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 				//stream.Send(&pb.DiscoveryMessage{Type: pb.DiscoveryMessage_PEERS})
 				t.Logf("Received message: %s", in.Type)
 				t.Logf("Closing stream and channel")
-				//stream.CloseSend()
-				close(waitc)
 				return
 			}
 
@@ -125,22 +124,4 @@ func Benchmark_Chat_Parallel(b *testing.B) {
 
 func TestServer_Chat(t *testing.T) {
 	performChat(t, peerClientConn)
-}
-
-func TestPeer_FSM(t *testing.T) {
-	t.Skip("Not running at moment")
-	peerConn := NewPeerFSM("10.10.10.10:30303", nil)
-
-	err := peerConn.FSM.Event(pb.OpenchainMessage_DISC_HELLO.String())
-	if err != nil {
-		t.Error(err)
-	}
-	if peerConn.FSM.Current() != "established" {
-		t.Error("Expected to be in establised state")
-	}
-
-	err = peerConn.FSM.Event("DISCONNECT")
-	if err != nil {
-		t.Error(err)
-	}
 }

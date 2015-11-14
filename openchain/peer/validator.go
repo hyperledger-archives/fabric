@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package openchain
+package peer
 
 import (
 	"bytes"
@@ -48,7 +48,7 @@ var validatorLogger = logging.MustGetLogger("validator")
 // Validator responsible for simple PBFT Consensus type functonality.
 type Validator interface {
 	Broadcast(*pb.OpenchainMessage) error
-	GetHandler(stream PeerChatStream) MessageHandler
+	GetHandler(peer MessageHandlerCoordinator, stream ChatStream, initiatedStream bool, nextHandler MessageHandler) (MessageHandler, error)
 	IsLeader() bool
 }
 
@@ -58,6 +58,7 @@ type SimpleValidator struct {
 	peerStreams      map[string]MessageHandler
 	leaderHandler    MessageHandler // handler representing either side of stream
 	isLeader         bool
+	peer             *Peer
 }
 
 // IsLeader returns true if the Validator is also configured as the Leadre in the context of Simple PBFT consensus.
@@ -76,12 +77,12 @@ func (v *SimpleValidator) Broadcast(msg *pb.OpenchainMessage) error {
 }
 
 // GetHandler handler factory function.  In simple validating case stores the reference as the leaderHandler
-func (v *SimpleValidator) GetHandler(stream PeerChatStream) MessageHandler {
+func (v *SimpleValidator) GetHandler(peer MessageHandlerCoordinator, stream ChatStream, initiatedStream bool, nextHandler MessageHandler) (MessageHandler, error) {
 	if v.isLeader {
 		v.leaderHandler = newValidatorFSM(v, "", stream)
-		return v.leaderHandler
+		return v.leaderHandler, nil
 	}
-	return newValidatorFSM(v, "", stream)
+	return newValidatorFSM(v, "", stream), nil
 }
 
 func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
@@ -93,11 +94,14 @@ func (v *SimpleValidator) chatWithLeader(peerAddress string) error {
 	}
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
-	v.leaderHandler = v.GetHandler(stream)
-
 	if err != nil {
 		return fmt.Errorf("Error chatting with leader at address=%s:  %s", peerAddress, err)
 	}
+	v.leaderHandler, err = v.GetHandler(v.peer, stream, false, nil)
+	if err != nil {
+		return fmt.Errorf("Error getting handler for chat with leader%s", err)
+	}
+
 	defer stream.CloseSend()
 	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
 	waitc := make(chan struct{})
@@ -139,18 +143,25 @@ func NewSimpleValidator(isLeader bool) (Validator, error) {
 }
 
 type validatorFSM struct {
-	To                  string
-	ChatStream          PeerChatStream
+	ToPeerEndpoint      *pb.PeerEndpoint
+	ChatStream          ChatStream
 	FSM                 *fsm.FSM
-	PeerFSM             *PeerFSM
 	validator           Validator
 	storedRequests      map[string]*pbft.PBFT
 	transactionsInBlock []*pb.Transaction
 }
 
-func newValidatorFSM(parent Validator, to string, peerChatStream PeerChatStream) *validatorFSM {
+func (v *validatorFSM) To() (pb.PeerEndpoint, error) {
+	return *(v.ToPeerEndpoint), nil
+}
+
+func (v *validatorFSM) Stop() error {
+	// This is a NOOP for this implementation
+	return nil
+}
+
+func newValidatorFSM(parent Validator, to string, peerChatStream ChatStream) *validatorFSM {
 	v := &validatorFSM{
-		To:         to,
 		ChatStream: peerChatStream,
 		validator:  parent,
 	}
