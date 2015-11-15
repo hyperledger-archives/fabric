@@ -21,8 +21,11 @@ package peer
 
 import (
 	"fmt"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"golang.org/x/net/context"
+
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -56,7 +59,7 @@ func NewNoopsHandler(coord MessageHandlerCoordinator, stream ChatStream, initiat
 // HandleMessage handles the Openchain messages for the Peer.
 func (i *Noops) HandleMessage(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
-	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTIONS {
+	if msg.Type == pb.OpenchainMessage_REQUEST {
 		msg.Type = pb.OpenchainMessage_CONSENSUS
 		logger.Debug("Broadcasting %s", msg.Type)
 		// broadcast to others so they can exec the tx
@@ -68,9 +71,20 @@ func (i *Noops) HandleMessage(msg *pb.OpenchainMessage) error {
 	}
 	// We process the message if it is OpenchainMessage_CONSENSUS
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		// cpi.ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error)
+		txs := &pb.TransactionBlock{}
+		err := proto.Unmarshal(msg.Payload, txs)
+		if err != nil {
+			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+			return err
+		}
+		_, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs.GetTransactions())
+		if errs != nil {
+			err = fmt.Errorf("Fail to execute transactions: %s", err)
+			return err
+		}
 		return nil
 	}
+
 	logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	return i.PeerHandler.HandleMessage(msg)
 }

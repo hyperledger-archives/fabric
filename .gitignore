@@ -7,3 +7,5 @@ node-cli/node-cli
 .idea
 *.iml
 .DS_Store
+tags
+.tags
