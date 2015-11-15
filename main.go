@@ -295,8 +295,11 @@ func serve(args []string) error {
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.Peer
+	// TODO: should be "peer.consensus.validator.enabled" when done
 	if viper.GetBool("peer.consensus.noops") {
 		logger.Debug("Running in NOOPS mode!!!!!!")
+		// TODO: figure out how to plug in the consenter here
+		// consenter := plugin.NewConsenter()
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewNoopsHandler)
 	} else if viper.GetBool("peer.consensus.validator.enabled") {
 		logger.Debug("Running as validator")
