@@ -22,23 +22,20 @@ package controller
 import (
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 )
 
-var logger *logging.Logger
-var h consensus.CPI
-
-func init() {
-
-	logger = logging.MustGetLogger("controller")
-
-	h = helper.New()            // Create a consensus helper object that links the `consensus` package with the plugin's package.
-	h.SetConsenter(pbft.New(h)) // Edit this to link a different plugin.
-}
-
-// GetHelper returns the helper.
-func GetHelper() consensus.CPI {
-
-	return h
+// NewConsenter constructs a consenter object
+func NewConsenter(cpi consensus.CPI) consensus.Consenter {
+	plugin := viper.GetString("peer.consensus.plugin")
+	var algo consensus.Consenter
+	if plugin == "pbft" {
+		logger.Debug("Running with PBFT consensus")
+		algo = pbft.New(cpi)
+	} else {
+		logger.Debug("Running with NOOPS consensus")
+		algo = noops.New(cpi)
+	}
+	return algo
 }
