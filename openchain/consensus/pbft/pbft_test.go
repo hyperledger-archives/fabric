@@ -174,16 +174,8 @@ func TestRecvRequest(t *testing.T) {
 	if msgRaw == nil {
 		t.Fatalf("expected broadcast after request")
 	}
-	msgUnpack := &Unpack{}
-	err = proto.Unmarshal(msgRaw, msgUnpack)
-	if err != nil {
-		t.Fatal("could not unmarshal message, %x", msgRaw)
-	}
-	if msgUnpack.Type != Unpack_REQUEST {
-		t.Fatalf("expected request broadcast")
-	}
-	msgReq := &Request2{}
-	err = proto.Unmarshal(msgUnpack.Payload, msgReq)
+	msgReq := &Message{}
+	err = proto.Unmarshal(msgRaw, msgReq)
 	if err != nil {
 		t.Fatal("could not unmarshal message")
 	}
@@ -194,10 +186,9 @@ func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
-	nestedMsg := &Unpack{
-		Type:    Unpack_PREPARE,
+	nestedMsg := &Message{&Message_Request{&Request{
 		Payload: []byte("hello world"),
-	}
+	}}}
 	newPayload, err := proto.Marshal(nestedMsg)
 	if err != nil {
 		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
@@ -229,7 +220,7 @@ func TestStoreRetrieve(t *testing.T) {
 	instance := New(mock)
 
 	// Create a `REQUEST` message
-	reqMsg := &Request2{Payload: []byte("hello world")}
+	reqMsg := &Message{&Message_Request{&Request{Payload: []byte("hello world")}}}
 	// Marshal it
 	reqMsgPacked, err := proto.Marshal(reqMsg)
 	if err != nil {

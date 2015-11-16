@@ -1,0 +1,66 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
+syntax = "proto3";
+
+package pbft;
+
+// =============================================================================
+// Old definitions go here. Deprecated, will be removed soon.
+// =============================================================================
+
+message PBFT {
+
+    enum Type {
+        UNDEFINED = 0;
+        REQUEST = 1;
+        PRE_PREPARE = 2;
+        PREPARE = 3;
+        COMMIT = 4;
+        PREPARE_RESULT = 5;
+        COMMIT_RESULT = 6;
+    }
+
+    Type type = 1;
+    string ID = 2;
+    bytes payload = 3;
+}
+
+message Request {
+
+    string ID = 1;
+    bytes payload = 2;
+}
+
+message RequestHashes {
+
+    repeated string hashes = 1;
+}
+
+message Requests {
+
+    repeated Request requests = 1;
+}
+
+message PBFTArray {
+
+    repeated PBFT pbfts = 1;
+    string replica_id = 5;
+    repeated string tx_errors = 6;
+}

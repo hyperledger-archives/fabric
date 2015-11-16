@@ -55,10 +55,10 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi      consensus.CPI        // The consensus programming interface
-	config   *viper.Viper         // The link to the config file
-	leader   bool                 // Is this validating peer the current leader?
-	msgStore map[string]*Request2 // Where we store incoming `REQUEST` messages.
+	cpi      consensus.CPI       // The consensus programming interface
+	config   *viper.Viper        // The link to the config file
+	leader   bool                // Is this validating peer the current leader?
+	msgStore map[string]*Message // Where we store incoming `REQUEST` messages.
 }
 
 // =============================================================================
@@ -68,9 +68,9 @@ type Plugin struct {
 type validator interface {
 	getParam(param string) (val string, err error)
 	isLeader() bool
-	retrieveRequest(digest string) (reqMsg *Request2, err error)
+	retrieveRequest(digest string) (reqMsg *Message, err error)
 	setLeader(flag bool) bool
-	storeRequest(digest string, reqMsg *Request2) (count int)
+	storeRequest(digest string, reqMsg *Message) (count int)
 }
 
 // =============================================================================
@@ -116,7 +116,7 @@ func New(c consensus.CPI) *Plugin {
 	}
 
 	// Create the data store for incoming messages.
-	instance.msgStore = make(map[string]*Request2)
+	instance.msgStore = make(map[string]*Message)
 
 	return instance
 }
@@ -145,42 +145,18 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 			return err
 		}
 
-		// Marshal the `REQUEST` message.
+		// Serialize it.
 		reqMsgPacked, err := proto.Marshal(reqMsg)
 		if err != nil {
-			return fmt.Errorf("Error marshalling REQUEST message.")
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshalled REQUEST message.")
+			return fmt.Errorf("Error marshalling request message.")
 		}
 
 		// Hash and store the `REQUEST` message.
 		digest := hashMsg(reqMsgPacked)
 		_ = instance.storeRequest(digest, reqMsg)
 
-		// Create new `Unpack` message.
-		unpackMsg := &Unpack{
-			Type:    Unpack_REQUEST,
-			Payload: reqMsgPacked,
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Created Unpack:%s message.", unpackMsg.Type)
-		}
-
-		// Serialize it.
-		newPayload, err := proto.Marshal(unpackMsg)
-		if err != nil {
-			return fmt.Errorf("Error marshalling Unpack:%s message.", unpackMsg.Type)
-		}
-
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Marshalled Unpack:%s message.", unpackMsg.Type)
-		}
-
 		// Broadcast this message to all the validating peers.
-		return instance.cpi.Broadcast(newPayload)
+		return instance.cpi.Broadcast(reqMsgPacked)
 	}
 
 	// TODO: Message that reached here is `OpenchainMessage_CONSENSUS`.
@@ -188,11 +164,11 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 	// `instance.fsm`.
 
 	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Unpacking message.")
+		logger.Debug("Message message.")
 	}
 
-	// Unpack to the common message template.
-	extractedMsg := &Unpack{}
+	// Message to the common message template.
+	extractedMsg := &Message{}
 
 	err = proto.Unmarshal(msg.Payload, extractedMsg)
 	if err != nil {
@@ -240,7 +216,7 @@ func (instance *Plugin) isLeader() bool {
 }
 
 // retrieve
-func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Request2, err error) {
+func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Message, err error) {
 
 	if val, ok := instance.msgStore[digest]; ok {
 		if logger.IsEnabledFor(logging.DEBUG) {
@@ -271,7 +247,7 @@ func (instance *Plugin) setLeader(flag bool) bool {
 }
 
 // Maps a `REQUEST` message to its digest and stores it for future reference.
-func (instance *Plugin) storeRequest(digest string, reqMsg *Request2) (count int) {
+func (instance *Plugin) storeRequest(digest string, reqMsg *Message) (count int) {
 
 	if _, ok := instance.msgStore[digest]; ok {
 		if logger.IsEnabledFor(logging.DEBUG) {
@@ -293,7 +269,7 @@ func (instance *Plugin) storeRequest(digest string, reqMsg *Request2) (count int
 // =============================================================================
 
 // Receives an `OpenchainMessage_REQUEST`, turns it into a `REQUEST` message.
-func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Request2, err error) {
+func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Message, err error) {
 
 	txBatch := &pb.TransactionBlock{}
 	err = proto.Unmarshal(msg.Payload, txBatch)
@@ -327,12 +303,10 @@ func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Request2, err error) {
 		logger.Debug("Marshaled single transaction.")
 	}
 
-	// Create new `Unpack_REQUEST2` message.
-
-	reqMsg = &Request2{
+	reqMsg = &Message{&Message_Request{&Request{
 		Timestamp: tx.Timestamp,
 		Payload:   txPacked,
-	}
+	}}}
 
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Created REQUEST message.")

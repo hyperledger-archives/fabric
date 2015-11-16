@@ -27,7 +27,7 @@ import (
 	"github.com/op/go-logging"
 
 	"github.com/openblockchain/obc-peer/openchain"
-	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	pbft "github.com/openblockchain/obc-peer/openchain/consensus/oldpbft"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )

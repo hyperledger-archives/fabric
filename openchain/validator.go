@@ -35,7 +35,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	pbft "github.com/openblockchain/obc-peer/openchain/consensus/oldpbft"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
