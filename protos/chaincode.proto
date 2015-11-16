@@ -33,7 +33,7 @@ message ChainletID {
 }
 
 // Carries the chaincode function and its arguments.
-message ChainletMessage {
+message ChaincodeInput {
 
     string function = 1;
     repeated string args  = 2;
@@ -41,10 +41,10 @@ message ChainletMessage {
 }
 
 // Carries the chaincode function and its arguments.
-message ChaincodeInvocation {
+message ChaincodeInvocationSpec {
 
     ChainletSpec chainletSpec = 1;
-    ChainletMessage message = 2;
+    //ChaincodeInput message = 2;
 
 }
 
@@ -61,8 +61,8 @@ message ChainletSpec {
 
     Type type = 1;
     ChainletID chainletID = 2;
-    ChainletMessage ctorMsg = 3;
-
+    ChaincodeInput ctorMsg = 3;
+    int32 timeout = 4; 
 }
 
 // Specify the deployment of a chaincode.
@@ -104,15 +104,30 @@ message ChaincodeMessage {
         UNDEFINED = 0;
         REGISTER = 1;
         REGISTERED = 2;
-
-        REQUEST = 3;
-        RESPONSE = 4;
+	INIT = 3;
+	READY = 4;
+	TRANSACTION = 5;
+	COMPLETED = 6;
+	ERROR = 7;
+	GET_STATE = 8;
+	PUT_STATE = 9;
+	DEL_STATE = 10;
+	INVOKE_CHAINCODE = 11;
+	RESPONSE = 12;
+	QUERY = 13;
+	QUERY_COMPLETED = 14;
     }
 
     Type type = 1;
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
+    string uuid = 4;
 
+}
+
+message PutStateInfo {
+    string key = 1;
+    bytes value = 2;
 }
 
 // Interface that provides support to chaincode execution. ChainletContext

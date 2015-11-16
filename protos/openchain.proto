@@ -36,16 +36,15 @@ message Transaction {
         CHAINLET_NEW = 1;
         CHAINLET_UPDATE = 2;
         CHAINLET_EXECUTE = 3;
-        CHAINLET_TERMINATE = 4;
+        CHAINLET_QUERY = 4;
+        CHAINLET_TERMINATE = 5;
     }
 
     Type type = 1;
     ChainletID chainletID = 2;
-    string function = 3;
-    repeated string args  = 4;
-    bytes payload = 5;
-    string uuid = 6;
-    google.protobuf.Timestamp timestamp = 7;
+    bytes payload = 3;
+    string uuid = 4;
+    google.protobuf.Timestamp timestamp = 5;
 
 }
 
@@ -78,6 +77,25 @@ service Peer {
     rpc Chat(stream OpenchainMessage) returns (stream OpenchainMessage) {}
 
 }
+
+message PeerAddress {
+    string host = 1;
+    int32 port = 2;
+}
+
+message PeerID {
+    string name = 1;
+}
+
+message PeerEndpoint {
+    PeerID ID = 1; 
+    string address = 2;
+}
+
+message PeersMessage {
+    repeated PeerEndpoint peers = 1;
+}
+
 
 message OpenchainMessage {
 

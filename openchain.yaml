@@ -37,6 +37,9 @@ peer:
     # The Peer id is used for identifying this Peer instance.
     id: jdoe
 
+    # Mode the Peer is to run in, one of [dev|production]
+    mode: production
+
     # The privateKey to be used by this peer
     privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
 
@@ -63,8 +66,11 @@ peer:
         WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
-
+    # The Address this Peer will bind to for providing services
     address: 0.0.0.0:30303
+    # Whether the Peer should programmatically determine the address to bind to. This case is useful for docker containers.
+    addressAutoDetect: false
+
 
     # Logging settings
     logging:
@@ -79,6 +85,10 @@ peer:
     workers: 2
 
     consensus:
+
+        # If noops is true, the sever run without consensus.  Transactions will be executed on all connected Peers (in NOOPS mode)
+        noops: false
+
         validator:
             enabled: false
         leader:
@@ -100,6 +110,9 @@ peer:
 
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
+
+        # The duration of time between attempts to asks peers for their connected peers
+        period:  5s
 
         ## leaving this in for example of sub map entry
         # testNodes:
@@ -163,7 +176,6 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
-
 ###############################################################################
 #
 #    VM section
@@ -198,6 +210,20 @@ chainlet:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    #timeout for starting up a container and waiting for Register to come through
+    startuptimeout: 20000
+
+    #chaincoderunmode - options are "user_runs_chaincode", "validator_runs_chaincode"
+    #"user_runs_chaincode" - user runs the chaincode after starting validator
+    #                        from command line or from docker
+    #"validator_runs_chaincode" - validator will run chaincode in a container
+    #                             on demand
+    #In development mode, "user_runs_chaincode" will provide quick turnaround
+    #time during initial phases of development
+
+    chaincoderunmode: validator_runs_chaincode
+
+    chaincodeinstallpath: /go/bin/
 
 # Below left in for examples of YAML usage
 receipt:     Oz-Ware Purchase Invoice
