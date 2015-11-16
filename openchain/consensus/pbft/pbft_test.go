@@ -70,11 +70,8 @@ func TestEnvOverride(t *testing.T) {
 }
 
 func TestGetParam(t *testing.T) {
-
-	// Create new algorithm instance
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
+	mock := NewMock()
+	instance := New(mock)
 
 	// For a key that exists
 	key := "general.name"
@@ -101,11 +98,8 @@ func TestGetParam(t *testing.T) {
 }
 
 func TestLeader(t *testing.T) {
-
-	// Create new algorithm instance
-	helperInstance := helper.New()
-	instance := New(helperInstance)
-	helperInstance.SetConsenter(instance)
+	mock := NewMock()
+	instance := New(mock)
 
 	// Do not access through `helperInstance.consenter`
 	var ans bool
