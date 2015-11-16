@@ -20,9 +20,12 @@ under the License.
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"strings"
 
@@ -39,6 +42,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -61,7 +65,7 @@ var peerCmd = &cobra.Command{
 	Short: "Run openchain peer.",
 	Long:  `Runs the openchain peer that interacts with the openchain network.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		serve()
+		serve(args)
 	},
 }
 
@@ -269,12 +273,11 @@ func main() {
 // 	return nil
 // }
 
-func serve() error {
+func serve(args []string) error {
 
 	// if viper.GetBool("validator.enabled") {
 	// 	serverValidator()
 	// }
-
 	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
@@ -291,33 +294,29 @@ func serve() error {
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	var peer *openchain.Peer
-	if viper.GetBool("peer.consensus.validator.enabled") {
-		logger.Debug("Running as validating peer")
-		// TODO: remove the leader flag below when leader election is enabled
-		newValidator, err := openchain.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
+	var peerServer *peer.Peer
+	// TODO: should be "peer.consensus.validator.enabled" when done
+	if viper.GetBool("peer.consensus.noops") {
+		logger.Debug("Running in NOOPS mode!!!!!!")
+		// TODO: figure out how to plug in the consenter here
+		// consenter := plugin.NewConsenter()
+		peerServer, _ = peer.NewPeerWithHandler(peer.NewNoopsHandler)
+	} else if viper.GetBool("peer.consensus.validator.enabled") {
+		logger.Debug("Running as validator")
+		newValidator, err := peer.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
 		if err != nil {
 			return fmt.Errorf("Error creating simple Validator: %s", err)
 		}
-		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
+		peerServer, _ = peer.NewPeerWithHandler(newValidator.GetHandler)
 	} else {
-		logger.Debug("Running as non-validating peer")
-		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
-			return openchain.NewPeerFSM("", stream)
-		})
+		logger.Debug("Running as peer")
+		// peerServer, _ = peer.NewPeerWithHandler(func(p *peer.Peer, stream peer.PeerChatStream) peer.MessageHandler {
+		// 	return peer.NewPeerHandlerTo("", stream)
+		// })
+		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 		//pb.RegisterPeerServer(grpcServer, peer)
 	}
-	pb.RegisterPeerServer(grpcServer, peer)
-
-	// peer, _ := openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
-	// 	if viper.GetBool("peer.consensus.validator.enabled") {
-	// 		log.Info("Running as validator")
-	// 		return openchain.NewValidatorFSM("", stream)
-	// 	} else {
-	// 		log.Info("Running as peer")
-	// 		return openchain.NewPeerFSM("", stream)
-	// 	}
-	// })
+	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
@@ -345,13 +344,21 @@ func serve() error {
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+	peerEndpoint, err := peer.GetPeerEndpoint()
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
+		return err
+	}
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+	if len(args) > 0 && args[0] == "cli" {
+		go doCLI()
+	}
 	grpcServer.Serve(lis)
 	return nil
 }
 
 func status() {
-	clientConn, err := openchain.NewPeerClientConnection()
+	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
 		logger.Error("Error trying to connect to local peer:", err)
 	}
@@ -363,7 +370,7 @@ func status() {
 }
 
 func stop() {
-	clientConn, err := openchain.NewPeerClientConnection()
+	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
 		logger.Error("Error trying to connect to local peer:", err)
 		return
@@ -393,11 +400,23 @@ func checkChaincodeCmdParams(cmd *cobra.Command) error {
 		return errors.New(err)
 	}
 
+	if chaincodeCtorJSON != "{}" {
+		// Check to ensure the JSON has "function" and "args" keys
+		input := &pb.ChaincodeMessage{}
+		jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input)
+		if jsonerr != nil {
+			err := fmt.Sprintf("Error: must supply 'function' and 'args' keys in %s constructor parameter.\n", chainFuncName)
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return errors.New(err)
+		}
+	}
+
 	return nil
 }
 
 func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
-	clientConn, err := openchain.NewPeerClientConnection()
+	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
 		return nil, fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
@@ -448,8 +467,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	// Build the spec
+	input := &pb.ChaincodeInput{}
+	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
 	chainletDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
@@ -472,13 +496,18 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 		return
 	}
 	// Build the spec
+	input := &pb.ChaincodeInput{}
+	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
+		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		return
+	}
 	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
-	msg := &pb.ChainletMessage{Function: "func1", Args: []string{"arg1", "arg2"}}
+	//msg := &pb.ChaincodeInput{Function: "func1", Args: []string{"arg1", "arg2"}}
 
-	// Build the ChaincodeInvocation message
-	invocation := &pb.ChaincodeInvocation{ChainletSpec: spec, Message: msg}
+	// Build the ChaincodeInvocationSpec message
+	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
 
 	_, err = devopsClient.Invoke(context.Background(), invocation)
 	if err != nil {
@@ -488,4 +517,48 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 		return
 	}
 	logger.Info("Succesffuly invoked transaction: %s", invocation)
+}
+
+func doCLI() {
+	wio := bufio.NewWriter(os.Stdout)
+	rio := bufio.NewReader(os.Stdin)
+	help := "deploy <chaincodeid> <version> <funcname> <arg> <arg>...\n"
+	for {
+		wio.WriteString(">")
+		wio.Flush()
+		line, _ := rio.ReadString('\n')
+		if line == "q\n" {
+			break
+		}
+		toks := strings.Split(line, "\n") //get rid of /n
+		toks = strings.Split(toks[0], " ")
+		if toks == nil || len(toks) < 1 {
+			wio.WriteString("invalid input " + line + "\n")
+			continue
+		}
+		if toks[0] == "help" {
+			wio.WriteString(help)
+			continue
+		}
+		switch toks[0] {
+		case "deploy":
+			fallthrough
+		case "d":
+			if len(toks) < 5 {
+				wio.WriteString(help)
+				continue
+			}
+			chainletID := toks[1]
+			version := toks[2]
+			spec := &pb.ChainletSpec{Type: 1, ChainletID: &pb.ChainletID{Url: chainletID, Version: version}, CtorMsg: &pb.ChaincodeInput{Function: toks[3], Args: toks[4:]}}
+			_, err := openchain.DeployLocal(context.Background(), spec)
+			if err != nil {
+				wio.WriteString("Error transacting : " + fmt.Sprintf("%s", err) + "\n")
+			} else {
+				wio.WriteString("Success\n")
+			}
+		default:
+			wio.WriteString(help)
+		}
+	}
 }

@@ -77,15 +77,11 @@ func Test_NewChainletInvokeTransaction(t *testing.T) {
 		t.Fatalf("Test_NewChainletInvokeTransaction: failed generating uuid: err %s", err)
 	}
 	tx, err := client.NewChainletInvokeTransaction(
-		&pb.ChaincodeInvocation{
+		&pb.ChaincodeInvocationSpec{
 			ChainletSpec: &pb.ChainletSpec{
 				Type:       pb.ChainletSpec_GOLANG,
 				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
-			},
-			Message: &pb.ChainletMessage{
-				Function: "hello",
-				Args:     []string{"World!!!"},
 			},
 		},
 		uuid,

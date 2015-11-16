@@ -71,7 +71,7 @@ func (client *Client) NewChainletDeployTransaction(chainletDeploymentSpec *pb.Ch
 }
 
 // NewChainletInvokeTransaction is used to invoke chaincode's functions.
-func (client *Client) NewChainletInvokeTransaction(chaincodeInvocation *pb.ChaincodeInvocation, uuid string) (*pb.Transaction, error) {
+func (client *Client) NewChainletInvokeTransaction(chaincodeInvocation *pb.ChaincodeInvocationSpec, uuid string) (*pb.Transaction, error) {
 	if !client.isInitialized {
 		return nil, ErrModuleNotInitialized
 	}

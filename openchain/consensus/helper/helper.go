@@ -20,19 +20,15 @@ under the License.
 package helper
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"time"
+
+	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	pb "github.com/openblockchain/obc-peer/protos"
 
 	gp "google/protobuf"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	pb "github.com/openblockchain/obc-peer/protos"
-
-	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 )
@@ -138,59 +134,8 @@ func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, [
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executing the transactions.")
 	}
+	return chaincode.ExecuteTransactions(ctxt, chaincode.DefaultChain, txs)	
 
-	// +1 is state hash.
-	errors := make([]error, len(txs)+1)
-	for i, t := range txs {
-		// Add "function" as an argument to be passed.
-		newArgs := make([]string, len(t.Args)+1)
-		newArgs[0] = t.Function
-		copy(newArgs[1:len(t.Args)+1], t.Args)
-		// Is there a payload to be passed to the container?
-		var buf *bytes.Buffer
-		if t.Payload != nil {
-			buf = bytes.NewBuffer(t.Payload)
-		}
-		cds := &pb.ChainletDeploymentSpec{}
-		errors[i] = proto.Unmarshal(t.Payload, cds)
-		if errors[i] != nil {
-			continue
-		}
-		// Create start request...
-		var req container.VMCReqIntf
-		vmName, bErr := container.BuildVMName(cds.ChainletSpec)
-		if bErr != nil {
-			errors[i] = bErr
-			continue
-		}
-		if t.Type == pb.Transaction_CHAINLET_NEW {
-			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-			req = container.CreateImageReq{ID: vmName, Args: newArgs, Reader: targz}
-		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
-			req = container.StartImageReq{ID: vmName, Args: newArgs, Instream: buf}
-		} else {
-			errors[i] = fmt.Errorf("Invalid transaction type: %s", t.Type.String())
-		}
-		// ...and execute it. `err` will be nil if successful
-		_, errors[i] = container.VMCProcess(ctxt, container.DOCKER, req)
-	}
-
-	// TODO: Error processing goes here. For now, assume everything worked fine.
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Executed the transactions.")
-	}
-
-	// Calculate candidate global state hash.
-	var stateHash []byte
-
-	theLedger, hashErr := ledger.GetLedger()
-	if hashErr == nil {
-		stateHash, hashErr = theLedger.GetTempStateHash()
-	}
-	errors[len(errors)-1] = hashErr
-
-	return stateHash, errors
 }
 
 // Unicast is called by the validating peer to send a CONSENSUS message to a

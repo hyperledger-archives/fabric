@@ -90,15 +90,11 @@ func mockDeployTransaction() *pb.Transaction {
 
 func mockInvokeTransaction() *pb.Transaction {
 	tx, _ := pb.NewChainletInvokeTransaction(
-		&pb.ChaincodeInvocation{
+		&pb.ChaincodeInvocationSpec{
 			ChainletSpec: &pb.ChainletSpec{
 				Type:       pb.ChainletSpec_GOLANG,
 				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
-			},
-			Message: &pb.ChainletMessage{
-				Function: "hello",
-				Args:     []string{"World!!!"},
 			},
 		},
 		"uuid",

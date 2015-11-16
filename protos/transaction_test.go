@@ -38,8 +38,10 @@ func Test_Transaction_CreateNew(t *testing.T) {
 
 	// TODO: This doesn't seem like a proper test. Needs to be edited.
 	txUnmarshalled := &Transaction{}
-	proto.Unmarshal(data, txUnmarshalled)
+	err = proto.Unmarshal(data, txUnmarshalled)
 	t.Logf("Unmarshalled transaction: %v", txUnmarshalled)
-	t.Logf("Transaction function: %s", txUnmarshalled.Function)
+	if err != nil {
+		t.Errorf("Error unmarshalling block: %s", err)
+	}
 
 }
