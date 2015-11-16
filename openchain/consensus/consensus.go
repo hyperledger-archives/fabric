@@ -43,7 +43,8 @@ func init() {
 
 // Consenter should be implemented by every consensus algorithm implementation (plugin).
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
+	Request(txs []byte) error // ask plugin for consensus on `txs`
+	RecvMsg(msg []byte) error // handle message that was sent via CPI.Broadcast or CPI.Unicast
 }
 
 // CPI (Consensus Programming Interface)

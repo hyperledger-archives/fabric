@@ -23,7 +23,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 
 	"github.com/op/go-logging"
-	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 var logger = logging.MustGetLogger("noops")
@@ -40,19 +39,22 @@ func New(c consensus.CPI) consensus.Consenter {
 	return i
 }
 
-// RecvMsg is called when there is a pb.OpenchainMessage_REQUEST message
-func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) (err error) {
-	logger.Info("Message received %s", msg.Type)
+// Request is the main entry into the consensus plugin.  `txs` will be
+// passed to CPI.ExecTXs once consensus is reached.
+func (i *Noops) Request(txs []byte) (err error) {
+	logger.Info("Request received")
 
-	if msg.Type == pb.OpenchainMessage_REQUEST {
-		msg.Type = pb.OpenchainMessage_CONSENSUS
-		logger.Debug("Broadcasting %s", msg.Type)
-		i.cpi.Broadcast(msg.Payload) // broadcast to others so they can exec the tx
-		// the msg must be pb.OpenchainMessage_CONSENSUS
-		logger.Debug("Executing transaction %s", msg.Type)
-		return nil // cpi.ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error)
+	err = i.cpi.Broadcast(txs) // broadcast to others so they can exec the tx
+	if err == nil {
+		err = i.RecvMsg(txs) // process locally as well
 	}
-	logger.Info("Got a wrong message %s", msg.Type)
 
-	return nil
+	return
+}
+
+// RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
+func (i *Noops) RecvMsg(msg []byte) (err error) {
+	logger.Info("Message received")
+
+	return nil // cpi.ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error)
 }

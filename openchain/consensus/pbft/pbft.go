@@ -125,72 +125,53 @@ func New(c consensus.CPI) *Plugin {
 // Consenter interface implementation goes here.
 // =============================================================================
 
-// RecvMsg allows the algorithm to receive and process a message. The message
-// that reaches here is either `OpenchainMessage_REQUEST` or
-// `OpenchainMessage_CONSENSUS`.
-func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
+// Request is the main entry into the consensus plugin.  `txs` will be
+// passed to CPI.ExecTXs once consensus is reached.
+func (instance *Plugin) Request(txs []byte) error {
+	logger.Info("new consensus request received")
 
-	// Declare so that you can filter it later if need be.
-	var err error
-
-	if logger.IsEnabledFor(logging.INFO) {
-		logger.Info("OpenchainMessage:%s received.", msg.Type)
+	reqMsg, err := convertToRequest(txs)
+	if err != nil {
+		return err
 	}
 
-	if msg.Type == pb.OpenchainMessage_REQUEST {
-
-		// Convert to a `REQUEST` message.
-		reqMsg, err := convertToRequest(msg)
-		if err != nil {
-			return err
-		}
-
-		// Serialize it.
-		reqMsgPacked, err := proto.Marshal(reqMsg)
-		if err != nil {
-			return fmt.Errorf("Error marshalling request message.")
-		}
-
-		// Hash and store the `REQUEST` message.
-		digest := hashMsg(reqMsgPacked)
-		_ = instance.storeRequest(digest, reqMsg)
-
-		// Broadcast this message to all the validating peers.
-		return instance.cpi.Broadcast(reqMsgPacked)
+	reqMsgPacked, err := proto.Marshal(reqMsg)
+	if err != nil {
+		return fmt.Errorf("Error marshalling request message.")
 	}
 
-	// TODO: Message that reached here is `OpenchainMessage_CONSENSUS`.
-	// Process it accordingly. You most likely want to pass it to
-	// `instance.fsm`.
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Message message.")
+	err = instance.cpi.Broadcast(reqMsgPacked)
+	if err == nil {
+		// route to ourselves as well
+		return instance.RecvMsg(reqMsgPacked)
 	}
 
-	// Message to the common message template.
-	extractedMsg := &Message{}
+	return err
+}
 
-	err = proto.Unmarshal(msg.Payload, extractedMsg)
+// RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
+func (instance *Plugin) RecvMsg(msgRaw []byte) error {
+	msg := &Message{}
+	err := proto.Unmarshal(msgRaw, msg)
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Message unpacked.")
+	if req := msg.GetRequest(); req != nil {
+		logger.Debug("request received")
+		digest := hashMsg(msgRaw)
+		_ = instance.storeRequest(digest, msg)
+	} else if preprep := msg.GetPrePrepare(); preprep != nil {
+		logger.Debug("pre-prepare received")
+	} else if prep := msg.GetPrepare(); prep != nil {
+		logger.Debug("prepare received")
+	} else if commit := msg.GetCommit(); commit != nil {
+		logger.Debug("commit received")
+	} else {
+		err := fmt.Errorf("invalid message: ", msgRaw)
+		logger.Error("%s", err)
+		return err
 	}
-
-	/* if instance.fsm.Cannot(extractedMsg.Type.String()) {
-		return fmt.Errorf("FSM cannot handle message type %s while in state: %s", extractedMsg.Type.String(), instance.fsm.Current())
-	}
-
-	// If the message type is allowed in that state, trigger the respective event in the FSM.
-	err = instance.fsm.Event(extractedMsg.Type.String(), extractedMsg)
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Processed message of type %s, current state is: %s", extractedMsg.Type, instance.fsm.Current())
-	}
-
-	return filterError(err) */
 
 	return nil
 }
@@ -268,13 +249,13 @@ func (instance *Plugin) storeRequest(digest string, reqMsg *Message) (count int)
 // Misc. helper functions go here.
 // =============================================================================
 
-// Receives an `OpenchainMessage_REQUEST`, turns it into a `REQUEST` message.
-func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Message, err error) {
+// Receives the payload of `OpenchainMessage_REQUEST`, turns it into a Request
+func convertToRequest(txs []byte) (reqMsg *Message, err error) {
 
 	txBatch := &pb.TransactionBlock{}
-	err = proto.Unmarshal(msg.Payload, txBatch)
+	err = proto.Unmarshal(txs, txBatch)
 	if err != nil {
-		err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+		err = fmt.Errorf("Error unmarshalling transaction payload: %s", err)
 		return
 	}
 
@@ -286,7 +267,7 @@ func convertToRequest(msg *pb.OpenchainMessage) (reqMsg *Message, err error) {
 
 	// Extract transaction.
 	if numTx != 1 {
-		err = fmt.Errorf("OpenchainMessage:%s should carry 1 transaction instead of: %d", msg.Type, numTx)
+		err = fmt.Errorf("request should carry 1 transaction instead of: %d", numTx)
 		return
 	}
 

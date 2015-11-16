@@ -141,7 +141,6 @@ func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
-	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
@@ -149,13 +148,9 @@ func TestRecvRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_REQUEST,
-		Payload: txBlockPacked,
-	}
-	err = instance.RecvMsg(msg)
+	err = instance.Request(txBlockPacked)
 	if err != nil {
-		t.Fatalf("Failed to handle OpenchainMessage:%s message: %s", msg.Type, err)
+		t.Fatalf("Failed to handle request: %s", err)
 	}
 
 	msgRaw := mock.broadcastMsg[0]
@@ -181,14 +176,9 @@ func TestRecvMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
 	}
-	// Create a message of type: `OpenchainMessage_CONSENSUS`
-	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: newPayload,
-	}
-	err = instance.RecvMsg(msg)
+	err = instance.RecvMsg(newPayload)
 	if err != nil {
-		t.Fatalf("Failed to handle message OpenchainMessage:%s message: %s", msg.Type, err)
+		t.Fatalf("Failed to handle pbft message: %s", err)
 	}
 
 	if len(mock.broadcastMsg) != 0 {
@@ -268,11 +258,7 @@ func (inst *instance) Broadcast(payload []byte) error {
 			continue
 		}
 
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CONSENSUS,
-			Payload: payload,
-		}
-		replica.plugin.RecvMsg(msg)
+		replica.plugin.RecvMsg(payload)
 	}
 
 	return nil
@@ -296,9 +282,8 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_REQUEST,
-		Payload: txBlockPacked,
+	err = net.replicas[0].plugin.Request(txBlockPacked)
+	if err != nil {
+		t.Fatalf("request failed: %s", err)
 	}
-	net.replicas[0].plugin.RecvMsg(msg)
 }
