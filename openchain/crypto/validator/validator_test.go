@@ -23,6 +23,16 @@ func TestMain(m *testing.M) {
 }
 
 
+func TestID(t *testing.T) {
+	// Verify that any id modification doesn't change
+	id := validator.GetID()
+	id[0] = id[0] + 1
+	id2 := validator.GetID()
+	if id2[0] == id[0] {
+		t.Fatalf("Invariant not respected.")
+	}
+}
+
 func TestDeployTransactionPreValidation(t *testing.T) {
 	res, err := validator.TransactionPreValidation(mockDeployTransaction());
 	if (res == nil) {
@@ -79,7 +89,6 @@ func mockDeployTransaction() (*pb.Transaction) {
 	)
 	return tx
 }
-
 
 func mockInvokeTransaction() (*pb.Transaction) {
 	tx, _ := pb.NewChainletInvokeTransaction(

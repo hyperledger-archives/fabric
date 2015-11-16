@@ -4,6 +4,7 @@ package peer
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 	"errors"
+"crypto/rand"
 )
 
 // Errors
@@ -17,6 +18,7 @@ var ErrModuleAlreadyInitialized error = errors.New("Peer Security Module Already
 
 type Peer struct {
 	isInitialized bool
+	id []byte
 }
 
 
@@ -41,9 +43,29 @@ func (peer *Peer) Init() (error) {
 		return ErrModuleAlreadyInitialized
 	}
 
+	// Init field
+
+	// id is initialized to a random value. Later on,
+	// id will be initialized as the hash of the enrollment certificate
+	peer.id = make([]byte, 48)
+	_, err := rand.Read(peer.id)
+	if err != nil {
+		return err
+	}
+
+	// Initialisation complete
 	peer.isInitialized = true;
 
 	return nil
+}
+
+// GetID returns this validator's identifier
+func (peer *Peer) GetID() ([]byte) {
+	// Clone id to avoid exposure of internal data structure
+	clone := make([]byte, len(peer.id))
+	copy(clone, peer.id)
+
+	return clone
 }
 
 // TransactionPreValidation verifies that the transaction is

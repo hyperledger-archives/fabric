@@ -10,6 +10,7 @@ import (
 
 var peer *Peer
 
+
 func TestMain(m *testing.M) {
 	peer = new(Peer)
 
@@ -22,6 +23,16 @@ func TestMain(m *testing.M) {
 	}
 }
 
+
+func TestID(t *testing.T) {
+	// Verify that any id modification doesn't change
+	id := peer.GetID()
+	id[0] = id[0] + 1
+	id2 := peer.GetID()
+	if id2[0] == id[0] {
+		t.Fatalf("Invariant not respected.")
+	}
+}
 
 func TestDeployTransactionPreValidation(t *testing.T) {
 	tx, err := peer.TransactionPreValidation(mockDeployTransaction())
@@ -46,7 +57,6 @@ func TestInvokeTransactionPreValidation(t *testing.T) {
 }
 
 
-
 func mockDeployTransaction() (*pb.Transaction) {
 	tx, _ := pb.NewChainletDeployTransaction(
 		&pb.ChainletDeploymentSpec{
@@ -62,7 +72,6 @@ func mockDeployTransaction() (*pb.Transaction) {
 	)
 	return tx
 }
-
 
 func mockInvokeTransaction() (*pb.Transaction) {
 	tx, _ := pb.NewChainletInvokeTransaction(

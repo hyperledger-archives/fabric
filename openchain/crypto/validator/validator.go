@@ -4,6 +4,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/peer"
+"crypto/rand"
 )
 
 
@@ -21,6 +22,7 @@ type Validator struct {
 	*peer.Peer
 
 	isInitialized bool
+	id []byte
 }
 
 
@@ -46,9 +48,29 @@ func (validator *Validator) Init() (error) {
 		return ErrModuleAlreadyInitialized
 	}
 
+	// Init field
+
+	// id is initialized to a random value. Later on,
+	// id will be initialized as the hash of the enrollment certificate
+	validator.id = make([]byte, 48)
+	_, err := rand.Read(validator.id)
+	if err != nil {
+		return err
+	}
+
+	// Initialisation complete
 	validator.isInitialized = true;
 
 	return nil
+}
+
+// GetID returns this validator's identifier
+func (validator *Validator) GetID() ([]byte) {
+	// Clone id to avoid exposure of internal data structure
+	clone := make([]byte, len(validator.id))
+	copy(clone, validator.id)
+
+	return clone
 }
 
 // TransactionPreValidation verifies that the transaction is
@@ -74,3 +96,6 @@ func (validator *Validator) TransactionPreExecution(tx *pb.Transaction) (*pb.Tra
 	return tx, nil
 }
 
+func (validator *Validator) Sign([]byte) ([]byte, error) {
+
+}
