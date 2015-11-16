@@ -26,7 +26,7 @@ import (
 )
 
 // =============================================================================
-// Init.
+// Init
 // =============================================================================
 
 // Package-level logger.
@@ -37,10 +37,10 @@ func init() {
 }
 
 // =============================================================================
-// Interface definitions go here.
+// Interface definitions go here
 // =============================================================================
 
-// Consenter should be implemented by every consensus algorithm implementation (plugin).
+// Consenter should be implemented by every consensus algorithm implementation (plugin)
 type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
 }

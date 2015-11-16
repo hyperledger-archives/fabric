@@ -33,10 +33,10 @@ import (
 )
 
 // =============================================================================
-// Init.
+// Init
 // =============================================================================
 
-// Package-level logger.
+// Package-level logger
 var helperLogger *logging.Logger
 
 func init() {
@@ -45,16 +45,16 @@ func init() {
 }
 
 // =============================================================================
-// Structure definitions go here.
+// Structure definitions go here
 // =============================================================================
 
-// Helper data structure.
+// Helper data structure
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 }
 
 // =============================================================================
-// Constructs go here.
+// Constructs go here
 // =============================================================================
 
 // NewHelper constructs the consensus helper object.
@@ -63,7 +63,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 }
 
 // =============================================================================
-// Interface implementations go here.
+// Stack-facing implementation goes here
 // =============================================================================
 
 // Broadcast sends a message to all validating peers. during a consensus round.
@@ -85,19 +85,18 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 // Unicast is called by the validating peer to send a CONSENSUS message to a
 // specified receiver. As is the case with `Broadcast()`, the argument is the
 // serialized payload of an implementation-specific message.
-func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
+func (h *Helper) Unicast(msg []byte, receiver string) error {
 
-	// Wrap as message of type OpenchainMessage_CONSENSUS.
-	msgTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
-	msg := &pb.OpenchainMessage{
+	// Wrap as message of type OpenchainMessage_CONSENSUS
+	newMsgTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	newMsg := &pb.OpenchainMessage{
 		Type:      pb.OpenchainMessage_CONSENSUS,
-		Timestamp: msgTime,
-		Payload:   msgPayload,
+		Timestamp: newMsgTime,
+		Payload:   msg,
 	}
 
-	// TODO: Call a function in the comms layer.
-	// Waiting for Jeff's implementation.
-	var _ = msg // Just to silence the compiler error.
+	// TODO Call a function in the comms layer - wait for Jeff's implementation
+	var _ = newMsg // Just to silence the compiler error.
 
 	return nil
 }
