@@ -197,18 +197,18 @@ func TestStoreRetrieve(t *testing.T) {
 	instance := New(mock)
 
 	// Create a `REQUEST` message
-	reqMsg := &Message{&Message_Request{&Request{Payload: []byte("hello world")}}}
+	req := &Request{Payload: []byte("hello world")}
 	// Marshal it
-	reqMsgPacked, err := proto.Marshal(reqMsg)
+	reqPacked, err := proto.Marshal(req)
 	if err != nil {
-		t.Fatalf("Error marshalling REQUEST message")
+		t.Fatalf("Error marshalling request")
 	}
 
 	// Get its hash
-	digest := hashMsg(reqMsgPacked)
+	digest := hashMsg(reqPacked)
 
 	// Store it
-	count := instance.storeRequest(digest, reqMsg)
+	count := instance.storeRequest(digest, req)
 
 	if count != 1 {
 		t.Fatalf("Expected message count in map is 1, instead got: %d", count)
@@ -216,18 +216,18 @@ func TestStoreRetrieve(t *testing.T) {
 
 	t.Logf("Map: %+v\n", instance.msgStore)
 
-	newMsg, err := instance.retrieveRequest(digest)
+	newReq, err := instance.retrieveRequest(digest)
 	if err != nil {
 		t.Fatalf("Error retrieving REQUEST message from map")
 	}
 	// Marshal it
-	newMsgPacked, err := proto.Marshal(newMsg)
+	newReqPacked, err := proto.Marshal(newReq)
 	if err != nil {
 		t.Fatalf("Error marshalling retrieved REQUEST message")
 	}
 
 	// Are the two messages the same?
-	if !bytes.Equal(reqMsgPacked, newMsgPacked) {
+	if !bytes.Equal(reqPacked, newReqPacked) {
 		t.Logf("Retrieved REQUEST message is not identical to original one")
 	}
 }
@@ -272,6 +272,8 @@ func TestNetwork(t *testing.T) {
 		inst.plugin = New(inst)
 		net.replicas[i] = inst
 	}
+
+	net.replicas[0].plugin.setLeader(true)
 
 	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}

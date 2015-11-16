@@ -195,9 +195,9 @@ func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
 }
 
 type PrePrepare struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
-	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigest  []string `protobuf:"bytes,3,rep,name=request_digest" json:"request_digest,omitempty"`
+	View           string `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
+	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
+	RequestDigest  string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 }
 
 func (m *PrePrepare) Reset()         { *m = PrePrepare{} }
@@ -207,7 +207,7 @@ func (*PrePrepare) ProtoMessage()    {}
 type Prepare struct {
 	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigest  []string `protobuf:"bytes,3,rep,name=request_digest" json:"request_digest,omitempty"`
+	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
 	ReplicaId      string   `protobuf:"bytes,5,opt,name=replica_id" json:"replica_id,omitempty"`
 	TxErrors       []string `protobuf:"bytes,6,rep,name=tx_errors" json:"tx_errors,omitempty"`
@@ -220,7 +220,7 @@ func (*Prepare) ProtoMessage()    {}
 type Commit struct {
 	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigests []string `protobuf:"bytes,3,rep,name=request_digests" json:"request_digests,omitempty"`
+	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
 	ReplicaId      string   `protobuf:"bytes,5,opt,name=replica_id" json:"replica_id,omitempty"`
 	TxErrors       []string `protobuf:"bytes,6,rep,name=tx_errors" json:"tx_errors,omitempty"`

@@ -55,22 +55,11 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi      consensus.CPI       // The consensus programming interface
-	config   *viper.Viper        // The link to the config file
-	leader   bool                // Is this validating peer the current leader?
-	msgStore map[string]*Message // Where we store incoming `REQUEST` messages.
-}
-
-// =============================================================================
-// Custom interface definitions go here.
-// =============================================================================
-
-type validator interface {
-	getParam(param string) (val string, err error)
-	isLeader() bool
-	retrieveRequest(digest string) (reqMsg *Message, err error)
-	setLeader(flag bool) bool
-	storeRequest(digest string, reqMsg *Message) (count int)
+	cpi            consensus.CPI       // The consensus programming interface
+	config         *viper.Viper        // The link to the config file
+	leader         bool                // Is this validating peer the current leader?
+	sequenceNumber uint64              // PBFT "n", strict monotonic increasing sequence number
+	msgStore       map[string]*Request // Where we store incoming `REQUEST` messages.
 }
 
 // =============================================================================
@@ -104,7 +93,7 @@ func New(c consensus.CPI) *Plugin {
 	}
 
 	// Create the data store for incoming messages.
-	instance.msgStore = make(map[string]*Message)
+	instance.msgStore = make(map[string]*Request)
 
 	return instance
 }
@@ -123,18 +112,7 @@ func (instance *Plugin) Request(txs []byte) error {
 		return err
 	}
 
-	reqMsgPacked, err := proto.Marshal(reqMsg)
-	if err != nil {
-		return fmt.Errorf("Error marshalling request message.")
-	}
-
-	err = instance.cpi.Broadcast(reqMsgPacked)
-	if err == nil {
-		// route to ourselves as well
-		return instance.RecvMsg(reqMsgPacked)
-	}
-
-	return err
+	return instance.broadcast(reqMsg, true) // route to ourselves as well
 }
 
 // RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
@@ -145,28 +123,105 @@ func (instance *Plugin) RecvMsg(msgRaw []byte) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
+	// XXX missing: PBFT consistency checks
+
 	if req := msg.GetRequest(); req != nil {
-		logger.Debug("request received")
-		digest := hashMsg(msgRaw)
-		_ = instance.storeRequest(digest, msg)
+		err = instance.recvRequest(msgRaw, req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
-		logger.Debug("pre-prepare received")
+		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
-		logger.Debug("prepare received")
+		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
-		logger.Debug("commit received")
+		err = instance.recvCommit(commit)
 	} else {
 		err := fmt.Errorf("invalid message: ", msgRaw)
 		logger.Error("%s", err)
-		return err
 	}
 
+	return err
+}
+
+func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
+	logger.Debug("request received")
+	// XXX test timestamp
+	digest := hashMsg(msgRaw)
+	_ = instance.storeRequest(digest, req)
+
+	if !instance.leader {
+		return nil
+	}
+
+	logger.Debug("leader sending pre-prepare for %s", digest)
+	preprep := &Message{&Message_PrePrepare{&PrePrepare{
+		// XXX view
+		SequenceNumber: instance.sequenceNumber,
+		RequestDigest:  digest,
+	}}}
+
+	return instance.broadcast(preprep, false)
+}
+
+func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
+	logger.Debug("pre-prepare received")
+
+	if instance.leader {
+		return nil
+	}
+
+	// XXX speculative execution: ExecTXs
+
+	logger.Debug("backup sending prepare for %s", preprep.RequestDigest)
+
+	prep := &Message{&Message_Prepare{&Prepare{
+		// XXX view
+		SequenceNumber: preprep.SequenceNumber,
+		RequestDigest:  preprep.RequestDigest,
+		// XXX ReplicaId
+	}}}
+
+	return instance.broadcast(prep, false)
+}
+
+func (instance *Plugin) recvPrepare(prep *Prepare) error {
+	logger.Debug("prepare received")
+
+	commit := &Message{&Message_Commit{&Commit{
+		// XXX view
+		SequenceNumber: prep.SequenceNumber,
+		RequestDigest:  prep.RequestDigest,
+		// XXX ReplicaId
+	}}}
+
+	return instance.broadcast(commit, false)
+}
+
+func (instance *Plugin) recvCommit(commit *Commit) error {
+	logger.Debug("commit received")
+
+	// XXX wait for quorum certificate
+	// XXX commit transaction
 	return nil
 }
 
 // =============================================================================
 // Custom interface implementation goes here.
 // =============================================================================
+
+// broadcast marshals the Message and hands it to the CPI.  If toSelf
+// is true, the message is also dispatched to the local instance's
+// RecvMsg.
+func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("broadcast: could not marshal message: %s", err)
+	}
+
+	err = instance.cpi.Broadcast(msgPacked)
+	if err == nil && toSelf {
+		err = instance.RecvMsg(msgPacked)
+	}
+	return err
+}
 
 // A getter for the values listed in `config.yaml`.
 func (instance *Plugin) getParam(param string) (val string, err error) {
@@ -184,7 +239,7 @@ func (instance *Plugin) isLeader() bool {
 }
 
 // retrieve
-func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Message, err error) {
+func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Request, err error) {
 	if val, ok := instance.msgStore[digest]; ok {
 		logger.Debug("Message with digest %s found in map.", digest)
 		return val, nil
@@ -202,7 +257,7 @@ func (instance *Plugin) setLeader(flag bool) bool {
 }
 
 // storeRequest maps a `REQUEST` message to its digest and stores it for future reference.
-func (instance *Plugin) storeRequest(digest string, reqMsg *Message) (count int) {
+func (instance *Plugin) storeRequest(digest string, reqMsg *Request) (count int) {
 	if _, ok := instance.msgStore[digest]; ok {
 		logger.Debug("Message with digest %s already exists in map.", digest)
 	}
