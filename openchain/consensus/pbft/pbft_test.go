@@ -24,7 +24,6 @@ import (
 	gp "google/protobuf"
 	"os"
 	"testing"
-	"time"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 
@@ -141,7 +140,7 @@ func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
-	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
 	txBlockPacked, err := proto.Marshal(txBlock)
@@ -275,7 +274,7 @@ func TestNetwork(t *testing.T) {
 	}
 
 	// Create a message of type: `OpenchainMessage_REQUEST`
-	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
+	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
 	txBlockPacked, err := proto.Marshal(txBlock)
