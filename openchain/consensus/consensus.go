@@ -50,7 +50,7 @@ type Consenter interface {
 type CPI interface {
 	SetConsenter(c Consenter)                                             // Is called by the controller package, links `helper` with the plugin package.
 	HandleMsg(msg *pb.OpenchainMessage) error                             // Routes to the Consenter's `RecvMsg()`.
-	Broadcast(msgPayload []byte) error                                    // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	Broadcast(msg *pb.OpenchainMessage) error                             // May be called by the Consenter's `RecvMsg()` after the processing is done.
 	ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) // Is called by the Consenter's `RecvMsg()` during processing.
 	Unicast(msgPayload []byte, receiver string) error                     // May be called by the Consenter's `RecvMsg()` after the processing is done.
 }
