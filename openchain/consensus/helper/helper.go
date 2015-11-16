@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	gp "google/protobuf"
@@ -87,16 +87,13 @@ func (h *Helper) SetConsenter(c consensus.Consenter) {
 // HandleMsg is called by the validating peer when a REQUEST or CONSENSUS
 // message is received.
 func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Handling an incoming message.")
-	}
+	logger.Debug("HandleMsg(%s)", msg.Type)
 
 	switch msg.Type {
 	case pb.OpenchainMessage_REQUEST:
-		return h.consenter.RecvMsg(msg)
+		return h.consenter.Request(msg.Payload)
 	case pb.OpenchainMessage_CONSENSUS:
-		return h.consenter.RecvMsg(msg)
+		return h.consenter.RecvMsg(msg.Payload)
 	default:
 		return fmt.Errorf("Cannot process message type: %s", msg.Type)
 	}
@@ -134,7 +131,7 @@ func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, [
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executing the transactions.")
 	}
-	return chaincode.ExecuteTransactions(ctxt, chaincode.DefaultChain, txs)	
+	return chaincode.ExecuteTransactions(ctxt, chaincode.DefaultChain, txs)
 
 }
 
