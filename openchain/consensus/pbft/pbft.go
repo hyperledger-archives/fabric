@@ -80,25 +80,13 @@ type validator interface {
 // New creates an implementation-specific structure that will be held in the
 // consensus `helper` object. (See `controller` and `helper` packages for more.)
 func New(c consensus.CPI) *Plugin {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Creating the consenter.")
-	}
 	instance := &Plugin{}
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Setting the consenter's CPI.")
-	}
 	instance.cpi = c
 
 	// TODO: Initialize the algorithm here.
 	// You may want to set the fields of `instance` using `instance.GetParam()`.
 	// e.g. instance.blockTimeOut = strconv.Atoi(instance.getParam("timeout.block"))
 
-	// Create a link to the config file.
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Linking to the consenter's config file.")
-	}
 	instance.config = viper.New()
 
 	// For environment variables.
@@ -192,54 +180,35 @@ func (instance *Plugin) getParam(param string) (val string, err error) {
 
 // Allows us to check whether a validating peer is the current leader.
 func (instance *Plugin) isLeader() bool {
-
 	return instance.leader
 }
 
 // retrieve
 func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Message, err error) {
-
 	if val, ok := instance.msgStore[digest]; ok {
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Message with digest %s found in map.", digest)
-		}
+		logger.Debug("Message with digest %s found in map.", digest)
 		return val, nil
 	}
 
 	err = fmt.Errorf("Message with digest %s does not exist in map.", digest)
 	return nil, err
-
 }
 
 // Flags a validating peer as the leader. This is a temporary state.
 func (instance *Plugin) setLeader(flag bool) bool {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Setting the leader flag.")
-	}
-
+	logger.Debug("Setting leader=%s.", flag)
 	instance.leader = flag
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Leader flag set.")
-	}
-
 	return instance.leader
 }
 
-// Maps a `REQUEST` message to its digest and stores it for future reference.
+// storeRequest maps a `REQUEST` message to its digest and stores it for future reference.
 func (instance *Plugin) storeRequest(digest string, reqMsg *Message) (count int) {
-
 	if _, ok := instance.msgStore[digest]; ok {
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Message with digest %s already exists in map.", digest)
-		}
+		logger.Debug("Message with digest %s already exists in map.", digest)
 	}
 
 	instance.msgStore[digest] = reqMsg
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Stored REQUEST message in map.")
-	}
+	logger.Debug("Stored REQUEST with digest %s", digest)
 
 	count = len(instance.msgStore)
 	return
@@ -251,7 +220,6 @@ func (instance *Plugin) storeRequest(digest string, reqMsg *Message) (count int)
 
 // Receives the payload of `OpenchainMessage_REQUEST`, turns it into a Request
 func convertToRequest(txs []byte) (reqMsg *Message, err error) {
-
 	txBatch := &pb.TransactionBlock{}
 	err = proto.Unmarshal(txs, txBatch)
 	if err != nil {
@@ -260,12 +228,9 @@ func convertToRequest(txs []byte) (reqMsg *Message, err error) {
 	}
 
 	numTx := len(txBatch.Transactions)
+	logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
 
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
-	}
-
-	// Extract transaction.
+	// XXX for now only handle single transactions
 	if numTx != 1 {
 		err = fmt.Errorf("request should carry 1 transaction instead of: %d", numTx)
 		return
@@ -273,15 +238,10 @@ func convertToRequest(txs []byte) (reqMsg *Message, err error) {
 
 	tx := txBatch.Transactions[0]
 
-	// Marshal transaction.
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		err = fmt.Errorf("Error marshalling single transaction.")
 		return
-	}
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Marshaled single transaction.")
 	}
 
 	reqMsg = &Message{&Message_Request{&Request{
@@ -289,21 +249,10 @@ func convertToRequest(txs []byte) (reqMsg *Message, err error) {
 		Payload:   txPacked,
 	}}}
 
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Created REQUEST message.")
-	}
-
 	return
 }
 
 // Calculate the digest of a marshalled message.
 func hashMsg(packedMsg []byte) (digest string) {
-
-	digest = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedMsg))
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Digest of marshalled message is: %s", digest)
-	}
-
-	return
+	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedMsg))
 }
