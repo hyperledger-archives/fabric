@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -42,9 +41,8 @@ func TestEnvOverride(t *testing.T) {
 	// Value to override default value with
 	overrideValue := "overide_test"
 
-	// Create new algorithm instance
-	helperInstance := helper.New()
-	instance := New(helperInstance)
+	mock := NewMock()
+	instance := New(mock)
 
 	// Test key.
 	if ok := instance.config.IsSet("general.name"); !ok {
@@ -101,7 +99,6 @@ func TestLeader(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
-	// Do not access through `helperInstance.consenter`
 	var ans bool
 	ans = instance.setLeader(true)
 	if !ans {
@@ -143,9 +140,6 @@ func (mock *mockCpi) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte
 func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
-
-	// Do not access through `helperInstance.consenter`
-	var err error
 
 	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
