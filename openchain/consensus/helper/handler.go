@@ -34,7 +34,8 @@ import (
 
 var handlerLogger = logging.MustGetLogger("consensus")
 
-// ConsensusHandler the Noops structure associated with the Noops MessageHandler
+// ConsensusHandler is an object to hande consensus messages. It also implements
+// the consensus CPI
 type ConsensusHandler struct {
 	Coordinator peer.MessageHandlerCoordinator
 	ChatStream  peer.ChatStream
@@ -59,7 +60,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	}
 
 	// Set consenter
-	d.consenter = controller.NewConsenter(consensus.CPI)
+	d.consenter = controller.NewConsenter(NewHelper(coord))
 
 	d.doneChan = make(chan bool)
 

@@ -23,7 +23,6 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 )
 
 // =============================================================================
@@ -48,9 +47,9 @@ type Consenter interface {
 
 // CPI (Consensus Programming Interface)
 type CPI interface {
-	SetConsenter(c Consenter)                                             // Is called by the controller package, links `helper` with the plugin package.
-	HandleMsg(msg *pb.OpenchainMessage) error                             // Routes to the Consenter's `RecvMsg()`.
-	Broadcast(msg *pb.OpenchainMessage) error                             // May be called by the Consenter's `RecvMsg()` after the processing is done.
-	ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) // Is called by the Consenter's `RecvMsg()` during processing.
-	Unicast(msgPayload []byte, receiver string) error                     // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	SetConsenter(c Consenter)                         // Is called by the controller package, links `helper` with the plugin package.
+	HandleMsg(msg *pb.OpenchainMessage) error         // Routes to the Consenter's `RecvMsg()`.
+	Broadcast(msg *pb.OpenchainMessage) error         // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)  // Is called by the Consenter's `RecvMsg()` during processing.
+	Unicast(msgPayload []byte, receiver string) error // May be called by the Consenter's `RecvMsg()` after the processing is done.
 }
