@@ -516,7 +516,7 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 		cmd.Usage()
 		return
 	}
-	logger.Info("Succesffuly invoked transaction: %s", invocation)
+	logger.Info("Successfully invoked transaction: %s", invocation)
 }
 
 func doCLI() {
