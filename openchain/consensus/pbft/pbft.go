@@ -59,7 +59,20 @@ type Plugin struct {
 	config         *viper.Viper        // The link to the config file
 	leader         bool                // Is this validating peer the current leader?
 	sequenceNumber uint64              // PBFT "n", strict monotonic increasing sequence number
-	msgStore       map[string]*Request // Where we store incoming `REQUEST` messages.
+	certStore      map[msgId]*msgCert  // track quorum certificates for requests
+	reqStore       map[string]*Request // track requests
+}
+
+type msgId struct {
+	view           uint64
+	sequenceNumber uint64
+}
+
+type msgCert struct {
+	request    *Request
+	prePrepare *PrePrepare
+	prepare    []*Prepare
+	commits    []*Commit
 }
 
 // =============================================================================
@@ -93,7 +106,8 @@ func New(c consensus.CPI) *Plugin {
 	}
 
 	// Create the data store for incoming messages.
-	instance.msgStore = make(map[string]*Request)
+	instance.certStore = make(map[msgId]*msgCert)
+	instance.reqStore = make(map[string]*Request)
 
 	return instance
 }
@@ -154,7 +168,7 @@ func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
 	logger.Debug("request received")
 	// XXX test timestamp
 	digest := hashMsg(msgRaw)
-	_ = instance.storeRequest(digest, req)
+	instance.reqStore[digest] = req
 
 	if !instance.leader {
 		return nil
@@ -252,35 +266,11 @@ func (instance *Plugin) isLeader() bool {
 	return instance.leader
 }
 
-// retrieve
-func (instance *Plugin) retrieveRequest(digest string) (reqMsg *Request, err error) {
-	if val, ok := instance.msgStore[digest]; ok {
-		logger.Debug("Message with digest %s found in map.", digest)
-		return val, nil
-	}
-
-	err = fmt.Errorf("Message with digest %s does not exist in map.", digest)
-	return nil, err
-}
-
 // Flags a validating peer as the leader. This is a temporary state.
 func (instance *Plugin) setLeader(flag bool) bool {
 	logger.Debug("Setting leader=%s.", flag)
 	instance.leader = flag
 	return instance.leader
-}
-
-// storeRequest maps a `REQUEST` message to its digest and stores it for future reference.
-func (instance *Plugin) storeRequest(digest string, reqMsg *Request) (count int) {
-	if _, ok := instance.msgStore[digest]; ok {
-		logger.Debug("Message with digest %s already exists in map.", digest)
-	}
-
-	instance.msgStore[digest] = reqMsg
-	logger.Debug("Stored REQUEST with digest %s", digest)
-
-	count = len(instance.msgStore)
-	return
 }
 
 // =============================================================================

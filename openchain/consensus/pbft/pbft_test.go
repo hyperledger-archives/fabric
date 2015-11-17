@@ -20,7 +20,6 @@ under the License.
 package pbft
 
 import (
-	"bytes"
 	gp "google/protobuf"
 	"os"
 	"testing"
@@ -205,46 +204,6 @@ func TestRecvMsg(t *testing.T) {
 	}
 	if msg := msg.GetPrePrepare(); msg == nil {
 		t.Fatal("expected pre-prepare after request")
-	}
-}
-
-func TestStoreRetrieve(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-
-	// Create a `REQUEST` message
-	req := &Request{Payload: []byte("hello world")}
-	// Marshal it
-	reqPacked, err := proto.Marshal(req)
-	if err != nil {
-		t.Fatalf("Error marshalling request")
-	}
-
-	// Get its hash
-	digest := hashMsg(reqPacked)
-
-	// Store it
-	count := instance.storeRequest(digest, req)
-
-	if count != 1 {
-		t.Fatalf("Expected message count in map is 1, instead got: %d", count)
-	}
-
-	t.Logf("Map: %+v\n", instance.msgStore)
-
-	newReq, err := instance.retrieveRequest(digest)
-	if err != nil {
-		t.Fatalf("Error retrieving REQUEST message from map")
-	}
-	// Marshal it
-	newReqPacked, err := proto.Marshal(newReq)
-	if err != nil {
-		t.Fatalf("Error marshalling retrieved REQUEST message")
-	}
-
-	// Are the two messages the same?
-	if !bytes.Equal(reqPacked, newReqPacked) {
-		t.Logf("Retrieved REQUEST message is not identical to original one")
 	}
 }
 
