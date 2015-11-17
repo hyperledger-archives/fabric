@@ -21,10 +21,18 @@ package controller
 
 import (
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
+
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
 )
+
+var logger *logging.Logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/controller")
+}
 
 // NewConsenter constructs a consenter object
 func NewConsenter(cpi consensus.CPI) consensus.Consenter {

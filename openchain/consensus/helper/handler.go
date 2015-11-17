@@ -21,11 +21,9 @@ package helper
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/controller"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 
@@ -41,7 +39,7 @@ type ConsensusHandler struct {
 	ChatStream  peer.ChatStream
 	doneChan    chan bool
 	PeerHandler peer.MessageHandler
-	consenter   Consenter
+	consenter   consensus.Consenter
 }
 
 // NewConsensusHandler constructs a new Noops MessageHandler
@@ -80,7 +78,7 @@ func (i *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 
 // SendMessage sends a message to the remote PEER through the stream
 func (i *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
-	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	handlerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
 	err := i.ChatStream.Send(msg)
 	if err != nil {
 		return fmt.Errorf("Error Sending message through ChatStream: %s", err)

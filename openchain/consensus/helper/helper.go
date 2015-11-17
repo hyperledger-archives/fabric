@@ -20,7 +20,6 @@ under the License.
 package helper
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/op/go-logging"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -50,7 +50,7 @@ func init() {
 
 // Helper data structure.
 type Helper struct {
-	coordinator MessageHandlerCoordinator
+	coordinator peer.MessageHandlerCoordinator
 }
 
 // =============================================================================
@@ -58,7 +58,7 @@ type Helper struct {
 // =============================================================================
 
 // NewHelper constructs the consensus helper object.
-func NewHelper(mhc MessageHandlerCoordinator) consensus.CPI {
+func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 	return &Helper{coordinator: mhc}
 }
 
@@ -69,21 +69,17 @@ func NewHelper(mhc MessageHandlerCoordinator) consensus.CPI {
 // Broadcast sends a message to all validating peers. during a consensus round.
 // The argument is the serialized message that is specific to the consensus
 // algorithm implementation. It is wrapped into a CONSENSUS message.
-func (h *Helper) Broadcast(msgPayload []byte) error {
+func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 
 	if helperLogger.IsEnabledFor(logging.DEBUG) {
 		helperLogger.Debug("Broadcasting a message.")
 	}
 
-	// Wrap as message of type OpenchainMessage_CONSENSUS.
-	msgTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
-	msg := &pb.OpenchainMessage{
-		Type:      pb.OpenchainMessage_CONSENSUS,
-		Timestamp: msgTime,
-		Payload:   msgPayload,
+	err := h.coordinator.Broadcast(msg)
+	if err != nil {
+		return fmt.Errorf("errors during broadcast: %s", err)
 	}
-
-	return h.coordinator.Broadcast(msg)
+	return nil
 }
 
 // Unicast is called by the validating peer to send a CONSENSUS message to a
