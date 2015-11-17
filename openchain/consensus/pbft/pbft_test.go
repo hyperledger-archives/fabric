@@ -146,17 +146,21 @@ func TestRecvRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = instance.Request(txBlockPacked)
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_REQUEST,
+		Payload: txBlockPacked,
+	}
+	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
 		t.Fatalf("Failed to handle request: %s", err)
 	}
 
-	msgWrapped := mock.broadcastMsg[0]
-	if msgWrapped == nil || msgWrapped.Type != pb.OpenchainMessage_REQUEST {
-		t.Fatalf("expected broadcast after request")
+	msgOut := mock.broadcastMsg[0]
+	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
+		t.Fatalf("expected broadcast after request, received %s", msgWrapped.Type)
 	}
 
-	msgRaw := msgWrapped.Payload
+	msgRaw := msgOut.Payload
 	msgReq := &Message{}
 	err = proto.Unmarshal(msgRaw, msgReq)
 	if err != nil {
@@ -168,6 +172,7 @@ func TestRecvRequest(t *testing.T) {
 func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	instance.setLeader(true)
 
 	nestedMsg := &Message{&Message_Request{&Request{
 		Payload: []byte("hello world"),
@@ -185,16 +190,22 @@ func TestRecvMsg(t *testing.T) {
 		t.Fatalf("Failed to handle pbft message: %s", err)
 	}
 
-	if len(mock.broadcastMsg) != 0 {
-		t.Fatal("unexpected message")
+	if len(mock.broadcastMsg) != 1 {
+		t.Fatalf("expected message, got %d", len(mock.broadcastMsg))
 	}
 
-	// msgRaw := mock.broadcastMsg[0]
-	// msg := &Message{}
-	// err = proto.Unmarshal(msgRaw, msg)
-	// if err != nil {
-	// 	t.Fatal("could not unmarshal message")
-	// }
+	msgOut := mock.broadcastMsg[0]
+	if msgOut.Type != pb.OpenchainMessage_CONSENSUS {
+		t.Fatalf("expected CONSENSUS, received %s", msgOut.Type)
+	}
+	msg := &Message{}
+	err = proto.Unmarshal(msgOut.Payload, msg)
+	if err != nil {
+		t.Fatal("could not unmarshal message")
+	}
+	if msg := msg.GetPrePrepare(); msg == nil {
+		t.Fatal("expected pre-prepare after request")
+	}
 }
 
 func TestStoreRetrieve(t *testing.T) {
