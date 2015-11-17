@@ -89,7 +89,8 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 			//TODO rollback transaction....
 			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
-			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
+			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED || 
+			   resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
 				return 	resp.Payload, nil
 			}
 			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)

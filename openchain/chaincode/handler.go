@@ -599,8 +599,11 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		chaincodeLogger.Debug("HandleMessage- QUERY_COMPLETED for uuid:%s. Notify", msg.Uuid)
 		handler.notify(msg)
 		return nil
+	} else if msg.Type == pb.ChaincodeMessage_QUERY_ERROR {
+		chaincodeLogger.Debug("HandleMessage- QUERY_ERROR (%s) for uuid:%s. Notify", string(msg.Payload), msg.Uuid)
+		handler.notify(msg)
+		return nil
 	}
-
 	if handler.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Chaincode handler validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 	}

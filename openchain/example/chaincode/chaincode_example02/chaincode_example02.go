@@ -148,7 +148,13 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	// Get the state from the ledger
 	Avalbytes, err := stub.GetState(A)
 	if err != nil {
-		return nil, errors.New("Failed to get state for " + A)
+		jsonResp := "{\"Error\":\"Failed to get state for "+A+"\"}"
+		return nil, errors.New(jsonResp)
+	}
+	
+	if Avalbytes == nil {
+		jsonResp := "{\"Error\":\"Nil amount for "+A+"\"}"
+		return nil, errors.New(jsonResp)
 	}
 	
 	jsonResp := "{\"Name\":\""+A+"\",\"Amount\":\""+string(Avalbytes)+"\"}"

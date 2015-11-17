@@ -234,8 +234,8 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_QUERY_ERROR)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 			return
 		}
@@ -248,8 +248,8 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debug("Query execution failed. Sending %s", pb.ChaincodeMessage_ERROR)
-			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			chaincodeLogger.Debug("Query execution failed. Sending %s", pb.ChaincodeMessage_QUERY_ERROR)
+			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errorMsg)
 			return
 		}
