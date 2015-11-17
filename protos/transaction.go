@@ -81,9 +81,9 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 }
 
 // NewChainletInvokeTransaction is used to deploy chaincode.
-func NewChainletInvokeTransaction(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string) (*Transaction, error) {
+func NewChainletExecute(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string, typ Transaction_Type) (*Transaction, error) {
 	transaction := new(Transaction)
-	transaction.Type = Transaction_CHAINLET_EXECUTE
+	transaction.Type = typ
 	transaction.Uuid = uuid
 	transaction.ChainletID = chaincodeInvocationSpec.ChainletSpec.GetChainletID()
 	data, err := proto.Marshal(chaincodeInvocationSpec)

@@ -115,6 +115,31 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	return nil, nil
 }
 
+// Query the state at any time
+func (t *SimpleChaincode) query(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var A string		// Entities
+	var err error
+	
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the person to query")
+	} 
+
+	A = args[0]
+
+	// Get the state from the ledger
+	// TODO: will be nice to have a GetAllState call to ledger
+	Avalbytes, err := stub.GetState(A)
+	if err != nil {
+		return nil, errors.New("Failed to get state")
+	}
+	
+	jsonResp := "{\"Name\":\""+A+"\",\"Amount\":\""+string(Avalbytes)+"\"}"
+	fmt.Printf("Query Response:%s\n", jsonResp)
+	return []byte(jsonResp),nil
+
+
+	return nil, nil
+}
 // Run callback representing the invocation of a chaincode
 // This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
 func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -126,6 +151,9 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 	} else if function == "invoke" {
 		// Transaction makes payment of X units from A to B
 		return t.invoke(stub, args)
+	} else if function == "query" {
+		// Transaction makes payment of X units from A to B
+		return t.query(stub, args)
 	}
 	
 	return nil, nil

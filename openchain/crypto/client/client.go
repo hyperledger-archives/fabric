@@ -61,7 +61,7 @@ func (client *Client) NewChainletInvokeTransaction(chaincodeInvocation *pb.Chain
 		return nil, ErrModuleNotInitialized
 	}
 
-	return pb.NewChainletInvokeTransaction(chaincodeInvocation, uuid)
+	return pb.NewChainletExecute(chaincodeInvocation, uuid, pb.Transaction_CHAINLET_EXECUTE)
 }
 
 // Private Methods

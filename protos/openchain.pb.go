@@ -66,6 +66,7 @@ const (
 	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 10
 	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 11
 	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 12
+	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 13
 	OpenchainMessage_REQUEST                OpenchainMessage_Type = 14
 	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
 )
@@ -83,6 +84,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	10: "CHAIN_GET_BLOCKS",
 	11: "CHAIN_BLOCKS",
 	12: "CHAIN_NEW_BLOCK",
+	13: "CHAIN_QUERY",
 	14: "REQUEST",
 	15: "CONSENSUS",
 }
@@ -99,6 +101,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"CHAIN_GET_BLOCKS":       10,
 	"CHAIN_BLOCKS":           11,
 	"CHAIN_NEW_BLOCK":        12,
+	"CHAIN_QUERY":            13,
 	"REQUEST":                14,
 	"CONSENSUS":              15,
 }
