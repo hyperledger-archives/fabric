@@ -23,14 +23,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/op/go-logging"
+	"golang.org/x/net/context"
+	gp "google/protobuf"
+
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
-
-	gp "google/protobuf"
-
-	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 )
 
 // =============================================================================
@@ -38,11 +37,11 @@ import (
 // =============================================================================
 
 // Package-level logger.
-var logger *logging.Logger
+var helperLogger *logging.Logger
 
 func init() {
 
-	logger = logging.MustGetLogger("helper")
+	helperLogger = logging.MustGetLogger("helper")
 }
 
 // =============================================================================
@@ -51,61 +50,29 @@ func init() {
 
 // Helper data structure.
 type Helper struct {
-	consenter consensus.Consenter
+	coordinator MessageHandlerCoordinator
 }
 
 // =============================================================================
 // Constructs go here.
 // =============================================================================
 
-// New constructs the consensus helper object.
-func New() *Helper {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Creating a new helper.")
-	}
-
-	return &Helper{}
+// NewHelper constructs the consensus helper object.
+func NewHelper(mhc MessageHandlerCoordinator) consensus.CPI {
+	return &Helper{coordinator: mhc}
 }
 
 // =============================================================================
 // Interface implementations go here.
 // =============================================================================
 
-// SetConsenter is called from the system when a validating peer is booted. It
-// creates the link between the consensus helper (in `helper`) and the specific
-// algorithm implementation of the plugin package.
-func (h *Helper) SetConsenter(c consensus.Consenter) {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Setting the helper's consenter.")
-	}
-
-	h.consenter = c
-}
-
-// HandleMsg is called by the validating peer when a REQUEST or CONSENSUS
-// message is received.
-func (h *Helper) HandleMsg(msg *pb.OpenchainMessage) error {
-	logger.Debug("HandleMsg(%s)", msg.Type)
-
-	switch msg.Type {
-	case pb.OpenchainMessage_REQUEST:
-		return h.consenter.Request(msg.Payload)
-	case pb.OpenchainMessage_CONSENSUS:
-		return h.consenter.RecvMsg(msg.Payload)
-	default:
-		return fmt.Errorf("Cannot process message type: %s", msg.Type)
-	}
-}
-
 // Broadcast sends a message to all validating peers. during a consensus round.
 // The argument is the serialized message that is specific to the consensus
 // algorithm implementation. It is wrapped into a CONSENSUS message.
 func (h *Helper) Broadcast(msgPayload []byte) error {
 
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Broadcasting a message.")
+	if helperLogger.IsEnabledFor(logging.DEBUG) {
+		helperLogger.Debug("Broadcasting a message.")
 	}
 
 	// Wrap as message of type OpenchainMessage_CONSENSUS.
@@ -116,23 +83,7 @@ func (h *Helper) Broadcast(msgPayload []byte) error {
 		Payload:   msgPayload,
 	}
 
-	// TODO: Call a function in the comms layer.
-	// Waiting for Jeff's implementation.
-	var _ = msg // Just to silence the compiler error.
-
-	return nil
-}
-
-// ExecTXs will execute all the transactions listed in the `txs` array
-// one-by-one. If all the executions are successful, it returns the candidate
-// global state hash, and nil error array.
-func (h *Helper) ExecTXs(ctxt context.Context, txs []*pb.Transaction) ([]byte, []error) {
-
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Executing the transactions.")
-	}
-	return chaincode.ExecuteTransactions(ctxt, chaincode.DefaultChain, txs)
-
+	return h.coordinator.Broadcast(msg)
 }
 
 // Unicast is called by the validating peer to send a CONSENSUS message to a
@@ -153,4 +104,16 @@ func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 	var _ = msg // Just to silence the compiler error.
 
 	return nil
+}
+
+// ExecTXs will execute all the transactions listed in the `txs` array
+// one-by-one. If all the executions are successful, it returns the candidate
+// global state hash, and nil error array.
+func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+
+	if helperLogger.IsEnabledFor(logging.DEBUG) {
+		helperLogger.Debug("Executing the transactions.")
+	}
+	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+
 }

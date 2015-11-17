@@ -23,7 +23,6 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 )
 
 // =============================================================================
@@ -43,13 +42,12 @@ func init() {
 
 // Consenter should be implemented by every consensus algorithm implementation (plugin).
 type Consenter interface {
-	Request(txs []byte) error // ask plugin for consensus on `txs`
-	RecvMsg(msg []byte) error // handle message that was sent via CPI.Broadcast or CPI.Unicast
+	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
 }
 
 // CPI (Consensus Programming Interface)
 type CPI interface {
-	Broadcast(msgPayload []byte) error                                    // May be called by the Consenter's `RecvMsg()` after the processing is done.
-	ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) // Is called by the Consenter's `RecvMsg()` during processing.
-	Unicast(msgPayload []byte, receiver string) error                     // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	Broadcast(msg *pb.OpenchainMessage) error         // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)  // Is called by the Consenter's `RecvMsg()` during processing.
+	Unicast(msgPayload []byte, receiver string) error // May be called by the Consenter's `RecvMsg()` after the processing is done.
 }

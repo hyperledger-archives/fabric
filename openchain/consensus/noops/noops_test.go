@@ -27,23 +27,22 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
 )
 
 type mockCpi struct {
-	broadcastMsg [][]byte
+	broadcastMsg []*pb.OpenchainMessage
 	execTx       [][]*pb.Transaction
 }
 
 func NewMock() *mockCpi {
 	mock := &mockCpi{
-		make([][]byte, 0),
+		make([]*pb.OpenchainMessage, 0),
 		make([][]*pb.Transaction, 0),
 	}
 	return mock
 }
 
-func (mock *mockCpi) Broadcast(msg []byte) error {
+func (mock *mockCpi) Broadcast(msg *pb.OpenchainMessage) error {
 	mock.broadcastMsg = append(mock.broadcastMsg, msg)
 	return nil
 }
@@ -52,7 +51,7 @@ func (mock *mockCpi) Unicast(msg []byte, dest string) error {
 	panic("not implemented")
 }
 
-func (mock *mockCpi) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) {
+func (mock *mockCpi) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	mock.execTx = append(mock.execTx, txs)
 	return []byte("hash"), make([]error, len(txs)+1)
 }
@@ -69,7 +68,11 @@ func TestNoopRequest(t *testing.T) {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
 
-	err = instance.Request(txBlockPacked)
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_REQUEST,
+		Payload: txBlockPacked,
+	}
+	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
 		t.Fatalf("Failed to handle request: %s", err)
 	}

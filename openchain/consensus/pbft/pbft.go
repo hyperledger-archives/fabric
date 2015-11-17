@@ -116,7 +116,16 @@ func (instance *Plugin) Request(txs []byte) error {
 }
 
 // RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
-func (instance *Plugin) RecvMsg(msgRaw []byte) error {
+func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
+	if msgWrapped.Type == pb.OpenchainMessage_REQUEST {
+		return instance.Request(msgWrapped.Payload)
+	}
+	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
+		return fmt.Errorf("unexpected message type %s", msgWrapped.Type)
+	}
+
+	msgRaw := msgWrapped.Payload
+
 	msg := &Message{}
 	err := proto.Unmarshal(msgRaw, msg)
 	if err != nil {
@@ -216,9 +225,14 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		return fmt.Errorf("broadcast: could not marshal message: %s", err)
 	}
 
-	err = instance.cpi.Broadcast(msgPacked)
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPacked,
+	}
+
+	err = instance.cpi.Broadcast(msgWrapped)
 	if err == nil && toSelf {
-		err = instance.RecvMsg(msgPacked)
+		err = instance.RecvMsg(msgWrapped)
 	}
 	return err
 }

@@ -25,10 +25,9 @@ import (
 	"os"
 	"testing"
 
-	pb "github.com/openblockchain/obc-peer/protos"
-
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
+
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 func TestEnvOverride(t *testing.T) {
@@ -110,19 +109,19 @@ func TestLeader(t *testing.T) {
 }
 
 type mockCpi struct {
-	broadcastMsg [][]byte
+	broadcastMsg []*pb.OpenchainMessage
 	execTx       [][]*pb.Transaction
 }
 
 func NewMock() *mockCpi {
 	mock := &mockCpi{
-		make([][]byte, 0),
+		make([]*pb.OpenchainMessage, 0),
 		make([][]*pb.Transaction, 0),
 	}
 	return mock
 }
 
-func (mock *mockCpi) Broadcast(msg []byte) error {
+func (mock *mockCpi) Broadcast(msg *pb.OpenchainMessage) error {
 	mock.broadcastMsg = append(mock.broadcastMsg, msg)
 	return nil
 }
@@ -131,7 +130,7 @@ func (mock *mockCpi) Unicast(msg []byte, dest string) error {
 	panic("not implemented")
 }
 
-func (mock *mockCpi) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) {
+func (mock *mockCpi) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	mock.execTx = append(mock.execTx, txs)
 	return []byte("hash"), make([]error, len(txs)+1)
 }
@@ -152,10 +151,12 @@ func TestRecvRequest(t *testing.T) {
 		t.Fatalf("Failed to handle request: %s", err)
 	}
 
-	msgRaw := mock.broadcastMsg[0]
-	if msgRaw == nil {
+	msgWrapped := mock.broadcastMsg[0]
+	if msgWrapped == nil || msgWrapped.Type != pb.OpenchainMessage_REQUEST {
 		t.Fatalf("expected broadcast after request")
 	}
+
+	msgRaw := msgWrapped.Payload
 	msgReq := &Message{}
 	err = proto.Unmarshal(msgRaw, msgReq)
 	if err != nil {
@@ -175,7 +176,11 @@ func TestRecvMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
 	}
-	err = instance.RecvMsg(newPayload)
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: newPayload,
+	}
+	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
 		t.Fatalf("Failed to handle pbft message: %s", err)
 	}
@@ -247,17 +252,17 @@ type instance struct {
 }
 
 func (*instance) Unicast(payload []byte, receiver string) error { panic("invalid") }
-func (*instance) ExecTXs(ctx context.Context, txs []*pb.Transaction) ([]byte, []error) {
+func (*instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	panic("invalid")
 }
 
-func (inst *instance) Broadcast(payload []byte) error {
+func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	for i, replica := range inst.net.replicas {
 		if i == inst.id {
 			continue
 		}
 
-		replica.plugin.RecvMsg(payload)
+		replica.plugin.RecvMsg(msg)
 	}
 
 	return nil
