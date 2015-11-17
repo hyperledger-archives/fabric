@@ -137,6 +137,7 @@ func (mock *mockCpi) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	instance.replicaCount = 5
 
 	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
@@ -171,7 +172,8 @@ func TestRecvRequest(t *testing.T) {
 func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
-	instance.setLeader(true)
+	instance.id = 0
+	instance.replicaCount = 5
 
 	nestedMsg := &Message{&Message_Request{&Request{
 		Payload: []byte("hello world"),
@@ -245,6 +247,8 @@ func TestNetwork(t *testing.T) {
 	for i := range net.replicas {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
+		inst.plugin.id = uint64(i)
+		inst.plugin.replicaCount = nreplica
 		net.replicas[i] = inst
 	}
 

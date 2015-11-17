@@ -195,7 +195,7 @@ func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
 }
 
 type PrePrepare struct {
-	View           string `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
+	View           uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 }
@@ -205,7 +205,7 @@ func (m *PrePrepare) String() string { return proto.CompactTextString(m) }
 func (*PrePrepare) ProtoMessage()    {}
 
 type Prepare struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
+	View           uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
@@ -218,7 +218,7 @@ func (m *Prepare) String() string { return proto.CompactTextString(m) }
 func (*Prepare) ProtoMessage()    {}
 
 type Commit struct {
-	View           string   `protobuf:"bytes,1,opt,name=view" json:"view,omitempty"`
+	View           uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`

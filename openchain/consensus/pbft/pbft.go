@@ -55,24 +55,35 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm.
 type Plugin struct {
-	cpi            consensus.CPI       // The consensus programming interface
-	config         *viper.Viper        // The link to the config file
-	leader         bool                // Is this validating peer the current leader?
-	sequenceNumber uint64              // PBFT "n", strict monotonic increasing sequence number
-	certStore      map[msgId]*msgCert  // track quorum certificates for requests
-	reqStore       map[string]*Request // track requests
+	cpi          consensus.CPI // The consensus programming interface
+	config       *viper.Viper  // The link to the config file
+	leader       bool          // Is this validating peer the current leader?
+	id           uint64        // replica id, PBFT `i`
+	replicaCount uint64        // number of replicas, PBFT `|R|`
+	L            uint64        // log size
+	f            int           // number of faults we can tolerate
+
+	view       uint64 // current view
+	activeView bool   // view change happening
+	lastExec   uint64 // last request we executed
+	seqno      uint64 // PBFT "n", strict monotonic increasing sequence number
+	h          uint64 // low watermark
+
+	// implementation of PBFT `in`
+	certStore map[msgId]*msgCert  // track quorum certificates for requests
+	reqStore  map[string]*Request // track requests
 }
 
 type msgId struct {
-	view           uint64
-	sequenceNumber uint64
+	view  uint64
+	seqno uint64
 }
 
 type msgCert struct {
 	request    *Request
 	prePrepare *PrePrepare
 	prepare    []*Prepare
-	commits    []*Commit
+	commit     []*Commit
 }
 
 // =============================================================================
@@ -108,6 +119,8 @@ func New(c consensus.CPI) *Plugin {
 	// Create the data store for incoming messages.
 	instance.certStore = make(map[msgId]*msgCert)
 	instance.reqStore = make(map[string]*Request)
+
+	instance.L = 128
 
 	return instance
 }
@@ -164,24 +177,111 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	return err
 }
 
+func (instance *Plugin) primary(n uint64) uint64 {
+	return n % instance.replicaCount
+}
+
+func (instance *Plugin) inW(n uint64) bool {
+	return n-instance.h > 0 && n-instance.h <= instance.L
+}
+
+func (instance *Plugin) inWv(v uint64, n uint64) bool {
+	return instance.view == v && instance.inW(n)
+}
+
+func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
+	_, mInLog := instance.reqStore[digest]
+
+	if !mInLog {
+		return false
+	}
+
+	cert := instance.certStore[msgId{v, n}]
+	if cert != nil {
+		p := cert.prePrepare
+		if p.View == v && p.SequenceNumber == n && p.RequestDigest == digest {
+			return true
+		}
+	}
+	return false
+}
+
+func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
+	if !instance.prePrepared(digest, v, n) {
+		return false
+	}
+
+	quorum := 0
+	cert := instance.certStore[msgId{v, n}]
+	if cert == nil {
+		return false
+	}
+
+	for _, p := range cert.prepare {
+		if p.View == v && p.SequenceNumber == n && p.RequestDigest == digest {
+			quorum += 1
+		}
+	}
+
+	return quorum >= 2*instance.f
+}
+
+func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
+	if !instance.prepared(digest, v, n) {
+		return false
+	}
+
+	quorum := 0
+	cert := instance.certStore[msgId{v, n}]
+	if cert == nil {
+		return false
+	}
+
+	for _, p := range cert.commit {
+		if p.View == v && p.SequenceNumber == n {
+			quorum += 1
+		}
+	}
+
+	return quorum >= 2*instance.f+1
+}
+
 func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
 	logger.Debug("request received")
 	// XXX test timestamp
 	digest := hashMsg(msgRaw)
 	instance.reqStore[digest] = req
 
-	if !instance.leader {
-		return nil
+	n := instance.seqno + 1
+	if instance.primary(instance.view) == instance.id {
+		// check for other PRE-PREPARE for same digest, but different seqno
+		haveOther := false
+		for _, cert := range instance.certStore {
+			if p := cert.prePrepare; p != nil {
+				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
+					haveOther = true
+					break
+				}
+			}
+		}
+
+		if instance.inWv(instance.view, n) && !haveOther {
+			logger.Debug("primary sending pre-prepare %d for %s", n, digest)
+
+			instance.seqno = n
+			preprep := &PrePrepare{
+				View:           instance.view,
+				SequenceNumber: n,
+				RequestDigest:  digest,
+			}
+			cert := instance.getCert(digest, instance.view, n)
+			cert.prePrepare = preprep
+
+			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
+		}
 	}
 
-	logger.Debug("leader sending pre-prepare for %s", digest)
-	preprep := &Message{&Message_PrePrepare{&PrePrepare{
-		// XXX view
-		SequenceNumber: instance.sequenceNumber,
-		RequestDigest:  digest,
-	}}}
-
-	return instance.broadcast(preprep, false)
+	return nil
 }
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
@@ -224,6 +324,22 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 	// XXX wait for quorum certificate
 	// XXX commit transaction
 	return nil
+}
+
+func (instance *Plugin) getCert(digest string, v uint64, n uint64) (cert *msgCert) {
+	idx := msgId{v, n}
+
+	cert, ok := instance.certStore[idx]
+	if ok {
+		return
+	}
+
+	cert = &msgCert{
+		prepare: make([]*Prepare, 0),
+		commit:  make([]*Commit, 0),
+	}
+	instance.certStore[idx] = cert
+	return
 }
 
 // =============================================================================

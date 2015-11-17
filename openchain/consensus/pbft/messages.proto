@@ -52,13 +52,13 @@ message Request {
 }
 
 message PrePrepare {
-    string view = 1; // The IP of the leader. TODO: Temporary definiton until we figure out an identity scheme for all peers.
+    uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
 }
 
 message Prepare {
-    string view = 1;
+    uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     string global_hash = 4;
@@ -67,7 +67,7 @@ message Prepare {
 }
 
 message Commit {
-    string view = 1;
+    uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     string global_hash = 4;
