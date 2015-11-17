@@ -213,15 +213,11 @@ chainlet:
     #timeout for starting up a container and waiting for Register to come through
     startuptimeout: 20000
 
-    #chaincoderunmode - options are "user_runs_chaincode", "validator_runs_chaincode"
-    #"user_runs_chaincode" - user runs the chaincode after starting validator
-    #                        from command line or from docker
-    #"validator_runs_chaincode" - validator will run chaincode in a container
-    #                             on demand
-    #In development mode, "user_runs_chaincode" will provide quick turnaround
-    #time during initial phases of development
+    #chaincoderunmode - options are "dev_mode", "net_mode"
+    #dev_mode - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #net_mode - in net mode validator will run chaincode in a docker container
 
-    chaincoderunmode: validator_runs_chaincode
+    chaincoderunmode: net_mode
 
     chaincodeinstallpath: /go/bin/
 

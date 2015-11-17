@@ -60,6 +60,7 @@ const (
 	ChaincodeMessage_RESPONSE         ChaincodeMessage_Type = 12
 	ChaincodeMessage_QUERY            ChaincodeMessage_Type = 13
 	ChaincodeMessage_QUERY_COMPLETED  ChaincodeMessage_Type = 14
+	ChaincodeMessage_QUERY_ERROR      ChaincodeMessage_Type = 15
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
@@ -78,6 +79,7 @@ var ChaincodeMessage_Type_name = map[int32]string{
 	12: "RESPONSE",
 	13: "QUERY",
 	14: "QUERY_COMPLETED",
+	15: "QUERY_ERROR",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
 	"UNDEFINED":        0,
@@ -95,6 +97,7 @@ var ChaincodeMessage_Type_value = map[string]int32{
 	"RESPONSE":         12,
 	"QUERY":            13,
 	"QUERY_COMPLETED":  14,
+	"QUERY_ERROR":      15,
 }
 
 func (x ChaincodeMessage_Type) String() string {

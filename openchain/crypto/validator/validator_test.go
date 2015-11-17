@@ -119,7 +119,7 @@ func mockDeployTransaction() *pb.Transaction {
 }
 
 func mockInvokeTransaction() *pb.Transaction {
-	tx, _ := pb.NewChainletInvokeTransaction(
+	tx, _ := pb.NewChainletExecute(
 		&pb.ChaincodeInvocationSpec{
 			ChainletSpec: &pb.ChainletSpec{
 				Type:       pb.ChainletSpec_GOLANG,
@@ -128,6 +128,7 @@ func mockInvokeTransaction() *pb.Transaction {
 			},
 		},
 		"uuid",
+		pb.Transaction_CHAINLET_EXECUTE,
 	)
 	return tx
 }

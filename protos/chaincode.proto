@@ -116,6 +116,7 @@ message ChaincodeMessage {
 	RESPONSE = 12;
 	QUERY = 13;
 	QUERY_COMPLETED = 14;
+	QUERY_ERROR = 15;
     }
 
     Type type = 1;

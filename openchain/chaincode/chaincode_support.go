@@ -46,8 +46,8 @@ type ChainName string
 const (
 	// DefaultChain is the name of the default chain. 
 	DefaultChain ChainName = "default"
-	// UserRunsChaincode property allows user to run chaincode in development environment
-	UserRunsChaincode string = "user_runs_chaincode"
+	// DevModeUserRunsChaincode property allows user to run chaincode in development environment
+	DevModeUserRunsChaincode string = "dev_mode"
 	chaincodeInstallPathDefault string = "/go/bin/"
 	peerAddressDefault string = "0.0.0.0:30303"
 )
@@ -87,7 +87,7 @@ func init() {
 	ccStartupTimeout = time.Duration(to)*time.Millisecond
 
 	mode := viper.GetString("chainlet.chaincoderunmode")
-	if mode == UserRunsChaincode {
+	if mode == DevModeUserRunsChaincode {
 		UserRunsCC = true
 	} else {
 		UserRunsCC = false
@@ -321,9 +321,8 @@ func (chainletSupport *ChainletSupport) stopChaincode(context context.Context, c
 		return fmt.Errorf("[stopChaincode]Error getting chaincode: %s", err)
 	}
 
-	//launch the chaincode
-	//creat a StartImageReq obj and send it to VMCProcess
-	sir := container.StartImageReq{ID: vmname, Detach: true}
+	//stop the chaincode
+	sir := container.StopImageReq{ID: vmname, Timeout: 0}
 
 	_, err = container.VMCProcess(context, "Docker", sir)
 	if err != nil {
@@ -382,8 +381,8 @@ func (chainletSupport *ChainletSupport) LaunchChaincode(context context.Context,
 	chainletSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	if handler, ok := chainletSupport.handlerMap.chaincodeMap[chaincode]; ok {
-		if handler.FSM.Current() == readystate {
-			chainletLog.Debug("[LaunchChainCode] chaincode is running and ready: %s", chaincode)
+		if handler.isRunning() {
+			chainletLog.Debug("[LaunchChainCode] chaincode is running : %s", chaincode)
 			chainletSupport.handlerMap.Unlock()
 			return cID,cMsg,nil
 		} 
@@ -525,8 +524,12 @@ func (chainletSupport *ChainletSupport) Execute(ctxt context.Context, chaincode 
 	}
 	select {
 	case ccresp := <- notfy:
+		//we delete the now that it has been delivered
+		handler.deleteNotifier(msg.Uuid)
 		return ccresp, nil
 	case <-time.After(timeout):
+		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)
+		handler.deleteNotifier(msg.Uuid)
 		return nil, fmt.Errorf("Timeout expired while executing transaction")
 	}
 }

@@ -158,6 +158,16 @@ var chaincodeInvokeCmd = &cobra.Command{
 	},
 }
 
+var chaincodeQueryCmd = &cobra.Command{
+	Use:       "query",
+	Short:     fmt.Sprintf("Query using the specified %s.", chainFuncName),
+	Long:      fmt.Sprintf(`Query using the specified %s.`, chainFuncName),
+	ValidArgs: []string{"1"},
+	Run: func(cmd *cobra.Command, args []string) {
+		chaincodeQuery(cmd, args)
+	},
+}
+
 func main() {
 
 	runtime.GOMAXPROCS(2)
@@ -227,6 +237,7 @@ func main() {
 	chaincodeCmd.AddCommand(chaincodeTestCmd)
 	chaincodeCmd.AddCommand(chaincodeDeployCmd)
 	chaincodeCmd.AddCommand(chaincodeInvokeCmd)
+	chaincodeCmd.AddCommand(chaincodeQueryCmd)
 
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
@@ -486,6 +497,14 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 }
 
 func chaincodeInvoke(cmd *cobra.Command, args []string) {
+	chaincodeInvokeOrQuery(cmd, args, true)
+}
+
+func chaincodeQuery(cmd *cobra.Command, args []string) {
+	chaincodeInvokeOrQuery(cmd, args, false)
+}
+
+func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
 		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
@@ -509,14 +528,35 @@ func chaincodeInvoke(cmd *cobra.Command, args []string) {
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
 
-	_, err = devopsClient.Invoke(context.Background(), invocation)
+	var resp *pb.DevopsResponse
+	if invoke {
+		resp, err = devopsClient.Invoke(context.Background(), invocation)
+	} else {
+		resp, err = devopsClient.Query(context.Background(), invocation)
+	}
+
 	if err != nil {
-		errMsg := fmt.Sprintf("Error invoking %s: %s\n", chainFuncName, err)
+		var errMsg string
+		if invoke {
+			errMsg = fmt.Sprintf("Error invoking %s: %s\n", chainFuncName, err)
+		} else {
+			errMsg = fmt.Sprintf("Error querying %s: %s\n", chainFuncName, err)
+		}
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	logger.Info("Succesffuly invoked transaction: %s", invocation)
+	if invoke {
+		logger.Info("Succesfuly invoked transaction: %s(%s)", invocation, string(resp.Msg))
+	} else {
+		logger.Info("Succesfuly queried transaction: %s", invocation)
+		if err != nil {
+			fmt.Printf("Error running query : %s\n", err)
+		} else if resp != nil {
+			logger.Info("Trying to print as string: %s", string(resp.Msg))
+			logger.Info("Raw bytes %x", resp.Msg)
+		}
+	}
 }
 
 func doCLI() {
