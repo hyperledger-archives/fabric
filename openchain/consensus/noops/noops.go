@@ -23,9 +23,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -70,7 +68,7 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		if err != nil {
 			return err
 		}
-		_, errs2 := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs.GetTransactions())
+		_, errs2 := i.cpi.ExecTXs(txs.GetTransactions())
 		if errs2 != nil {
 			return fmt.Errorf("Fail to execute transactions: %v", errs2)
 		}
