@@ -140,7 +140,6 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
 		}
 		payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-fmt.Printf("EXECUTE resp : (%s)\n", string(payload))
 		if execErr != nil {
 			return &pb.DevopsResponse{Status: pb.DevopsResponse_FAILURE}, execErr
 		}
