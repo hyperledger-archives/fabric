@@ -113,6 +113,7 @@ message OpenchainMessage {
         CHAIN_GET_BLOCKS = 10;
         CHAIN_BLOCKS = 11;
         CHAIN_NEW_BLOCK = 12;
+        CHAIN_QUERY = 13;
 
         REQUEST = 14;
         CONSENSUS = 15;

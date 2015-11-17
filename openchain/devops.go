@@ -22,7 +22,6 @@ package openchain
 import (
 	"errors"
 	"fmt"
-	google_protobuf "google/protobuf"
 	"os"
 	"path/filepath"
 
@@ -33,6 +32,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -53,7 +53,7 @@ type Devops struct {
 func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
 	mode := viper.GetString("chainlet.chaincoderunmode")
 	var codePackageBytes []byte
-	if mode != chaincode.UserRunsChaincode {
+	if mode != chaincode.DevModeUserRunsChaincode {
 		devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
 		if err := checkSpec(spec); err != nil {
 			return nil, err
@@ -95,23 +95,24 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
-	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	return chainletDeploymentSpec, execErr
+	mode := viper.GetString("chainlet.chaincoderunmode")
 
-	/*** TODO: Uncomment from here
+	if mode == chaincode.DevModeUserRunsChaincode {
+		_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+		return chainletDeploymentSpec, execErr
+	}
+
+	//we are not in "dev mode", we have to pass requests to remote validator via stream
 	peerAddress, err := GetRootNode()
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	return chainletDeploymentSpec, SendTransactionsToPeer(peerAddress, transactionBlock)
-	***/
+	return chainletDeploymentSpec, peer.SendTransactionsToPeer(peerAddress, transactionBlock)
 }
 
-// Invoke performs the supplied invocation on the specified chaincode through a transaction
-func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*google_protobuf.Empty, error) {
+func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, invoke bool) (*pb.DevopsResponse, error) {
 
 	// Now create the Transactions message and send to Peer.
 	uuid, uuidErr := util.GenerateUUID()
@@ -119,26 +120,56 @@ func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.Chainco
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletInvokeTransaction(chaincodeInvocationSpec, uuid)
+	var transaction *pb.Transaction
+	var err error
+	if invoke {
+		transaction, err = pb.NewChainletExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_EXECUTE)
+	} else {
+		transaction, err = pb.NewChainletExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_QUERY)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	//TODO: This is a hack. By-passing peer-validator communication to test chaincode. Remove the below lines and uncomment the last return for original functionality
-	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	return &google_protobuf.Empty{}, execErr
+	mode := viper.GetString("chainlet.chaincoderunmode")
 
-	/**** TODO: Uncomment from here
-	peerAddress, err := GetRootNode()
-	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	//in dev mode, we invoke locally (whether user runs chaincode or validator does)
+	if mode == chaincode.DevModeUserRunsChaincode {
+		if invoke {
+			chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+			return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
+		}
+		payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+		if execErr != nil {
+			return &pb.DevopsResponse{Status: pb.DevopsResponse_FAILURE}, execErr
+		}
+		return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}, nil
 	}
-	// Construct the transactions block.
-	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
-	//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
-	return &google_protobuf.Empty{}, nil
-	*****/
+
+	/** TODO
+	  * - hook up with latest code so we can submit the transaction/query to remote validator
+	  * - in particular, we need synch response for query
+		peerAddress, err := GetRootNode()
+		if err != nil {
+			return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		}
+		// Construct the transactions block.
+		transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
+		devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
+		//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
+		return &google_protobuf.Empty{}, nil
+        ***/
+	return nil,nil
+}
+
+// Invoke performs the supplied invocation on the specified chaincode through a transaction
+func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.DevopsResponse, error) {
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, true)
+}
+
+// Query performs the supplied query on the specified chaincode through a transaction
+func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.DevopsResponse, error) {
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, false)
 }
 
 // Checks to see if chaincode resides within current package capture for language.
@@ -191,7 +222,7 @@ func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDep
 	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
 	mode := viper.GetString("chainlet.chaincoderunmode")
 	var codePackageBytes []byte
-	if mode != chaincode.UserRunsChaincode {
+	if mode != chaincode.DevModeUserRunsChaincode {
 		if err := checkSpec(spec); err != nil {
 			devopsLogger.Debug("check spec failed: %s", err)
 			return nil, err

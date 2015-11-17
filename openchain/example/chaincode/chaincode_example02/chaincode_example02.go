@@ -133,7 +133,27 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 
 // Query callback representing the query of a chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, nil
+	if function != "query" {
+		return nil, errors.New("Invalid query function name. Expecting \"query\"")
+	}
+	var A string		// Entities
+	var err error
+	
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the person to query")
+	} 
+
+	A = args[0]
+
+	// Get the state from the ledger
+	Avalbytes, err := stub.GetState(A)
+	if err != nil {
+		return nil, errors.New("Failed to get state for " + A)
+	}
+	
+	jsonResp := "{\"Name\":\""+A+"\",\"Amount\":\""+string(Avalbytes)+"\"}"
+	fmt.Printf("Query Response:%s\n", jsonResp)
+	return []byte(jsonResp),nil
 }
 
 func main() {
