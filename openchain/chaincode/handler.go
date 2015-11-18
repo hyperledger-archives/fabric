@@ -215,7 +215,7 @@ func (handler *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 		return
 	}
 
-	chaincodeLogger.Debug("Got %s for chainletID = %s, sending back %s", e.Event, chaincodeID, pb.ChaincodeMessage_REGISTERED)
+	chaincodeLogger.Debug("Got %s for chaincodeID = %s, sending back %s", e.Event, chaincodeID, pb.ChaincodeMessage_REGISTERED)
 	if err := handler.ChatStream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTERED}); err != nil {
 		e.Cancel(fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_REGISTERED, err))
 		handler.notifyDuringStartup(false)
