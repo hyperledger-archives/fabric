@@ -62,21 +62,16 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	}
 	// We process the message if it is OpenchainMessage_CONSENSUS or QUERY. For
 	// QUERY, we need to return the result to the caller
-	if msg.Type == pb.OpenchainMessage_CONSENSUS ||
-		msg.Type == pb.OpenchainMessage_QUERY {
+	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
 		err := proto.Unmarshal(msg.Payload, txs)
 		if err != nil {
 			return err
 		}
-		res, errs2 := i.cpi.ExecTXs(txs.GetTransactions())
+		_, errs2 := i.cpi.ExecTXs(txs.GetTransactions())
 		if errs2 != nil {
 			return fmt.Errorf("Fail to execute transactions: %v", errs2)
-		}
-		if msg.Type == pb.OpenchainMessage_QUERY {
-			// TODO: Create and return OpenchainMessage_RESPONSE object on res
-			//return nill
 		}
 	}
 	return nil

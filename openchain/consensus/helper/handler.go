@@ -70,14 +70,22 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 // HandleMessage handles the Openchain messages for the Peer.
 func (i *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS ||
-		msg.Type == pb.OpenchainMessage_REQUEST ||
-		msg.Type == pb.OpenchainMessage_QUERY {
+		msg.Type == pb.OpenchainMessage_REQUEST {
 		return i.consenter.RecvMsg(msg)
 	}
+	if msg.Type == pb.OpenchainMessage_QUERY {
+		return handleQuery(msg)
+	}
+
 	if handlerLogger.IsEnabledFor(logging.DEBUG) {
 		handlerLogger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	}
 	return i.PeerHandler.HandleMessage(msg)
+}
+
+func handleQuery(msg *pb.OpenchainMessage) (*pb.OpenchainMessage, error) {
+	// TODO: Exec query and return result to the caller as a response msg
+	return nil, nil
 }
 
 // SendMessage sends a message to the remote PEER through the stream
