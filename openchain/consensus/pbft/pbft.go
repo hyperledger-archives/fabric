@@ -203,6 +203,8 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 			return true
 		}
 	}
+	logger.Debug("%d does not have %d/%d pre-prepared",
+		instance.id, v, n)
 	return false
 }
 
@@ -289,9 +291,9 @@ func (instance *Plugin) recvRequest(req *Request) error {
 }
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
-	logger.Debug("%d received %d pre-prepare %d/%d %s",
+	logger.Debug("%d received %d pre-prepare %d/%d",
 		instance.id, preprep.ReplicaId, preprep.View,
-		preprep.SequenceNumber, preprep.RequestDigest)
+		preprep.SequenceNumber)
 
 	if instance.primary(instance.view) != preprep.ReplicaId {
 		logger.Warning("pre-prepare from other than primary: %d should be %d", preprep.ReplicaId, instance.primary(instance.view))
@@ -317,8 +319,8 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	// XXX speculative execution: ExecTXs
 
 	if instance.primary(instance.view) != instance.id {
-		logger.Debug("backup %d sending prepare %d/%d for %s",
-			instance.id, preprep.View, preprep.SequenceNumber, preprep.RequestDigest)
+		logger.Debug("backup %d sending prepare %d/%d",
+			instance.id, preprep.View, preprep.SequenceNumber)
 
 		prep := &Prepare{
 			View:           preprep.View,
@@ -336,9 +338,9 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 }
 
 func (instance *Plugin) recvPrepare(prep *Prepare) error {
-	logger.Debug("%d received %d prepare %d/%d %s",
+	logger.Debug("%d received %d prepare %d/%d",
 		instance.id, prep.ReplicaId, prep.View,
-		prep.SequenceNumber, prep.RequestDigest)
+		prep.SequenceNumber)
 
 	if instance.primary(instance.view) != prep.ReplicaId && instance.inWv(prep.View, prep.SequenceNumber) {
 		cert := instance.getCert(prep.RequestDigest, prep.View, prep.SequenceNumber)
@@ -347,8 +349,8 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 	cert := instance.certStore[msgId{prep.View, prep.SequenceNumber}]
 
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
-		logger.Debug("replica %d sending commit %d/%d for %s",
-			instance.id, prep.View, prep.SequenceNumber, prep.RequestDigest)
+		logger.Debug("replica %d sending commit %d/%d",
+			instance.id, prep.View, prep.SequenceNumber)
 
 		commit := &Commit{
 			View:           prep.View,
@@ -366,9 +368,9 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 }
 
 func (instance *Plugin) recvCommit(commit *Commit) error {
-	logger.Debug("%d received %d commit %d/%d %s",
+	logger.Debug("%d received %d commit %d/%d",
 		instance.id, commit.ReplicaId, commit.View,
-		commit.SequenceNumber, commit.RequestDigest)
+		commit.SequenceNumber)
 
 	if instance.inWv(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.RequestDigest, commit.View, commit.SequenceNumber)
