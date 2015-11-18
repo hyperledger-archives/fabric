@@ -213,8 +213,14 @@ func TestRecvMsg(t *testing.T) {
 // Test with fake network
 //
 
+type taggedmsg struct {
+	id  int
+	msg *pb.OpenchainMessage
+}
+
 type testnetwork struct {
 	replicas []*instance
+	msgs     []taggedmsg
 }
 
 type instance struct {
@@ -229,12 +235,27 @@ func (*instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 }
 
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
-	for i, replica := range inst.net.replicas {
-		if i == inst.id {
-			continue
-		}
+	net := inst.net
+	net.msgs = append(net.msgs, taggedmsg{inst.id, msg})
+	return nil
+}
 
-		replica.plugin.RecvMsg(msg)
+func (net *testnetwork) process() error {
+	for len(net.msgs) > 0 {
+		msgs := net.msgs
+		net.msgs = nil
+
+		for _, taggedmsg := range msgs {
+			for i, replica := range net.replicas {
+				if i == taggedmsg.id {
+					continue
+				}
+				err := replica.plugin.RecvMsg(taggedmsg.msg)
+				if err != nil {
+					return nil
+				}
+			}
+		}
 	}
 
 	return nil
@@ -243,14 +264,14 @@ func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 func TestNetwork(t *testing.T) {
 	const f = 2
 	const nreplica = 2*f + 1
-	net := &testnetwork{make([]*instance, nreplica)}
-	for i := range net.replicas {
+	net := &testnetwork{}
+	for i := 0; i < nreplica; i++ {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
 		inst.plugin.replicaCount = nreplica
 		inst.plugin.f = f
-		net.replicas[i] = inst
+		net.replicas = append(net.replicas, inst)
 	}
 
 	net.replicas[0].plugin.setLeader(true)
@@ -263,8 +284,17 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = net.replicas[0].plugin.Request(txBlockPacked)
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_REQUEST,
+		Payload: txBlockPacked,
+	}
+	err = net.replicas[0].plugin.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("request failed: %s", err)
+	}
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("processing failed: %s", err)
 	}
 }
