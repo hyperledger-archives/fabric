@@ -211,7 +211,10 @@ func (instance *Plugin) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 
 		// Broadcast this message to all the validating peers.
-		return instance.cpi.Broadcast(newPayload)
+		// BN: temp to remove compiler error
+		//return instance.cpi.Broadcast(newPayload)
+		_ = newPayload
+		return nil
 	}
 
 	// TODO: Message that reached here is `OpenchainMessage_CONSENSUS`.
