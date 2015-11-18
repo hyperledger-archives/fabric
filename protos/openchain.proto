@@ -88,7 +88,7 @@ message PeerID {
 }
 
 message PeerEndpoint {
-    PeerID ID = 1; 
+    PeerID ID = 1;
     string address = 2;
 }
 
@@ -116,7 +116,9 @@ message OpenchainMessage {
         CHAIN_QUERY = 13;
 
         REQUEST = 14;
-        CONSENSUS = 15;
+        QUERY = 15;
+        RESPONSE = 16;
+        CONSENSUS = 17;
     }
 
     Type type = 1;

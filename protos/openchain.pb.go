@@ -68,7 +68,9 @@ const (
 	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 12
 	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 13
 	OpenchainMessage_REQUEST                OpenchainMessage_Type = 14
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
+	OpenchainMessage_QUERY                  OpenchainMessage_Type = 15
+	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 16
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -86,7 +88,9 @@ var OpenchainMessage_Type_name = map[int32]string{
 	12: "CHAIN_NEW_BLOCK",
 	13: "CHAIN_QUERY",
 	14: "REQUEST",
-	15: "CONSENSUS",
+	15: "QUERY",
+	16: "RESPONSE",
+	17: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -103,7 +107,9 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"CHAIN_NEW_BLOCK":        12,
 	"CHAIN_QUERY":            13,
 	"REQUEST":                14,
-	"CONSENSUS":              15,
+	"QUERY":                  15,
+	"RESPONSE":               16,
+	"CONSENSUS":              17,
 }
 
 func (x OpenchainMessage_Type) String() string {

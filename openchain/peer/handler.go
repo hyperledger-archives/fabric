@@ -81,8 +81,6 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 		}
 	}
 
-	go d.start()
-
 	return d, nil
 }
 
@@ -144,7 +142,11 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 		}
 	}
 	// Register
-	d.Coordinator.RegisterHandler(d)
+	err = d.Coordinator.RegisterHandler(d)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error registering Handler: %s", err))
+	}
+	go d.start()
 }
 
 func (d *Handler) beforeGetPeers(e *fsm.Event) {

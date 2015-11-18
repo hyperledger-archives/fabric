@@ -307,18 +307,22 @@ func serve(args []string) error {
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.Peer
-	// TODO: should be "peer.consensus.validator.enabled" when done
-	if viper.GetBool("peer.consensus.validator.enabled") {
-		logger.Debug("Installing consensus message handler")
+
+	if viper.GetString("peer.mode") == "dev" {
+		logger.Debug("Running in DEV mode, using NOOPS handler factory")
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else if viper.GetBool("peer.consensus.validator.enabled") {
-		logger.Debug("Running as validator")
-		newValidator, err := peer.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
-		if err != nil {
-			return fmt.Errorf("Error creating simple Validator: %s", err)
-		}
-		peerServer, _ = peer.NewPeerWithHandler(newValidator.GetHandler)
+		logger.Debug("Installing consensus message handler")
+		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
+		//  if viper.GetBool("peer.consensus.validator.enabled") {
+		// 	logger.Debug("Running as validator")
+		// 	newValidator, err := peer.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
+		// 	if err != nil {
+		// 		return fmt.Errorf("Error creating simple Validator: %s", err)
+		// 	}
+		// 	peerServer, _ = peer.NewPeerWithHandler(newValidator.GetHandler)
+
 		logger.Debug("Running as peer")
 		// peerServer, _ = peer.NewPeerWithHandler(func(p *peer.Peer, stream peer.PeerChatStream) peer.MessageHandler {
 		// 	return peer.NewPeerHandlerTo("", stream)

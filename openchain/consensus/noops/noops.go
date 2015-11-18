@@ -48,6 +48,26 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
+		txs := &pb.TransactionBlock{}
+		err := proto.Unmarshal(msg.Payload, txs)
+		if err != nil {
+			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+			return err
+		}
+		//TODO...we need to change this to single transaction
+		var numxacts = len(txs.Transactions)
+		if numxacts <= 0 {
+			return fmt.Errorf("No transactions to execute")
+		} else if numxacts > 1 {
+			return fmt.Errorf("Too many transaction to execute %d", numxacts)
+		}
+		var t = txs.Transactions[0]
+		if t.Type == pb.Transaction_CHAINCODE_QUERY {
+			//Don't send to consensus but execute here directly
+			noopsLogger.Debug("TODO exectute query for transaction %s", t.Uuid)
+			return nil
+		}
+
 		msg.Type = pb.OpenchainMessage_CONSENSUS
 		noopsLogger.Debug("Broadcasting %s", msg.Type)
 

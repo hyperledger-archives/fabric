@@ -131,35 +131,35 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	mode := viper.GetString("chaincode.chaincoderunmode")
+	// mode := viper.GetString("chaincode.chaincoderunmode")
 
-	//in dev mode, we invoke locally (whether user runs chaincode or validator does)
-	if mode == chaincode.DevModeUserRunsChaincode {
-		if invoke {
-			chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-			return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
-		}
-		payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-		if execErr != nil {
-			return &pb.DevopsResponse{Status: pb.DevopsResponse_FAILURE}, execErr
-		}
-		return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}, nil
+	// //in dev mode, we invoke locally (whether user runs chaincode or validator does)
+	// if mode == chaincode.DevModeUserRunsChaincode {
+	// 	if invoke {
+	// 		chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	// 		return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
+	// 	}
+	// 	payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	// 	if execErr != nil {
+	// 		return &pb.DevopsResponse{Status: pb.DevopsResponse_FAILURE}, execErr
+	// 	}
+	// 	return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}, nil
+	// }
+
+	devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
+	payload, err := peer.ExecuteTransaction(transaction)
+
+	//submit the transaction
+	if invoke { //return uuid if not err
+		payload = []byte(transaction.Uuid)
 	}
 
-	/** TODO
-		  * - hook up with latest code so we can submit the transaction/query to remote validator
-		  * - in particular, we need synch response for query
-			peerAddress, err := GetRootNode()
-			if err != nil {
-				return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
-			}
-			// Construct the transactions block.
-			transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-			devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
-			//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
-			return &google_protobuf.Empty{}, nil
-	        ***/
-	return nil, nil
+	//we really need to return a devops response with transaction uuid like below
+	resp := &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}
+	if err != nil {
+		resp.Status = pb.DevopsResponse_FAILURE
+	}
+	return resp, err
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction

@@ -21,11 +21,12 @@ package helper
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
+	//	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"golang.org/x/net/context"
+	//	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	//	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/controller"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 
@@ -41,7 +42,7 @@ type ConsensusHandler struct {
 	ChatStream  peer.ChatStream
 	doneChan    chan bool
 	PeerHandler peer.MessageHandler
-	consenter   Consenter
+	consenter   consensus.Consenter
 }
 
 // NewConsensusHandler constructs a new Noops MessageHandler
@@ -74,7 +75,9 @@ func (i *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 		return i.consenter.RecvMsg(msg)
 	}
 	if msg.Type == pb.OpenchainMessage_QUERY {
-		return handleQuery(msg)
+		// TODO: Exec query and return result to the caller as a response msg
+		i.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE})
+		return nil
 	}
 
 	if handlerLogger.IsEnabledFor(logging.DEBUG) {
@@ -83,14 +86,9 @@ func (i *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	return i.PeerHandler.HandleMessage(msg)
 }
 
-func handleQuery(msg *pb.OpenchainMessage) (*pb.OpenchainMessage, error) {
-	// TODO: Exec query and return result to the caller as a response msg
-	return nil, nil
-}
-
 // SendMessage sends a message to the remote PEER through the stream
 func (i *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
-	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
+	handlerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
 	err := i.ChatStream.Send(msg)
 	if err != nil {
 		return fmt.Errorf("Error Sending message through ChatStream: %s", err)

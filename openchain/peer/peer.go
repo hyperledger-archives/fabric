@@ -311,6 +311,55 @@ func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.Transaction
 	return errFromChat
 }
 
+// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
+func sendTransactionsToThisPeer(peerAddress string, transactionBlock *pb.TransactionBlock) (*pb.OpenchainMessage, error) {
+	var errFromChat error
+	var response *pb.OpenchainMessage
+	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+	if err != nil {
+		return nil, fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+	}
+	serverClient := pb.NewPeerClient(conn)
+	stream, err := serverClient.Chat(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+	}
+	defer stream.CloseSend()
+	peerLogger.Debug("Sending %s to this Peer", pb.OpenchainMessage_REQUEST)
+	data, err := proto.Marshal(transactionBlock)
+	if err != nil {
+		return nil, fmt.Errorf("Error sending transactions to local peer: %s", err)
+	}
+	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_REQUEST, Payload: data})
+	waitc := make(chan struct{})
+	go func() {
+		// Make sure to close the wait channel
+		defer close(waitc)
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				errFromChat = fmt.Errorf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO)
+				return
+			}
+			if err != nil {
+				errFromChat = fmt.Errorf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err)
+				return
+			}
+			if in.Type == pb.OpenchainMessage_RESPONSE {
+				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				response = in
+				return
+			}
+			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+			errFromChat = fmt.Errorf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+			return
+		}
+	}()
+	<-waitc
+	return response, errFromChat
+}
+
 func (p *Peer) chatWithPeer(peerAddress string) error {
 	peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
@@ -357,4 +406,36 @@ func (p *Peer) handleChat(ctx context.Context, stream ChatStream, initiatedStrea
 			//return err
 		}
 	}
+}
+
+//The address to stream requests to
+func getValidatorStreamAddress() string {
+	var localaddr = viper.GetString("peer.address")
+	if viper.GetString("peer.mode") == "dev" { //in dev mode, we have the "noops" validator
+		return localaddr
+	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
+		return valaddr
+	}
+	return localaddr
+}
+
+//ExecuteTransaction executes transactions decides to do execute in dev or prod mode
+func ExecuteTransaction(transaction *pb.Transaction) ([]byte, error) {
+	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
+	peerAddress := getValidatorStreamAddress()
+	var payload []byte
+	var err error
+	if viper.GetString("peer.mode") == "dev" {
+		//TODO in dev mode, we have to do something else
+		response, err := sendTransactionsToThisPeer(peerAddress, transactionBlock)
+		if err != nil {
+			return nil, fmt.Errorf("Error executing transaction: %s", err)
+		}
+		payload = response.Payload
+
+	} else {
+		err = SendTransactionsToPeer(peerAddress, transactionBlock)
+	}
+
+	return payload, err
 }

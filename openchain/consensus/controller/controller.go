@@ -24,17 +24,23 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	"github.com/spf13/viper"
 )
+
+var controllerLogger = logging.MustGetLogger("controller")
 
 // NewConsenter constructs a consenter object
 func NewConsenter(cpi consensus.CPI) consensus.Consenter {
+	if viper.GetString("peer.mode") == "dev" {
+		return noops.New(cpi)
+	}
 	plugin := viper.GetString("peer.consensus.plugin")
 	var algo consensus.Consenter
 	if plugin == "pbft" {
-		logger.Debug("Running with PBFT consensus")
+		controllerLogger.Debug("Running with PBFT consensus")
 		algo = pbft.New(cpi)
 	} else {
-		logger.Debug("Running with NOOPS consensus")
+		controllerLogger.Debug("Running with NOOPS consensus")
 		algo = noops.New(cpi)
 	}
 	return algo
