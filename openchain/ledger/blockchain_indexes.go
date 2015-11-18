@@ -91,7 +91,7 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 	writeBatch.PutCF(cf, encodeBlockHashKey(blockHash), encodeBlockNumber(blockNumber))
 
 	addressToTxIndexesMap := make(map[string][]uint64)
-	addressToChainletIDsMap := make(map[string][]*protos.ChainletID)
+	addressToChaincodeIDsMap := make(map[string][]*protos.ChaincodeID)
 
 	transactions := block.GetTransactions()
 	for txIndex, tx := range transactions {
@@ -103,9 +103,9 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 
 		switch tx.Type {
 		case protos.Transaction_CHAINLET_NEW, protos.Transaction_CHAINLET_UPDATE:
-			authroizedAddresses, chainletID := getAuthorisedAddresses(tx)
+			authroizedAddresses, chaincodeID := getAuthorisedAddresses(tx)
 			for _, authroizedAddress := range authroizedAddresses {
-				addressToChainletIDsMap[authroizedAddress] = append(addressToChainletIDsMap[authroizedAddress], chainletID)
+				addressToChaincodeIDsMap[authroizedAddress] = append(addressToChaincodeIDsMap[authroizedAddress], chaincodeID)
 			}
 		}
 	}
@@ -137,9 +137,9 @@ func getTxExecutingAddress(tx *protos.Transaction) string {
 	return "address1"
 }
 
-func getAuthorisedAddresses(tx *protos.Transaction) ([]string, *protos.ChainletID) {
+func getAuthorisedAddresses(tx *protos.Transaction) ([]string, *protos.ChaincodeID) {
 	// TODO fetch address from chaincode deployment tx
-	return []string{"address1", "address2"}, tx.GetChainletID()
+	return []string{"address1", "address2"}, tx.GetChaincodeID()
 }
 
 // functions for encoding/decoding db keys/values for index data
@@ -199,8 +199,8 @@ func encodeListTxIndexes(listTx []uint64) []byte {
 	return b.Bytes()
 }
 
-func encodeChainletID(c *protos.ChainletID) []byte {
-	// TODO serialize chainletID
+func encodeChaincodeID(c *protos.ChaincodeID) []byte {
+	// TODO serialize chaincodeID
 	return []byte{}
 }
 

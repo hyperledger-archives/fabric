@@ -51,7 +51,7 @@ export class Transaction {
     /**
     * Unique Chaincode identifier.
     */
-    chainletID: ChainletID;
+    chaincodeID: ChaincodeID;
     /**
     * Function to execute within a Chaincode.
     */
@@ -79,7 +79,7 @@ export namespace Transaction {
         CHAINLET_TERMINATE = <any> 'CHAINLET_TERMINATE',
     }
 }
-export class ChainletID {
+export class ChaincodeID {
     /**
     * URL for accessing the Chaincode.
     */
@@ -97,33 +97,33 @@ export class State {
     state: string;
 }
 
-export class ChainletSpec {
+export class ChaincodeSpec {
     /**
     * Chaincode specification language.
     */
-    type: ChainletSpec.TypeEnum;
+    type: ChaincodeSpec.TypeEnum;
     /**
     * Unique Chaincode identifier.
     */
-    chainletID: ChainletID;
+    chaincodeID: ChaincodeID;
     /**
     * Specific function to execute within the Chaincode.
     */
-    ctorMsg: ChainletMessage;
+    ctorMsg: ChaincodeMessage;
 }
 
-export namespace ChainletSpec {
+export namespace ChaincodeSpec {
     export enum TypeEnum { 
         UNDEFINED = <any> 'UNDEFINED',
         GOLANG = <any> 'GOLANG',
         NODE = <any> 'NODE',
     }
 }
-export class ChainletDeploymentSpec {
+export class ChaincodeDeploymentSpec {
     /**
     * Chaincode specification message.
     */
-    chainletSpec: ChainletSpec;
+    chaincodeSpec: ChaincodeSpec;
     /**
     * Time of Chaincode creation/activation.
     */
@@ -134,7 +134,7 @@ export class ChainletDeploymentSpec {
     codePackage: string;
 }
 
-export class ChainletMessage {
+export class ChaincodeMessage {
     /**
     * Function to execute within a Chaincode.
     */
@@ -473,7 +473,7 @@ export class DevopsApi {
         return <T1&T2>objA;
     }
 
-    public chaincodeBuild (chaincodeSpec: ChainletSpec) : Promise<{ response: http.ClientResponse; body: ChainletDeploymentSpec;  }> {
+    public chaincodeBuild (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }> {
         const path = this.url + this.basePath + '/devops/build';
         let queryParameters: any = {};
         let headerParams: any = this.extendObj({}, this.defaultHeaders);
@@ -487,7 +487,7 @@ export class DevopsApi {
 
         let useFormData = false;
 
-        let deferred = promise.defer<{ response: http.ClientResponse; body: ChainletDeploymentSpec;  }>();
+        let deferred = promise.defer<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }>();
 
         let requestOptions: request.Options = {
             method: 'POST',
@@ -523,7 +523,7 @@ export class DevopsApi {
         return deferred.promise;
     }
 
-    public chaincodeDeploy (chaincodeSpec: ChainletSpec) : Promise<{ response: http.ClientResponse; body: ChainletDeploymentSpec;  }> {
+    public chaincodeDeploy (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }> {
         const path = this.url + this.basePath + '/devops/deploy';
         let queryParameters: any = {};
         let headerParams: any = this.extendObj({}, this.defaultHeaders);
@@ -537,7 +537,7 @@ export class DevopsApi {
 
         let useFormData = false;
 
-        let deferred = promise.defer<{ response: http.ClientResponse; body: ChainletDeploymentSpec;  }>();
+        let deferred = promise.defer<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }>();
 
         let requestOptions: request.Options = {
             method: 'POST',

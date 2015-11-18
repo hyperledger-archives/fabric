@@ -445,7 +445,7 @@ func (v *validatorFSM) beforeCommitResult(e *fsm.Event) {
 	// Loop through v.transactionsInBlock, and for each type CHAINLET_NEW, update the State.
 	for _, tx := range v.transactionsInBlock {
 		if tx.Type == pb.Transaction_CHAINLET_NEW {
-			chaincodeIDToUse := tx.ChainletID.Url + ":" + tx.ChainletID.Version
+			chaincodeIDToUse := tx.ChaincodeID.Url + ":" + tx.ChaincodeID.Version
 			chaincodeIDToUse = strings.Replace(chaincodeIDToUse, string(os.PathSeparator), ".", -1)
 			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIDToUse)
 			ledger.SetState(chaincodeIDToUse, "github.com.openblockchain.obc-peer.openchain.chaincode_id", []byte(tx.Uuid))
@@ -562,14 +562,14 @@ func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte,
 		if t.Payload != nil {
 			buf = bytes.NewBuffer(t.Payload)
 		}
-		cds := &pb.ChainletDeploymentSpec{}
+		cds := &pb.ChaincodeDeploymentSpec{}
 		errs[i] = proto.Unmarshal(t.Payload, cds)
 		if errs[i] != nil {
 			continue
 		}
 		//create start request ...
 		var req container.VMCReqIntf
-		vmname, berr := container.BuildVMName(cds.ChainletSpec)
+		vmname, berr := container.BuildVMName(cds.ChaincodeSpec)
 		if berr != nil {
 			errs[i] = berr
 			continue

@@ -61,7 +61,7 @@ func TestVM_BuildImage_WritingGopathSource(t *testing.T) {
 	tw := tar.NewWriter(inputbuf)
 
 	err = vm.writeGopathSrc(tw)
-	ioutil.WriteFile("/tmp/chainlet_deployment.tar", inputbuf.Bytes(), 0644)
+	ioutil.WriteFile("/tmp/chaincode_deployment.tar", inputbuf.Bytes(), 0644)
 
 }
 
@@ -87,14 +87,14 @@ func TestVM_BuildImage_Chaincode(t *testing.T) {
 	}
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: "0.1.0"}}
 	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
 		t.Fail()
 		t.Log(err)
 	}
 }
 
-func TestVM_Chainlet_Compile(t *testing.T) {
+func TestVM_Chaincode_Compile(t *testing.T) {
 	// vm, err := NewVM()
 	// if err != nil {
 	// 	t.Fail()

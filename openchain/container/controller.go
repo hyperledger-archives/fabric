@@ -263,7 +263,7 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 }
 
 // GetVMName gets the container name given the chaincode name and version
-func GetVMName(chaincodeID *pb.ChainletID) (string, error) {
+func GetVMName(chaincodeID *pb.ChaincodeID) (string, error) {
 	// Make sure version is specfied correctly
 	version, err := semver.Make(chaincodeID.Version)
 	if err != nil {

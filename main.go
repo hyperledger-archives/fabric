@@ -332,8 +332,8 @@ func serve(args []string) error {
 	// Register the Admin server
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
 
-	// Register ChainletSupport server
-	pb.RegisterChainletSupportServer(grpcServer, chaincode.NewChainletSupport())
+	// Register ChaincodeSupport server
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport())
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer()
@@ -446,17 +446,17 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 		return
 	}
 	// Build the spec
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
+		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}}
 
-	chainletDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
+	chaincodeDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	logger.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
+	logger.Info("Build result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 }
 
 func chaincodeTest(cmd *cobra.Command, args []string) error {
@@ -483,17 +483,17 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
+		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
-	chainletDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
+	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
 		cmd.Out().Write([]byte(errMsg))
 		cmd.Usage()
 		return
 	}
-	logger.Info("Build result: %s", chainletDeploymentSpec.ChainletSpec)
+	logger.Info("Build result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 }
 
 func chaincodeInvoke(cmd *cobra.Command, args []string) {
@@ -520,13 +520,13 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
 		return
 	}
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: &pb.ChainletID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
+		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
 	//msg := &pb.ChaincodeInput{Function: "func1", Args: []string{"arg1", "arg2"}}
 
 	// Build the ChaincodeInvocationSpec message
-	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
+	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
 	var resp *pb.DevopsResponse
 	if invoke {
@@ -588,9 +588,9 @@ func doCLI() {
 				wio.WriteString(help)
 				continue
 			}
-			chainletID := toks[1]
+			chaincodeID := toks[1]
 			version := toks[2]
-			spec := &pb.ChainletSpec{Type: 1, ChainletID: &pb.ChainletID{Url: chainletID, Version: version}, CtorMsg: &pb.ChaincodeInput{Function: toks[3], Args: toks[4:]}}
+			spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Url: chaincodeID, Version: version}, CtorMsg: &pb.ChaincodeInput{Function: toks[3], Args: toks[4:]}}
 			_, err := openchain.DeployLocal(context.Background(), spec)
 			if err != nil {
 				wio.WriteString("Error transacting : " + fmt.Sprintf("%s", err) + "\n")

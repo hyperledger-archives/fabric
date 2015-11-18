@@ -27,7 +27,7 @@ import (
 
 func Test_Transaction_CreateNew(t *testing.T) {
 
-	tx := &Transaction{ChainletID: &ChainletID{Url: "Contract001"}}
+	tx := &Transaction{ChaincodeID: &ChaincodeID{Url: "Contract001"}}
 	t.Logf("Transaction: %v", tx)
 
 	data, err := proto.Marshal(tx)

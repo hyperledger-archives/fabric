@@ -155,7 +155,7 @@ func (s *ServerOpenchainREST) GetState(rw web.ResponseWriter, req *web.Request) 
 // entities.
 func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 	// Decode the incoming JSON payload
-	var spec pb.ChainletSpec
+	var spec pb.ChaincodeSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
 
 	// Check for proper JSON syntax
@@ -170,14 +170,14 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check for nil ChainletSpec
-	if spec.ChainletID == nil {
+	// Check for nil ChaincodeSpec
+	if spec.ChaincodeID == nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChaincodeSpec.\"}")
 		return
 	}
 
-	// Build the ChainletSpec
+	// Build the ChaincodeSpec
 	buildResult, err := s.devops.Build(context.Background(), &spec)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
@@ -193,7 +193,7 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 // and then deploys that container to the blockchain.
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	// Decode the incoming JSON payload
-	var spec pb.ChainletSpec
+	var spec pb.ChaincodeSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
 
 	// Check for proper JSON syntax
@@ -208,14 +208,14 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check for nil ChainletSpec
-	if spec.ChainletID == nil {
+	// Check for nil ChaincodeSpec
+	if spec.ChaincodeID == nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChainletSpec.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify ChaincodeSpec.\"}")
 		return
 	}
 
-	// Deploy the ChainletSpec
+	// Deploy the ChaincodeSpec
 	deployResult, err := s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
