@@ -46,10 +46,10 @@ var handler *Handler
 // Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
 	// Run method will be called during init and for every transaction
-	//Run(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
+	//Run(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Run(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 	// Query is to be used for read-only access to chaincode state
-	//Query(chainletSupportClient pb.ChainletSupportClient) ([]byte, error)
+	//Query(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
@@ -65,12 +65,12 @@ func Start(cc Chaincode) error {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 	/*
-	viper.SetConfigName("openchain") // name of config file (without extension)
-	viper.AddConfigPath("./../../../")        // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
-	}
+		viper.SetConfigName("openchain") // name of config file (without extension)
+		viper.AddConfigPath("./../../../")        // path to look for the config file in
+		err := viper.ReadInConfig()      // Find and read the config file
+		if err != nil {                  // Handle errors reading the config file
+			panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		}
 	*/
 	fmt.Printf("peer.address: %s\n", getPeerAddress())
 
@@ -82,13 +82,13 @@ func Start(cc Chaincode) error {
 
 	fmt.Printf("os.Args returns: %s\n", os.Args)
 
-	chainletSupportClient := pb.NewChainletSupportClient(clientConn)
+	chaincodeSupportClient := pb.NewChaincodeSupportClient(clientConn)
 
-	//err = c.Run(chainletSupportClient)
+	//err = c.Run(chaincodeSupportClient)
 	//if err != nil {
 	//}
 	// Handle message exchange with validating peer
-	err = chatWithPeer(chainletSupportClient, cc)
+	err = chatWithPeer(chaincodeSupportClient, cc)
 
 	return err
 }
@@ -99,7 +99,7 @@ func getPeerAddress() string {
 		// Assume docker container, return well known docker host address
 		return "172.17.42.1:30303"
 	}
-	
+
 	return viper.GetString("peer.address")
 }
 
@@ -132,11 +132,11 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 	return conn, err
 }
 
-func chatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) error {
+func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
 
 	var errFromChat error
 	// Establish stream with validating peer
-	stream, err := chainletSupportClient.Register(context.Background())
+	stream, err := chaincodeSupportClient.Register(context.Background())
 	if err != nil {
 		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)
 	}
@@ -149,7 +149,7 @@ func chatWithPeer(chainletSupportClient pb.ChainletSupportClient, cc Chaincode) 
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
-	chaincodeID := &pb.ChainletID{Url: viper.GetString("chainlet.id.url"), Version: viper.GetString("chainlet.id.version")}
+	chaincodeID := &pb.ChaincodeID{Url: viper.GetString("chaincode.id.url"), Version: viper.GetString("chaincode.id.version")}
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)

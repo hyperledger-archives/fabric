@@ -74,16 +74,16 @@ func (m *DevopsResponse) String() string { return proto.CompactTextString(m) }
 func (*DevopsResponse) ProtoMessage()    {}
 
 type BuildResult struct {
-	Status         BuildResult_StatusCode  `protobuf:"varint,1,opt,name=status,enum=protos.BuildResult_StatusCode" json:"status,omitempty"`
-	Msg            string                  `protobuf:"bytes,2,opt,name=msg" json:"msg,omitempty"`
-	DeploymentSpec *ChainletDeploymentSpec `protobuf:"bytes,3,opt,name=deploymentSpec" json:"deploymentSpec,omitempty"`
+	Status         BuildResult_StatusCode   `protobuf:"varint,1,opt,name=status,enum=protos.BuildResult_StatusCode" json:"status,omitempty"`
+	Msg            string                   `protobuf:"bytes,2,opt,name=msg" json:"msg,omitempty"`
+	DeploymentSpec *ChaincodeDeploymentSpec `protobuf:"bytes,3,opt,name=deploymentSpec" json:"deploymentSpec,omitempty"`
 }
 
 func (m *BuildResult) Reset()         { *m = BuildResult{} }
 func (m *BuildResult) String() string { return proto.CompactTextString(m) }
 func (*BuildResult) ProtoMessage()    {}
 
-func (m *BuildResult) GetDeploymentSpec() *ChainletDeploymentSpec {
+func (m *BuildResult) GetDeploymentSpec() *ChaincodeDeploymentSpec {
 	if m != nil {
 		return m.DeploymentSpec
 	}
@@ -103,9 +103,9 @@ var _ grpc.ClientConn
 
 type DevopsClient interface {
 	// Build the chaincode package.
-	Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
+	Build(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error)
+	Deploy(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error)
 	// Invoke chaincode.
 	Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*DevopsResponse, error)
 	// Invoke chaincode.
@@ -120,8 +120,8 @@ func NewDevopsClient(cc *grpc.ClientConn) DevopsClient {
 	return &devopsClient{cc}
 }
 
-func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error) {
-	out := new(ChainletDeploymentSpec)
+func (c *devopsClient) Build(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error) {
+	out := new(ChaincodeDeploymentSpec)
 	err := grpc.Invoke(ctx, "/protos.Devops/Build", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -129,8 +129,8 @@ func (c *devopsClient) Build(ctx context.Context, in *ChainletSpec, opts ...grpc
 	return out, nil
 }
 
-func (c *devopsClient) Deploy(ctx context.Context, in *ChainletSpec, opts ...grpc.CallOption) (*ChainletDeploymentSpec, error) {
-	out := new(ChainletDeploymentSpec)
+func (c *devopsClient) Deploy(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error) {
+	out := new(ChaincodeDeploymentSpec)
 	err := grpc.Invoke(ctx, "/protos.Devops/Deploy", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -160,9 +160,9 @@ func (c *devopsClient) Query(ctx context.Context, in *ChaincodeInvocationSpec, o
 
 type DevopsServer interface {
 	// Build the chaincode package.
-	Build(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
+	Build(context.Context, *ChaincodeSpec) (*ChaincodeDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
-	Deploy(context.Context, *ChainletSpec) (*ChainletDeploymentSpec, error)
+	Deploy(context.Context, *ChaincodeSpec) (*ChaincodeDeploymentSpec, error)
 	// Invoke chaincode.
 	Invoke(context.Context, *ChaincodeInvocationSpec) (*DevopsResponse, error)
 	// Invoke chaincode.
@@ -174,7 +174,7 @@ func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
 }
 
 func _Devops_Build_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ChainletSpec)
+	in := new(ChaincodeSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func _Devops_Build_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Devops_Deploy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ChainletSpec)
+	in := new(ChaincodeSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}

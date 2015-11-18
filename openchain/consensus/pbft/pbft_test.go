@@ -130,7 +130,7 @@ func TestRecvMsg(t *testing.T) {
 
 	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
 	txBlockPacked, err := proto.Marshal(txBlock)
 	if err != nil {

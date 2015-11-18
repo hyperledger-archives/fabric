@@ -25,7 +25,7 @@ You should see some output similar to below (**NOTE**: rootcommand below is hard
       peer        Run obc peer.
       status      Status of the obc peer.
       stop        Stops the obc peer.
-      chainlet    Compiles the specified chainlet.
+      chaincode    Compiles the specified chaincode.
       help        Help about any command
 
     Flags:
@@ -37,7 +37,7 @@ You should see some output similar to below (**NOTE**: rootcommand below is hard
 
 ### Build a chainCode
 
-The build command builds the Docker image for your chainCode and returns the result. The build takes place on the local peer and the result is not broadcast to the entire network. The result will be either a chainCode deployment specification, ChainletDeploymentSpec, or an error. An example is below.
+The build command builds the Docker image for your chainCode and returns the result. The build takes place on the local peer and the result is not broadcast to the entire network. The result will be either a chainCode deployment specification, ChaincodeDeploymentSpec, or an error. An example is below.
 
 `./obc-peer chaincode build --path=github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple --version=0.1.0`
 
@@ -47,20 +47,18 @@ Deploy first calls the build command (above) to create the docker image and subs
 
 `./obc-peer chaincode deploy --path=github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple --version=0.1.0`
 
-The difference between the two commands is evident when you execute them. During the build command you will only observe processing on the local peer node, but during the deploy command you will note processing on the leader and validator nodes as well. Activity is seen on the leader and validator nodes as they are processing the transaction and going through consensus. The response to the chainCode build and deploy commands is defined by ChainletDeploymentSpec inside [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+The difference between the two commands is evident when you execute them. During the build command you will only observe processing on the local peer node, but during the deploy command you will note processing on the leader and validator nodes as well. Activity is seen on the leader and validator nodes as they are processing the transaction and going through consensus. The response to the chainCode build and deploy commands is defined by ChaincodeDeploymentSpec inside [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
 ```
-message ChainletDeploymentSpec {
+message ChaincodeDeploymentSpec {
 
-    ChainletSpec chainletSpec = 1;
+    ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
 
 }
 ```
-
-**Note:** We are currently in the process of replacing all instances of "chainlet" with "chainCode" as we found that terminology more suitable. You will still see references to chainlet in the code as we are going through this transition process.
 
 ### Verify Results
 
@@ -104,7 +102,7 @@ The response to this query will be quite large, on the order of 20Mb, as it cont
     "proposerID":"proposerID string",
     "transactions":[{
         "type":1,
-        "chainletID": {
+        "chaincodeID": {
             "url":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
             "version":"0.5.0"
         },
@@ -184,10 +182,10 @@ message BlockchainInfo {
 * **POST /devops/build**
 * **POST /devops/deploy**
 
-Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChainletSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+Invoke the Devops APIs to trigger a chainCode build or a chainCode deploy respectively. The required ChaincodeSpec payload is defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
 ```
-message ChainletSpec {
+message ChaincodeSpec {
 
     enum Type {
         UNDEFINED = 0;
@@ -196,18 +194,18 @@ message ChainletSpec {
     }
 
     Type type = 1;
-    ChainletID chainletID = 2;
-    ChainletMessage ctorMsg = 3;
+    ChaincodeID chaincodeID = 2;
+    ChaincodeMessage ctorMsg = 3;
 
 }
 ```
 
-The response to both build and deploy requests is a ChainletDeploymentSpec defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+The response to both build and deploy requests is a ChaincodeDeploymentSpec defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
 ```
-message ChainletDeploymentSpec {
+message ChaincodeDeploymentSpec {
 
-    ChainletSpec chainletSpec = 1;
+    ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
@@ -215,12 +213,12 @@ message ChainletDeploymentSpec {
 }
 ```
 
-An example of a valid ChainletSpec message is shown below. The url parameter represents the file path of the directory that contains the chainCode file. At this point, the assumption is that the chainCode is located on the peer node and it is a file path. Eventually, we imagine that the url will represent a pointer to a location on github.
+An example of a valid ChaincodeSpec message is shown below. The url parameter represents the file path of the directory that contains the chainCode file. At this point, the assumption is that the chainCode is located on the peer node and it is a file path. Eventually, we imagine that the url will represent a pointer to a location on github.
 
 ```
 {
   "type": "GOLANG",
-  "chainletID":{
+  "chaincodeID":{
       "url":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
       "version":"0.1.0"
   }

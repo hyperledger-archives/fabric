@@ -38,7 +38,7 @@ You should see some output similar to below (**NOTE**: rootcommand below is hard
       peer        Run obc peer.
       status      Status of the obc peer.
       stop        Stops the obc peer.
-      chainlet    Compiles the specified chainlet.
+      chaincode    Compiles the specified chaincode.
       help        Help about any command
 
     Flags:

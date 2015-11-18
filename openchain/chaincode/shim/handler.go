@@ -103,10 +103,10 @@ func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincod
 			//"after_" + pb.ChaincodeMessage_TRANSACTION.String(): func(e *fsm.Event) { v.beforeTransaction(e) },
 			"after_" + pb.ChaincodeMessage_RESPONSE.String(): func(e *fsm.Event) { v.afterResponse(e) },
 			"after_" + pb.ChaincodeMessage_ERROR.String():    func(e *fsm.Event) { v.afterResponse(e) },
-			"enter_init":                                      func(e *fsm.Event) { v.enterInitState(e) },
-			"enter_transaction":                               func(e *fsm.Event) { v.enterTransactionState(e) },
+			"enter_init":                                     func(e *fsm.Event) { v.enterInitState(e) },
+			"enter_transaction":                              func(e *fsm.Event) { v.enterTransactionState(e) },
 			//"enter_ready":                                     func(e *fsm.Event) { v.enterReadyState(e) },
-			"after_" + pb.ChaincodeMessage_COMPLETED.String():   func(e *fsm.Event) { v.afterCompleted(e) },
+			"after_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.afterCompleted(e) },
 			"before_" + pb.ChaincodeMessage_QUERY.String():    func(e *fsm.Event) { v.beforeQuery(e) }, //only checks for QUERY
 		},
 	)
@@ -217,7 +217,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		chaincodeLogger.Debug("Transaction completed. Sending %s", pb.ChaincodeMessage_COMPLETED)
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
 		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
-		//there's still a timing window .... user could send another transaction 
+		//there's still a timing window .... user could send another transaction
 		//before the state transitions to ready.... so we really have to do the send
 		//in the readystate (see afterCompleted (previously enterReadyState))
 		//handler.ChatStream.Send(completedMsg)
@@ -290,9 +290,9 @@ func (handler *Handler) afterCompleted(e *fsm.Event) {
 		return
 	}
 	//no need, now I AM in completed state if msg.Type.String() == pb.ChaincodeMessage_COMPLETED.String() {
-		// now that we are comfortably in READY, send message to peer side
-		chaincodeLogger.Debug("sending COMPLETED to validator for tid %s", msg.Uuid)
-		handler.ChatStream.Send(msg)
+	// now that we are comfortably in READY, send message to peer side
+	chaincodeLogger.Debug("sending COMPLETED to validator for tid %s", msg.Uuid)
+	handler.ChatStream.Send(msg)
 	//}
 }
 
@@ -315,7 +315,7 @@ func (handler *Handler) afterResponse(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	chaincodeLogger.Debug("Received %s, communicating on responseChannel(state:%s)", msg.Type,handler.FSM.Current())
+	chaincodeLogger.Debug("Received %s, communicating on responseChannel(state:%s)", msg.Type, handler.FSM.Current())
 
 	handler.responseChannel[msg.Uuid] <- *msg
 }

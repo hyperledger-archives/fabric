@@ -73,11 +73,11 @@ func TestInvokeTransactionPreValidation(t *testing.T) {
 }
 
 func mockDeployTransaction() *pb.Transaction {
-	tx, _ := pb.NewChainletDeployTransaction(
-		&pb.ChainletDeploymentSpec{
-			ChainletSpec: &pb.ChainletSpec{
-				Type:       pb.ChainletSpec_GOLANG,
-				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
+	tx, _ := pb.NewChaincodeDeployTransaction(
+		&pb.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:       pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
 			},
 			EffectiveDate: nil,
@@ -89,16 +89,16 @@ func mockDeployTransaction() *pb.Transaction {
 }
 
 func mockInvokeTransaction() *pb.Transaction {
-	tx, _ := pb.NewChainletExecute(
+	tx, _ := pb.NewChaincodeExecute(
 		&pb.ChaincodeInvocationSpec{
-			ChainletSpec: &pb.ChainletSpec{
-				Type:       pb.ChainletSpec_GOLANG,
-				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:       pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
 			},
 		},
 		"uuid",
-		pb.Transaction_CHAINLET_EXECUTE,
+		pb.Transaction_CHAINCODE_EXECUTE,
 	)
 	return tx
 }

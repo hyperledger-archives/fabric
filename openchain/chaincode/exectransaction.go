@@ -32,7 +32,7 @@ import (
 )
 
 //Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
 
 	// get a handle to ledger to mark the begin/finish of a tx
@@ -41,7 +41,7 @@ func Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
-	if t.Type == pb.Transaction_CHAINLET_NEW {
+	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		_, err := chain.DeployChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
@@ -56,7 +56,7 @@ func Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
 		markTxFinish(ledger, t, true)
-	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
 		if err != nil {
@@ -79,7 +79,7 @@ func Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([
 		}
 
 		var ccMsg *pb.ChaincodeMessage
-		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
+		if t.Type == pb.Transaction_CHAINCODE_EXECUTE {
 			ccMsg, err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to transaction message(%s)", err)
@@ -140,7 +140,7 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 
 var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
 
-func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
+func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
 		chaincodeID := cID.Url + ":" + cID.Version
@@ -148,10 +148,10 @@ func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))
 			if err == nil {
-				chainletDeploymentSpec := &pb.ChainletDeploymentSpec{}
-				proto.Unmarshal(tx.Payload, chainletDeploymentSpec)
-				chainletSpec := chainletDeploymentSpec.GetChainletSpec()
-				timeout := time.Duration(time.Duration(chainletSpec.Timeout) * time.Millisecond)
+				chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{}
+				proto.Unmarshal(tx.Payload, chaincodeDeploymentSpec)
+				chaincodeSpec := chaincodeDeploymentSpec.GetChaincodeSpec()
+				timeout := time.Duration(time.Duration(chaincodeSpec.Timeout) * time.Millisecond)
 				return timeout, nil
 			}
 		}
@@ -161,14 +161,14 @@ func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 }
 
 func markTxBegin(ledger *ledger.Ledger, t *pb.Transaction) {
-	if t.Type == pb.Transaction_CHAINLET_QUERY {
+	if t.Type == pb.Transaction_CHAINCODE_QUERY {
 		return
 	}
 	ledger.TxBegin(t.Uuid)
 }
 
 func markTxFinish(ledger *ledger.Ledger, t *pb.Transaction, successful bool) {
-	if t.Type == pb.Transaction_CHAINLET_QUERY {
+	if t.Type == pb.Transaction_CHAINCODE_QUERY {
 		return
 	}
 	ledger.TxFinished(t.Uuid, successful)

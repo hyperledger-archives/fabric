@@ -46,50 +46,50 @@ var swagger = new client({
     });
 
     // POST /devops/build -- success
-    var chainletSpec = {
+    var chaincodeSpec = {
         type: "GOLANG",
-        chainletID: {
+        chaincodeID: {
             url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
             version: "0.1.0"
         }
     };
 
-    // Print chainletSpec only, as codePackage is too large to be printed
-    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chainletSpec},{responseContentType: 'application/json'},function(Devops){
+    // Print chaincodeSpec only, as codePackage is too large to be printed
+    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chainletSpec);
+        console.log(Devops.obj.chaincodeSpec);
         console.log("----------\n\n");
     });
 
     // POST /devops/build -- failure, only GOLANG support for chainCode
-    var chainletSpec = {
+    var chaincodeSpec = {
         type: "NODE",
-        chainletID: {
+        chaincodeID: {
             url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
             version: "0.1.0"
         }
     };
 
-    // Print chainletSpec only, as codePackage is too large to be printed
-    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chainletSpec},{responseContentType: 'application/json'},function(Devops){
+    // Print chaincodeSpec only, as codePackage is too large to be printed
+    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chainletSpec);
+        console.log(Devops.obj.chaincodeSpec);
         console.log("----------\n\n");
     });
 
     // POST /devops/build -- failure, chainCode path does not exist
-    var chainletSpec = {
+    var chaincodeSpec = {
         type: "GOLANG",
-        chainletID: {
+        chaincodeID: {
             url: "/test/test/test",
             version: "0.1.0"
         }
     };
 
-    // Print chainletSpec only, as codePackage is too large to be printed
-    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chainletSpec},{responseContentType: 'application/json'},function(Devops){
+    // Print chaincodeSpec only, as codePackage is too large to be printed
+    swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chainletSpec);
+        console.log(Devops.obj.chaincodeSpec);
         console.log("----------\n\n");
     });
   },

@@ -16,14 +16,14 @@ It has these top-level messages:
 	BlockchainInfo
 	BlockNumber
 	BlockCount
-	ChainletID
+	ChaincodeID
 	ChaincodeInput
 	ChaincodeInvocationSpec
-	ChainletSpec
-	ChainletDeploymentSpec
-	ChainletIdentifier
-	ChainletRequestContext
-	ChainletExecutionContext
+	ChaincodeSpec
+	ChaincodeDeploymentSpec
+	ChaincodeIdentifier
+	ChaincodeRequestContext
+	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
 	DevopsResponse
