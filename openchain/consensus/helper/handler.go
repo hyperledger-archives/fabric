@@ -69,7 +69,9 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 
 // HandleMessage handles the Openchain messages for the Peer.
 func (i *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
-	if msg.Type == pb.OpenchainMessage_REQUEST || msg.Type == pb.OpenchainMessage_CONSENSUS {
+	if msg.Type == pb.OpenchainMessage_CONSENSUS ||
+		msg.Type == pb.OpenchainMessage_REQUEST ||
+		msg.Type == pb.OpenchainMessage_QUERY {
 		return i.consenter.RecvMsg(msg)
 	}
 	if handlerLogger.IsEnabledFor(logging.DEBUG) {

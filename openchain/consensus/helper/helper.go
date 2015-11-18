@@ -114,6 +114,5 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	if helperLogger.IsEnabledFor(logging.DEBUG) {
 		helperLogger.Debug("Executing the transactions.")
 	}
-	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
-
+	return chaincode.Execute(context.Background(), chaincode.DefaultChain, txs)
 }
