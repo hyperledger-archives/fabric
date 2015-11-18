@@ -22,6 +22,7 @@ package pbft
 import (
 	gp "google/protobuf"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -224,14 +225,16 @@ type testnetwork struct {
 }
 
 type instance struct {
-	id     int
-	plugin *Plugin
-	net    *testnetwork
+	id       int
+	plugin   *Plugin
+	net      *testnetwork
+	executed [][]*pb.Transaction
 }
 
 func (*instance) Unicast(payload []byte, receiver string) error { panic("invalid") }
-func (*instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	panic("invalid")
+func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	inst.executed = append(inst.executed, txs)
+	return []byte("hash"), nil
 }
 
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
@@ -279,7 +282,8 @@ func TestNetwork(t *testing.T) {
 	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
-	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
+	txs := []*pb.Transaction{tx}
+	txBlock := &pb.TransactionBlock{Transactions: txs}
 	txBlockPacked, err := proto.Marshal(txBlock)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
@@ -296,5 +300,14 @@ func TestNetwork(t *testing.T) {
 	err = net.process()
 	if err != nil {
 		t.Fatalf("processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		if len(inst.executed) == 0 {
+			t.Errorf("instance %d did not execute transaction", inst.id)
+		} else if !reflect.DeepEqual(inst.executed[0], txs) {
+			t.Errorf("instance %d executed wrong transaction, %s should be %s",
+				inst.id, inst.executed[0], txs)
+		}
 	}
 }

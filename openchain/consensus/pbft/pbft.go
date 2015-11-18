@@ -135,12 +135,12 @@ func New(c consensus.CPI) *Plugin {
 func (instance *Plugin) Request(txs []byte) error {
 	logger.Info("new consensus request received")
 
-	reqMsg, err := convertToRequest(txs)
-	if err != nil {
-		return err
+	req := &Request{
+		// XXX assign "client" timestamp
+		Payload: txs,
 	}
 
-	return instance.broadcast(reqMsg, true) // route to ourselves as well
+	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
 }
 
 // RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
@@ -408,8 +408,11 @@ func (instance *Plugin) executeOutstanding() error {
 				instance.id, idx.v, idx.n, digest)
 			instance.lastExec = idx.n
 
-			// XXX cpi.ExecTXs()
-			_ = req
+			txBlock := &pb.TransactionBlock{}
+			err := proto.Unmarshal(req.Payload, txBlock)
+			if err == nil {
+				instance.cpi.ExecTXs(txBlock.Transactions)
+			}
 
 			retry = true
 		}
@@ -481,40 +484,6 @@ func (instance *Plugin) setLeader(flag bool) bool {
 // =============================================================================
 // Misc. helper functions go here.
 // =============================================================================
-
-// Receives the payload of `OpenchainMessage_REQUEST`, turns it into a Request
-func convertToRequest(txs []byte) (reqMsg *Message, err error) {
-	txBatch := &pb.TransactionBlock{}
-	err = proto.Unmarshal(txs, txBatch)
-	if err != nil {
-		err = fmt.Errorf("Error unmarshalling transaction payload: %s", err)
-		return
-	}
-
-	numTx := len(txBatch.Transactions)
-	logger.Debug("Unmarshaled payload, number of transactions it carries: %d", numTx)
-
-	// XXX for now only handle single transactions
-	if numTx != 1 {
-		err = fmt.Errorf("request should carry 1 transaction instead of: %d", numTx)
-		return
-	}
-
-	tx := txBatch.Transactions[0]
-
-	txPacked, err := proto.Marshal(tx)
-	if err != nil {
-		err = fmt.Errorf("Error marshalling single transaction.")
-		return
-	}
-
-	reqMsg = &Message{&Message_Request{&Request{
-		Timestamp: tx.Timestamp,
-		Payload:   txPacked,
-	}}}
-
-	return
-}
 
 func hashReq(req *Request) (digest string) {
 	packedReq, _ := proto.Marshal(req)
