@@ -584,7 +584,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	}
 	eventErr := handler.FSM.Event(event, ccMsg)
 	if eventErr != nil {
-		fmt.Printf("Failed to trigger FSM event READY : %s\n", eventErr)
+		chaincodeLogger.Debug("Failed to trigger FSM event READY : %s\n", eventErr)
 	}
 
 	return notfy, eventErr

@@ -442,9 +442,9 @@ func (v *validatorFSM) beforeCommitResult(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error Beggining Tx with ledger: %s", err))
 		return
 	}
-	// Loop through v.transactionsInBlock, and for each type CHAINLET_NEW, update the State.
+	// Loop through v.transactionsInBlock, and for each type CHAINCODE_NEW, update the State.
 	for _, tx := range v.transactionsInBlock {
-		if tx.Type == pb.Transaction_CHAINLET_NEW {
+		if tx.Type == pb.Transaction_CHAINCODE_NEW {
 			chaincodeIDToUse := tx.ChaincodeID.Url + ":" + tx.ChaincodeID.Version
 			chaincodeIDToUse = strings.Replace(chaincodeIDToUse, string(os.PathSeparator), ".", -1)
 			validatorLogger.Warning("Setting state for chaincode id: %s", chaincodeIDToUse)
@@ -574,10 +574,10 @@ func executeTransactions(ctxt context.Context, xacts []*pb.Transaction) ([]byte,
 			errs[i] = berr
 			continue
 		}
-		if t.Type == pb.Transaction_CHAINLET_NEW {
+		if t.Type == pb.Transaction_CHAINCODE_NEW {
 			var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 			req = container.CreateImageReq{ID: vmname, Args: newArgs, Reader: targz}
-		} else if t.Type == pb.Transaction_CHAINLET_EXECUTE {
+		} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE {
 			req = container.StartImageReq{ID: vmname, Args: newArgs, Instream: buf}
 		} else {
 			errs[i] = fmt.Errorf("Invalid transaction type %s", t.Type.String())

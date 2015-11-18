@@ -34,7 +34,7 @@ import (
 //Execute - execute transaction or a query
 func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
-	if t.Type == pb.Transaction_CHAINLET_NEW {
+	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		_, err := chain.DeployChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
@@ -46,7 +46,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 			//TODO rollback transaction as init might have set state
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
-	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
 		if err != nil {
@@ -69,7 +69,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		}
 
 		var ccMsg *pb.ChaincodeMessage
-		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
+		if t.Type == pb.Transaction_CHAINCODE_EXECUTE {
 			ccMsg, err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to transaction message(%s)", err)

@@ -22,29 +22,29 @@ var _ = math.Inf
 type Transaction_Type int32
 
 const (
-	Transaction_UNDEFINED          Transaction_Type = 0
-	Transaction_CHAINLET_NEW       Transaction_Type = 1
-	Transaction_CHAINLET_UPDATE    Transaction_Type = 2
-	Transaction_CHAINLET_EXECUTE   Transaction_Type = 3
-	Transaction_CHAINLET_QUERY     Transaction_Type = 4
-	Transaction_CHAINLET_TERMINATE Transaction_Type = 5
+	Transaction_UNDEFINED           Transaction_Type = 0
+	Transaction_CHAINCODE_NEW       Transaction_Type = 1
+	Transaction_CHAINCODE_UPDATE    Transaction_Type = 2
+	Transaction_CHAINCODE_EXECUTE   Transaction_Type = 3
+	Transaction_CHAINCODE_QUERY     Transaction_Type = 4
+	Transaction_CHAINCODE_TERMINATE Transaction_Type = 5
 )
 
 var Transaction_Type_name = map[int32]string{
 	0: "UNDEFINED",
-	1: "CHAINLET_NEW",
-	2: "CHAINLET_UPDATE",
-	3: "CHAINLET_EXECUTE",
-	4: "CHAINLET_QUERY",
-	5: "CHAINLET_TERMINATE",
+	1: "CHAINCODE_NEW",
+	2: "CHAINCODE_UPDATE",
+	3: "CHAINCODE_EXECUTE",
+	4: "CHAINCODE_QUERY",
+	5: "CHAINCODE_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
-	"UNDEFINED":          0,
-	"CHAINLET_NEW":       1,
-	"CHAINLET_UPDATE":    2,
-	"CHAINLET_EXECUTE":   3,
-	"CHAINLET_QUERY":     4,
-	"CHAINLET_TERMINATE": 5,
+	"UNDEFINED":           0,
+	"CHAINCODE_NEW":       1,
+	"CHAINCODE_UPDATE":    2,
+	"CHAINCODE_EXECUTE":   3,
+	"CHAINCODE_QUERY":     4,
+	"CHAINCODE_TERMINATE": 5,
 }
 
 func (x Transaction_Type) String() string {

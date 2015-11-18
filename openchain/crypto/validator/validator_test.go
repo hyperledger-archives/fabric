@@ -128,7 +128,7 @@ func mockInvokeTransaction() *pb.Transaction {
 			},
 		},
 		"uuid",
-		pb.Transaction_CHAINLET_EXECUTE,
+		pb.Transaction_CHAINCODE_EXECUTE,
 	)
 	return tx
 }

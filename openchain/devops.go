@@ -123,9 +123,9 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var transaction *pb.Transaction
 	var err error
 	if invoke {
-		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_EXECUTE)
+		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_EXECUTE)
 	} else {
-		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_QUERY)
+		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_QUERY)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)

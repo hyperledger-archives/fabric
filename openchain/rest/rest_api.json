@@ -231,10 +231,10 @@
                     "default": "UNDEFINED",
                     "enum":[
                         "UNDEFINED",
-                        "CHAINLET_NEW",
-                        "CHAINLET_UPDATE",
-                        "CHAINLET_EXECUTE",
-                        "CHAINLET_TERMINATE"
+                        "CHAINCODE_NEW",
+                        "CHAINCODE_UPDATE",
+                        "CHAINCODE_EXECUTE",
+                        "CHAINCODE_TERMINATE"
                     ],
                     "description": "Transaction type."
                 },

@@ -161,7 +161,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error
 	f = "invoke"
 	args = []string{"a", "b", "10"}
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	_, err = invoke(ctxt, spec, pb.Transaction_CHAINLET_EXECUTE)
+	_, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
 	if err != nil {
 		return fmt.Errorf("Error invoking <%s>: %s", chaincodeID, err)
 	}
@@ -262,7 +262,7 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 		version := "0.0.0"
 
 		var spec *pb.ChaincodeSpec
-		if typ == pb.Transaction_CHAINLET_EXECUTE {
+		if typ == pb.Transaction_CHAINCODE_EXECUTE {
 			f := "invoke"
 			args := []string{"a", "b", "10"}
 
@@ -293,13 +293,13 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 	//execute transactions sequentially..
 	go func() {
 		for i := 0; i < numTrans; i++ {
-			exec(i, pb.Transaction_CHAINLET_EXECUTE)
+			exec(i, pb.Transaction_CHAINCODE_EXECUTE)
 		}
 	}()
 
 	//...but queries in parallel
 	for i := numTrans; i < numTrans+numQueries; i++ {
-		go exec(i, pb.Transaction_CHAINLET_QUERY)
+		go exec(i, pb.Transaction_CHAINCODE_QUERY)
 	}
 
 	wg.Wait()

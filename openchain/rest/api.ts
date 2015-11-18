@@ -73,10 +73,10 @@ export class Transaction {
 export namespace Transaction {
     export enum TypeEnum { 
         UNDEFINED = <any> 'UNDEFINED',
-        CHAINLET_NEW = <any> 'CHAINLET_NEW',
-        CHAINLET_UPDATE = <any> 'CHAINLET_UPDATE',
-        CHAINLET_EXECUTE = <any> 'CHAINLET_EXECUTE',
-        CHAINLET_TERMINATE = <any> 'CHAINLET_TERMINATE',
+        CHAINCODE_NEW = <any> 'CHAINCODE_NEW',
+        CHAINCODE_UPDATE = <any> 'CHAINCODE_UPDATE',
+        CHAINCODE_EXECUTE = <any> 'CHAINCODE_EXECUTE',
+        CHAINCODE_TERMINATE = <any> 'CHAINCODE_TERMINATE',
     }
 }
 export class ChaincodeID {

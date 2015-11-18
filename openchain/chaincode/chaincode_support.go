@@ -166,7 +166,6 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 
 func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Handler) error {
 	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
-	chaincodeLogger.Debug("chaincodeID is %s", key)
 	
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
@@ -355,7 +354,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var cMsg *pb.ChaincodeInput
 	var f *string
 	var initargs []string
-	if t.Type == pb.Transaction_CHAINLET_NEW {
+	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		cds := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
 		if err != nil {
@@ -365,7 +364,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		cMsg = cds.ChaincodeSpec.CtorMsg
 		f = &cMsg.Function
 		initargs = cMsg.Args
-	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		ci := &pb.ChaincodeInvocationSpec{}
 		err := proto.Unmarshal(t.Payload, ci)
 		if err != nil {
@@ -455,7 +454,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	//openchain.yaml in the container likely will not have the right url:version. We know the right
 	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINLET_ID_URL=" + cID.Url, "OPENCHAIN_CHAINLET_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + peerAddress}
+	envs := []string{"OPENCHAIN_CHAINCODE_ID_URL=" + cID.Url, "OPENCHAIN_CHAINCODE_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + peerAddress}
 	toks := strings.Split(vmname, ":")
 	if toks == nil {
 		return cds, fmt.Errorf("cannot get version from %s", vmname)
