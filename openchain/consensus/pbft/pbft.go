@@ -75,8 +75,8 @@ type Plugin struct {
 }
 
 type msgId struct {
-	view  uint64
-	seqno uint64
+	v uint64
+	n uint64
 }
 
 type msgCert struct {
@@ -161,10 +161,8 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	// XXX missing: PBFT consistency checks
-
 	if req := msg.GetRequest(); req != nil {
-		err = instance.recvRequest(msgRaw, req)
+		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
 		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
@@ -248,8 +246,8 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f+1
 }
 
-func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
-	digest := hashMsg(msgRaw)
+func (instance *Plugin) recvRequest(req *Request) error {
+	digest := hashReq(req)
 	logger.Debug("%d received request %s", instance.id, digest)
 
 	// XXX test timestamp
@@ -375,6 +373,32 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 	if instance.inWv(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.RequestDigest, commit.View, commit.SequenceNumber)
 		cert.commit = append(cert.commit, commit)
+
+		instance.executeOutstanding()
+	}
+
+	return nil
+}
+
+func (instance *Plugin) executeOutstanding() error {
+	for retry := true; retry; {
+		retry = false
+		for idx, cert := range instance.certStore {
+			if idx.n != instance.lastExec+1 || cert == nil || cert.request == nil {
+				continue
+			}
+			digest := hashReq(cert.request)
+
+			if !instance.committed(digest, idx.v, idx.n) {
+				continue
+			}
+
+			logger.Info("%d executing/committing transaction %d/%d %s",
+				instance.id, idx.v, idx.n, digest)
+			instance.lastExec = idx.n
+
+			retry = true
+		}
 	}
 
 	return nil
@@ -478,7 +502,7 @@ func convertToRequest(txs []byte) (reqMsg *Message, err error) {
 	return
 }
 
-// Calculate the digest of a marshalled message.
-func hashMsg(packedMsg []byte) (digest string) {
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedMsg))
+func hashReq(req *Request) (digest string) {
+	packedReq, _ := proto.Marshal(req)
+	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
 }
