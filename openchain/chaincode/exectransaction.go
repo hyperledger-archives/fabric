@@ -32,23 +32,23 @@ import (
 )
 
 //Execute - execute transaction or a query
-func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
-	if t.Type == pb.Transaction_CHAINLET_NEW {
-		_,err := chain.DeployChaincode(ctxt, t)
+	if t.Type == pb.Transaction_CHAINCODE_NEW {
+		_, err := chain.DeployChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
 		}
 
 		//launch and wait for ready
-		_,_,err = chain.LaunchChaincode(ctxt, t)
+		_, _, err = chain.LaunchChaincode(ctxt, t)
 		if err != nil {
 			//TODO rollback transaction as init might have set state
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
-	} else if t.Type == pb.Transaction_CHAINLET_EXECUTE || t.Type == pb.Transaction_CHAINLET_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
-		cID,cMsg,err := chain.LaunchChaincode(ctxt, t)
+		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
@@ -56,32 +56,32 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 		//this should work because it worked above...
 		chaincode, _ := getChaincodeID(cID)
 
-		if(err != nil){
+		if err != nil {
 			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
 		}
-	
-		// TODO: Need to comment next line and uncomment call to getTimeout, when transaction blocks are being created	
+
+		// TODO: Need to comment next line and uncomment call to getTimeout, when transaction blocks are being created
 		timeout := time.Duration(30000) * time.Millisecond
 		//timeout, err := getTimeout(cID)
-		
-		if(err != nil){
+
+		if err != nil {
 			return nil, fmt.Errorf("Failed to retrieve chaincode spec(%s)", err)
 		}
-		
+
 		var ccMsg *pb.ChaincodeMessage
-		if t.Type == pb.Transaction_CHAINLET_EXECUTE {
-			ccMsg,err = createTransactionMessage(t.Uuid, cMsg)
+		if t.Type == pb.Transaction_CHAINCODE_EXECUTE {
+			ccMsg, err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to transaction message(%s)", err)
 			}
 		} else {
-			ccMsg,err = createQueryMessage(t.Uuid, cMsg)
+			ccMsg, err = createQueryMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to query message(%s)", err)
 			}
 		}
 
-		resp,err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
+		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
 		if err != nil {
 			//TODO rollback transaction....
 			return nil, fmt.Errorf("Failed to execute transaction(%s)", err)
@@ -89,9 +89,9 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 			//TODO rollback transaction....
 			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
-			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED || 
-			   resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
-				return 	resp.Payload, nil
+			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED ||
+				resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
+				return resp.Payload, nil
 			}
 			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 		}
@@ -99,20 +99,20 @@ func  Execute(ctxt context.Context, chain *ChainletSupport, t *pb.Transaction) (
 	} else {
 		err = fmt.Errorf("Invalid transaction type %s", t.Type.String())
 	}
-	return  nil,err
+	return nil, err
 }
 
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns state hash
-func  ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
-		_,errs[i] = Execute(ctxt,chain,t)
+		_, errs[i] = Execute(ctxt, chain, t)
 	}
 	ledger, hasherr := ledger.GetLedger()
 	var statehash []byte
@@ -125,7 +125,7 @@ func  ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tra
 
 var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
 
-func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
+func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
 		chaincodeID := cID.Url + ":" + cID.Version
@@ -133,14 +133,14 @@ func getTimeout(cID *pb.ChainletID) (time.Duration, error) {
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))
 			if err == nil {
-				chainletDeploymentSpec := &pb.ChainletDeploymentSpec{}
-				proto.Unmarshal(tx.Payload, chainletDeploymentSpec)
-				chainletSpec := chainletDeploymentSpec.GetChainletSpec()
-				timeout := time.Duration(time.Duration(chainletSpec.Timeout) * time.Millisecond)
+				chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{}
+				proto.Unmarshal(tx.Payload, chaincodeDeploymentSpec)
+				chaincodeSpec := chaincodeDeploymentSpec.GetChaincodeSpec()
+				timeout := time.Duration(time.Duration(chaincodeSpec.Timeout) * time.Millisecond)
 				return timeout, nil
 			}
 		}
 	}
-	
+
 	return -1, errFailedToGetChainCodeSpecForTransaction
 }

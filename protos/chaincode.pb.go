@@ -19,27 +19,27 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type ChainletSpec_Type int32
+type ChaincodeSpec_Type int32
 
 const (
-	ChainletSpec_UNDEFINED ChainletSpec_Type = 0
-	ChainletSpec_GOLANG    ChainletSpec_Type = 1
-	ChainletSpec_NODE      ChainletSpec_Type = 2
+	ChaincodeSpec_UNDEFINED ChaincodeSpec_Type = 0
+	ChaincodeSpec_GOLANG    ChaincodeSpec_Type = 1
+	ChaincodeSpec_NODE      ChaincodeSpec_Type = 2
 )
 
-var ChainletSpec_Type_name = map[int32]string{
+var ChaincodeSpec_Type_name = map[int32]string{
 	0: "UNDEFINED",
 	1: "GOLANG",
 	2: "NODE",
 }
-var ChainletSpec_Type_value = map[string]int32{
+var ChaincodeSpec_Type_value = map[string]int32{
 	"UNDEFINED": 0,
 	"GOLANG":    1,
 	"NODE":      2,
 }
 
-func (x ChainletSpec_Type) String() string {
-	return proto.EnumName(ChainletSpec_Type_name, int32(x))
+func (x ChaincodeSpec_Type) String() string {
+	return proto.EnumName(ChaincodeSpec_Type_name, int32(x))
 }
 
 type ChaincodeMessage_Type int32
@@ -105,15 +105,15 @@ func (x ChaincodeMessage_Type) String() string {
 }
 
 // Carries the URL where the chaincode resides and the chaincode version.
-// TODO: Merge with ChainletIDentifier.
-type ChainletID struct {
+// TODO: Merge with ChaincodeIDentifier.
+type ChaincodeID struct {
 	Url     string `protobuf:"bytes,1,opt,name=url" json:"url,omitempty"`
 	Version string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
 }
 
-func (m *ChainletID) Reset()         { *m = ChainletID{} }
-func (m *ChainletID) String() string { return proto.CompactTextString(m) }
-func (*ChainletID) ProtoMessage()    {}
+func (m *ChaincodeID) Reset()         { *m = ChaincodeID{} }
+func (m *ChaincodeID) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeID) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
 type ChaincodeInput struct {
@@ -127,41 +127,41 @@ func (*ChaincodeInput) ProtoMessage()    {}
 
 // Carries the chaincode function and its arguments.
 type ChaincodeInvocationSpec struct {
-	ChainletSpec *ChainletSpec `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
+	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
 }
 
 func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
 func (m *ChaincodeInvocationSpec) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeInvocationSpec) ProtoMessage()    {}
 
-func (m *ChaincodeInvocationSpec) GetChainletSpec() *ChainletSpec {
+func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 	if m != nil {
-		return m.ChainletSpec
+		return m.ChaincodeSpec
 	}
 	return nil
 }
 
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
-type ChainletSpec struct {
-	Type       ChainletSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChainletSpec_Type" json:"type,omitempty"`
-	ChainletID *ChainletID       `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	CtorMsg    *ChaincodeInput   `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
-	Timeout    int32             `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
+type ChaincodeSpec struct {
+	Type        ChaincodeSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
+	ChaincodeID *ChaincodeID       `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	CtorMsg     *ChaincodeInput    `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Timeout     int32              `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
 }
 
-func (m *ChainletSpec) Reset()         { *m = ChainletSpec{} }
-func (m *ChainletSpec) String() string { return proto.CompactTextString(m) }
-func (*ChainletSpec) ProtoMessage()    {}
+func (m *ChaincodeSpec) Reset()         { *m = ChaincodeSpec{} }
+func (m *ChaincodeSpec) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeSpec) ProtoMessage()    {}
 
-func (m *ChainletSpec) GetChainletID() *ChainletID {
+func (m *ChaincodeSpec) GetChaincodeID() *ChaincodeID {
 	if m != nil {
-		return m.ChainletID
+		return m.ChaincodeID
 	}
 	return nil
 }
 
-func (m *ChainletSpec) GetCtorMsg() *ChaincodeInput {
+func (m *ChaincodeSpec) GetCtorMsg() *ChaincodeInput {
 	if m != nil {
 		return m.CtorMsg
 	}
@@ -170,52 +170,52 @@ func (m *ChainletSpec) GetCtorMsg() *ChaincodeInput {
 
 // Specify the deployment of a chaincode.
 // TODO: Define `codePackage`.
-type ChainletDeploymentSpec struct {
-	ChainletSpec *ChainletSpec `protobuf:"bytes,1,opt,name=chainletSpec" json:"chainletSpec,omitempty"`
+type ChaincodeDeploymentSpec struct {
+	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
 	// Controls when the chaincode becomes executable.
 	EffectiveDate *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
 	CodePackage   []byte                     `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
 }
 
-func (m *ChainletDeploymentSpec) Reset()         { *m = ChainletDeploymentSpec{} }
-func (m *ChainletDeploymentSpec) String() string { return proto.CompactTextString(m) }
-func (*ChainletDeploymentSpec) ProtoMessage()    {}
+func (m *ChaincodeDeploymentSpec) Reset()         { *m = ChaincodeDeploymentSpec{} }
+func (m *ChaincodeDeploymentSpec) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeDeploymentSpec) ProtoMessage()    {}
 
-func (m *ChainletDeploymentSpec) GetChainletSpec() *ChainletSpec {
+func (m *ChaincodeDeploymentSpec) GetChaincodeSpec() *ChaincodeSpec {
 	if m != nil {
-		return m.ChainletSpec
+		return m.ChaincodeSpec
 	}
 	return nil
 }
 
-func (m *ChainletDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp {
+func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.EffectiveDate
 	}
 	return nil
 }
 
-// TODO: Merge this with ChainletID.
-type ChainletIdentifier struct {
-	// URL for accessing the Chainlet, eg. https://github.com/user/SampleContract
+// TODO: Merge this with ChaincodeID.
+type ChaincodeIdentifier struct {
+	// URL for accessing the Chaincode, eg. https://github.com/user/SampleContract
 	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
 }
 
-func (m *ChainletIdentifier) Reset()         { *m = ChainletIdentifier{} }
-func (m *ChainletIdentifier) String() string { return proto.CompactTextString(m) }
-func (*ChainletIdentifier) ProtoMessage()    {}
+func (m *ChaincodeIdentifier) Reset()         { *m = ChaincodeIdentifier{} }
+func (m *ChaincodeIdentifier) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeIdentifier) ProtoMessage()    {}
 
 // Used by the peer to identify the requesting chaincode and allows for proper
 // access to state.
-type ChainletRequestContext struct {
-	Id *ChainletIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
+type ChaincodeRequestContext struct {
+	Id *ChaincodeIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
 }
 
-func (m *ChainletRequestContext) Reset()         { *m = ChainletRequestContext{} }
-func (m *ChainletRequestContext) String() string { return proto.CompactTextString(m) }
-func (*ChainletRequestContext) ProtoMessage()    {}
+func (m *ChaincodeRequestContext) Reset()         { *m = ChaincodeRequestContext{} }
+func (m *ChaincodeRequestContext) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeRequestContext) ProtoMessage()    {}
 
-func (m *ChainletRequestContext) GetId() *ChainletIdentifier {
+func (m *ChaincodeRequestContext) GetId() *ChaincodeIdentifier {
 	if m != nil {
 		return m.Id
 	}
@@ -224,23 +224,23 @@ func (m *ChainletRequestContext) GetId() *ChainletIdentifier {
 
 // Provided by the peer to the chaincode to identify the requesting chaincode
 // and allow for proper access to state.
-type ChainletExecutionContext struct {
-	ChainletId *ChainletIdentifier        `protobuf:"bytes,1,opt,name=ChainletId" json:"ChainletId,omitempty"`
-	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
+type ChaincodeExecutionContext struct {
+	ChaincodeId *ChaincodeIdentifier       `protobuf:"bytes,1,opt,name=ChaincodeId" json:"ChaincodeId,omitempty"`
+	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
 }
 
-func (m *ChainletExecutionContext) Reset()         { *m = ChainletExecutionContext{} }
-func (m *ChainletExecutionContext) String() string { return proto.CompactTextString(m) }
-func (*ChainletExecutionContext) ProtoMessage()    {}
+func (m *ChaincodeExecutionContext) Reset()         { *m = ChaincodeExecutionContext{} }
+func (m *ChaincodeExecutionContext) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeExecutionContext) ProtoMessage()    {}
 
-func (m *ChainletExecutionContext) GetChainletId() *ChainletIdentifier {
+func (m *ChaincodeExecutionContext) GetChaincodeId() *ChaincodeIdentifier {
 	if m != nil {
-		return m.ChainletId
+		return m.ChaincodeId
 	}
 	return nil
 }
 
-func (m *ChainletExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
+func (m *ChaincodeExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -275,7 +275,7 @@ func (m *PutStateInfo) String() string { return proto.CompactTextString(m) }
 func (*PutStateInfo) ProtoMessage()    {}
 
 func init() {
-	proto.RegisterEnum("protos.ChainletSpec_Type", ChainletSpec_Type_name, ChainletSpec_Type_value)
+	proto.RegisterEnum("protos.ChaincodeSpec_Type", ChaincodeSpec_Type_name, ChaincodeSpec_Type_value)
 	proto.RegisterEnum("protos.ChaincodeMessage_Type", ChaincodeMessage_Type_name, ChaincodeMessage_Type_value)
 }
 
@@ -283,55 +283,55 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for ChainletSupport service
+// Client API for ChaincodeSupport service
 
-type ChainletSupportClient interface {
+type ChaincodeSupportClient interface {
 	// Return the datetime.
-	GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error)
-	Register(ctx context.Context, opts ...grpc.CallOption) (ChainletSupport_RegisterClient, error)
+	GetExecutionContext(ctx context.Context, in *ChaincodeRequestContext, opts ...grpc.CallOption) (*ChaincodeExecutionContext, error)
+	Register(ctx context.Context, opts ...grpc.CallOption) (ChaincodeSupport_RegisterClient, error)
 }
 
-type chainletSupportClient struct {
+type chaincodeSupportClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewChainletSupportClient(cc *grpc.ClientConn) ChainletSupportClient {
-	return &chainletSupportClient{cc}
+func NewChaincodeSupportClient(cc *grpc.ClientConn) ChaincodeSupportClient {
+	return &chaincodeSupportClient{cc}
 }
 
-func (c *chainletSupportClient) GetExecutionContext(ctx context.Context, in *ChainletRequestContext, opts ...grpc.CallOption) (*ChainletExecutionContext, error) {
-	out := new(ChainletExecutionContext)
-	err := grpc.Invoke(ctx, "/protos.ChainletSupport/GetExecutionContext", in, out, c.cc, opts...)
+func (c *chaincodeSupportClient) GetExecutionContext(ctx context.Context, in *ChaincodeRequestContext, opts ...grpc.CallOption) (*ChaincodeExecutionContext, error) {
+	out := new(ChaincodeExecutionContext)
+	err := grpc.Invoke(ctx, "/protos.ChaincodeSupport/GetExecutionContext", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chainletSupportClient) Register(ctx context.Context, opts ...grpc.CallOption) (ChainletSupport_RegisterClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ChainletSupport_serviceDesc.Streams[0], c.cc, "/protos.ChainletSupport/Register", opts...)
+func (c *chaincodeSupportClient) Register(ctx context.Context, opts ...grpc.CallOption) (ChaincodeSupport_RegisterClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_ChaincodeSupport_serviceDesc.Streams[0], c.cc, "/protos.ChaincodeSupport/Register", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &chainletSupportRegisterClient{stream}
+	x := &chaincodeSupportRegisterClient{stream}
 	return x, nil
 }
 
-type ChainletSupport_RegisterClient interface {
+type ChaincodeSupport_RegisterClient interface {
 	Send(*ChaincodeMessage) error
 	Recv() (*ChaincodeMessage, error)
 	grpc.ClientStream
 }
 
-type chainletSupportRegisterClient struct {
+type chaincodeSupportRegisterClient struct {
 	grpc.ClientStream
 }
 
-func (x *chainletSupportRegisterClient) Send(m *ChaincodeMessage) error {
+func (x *chaincodeSupportRegisterClient) Send(m *ChaincodeMessage) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *chainletSupportRegisterClient) Recv() (*ChaincodeMessage, error) {
+func (x *chaincodeSupportRegisterClient) Recv() (*ChaincodeMessage, error) {
 	m := new(ChaincodeMessage)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -339,49 +339,49 @@ func (x *chainletSupportRegisterClient) Recv() (*ChaincodeMessage, error) {
 	return m, nil
 }
 
-// Server API for ChainletSupport service
+// Server API for ChaincodeSupport service
 
-type ChainletSupportServer interface {
+type ChaincodeSupportServer interface {
 	// Return the datetime.
-	GetExecutionContext(context.Context, *ChainletRequestContext) (*ChainletExecutionContext, error)
-	Register(ChainletSupport_RegisterServer) error
+	GetExecutionContext(context.Context, *ChaincodeRequestContext) (*ChaincodeExecutionContext, error)
+	Register(ChaincodeSupport_RegisterServer) error
 }
 
-func RegisterChainletSupportServer(s *grpc.Server, srv ChainletSupportServer) {
-	s.RegisterService(&_ChainletSupport_serviceDesc, srv)
+func RegisterChaincodeSupportServer(s *grpc.Server, srv ChaincodeSupportServer) {
+	s.RegisterService(&_ChaincodeSupport_serviceDesc, srv)
 }
 
-func _ChainletSupport_GetExecutionContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ChainletRequestContext)
+func _ChaincodeSupport_GetExecutionContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ChaincodeRequestContext)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ChainletSupportServer).GetExecutionContext(ctx, in)
+	out, err := srv.(ChaincodeSupportServer).GetExecutionContext(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _ChainletSupport_Register_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ChainletSupportServer).Register(&chainletSupportRegisterServer{stream})
+func _ChaincodeSupport_Register_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ChaincodeSupportServer).Register(&chaincodeSupportRegisterServer{stream})
 }
 
-type ChainletSupport_RegisterServer interface {
+type ChaincodeSupport_RegisterServer interface {
 	Send(*ChaincodeMessage) error
 	Recv() (*ChaincodeMessage, error)
 	grpc.ServerStream
 }
 
-type chainletSupportRegisterServer struct {
+type chaincodeSupportRegisterServer struct {
 	grpc.ServerStream
 }
 
-func (x *chainletSupportRegisterServer) Send(m *ChaincodeMessage) error {
+func (x *chaincodeSupportRegisterServer) Send(m *ChaincodeMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *chainletSupportRegisterServer) Recv() (*ChaincodeMessage, error) {
+func (x *chaincodeSupportRegisterServer) Recv() (*ChaincodeMessage, error) {
 	m := new(ChaincodeMessage)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -389,19 +389,19 @@ func (x *chainletSupportRegisterServer) Recv() (*ChaincodeMessage, error) {
 	return m, nil
 }
 
-var _ChainletSupport_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protos.ChainletSupport",
-	HandlerType: (*ChainletSupportServer)(nil),
+var _ChaincodeSupport_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.ChaincodeSupport",
+	HandlerType: (*ChaincodeSupportServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetExecutionContext",
-			Handler:    _ChainletSupport_GetExecutionContext_Handler,
+			Handler:    _ChaincodeSupport_GetExecutionContext_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Register",
-			Handler:       _ChainletSupport_Register_Handler,
+			Handler:       _ChaincodeSupport_Register_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

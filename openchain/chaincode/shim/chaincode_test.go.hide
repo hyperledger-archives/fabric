@@ -20,10 +20,10 @@ under the License.
 package shim
 
 import (
-	"fmt"
-	"testing"
 	"errors"
+	"fmt"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -45,32 +45,32 @@ func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []strin
 	if function == "init" {
 		if len(args) != 4 {
 			return nil, errors.New("Incorrect number of arguments. Expecting 4")
-		} 
-	
+		}
+
 		// Initialize the chaincode
 		A = args[0]
-		Aval,err = strconv.Atoi(args[1]) 
+		Aval, err = strconv.Atoi(args[1])
 		if err != nil {
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
 		B = args[2]
-		Bval,err = strconv.Atoi(args[3])
+		Bval, err = strconv.Atoi(args[3])
 		if err != nil {
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
 
 		/*
-		// Write the state to the ledger
-		err = stub.PutState(A, []byte(strconv.Itoa(Aval))
-		if err != nil {
-			return nil, err
-		}
+			// Write the state to the ledger
+			err = stub.PutState(A, []byte(strconv.Itoa(Aval))
+			if err != nil {
+				return nil, err
+			}
 
-		stub.PutState(B, []byte(strconv.Itoa(Bval))	
-		err = stub.PutState(B, []byte(strconv.Itoa(Bval))
-		if err != nil {
-			return nil, err
-		}
+			stub.PutState(B, []byte(strconv.Itoa(Bval))
+			err = stub.PutState(B, []byte(strconv.Itoa(Bval))
+			if err != nil {
+				return nil, err
+			}
 		*/
 	} else if function == "invoke" {
 		// Transaction makes payment of X units from A to B
@@ -78,7 +78,7 @@ func (t *SimpleChaincode) Run(stub *ChaincodeStub, function string, args []strin
 		Aval = Aval - X
 		Bval = Bval + X
 	}
-	
+
 	return nil, nil
 }
 
@@ -101,15 +101,15 @@ func TestChaincode(t *testing.T) {
 	//payload := `{"Function" : "init", "Args" : ["A", "100", "B", "100"]}`
 	input := &pb.ChaincodeInput{Function: "init", Args: []string{"A", "100", "B", "100"}}
 
-	fmt.Printf("function is %s\n",input.Function)
-	payloadData,err := proto.Marshal(input)
+	fmt.Printf("function is %s\n", input.Function)
+	payloadData, err := proto.Marshal(input)
 	if err != nil {
 		t.Logf("Failed to marshal: %s", err)
 		t.Fail()
 		return
 	}
 
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payloadData} 
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payloadData}
 	err = handler.FSM.Event(pb.ChaincodeMessage_INIT.String(), msg)
 	if err != nil {
 		t.Logf("Init failed: %s", err)
@@ -121,15 +121,15 @@ func TestChaincode(t *testing.T) {
 
 	// Invoke transaction
 	//payload = `{"funcName" : "init", "args" : ["10"]}`
-	input = &pb.ChaincodeInput{Function: "invoke", Args: []string{"a","b","10"}}
-	fmt.Printf("function is %s\n",input.Function)
-	payloadData,err = proto.Marshal(input)
+	input = &pb.ChaincodeInput{Function: "invoke", Args: []string{"a", "b", "10"}}
+	fmt.Printf("function is %s\n", input.Function)
+	payloadData, err = proto.Marshal(input)
 	if err != nil {
 		t.Logf("Init failed: %s", err)
 		t.Fail()
 		return
 	}
-	msg2 := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_TRANSACTION, Payload: payloadData} 
+	msg2 := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_TRANSACTION, Payload: payloadData}
 	err = handler.FSM.Event(pb.ChaincodeMessage_TRANSACTION.String(), msg2)
 	if err != nil {
 		t.Logf("Transaction failed: %s", err)
@@ -142,7 +142,7 @@ func TestChaincode(t *testing.T) {
 
 	// Check result
 	if Aval != 90 || Bval != 110 {
-		t.Error("Transaction did not execute or incorrect execution")	
+		t.Error("Transaction did not execute or incorrect execution")
 	}
 
 	fmt.Printf("Transaction executed successfully. Aval = %d, Bval = %d\n", Aval, Bval)

@@ -61,22 +61,22 @@ func (client *Client) Init() error {
 	return nil
 }
 
-// NewChainletDeployTransaction is used to deploy chaincode.
-func (client *Client) NewChainletDeployTransaction(chainletDeploymentSpec *pb.ChainletDeploymentSpec, uuid string) (*pb.Transaction, error) {
+// NewChaincodeDeployTransaction is used to deploy chaincode.
+func (client *Client) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *pb.ChaincodeDeploymentSpec, uuid string) (*pb.Transaction, error) {
 	if !client.isInitialized {
 		return nil, ErrModuleNotInitialized
 	}
 
-	return pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
+	return pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 }
 
-// NewChainletInvokeTransaction is used to invoke chaincode's functions.
-func (client *Client) NewChainletInvokeTransaction(chaincodeInvocation *pb.ChaincodeInvocationSpec, uuid string) (*pb.Transaction, error) {
+// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
+func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *pb.ChaincodeInvocationSpec, uuid string) (*pb.Transaction, error) {
 	if !client.isInitialized {
 		return nil, ErrModuleNotInitialized
 	}
 
-	return pb.NewChainletExecute(chaincodeInvocation, uuid, pb.Transaction_CHAINLET_EXECUTE)
+	return pb.NewChaincodeExecute(chaincodeInvocation, uuid, pb.Transaction_CHAINCODE_EXECUTE)
 }
 
 // Private Methods
