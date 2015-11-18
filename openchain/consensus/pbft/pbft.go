@@ -275,6 +275,7 @@ func (instance *Plugin) Request(txs []byte) error {
 func (instance *Plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
+
 	// TODO test timestamp
 	instance.reqStore[digest] = req
 
@@ -296,10 +297,15 @@ func (instance *Plugin) recvRequest(req *Request) error {
 			logger.Debug("Primary %d sending pre-prepare (v:%d,s:%d) for digest: %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
+			reqPacked, err := proto.Marshal(req)
+			if err != nil {
+				return fmt.Errorf("[recvRequest] Cannot marshal request: %s", err)
+			}
 			preprep := &PrePrepare{
 				View:           instance.view,
 				SequenceNumber: instance.seqNo,
 				RequestDigest:  digest,
+				Request:        reqPacked,
 				ReplicaId:      instance.id,
 			}
 			cert := instance.getCert(digest, instance.view, n)
@@ -335,6 +341,17 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	} else {
 		cert := instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
 		cert.prePrepare = preprep
+	}
+
+	// Store the request if, for whatever reason, you haven't received it
+	// from an earlier broadcast.
+	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
+		newReq := &Request{}
+		err := proto.Unmarshal(preprep.Request, newReq)
+		if err != nil {
+			return fmt.Errorf("[recvPrePrepare] Cannot unmarshal request of pre-prepare: %s", err)
+		}
+		instance.reqStore[preprep.RequestDigest] = newReq
 	}
 
 	if cert.sentPrepare { // to prevent the leader from executing

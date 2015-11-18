@@ -55,7 +55,8 @@ message PrePrepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
-    uint64 replica_id = 4;
+    bytes request = 4;
+    uint64 replica_id = 5;
 }
 
 message Prepare {
