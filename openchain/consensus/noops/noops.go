@@ -21,6 +21,7 @@ package noops
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
@@ -28,12 +29,29 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-var noopsLogger = logging.MustGetLogger("noops")
+// =============================================================================
+// Init
+// =============================================================================
 
-// Noops is a consensus plugin object implementing consensus.Consenter interface
+// Package-level logger
+var logger *logging.Logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/noops")
+}
+
+// =============================================================================
+// Structures go here
+// =============================================================================
+
+// Noops is a consensus plugin object implementing the consensus.Consenter interface
 type Noops struct {
 	cpi consensus.CPI // The consensus programming interface
 }
+
+// =============================================================================
+// Constructors go here
+// =============================================================================
 
 // New is a constructor returning a consensus.Consenter object
 func New(c consensus.CPI) consensus.Consenter {
@@ -45,33 +63,31 @@ func New(c consensus.CPI) consensus.Consenter {
 // RecvMsg is called when there is a pb.OpenchainMessage_REQUEST message
 // @return true if processed and false otherwise
 func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
-	noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
+	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 		msg.Type = pb.OpenchainMessage_CONSENSUS
-		noopsLogger.Debug("Broadcasting %s", msg.Type)
-
 		// broadcast to others so they can exec the tx
-		errs := i.cpi.Broadcast(msg)
-		if nil != errs {
-			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
+		err := i.cpi.Broadcast(msg)
+		if nil != err {
+			return fmt.Errorf("Failed to broadcast: %v", err)
 		}
 
 		// WARNING: We might end up getting the same message sent back to us
 		// due to Byzantine. We ignore this case for the no-ops consensus
 	}
-	// We process the message if it is OpenchainMessage_CONSENSUS
+
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
 		err := proto.Unmarshal(msg.Payload, txs)
 		if err != nil {
 			return err
 		}
-		_, errs2 := i.cpi.ExecTXs(txs.GetTransactions())
-		if errs2 != nil {
-			return fmt.Errorf("Fail to execute transactions: %v", errs2)
+		_, errs := i.cpi.ExecTXs(txs.GetTransactions())
+		if errs != nil {
+			return fmt.Errorf("Fail to execute transactions: %v", errs)
 		}
 	}
+
 	return nil
 }

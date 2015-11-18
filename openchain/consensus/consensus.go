@@ -29,7 +29,7 @@ import (
 // Init
 // =============================================================================
 
-// Package-level logger.
+// Package-level logger
 var logger *logging.Logger
 
 func init() {
@@ -40,14 +40,16 @@ func init() {
 // Interface definitions go here
 // =============================================================================
 
-// Consenter should be implemented by every consensus algorithm implementation (plugin)
+// Consenter should be implemented by every consensus algorithm implementation
+// (plugin)
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error // Called by the helper's `HandleMsg()`. This is where the message processing happens.
+	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-// CPI (Consensus Programming Interface)
+// CPI (Consensus Programming Interface) is the set of stack-facing methods
+// available to the plugin
 type CPI interface {
-	Broadcast(msg *pb.OpenchainMessage) error         // May be called by the Consenter's `RecvMsg()` after the processing is done.
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)  // Is called by the Consenter's `RecvMsg()` during processing.
-	Unicast(msgPayload []byte, receiver string) error // May be called by the Consenter's `RecvMsg()` after the processing is done.
+	Broadcast(msg *pb.OpenchainMessage) error
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+	Unicast(msgPayload []byte, receiver string) error
 }
