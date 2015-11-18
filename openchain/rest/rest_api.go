@@ -195,7 +195,7 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"Status\": \"OK. Successfully built chainCode.\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully built chainCode.\"}")
 }
 
 // Deploy first builds the docker container that holds the Chaincode
@@ -242,7 +242,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"Status\": \"OK. Successfully deployed chainCode.\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
 }
 
 // Invoke executes a specified function within a target Chaincode.
@@ -292,7 +292,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"Status\": \"OK. Successfully invoked transaction.\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked transaction.\"}")
 }
 
 // NotFound returns a custom landing page when a given openchain end point
