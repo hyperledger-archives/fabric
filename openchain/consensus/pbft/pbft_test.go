@@ -263,7 +263,7 @@ func (net *testnetwork) process() error {
 
 func TestNetwork(t *testing.T) {
 	const f = 2
-	const nreplica = 2*f + 1
+	const nreplica = 3*f + 1
 	net := &testnetwork{}
 	for i := 0; i < nreplica; i++ {
 		inst := &instance{id: i, net: net}
