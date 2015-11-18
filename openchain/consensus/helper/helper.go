@@ -21,9 +21,6 @@ package helper
 
 import (
 	"fmt"
-	"time"
-
-	gp "google/protobuf"
 
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
@@ -38,8 +35,7 @@ import (
 // Init
 // =============================================================================
 
-// Package-level logger
-var logger *logging.Logger
+var logger *logging.Logger // package-level logger
 
 func init() {
 	logger = logging.MustGetLogger("consensus/helper")
@@ -49,7 +45,7 @@ func init() {
 // Structure definitions go here
 // =============================================================================
 
-// Helper data structure
+// Helper contains the reference to coordinator for broadcasts/unicasts.
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 }
@@ -58,7 +54,7 @@ type Helper struct {
 // Constructors go here
 // =============================================================================
 
-// NewHelper constructs the consensus helper object
+// NewHelper constructs the consensus helper object.
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 	return &Helper{coordinator: mhc}
 }
@@ -67,7 +63,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // Stack-facing implementation goes here
 // =============================================================================
 
-// Broadcast sends a message to all validating peers
+// Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 	err := h.coordinator.Broadcast(msg)
 	if err != nil {
@@ -77,27 +73,15 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// Unicast is called by the validating peer to send a CONSENSUS message to a
-// specified receiver. The argument is the serialized payload of an
-// implementation-specific message.
-func (h *Helper) Unicast(msgPacked []byte, receiver string) error {
-	// Wrap as message of type OpenchainMessage_CONSENSUS
-	msgTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
-	msg := &pb.OpenchainMessage{
-		Type:      pb.OpenchainMessage_CONSENSUS,
-		Timestamp: msgTime,
-		Payload:   msgPacked,
-	}
-
-	// TODO Call a function in the comms layer - wait for Jeff's implementation
-	var _ = msg // Just to silence the compiler error.
+// Unicast sends a message to a specified receiver.
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+	// TODO Call a function in the comms layer; wait for Jeff's implementation.
 
 	return nil
 }
 
-// ExecTXs will execute all the transactions listed in the `txs` array
-// one-by-one. If all the executions are successful, it returns the candidate
-// global state hash, and nil error array.
+// ExecTXs executes all the transactions listed in the txs array one-by-one.
+// If all the executions are successful, it returns the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 }

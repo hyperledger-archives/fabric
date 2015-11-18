@@ -29,8 +29,7 @@ import (
 // Init
 // =============================================================================
 
-// Package-level logger
-var logger *logging.Logger
+var logger *logging.Logger // package-level logger
 
 func init() {
 	logger = logging.MustGetLogger("consensus")
@@ -40,16 +39,15 @@ func init() {
 // Interface definitions go here
 // =============================================================================
 
-// Consenter should be implemented by every consensus algorithm implementation
-// (plugin)
+// Consenter is implemented by every consensus algorithm implementation (plugin).
 type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-// CPI (Consensus Programming Interface) is the set of stack-facing methods
-// available to the plugin
+// CPI stands for Consensus Programming Interface.
+// It is the set of stack-facing methods available to the plugin.
 type CPI interface {
 	Broadcast(msg *pb.OpenchainMessage) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	Unicast(msgPayload []byte, receiver string) error
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 }

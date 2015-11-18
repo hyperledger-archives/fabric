@@ -32,8 +32,7 @@ import (
 // Init
 // =============================================================================
 
-// Package-level logger
-var logger *logging.Logger
+var logger *logging.Logger // package-level logger
 
 func init() {
 	logger = logging.MustGetLogger("consensus/controller")
@@ -43,8 +42,8 @@ func init() {
 // Constructors go here
 // =============================================================================
 
-// NewConsenter constructs a consenter object. Called by
-// `handler.NewConsensusHandler()`.
+// NewConsenter constructs a consenter object.
+// Called by handler.NewConsensusHandler().
 func NewConsenter(cpi consensus.CPI) consensus.Consenter {
 	plugin := viper.GetString("peer.consensus.plugin")
 	var algo consensus.Consenter

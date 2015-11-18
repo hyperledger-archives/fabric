@@ -20,6 +20,7 @@ under the License.
 package pbft
 
 import (
+	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
@@ -32,23 +33,20 @@ import (
 
 func TestEnvOverride(t *testing.T) {
 
-	// For a key that exists
-	key := "general.name"
-	// Env override name
-	envName := "OPENCHAIN_PBFT_GENERAL_NAME"
-	// Value to override default value with
-	overrideValue := "overide_test"
+	key := "general.name"                    // for a key that exists
+	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
+	overrideValue := "overide_test"          // value to override default value with
 
 	mock := NewMock()
 	instance := New(mock)
 
-	// Test key.
+	// test key
 	if ok := instance.config.IsSet("general.name"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
 	os.Setenv(envName, overrideValue)
-	// The override config value will cause other calls to fail unless unset
+	// The override config value will cause other calls to fail unless unset.
 	defer func() {
 		os.Unsetenv(envName)
 	}()
@@ -57,7 +55,7 @@ func TestEnvOverride(t *testing.T) {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
-	// Read key
+	// read key
 	configVal := instance.config.GetString("general.name")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
@@ -69,25 +67,23 @@ func TestGetParam(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
-	// For a key that exists
-	key := "general.name"
-	// Expected value
-	realVal := "pbft"
-	// Read key
-	testVal, err := instance.getParam(key)
-	// Error should be nil, since the key exists
+	key := "general.name" // for a key that exists
+	realVal := "pbft"     // expected value
+
+	testVal, err := instance.getParam(key) // read key
+	// Error should be nil, since the key exists.
 	if err != nil {
 		t.Fatalf("Error when retrieving value for existing key %s: %s", key, err)
 	}
-	// Values should match
+	// Values should match.
 	if testVal != realVal {
 		t.Fatalf("Expected value %s for key %s, got %s instead", realVal, key, testVal)
 	}
 
-	// Read key
+	// read key
 	key = "non.existing.key"
 	_, err = instance.getParam(key)
-	// Error should not be nil, since the key does not exist
+	// Error should not be nil, since the key does not exist.
 	if err == nil {
 		t.Fatal("Expected error since retrieving value for non-existing key, got nil instead")
 	}
@@ -106,33 +102,6 @@ func TestLeader(t *testing.T) {
 	if !ans {
 		t.Fatalf("Unable to query validating peer for leader status")
 	}
-}
-
-type mockCpi struct {
-	broadcastMsg []*pb.OpenchainMessage
-	execTx       [][]*pb.Transaction
-}
-
-func NewMock() *mockCpi {
-	mock := &mockCpi{
-		make([]*pb.OpenchainMessage, 0),
-		make([][]*pb.Transaction, 0),
-	}
-	return mock
-}
-
-func (mock *mockCpi) Broadcast(msg *pb.OpenchainMessage) error {
-	mock.broadcastMsg = append(mock.broadcastMsg, msg)
-	return nil
-}
-
-func (mock *mockCpi) Unicast(msg []byte, dest string) error {
-	panic("not implemented")
-}
-
-func (mock *mockCpi) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	mock.execTx = append(mock.execTx, txs)
-	return []byte("hash"), make([]error, len(txs)+1)
 }
 
 func TestRecvRequest(t *testing.T) {
@@ -210,18 +179,23 @@ func TestRecvMsg(t *testing.T) {
 	}
 }
 
-//
-// Test with fake network
-//
+// =============================================================================
+// Fake network structures
+// =============================================================================
 
-type taggedmsg struct {
+type mockCPI struct {
+	broadcastMsg []*pb.OpenchainMessage
+	execTx       [][]*pb.Transaction
+}
+
+type taggedMsg struct {
 	id  int
 	msg *pb.OpenchainMessage
 }
 
 type testnetwork struct {
 	replicas []*instance
-	msgs     []taggedmsg
+	msgs     []taggedMsg
 }
 
 type instance struct {
@@ -231,16 +205,45 @@ type instance struct {
 	executed [][]*pb.Transaction
 }
 
-func (*instance) Unicast(payload []byte, receiver string) error { panic("invalid") }
+// =============================================================================
+// Interface implementations
+// =============================================================================
+
+func (mock *mockCPI) Broadcast(msg *pb.OpenchainMessage) error {
+	mock.broadcastMsg = append(mock.broadcastMsg, msg)
+	return nil
+}
+
+func (mock *mockCPI) Unicast(msgPayload []byte, dest string) error {
+	panic("not implemented yet")
+}
+
+func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	mock.execTx = append(mock.execTx, txs)
+	return []byte("hash"), make([]error, len(txs)+1)
+}
+
+func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
+	net := inst.net
+	net.msgs = append(net.msgs, taggedMsg{inst.id, msg})
+	return nil
+}
+
+func (*instance) Unicast(msgPayload []byte, receiver string) error {
+	panic("not implemented yet")
+}
+
 func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	inst.executed = append(inst.executed, txs)
 	return []byte("hash"), nil
 }
 
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
-	net := inst.net
-	net.msgs = append(net.msgs, taggedmsg{inst.id, msg})
-	return nil
+func NewMock() *mockCPI {
+	mock := &mockCPI{
+		make([]*pb.OpenchainMessage, 0),
+		make([][]*pb.Transaction, 0),
+	}
+	return mock
 }
 
 func (net *testnetwork) process() error {
@@ -248,12 +251,12 @@ func (net *testnetwork) process() error {
 		msgs := net.msgs
 		net.msgs = nil
 
-		for _, taggedmsg := range msgs {
+		for _, taggedMsg := range msgs {
 			for i, replica := range net.replicas {
-				if i == taggedmsg.id {
+				if i == taggedMsg.id {
 					continue
 				}
-				err := replica.plugin.RecvMsg(taggedmsg.msg)
+				err := replica.plugin.RecvMsg(taggedMsg.msg)
 				if err != nil {
 					return nil
 				}
@@ -265,6 +268,9 @@ func (net *testnetwork) process() error {
 }
 
 func TestNetwork(t *testing.T) {
+
+	fmt.Print("\n\n\n")
+
 	const f = 2
 	const nreplica = 3*f + 1
 	net := &testnetwork{}
@@ -294,19 +300,19 @@ func TestNetwork(t *testing.T) {
 	}
 	err = net.replicas[0].plugin.RecvMsg(msg)
 	if err != nil {
-		t.Fatalf("request failed: %s", err)
+		t.Fatalf("Request failed: %s", err)
 	}
 
 	err = net.process()
 	if err != nil {
-		t.Fatalf("processing failed: %s", err)
+		t.Fatalf("Processing failed: %s", err)
 	}
 
 	for _, inst := range net.replicas {
 		if len(inst.executed) == 0 {
-			t.Errorf("instance %d did not execute transaction", inst.id)
+			t.Errorf("Instance %d did not execute transaction", inst.id)
 		} else if !reflect.DeepEqual(inst.executed[0], txs) {
-			t.Errorf("instance %d executed wrong transaction, %s should be %s",
+			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
 				inst.id, inst.executed[0], txs)
 		}
 	}

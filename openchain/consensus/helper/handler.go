@@ -29,7 +29,8 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// ConsensusHandler handles consensus messages. It also implements the CPI.
+// ConsensusHandler handles consensus messages.
+// It also implements the CPI.
 type ConsensusHandler struct {
 	chatStream  peer.ChatStream
 	consenter   consensus.Consenter
@@ -38,7 +39,7 @@ type ConsensusHandler struct {
 	peerHandler peer.MessageHandler
 }
 
-// NewConsensusHandler constructs a new plugin MessageHandler
+// NewConsensusHandler constructs a new MessageHandler for the plugin.
 func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	stream peer.ChatStream, initiatedStream bool,
 	next peer.MessageHandler) (peer.MessageHandler, error) {
@@ -54,15 +55,13 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 
-	// Set consenter
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
-
 	handler.done = make(chan bool)
 
 	return handler, nil
 }
 
-// HandleMessage handles the Openchain messages for the Peer
+// HandleMessage handles the incoming Openchain messages for the Peer.
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_REQUEST || msg.Type == pb.OpenchainMessage_CONSENSUS {
 		return handler.consenter.RecvMsg(msg)
@@ -71,7 +70,7 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	return handler.peerHandler.HandleMessage(msg)
 }
 
-// SendMessage sends a message to the remote Peer through the stream
+// SendMessage sends a message to the remote Peer through the stream.
 func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 	logger.Debug("Sending to stream a message of type: %s", msg.Type)
 	err := handler.chatStream.Send(msg)
@@ -81,11 +80,9 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// Stop stops this MessageHandler, which then delegates to the contained
-// PeerHandler to stop (and thus deregister this Peer)
+// Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer).
 func (handler *ConsensusHandler) Stop() error {
-	// Deregister the handler
-	err := handler.peerHandler.Stop()
+	err := handler.peerHandler.Stop() // deregister the handler
 	handler.done <- true
 	if err != nil {
 		return fmt.Errorf("Error stopping ConsensusHandler: %s", err)
@@ -93,8 +90,7 @@ func (handler *ConsensusHandler) Stop() error {
 	return nil
 }
 
-// To returns the PeerEndpoint this Handler is connected to by delegating to the
-// contained PeerHandler
+// To returns the PeerEndpoint this Handler is connected to by delegating to the contained PeerHandler
 func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }

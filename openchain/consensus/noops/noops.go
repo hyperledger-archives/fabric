@@ -33,8 +33,7 @@ import (
 // Init
 // =============================================================================
 
-// Package-level logger
-var logger *logging.Logger
+var logger *logging.Logger // package-level logger
 
 func init() {
 	logger = logging.MustGetLogger("consensus/noops")
@@ -44,37 +43,35 @@ func init() {
 // Structures go here
 // =============================================================================
 
-// Noops is a consensus plugin object implementing the consensus.Consenter interface
+// Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
-	cpi consensus.CPI // The consensus programming interface
+	cpi consensus.CPI
 }
 
 // =============================================================================
 // Constructors go here
 // =============================================================================
 
-// New is a constructor returning a consensus.Consenter object
+// New is a constructor returning a consensus.Consenter object.
 func New(c consensus.CPI) consensus.Consenter {
 	i := &Noops{}
 	i.cpi = c
 	return i
 }
 
-// RecvMsg is called when there is a pb.OpenchainMessage_REQUEST message
-// @return true if processed and false otherwise
+// RecvMsg is called for OpenchainMessage_REQUEST and OpenchainMessage_CONSENSUS messages.
 func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 		msg.Type = pb.OpenchainMessage_CONSENSUS
-		// broadcast to others so they can exec the tx
 		err := i.cpi.Broadcast(msg)
 		if nil != err {
 			return fmt.Errorf("Failed to broadcast: %v", err)
 		}
 
 		// WARNING: We might end up getting the same message sent back to us
-		// due to Byzantine. We ignore this case for the no-ops consensus
+		// due to Byzantine. We ignore this case for the no-ops consensus.
 	}
 
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
