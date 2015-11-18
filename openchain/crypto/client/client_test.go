@@ -39,16 +39,16 @@ func TestMain(m *testing.M) {
 	}
 }
 
-func Test_NewChainletDeployTransaction(t *testing.T) {
+func Test_NewChaincodeDeployTransaction(t *testing.T) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
-		t.Fatalf("Test_NewChainletDeployTransaction: failed generating uuid: err %s", err)
+		t.Fatalf("Test_NewChaincodeDeployTransaction: failed generating uuid: err %s", err)
 	}
-	tx, err := client.NewChainletDeployTransaction(
-		&pb.ChainletDeploymentSpec{
-			ChainletSpec: &pb.ChainletSpec{
-				Type:       pb.ChainletSpec_GOLANG,
-				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
+	tx, err := client.NewChaincodeDeployTransaction(
+		&pb.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:       pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
 			},
 			EffectiveDate: nil,
@@ -58,29 +58,29 @@ func Test_NewChainletDeployTransaction(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Fatalf("Test_NewChainletDeployTransaction: failed creating NewChainletDeployTransaction: err %s", err)
+		t.Fatalf("Test_NewChaincodeDeployTransaction: failed creating NewChaincodeDeployTransaction: err %s", err)
 	}
 
 	if tx == nil {
-		t.Fatalf("Test_NewChainletDeployTransaction: failed creating NewChainletDeployTransaction: result is nil")
+		t.Fatalf("Test_NewChaincodeDeployTransaction: failed creating NewChaincodeDeployTransaction: result is nil")
 	}
 
 	err = client.checkTransaction(tx)
 	if err != nil {
-		t.Fatalf("Test_NewChainletDeployTransaction: failed checking transaction: err %s", err)
+		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
 	}
 }
 
-func Test_NewChainletInvokeTransaction(t *testing.T) {
+func Test_NewChaincodeInvokeTransaction(t *testing.T) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
-		t.Fatalf("Test_NewChainletInvokeTransaction: failed generating uuid: err %s", err)
+		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
 	}
-	tx, err := client.NewChainletInvokeTransaction(
+	tx, err := client.NewChaincodeInvokeTransaction(
 		&pb.ChaincodeInvocationSpec{
-			ChainletSpec: &pb.ChainletSpec{
-				Type:       pb.ChainletSpec_GOLANG,
-				ChainletID: &pb.ChainletID{Url: "Contract001", Version: "0.0.1"},
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:       pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:    nil,
 			},
 		},
@@ -88,15 +88,15 @@ func Test_NewChainletInvokeTransaction(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Fatalf("Test_NewChainletInvokeTransaction: failed creating NewChainletInvokeTransaction: err %s", err)
+		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: err %s", err)
 	}
 
 	if tx == nil {
-		t.Fatalf("Test_NewChainletInvokeTransaction: failed creating NewChainletInvokeTransaction: result is nil")
+		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: result is nil")
 	}
 
 	err = client.checkTransaction(tx)
 	if err != nil {
-		t.Fatalf("Test_NewChainletInvokeTransaction: failed checking transaction: err %s", err)
+		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed checking transaction: err %s", err)
 	}
 }

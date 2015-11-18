@@ -50,11 +50,11 @@ type Devops struct {
 }
 
 // Build builds the supplied chaincode image
-func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
-	mode := viper.GetString("chainlet.chaincoderunmode")
+func (*Devops) Build(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
+	mode := viper.GetString("chaincode.chaincoderunmode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
+		devopsLogger.Debug("Received build request for chaincode spec: %v", spec)
 		if err := checkSpec(spec); err != nil {
 			return nil, err
 		}
@@ -71,14 +71,14 @@ func (*Devops) Build(context context.Context, spec *pb.ChainletSpec) (*pb.Chainl
 			return nil, err
 		}
 	}
-	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
-	return chainletDeploymentSpec, nil
+	chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	return chaincodeDeploymentSpec, nil
 }
 
 // Deploy deploys the supplied chaincode image to the validators through a transaction
-func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
+func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSpec, err := d.Build(ctx, spec)
+	chaincodeDeploymentSpec, err := d.Build(ctx, spec)
 
 	if err != nil {
 		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
@@ -91,15 +91,15 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
+	transaction, err := pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	mode := viper.GetString("chainlet.chaincoderunmode")
+	mode := viper.GetString("chaincode.chaincoderunmode")
 
 	if mode == chaincode.DevModeUserRunsChaincode {
 		_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-		return chainletDeploymentSpec, execErr
+		return chaincodeDeploymentSpec, execErr
 	}
 
 	//we are not in "dev mode", we have to pass requests to remote validator via stream
@@ -109,7 +109,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChainletSpec) (*pb.Chainle
 	}
 	// Construct the transactions block.
 	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	return chainletDeploymentSpec, peer.SendTransactionsToPeer(peerAddress, transactionBlock)
+	return chaincodeDeploymentSpec, peer.SendTransactionsToPeer(peerAddress, transactionBlock)
 }
 
 func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, invoke bool) (*pb.DevopsResponse, error) {
@@ -123,15 +123,15 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var transaction *pb.Transaction
 	var err error
 	if invoke {
-		transaction, err = pb.NewChainletExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_EXECUTE)
+		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_EXECUTE)
 	} else {
-		transaction, err = pb.NewChainletExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINLET_QUERY)
+		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_QUERY)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	mode := viper.GetString("chainlet.chaincoderunmode")
+	mode := viper.GetString("chaincode.chaincoderunmode")
 
 	//in dev mode, we invoke locally (whether user runs chaincode or validator does)
 	if mode == chaincode.DevModeUserRunsChaincode {
@@ -147,19 +147,19 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	/** TODO
-	  * - hook up with latest code so we can submit the transaction/query to remote validator
-	  * - in particular, we need synch response for query
-		peerAddress, err := GetRootNode()
-		if err != nil {
-			return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
-		}
-		// Construct the transactions block.
-		transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-		devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
-		//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
-		return &google_protobuf.Empty{}, nil
-        ***/
-	return nil,nil
+		  * - hook up with latest code so we can submit the transaction/query to remote validator
+		  * - in particular, we need synch response for query
+			peerAddress, err := GetRootNode()
+			if err != nil {
+				return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+			}
+			// Construct the transactions block.
+			transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
+			devopsLogger.Debug("Sending invocation transaction (%s) to validator at address %s", transactionBlock.Transactions, peerAddress)
+			//return &google_protobuf.Empty{}, SendTransactionsToPeer(peerAddress, transactionBlock)
+			return &google_protobuf.Empty{}, nil
+	        ***/
+	return nil, nil
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
@@ -173,15 +173,15 @@ func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.Chaincod
 }
 
 // Checks to see if chaincode resides within current package capture for language.
-func checkSpec(spec *pb.ChainletSpec) error {
+func checkSpec(spec *pb.ChaincodeSpec) error {
 	// Don't allow nil value
 	if spec == nil {
 		return errors.New("Expected chaincode specification, nil received")
 	}
 
 	// Only allow GOLANG type at the moment
-	if spec.Type != pb.ChainletSpec_GOLANG {
-		return fmt.Errorf("Only support '%s' currently", pb.ChainletSpec_GOLANG)
+	if spec.Type != pb.ChaincodeSpec_GOLANG {
+		return fmt.Errorf("Only support '%s' currently", pb.ChaincodeSpec_GOLANG)
 	}
 	if err := checkGolangSpec(spec); err != nil {
 		return err
@@ -189,18 +189,18 @@ func checkSpec(spec *pb.ChainletSpec) error {
 	devopsLogger.Debug("Validated spec:  %v", spec)
 
 	// Check the version
-	_, err := semver.Make(spec.ChainletID.Version)
+	_, err := semver.Make(spec.ChaincodeID.Version)
 	return err
 }
 
-func checkGolangSpec(spec *pb.ChainletSpec) error {
-	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChainletID.Url)
+func checkGolangSpec(spec *pb.ChaincodeSpec) error {
+	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Url)
 	exists, err := pathExists(pathToCheck)
 	if err != nil {
 		return fmt.Errorf("Error validating chaincode path: %s", err)
 	}
 	if !exists {
-		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChainletID.Url)
+		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Url)
 	}
 	return nil
 }
@@ -217,10 +217,10 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-//BuildLocal builds a given chainlet code
-func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDeploymentSpec, error) {
-	devopsLogger.Debug("Received build request for chainlet spec: %v", spec)
-	mode := viper.GetString("chainlet.chaincoderunmode")
+//BuildLocal builds a given chaincode code
+func BuildLocal(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
+	devopsLogger.Debug("Received build request for chaincode spec: %v", spec)
+	mode := viper.GetString("chaincode.chaincoderunmode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
 		if err := checkSpec(spec); err != nil {
@@ -240,14 +240,14 @@ func BuildLocal(context context.Context, spec *pb.ChainletSpec) (*pb.ChainletDep
 			return nil, err
 		}
 	}
-	chainletDeploymentSpec := &pb.ChainletDeploymentSpec{ChainletSpec: spec, CodePackage: codePackageBytes}
-	return chainletDeploymentSpec, nil
+	chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	return chaincodeDeploymentSpec, nil
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
+func DeployLocal(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	// First build and get the deployment spec
-	chainletDeploymentSpec, err := BuildLocal(ctx, spec)
+	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
 	if err != nil {
 		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
@@ -260,7 +260,7 @@ func DeployLocal(ctx context.Context, spec *pb.ChainletSpec) ([]byte, error) {
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChainletDeployTransaction(chainletDeploymentSpec, uuid)
+	transaction, err := pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}

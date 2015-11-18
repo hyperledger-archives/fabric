@@ -77,20 +77,20 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
-// BuildVMName gets the container name given the chainlet spec
-func BuildVMName(spec *pb.ChainletSpec) (string, error) {
+// BuildVMName gets the container name given the chaincode spec
+func BuildVMName(spec *pb.ChaincodeSpec) (string, error) {
 	// Make sure version is specfied correctly
-	version, err := semver.Make(spec.ChainletID.Version)
+	version, err := semver.Make(spec.ChaincodeID.Version)
 	if err != nil {
 		return "", fmt.Errorf("Error building VM name: %s", err)
 	}
-	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChainletID.Url, string(os.PathSeparator), ".", -1), version)
+	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChaincodeID.Url, string(os.PathSeparator), ".", -1), version)
 	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }
 
 // BuildChaincodeContainer builds the container for the supplied chaincode specification
-func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
+func (vm *VM) BuildChaincodeContainer(spec *pb.ChaincodeSpec) ([]byte, error) {
 	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
 	if err != nil {
 		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
@@ -103,7 +103,7 @@ func (vm *VM) BuildChaincodeContainer(spec *pb.ChainletSpec) ([]byte, error) {
 }
 
 // Builds the Chaincode image using the supplied Dockerfile package contents
-func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChainletSpec, inputbuf io.Reader) error {
+func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChaincodeSpec, inputbuf io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
 	vmName, err := BuildVMName(spec)
 	if err != nil {
@@ -143,7 +143,7 @@ func (vm *VM) BuildPeerContainer() error {
 }
 
 // GetChaincodePackageBytes returns the gzipped tar image used for docker build of supplied Chaincode package
-func (vm *VM) GetChaincodePackageBytes(spec *pb.ChainletSpec) ([]byte, error) {
+func (vm *VM) GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
 	tr := tar.NewWriter(gw)
@@ -188,12 +188,12 @@ func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, er
 	return inputbuf, nil
 }
 
-func (vm *VM) writeChaincodePackage(spec *pb.ChainletSpec, tw *tar.Writer) error {
+func (vm *VM) writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	startTime := time.Now()
 
 	// Dynamically create the Dockerfile from the base config and required additions
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChainletID.Url)
-	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chainlet.golang.Dockerfile"), newRunLine)
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChaincodeID.Url)
+	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
@@ -272,6 +272,6 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 	if err := tw.Close(); err != nil {
 		return err
 	}
-	//ioutil.WriteFile("/tmp/chainlet_deployment.tar", inputbuf.Bytes(), 0644)
+	//ioutil.WriteFile("/tmp/chaincode_deployment.tar", inputbuf.Bytes(), 0644)
 	return nil
 }

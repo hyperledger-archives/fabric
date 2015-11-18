@@ -63,8 +63,8 @@ type Handler struct {
 	sync.RWMutex
 	ChatStream        PeerChaincodeStream
 	FSM               *fsm.FSM
-	ChaincodeID       *pb.ChainletID
-	chainletSupport   *ChainletSupport
+	ChaincodeID       *pb.ChaincodeID
+	chaincodeSupport  *ChaincodeSupport
 	registered        bool
 	readyNotify       chan bool
 	responseNotifiers map[string]chan *pb.ChaincodeMessage
@@ -74,7 +74,7 @@ type Handler struct {
 
 func (handler *Handler) deregister() error {
 	if handler.registered {
-		handler.chainletSupport.deregisterHandler(handler)
+		handler.chaincodeSupport.deregisterHandler(handler)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (handler *Handler) processStream() error {
 			return err
 		}
 		if err != nil {
-			chainletLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
+			chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
 			return err
 		}
 		err = handler.HandleMessage(in)
@@ -100,18 +100,18 @@ func (handler *Handler) processStream() error {
 }
 
 // HandleChaincodeStream Main loop for handling the associated Chaincode stream
-func HandleChaincodeStream(chainletSupport *ChainletSupport, stream pb.ChainletSupport_RegisterServer) error {
+func HandleChaincodeStream(chaincodeSupport *ChaincodeSupport, stream pb.ChaincodeSupport_RegisterServer) error {
 	deadline, ok := stream.Context().Deadline()
 	chaincodeLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
-	handler := newChaincodeSupportHandler(chainletSupport, stream)
+	handler := newChaincodeSupportHandler(chaincodeSupport, stream)
 	return handler.processStream()
 }
 
-func newChaincodeSupportHandler(chainletSupport *ChainletSupport, peerChatStream PeerChaincodeStream) *Handler {
+func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStream PeerChaincodeStream) *Handler {
 	v := &Handler{
 		ChatStream: peerChatStream,
 	}
-	v.chainletSupport = chainletSupport
+	v.chaincodeSupport = chaincodeSupport
 
 	v.FSM = fsm.NewFSM(
 		createdstate,
@@ -199,23 +199,23 @@ func (handler *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	chainletID := &pb.ChainletID{}
-	err := proto.Unmarshal(msg.Payload, chainletID)
+	chaincodeID := &pb.ChaincodeID{}
+	err := proto.Unmarshal(msg.Payload, chaincodeID)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error in received %s, could NOT unmarshal registration info: %s", pb.ChaincodeMessage_REGISTER, err))
 		return
 	}
 
-	// Now register with the chainletSupport
-	handler.ChaincodeID = chainletID
-	err = handler.chainletSupport.registerHandler(handler)
+	// Now register with the chaincodeSupport
+	handler.ChaincodeID = chaincodeID
+	err = handler.chaincodeSupport.registerHandler(handler)
 	if err != nil {
 		e.Cancel(err)
 		handler.notifyDuringStartup(false)
 		return
 	}
 
-	chaincodeLogger.Debug("Got %s for chainldetID = %s, sending back %s", e.Event, chainletID, pb.ChaincodeMessage_REGISTERED)
+	chaincodeLogger.Debug("Got %s for chainletID = %s, sending back %s", e.Event, chaincodeID, pb.ChaincodeMessage_REGISTERED)
 	if err := handler.ChatStream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTERED}); err != nil {
 		e.Cancel(fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_REGISTERED, err))
 		handler.notifyDuringStartup(false)
@@ -584,7 +584,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	}
 	eventErr := handler.FSM.Event(event, ccMsg)
 	if eventErr != nil {
-		fmt.Printf("Failed to trigger FSM event READY : %s\n", eventErr)
+		chaincodeLogger.Debug("Failed to trigger FSM event READY : %s\n", eventErr)
 	}
 
 	return notfy, eventErr

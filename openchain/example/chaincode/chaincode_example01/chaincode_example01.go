@@ -43,34 +43,34 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 	if function == "init" {
 		if len(args) != 4 {
 			return nil, errors.New("Incorrect number of arguments. Expecting 4")
-		} 
-	
+		}
+
 		// Initialize the chaincode
 		A = args[0]
-		Aval,err = strconv.Atoi(args[1]) 
+		Aval, err = strconv.Atoi(args[1])
 		if err != nil {
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
 		B = args[2]
-		Bval,err = strconv.Atoi(args[3])
+		Bval, err = strconv.Atoi(args[3])
 		if err != nil {
 			return nil, errors.New("Expecting integer value for asset holding")
 		}
 		fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
-/************
-		// Write the state to the ledger
-		err = stub.PutState(A, []byte(strconv.Itoa(Aval))
-		if err != nil {
-			return nil, err
-		}
+		/************
+				// Write the state to the ledger
+				err = stub.PutState(A, []byte(strconv.Itoa(Aval))
+				if err != nil {
+					return nil, err
+				}
 
-		stub.PutState(B, []byte(strconv.Itoa(Bval))	
-		err = stub.PutState(B, []byte(strconv.Itoa(Bval))
-		if err != nil {
-			return nil, err
-		}
-************/
+				stub.PutState(B, []byte(strconv.Itoa(Bval))
+				err = stub.PutState(B, []byte(strconv.Itoa(Bval))
+				if err != nil {
+					return nil, err
+				}
+		************/
 	} else if function == "invoke" {
 		// Transaction makes payment of X units from A to B
 		X, err = strconv.Atoi(args[0])
@@ -78,7 +78,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		Bval = Bval + X
 		fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 	}
-	
+
 	return nil, nil
 }
 

@@ -27,10 +27,10 @@ import "chaincode.proto";
 service Devops {
 
     // Build the chaincode package.
-    rpc Build(ChainletSpec) returns (ChainletDeploymentSpec) {}
+    rpc Build(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
 
     // Deploy the chaincode package to the chain.
-    rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
+    rpc Deploy(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
 
     // Invoke chaincode.
     rpc Invoke(ChaincodeInvocationSpec) returns (DevopsResponse) {}
@@ -63,5 +63,5 @@ message BuildResult {
 
     StatusCode status = 1;
     string msg = 2;
-    ChainletDeploymentSpec deploymentSpec = 3;
+    ChaincodeDeploymentSpec deploymentSpec = 3;
 }
