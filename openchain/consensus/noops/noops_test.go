@@ -29,50 +29,47 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-type mockCpi struct {
-	broadcastMsg []*pb.OpenchainMessage
-	execTx       [][]*pb.Transaction
+type mockCPI struct {
+	broadcasted []*pb.OpenchainMessage
+	executed    [][]*pb.Transaction
 }
 
-func NewMock() *mockCpi {
-	mock := &mockCpi{
+func NewMock() *mockCPI {
+	mock := &mockCPI{
 		make([]*pb.OpenchainMessage, 0),
 		make([][]*pb.Transaction, 0),
 	}
 	return mock
 }
 
-func (mock *mockCpi) Broadcast(msg *pb.OpenchainMessage) error {
-	mock.broadcastMsg = append(mock.broadcastMsg, msg)
+func (mock *mockCPI) Broadcast(msg *pb.OpenchainMessage) error {
+	mock.broadcasted = append(mock.broadcasted, msg)
 	return nil
 }
 
-func (mock *mockCpi) Unicast(msg []byte, dest string) error {
-	panic("not implemented")
+func (mock *mockCPI) Unicast(msg []byte, dest string) error {
+	panic("not implemented yet")
 }
 
-func (mock *mockCpi) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	mock.execTx = append(mock.execTx, txs)
+func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	mock.executed = append(mock.executed, txs)
 	return []byte("hash"), make([]error, len(txs)+1)
 }
 
-func TestNoopRequest(t *testing.T) {
+func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
 
 	txTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
-	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
-	txBlockPacked, err := proto.Marshal(txBlock)
-	if err != nil {
-		t.Fatalf("Failed to marshal TX block: %s", err)
-	}
+	txs := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
+	txsPacked, _ := proto.Marshal(txs)
 
-	msgWrapped := &pb.OpenchainMessage{
+	msg := &pb.OpenchainMessage{
 		Type:    pb.OpenchainMessage_REQUEST,
-		Payload: txBlockPacked,
+		Payload: txsPacked,
 	}
-	err = instance.RecvMsg(msgWrapped)
+	err := instance.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("Failed to handle request: %s", err)
 	}
