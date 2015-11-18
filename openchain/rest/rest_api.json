@@ -125,9 +125,9 @@
                 }],
                 "responses": {
                     "200": {
-                        "description": "Chaincode deployment specification message",
+                        "description": "Successfully built chainCode",
                         "schema": {
-                           "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                           "$ref": "#/definitions/OK"
                         }
                     },
                     "default": {
@@ -158,9 +158,42 @@
               }],
               "responses": {
                   "200": {
-                      "description": "Chaincode deployment specification message",
+                      "description": "Successfully deployed chainCode",
                       "schema": {
-                         "$ref": "#/definitions/ChaincodeDeploymentSpec"
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
+        },
+        "/devops/invoke": {
+           "post": {
+              "summary": "Service endpoint for invoking Chaincode",
+              "description": "The /devops/invoke endpoint receives requests to invoke functions for existing Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Devops"
+              ],
+              "operationId": "chaincodeInvoke",
+              "parameters": [{
+                 "name": "ChaincodeInvocationSpec",
+                 "in": "body",
+                 "description": "Chaincode invocation message",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/ChaincodeInvocationSpec"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully invoked transaction",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
                       }
                   },
                   "default": {
@@ -229,6 +262,7 @@
                 "type": {
                     "type": "string",
                     "default": "UNDEFINED",
+                    "example": "UNDEFINED",
                     "enum":[
                         "UNDEFINED",
                         "CHAINCODE_NEW",
@@ -292,6 +326,7 @@
                 "type": {
                     "type": "string",
                     "default": "GOLANG",
+                    "example": "GOLANG",
                     "enum":[
                         "UNDEFINED",
                         "GOLANG",
@@ -327,6 +362,15 @@
                 }
             }
         },
+        "ChaincodeInvocationSpec": {
+            "type": "object",
+            "properties": {
+                "chainletSpec": {
+                    "$ref": "#/definitions/ChainletSpec",
+                    "description": "Chaincode specification message."
+                }
+            }
+        },
         "ChaincodeMessage": {
             "type": "object",
             "properties": {
@@ -349,6 +393,15 @@
                 "Error": {
                     "type": "string",
                     "description": "A descriptive message explaining the cause of error."
+                }
+            }
+        },
+        "OK": {
+            "type": "object",
+            "properties": {
+                "OK": {
+                    "type": "string",
+                    "description": "A descriptive message confirming a successful request."
                 }
             }
         }
