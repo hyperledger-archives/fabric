@@ -55,6 +55,7 @@ message PrePrepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
+    uint64 replica_id = 4;
 }
 
 message Prepare {
@@ -62,7 +63,7 @@ message Prepare {
     uint64 sequence_number = 2;
     string request_digest = 3;
     string global_hash = 4;
-    string replica_id = 5;
+    uint64 replica_id = 5;
     repeated string tx_errors = 6;
 }
 
@@ -71,6 +72,6 @@ message Commit {
     uint64 sequence_number = 2;
     string request_digest = 3;
     string global_hash = 4;
-    string replica_id = 5;
+    uint64 replica_id = 5;
     repeated string tx_errors = 6;
 }

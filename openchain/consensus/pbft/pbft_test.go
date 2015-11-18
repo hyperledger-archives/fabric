@@ -249,6 +249,7 @@ func TestNetwork(t *testing.T) {
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
 		inst.plugin.replicaCount = nreplica
+		inst.plugin.f = f
 		net.replicas[i] = inst
 	}
 

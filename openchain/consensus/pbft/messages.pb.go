@@ -198,6 +198,7 @@ type PrePrepare struct {
 	View           uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
+	ReplicaId      uint64 `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
 }
 
 func (m *PrePrepare) Reset()         { *m = PrePrepare{} }
@@ -209,7 +210,7 @@ type Prepare struct {
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
-	ReplicaId      string   `protobuf:"bytes,5,opt,name=replica_id" json:"replica_id,omitempty"`
+	ReplicaId      uint64   `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
 	TxErrors       []string `protobuf:"bytes,6,rep,name=tx_errors" json:"tx_errors,omitempty"`
 }
 
@@ -222,7 +223,7 @@ type Commit struct {
 	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	GlobalHash     string   `protobuf:"bytes,4,opt,name=global_hash" json:"global_hash,omitempty"`
-	ReplicaId      string   `protobuf:"bytes,5,opt,name=replica_id" json:"replica_id,omitempty"`
+	ReplicaId      uint64   `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
 	TxErrors       []string `protobuf:"bytes,6,rep,name=tx_errors" json:"tx_errors,omitempty"`
 }
 

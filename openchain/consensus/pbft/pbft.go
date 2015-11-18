@@ -80,10 +80,12 @@ type msgId struct {
 }
 
 type msgCert struct {
-	request    *Request
-	prePrepare *PrePrepare
-	prepare    []*Prepare
-	commit     []*Commit
+	request     *Request
+	prePrepare  *PrePrepare
+	sentPrepare bool
+	prepare     []*Prepare
+	sentCommit  bool
+	commit      []*Commit
 }
 
 // =============================================================================
@@ -199,7 +201,7 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	cert := instance.certStore[msgId{v, n}]
 	if cert != nil {
 		p := cert.prePrepare
-		if p.View == v && p.SequenceNumber == n && p.RequestDigest == digest {
+		if p != nil && p.View == v && p.SequenceNumber == n && p.RequestDigest == digest {
 			return true
 		}
 	}
@@ -247,9 +249,11 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 }
 
 func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
-	logger.Debug("request received")
-	// XXX test timestamp
 	digest := hashMsg(msgRaw)
+	logger.Debug("%d received request %s", instance.id, digest)
+
+	// XXX test timestamp
+
 	instance.reqStore[digest] = req
 
 	n := instance.seqno + 1
@@ -266,13 +270,15 @@ func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
 		}
 
 		if instance.inWv(instance.view, n) && !haveOther {
-			logger.Debug("primary sending pre-prepare %d for %s", n, digest)
+			logger.Debug("primary %d sending pre-prepare %d/%d for %s",
+				instance.id, instance.view, n, digest)
 
 			instance.seqno = n
 			preprep := &PrePrepare{
 				View:           instance.view,
 				SequenceNumber: n,
 				RequestDigest:  digest,
+				ReplicaId:      instance.id,
 			}
 			cert := instance.getCert(digest, instance.view, n)
 			cert.prePrepare = preprep
@@ -285,44 +291,92 @@ func (instance *Plugin) recvRequest(msgRaw []byte, req *Request) error {
 }
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
-	logger.Debug("pre-prepare received")
+	logger.Debug("%d received %d pre-prepare %d/%d %s",
+		instance.id, preprep.ReplicaId, preprep.View,
+		preprep.SequenceNumber, preprep.RequestDigest)
 
-	if instance.leader {
+	if instance.primary(instance.view) != preprep.ReplicaId {
+		logger.Warning("pre-prepare from other than primary: %d should be %d", preprep.ReplicaId, instance.primary(instance.view))
+		return nil
+	}
+	if !instance.inWv(preprep.View, preprep.SequenceNumber) {
+		logger.Warning("pre-prepare seqno outside watermarks: seqno %d, low-mark %d", preprep.SequenceNumber, instance.h)
+		return nil
+	}
+	var cert msgCert
+	if cert, ok := instance.certStore[msgId{preprep.View, preprep.SequenceNumber}]; ok {
+		if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
+			logger.Warning("pre-prepare for same v,n but different digest: recv %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
+		}
+	} else {
+		cert := instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
+		cert.prePrepare = preprep
+	}
+	if cert.sentPrepare {
 		return nil
 	}
 
 	// XXX speculative execution: ExecTXs
 
-	logger.Debug("backup sending prepare for %s", preprep.RequestDigest)
+	if instance.primary(instance.view) != instance.id {
+		logger.Debug("backup %d sending prepare %d/%d for %s",
+			instance.id, preprep.View, preprep.SequenceNumber, preprep.RequestDigest)
 
-	prep := &Message{&Message_Prepare{&Prepare{
-		// XXX view
-		SequenceNumber: preprep.SequenceNumber,
-		RequestDigest:  preprep.RequestDigest,
-		// XXX ReplicaId
-	}}}
+		prep := &Prepare{
+			View:           preprep.View,
+			SequenceNumber: preprep.SequenceNumber,
+			RequestDigest:  preprep.RequestDigest,
+			ReplicaId:      instance.id,
+		}
+		cert.prepare = append(cert.prepare, prep)
+		cert.sentPrepare = true
 
-	return instance.broadcast(prep, false)
+		return instance.broadcast(&Message{&Message_Prepare{prep}}, false)
+	}
+
+	return nil
 }
 
 func (instance *Plugin) recvPrepare(prep *Prepare) error {
-	logger.Debug("prepare received")
+	logger.Debug("%d received %d prepare %d/%d %s",
+		instance.id, prep.ReplicaId, prep.View,
+		prep.SequenceNumber, prep.RequestDigest)
 
-	commit := &Message{&Message_Commit{&Commit{
-		// XXX view
-		SequenceNumber: prep.SequenceNumber,
-		RequestDigest:  prep.RequestDigest,
-		// XXX ReplicaId
-	}}}
+	if instance.primary(instance.view) != prep.ReplicaId && instance.inWv(prep.View, prep.SequenceNumber) {
+		cert := instance.getCert(prep.RequestDigest, prep.View, prep.SequenceNumber)
+		cert.prepare = append(cert.prepare, prep)
+	}
+	cert := instance.certStore[msgId{prep.View, prep.SequenceNumber}]
 
-	return instance.broadcast(commit, false)
+	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
+		logger.Debug("replica %d sending commit %d/%d for %s",
+			instance.id, prep.View, prep.SequenceNumber, prep.RequestDigest)
+
+		commit := &Commit{
+			View:           prep.View,
+			SequenceNumber: prep.SequenceNumber,
+			RequestDigest:  prep.RequestDigest,
+			ReplicaId:      instance.id,
+		}
+		cert.commit = append(cert.commit, commit)
+		cert.sentCommit = true
+
+		return instance.broadcast(&Message{&Message_Commit{commit}}, false)
+	}
+
+	return nil
 }
 
 func (instance *Plugin) recvCommit(commit *Commit) error {
-	logger.Debug("commit received")
+	logger.Debug("%d received %d commit %d/%d %s",
+		instance.id, commit.ReplicaId, commit.View,
+		commit.SequenceNumber, commit.RequestDigest)
 
-	// XXX wait for quorum certificate
-	// XXX commit transaction
+	if instance.inWv(commit.View, commit.SequenceNumber) {
+		cert := instance.getCert(commit.RequestDigest, commit.View, commit.SequenceNumber)
+		cert.commit = append(cert.commit, commit)
+	}
+
 	return nil
 }
 
