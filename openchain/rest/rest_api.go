@@ -169,7 +169,7 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 
 		// Client must supply payload
 		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChainletSpec.\"}")
+			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
 		} else {
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		}
@@ -216,7 +216,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 		// Client must supply payload
 		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChainletSpec.\"}")
+			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
 		} else {
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
 		}
@@ -233,7 +233,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Deploy the ChainletSpec
+	// Deploy the ChaincodeSpec
 	_, err = s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)

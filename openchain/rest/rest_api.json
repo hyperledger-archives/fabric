@@ -365,8 +365,8 @@
         "ChaincodeInvocationSpec": {
             "type": "object",
             "properties": {
-                "chainletSpec": {
-                    "$ref": "#/definitions/ChainletSpec",
+                "chaincodeSpec": {
+                    "$ref": "#/definitions/ChaincodeSpec",
                     "description": "Chaincode specification message."
                 }
             }
