@@ -547,9 +547,9 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		return
 	}
 	if invoke {
-		logger.Info("Succesfuly invoked transaction: %s(%s)", invocation, string(resp.Msg))
+		logger.Info("Successfully invoked transaction: %s(%s)", invocation, string(resp.Msg))
 	} else {
-		logger.Info("Succesfuly queried transaction: %s", invocation)
+		logger.Info("Successfully queried transaction: %s", invocation)
 		if err != nil {
 			fmt.Printf("Error running query : %s\n", err)
 		} else if resp != nil {
