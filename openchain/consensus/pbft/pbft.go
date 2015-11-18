@@ -388,10 +388,7 @@ func (instance *Plugin) getCert(digest string, v uint64, n uint64) (cert *msgCer
 		return
 	}
 
-	cert = &msgCert{
-		prepare: make([]*Prepare, 0),
-		commit:  make([]*Commit, 0),
-	}
+	cert = &msgCert{}
 	instance.certStore[idx] = cert
 	return
 }
