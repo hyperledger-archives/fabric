@@ -123,5 +123,6 @@ func Benchmark_Chat_Parallel(b *testing.B) {
 }
 
 func TestServer_Chat(t *testing.T) {
+	t.Skip("Will revisit after issue https://github.com/openblockchain/obc-peer/issues/253 is completed.")
 	performChat(t, peerClientConn)
 }
