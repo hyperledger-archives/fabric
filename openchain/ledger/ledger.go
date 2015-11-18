@@ -41,7 +41,7 @@ type Ledger struct {
 var ledger *Ledger
 var mutex sync.Mutex
 
-// GetLedger - gives a reference to a singleton ledger
+// GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
 	if ledger == nil {
 		mutex.Lock()
@@ -97,6 +97,17 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
+// TxBegin - Marks the begin of a new transaction in the ongoing batch
+func (ledger *Ledger) TxBegin(txUuid string) {
+	ledger.state.txBegin(txUuid)
+}
+
+// TxFinished - Marks the finish of the on-going transaction.
+// If txSuccessful is false, the state changes made by the transaction are discarded
+func (ledger *Ledger) TxFinished(txUuid string, txSuccessful bool) {
+	ledger.state.txFinish(txUuid, txSuccessful)
+}
+
 /////////////////// world-state related methods /////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
@@ -112,12 +123,12 @@ func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) (
 	return ledger.state.get(chaincodeID, key, committed)
 }
 
-// SetState sets state to given value for chaincodeID and key. Does not immideatly writes to memory
+// SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
 	return ledger.state.set(chaincodeID, key, value)
 }
 
-// DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
+// DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.delete(chaincodeID, key)
 }

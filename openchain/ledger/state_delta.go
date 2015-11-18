@@ -56,6 +56,22 @@ func (stateDelta *stateDelta) delete(chaincodeID string, key string) {
 	return
 }
 
+func (stateDelta *stateDelta) applyChanges(anotherStateDelta *stateDelta) {
+	for chaincodeID, chaincodeStateDelta := range anotherStateDelta.chaincodeStateDeltas {
+		for key, valueHolder := range chaincodeStateDelta.updatedKVs {
+			if valueHolder.isDelete() {
+				stateDelta.delete(chaincodeID, key)
+			} else {
+				stateDelta.set(chaincodeID, key, valueHolder.value)
+			}
+		}
+	}
+}
+
+func (stateDelta *stateDelta) isEmpty() bool {
+	return len(stateDelta.chaincodeStateDeltas) == 0
+}
+
 func (stateDelta *stateDelta) getOrCreateChaincodeStateDelta(chaincodeID string) *chaincodeStateDelta {
 	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
 	if !ok {

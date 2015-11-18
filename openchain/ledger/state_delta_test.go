@@ -43,25 +43,32 @@ func TestStateDeltaPersistence(t *testing.T) {
 	initTestDB(t)
 	historyStateDeltaSize = 2
 	state := getState()
-
 	state.clearInMemoryChanges()
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key1", []byte("value1"))
 	state.set("chaincode2", "key2", []byte("value2"))
+	state.txFinish("txUuid", true)
 	commitTestState(t, 0)
 
 	state.clearInMemoryChanges()
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key3", []byte("value3"))
 	state.set("chaincode2", "key4", []byte("value4"))
+	state.txFinish("txUuid", true)
 	commitTestState(t, 1)
 
 	state.clearInMemoryChanges()
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key5", []byte("value5"))
 	state.set("chaincode2", "key6", []byte("value6"))
+	state.txFinish("txUuid", true)
 	commitTestState(t, 2)
 
 	state.clearInMemoryChanges()
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key7", []byte("value7"))
 	state.set("chaincode2", "key8", []byte("value8"))
+	state.txFinish("txUuid", true)
 	commitTestState(t, 3)
 
 	// state delta for block# 3

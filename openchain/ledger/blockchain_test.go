@@ -131,8 +131,9 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
+	state.txBegin("transaction2a")
 	state.set("MyContract1", "code", []byte("code example"))
-
+	state.txFinish("transaction2a", true)
 	// Now we add the transaction to the block 2 and add the block to the chain
 	stateHash = getTestStateHash(t)
 	transactions2a := []*protos.Transaction{transaction2a}
@@ -152,7 +153,9 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
+	state.txBegin("transaction3a")
 	state.set("MyContract", "x", []byte("hello"))
+	state.txFinish("transaction3a", true)
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}

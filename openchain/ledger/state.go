@@ -21,6 +21,7 @@ package ledger
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -29,9 +30,11 @@ import (
 
 // State structure for maintaining world state. This is not thread safe
 type state struct {
-	stateDelta    *stateDelta
-	statehash     *stateHash
-	recomputeHash bool
+	stateDelta          *stateDelta
+	currentTxStateDelta *stateDelta
+	currentTxUuid       string
+	statehash           *stateHash
+	recomputeHash       bool
 }
 
 var stateLogger = logging.MustGetLogger("state")
@@ -43,16 +46,46 @@ var stateInstance *state
 // getState get handle to world state
 func getState() *state {
 	if stateInstance == nil {
-		stateInstance = &state{newStateDelta(), nil, true}
+		stateInstance = &state{newStateDelta(), newStateDelta(), "", nil, true}
 	}
 	return stateInstance
+}
+
+func (state *state) txBegin(txUuid string) {
+	stateLogger.Debug("txBegin() for txUuid [%s]", txUuid)
+	if state.txInProgress() {
+		panic(fmt.Errorf("A tx [%s] is already in progress. Received call for begin of another tx [%s]", state.currentTxUuid, txUuid))
+	}
+	state.currentTxUuid = txUuid
+}
+
+func (state *state) txFinish(txUuid string, txSuccessful bool) {
+	stateLogger.Debug("txFinish() for txUuid [%s], txSuccessful=[%t]", txUuid, txSuccessful)
+	if state.currentTxUuid != txUuid {
+		panic(fmt.Errorf("Different Uuid in tx-begin [%s] and tx-finish [%s]", state.currentTxUuid, txUuid))
+	}
+	if txSuccessful && !state.currentTxStateDelta.isEmpty() {
+		stateLogger.Debug("txFinish() for txUuid [%s] merging state changes", txUuid)
+		state.stateDelta.applyChanges(state.currentTxStateDelta)
+		state.recomputeHash = true
+	}
+	state.currentTxStateDelta = newStateDelta()
+	state.currentTxUuid = ""
+}
+
+func (state *state) txInProgress() bool {
+	return state.currentTxUuid != ""
 }
 
 // get - get state for chaincodeID and key. If committed is false, this first looks in memory and if missing,
 // pulls from db. If committed is true, this pulls from the db only.
 func (state *state) get(chaincodeID string, key string, committed bool) ([]byte, error) {
 	if !committed {
-		valueHolder := state.stateDelta.get(chaincodeID, key)
+		valueHolder := state.currentTxStateDelta.get(chaincodeID, key)
+		if valueHolder != nil {
+			return valueHolder.value, nil
+		}
+		valueHolder = state.stateDelta.get(chaincodeID, key)
 		if valueHolder != nil {
 			return valueHolder.value, nil
 		}
@@ -62,15 +95,21 @@ func (state *state) get(chaincodeID string, key string, committed bool) ([]byte,
 
 // set - sets state to given value for chaincodeID and key. Does not immideatly writes to memory
 func (state *state) set(chaincodeID string, key string, value []byte) error {
-	state.stateDelta.set(chaincodeID, key, value)
-	state.recomputeHash = true
+	stateLogger.Debug("set() chaincodeID=[%s], key=[%s], value=[%#v]", chaincodeID, key, value)
+	if !state.txInProgress() {
+		panic("State can be changed only in context of a tx.")
+	}
+	state.currentTxStateDelta.set(chaincodeID, key, value)
 	return nil
 }
 
 // delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
 func (state *state) delete(chaincodeID string, key string) error {
-	state.stateDelta.delete(chaincodeID, key)
-	state.recomputeHash = true
+	stateLogger.Debug("delete() chaincodeID=[%s], key=[%s]", chaincodeID, key)
+	if !state.txInProgress() {
+		panic("State can be changed only in context of a tx.")
+	}
+	state.currentTxStateDelta.delete(chaincodeID, key)
 	return nil
 }
 

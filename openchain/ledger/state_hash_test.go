@@ -31,12 +31,13 @@ func TestComputeHash_OnlyInMemoryChanges(t *testing.T) {
 	initTestDB(t)
 	state := getState()
 	state.clearInMemoryChanges()
-
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key1", []byte("value1"))
 	state.set("chaincode1", "key2", []byte("value2"))
 	state.set("chaincode2", "key3", []byte("value3"))
 	state.set("chaincode2", "key4", []byte("value4"))
 	state.delete("chaincode2", "key3")
+	state.txFinish("txUuid", true)
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key4value4"})
 }
 
@@ -45,22 +46,30 @@ func TestComputeHash_DBAndInMemoryChanges(t *testing.T) {
 	state := getState()
 	state.clearInMemoryChanges()
 
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key1", []byte("value1"))
 	state.set("chaincode1", "key2", []byte("value2"))
 	state.set("chaincode2", "key3", []byte("value3"))
 	state.set("chaincode2", "key4", []byte("value4"))
+	state.txFinish("txUuid", true)
 	saveTestStateDataInDB(t)
 
 	checkCodechainHashInDB(t, "chaincode1", "chaincode1key1value1key2value2")
 	checkCodechainHashInDB(t, "chaincode2", "chaincode2key3value3key4value4")
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key3value3key4value4"})
 
+	state.txBegin("txUuid")
 	state.delete("chaincode2", "key4")
 	state.set("chaincode2", "key5", []byte("value5"))
-	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key3value3key5value5"})
+	state.txFinish("txUuid", true)
 
+	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key3value3key5value5"})
 	saveTestStateDataInDB(t)
+
+	state.txBegin("txUuid")
 	state.set("chaincode2", "key0", []byte("value0"))
+	state.txFinish("txUuid", true)
+
 	checkGlobalStateHash(t, []string{"chaincode1key1value1key2value2", "chaincode2key0value0key3value3key5value5"})
 }
 
