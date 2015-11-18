@@ -80,7 +80,6 @@ type msgId struct {
 }
 
 type msgCert struct {
-	request     *Request
 	prePrepare  *PrePrepare
 	sentPrepare bool
 	prepare     []*Prepare
@@ -225,6 +224,9 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		}
 	}
 
+	logger.Debug("%d prepared %d/%d quorum %d",
+		instance.id, v, n, quorum)
+
 	return quorum >= 2*instance.f
 }
 
@@ -244,6 +246,9 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 			quorum += 1
 		}
 	}
+
+	logger.Debug("%d committed %d/%d quorum %d",
+		instance.id, v, n, quorum)
 
 	return quorum >= 2*instance.f+1
 }
@@ -377,6 +382,9 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 		cert.commit = append(cert.commit, commit)
 
 		instance.executeOutstanding()
+	} else {
+		logger.Warning("%d ignoring %d/%d not in-wv",
+			instance.id, commit.View, commit.SequenceNumber)
 	}
 
 	return nil
@@ -386,18 +394,22 @@ func (instance *Plugin) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
 		for idx, cert := range instance.certStore {
-			if idx.n != instance.lastExec+1 || cert == nil || cert.request == nil {
+			if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
 				continue
 			}
-			digest := hashReq(cert.request)
+			digest := cert.prePrepare.RequestDigest
+			req := instance.reqStore[digest]
 
 			if !instance.committed(digest, idx.v, idx.n) {
 				continue
 			}
 
-			logger.Info("%d executing/committing transaction %d/%d %s",
+			logger.Info("%d executing/committing request %d/%d %s",
 				instance.id, idx.v, idx.n, digest)
 			instance.lastExec = idx.n
+
+			// XXX cpi.ExecTXs()
+			_ = req
 
 			retry = true
 		}
