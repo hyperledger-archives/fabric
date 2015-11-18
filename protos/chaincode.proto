@@ -24,8 +24,8 @@ package protos;
 import "google/protobuf/timestamp.proto";
 
 // Carries the URL where the chaincode resides and the chaincode version.
-// TODO: Merge with ChainletIDentifier.
-message ChainletID {
+// TODO: Merge with ChaincodeIDentifier.
+message ChaincodeID {
 
     string url = 1;
     string version = 2;
@@ -43,7 +43,7 @@ message ChaincodeInput {
 // Carries the chaincode function and its arguments.
 message ChaincodeInvocationSpec {
 
-    ChainletSpec chainletSpec = 1;
+    ChaincodeSpec chaincodeSpec = 1;
     //ChaincodeInput message = 2;
 
 }
@@ -51,7 +51,7 @@ message ChaincodeInvocationSpec {
 
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
-message ChainletSpec {
+message ChaincodeSpec {
 
     enum Type {
         UNDEFINED = 0;
@@ -60,40 +60,40 @@ message ChainletSpec {
     }
 
     Type type = 1;
-    ChainletID chainletID = 2;
+    ChaincodeID chaincodeID = 2;
     ChaincodeInput ctorMsg = 3;
     int32 timeout = 4; 
 }
 
 // Specify the deployment of a chaincode.
 // TODO: Define `codePackage`.
-message ChainletDeploymentSpec {
+message ChaincodeDeploymentSpec {
 
-    ChainletSpec chainletSpec = 1;
+    ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
 
 }
 
-// TODO: Merge this with ChainletID.
-message ChainletIdentifier {
-    // URL for accessing the Chainlet, eg. https://github.com/user/SampleContract
+// TODO: Merge this with ChaincodeID.
+message ChaincodeIdentifier {
+    // URL for accessing the Chaincode, eg. https://github.com/user/SampleContract
     string Url = 1;
 }
 
 
 // Used by the peer to identify the requesting chaincode and allows for proper
 // access to state.
-message ChainletRequestContext {
-    ChainletIdentifier Id = 1;
+message ChaincodeRequestContext {
+    ChaincodeIdentifier Id = 1;
 }
 
 // Provided by the peer to the chaincode to identify the requesting chaincode
 // and allow for proper access to state.
-message ChainletExecutionContext {
+message ChaincodeExecutionContext {
 
-    ChainletIdentifier ChainletId = 1;
+    ChaincodeIdentifier ChaincodeId = 1;
     google.protobuf.Timestamp Timestamp = 2;
 
 }
@@ -116,6 +116,7 @@ message ChaincodeMessage {
 	RESPONSE = 12;
 	QUERY = 13;
 	QUERY_COMPLETED = 14;
+	QUERY_ERROR = 15;
     }
 
     Type type = 1;
@@ -130,12 +131,12 @@ message PutStateInfo {
     bytes value = 2;
 }
 
-// Interface that provides support to chaincode execution. ChainletContext
+// Interface that provides support to chaincode execution. ChaincodeContext
 // provides the context necessary for the server to respond appropriately.
-service ChainletSupport {
+service ChaincodeSupport {
 
     // Return the datetime.
-    rpc GetExecutionContext(ChainletRequestContext) returns (ChainletExecutionContext) {}
+    rpc GetExecutionContext(ChaincodeRequestContext) returns (ChaincodeExecutionContext) {}
 
     rpc Register(stream ChaincodeMessage) returns (stream ChaincodeMessage) {}
 

@@ -31,24 +31,24 @@ import (
 func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	chain := initTestBlockChain(t)
 
-	// Create the Chainlet specification
-	chainletSpec := &protos.ChainletSpec{Type: protos.ChainletSpec_GOLANG,
-		ChainletID: &protos.ChainletID{Url: "Contracts"},
+	// Create the Chaincode specification
+	chaincodeSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
+		ChaincodeID: &protos.ChaincodeID{Url: "Contracts"},
 		CtorMsg:    &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
-	chainletDeploymentSepc := &protos.ChainletDeploymentSpec{ChainletSpec: chainletSpec}
+	chaincodeDeploymentSepc := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: chaincodeSpec}
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {
 		t.Fatalf("Error generating UUID. Error = [%s]", uuidErr)
 	}
-	newChainletTx, err := protos.NewChainletDeployTransaction(chainletDeploymentSepc, uuid)
+	newChaincodeTx, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSepc, uuid)
 	if err != nil {
 		t.Fail()
 		t.Logf("Failed to create new chaincode Deployment Transaction: %s", err)
 		return
 	}
-	t.Logf("New chainlet tx: %v", newChainletTx)
+	t.Logf("New chaincode tx: %v", newChaincodeTx)
 
-	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChainletTx})
+	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChaincodeTx})
 
 	err = chain.addBlock(context.TODO(), block1)
 	if err != nil {
@@ -125,14 +125,15 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 	// Deploy a contract
 	// To deploy a contract, we call the 'NewContract' function in the 'Contracts' contract
-	// TODO Use chainlet instead of contract?
+	// TODO Use chaincode instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
-	transaction2a := protos.NewTransaction(protos.ChainletID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a := protos.NewTransaction(protos.ChaincodeID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 
 	// VM runs transaction2a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
+	state.txBegin("transaction2a")
 	state.set("MyContract1", "code", []byte("code example"))
-
+	state.txFinish("transaction2a", true)
 	// Now we add the transaction to the block 2 and add the block to the chain
 	stateHash = getTestStateHash(t)
 	transactions2a := []*protos.Transaction{transaction2a}
@@ -149,10 +150,12 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChainletID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	transaction3a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
 
 	// Run this transction in the VM. The VM updates the state
+	state.txBegin("transaction3a")
 	state.set("MyContract", "x", []byte("hello"))
+	state.txFinish("transaction3a", true)
 
 	// Create the thrid block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
@@ -170,7 +173,7 @@ func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
 
 func buildTestTx() (*protos.Transaction, string) {
 	uuid, _ := util.GenerateUUID()
-	return protos.NewTransaction(protos.ChainletID{Url: "testUrl", Version: "1.1"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
+	return protos.NewTransaction(protos.ChaincodeID{Url: "testUrl", Version: "1.1"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
 }
 
 func checkHash(t *testing.T, hash []byte, expectedHash []byte) {

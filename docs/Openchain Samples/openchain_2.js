@@ -116,22 +116,22 @@ var blockchain = new openchain.DevopsApi('');
 // The api.ts exposes the APIs with the use of Promises as async callbacks.
 
 // Query the devopsBuildPost() API with Promises.
-var chainletSpec = {
+var chaincodeSpec = {
     type: "GOLANG",
-    chainletID: {
+    chaincodeID: {
         url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
         version: "0.1.0"
     }
 };
-var promise = blockchain.chaincodeBuild(chainletSpec);
+var promise = blockchain.chaincodeBuild(chaincodeSpec);
 
 // Once promise is fulfilled, print the contents of the response body.
 promise.then(function(devops) {
     console.log('Result of Devops Build:\n');
     console.log('-----------------------\n');
 
-    // Print chainletSpec only, as codePackage is too large to be printed
-    console.log(devops.body.chainletSpec);
+    // Print chaincodeSpec only, as codePackage is too large to be printed
+    console.log(devops.body.chaincodeSpec);
     console.log('\n');
     return;
 });

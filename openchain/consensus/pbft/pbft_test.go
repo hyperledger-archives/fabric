@@ -110,7 +110,7 @@ func TestRecvRequest(t *testing.T) {
 	instance.replicaCount = 5
 
 	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
 	txBlockPacked, err := proto.Marshal(txBlock)
 	if err != nil {
@@ -287,7 +287,7 @@ func TestNetwork(t *testing.T) {
 
 	// Create a message of type: `OpenchainMessage_REQUEST`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINLET_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txs := []*pb.Transaction{tx}
 	txBlock := &pb.TransactionBlock{Transactions: txs}
 	txBlockPacked, err := proto.Marshal(txBlock)

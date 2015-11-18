@@ -36,42 +36,42 @@ func (transaction *Transaction) Bytes() ([]byte, error) {
 }
 
 // NewTransaction creates a new transaction. It defines the function to call,
-// the chainletID on which the function should be called, and the arguments
+// the chaincodeID on which the function should be called, and the arguments
 // string. The arguments could be a string of JSON, but there is no strict
 // requirement.
-func NewTransaction(chainletID ChainletID, uuid string, function string, arguments []string) *Transaction {
+func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, arguments []string) *Transaction {
 	transaction := new(Transaction)
-	transaction.ChainletID = &chainletID
+	transaction.ChaincodeID = &chaincodeID
 	transaction.Uuid = uuid
 
 	/*
-	// Build the spec
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG,
-		ChainletID: chainletID, ChaincodeInput: &pb.ChaincodeInput{Function: function, Args: arguments}}
+		// Build the spec
+		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
+			ChaincodeID: chaincodeID, ChaincodeInput: &pb.ChaincodeInput{Function: function, Args: arguments}}
 
-	// Build the ChaincodeInvocationSpec message
-	invocation := &pb.ChaincodeInvocationSpec{ChainletSpec: spec}
+		// Build the ChaincodeInvocationSpec message
+		invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
-	data, err := proto.Marshal(invocation)
-	if err != nil {
-		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
-	}
-	transaction.Payload = data
+		data, err := proto.Marshal(invocation)
+		if err != nil {
+			return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
+		}
+		transaction.Payload = data
 	*/
 	return transaction
 }
 
-// NewChainletDeployTransaction is used to deploy chaincode.
-func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec, uuid string) (*Transaction, error) {
+// NewChaincodeDeployTransaction is used to deploy chaincode.
+func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentSpec, uuid string) (*Transaction, error) {
 	transaction := new(Transaction)
-	transaction.Type = Transaction_CHAINLET_NEW
+	transaction.Type = Transaction_CHAINCODE_NEW
 	transaction.Uuid = uuid
-	transaction.ChainletID = chainletDeploymentSpec.ChainletSpec.GetChainletID()
-	//if chainletDeploymentSpec.ChainletSpec.GetCtorMsg() != nil {
-	//	transaction.Function = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Function
-	//	transaction.Args = chainletDeploymentSpec.ChainletSpec.GetCtorMsg().Args
+	transaction.ChaincodeID = chaincodeDeploymentSpec.ChaincodeSpec.GetChaincodeID()
+	//if chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg() != nil {
+	//	transaction.Function = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Function
+	//	transaction.Args = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Args
 	//}
-	data, err := proto.Marshal(chainletDeploymentSpec)
+	data, err := proto.Marshal(chaincodeDeploymentSpec)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error mashalling payload for chaincode deployment: %s", err))
 		return nil, fmt.Errorf("Could not marshal payload for chaincode deployment: %s", err)
@@ -80,12 +80,12 @@ func NewChainletDeployTransaction(chainletDeploymentSpec *ChainletDeploymentSpec
 	return transaction, nil
 }
 
-// NewChainletInvokeTransaction is used to deploy chaincode.
-func NewChainletInvokeTransaction(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string) (*Transaction, error) {
+// NewChaincodeInvokeTransaction is used to deploy chaincode.
+func NewChaincodeExecute(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string, typ Transaction_Type) (*Transaction, error) {
 	transaction := new(Transaction)
-	transaction.Type = Transaction_CHAINLET_EXECUTE
+	transaction.Type = typ
 	transaction.Uuid = uuid
-	transaction.ChainletID = chaincodeInvocationSpec.ChainletSpec.GetChainletID()
+	transaction.ChaincodeID = chaincodeInvocationSpec.ChaincodeSpec.GetChaincodeID()
 	data, err := proto.Marshal(chaincodeInvocationSpec)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)

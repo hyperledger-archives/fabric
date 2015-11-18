@@ -37,9 +37,11 @@ func TestMain(m *testing.M) {
 func TestLedgerCommit(t *testing.T) {
 	ledger := InitTestLedger(t)
 	beginTxBatch(t, 1)
+	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
 	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
 	if !reflect.DeepEqual(getStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
@@ -50,9 +52,11 @@ func TestLedgerCommit(t *testing.T) {
 func TestLedgerRollback(t *testing.T) {
 	ledger := InitTestLedger(t)
 	beginTxBatch(t, 1)
+	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
 	rollbackTxBatch(t, 1)
 
 	valueAfterRollback := getStateFromLedger(t, "chaincode1", "key1")
@@ -66,9 +70,11 @@ func TestLedgerRollback(t *testing.T) {
 func TestLedgerDifferentID(t *testing.T) {
 	ledger := InitTestLedger(t)
 	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
 	err := ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("prrof"))
 	if err == nil {
@@ -79,9 +85,11 @@ func TestLedgerDifferentID(t *testing.T) {
 func TestStateSnapshot(t *testing.T) {
 	ledger := InitTestLedger(t)
 	beginTxBatch(t, 1)
+	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
 	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("proof"))
 
@@ -95,10 +103,12 @@ func TestStateSnapshot(t *testing.T) {
 
 	// Modify keys to ensure they do not impact the snapshot
 	beginTxBatch(t, 2)
+	ledger.TxBegin("txUuid")
 	ledger.DeleteState("chaincode1", "key1")
 	ledger.SetState("chaincode4", "key4", []byte("value4"))
 	ledger.SetState("chaincode5", "key5", []byte("value5"))
 	ledger.SetState("chaincode6", "key6", []byte("value6"))
+	ledger.TxFinished("txUuid", true)
 	transaction, _ = buildTestTx()
 	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
 

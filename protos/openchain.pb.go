@@ -22,29 +22,29 @@ var _ = math.Inf
 type Transaction_Type int32
 
 const (
-	Transaction_UNDEFINED          Transaction_Type = 0
-	Transaction_CHAINLET_NEW       Transaction_Type = 1
-	Transaction_CHAINLET_UPDATE    Transaction_Type = 2
-	Transaction_CHAINLET_EXECUTE   Transaction_Type = 3
-	Transaction_CHAINLET_QUERY     Transaction_Type = 4
-	Transaction_CHAINLET_TERMINATE Transaction_Type = 5
+	Transaction_UNDEFINED           Transaction_Type = 0
+	Transaction_CHAINCODE_NEW       Transaction_Type = 1
+	Transaction_CHAINCODE_UPDATE    Transaction_Type = 2
+	Transaction_CHAINCODE_EXECUTE   Transaction_Type = 3
+	Transaction_CHAINCODE_QUERY     Transaction_Type = 4
+	Transaction_CHAINCODE_TERMINATE Transaction_Type = 5
 )
 
 var Transaction_Type_name = map[int32]string{
 	0: "UNDEFINED",
-	1: "CHAINLET_NEW",
-	2: "CHAINLET_UPDATE",
-	3: "CHAINLET_EXECUTE",
-	4: "CHAINLET_QUERY",
-	5: "CHAINLET_TERMINATE",
+	1: "CHAINCODE_NEW",
+	2: "CHAINCODE_UPDATE",
+	3: "CHAINCODE_EXECUTE",
+	4: "CHAINCODE_QUERY",
+	5: "CHAINCODE_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
-	"UNDEFINED":          0,
-	"CHAINLET_NEW":       1,
-	"CHAINLET_UPDATE":    2,
-	"CHAINLET_EXECUTE":   3,
-	"CHAINLET_QUERY":     4,
-	"CHAINLET_TERMINATE": 5,
+	"UNDEFINED":           0,
+	"CHAINCODE_NEW":       1,
+	"CHAINCODE_UPDATE":    2,
+	"CHAINCODE_EXECUTE":   3,
+	"CHAINCODE_QUERY":     4,
+	"CHAINCODE_TERMINATE": 5,
 }
 
 func (x Transaction_Type) String() string {
@@ -66,6 +66,7 @@ const (
 	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 10
 	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 11
 	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 12
+	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 13
 	OpenchainMessage_REQUEST                OpenchainMessage_Type = 14
 	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
 )
@@ -83,6 +84,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	10: "CHAIN_GET_BLOCKS",
 	11: "CHAIN_BLOCKS",
 	12: "CHAIN_NEW_BLOCK",
+	13: "CHAIN_QUERY",
 	14: "REQUEST",
 	15: "CONSENSUS",
 }
@@ -99,6 +101,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"CHAIN_GET_BLOCKS":       10,
 	"CHAIN_BLOCKS":           11,
 	"CHAIN_NEW_BLOCK":        12,
+	"CHAIN_QUERY":            13,
 	"REQUEST":                14,
 	"CONSENSUS":              15,
 }
@@ -113,20 +116,20 @@ func (x OpenchainMessage_Type) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type       Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChainletID *ChainletID                `protobuf:"bytes,2,opt,name=chainletID" json:"chainletID,omitempty"`
-	Payload    []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid       string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	Timestamp  *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	Type        Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChaincodeID *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
 
-func (m *Transaction) GetChainletID() *ChainletID {
+func (m *Transaction) GetChaincodeID() *ChaincodeID {
 	if m != nil {
-		return m.ChainletID
+		return m.ChaincodeID
 	}
 	return nil
 }

@@ -120,14 +120,14 @@
                     "description": "Chaincode specification message",
                     "required": true,
                     "schema": {
-                       "$ref": "#/definitions/ChainletSpec"
+                       "$ref": "#/definitions/ChaincodeSpec"
                     }
                 }],
                 "responses": {
                     "200": {
-                        "description": "Chaincode deployment specification message",
+                        "description": "Successfully built chainCode",
                         "schema": {
-                           "$ref": "#/definitions/ChainletDeploymentSpec"
+                           "$ref": "#/definitions/OK"
                         }
                     },
                     "default": {
@@ -153,14 +153,47 @@
                  "description": "Chaincode specification message",
                  "required": true,
                  "schema": {
-                    "$ref": "#/definitions/ChainletSpec"
+                    "$ref": "#/definitions/ChaincodeSpec"
                  }
               }],
               "responses": {
                   "200": {
-                      "description": "Chaincode deployment specification message",
+                      "description": "Successfully deployed chainCode",
                       "schema": {
-                         "$ref": "#/definitions/ChainletDeploymentSpec"
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
+        },
+        "/devops/invoke": {
+           "post": {
+              "summary": "Service endpoint for invoking Chaincode",
+              "description": "The /devops/invoke endpoint receives requests to invoke functions for existing Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Devops"
+              ],
+              "operationId": "chaincodeInvoke",
+              "parameters": [{
+                 "name": "ChaincodeInvocationSpec",
+                 "in": "body",
+                 "description": "Chaincode invocation message",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/ChaincodeInvocationSpec"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully invoked transaction",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
                       }
                   },
                   "default": {
@@ -229,17 +262,18 @@
                 "type": {
                     "type": "string",
                     "default": "UNDEFINED",
+                    "example": "UNDEFINED",
                     "enum":[
                         "UNDEFINED",
-                        "CHAINLET_NEW",
-                        "CHAINLET_UPDATE",
-                        "CHAINLET_EXECUTE",
-                        "CHAINLET_TERMINATE"
+                        "CHAINCODE_NEW",
+                        "CHAINCODE_UPDATE",
+                        "CHAINCODE_EXECUTE",
+                        "CHAINCODE_TERMINATE"
                     ],
                     "description": "Transaction type."
                 },
-                "chainletID": {
-                    "$ref": "#/definitions/ChainletID",
+                "chaincodeID": {
+                    "$ref": "#/definitions/ChaincodeID",
                     "description": "Unique Chaincode identifier."
                 },
                 "function": {
@@ -264,7 +298,7 @@
                 }
             }
         },
-        "ChainletID": {
+        "ChaincodeID": {
             "type": "object",
             "properties": {
                 "url": {
@@ -286,12 +320,13 @@
                 }
             }
         },
-        "ChainletSpec": {
+        "ChaincodeSpec": {
             "type": "object",
             "properties": {
                 "type": {
                     "type": "string",
                     "default": "GOLANG",
+                    "example": "GOLANG",
                     "enum":[
                         "UNDEFINED",
                         "GOLANG",
@@ -299,21 +334,21 @@
                     ],
                     "description": "Chaincode specification language."
                 },
-                "chainletID": {
-                    "$ref": "#/definitions/ChainletID",
+                "chaincodeID": {
+                    "$ref": "#/definitions/ChaincodeID",
                     "description": "Unique Chaincode identifier."
                 },
                 "ctorMsg": {
-                    "$ref": "#/definitions/ChainletMessage",
+                    "$ref": "#/definitions/ChaincodeMessage",
                     "description": "Specific function to execute within the Chaincode."
                 }
             }
         },
-        "ChainletDeploymentSpec": {
+        "ChaincodeDeploymentSpec": {
             "type": "object",
             "properties": {
-                "chainletSpec": {
-                    "$ref": "#/definitions/ChainletSpec",
+                "chaincodeSpec": {
+                    "$ref": "#/definitions/ChaincodeSpec",
                     "description": "Chaincode specification message."
                 },
                 "effectiveDate": {
@@ -327,7 +362,16 @@
                 }
             }
         },
-        "ChainletMessage": {
+        "ChaincodeInvocationSpec": {
+            "type": "object",
+            "properties": {
+                "chaincodeSpec": {
+                    "$ref": "#/definitions/ChaincodeSpec",
+                    "description": "Chaincode specification message."
+                }
+            }
+        },
+        "ChaincodeMessage": {
             "type": "object",
             "properties": {
                 "function": {
@@ -349,6 +393,15 @@
                 "Error": {
                     "type": "string",
                     "description": "A descriptive message explaining the cause of error."
+                }
+            }
+        },
+        "OK": {
+            "type": "object",
+            "properties": {
+                "OK": {
+                    "type": "string",
+                    "description": "A descriptive message confirming a successful request."
                 }
             }
         }

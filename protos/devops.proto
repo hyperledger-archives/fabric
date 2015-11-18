@@ -22,19 +22,21 @@ syntax = "proto3";
 package protos;
 
 import "chaincode.proto";
-import "google/protobuf/empty.proto";
 
 // Interface exported by the server.
 service Devops {
 
     // Build the chaincode package.
-    rpc Build(ChainletSpec) returns (ChainletDeploymentSpec) {}
+    rpc Build(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
 
     // Deploy the chaincode package to the chain.
-    rpc Deploy(ChainletSpec) returns (ChainletDeploymentSpec) {}
+    rpc Deploy(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
 
     // Invoke chaincode.
-    rpc Invoke(ChaincodeInvocationSpec) returns (google.protobuf.Empty) {}
+    rpc Invoke(ChaincodeInvocationSpec) returns (DevopsResponse) {}
+
+    // Invoke chaincode.
+    rpc Query(ChaincodeInvocationSpec) returns (DevopsResponse) {}
 
 }
 
@@ -47,7 +49,7 @@ message DevopsResponse {
     }
 
     StatusCode status = 1;
-    string msg = 2;
+    bytes msg = 2;
 
 }
 
@@ -61,5 +63,5 @@ message BuildResult {
 
     StatusCode status = 1;
     string msg = 2;
-    ChainletDeploymentSpec deploymentSpec = 3;
+    ChaincodeDeploymentSpec deploymentSpec = 3;
 }

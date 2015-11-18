@@ -44,14 +44,14 @@ func TestDevops_Build(t *testing.T) {
 
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: "0.1.0"}}
 
 	buildResult, err := devopsServer.Build(context.Background(), spec)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error in Devops.Build call: %s", err)
 	}
-	t.Logf("Build result = %s", buildResult.ChainletSpec.ChainletID)
+	t.Logf("Build result = %s", buildResult.ChaincodeSpec.ChaincodeID)
 	//performHandshake(t, peerClientConn)
 }
 
@@ -61,14 +61,14 @@ func TestDevops_Deploy(t *testing.T) {
 
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath, Version: "0.1.0"}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: "0.1.0"}}
 
 	buildResult, err := devopsServer.Deploy(context.Background(), spec)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error in Devops.Build call: %s", err)
 	}
-	t.Logf("Deploy result = %s", buildResult.ChainletSpec)
+	t.Logf("Deploy result = %s", buildResult.ChaincodeSpec)
 	//performHandshake(t, peerClientConn)
 }
 
@@ -77,7 +77,7 @@ func TestDevops_Spec_NoVersion(t *testing.T) {
 
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
-	spec := &pb.ChainletSpec{Type: pb.ChainletSpec_GOLANG, ChainletID: &pb.ChainletID{Url: chaincodePath}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath}}
 
 	buildResult, err := devopsServer.Deploy(context.Background(), spec)
 	if err == nil {

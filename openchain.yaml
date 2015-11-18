@@ -6,7 +6,7 @@
 ###############################################################################
 cli:
 
-    # The address that the cli process will use for callbacks from chainlets
+    # The address that the cli process will use for callbacks from chaincodes
     address: 0.0.0.0:30304
 
 
@@ -191,10 +191,10 @@ vm:
 
 ###############################################################################
 #
-#    Chainlet section
+#    Chaincode section
 #
 ###############################################################################
-chainlet:
+chaincode:
     
     # The id is used by the Chaincode stub to register the executing ChaincodeID with the Peerand is generally supplied through ENV variables
     id:
@@ -203,7 +203,7 @@ chainlet:
 
     golang:
 
-        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chainlet specification.
+        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             from golang:1.5.1
             ENV GO15VENDOREXPERIMENT=1
@@ -213,15 +213,11 @@ chainlet:
     #timeout for starting up a container and waiting for Register to come through
     startuptimeout: 20000
 
-    #chaincoderunmode - options are "user_runs_chaincode", "validator_runs_chaincode"
-    #"user_runs_chaincode" - user runs the chaincode after starting validator
-    #                        from command line or from docker
-    #"validator_runs_chaincode" - validator will run chaincode in a container
-    #                             on demand
-    #In development mode, "user_runs_chaincode" will provide quick turnaround
-    #time during initial phases of development
+    #chaincoderunmode - options are "dev_mode", "net_mode"
+    #dev_mode - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #net_mode - in net mode validator will run chaincode in a docker container
 
-    chaincoderunmode: validator_runs_chaincode
+    chaincoderunmode: net_mode
 
     chaincodeinstallpath: /go/bin/
 

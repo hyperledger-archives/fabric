@@ -33,15 +33,15 @@ message Transaction {
 
     enum Type {
         UNDEFINED = 0;
-        CHAINLET_NEW = 1;
-        CHAINLET_UPDATE = 2;
-        CHAINLET_EXECUTE = 3;
-        CHAINLET_QUERY = 4;
-        CHAINLET_TERMINATE = 5;
+        CHAINCODE_NEW = 1;
+        CHAINCODE_UPDATE = 2;
+        CHAINCODE_EXECUTE = 3;
+        CHAINCODE_QUERY = 4;
+        CHAINCODE_TERMINATE = 5;
     }
 
     Type type = 1;
-    ChainletID chainletID = 2;
+    ChaincodeID chaincodeID = 2;
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
@@ -113,6 +113,7 @@ message OpenchainMessage {
         CHAIN_GET_BLOCKS = 10;
         CHAIN_BLOCKS = 11;
         CHAIN_NEW_BLOCK = 12;
+        CHAIN_QUERY = 13;
 
         REQUEST = 14;
         CONSENSUS = 15;

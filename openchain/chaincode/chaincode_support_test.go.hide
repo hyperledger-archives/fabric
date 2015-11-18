@@ -43,7 +43,7 @@ import (
 // 	})
 // }
 
-func TestChainletSupport_GetExecutionContext(t *testing.T) {
+func TestChaincodeSupport_GetExecutionContext(t *testing.T) {
 	t.Skip("TODO: Have to rework chaincode testing.")
 	clientConn, err := openchain.NewPeerClientConnection()
 	if err != nil {
@@ -53,9 +53,9 @@ func TestChainletSupport_GetExecutionContext(t *testing.T) {
 	}
 
 	t.Log("Getting execution context from peer")
-	serverClient := pb.NewChainletSupportClient(clientConn)
+	serverClient := pb.NewChaincodeSupportClient(clientConn)
 
-	status, err := serverClient.GetExecutionContext(context.Background(), &pb.ChainletRequestContext{})
+	status, err := serverClient.GetExecutionContext(context.Background(), &pb.ChaincodeRequestContext{})
 	if err != nil {
 		t.Errorf("Error getting execution context: %s", err)
 		return

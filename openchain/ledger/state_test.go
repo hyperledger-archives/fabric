@@ -32,9 +32,10 @@ func TestStateChanges(t *testing.T) {
 	saveTestStateDataInDB(t)
 
 	// add keys
+	state.txBegin("txUuid")
 	state.set("chaincode1", "key1", []byte("value1"))
 	state.set("chaincode1", "key2", []byte("value2"))
-
+	state.txFinish("txUuid", true)
 	//chehck in-memory
 	checkStateViaInterface(t, "chaincode1", "key1", "value1")
 
@@ -49,19 +50,97 @@ func TestStateChanges(t *testing.T) {
 		t.Fatalf("In-memory state should be empty here")
 	}
 
+	state.txBegin("txUuid")
 	// make changes when data is already in db
 	state.set("chaincode1", "key1", []byte("new_value1"))
+	state.txFinish("txUuid", true)
 	checkStateViaInterface(t, "chaincode1", "key1", "new_value1")
 
+	state.txBegin("txUuid")
 	state.delete("chaincode1", "key2")
+	state.txFinish("txUuid", true)
 	checkStateViaInterface(t, "chaincode1", "key2", "")
+
+	state.txBegin("txUuid")
 	state.set("chaincode2", "key3", []byte("value3"))
 	state.set("chaincode2", "key4", []byte("value4"))
+	state.txFinish("txUuid", true)
 
 	saveTestStateDataInDB(t)
 	checkStateInDB(t, "chaincode1", "key1", "new_value1")
 	checkStateInDB(t, "chaincode1", "key2", "")
 	checkStateInDB(t, "chaincode2", "key3", "value3")
+}
+
+func TestStateTxBehavior(t *testing.T) {
+	initTestDB(t)
+	state := getState()
+	if state.txInProgress() {
+		t.Fatalf("No tx should be reported to be in progress")
+	}
+
+	// set state in a successful tx
+	state.txBegin("txUuid")
+	state.set("chaincode1", "key1", []byte("value1"))
+	state.set("chaincode2", "key2", []byte("value2"))
+	checkStateViaInterface(t, "chaincode1", "key1", "value1")
+	state.txFinish("txUuid", true)
+	checkStateViaInterface(t, "chaincode1", "key1", "value1")
+
+	// set state in a failed tx
+	state.txBegin("txUuid1")
+	state.set("chaincode1", "key1", []byte("value1_1"))
+	state.set("chaincode2", "key2", []byte("value2_1"))
+	checkStateViaInterface(t, "chaincode1", "key1", "value1_1")
+	state.txFinish("txUuid1", false)
+	//older state should be available
+	checkStateViaInterface(t, "chaincode1", "key1", "value1")
+
+	// delete state in a successful tx
+	state.txBegin("txUuid2")
+	state.delete("chaincode1", "key1")
+	checkStateViaInterface(t, "chaincode1", "key1", "")
+	state.txFinish("txUuid2", true)
+	checkStateViaInterface(t, "chaincode1", "key1", "")
+
+	// delete state in a failed tx
+	state.txBegin("txUuid2")
+	state.delete("chaincode2", "key2")
+	checkStateViaInterface(t, "chaincode2", "key2", "")
+	state.txFinish("txUuid2", false)
+	checkStateViaInterface(t, "chaincode2", "key2", "value2")
+}
+
+func TestStateTxWrongCallCausePanic_1(t *testing.T) {
+	initTestDB(t)
+	state := getState()
+	defer panicRecoveringFunc(t, "A panic should occur when a set state is invoked with out calling a tx-begin")
+	state.set("chaincodeID1", "key1", []byte("value1"))
+}
+
+func TestStateTxWrongCallCausePanic_2(t *testing.T) {
+	initTestDB(t)
+	state := getState()
+	defer panicRecoveringFunc(t, "A panic should occur when a tx-begin is invoked before tx-finish for on-going tx")
+	state.txBegin("txUuid")
+	state.txBegin("anotherUuid")
+}
+
+func TestStateTxWrongCallCausePanic_3(t *testing.T) {
+	initTestDB(t)
+	state := getState()
+	defer panicRecoveringFunc(t, "A panic should occur when Uuid for tx-begin and tx-finish ends")
+	state.txBegin("txUuid")
+	state.txFinish("anotherUuid", true)
+}
+
+func panicRecoveringFunc(t *testing.T, msg string) {
+	x := recover()
+	if x == nil {
+		t.Fatal(msg)
+	} else {
+		t.Logf("A panic was caught successfully. Actual msg = %s", x)
+	}
 }
 
 func checkStateInDB(t *testing.T, chaincodeID string, key string, expectedValue string) {
