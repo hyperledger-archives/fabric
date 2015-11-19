@@ -369,16 +369,18 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 		if err != nil {
 			return fmt.Errorf("[recvPrePrepare] Cannot unmarshal request of pre-prepare: %s", err)
 		}
-		instance.reqStore[preprep.RequestDigest] = newReq
+		digest := hashReq(newReq)
+		if digest != preprep.RequestDigest {
+			logger.Warning("Pre-prepare request and request digest do not match: request %s, digest %s",
+				digest, preprep.RequestDigest)
+			return nil
+		}
+		instance.reqStore[digest] = newReq
 	}
 
-	if cert.sentPrepare { // to prevent the leader from executing
-		return nil
-	}
+	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
+		// TODO speculative execution: ExecTXs
 
-	// TODO speculative execution: ExecTXs
-
-	if instance.getPrimary(instance.view) != instance.id {
 		logger.Debug("Backup %d sending prepare (v:%d,s:%d)",
 			instance.id, preprep.View, preprep.SequenceNumber)
 

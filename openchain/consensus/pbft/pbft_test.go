@@ -179,6 +179,41 @@ func TestRecvMsg(t *testing.T) {
 	}
 }
 
+func TestMaliciousPrePrepare(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
+	instance.id = 1
+	instance.replicaCount = 5
+
+	digest1 := "hi there"
+	request2 := &Request{Payload: []byte("other")}
+	requestRaw2, _ := proto.Marshal(request2)
+
+	nestedMsg := &Message{&Message_PrePrepare{&PrePrepare{
+		View:           0,
+		SequenceNumber: 1,
+		RequestDigest:  digest1,
+		Request:        requestRaw2,
+		ReplicaId:      0,
+	}}}
+	newPayload, err := proto.Marshal(nestedMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
+	}
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: newPayload,
+	}
+	err = instance.RecvMsg(msgWrapped)
+	if err != nil {
+		t.Fatalf("Failed to handle pbft message: %s", err)
+	}
+
+	if len(mock.broadcasted) != 0 {
+		t.Fatalf("expected to ignore malicious pre-prepare")
+	}
+}
+
 // =============================================================================
 // Fake network structures
 // =============================================================================
