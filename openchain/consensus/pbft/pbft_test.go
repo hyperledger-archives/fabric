@@ -33,12 +33,12 @@ import (
 
 func TestEnvOverride(t *testing.T) {
 
+	mock := NewMock()
+	instance := New(mock)
+
 	key := "general.name"                    // for a key that exists
 	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
 	overrideValue := "overide_test"          // value to override default value with
-
-	mock := NewMock()
-	instance := New(mock)
 
 	// test key
 	if ok := instance.config.IsSet("general.name"); !ok {
@@ -125,7 +125,7 @@ func TestRecvRequest(t *testing.T) {
 		t.Fatalf("Failed to handle request: %s", err)
 	}
 
-	msgOut := mock.broadcastMsg[0]
+	msgOut := mock.broadcasted[0]
 	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
 		t.Fatalf("expected broadcast after request, received %s", msgWrapped.Type)
 	}
@@ -161,11 +161,11 @@ func TestRecvMsg(t *testing.T) {
 		t.Fatalf("Failed to handle pbft message: %s", err)
 	}
 
-	if len(mock.broadcastMsg) != 1 {
-		t.Fatalf("expected message, got %d", len(mock.broadcastMsg))
+	if len(mock.broadcasted) != 1 {
+		t.Fatalf("expected message, got %d", len(mock.broadcasted))
 	}
 
-	msgOut := mock.broadcastMsg[0]
+	msgOut := mock.broadcasted[0]
 	if msgOut.Type != pb.OpenchainMessage_CONSENSUS {
 		t.Fatalf("expected CONSENSUS, received %s", msgOut.Type)
 	}
@@ -184,8 +184,8 @@ func TestRecvMsg(t *testing.T) {
 // =============================================================================
 
 type mockCPI struct {
-	broadcastMsg []*pb.OpenchainMessage
-	execTx       [][]*pb.Transaction
+	broadcasted []*pb.OpenchainMessage
+	executed    [][]*pb.Transaction
 }
 
 type taggedMsg struct {
@@ -193,7 +193,7 @@ type taggedMsg struct {
 	msg *pb.OpenchainMessage
 }
 
-type testnetwork struct {
+type testnet struct {
 	replicas []*instance
 	msgs     []taggedMsg
 }
@@ -201,7 +201,7 @@ type testnetwork struct {
 type instance struct {
 	id       int
 	plugin   *Plugin
-	net      *testnetwork
+	net      *testnet
 	executed [][]*pb.Transaction
 }
 
@@ -210,7 +210,7 @@ type instance struct {
 // =============================================================================
 
 func (mock *mockCPI) Broadcast(msg *pb.OpenchainMessage) error {
-	mock.broadcastMsg = append(mock.broadcastMsg, msg)
+	mock.broadcasted = append(mock.broadcasted, msg)
 	return nil
 }
 
@@ -219,7 +219,7 @@ func (mock *mockCPI) Unicast(msgPayload []byte, dest string) error {
 }
 
 func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	mock.execTx = append(mock.execTx, txs)
+	mock.executed = append(mock.executed, txs)
 	return []byte("hash"), make([]error, len(txs)+1)
 }
 
@@ -246,7 +246,7 @@ func NewMock() *mockCPI {
 	return mock
 }
 
-func (net *testnetwork) process() error {
+func (net *testnet) process() error {
 	for len(net.msgs) > 0 {
 		msgs := net.msgs
 		net.msgs = nil
@@ -269,16 +269,16 @@ func (net *testnetwork) process() error {
 
 func TestNetwork(t *testing.T) {
 
-	fmt.Print("\n\n\n")
+	fmt.Print("\n")
 
 	const f = 2
-	const nreplica = 3*f + 1
-	net := &testnetwork{}
-	for i := 0; i < nreplica; i++ {
+	const replicaCount = 3*f + 1
+	net := &testnet{}
+	for i := 0; i < replicaCount; i++ {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = nreplica
+		inst.plugin.replicaCount = replicaCount
 		inst.plugin.f = f
 		net.replicas = append(net.replicas, inst)
 	}
