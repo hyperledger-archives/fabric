@@ -171,19 +171,21 @@ func newValidatorFSM(parent Validator, to string, peerChatStream ChatStream) *va
 		"created",
 		fsm.Events{
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_REQUEST.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_CHAIN_TRANSACTION.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_CHAIN_QUERY.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pbft.PBFT_REQUEST.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PRE_PREPARE.String(), Src: []string{"established"}, Dst: "prepare_result_sent"},
 			{Name: pbft.PBFT_PREPARE_RESULT.String(), Src: []string{"prepare_result_sent"}, Dst: "commit_result_sent"},
 			{Name: pbft.PBFT_COMMIT_RESULT.String(), Src: []string{"prepare_result_sent", "commit_result_sent"}, Dst: "committed_block"},
 		},
 		fsm.Callbacks{
-			"before_" + pb.OpenchainMessage_DISC_HELLO.String(): func(e *fsm.Event) { v.beforeHello(e) },
-			"before_" + pb.OpenchainMessage_REQUEST.String():    func(e *fsm.Event) { v.beforeChainTransactions(e) },
-			"before_" + pbft.PBFT_REQUEST.String():              func(e *fsm.Event) { v.beforeRequest(e) },
-			"before_" + pbft.PBFT_PRE_PREPARE.String():          func(e *fsm.Event) { v.beforePrePrepareResult(e) },
-			"before_" + pbft.PBFT_PREPARE_RESULT.String():       func(e *fsm.Event) { v.beforePrepareResult(e) },
-			"before_" + pbft.PBFT_COMMIT_RESULT.String():        func(e *fsm.Event) { v.beforeCommitResult(e) },
+			"before_" + pb.OpenchainMessage_DISC_HELLO.String():        func(e *fsm.Event) { v.beforeHello(e) },
+			"before_" + pb.OpenchainMessage_CHAIN_TRANSACTION.String(): func(e *fsm.Event) { v.beforeChainTransactions(e, true) },
+			"before_" + pb.OpenchainMessage_CHAIN_QUERY.String():       func(e *fsm.Event) { v.beforeChainTransactions(e, false) },
+			"before_" + pbft.PBFT_REQUEST.String():                     func(e *fsm.Event) { v.beforeRequest(e) },
+			"before_" + pbft.PBFT_PRE_PREPARE.String():                 func(e *fsm.Event) { v.beforePrePrepareResult(e) },
+			"before_" + pbft.PBFT_PREPARE_RESULT.String():              func(e *fsm.Event) { v.beforePrepareResult(e) },
+			"before_" + pbft.PBFT_COMMIT_RESULT.String():               func(e *fsm.Event) { v.beforeCommitResult(e) },
 		},
 	)
 	return v
@@ -200,7 +202,7 @@ func (v *validatorFSM) beforeHello(e *fsm.Event) {
 	}
 }
 
-func (v *validatorFSM) beforeChainTransactions(e *fsm.Event) {
+func (v *validatorFSM) beforeChainTransactions(e *fsm.Event, isTran bool) {
 	validatorLogger.Debug("Sending broadcast to all validators upon receipt of %s", e.Event)
 	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -208,32 +210,17 @@ func (v *validatorFSM) beforeChainTransactions(e *fsm.Event) {
 	}
 	msg := e.Args[0].(*pb.OpenchainMessage)
 
+	if !isTran {
+		//TODO execute query
+		return
+	}
+
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
 		return
 	}
-	// For now unpack the lone transaction and send as the payload
-	transactionBlock := &pb.TransactionBlock{}
-	err = proto.Unmarshal(msg.Payload, transactionBlock)
-	if err != nil {
-		e.Cancel(fmt.Errorf("Error generating UUID: %s", err))
-		return
-	}
-	// Currently expect only 1 transaction in TransactionBlock.
-	validatorLogger.Warning("Currently expect exactly 1 transaction in TransactionBlock")
-	numOfTransactions := len(transactionBlock.Transactions)
-	if numOfTransactions != 1 {
-		e.Cancel(fmt.Errorf("Expected exactly one transaction in TransactionBlock.Transactions, received %d", numOfTransactions))
-		return
-	}
-	transactionToSend := transactionBlock.Transactions[0]
-	data, err := proto.Marshal(transactionToSend)
-	if err != nil {
-		e.Cancel(fmt.Errorf("Error marshalling transaction to PBFT struct: %s", err))
-		return
-	}
-	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, ID: uuid, Payload: data})
+	pbftData, err := proto.Marshal(&pbft.PBFT{Type: pbft.PBFT_REQUEST, ID: uuid, Payload: msg.Payload})
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error marshalling pbft: %s", err))
 		return

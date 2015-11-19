@@ -59,7 +59,11 @@ func NewNoopsHandler(coord MessageHandlerCoordinator, stream ChatStream, initiat
 // HandleMessage handles the Openchain messages for the Peer.
 func (i *Noops) HandleMessage(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
-	if msg.Type == pb.OpenchainMessage_REQUEST {
+	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION || msg.Type == pb.OpenchainMessage_CHAIN_QUERY {
+		if msg.Type == pb.OpenchainMessage_CHAIN_QUERY {
+			//TODO exec query directly here
+			return nil
+		}
 		msg.Type = pb.OpenchainMessage_CONSENSUS
 		logger.Debug("Broadcasting %s", msg.Type)
 		// broadcast to others so they can exec the tx

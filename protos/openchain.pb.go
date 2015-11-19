@@ -61,16 +61,14 @@ const (
 	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
 	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 5
 	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_TRANSACTIONS     OpenchainMessage_Type = 9
-	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 10
-	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 11
-	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 12
-	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 13
-	OpenchainMessage_REQUEST                OpenchainMessage_Type = 14
-	OpenchainMessage_QUERY                  OpenchainMessage_Type = 15
-	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 16
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 17
+	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 8
+	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 9
+	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 10
+	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 11
+	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 12
+	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 13
+	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 14
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -81,16 +79,14 @@ var OpenchainMessage_Type_name = map[int32]string{
 	4:  "DISC_PEERS",
 	5:  "DISC_NEWMSG",
 	7:  "CHAIN_STATUS",
-	8:  "CHAIN_GET_TRANSACTIONS",
-	9:  "CHAIN_TRANSACTIONS",
-	10: "CHAIN_GET_BLOCKS",
-	11: "CHAIN_BLOCKS",
-	12: "CHAIN_NEW_BLOCK",
-	13: "CHAIN_QUERY",
-	14: "REQUEST",
-	15: "QUERY",
-	16: "RESPONSE",
-	17: "CONSENSUS",
+	8:  "CHAIN_TRANSACTION",
+	9:  "CHAIN_GET_TRANSACTIONS",
+	10: "CHAIN_QUERY",
+	11: "CHAIN_GET_BLOCKS",
+	12: "CHAIN_BLOCKS",
+	13: "CHAIN_NEW_BLOCK",
+	14: "RESPONSE",
+	15: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -100,20 +96,41 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"DISC_PEERS":             4,
 	"DISC_NEWMSG":            5,
 	"CHAIN_STATUS":           7,
-	"CHAIN_GET_TRANSACTIONS": 8,
-	"CHAIN_TRANSACTIONS":     9,
-	"CHAIN_GET_BLOCKS":       10,
-	"CHAIN_BLOCKS":           11,
-	"CHAIN_NEW_BLOCK":        12,
-	"CHAIN_QUERY":            13,
-	"REQUEST":                14,
-	"QUERY":                  15,
-	"RESPONSE":               16,
-	"CONSENSUS":              17,
+	"CHAIN_TRANSACTION":      8,
+	"CHAIN_GET_TRANSACTIONS": 9,
+	"CHAIN_QUERY":            10,
+	"CHAIN_GET_BLOCKS":       11,
+	"CHAIN_BLOCKS":           12,
+	"CHAIN_NEW_BLOCK":        13,
+	"RESPONSE":               14,
+	"CONSENSUS":              15,
 }
 
 func (x OpenchainMessage_Type) String() string {
 	return proto.EnumName(OpenchainMessage_Type_name, int32(x))
+}
+
+type Response_StatusCode int32
+
+const (
+	Response_UNDEFINED Response_StatusCode = 0
+	Response_SUCCESS   Response_StatusCode = 200
+	Response_FAILURE   Response_StatusCode = 500
+)
+
+var Response_StatusCode_name = map[int32]string{
+	0:   "UNDEFINED",
+	200: "SUCCESS",
+	500: "FAILURE",
+}
+var Response_StatusCode_value = map[string]int32{
+	"UNDEFINED": 0,
+	"SUCCESS":   200,
+	"FAILURE":   500,
+}
+
+func (x Response_StatusCode) String() string {
+	return proto.EnumName(Response_StatusCode_name, int32(x))
 }
 
 // Transaction defines a function call to a contract.
@@ -258,9 +275,19 @@ func (m *OpenchainMessage) GetTimestamp() *google_protobuf.Timestamp {
 	return nil
 }
 
+type Response struct {
+	Status Response_StatusCode `protobuf:"varint,1,opt,name=status,enum=protos.Response_StatusCode" json:"status,omitempty"`
+	Msg    []byte              `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+}
+
+func (m *Response) Reset()         { *m = Response{} }
+func (m *Response) String() string { return proto.CompactTextString(m) }
+func (*Response) ProtoMessage()    {}
+
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
 	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
+	proto.RegisterEnum("protos.Response_StatusCode", Response_StatusCode_name, Response_StatusCode_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

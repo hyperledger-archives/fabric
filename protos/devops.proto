@@ -22,6 +22,7 @@ syntax = "proto3";
 package protos;
 
 import "chaincode.proto";
+import "openchain.proto";
 
 // Interface exported by the server.
 service Devops {
@@ -33,23 +34,10 @@ service Devops {
     rpc Deploy(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
 
     // Invoke chaincode.
-    rpc Invoke(ChaincodeInvocationSpec) returns (DevopsResponse) {}
+    rpc Invoke(ChaincodeInvocationSpec) returns (Response) {}
 
     // Invoke chaincode.
-    rpc Query(ChaincodeInvocationSpec) returns (DevopsResponse) {}
-
-}
-
-message DevopsResponse {
-
-    enum StatusCode {
-        UNDEFINED = 0;
-        SUCCESS = 1;
-        FAILURE = 2;
-    }
-
-    StatusCode status = 1;
-    bytes msg = 2;
+    rpc Query(ChaincodeInvocationSpec) returns (Response) {}
 
 }
 

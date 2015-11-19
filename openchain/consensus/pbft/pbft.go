@@ -253,7 +253,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 
 // RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
 func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_REQUEST {
+	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		return instance.Request(msgWrapped.Payload)
 	}
 	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
