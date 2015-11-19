@@ -21,8 +21,8 @@ general:
 ################################################################################
 leader:
 
-    # Set to true if this validating peer is a leader. Useful only for
-    # fixed-leader scenarios.
+    # Set to true if this validating peer is a leader.
+    # Useful only for fixed-leader scenarios.
     is: true
 
     # Send a `PRE_PREPARE` message for every `batch_size` requests received.
@@ -33,19 +33,24 @@ leader:
 
 ################################################################################
 #
-#   SECTION: TIMEOUT
+#   SECTION: REPLICA
 #
-#   - This applies to validating peers.
-#   - All times listed in seconds.
+#   - This applies to all validating peers.
 #
 ################################################################################
-timeout:
+replica:
 
-    # Timeout if you don't receive a PRE_PREPARE message with candidate TXs by
-    # the leader within `block` seconds.
-    block: 12
+    # The ID of the peer. Should be a non-negative integer.
+    # The value set here is only read when running in testing mode.
+    id: 0
 
-    # Timeout if you don't receive a message within `message` seconds.
-    message: 3
+    timeout:
+
+        # Timeout if you don't receive a PRE_PREPARE message with
+        # candidate TXs by the leader within `block` seconds.
+        block: 12
+
+        # Timeout if you don't receive a message within `message` seconds.
+        message: 3
 
 ...

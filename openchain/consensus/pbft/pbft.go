@@ -22,6 +22,7 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -112,9 +113,23 @@ func New(c consensus.CPI) *Plugin {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
 
-	// TODO initialize the algorithm here
+	// TODO Initialize the algorithm here
 	// You may want to set the fields of `instance` using `instance.GetParam()`.
-	// e.g. instance.blockTimeOut = strconv.Atoi(instance.getParam("timeout.block"))
+
+	// In dev/debugging mode you are expected to override the config value
+	// with the environment variable OPENCHAIN_PBFT_REPLICA_ID
+	replicaID, err := instance.getParam("replica.id")
+	if err != nil {
+		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
+	}
+	id, err := strconv.ParseUint(replicaID, 10, 64)
+	if err != nil {
+		panic(fmt.Errorf("Cannot convert ID to int: %s", err))
+	}
+	if id < 0 {
+		panic(fmt.Errorf("An invalid ID has been assigned to the replica: %s", err))
+	}
+	instance.id = id
 
 	instance.K = 128
 	instance.L = 1 * instance.K
