@@ -118,7 +118,7 @@ This is not recommended, however some users may wish to build Openchain outside 
 1. Follow all steps required to setup and run a Vagrant image.
 - Make you you have [Go 1.5.1](https://golang.org/) or later installed
 - Set the GO15VENDOREXPERIMENT environmental variable to 1. `export GO15VENDOREXPERIMENT=1`
-- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md)
+- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1
 - Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
