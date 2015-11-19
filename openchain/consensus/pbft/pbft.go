@@ -467,10 +467,10 @@ func (instance *Plugin) executeOutstanding() error {
 				instance.id, idx.v, idx.n, digest)
 			instance.lastExec = idx.n
 
-			txBlock := &pb.TransactionBlock{}
-			err := proto.Unmarshal(req.Payload, txBlock)
+			tx := &pb.Transaction{}
+			err := proto.Unmarshal(req.Payload, tx)
 			if err == nil {
-				instance.cpi.ExecTXs(txBlock.Transactions)
+				instance.cpi.ExecTXs([]*pb.Transaction{tx})
 			}
 
 			retry = true

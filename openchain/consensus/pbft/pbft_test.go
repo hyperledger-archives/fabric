@@ -308,7 +308,13 @@ func TestNetwork(t *testing.T) {
 	for _, inst := range net.replicas {
 		if len(inst.executed) == 0 {
 			t.Errorf("Instance %d did not execute transaction", inst.id)
-		} else if !reflect.DeepEqual(inst.executed[0], tx) {
+			continue
+		}
+		if len(inst.executed[0]) != 1 {
+			t.Errorf("Instance %d executed more than one transaction", inst.id)
+			continue
+		}
+		if !reflect.DeepEqual(inst.executed[0][0], tx) {
 			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
 				inst.id, inst.executed[0], tx)
 		}
