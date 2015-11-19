@@ -26,7 +26,6 @@ It has these top-level messages:
 	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
-	DevopsResponse
 	BuildResult
 	Transaction
 	TransactionBlock
@@ -36,6 +35,7 @@ It has these top-level messages:
 	PeerEndpoint
 	PeersMessage
 	OpenchainMessage
+	Response
 	ServerStatus
 */
 package protos

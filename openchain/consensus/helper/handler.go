@@ -20,6 +20,11 @@ package helper
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
+	"golang.org/x/net/context"
+
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/controller"
 	"github.com/openblockchain/obc-peer/openchain/peer"
@@ -61,16 +66,44 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 
 // HandleMessage handles the incoming Openchain messages for the Peer.
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
-	if msg.Type == pb.OpenchainMessage_REQUEST || msg.Type == pb.OpenchainMessage_CONSENSUS {
+	if msg.Type == pb.OpenchainMessage_CONSENSUS || msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+		//if transaction return Uuid (we have to return *something* to the blocking grpc client)
+		if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+			var response *pb.Response
+			t := &pb.Transaction{}
+			err := proto.Unmarshal(msg.Payload, t)
+			if err != nil {
+				response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
+			} else {
+				response =  &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(t.Uuid)}
+			}
+			payload, err := proto.Marshal(response)
+			handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE, Payload: payload})
+		}
 		return handler.consenter.RecvMsg(msg)
 	}
-	if msg.Type == pb.OpenchainMessage_QUERY {
-		// TODO Exec query and return result to the caller as a response message
-		handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE})
+	if msg.Type == pb.OpenchainMessage_CHAIN_QUERY {
+		var response *pb.Response
+		t := &pb.Transaction{}
+		err := proto.Unmarshal(msg.Payload, t)
+		if err != nil {
+			response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
+		} else {
+			b, err := chaincode.Execute(context.Background(), chaincode.GetChain(chaincode.DefaultChain), t)
+			if err != nil  {
+				response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error:%s", err))}
+			} else {
+				response =  &pb.Response{Status: pb.Response_SUCCESS, Msg: b}
+			}
+		}
+		payload, _ := proto.Marshal(response)
+		handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE, Payload: payload})
 		return nil
 	}
 
-	logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
+	}
 	return handler.peerHandler.HandleMessage(msg)
 }
 

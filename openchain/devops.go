@@ -95,24 +95,34 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	mode := viper.GetString("chaincode.chaincoderunmode")
+	//mode := viper.GetString("chaincode.chaincoderunmode")
 
-	if mode == chaincode.DevModeUserRunsChaincode {
-		_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-		return chaincodeDeploymentSpec, execErr
-	}
-
+	//if mode == chaincode.DevModeUserRunsChaincode {
+	//	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	//	return chaincodeDeploymentSpec, execErr
+	//}
+	//
 	//we are not in "dev mode", we have to pass requests to remote validator via stream
-	peerAddress, err := GetRootNode()
-	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	//peerAddress, err := GetRootNode()
+	//if err != nil {
+	//	return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	//}
+	// send the transaction
+	//resp := peer.SendTransactionsToPeer(peerAddress, transaction)
+	//if resp.Status == pb.Response_FAILURE {
+	//	err = fmt.Errorf(string(resp.Msg))
+	//}
+
+	devopsLogger.Debug("Sending deploy transaction (%s) to validator", transaction.Uuid)
+	resp := peer.ExecuteTransaction(transaction)
+	if resp.Status == pb.Response_FAILURE {
+		err = fmt.Errorf(string(resp.Msg))
 	}
-	// Construct the transactions block.
-	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
-	return chaincodeDeploymentSpec, peer.SendTransactionsToPeer(peerAddress, transactionBlock)
+
+	return chaincodeDeploymentSpec, err
 }
 
-func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, invoke bool) (*pb.DevopsResponse, error) {
+func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, invoke bool) (*pb.Response, error) {
 
 	// Now create the Transactions message and send to Peer.
 	uuid, uuidErr := util.GenerateUUID()
@@ -137,38 +147,31 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	// if mode == chaincode.DevModeUserRunsChaincode {
 	// 	if invoke {
 	// 		chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	// 		return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
+	// 		return &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
 	// 	}
 	// 	payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	// 	if execErr != nil {
-	// 		return &pb.DevopsResponse{Status: pb.DevopsResponse_FAILURE}, execErr
+	// 		return &pb.Response{Status: pb.Response_FAILURE}, execErr
 	// 	}
-	// 	return &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}, nil
+	// 	return &pb.Response{Status: pb.Response_SUCCESS, Msg: payload}, nil
 	// }
 
 	devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
-	payload, err := peer.ExecuteTransaction(transaction)
-
-	//submit the transaction
-	if invoke { //return uuid if not err
-		payload = []byte(transaction.Uuid)
+	resp := peer.ExecuteTransaction(transaction)
+	if resp.Status == pb.Response_FAILURE {
+		err = fmt.Errorf(string(resp.Msg))
 	}
 
-	//we really need to return a devops response with transaction uuid like below
-	resp := &pb.DevopsResponse{Status: pb.DevopsResponse_SUCCESS, Msg: payload}
-	if err != nil {
-		resp.Status = pb.DevopsResponse_FAILURE
-	}
 	return resp, err
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
-func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.DevopsResponse, error) {
+func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
 	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, true)
 }
 
 // Query performs the supplied query on the specified chaincode through a transaction
-func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.DevopsResponse, error) {
+func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
 	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, false)
 }
 

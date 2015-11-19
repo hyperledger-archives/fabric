@@ -531,7 +531,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
-	var resp *pb.DevopsResponse
+	var resp *pb.Response
 	if invoke {
 		resp, err = devopsClient.Invoke(context.Background(), invocation)
 	} else {
