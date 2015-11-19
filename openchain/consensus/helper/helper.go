@@ -20,8 +20,6 @@ under the License.
 package helper
 
 import (
-	"fmt"
-
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
@@ -65,18 +63,13 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 
 // Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-	err := h.coordinator.Broadcast(msg)
-	if err != nil {
-		return fmt.Errorf("Error during broadcast: %s", err)
-	}
-
+	_ = h.coordinator.Broadcast(msg) // TODO process the errors
 	return nil
 }
 
 // Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 	// TODO Call a function in the comms layer; wait for Jeff's implementation.
-
 	return nil
 }
 

@@ -64,8 +64,27 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
+		txs := &pb.TransactionBlock{}
+		err := proto.Unmarshal(msg.Payload, txs)
+		if err != nil {
+			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s", msg.Type)
+			return err
+		}
+		// TODO Change this to a single TX
+		var numxacts = len(txs.Transactions)
+		if numxacts <= 0 {
+			return fmt.Errorf("No transactions to execute")
+		} else if numxacts > 1 {
+			return fmt.Errorf("Too many transactions to execute: %d", numxacts)
+		}
+		var tx = txs.Transactions[0]
+		if tx.Type == pb.Transaction_CHAINCODE_QUERY {
+			// Don't send to consensus but execute here directly
+			logger.Debug("TODO Execute query for transaction: %s", tx.Uuid)
+			return nil
+		}
 		msg.Type = pb.OpenchainMessage_CONSENSUS
-		err := i.cpi.Broadcast(msg)
+		err = i.cpi.Broadcast(msg)
 		if nil != err {
 			return fmt.Errorf("Failed to broadcast: %v", err)
 		}

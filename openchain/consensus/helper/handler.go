@@ -6,9 +6,7 @@ regarding copyright ownership.  The ASF licenses this file
 to you under the Apache License, Version 2.0 (the
 "License"); you may not use this file except in compliance
 with the License.  You may obtain a copy of the License at
-
   http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing,
 software distributed under the License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -66,6 +64,12 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_REQUEST || msg.Type == pb.OpenchainMessage_CONSENSUS {
 		return handler.consenter.RecvMsg(msg)
 	}
+	if msg.Type == pb.OpenchainMessage_QUERY {
+		// TODO Exec query and return result to the caller as a response message
+		handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE})
+		return nil
+	}
+
 	logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	return handler.peerHandler.HandleMessage(msg)
 }
