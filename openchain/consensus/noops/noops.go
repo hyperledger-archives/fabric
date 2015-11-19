@@ -59,51 +59,54 @@ func New(c consensus.CPI) consensus.Consenter {
 	return i
 }
 
-// RecvMsg is called for OpenchainMessage_REQUEST and OpenchainMessage_CONSENSUS messages.
+// RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
 func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
-	if msg.Type == pb.OpenchainMessage_REQUEST {
-		txs := &pb.TransactionBlock{}
-		err := proto.Unmarshal(msg.Payload, txs)
+	//cannot be QUERY. it is filtered out by handler
+	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+		t := &pb.Transaction{}
+		err := proto.Unmarshal(msg.Payload, t)
 		if err != nil {
-			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s", msg.Type)
+			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
 			return err
 		}
-		// TODO Change this to a single TX
-		var numxacts = len(txs.Transactions)
-		if numxacts <= 0 {
-			return fmt.Errorf("No transactions to execute")
-		} else if numxacts > 1 {
-			return fmt.Errorf("Too many transactions to execute: %d", numxacts)
-		}
-		var tx = txs.Transactions[0]
-		if tx.Type == pb.Transaction_CHAINCODE_QUERY {
-			// Don't send to consensus but execute here directly
-			logger.Debug("TODO Execute query for transaction: %s", tx.Uuid)
-			return nil
-		}
 		msg.Type = pb.OpenchainMessage_CONSENSUS
-		err = i.cpi.Broadcast(msg)
-		if nil != err {
-			return fmt.Errorf("Failed to broadcast: %v", err)
+		logger.Debug("Broadcasting %s", msg.Type)
+
+		// broadcast to others so they can exec the tx
+		txs := &pb.TransactionBlock{Transactions: []*pb.Transaction{t}}
+		payload, err := proto.Marshal(txs)
+		if err != nil {
+			return err
+		}
+		msg.Payload = payload
+		errs := i.cpi.Broadcast(msg)
+		if nil != errs {
+			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 		}
 
 		// WARNING: We might end up getting the same message sent back to us
-		// due to Byzantine. We ignore this case for the no-ops consensus.
+		// due to Byzantine. We ignore this case for the no-ops consensus
 	}
-
+	// We process the message if it is OpenchainMessage_CONSENSUS or QUERY. For
+	// QUERY, we need to return the result to the caller
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
+		logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
 		err := proto.Unmarshal(msg.Payload, txs)
 		if err != nil {
 			return err
 		}
-		_, errs := i.cpi.ExecTXs(txs.GetTransactions())
-		if errs != nil {
-			return fmt.Errorf("Fail to execute transactions: %v", errs)
+		txarr := txs.GetTransactions()
+		hash, errs2 := i.cpi.ExecTXs(txarr)
+		//there are n+1 elements of errors in this array. On complete success
+		//they'll all be nil. In particular, the last err will be error in
+		//producing the hash, if any. That's the only error we do want to check
+		if errs2[len(txarr)] != nil {
+			return fmt.Errorf("(noops.RecvMsg)Fail to execute transactions: %v", errs2)
 		}
+		fmt.Printf("(noops.RecvMsg)execute transactions successfully: %x\n", hash)
 	}
-
 	return nil
 }

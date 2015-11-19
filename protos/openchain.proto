@@ -108,17 +108,15 @@ message OpenchainMessage {
         DISC_NEWMSG = 5;
 
         CHAIN_STATUS = 7;
-        CHAIN_GET_TRANSACTIONS = 8;
-        CHAIN_TRANSACTIONS = 9;
-        CHAIN_GET_BLOCKS = 10;
-        CHAIN_BLOCKS = 11;
-        CHAIN_NEW_BLOCK = 12;
-        CHAIN_QUERY = 13;
+        CHAIN_TRANSACTION = 8;
+        CHAIN_GET_TRANSACTIONS = 9;
+        CHAIN_QUERY = 10;
+        CHAIN_GET_BLOCKS = 11;
+        CHAIN_BLOCKS = 12;
+        CHAIN_NEW_BLOCK = 13;
 
-        REQUEST = 14;
-        QUERY = 15;
-        RESPONSE = 16;
-        CONSENSUS = 17;
+        RESPONSE = 14;
+        CONSENSUS = 15;
     }
 
     Type type = 1;
@@ -126,3 +124,17 @@ message OpenchainMessage {
     bytes payload = 3;
 
 }
+
+message Response {
+
+    enum StatusCode {
+        UNDEFINED = 0;
+        SUCCESS = 200;
+        FAILURE = 500;
+    }
+
+    StatusCode status = 1;
+    bytes msg = 2;
+
+}
+

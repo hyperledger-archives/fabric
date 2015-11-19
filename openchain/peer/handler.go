@@ -90,6 +90,9 @@ func (d *Handler) enterState(e *fsm.Event) {
 
 // To return the PeerEndpoint this Handler is connected to.
 func (d *Handler) To() (pb.PeerEndpoint, error) {
+	if d.ToPeerEndpoint == nil {
+		return pb.PeerEndpoint{}, fmt.Errorf("No peer endpoint for handler")
+	}
 	return *(d.ToPeerEndpoint), nil
 }
 

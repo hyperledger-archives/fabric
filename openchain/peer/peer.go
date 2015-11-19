@@ -263,21 +263,21 @@ func (p *Peer) Broadcast(msg *pb.OpenchainMessage) []error {
 }
 
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
-func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.TransactionBlock) error {
-	var errFromChat error
+func SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
-		return fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer stream.CloseSend()
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
 	waitc := make(chan struct{})
+	var response *pb.Response
 	go func() {
 		// Make sure to close the wait channel
 		defer close(waitc)
@@ -285,53 +285,74 @@ func SendTransactionsToPeer(peerAddress string, transactionBlock *pb.Transaction
 			in, err := stream.Recv()
 			if err == io.EOF {
 				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO)
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))}
 				return
 			}
 			if err != nil {
-				errFromChat = fmt.Errorf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err)
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
 				return
 			}
 			if in.Type == pb.OpenchainMessage_DISC_HELLO {
-				peerLogger.Debug("Received %s message as expected, sending transactions...", in.Type)
-				payload, err := proto.Marshal(transactionBlock)
+				peerLogger.Debug("Received %s message as expected, sending transaction...", in.Type)
+				payload, err := proto.Marshal(transaction)
 				if err != nil {
-					errFromChat = fmt.Errorf("Error marshalling transactions to peer address=%s:  %s", peerAddress, err)
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error marshalling transaction to peer address=%s:  %s", peerAddress, err))}
 					return
 				}
-				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CHAIN_TRANSACTIONS, Payload: payload})
-				peerLogger.Debug("Transactions sent to peer address: %s", peerAddress)
+				var ttyp pb.OpenchainMessage_Type
+				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE {
+					ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
+				} else {
+					ttyp = pb.OpenchainMessage_CHAIN_QUERY
+				}
+				stream.Send(&pb.OpenchainMessage{Type: ttyp, Payload: payload})
+				peerLogger.Debug("Transaction sent to peer address: %s", peerAddress)
+			} else if in.Type == pb.OpenchainMessage_RESPONSE {
+				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				response = &pb.Response{}
+				err = proto.Unmarshal(in.Payload, response)
+				if err != nil {
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
+				}
 				return
 			}
 			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-			return
 		}
 	}()
+
+	//TODO Timeout handling
 	<-waitc
-	return errFromChat
+	return response
 }
 
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
-func sendTransactionsToThisPeer(peerAddress string, transactionBlock *pb.TransactionBlock) (*pb.OpenchainMessage, error) {
-	var errFromChat error
-	var response *pb.OpenchainMessage
+func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return nil, fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("Error sending transactions to peer address=%s:  %s", peerAddress, err)
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer stream.CloseSend()
-	peerLogger.Debug("Sending %s to this Peer", pb.OpenchainMessage_REQUEST)
-	data, err := proto.Marshal(transactionBlock)
+	peerLogger.Debug("Sending %s to this Peer", transaction.Type)
+	data, err := proto.Marshal(transaction)
 	if err != nil {
-		return nil, fmt.Errorf("Error sending transactions to local peer: %s", err)
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
 	}
-	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_REQUEST, Payload: data})
+	var ttyp pb.OpenchainMessage_Type
+	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE {
+		ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
+	} else {
+		ttyp = pb.OpenchainMessage_CHAIN_QUERY
+	}
+
+	stream.Send(&pb.OpenchainMessage{Type: ttyp, Payload: data})
+
 	waitc := make(chan struct{})
+	var response *pb.Response
 	go func() {
 		// Make sure to close the wait channel
 		defer close(waitc)
@@ -339,25 +360,29 @@ func sendTransactionsToThisPeer(peerAddress string, transactionBlock *pb.Transac
 			in, err := stream.Recv()
 			if err == io.EOF {
 				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO)
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
 				return
 			}
 			if err != nil {
-				errFromChat = fmt.Errorf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err)
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
 				return
 			}
 			if in.Type == pb.OpenchainMessage_RESPONSE {
 				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
-				response = in
+				response = &pb.Response{}
+				err = proto.Unmarshal(in.Payload, response)
+				if err != nil {
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
+				}
 				return
 			}
 			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-			errFromChat = fmt.Errorf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
 			return
 		}
 	}()
 	<-waitc
-	return response, errFromChat
+	return response
 }
 
 func (p *Peer) chatWithPeer(peerAddress string) error {
@@ -420,22 +445,16 @@ func getValidatorStreamAddress() string {
 }
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
-func ExecuteTransaction(transaction *pb.Transaction) ([]byte, error) {
-	transactionBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{transaction}}
+func ExecuteTransaction(transaction *pb.Transaction) *pb.Response {
 	peerAddress := getValidatorStreamAddress()
-	var payload []byte
-	var err error
+	var response *pb.Response
 	if viper.GetString("peer.mode") == "dev" {
 		//TODO in dev mode, we have to do something else
-		response, err := sendTransactionsToThisPeer(peerAddress, transactionBlock)
-		if err != nil {
-			return nil, fmt.Errorf("Error executing transaction: %s", err)
-		}
-		payload = response.Payload
+		response = sendTransactionsToThisPeer(peerAddress, transaction)
 
 	} else {
-		err = SendTransactionsToPeer(peerAddress, transactionBlock)
+		response = SendTransactionsToPeer(peerAddress, transaction)
 	}
 
-	return payload, err
+	return response
 }

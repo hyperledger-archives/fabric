@@ -111,14 +111,13 @@ func TestRecvRequest(t *testing.T) {
 
 	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txBlock := &pb.TransactionBlock{Transactions: []*pb.Transaction{tx}}
-	txBlockPacked, err := proto.Marshal(txBlock)
+	txPacked, err := proto.Marshal(tx)
 	if err != nil {
-		t.Fatalf("Failed to marshal TX block: %s", err)
+		t.Fatalf("Failed to marshal TX : %s", err)
 	}
 	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_REQUEST,
-		Payload: txBlockPacked,
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
 	}
 	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
@@ -285,18 +284,16 @@ func TestNetwork(t *testing.T) {
 
 	net.replicas[0].plugin.setLeader(true)
 
-	// Create a message of type: `OpenchainMessage_REQUEST`
+	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txs := []*pb.Transaction{tx}
-	txBlock := &pb.TransactionBlock{Transactions: txs}
-	txBlockPacked, err := proto.Marshal(txBlock)
+	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
 	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_REQUEST,
-		Payload: txBlockPacked,
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
 	}
 	err = net.replicas[0].plugin.RecvMsg(msg)
 	if err != nil {
@@ -311,9 +308,9 @@ func TestNetwork(t *testing.T) {
 	for _, inst := range net.replicas {
 		if len(inst.executed) == 0 {
 			t.Errorf("Instance %d did not execute transaction", inst.id)
-		} else if !reflect.DeepEqual(inst.executed[0], txs) {
+		} else if !reflect.DeepEqual(inst.executed[0], tx) {
 			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
-				inst.id, inst.executed[0], txs)
+				inst.id, inst.executed[0], tx)
 		}
 	}
 }

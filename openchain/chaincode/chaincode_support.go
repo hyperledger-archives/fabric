@@ -166,7 +166,7 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 
 func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Handler) error {
 	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
-	
+
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
 	}

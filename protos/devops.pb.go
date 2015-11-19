@@ -18,29 +18,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type DevopsResponse_StatusCode int32
-
-const (
-	DevopsResponse_UNDEFINED DevopsResponse_StatusCode = 0
-	DevopsResponse_SUCCESS   DevopsResponse_StatusCode = 1
-	DevopsResponse_FAILURE   DevopsResponse_StatusCode = 2
-)
-
-var DevopsResponse_StatusCode_name = map[int32]string{
-	0: "UNDEFINED",
-	1: "SUCCESS",
-	2: "FAILURE",
-}
-var DevopsResponse_StatusCode_value = map[string]int32{
-	"UNDEFINED": 0,
-	"SUCCESS":   1,
-	"FAILURE":   2,
-}
-
-func (x DevopsResponse_StatusCode) String() string {
-	return proto.EnumName(DevopsResponse_StatusCode_name, int32(x))
-}
-
 type BuildResult_StatusCode int32
 
 const (
@@ -64,15 +41,6 @@ func (x BuildResult_StatusCode) String() string {
 	return proto.EnumName(BuildResult_StatusCode_name, int32(x))
 }
 
-type DevopsResponse struct {
-	Status DevopsResponse_StatusCode `protobuf:"varint,1,opt,name=status,enum=protos.DevopsResponse_StatusCode" json:"status,omitempty"`
-	Msg    []byte                    `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
-}
-
-func (m *DevopsResponse) Reset()         { *m = DevopsResponse{} }
-func (m *DevopsResponse) String() string { return proto.CompactTextString(m) }
-func (*DevopsResponse) ProtoMessage()    {}
-
 type BuildResult struct {
 	Status         BuildResult_StatusCode   `protobuf:"varint,1,opt,name=status,enum=protos.BuildResult_StatusCode" json:"status,omitempty"`
 	Msg            string                   `protobuf:"bytes,2,opt,name=msg" json:"msg,omitempty"`
@@ -91,7 +59,6 @@ func (m *BuildResult) GetDeploymentSpec() *ChaincodeDeploymentSpec {
 }
 
 func init() {
-	proto.RegisterEnum("protos.DevopsResponse_StatusCode", DevopsResponse_StatusCode_name, DevopsResponse_StatusCode_value)
 	proto.RegisterEnum("protos.BuildResult_StatusCode", BuildResult_StatusCode_name, BuildResult_StatusCode_value)
 }
 
@@ -107,9 +74,9 @@ type DevopsClient interface {
 	// Deploy the chaincode package to the chain.
 	Deploy(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error)
 	// Invoke chaincode.
-	Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*DevopsResponse, error)
+	Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error)
 	// Invoke chaincode.
-	Query(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*DevopsResponse, error)
+	Query(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error)
 }
 
 type devopsClient struct {
@@ -138,8 +105,8 @@ func (c *devopsClient) Deploy(ctx context.Context, in *ChaincodeSpec, opts ...gr
 	return out, nil
 }
 
-func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*DevopsResponse, error) {
-	out := new(DevopsResponse)
+func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
 	err := grpc.Invoke(ctx, "/protos.Devops/Invoke", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -147,8 +114,8 @@ func (c *devopsClient) Invoke(ctx context.Context, in *ChaincodeInvocationSpec, 
 	return out, nil
 }
 
-func (c *devopsClient) Query(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*DevopsResponse, error) {
-	out := new(DevopsResponse)
+func (c *devopsClient) Query(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
 	err := grpc.Invoke(ctx, "/protos.Devops/Query", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -164,9 +131,9 @@ type DevopsServer interface {
 	// Deploy the chaincode package to the chain.
 	Deploy(context.Context, *ChaincodeSpec) (*ChaincodeDeploymentSpec, error)
 	// Invoke chaincode.
-	Invoke(context.Context, *ChaincodeInvocationSpec) (*DevopsResponse, error)
+	Invoke(context.Context, *ChaincodeInvocationSpec) (*Response, error)
 	// Invoke chaincode.
-	Query(context.Context, *ChaincodeInvocationSpec) (*DevopsResponse, error)
+	Query(context.Context, *ChaincodeInvocationSpec) (*Response, error)
 }
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
