@@ -56,21 +56,24 @@ func init() {
 
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
-	activeView   bool          // view change happening
-	cpi          consensus.CPI // link to the CPI
-	config       *viper.Viper  // link to the plugin config file
-	id           uint64        // replica ID; PBFT `i`
-	K            uint64        // checkpoint period
-	L            uint64        // log size
-	lastExec     uint64        // last request we executed
-	leader       bool          // am I the leader?
-	f            int           // number of faults we can tolerate
-	h            uint64        // low watermark
-	replicaCount uint64        // number of replicas; PBFT `|R|`
-	seqNo        uint64        // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64        // current view
+	// internal data
+	config *viper.Viper  // link to the plugin config file
+	cpi    consensus.CPI // link to the CPI
+	leader bool          // am I the leader?
 
-	// implementation of PBFT `in`
+	// PBFT data
+	activeView   bool   // view change happening
+	f            int    // number of faults we can tolerate
+	h            uint64 // low watermark
+	id           uint64 // replica ID; PBFT `i`
+	K            uint64 // checkpoint period
+	L            uint64 // log size
+	lastExec     uint64 // last request we executed
+	replicaCount uint64 // number of replicas; PBFT `|R|`
+	seqNo        uint64 // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64 // current view
+
+	// Implementation of PBFT `in`
 	certStore map[msgID]*msgCert  // track quorum certificates for requests
 	reqStore  map[string]*Request // track requests
 }
