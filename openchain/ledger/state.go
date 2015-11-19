@@ -33,6 +33,7 @@ type state struct {
 	stateDelta          *stateDelta
 	currentTxStateDelta *stateDelta
 	currentTxUuid       string
+	txStateDeltaHash    map[string][]byte
 	statehash           *stateHash
 	recomputeHash       bool
 }
@@ -46,7 +47,7 @@ var stateInstance *state
 // getState get handle to world state
 func getState() *state {
 	if stateInstance == nil {
-		stateInstance = &state{newStateDelta(), newStateDelta(), "", nil, true}
+		stateInstance = &state{newStateDelta(), newStateDelta(), "", make(map[string][]byte), nil, true}
 	}
 	return stateInstance
 }
@@ -64,10 +65,15 @@ func (state *state) txFinish(txUuid string, txSuccessful bool) {
 	if state.currentTxUuid != txUuid {
 		panic(fmt.Errorf("Different Uuid in tx-begin [%s] and tx-finish [%s]", state.currentTxUuid, txUuid))
 	}
-	if txSuccessful && !state.currentTxStateDelta.isEmpty() {
-		stateLogger.Debug("txFinish() for txUuid [%s] merging state changes", txUuid)
-		state.stateDelta.applyChanges(state.currentTxStateDelta)
-		state.recomputeHash = true
+	if txSuccessful {
+		if !state.currentTxStateDelta.isEmpty() {
+			stateLogger.Debug("txFinish() for txUuid [%s] merging state changes", txUuid)
+			state.stateDelta.applyChanges(state.currentTxStateDelta)
+			state.recomputeHash = true
+			state.txStateDeltaHash[txUuid] = state.currentTxStateDelta.computeCryptoHash()
+		} else {
+			state.txStateDeltaHash[txUuid] = nil
+		}
 	}
 	state.currentTxStateDelta = newStateDelta()
 	state.currentTxUuid = ""
@@ -131,6 +137,7 @@ func (state *state) getHash() ([]byte, error) {
 // clearInMemoryChanges remove from memory all the changes to state
 func (state *state) clearInMemoryChanges() {
 	state.stateDelta = newStateDelta()
+	state.txStateDeltaHash = make(map[string][]byte)
 }
 
 // getStateDelta get changes in state after most recent call to method clearInMemoryChanges
@@ -157,14 +164,11 @@ func fetchStateDeltaFromDB(blockNumber uint64) (*stateDelta, error) {
 	return stateDelta, nil
 }
 
-func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) error {
+func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) {
 	stateLogger.Debug("state.addChangesForPersistence()...start")
 	state.stateDelta.addChangesForPersistence(writeBatch)
 
-	serializedStateDelta, err := state.stateDelta.marshal()
-	if err != nil {
-		return err
-	}
+	serializedStateDelta := state.stateDelta.marshal()
 	cf := db.GetDBHandle().StateCF
 
 	stateLogger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)
@@ -181,7 +185,6 @@ func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gor
 
 	state.statehash.addChangesForPersistence(writeBatch)
 	stateLogger.Debug("state.addChangesForPersistence()...finished")
-	return nil
 }
 
 func (state *state) fetchStateFromDB(chaincodeID string, key string) ([]byte, error) {

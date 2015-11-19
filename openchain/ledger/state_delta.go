@@ -20,8 +20,13 @@ under the License.
 package ledger
 
 import (
+	"bytes"
+	"fmt"
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -89,6 +94,37 @@ func (stateDelta *stateDelta) addChangesForPersistence(writeBatch *gorocksdb.Wri
 	stateLogger.Debug("stateDelta.addChangesForPersistence()...finished")
 }
 
+func (stateDelta *stateDelta) computeCryptoHash() []byte {
+	var buffer bytes.Buffer
+	//sort chaincodeIDs
+	sortedChaincodeIds := stateDelta.getSortedChaincodeIDs()
+	for _, chaincodeID := range sortedChaincodeIds {
+		buffer.WriteString(chaincodeID)
+		chaincodeStateDelta := stateDelta.chaincodeStateDeltas[chaincodeID]
+		sortedKeys := chaincodeStateDelta.getSortedKeys()
+		for _, key := range sortedKeys {
+			buffer.WriteString(key)
+			updatedValue := chaincodeStateDelta.get(key)
+			if !updatedValue.isDelete() {
+				buffer.Write(updatedValue.value)
+			}
+		}
+	}
+	hashingContent := buffer.Bytes()
+	stateLogger.Debug("computing hash on %#v", hashingContent)
+	return util.ComputeCryptoHash(hashingContent)
+}
+
+func (stateDelta *stateDelta) getSortedChaincodeIDs() []string {
+	chaincodeIDs := []string{}
+	for k, _ := range stateDelta.chaincodeStateDeltas {
+		chaincodeIDs = append(chaincodeIDs, k)
+	}
+	sort.Strings(chaincodeIDs)
+	stateLogger.Debug("sorted chaincodeIDs = %#v", chaincodeIDs)
+	return chaincodeIDs
+}
+
 // Code below is for maintaining state for a chaincode
 type valueHolder struct {
 	value []byte
@@ -123,6 +159,16 @@ func (chaincodeStateDelta *chaincodeStateDelta) hasChanges() bool {
 	return len(chaincodeStateDelta.updatedKVs) > 0
 }
 
+func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
+	updatedKeys := []string{}
+	for k, _ := range chaincodeStateDelta.updatedKVs {
+		updatedKeys = append(updatedKeys, k)
+	}
+	sort.Strings(updatedKeys)
+	stateLogger.Debug("Sorted keys = %#v", updatedKeys)
+	return updatedKeys
+}
+
 func (chaincodeStateDelta *chaincodeStateDelta) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
 	stateLogger.Debug("chaincodeStateDelta.addChangesForPersistence() for codechainId = [%s]", chaincodeStateDelta.chaincodeID)
 	openChainDB := db.GetDBHandle()
@@ -141,28 +187,26 @@ func (chaincodeStateDelta *chaincodeStateDelta) addChangesForPersistence(writeBa
 // We need to revisit the following when we define proto messages
 // for state related structures for transporting. May be we can
 // completely get rid of custom marshalling / Unmarshalling of a state delta
-func (stateDelta *stateDelta) marshal() (b []byte, err error) {
+func (stateDelta *stateDelta) marshal() (b []byte) {
 	buffer := proto.NewBuffer([]byte{})
-	err = buffer.EncodeVarint(uint64(len(stateDelta.chaincodeStateDeltas)))
+	err := buffer.EncodeVarint(uint64(len(stateDelta.chaincodeStateDeltas)))
 	if err != nil {
-		return
+		// in protobuf code the error return is always nil
+		panic(fmt.Errorf("This error should not occure: %s", err))
 	}
 	for chaincodeID, chaincodeStateDelta := range stateDelta.chaincodeStateDeltas {
 		buffer.EncodeStringBytes(chaincodeID)
-		innerErr := chaincodeStateDelta.marshal(buffer)
-		if innerErr != nil {
-			err = innerErr
-			return
-		}
+		chaincodeStateDelta.marshal(buffer)
 	}
 	b = buffer.Bytes()
 	return
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) (err error) {
-	err = buffer.EncodeVarint(uint64(len(chaincodeStateDelta.updatedKVs)))
+func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) {
+	err := buffer.EncodeVarint(uint64(len(chaincodeStateDelta.updatedKVs)))
 	if err != nil {
-		return
+		// in protobuf code the error return is always nil
+		panic(fmt.Errorf("This error should not occure: %s", err))
 	}
 	for key, valueHolder := range chaincodeStateDelta.updatedKVs {
 		err = buffer.EncodeStringBytes(key)
@@ -171,48 +215,48 @@ func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) (e
 		}
 		err = buffer.EncodeRawBytes(valueHolder.value)
 		if err != nil {
-			return
+			// in protobuf code the error return is always nil
+			panic(fmt.Errorf("This error should not occure: %s", err))
 		}
 	}
 	return
 }
 
-func (stateDelta *stateDelta) unmarshal(bytes []byte) error {
+func (stateDelta *stateDelta) unmarshal(bytes []byte) {
 	buffer := proto.NewBuffer(bytes)
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		return err
+		panic(fmt.Errorf("This error should not occure: %s", err))
 	}
 	stateDelta.chaincodeStateDeltas = make(map[string]*chaincodeStateDelta, size)
 	for i := uint64(0); i < size; i++ {
 		chaincodeID, err := buffer.DecodeStringBytes()
 		if err != nil {
-			return err
+			panic(fmt.Errorf("This error should not occure: %s", err))
 		}
 		chaincodeStateDelta := newChaincodeStateDelta(chaincodeID)
 		err = chaincodeStateDelta.unmarshal(buffer)
 		if err != nil {
-			return nil
+			panic(fmt.Errorf("This error should not occure: %s", err))
 		}
 		stateDelta.chaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
 	}
-	return nil
 }
 
 func (chaincodeStateDelta *chaincodeStateDelta) unmarshal(buffer *proto.Buffer) error {
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		return err
+		panic(fmt.Errorf("This error should not occure: %s", err))
 	}
 	chaincodeStateDelta.updatedKVs = make(map[string]*valueHolder, size)
 	for i := uint64(0); i < size; i++ {
 		key, err := buffer.DecodeStringBytes()
 		if err != nil {
-			return err
+			panic(fmt.Errorf("This error should not occure: %s", err))
 		}
 		value, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			return err
+			panic(fmt.Errorf("This error should not occure: %s", err))
 		}
 
 		// protobuff does not differentiate between an empty []byte or a nil
