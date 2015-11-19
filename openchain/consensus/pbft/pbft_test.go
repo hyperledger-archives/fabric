@@ -186,13 +186,12 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 	digest1 := "hi there"
 	request2 := &Request{Payload: []byte("other")}
-	requestRaw2, _ := proto.Marshal(request2)
 
 	nestedMsg := &Message{&Message_PrePrepare{&PrePrepare{
 		View:           0,
 		SequenceNumber: 1,
 		RequestDigest:  digest1,
-		Request:        requestRaw2,
+		Request:        request2,
 		ReplicaId:      0,
 	}}}
 	newPayload, err := proto.Marshal(nestedMsg)
@@ -211,6 +210,33 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	if len(mock.broadcasted) != 0 {
 		t.Fatalf("expected to ignore malicious pre-prepare")
 	}
+}
+
+func TestIncompletePayload(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
+	instance.id = 1
+	instance.replicaCount = 5
+
+	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
+		newPayload, err := proto.Marshal(msg)
+		if err != nil {
+			t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
+		}
+		msgWrapped := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CONSENSUS,
+			Payload: newPayload,
+		}
+		_ = instance.RecvMsg(msgWrapped)
+		if len(mock.broadcasted) != 0 {
+			t.Errorf(errMsg, args...)
+		}
+	}
+
+	checkMsg(&Message{}, "should reject empty message")
+	checkMsg(&Message{&Message_Request{&Request{}}}, "should reject empty request")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "should reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "should reject empty pre-prepare")
 }
 
 // =============================================================================

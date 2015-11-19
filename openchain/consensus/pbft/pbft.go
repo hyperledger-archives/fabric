@@ -315,15 +315,11 @@ func (instance *Plugin) recvRequest(req *Request) error {
 			logger.Debug("Primary %d sending pre-prepare (v:%d,s:%d) for digest: %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
-			reqPacked, err := proto.Marshal(req)
-			if err != nil {
-				return fmt.Errorf("[recvRequest] Cannot marshal request: %s", err)
-			}
 			preprep := &PrePrepare{
 				View:           instance.view,
 				SequenceNumber: instance.seqNo,
 				RequestDigest:  digest,
-				Request:        reqPacked,
+				Request:        req,
 				ReplicaId:      instance.id,
 			}
 			cert := instance.getCert(digest, instance.view, n)
@@ -364,18 +360,13 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	// Store the request if, for whatever reason, you haven't received it
 	// from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
-		newReq := &Request{}
-		err := proto.Unmarshal(preprep.Request, newReq)
-		if err != nil {
-			return fmt.Errorf("[recvPrePrepare] Cannot unmarshal request of pre-prepare: %s", err)
-		}
-		digest := hashReq(newReq)
+		digest := hashReq(preprep.Request)
 		if digest != preprep.RequestDigest {
 			logger.Warning("Pre-prepare request and request digest do not match: request %s, digest %s",
 				digest, preprep.RequestDigest)
 			return nil
 		}
-		instance.reqStore[digest] = newReq
+		instance.reqStore[digest] = preprep.Request
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {

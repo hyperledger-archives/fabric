@@ -195,16 +195,23 @@ func (m *Request) GetTimestamp() *google_protobuf.Timestamp {
 }
 
 type PrePrepare struct {
-	View           uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
-	SequenceNumber uint64 `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	RequestDigest  string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
-	Request        []byte `protobuf:"bytes,4,opt,name=request,proto3" json:"request,omitempty"`
-	ReplicaId      uint64 `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
+	View           uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	SequenceNumber uint64   `protobuf:"varint,2,opt,name=sequence_number" json:"sequence_number,omitempty"`
+	RequestDigest  string   `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
+	Request        *Request `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
+	ReplicaId      uint64   `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
 }
 
 func (m *PrePrepare) Reset()         { *m = PrePrepare{} }
 func (m *PrePrepare) String() string { return proto.CompactTextString(m) }
 func (*PrePrepare) ProtoMessage()    {}
+
+func (m *PrePrepare) GetRequest() *Request {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
 
 type Prepare struct {
 	View           uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
