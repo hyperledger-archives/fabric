@@ -21,6 +21,7 @@ package noops
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
@@ -28,71 +29,81 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-var noopsLogger = logging.MustGetLogger("noops")
+// =============================================================================
+// Init
+// =============================================================================
 
-// Noops is a consensus plugin object implementing consensus.Consenter interface
-type Noops struct {
-	cpi consensus.CPI // The consensus programming interface
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/noops")
 }
 
-// New is a constructor returning a consensus.Consenter object
+// =============================================================================
+// Structures go here
+// =============================================================================
+
+// Noops is a plugin object implementing the consensus.Consenter interface.
+type Noops struct {
+	cpi consensus.CPI
+}
+
+// =============================================================================
+// Constructors go here
+// =============================================================================
+
+// New is a constructor returning a consensus.Consenter object.
 func New(c consensus.CPI) consensus.Consenter {
 	i := &Noops{}
 	i.cpi = c
 	return i
 }
 
-// RecvMsg is called when there is a pb.OpenchainMessage_REQUEST message
-// @return true if processed and false otherwise
+// RecvMsg is called for OpenchainMessage_REQUEST and OpenchainMessage_CONSENSUS messages.
 func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
-	noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
+	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_REQUEST {
 		txs := &pb.TransactionBlock{}
 		err := proto.Unmarshal(msg.Payload, txs)
 		if err != nil {
-			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
+			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s", msg.Type)
 			return err
 		}
-		//TODO...we need to change this to single transaction
+		// TODO Change this to a single TX
 		var numxacts = len(txs.Transactions)
 		if numxacts <= 0 {
 			return fmt.Errorf("No transactions to execute")
 		} else if numxacts > 1 {
-			return fmt.Errorf("Too many transaction to execute %d", numxacts)
+			return fmt.Errorf("Too many transactions to execute: %d", numxacts)
 		}
-		var t = txs.Transactions[0]
-		if t.Type == pb.Transaction_CHAINCODE_QUERY {
-			//Don't send to consensus but execute here directly
-			noopsLogger.Debug("TODO exectute query for transaction %s", t.Uuid)
+		var tx = txs.Transactions[0]
+		if tx.Type == pb.Transaction_CHAINCODE_QUERY {
+			// Don't send to consensus but execute here directly
+			logger.Debug("TODO Execute query for transaction: %s", tx.Uuid)
 			return nil
 		}
-
 		msg.Type = pb.OpenchainMessage_CONSENSUS
-		noopsLogger.Debug("Broadcasting %s", msg.Type)
-
-		// broadcast to others so they can exec the tx
-		errs := i.cpi.Broadcast(msg)
-		if nil != errs {
-			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
+		err = i.cpi.Broadcast(msg)
+		if nil != err {
+			return fmt.Errorf("Failed to broadcast: %v", err)
 		}
 
 		// WARNING: We might end up getting the same message sent back to us
-		// due to Byzantine. We ignore this case for the no-ops consensus
+		// due to Byzantine. We ignore this case for the no-ops consensus.
 	}
-	// We process the message if it is OpenchainMessage_CONSENSUS or QUERY. For
-	// QUERY, we need to return the result to the caller
+
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		noopsLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
 		err := proto.Unmarshal(msg.Payload, txs)
 		if err != nil {
 			return err
 		}
-		_, errs2 := i.cpi.ExecTXs(txs.GetTransactions())
-		if errs2 != nil {
-			return fmt.Errorf("Fail to execute transactions: %v", errs2)
+		_, errs := i.cpi.ExecTXs(txs.GetTransactions())
+		if errs != nil {
+			return fmt.Errorf("Fail to execute transactions: %v", errs)
 		}
 	}
+
 	return nil
 }

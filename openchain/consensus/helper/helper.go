@@ -20,11 +20,8 @@ under the License.
 package helper
 
 import (
-	"time"
-
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
-	gp "google/protobuf"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -33,23 +30,26 @@ import (
 )
 
 // =============================================================================
-// Init.
+// Init
 // =============================================================================
 
-// Package-level logger.
-var helperLogger = logging.MustGetLogger("helper")
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/helper")
+}
 
 // =============================================================================
-// Structure definitions go here.
+// Structure definitions go here
 // =============================================================================
 
-// Helper data structure.
+// Helper contains the reference to coordinator for broadcasts/unicasts.
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 }
 
 // =============================================================================
-// Constructs go here.
+// Constructors go here
 // =============================================================================
 
 // NewHelper constructs the consensus helper object.
@@ -58,51 +58,23 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 }
 
 // =============================================================================
-// Interface implementations go here.
+// Stack-facing implementation goes here
 // =============================================================================
 
-// Broadcast sends a message to all validating peers. during a consensus round.
-// The argument is the serialized message that is specific to the consensus
-// algorithm implementation. It is wrapped into a CONSENSUS message.
+// Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-
-	if helperLogger.IsEnabledFor(logging.DEBUG) {
-		helperLogger.Debug("Broadcasting a message.")
-	}
-
-	// TODO: Figure out how to process the eerors
-	h.coordinator.Broadcast(msg)
+	_ = h.coordinator.Broadcast(msg) // TODO process the errors
 	return nil
 }
 
-// Unicast is called by the validating peer to send a CONSENSUS message to a
-// specified receiver. As is the case with `Broadcast()`, the argument is the
-// serialized payload of an implementation-specific message.
+// Unicast sends a message to a specified receiver.
 func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
-
-	// Wrap as message of type OpenchainMessage_CONSENSUS.
-	msgTime := &gp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0}
-	msg := &pb.OpenchainMessage{
-		Type:      pb.OpenchainMessage_CONSENSUS,
-		Timestamp: msgTime,
-		Payload:   msgPayload,
-	}
-
-	// TODO: Call a function in the comms layer.
-	// Waiting for Jeff's implementation.
-	var _ = msg // Just to silence the compiler error.
-
+	// TODO Call a function in the comms layer; wait for Jeff's implementation.
 	return nil
 }
 
-// ExecTXs will execute all the transactions listed in the `txs` array
-// one-by-one. If all the executions are successful, it returns the candidate
-// global state hash, and nil error array.
+// ExecTXs executes all the transactions listed in the txs array one-by-one.
+// If all the executions are successful, it returns the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-
-	if helperLogger.IsEnabledFor(logging.DEBUG) {
-		helperLogger.Debug("Executing the transactions.")
-	}
-
 	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 }

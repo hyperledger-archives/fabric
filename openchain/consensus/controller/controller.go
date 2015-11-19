@@ -21,26 +21,41 @@ package controller
 
 import (
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
+
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
 	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
-	"github.com/spf13/viper"
 )
 
-var controllerLogger = logging.MustGetLogger("controller")
+// =============================================================================
+// Init
+// =============================================================================
 
-// NewConsenter constructs a consenter object
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/controller")
+}
+
+// =============================================================================
+// Constructors go here
+// =============================================================================
+
+// NewConsenter constructs a consenter object.
+// Called by handler.NewConsensusHandler().
 func NewConsenter(cpi consensus.CPI) consensus.Consenter {
 	if viper.GetString("peer.mode") == "dev" {
 		return noops.New(cpi)
 	}
+
 	plugin := viper.GetString("peer.consensus.plugin")
 	var algo consensus.Consenter
 	if plugin == "pbft" {
-		controllerLogger.Debug("Running with PBFT consensus")
+		logger.Debug("Running with PBFT consensus")
 		algo = pbft.New(cpi)
 	} else {
-		controllerLogger.Debug("Running with NOOPS consensus")
+		logger.Debug("Running with NOOPS consensus")
 		algo = noops.New(cpi)
 	}
 	return algo

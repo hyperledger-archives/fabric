@@ -17,37 +17,50 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package consensus
+syntax = "proto3";
 
-import (
-	pb "github.com/openblockchain/obc-peer/protos"
-
-	"github.com/op/go-logging"
-)
+package pbft;
 
 // =============================================================================
-// Init
+// Old definitions go here. Deprecated, will be removed soon.
 // =============================================================================
 
-var logger *logging.Logger // package-level logger
+message PBFT {
 
-func init() {
-	logger = logging.MustGetLogger("consensus")
+    enum Type {
+        UNDEFINED = 0;
+        REQUEST = 1;
+        PRE_PREPARE = 2;
+        PREPARE = 3;
+        COMMIT = 4;
+        PREPARE_RESULT = 5;
+        COMMIT_RESULT = 6;
+    }
+
+    Type type = 1;
+    string ID = 2;
+    bytes payload = 3;
 }
 
-// =============================================================================
-// Interface definitions go here
-// =============================================================================
+message Request {
 
-// Consenter is implemented by every consensus algorithm implementation (plugin).
-type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error
+    string ID = 1;
+    bytes payload = 2;
 }
 
-// CPI stands for Consensus Programming Interface.
-// It is the set of stack-facing methods available to the plugin.
-type CPI interface {
-	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msgPayload []byte, receiver string) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+message RequestHashes {
+
+    repeated string hashes = 1;
+}
+
+message Requests {
+
+    repeated Request requests = 1;
+}
+
+message PBFTArray {
+
+    repeated PBFT pbfts = 1;
+    string replica_id = 5;
+    repeated string tx_errors = 6;
 }

@@ -36,7 +36,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	pbft "github.com/openblockchain/obc-peer/openchain/consensus/oldpbft"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"

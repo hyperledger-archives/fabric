@@ -23,106 +23,56 @@ import "google/protobuf/timestamp.proto";
 
 package pbft;
 
-// =============================================================================
-// Old definitions go here. Deprecated, will be removed soon.
-// =============================================================================
+/*
+ * mapping to PBFT paper names
+ *
+ * PBFT name: local name
+ *
+ * o: transaction
+ * t: timestamp
+ * c: client
+ * v: view
+ * n: sequenceNumber
+ * D(m): requestDigest
+ * i: replicaId
+ */
 
-// All message definitions here are up to the plugin developer.
-
-// Guidelines: Provide a common message template for all the message types that
-// are specific to your consensus algorithm implementation. When `RecvMsg()`
-// receives a `pb.OpenchainMessage_CONSENSUS`, you'll use this common message
-// template to unmarshal the original message's payload and inspect it.
-
-// The following is a template that we're adopting for PBFT.
-
-message Unpack {
-
-    enum Type {
-        UNDEFINED = 0;
-        REQUEST = 1;
-        PRE_PREPARE = 2;
-        PREPARE = 3;
-        COMMIT = 4;
-        PREPARE_RESULT = 5;
-        COMMIT_RESULT = 6;
+message Message {
+    oneof payload {
+        Request request = 1;
+        PrePrepare prePrepare = 2;
+        Prepare prepare = 3;
+        Commit commit = 4;
     }
-
-    Type type = 1;
-    bytes payload = 2;
-}
-
-// Passed on by a proxy peer to a validating peer, and from there on broadcasted
-// to the entire network of validating peers. TODO: Rename to `Request`.
-message Request2 {
-
-    google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
-    bytes payload = 2;  // Marshal the first and only element of a TransactionBlock message.
-}
-
-message PrePrepare {
-
-    string view = 1; // The IP of the leader. TODO: Temporary definiton until we figure out an identity scheme for all peers.
-    uint64 sequence_number = 2;
-    repeated string request_digests = 3;
-}
-
-message PrepareResult {
-
-    string view = 1;
-    uint64 sequence_number = 2;
-    repeated string request_digests = 3;
-    string global_hash = 4;
-    repeated string tx_errors = 5;
-}
-
-message CommitResult {
-
-    string view = 1;
-    uint64 sequence_number = 2;
-    repeated string request_digests = 3;
-    string global_hash = 4;
-    repeated string tx_errors = 5;
-}
-
-// =============================================================================
-// Old definitions go here. Deprecated, will be removed soon.
-// =============================================================================
-
-message PBFT {
-
-    enum Type {
-        UNDEFINED = 0;
-        REQUEST = 1;
-        PRE_PREPARE = 2;
-        PREPARE = 3;
-        COMMIT = 4;
-        PREPARE_RESULT = 5;
-        COMMIT_RESULT = 6;
-    }
-
-    Type type = 1;
-    string ID = 2;
-    bytes payload = 3;
 }
 
 message Request {
-
-    string ID = 1;
-    bytes payload = 2;
+    google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
+    bytes payload = 2;  // Opaque payload
 }
 
-message RequestHashes {
-
-    repeated string hashes = 1;
+message PrePrepare {
+    uint64 view = 1;
+    uint64 sequence_number = 2;
+    string request_digest = 3;
+    bytes request = 4;
+    uint64 replica_id = 5;
 }
 
-message Requests {
-
-    repeated Request requests = 1;
+message Prepare {
+    uint64 view = 1;
+    uint64 sequence_number = 2;
+    string request_digest = 3;
+    string global_hash = 4;
+    uint64 replica_id = 5;
+    repeated string tx_errors = 6;
 }
 
-message PBFTArray {
-
-    repeated PBFT pbfts = 1;
+message Commit {
+    uint64 view = 1;
+    uint64 sequence_number = 2;
+    string request_digest = 3;
+    string global_hash = 4;
+    uint64 replica_id = 5;
+    repeated string tx_errors = 6;
 }
