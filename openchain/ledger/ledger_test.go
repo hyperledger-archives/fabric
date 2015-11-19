@@ -82,6 +82,44 @@ func TestLedgerDifferentID(t *testing.T) {
 	}
 }
 
+func TestLedgerGetTempStateHashWithTxDeltaStateHashes(t *testing.T) {
+	ledger := InitTestLedger(t)
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.TxFinished("txUuid1", true)
+
+	ledger.TxBegin("txUuid2")
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.TxFinished("txUuid2", true)
+
+	ledger.TxBegin("txUuid3")
+	ledger.TxFinished("txUuid3", true)
+
+	ledger.TxBegin("txUuid4")
+	ledger.SetState("chaincode4", "key4", []byte("value4"))
+	ledger.TxFinished("txUuid4", false)
+
+	_, txDeltaHashes, _ := ledger.GetTempStateHashWithTxDeltaStateHashes()
+	checkStateDeltaHash(t, "chaincode1key1value1", txDeltaHashes["txUuid1"])
+	checkStateDeltaHash(t, "chaincode2key2value2", txDeltaHashes["txUuid2"])
+	checkStateDeltaHash(t, "", txDeltaHashes["txUuid3"])
+	_, ok := txDeltaHashes["txUuid4"]
+	if ok {
+		t.Fatalf("Entry for a failed Tx should not be present in txDeltaHashes map")
+	}
+	ledger.CommitTxBatch(1, []*protos.Transaction{}, []byte("proof"))
+
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.TxFinished("txUuid1", true)
+	_, txDeltaHashes, _ = ledger.GetTempStateHashWithTxDeltaStateHashes()
+	if len(txDeltaHashes) != 1 {
+		t.Fatalf("Entries in txDeltaHashes map should only be from current batch")
+	}
+}
+
 func TestStateSnapshot(t *testing.T) {
 	ledger := InitTestLedger(t)
 	beginTxBatch(t, 1)

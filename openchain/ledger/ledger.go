@@ -117,6 +117,14 @@ func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
 	return ledger.state.getHash()
 }
 
+// GetTempStateHashWithTxDeltaStateHashes - In addition to the state hash (as defined in method GetTempStateHash),
+// this method returns a map [txUuid of Tx --> cryptoHash(stateChangesMadeByTx)]
+// Only successful txs appear in this map
+func (ledger *Ledger) GetTempStateHashWithTxDeltaStateHashes() ([]byte, map[string][]byte, error) {
+	stateHash, err := ledger.state.getHash()
+	return stateHash, ledger.state.txStateDeltaHash, err
+}
+
 // GetState get state for chaincodeID and key. If committed is false, this first looks in memory
 // and if missing, pulls from db.  If committed is true, this pulls from the db only.
 func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) ([]byte, error) {
