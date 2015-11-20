@@ -417,3 +417,84 @@ func TestCheckpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestLostPrePrepare(t *testing.T) {
+	net := makeTestnet(1)
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   txPacked,
+	}
+
+	_ = net.replicas[0].plugin.recvRequest(req)
+
+	// clear all messages sent by primary
+	msg := net.msgs[0]
+	net.msgs = net.msgs[:0]
+
+	// deliver pre-prepare to subset of replicas
+	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
+		inst.plugin.RecvMsg(msg.msg)
+	}
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		if len(inst.executed) != 1 {
+			t.Errorf("expected execution")
+			continue
+		}
+	}
+}
+
+func TestInconsistentPrePrepare(t *testing.T) {
+	net := makeTestnet(1)
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	makePP := func(iter int64) *PrePrepare {
+		req := &Request{
+			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
+			Payload:   txPacked,
+		}
+		preprep := &PrePrepare{
+			View:           0,
+			SequenceNumber: 1,
+			RequestDigest:  hashReq(req),
+			Request:        req,
+			ReplicaId:      0,
+		}
+		return preprep
+	}
+
+	_ = net.replicas[0].plugin.recvRequest(makePP(1).Request)
+
+	// clear all messages sent by primary
+	net.msgs = net.msgs[:0]
+
+	// replace with fake messages
+	_ = net.replicas[1].plugin.recvPrePrepare(makePP(1))
+	_ = net.replicas[2].plugin.recvPrePrepare(makePP(1))
+	_ = net.replicas[3].plugin.recvPrePrepare(makePP(3))
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		if len(inst.executed) != 0 {
+			t.Errorf("expected no execution")
+			continue
+		}
+	}
+}
