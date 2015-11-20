@@ -364,3 +364,61 @@ func TestNetwork(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckpoint(t *testing.T) {
+	const f = 1
+	const replicaCount = 3*f + 1
+	net := &testnet{}
+	for i := 0; i < replicaCount; i++ {
+		inst := &instance{id: i, net: net}
+		inst.plugin = New(inst)
+		inst.plugin.id = uint64(i)
+		inst.plugin.replicaCount = replicaCount
+		inst.plugin.f = f
+		inst.plugin.K = 2
+		net.replicas = append(net.replicas, inst)
+	}
+
+	execReq := func(iter int64) {
+		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			t.Fatalf("Failed to marshal TX block: %s", err)
+		}
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+			Payload: txPacked,
+		}
+		err = net.replicas[0].plugin.RecvMsg(msg)
+		if err != nil {
+			t.Fatalf("Request failed: %s", err)
+		}
+
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	execReq(1)
+	execReq(2)
+
+	for _, inst := range net.replicas {
+		if len(inst.plugin.chkpts) != 1 {
+			t.Errorf("expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
+			continue
+		}
+
+		if _, ok := inst.plugin.chkpts[2]; !ok {
+			t.Errorf("expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
+			continue
+		}
+
+		if inst.plugin.h != 2 {
+			t.Errorf("expected low water mark to be 2, is %d", inst.plugin.h)
+			continue
+		}
+	}
+}

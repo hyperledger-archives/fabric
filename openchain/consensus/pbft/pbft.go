@@ -61,20 +61,27 @@ type Plugin struct {
 	cpi    consensus.CPI // link to the CPI
 
 	// PBFT data
-	activeView   bool   // view change happening
-	f            int    // number of faults we can tolerate
-	h            uint64 // low watermark
-	id           uint64 // replica ID; PBFT `i`
-	K            uint64 // checkpoint period
-	L            uint64 // log size
-	lastExec     uint64 // last request we executed
-	replicaCount uint64 // number of replicas; PBFT `|R|`
-	seqNo        uint64 // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64 // current view
+	activeView   bool             // view change happening
+	f            int              // number of faults we can tolerate
+	h            uint64           // low watermark
+	id           uint64           // replica ID; PBFT `i`
+	K            uint64           // checkpoint period
+	L            uint64           // log size
+	lastExec     uint64           // last request we executed
+	replicaCount uint64           // number of replicas; PBFT `|R|`
+	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64           // current view
+	chkpts       map[uint64]chkpt // state checkpoints
 
 	// Implementation of PBFT `in`
-	certStore map[msgID]*msgCert  // track quorum certificates for requests
-	reqStore  map[string]*Request // track requests
+	certStore       map[msgID]*msgCert  // track quorum certificates for requests
+	reqStore        map[string]*Request // track requests
+	checkpointStore map[Checkpoint]bool // track checkpoints as set
+}
+
+type chkpt struct {
+	n     uint64
+	state string // replace with CPI ref to system state
 }
 
 type msgID struct { // our index through certStore
@@ -134,11 +141,13 @@ func New(c consensus.CPI) *Plugin {
 	instance.id = id
 
 	instance.K = 128
-	instance.L = 1 * instance.K
+	instance.L = 2 * instance.K
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
+	instance.checkpointStore = make(map[Checkpoint]bool)
+	instance.chkpts = make(map[uint64]chkpt)
 
 	return instance
 }
@@ -273,6 +282,8 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
 		err = instance.recvCommit(commit)
+	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
+		err = instance.recvCheckpoint(chkpt)
 	} else {
 		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
 		logger.Error("%s", err)
@@ -465,12 +476,91 @@ func (instance *Plugin) executeOutstanding() error {
 			tx := &pb.Transaction{}
 			err := proto.Unmarshal(req.Payload, tx)
 			if err == nil {
+				// XXX handle errors
 				instance.cpi.ExecTXs([]*pb.Transaction{tx})
+			}
+
+			if instance.lastExec%instance.K == 0 {
+				// XXX obtain checkpoint from CPI
+				stateHash := "XXX state hash"
+
+				instance.chkpts[instance.lastExec] = chkpt{
+					n:     instance.lastExec,
+					state: stateHash,
+				}
+
+				logger.Debug("Replica %d preparing checkpoint (v:%d,s:%d), digest %s",
+					instance.id, instance.view, instance.lastExec, stateHash)
+
+				chkpt := &Checkpoint{
+					SequenceNumber: instance.lastExec,
+					StateDigest:    stateHash,
+					ReplicaId:      instance.id,
+				}
+				instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 			}
 
 			retry = true
 		}
 	}
+
+	return nil
+}
+
+func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
+	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
+		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
+
+	if !instance.inW(chkpt.SequenceNumber) {
+		logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+		return nil
+	}
+
+	instance.checkpointStore[*chkpt] = true
+
+	quorum := 0
+	for testChkpt, _ := range instance.checkpointStore {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
+			quorum += 1
+		}
+	}
+
+	if quorum <= instance.f*2 {
+		return nil
+	}
+
+	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
+		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
+
+	for idx, _ := range instance.certStore {
+		if idx.n <= chkpt.SequenceNumber {
+			logger.Debug("Replica %d cleaning quorum certificate (v:%d,s:%d)",
+				instance.id, idx.v, idx.n)
+			delete(instance.certStore, idx)
+		}
+	}
+
+	for testChkpt, _ := range instance.checkpointStore {
+		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, digest %s",
+				instance.id, testChkpt.ReplicaId,
+				testChkpt.SequenceNumber, testChkpt.StateDigest)
+			delete(instance.checkpointStore, testChkpt)
+		}
+	}
+
+	instance.h = 0
+	for n, _ := range instance.chkpts {
+		if n < chkpt.SequenceNumber {
+			delete(instance.chkpts, n)
+		} else {
+			if instance.h == 0 || n < instance.h {
+				instance.h = n
+			}
+		}
+	}
+
+	// XXX clean instance.reqStore - requires client timestamps
 
 	return nil
 }

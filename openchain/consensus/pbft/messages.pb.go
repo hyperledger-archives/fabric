@@ -14,6 +14,7 @@ It has these top-level messages:
 	PrePrepare
 	Prepare
 	Commit
+	Checkpoint
 */
 package pbft
 
@@ -33,6 +34,7 @@ type Message struct {
 	//	*Message_PrePrepare
 	//	*Message_Prepare
 	//	*Message_Commit
+	//	*Message_Checkpoint
 	Payload isMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -56,11 +58,15 @@ type Message_Prepare struct {
 type Message_Commit struct {
 	Commit *Commit `protobuf:"bytes,4,opt,name=commit,oneof"`
 }
+type Message_Checkpoint struct {
+	Checkpoint *Checkpoint `protobuf:"bytes,5,opt,name=checkpoint,oneof"`
+}
 
 func (*Message_Request) isMessage_Payload()    {}
 func (*Message_PrePrepare) isMessage_Payload() {}
 func (*Message_Prepare) isMessage_Payload()    {}
 func (*Message_Commit) isMessage_Payload()     {}
+func (*Message_Checkpoint) isMessage_Payload() {}
 
 func (m *Message) GetPayload() isMessage_Payload {
 	if m != nil {
@@ -97,6 +103,13 @@ func (m *Message) GetCommit() *Commit {
 	return nil
 }
 
+func (m *Message) GetCheckpoint() *Checkpoint {
+	if x, ok := m.GetPayload().(*Message_Checkpoint); ok {
+		return x.Checkpoint
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
@@ -104,6 +117,7 @@ func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error
 		(*Message_PrePrepare)(nil),
 		(*Message_Prepare)(nil),
 		(*Message_Commit)(nil),
+		(*Message_Checkpoint)(nil),
 	}
 }
 
@@ -129,6 +143,11 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_Commit:
 		b.EncodeVarint(4<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Commit); err != nil {
+			return err
+		}
+	case *Message_Checkpoint:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Checkpoint); err != nil {
 			return err
 		}
 	case nil:
@@ -172,6 +191,14 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(Commit)
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_Commit{msg}
+		return true, err
+	case 5: // payload.checkpoint
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Checkpoint)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_Checkpoint{msg}
 		return true, err
 	default:
 		return false, nil
@@ -238,3 +265,13 @@ type Commit struct {
 func (m *Commit) Reset()         { *m = Commit{} }
 func (m *Commit) String() string { return proto.CompactTextString(m) }
 func (*Commit) ProtoMessage()    {}
+
+type Checkpoint struct {
+	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
+	StateDigest    string `protobuf:"bytes,2,opt,name=state_digest" json:"state_digest,omitempty"`
+	ReplicaId      uint64 `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *Checkpoint) Reset()         { *m = Checkpoint{} }
+func (m *Checkpoint) String() string { return proto.CompactTextString(m) }
+func (*Checkpoint) ProtoMessage()    {}
