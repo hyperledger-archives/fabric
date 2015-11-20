@@ -100,12 +100,7 @@ func init() {
 		chaincodeInstallPath = chaincodeInstallPathDefault
 	}
 
-	peerAddress = viper.GetString("peer.address")
-	if peerAddress == "" {
-		peerAddress = peerAddressDefault
-	}
-
-	fmt.Printf("chaincode env using [startuptimeout-%d, chaincode run mode-%s, peer address-%s]\n", to, mode, peerAddress)
+	fmt.Printf("chaincode env using [startuptimeout-%d, chaincode run mode-%s]\n", to, mode)
 }
 
 // handlerMap maps chaincodeIDs to their handlers, and maps Uuids to bool
@@ -121,12 +116,26 @@ func GetChain(name ChainName) *ChaincodeSupport {
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport() *ChaincodeSupport {
+func NewChaincodeSupport(getPeerEndpoint func() (*pb.PeerEndpoint, error)) *ChaincodeSupport {
 	//we need to pass chainname when we do multiple chains...till then use DefaultChain
 	s := &ChaincodeSupport{name: DefaultChain, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
 	//initialize global chain
 	chains[DefaultChain] = s
+
+	peerEndpoint, err := getPeerEndpoint()
+	if err != nil {
+		chaincodeLog.Error(fmt.Sprintf("Error getting PeerEndpoint, using peer.address: %s", err))
+		peerAddress = viper.GetString("peer.address")
+	} else {
+		peerAddress = peerEndpoint.Address
+	}
+	chaincodeLog.Info("Chaincode support using peerAddress: %s\n", peerAddress)
+	//peerAddress = viper.GetString("peer.address")
+	// peerAddress = viper.GetString("peer.address")
+	if peerAddress == "" {
+		peerAddress = peerAddressDefault
+	}
 
 	return s
 }
