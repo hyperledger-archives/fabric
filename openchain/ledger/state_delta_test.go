@@ -25,14 +25,16 @@ import (
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/tecbot/gorocksdb"
 )
 
 func TestStateDeltaMarshalling(t *testing.T) {
 	stateDelta := createTestStateDelta()
-	by := marshalTestStateDelta(t, stateDelta)
+	by := stateDelta.marshal()
 	t.Logf("length of marshalled bytes = [%d]", len(by))
-	stateDelta1 := unmarshalTestStateData(t, by)
+	stateDelta1 := newStateDelta()
+	stateDelta1.unmarshal(by)
 
 	if !reflect.DeepEqual(stateDelta, stateDelta1) {
 		t.Fatalf("Delta state not same. Found=[%s], Expected=[%s]", stateDelta1, stateDelta)
@@ -100,6 +102,29 @@ func TestStateDeltaPersistence(t *testing.T) {
 	}
 }
 
+func TestStateDeltaCryptoHash(t *testing.T) {
+	stateDelta := newStateDelta()
+
+	stateDelta.set("chaincodeID1", "key2", []byte("value2"))
+	stateDelta.set("chaincodeID1", "key1", []byte("value1"))
+	stateDelta.set("chaincodeID2", "key2", []byte("value2"))
+	stateDelta.set("chaincodeID2", "key1", []byte("value1"))
+	checkStateDeltaHash(t, "chaincodeID1key1value1key2value2chaincodeID2key1value1key2value2", stateDelta.computeCryptoHash())
+
+	stateDelta.delete("chaincodeID2", "key1")
+	checkStateDeltaHash(t, "chaincodeID1key1value1key2value2chaincodeID2key1key2value2", stateDelta.computeCryptoHash())
+}
+
+func checkStateDeltaHash(t *testing.T, expectedContent string, actualHash []byte) {
+	if expectedContent == "" && actualHash == nil {
+		return
+	}
+	expectedHash := util.ComputeCryptoHash([]byte(expectedContent))
+	if !bytes.Equal(actualHash, expectedHash) {
+		t.Fatalf("stateDelta hashes not same. Expected content = %#v", expectedContent)
+	}
+}
+
 func commitTestState(t *testing.T, blockNumber uint64) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	opts := gorocksdb.NewDefaultWriteOptions()
@@ -130,22 +155,5 @@ func createTestStateDelta() *stateDelta {
 	stateDelta.set("chaincode1", "key1", []byte("value1"))
 	stateDelta.set("chaincode2", "key2", []byte("value2"))
 	stateDelta.delete("chaincode3", "key3")
-	return stateDelta
-}
-
-func marshalTestStateDelta(t *testing.T, stateDelta *stateDelta) []byte {
-	bytes, err := stateDelta.marshal()
-	if err != nil {
-		t.Fatalf("Error during marshal. Error: %s", err)
-	}
-	return bytes
-}
-
-func unmarshalTestStateData(t *testing.T, bytes []byte) *stateDelta {
-	stateDelta := newStateDelta()
-	err := stateDelta.unmarshal(bytes)
-	if err != nil {
-		t.Fatalf("Error during unmarshalling. Error: %s", err)
-	}
 	return stateDelta
 }

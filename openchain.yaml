@@ -52,7 +52,7 @@ peer:
         from golang:1.5.1
         ENV GO15VENDOREXPERIMENT=1
         # Install RocksDB
-        RUN cd /opt  && git clone --branch v3.13.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
+        RUN cd /opt  && git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
         WORKDIR /opt/rocksdb
         RUN make shared_lib
         ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
@@ -195,7 +195,7 @@ vm:
 #
 ###############################################################################
 chaincode:
-    
+
     # The id is used by the Chaincode stub to register the executing ChaincodeID with the Peerand is generally supplied through ENV variables
     id:
         url:
