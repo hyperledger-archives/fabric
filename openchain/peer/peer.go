@@ -300,7 +300,7 @@ func SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb
 					return
 				}
 				var ttyp pb.OpenchainMessage_Type
-				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE {
+				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
 					ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
 				} else {
 					ttyp = pb.OpenchainMessage_CHAIN_QUERY
@@ -343,7 +343,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
 	}
 	var ttyp pb.OpenchainMessage_Type
-	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE {
+	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
 		ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
 	} else {
 		ttyp = pb.OpenchainMessage_CHAIN_QUERY
