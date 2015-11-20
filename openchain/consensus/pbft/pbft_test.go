@@ -447,8 +447,12 @@ func TestLostPrePrepare(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.executed) != 1 {
+		if inst.id != 3 && len(inst.executed) != 1 {
 			t.Errorf("expected execution")
+			continue
+		}
+		if inst.id == 3 && len(inst.executed) != 0 {
+			t.Errorf("expected no execution")
 			continue
 		}
 	}
@@ -483,7 +487,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 
 	// replace with fake messages
 	_ = net.replicas[1].plugin.recvPrePrepare(makePP(1))
-	_ = net.replicas[2].plugin.recvPrePrepare(makePP(1))
+	_ = net.replicas[2].plugin.recvPrePrepare(makePP(2))
 	_ = net.replicas[3].plugin.recvPrePrepare(makePP(3))
 
 	err := net.process()
