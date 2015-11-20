@@ -39,23 +39,21 @@ type Ledger struct {
 }
 
 var ledger *Ledger
-var mutex sync.Mutex
+var ledgerError error
+var once sync.Once
 
 // GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
-	if ledger == nil {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if ledger == nil {
-			blockchain, err := getBlockchain()
-			if err != nil {
-				return nil, err
-			}
+	once.Do(func() {
+		blockchain, err := getBlockchain()
+		if err != nil {
+			ledgerError = err
+		} else {
 			state := getState()
 			ledger = &Ledger{blockchain, state, nil}
 		}
-	}
-	return ledger, nil
+	})
+	return ledger, ledgerError
 }
 
 /////////////////// Transaction-batch related methods ///////////////////////////////
@@ -98,14 +96,14 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 }
 
 // TxBegin - Marks the begin of a new transaction in the ongoing batch
-func (ledger *Ledger) TxBegin(txUuid string) {
-	ledger.state.txBegin(txUuid)
+func (ledger *Ledger) TxBegin(txUUID string) {
+	ledger.state.txBegin(txUUID)
 }
 
 // TxFinished - Marks the finish of the on-going transaction.
 // If txSuccessful is false, the state changes made by the transaction are discarded
-func (ledger *Ledger) TxFinished(txUuid string, txSuccessful bool) {
-	ledger.state.txFinish(txUuid, txSuccessful)
+func (ledger *Ledger) TxFinished(txUUID string, txSuccessful bool) {
+	ledger.state.txFinish(txUUID, txSuccessful)
 }
 
 /////////////////// world-state related methods /////////////////////////////////////
