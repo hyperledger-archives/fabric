@@ -298,7 +298,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 	n := instance.seqNo + 1
 
-	if instance.getPrimary(instance.view) == instance.id { // if you're the leader
+	if instance.getPrimary(instance.view) == instance.id { // if we're primary of current view
 		// check for other PRE-PREPARE for same digest, but different seqNo
 		haveOther := false
 		for _, cert := range instance.certStore {
@@ -356,7 +356,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 		cert.prePrepare = preprep
 	}
 
-	// Store the request if, for whatever reason, you haven't received it
+	// Store the request if, for whatever reason, we haven't received it
 	// from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
 		digest := hashReq(preprep.Request)
@@ -447,7 +447,7 @@ func (instance *Plugin) executeOutstanding() error {
 				continue
 			}
 
-			// you have the right sequence number that doesn't create holes
+			// we now have the right sequence number that doesn't create holes
 
 			digest := cert.prePrepare.RequestDigest
 			req := instance.reqStore[digest]
@@ -456,7 +456,7 @@ func (instance *Plugin) executeOutstanding() error {
 				continue
 			}
 
-			// you have a commit certificate for this batch
+			// we have a commit certificate for this batch
 
 			logger.Info("Replica %d executing/committing request (v:%d,s:%d): %s",
 				instance.id, idx.v, idx.n, digest)
