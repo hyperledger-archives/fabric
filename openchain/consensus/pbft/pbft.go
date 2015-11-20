@@ -59,7 +59,6 @@ type Plugin struct {
 	// internal data
 	config *viper.Viper  // link to the plugin config file
 	cpi    consensus.CPI // link to the CPI
-	leader bool          // am I the leader?
 
 	// PBFT data
 	activeView   bool   // view change happening
@@ -513,16 +512,4 @@ func (instance *Plugin) getParam(param string) (val string, err error) {
 func hashReq(req *Request) (digest string) {
 	packedReq, _ := proto.Marshal(req)
 	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
-}
-
-// Allows us to check whether a validating peer is the current leader.
-func (instance *Plugin) isLeader() bool {
-	return instance.leader
-}
-
-// Flags a validating peer as the leader. This is a temporary state.
-func (instance *Plugin) setLeader(flag bool) bool {
-	logger.Debug("Setting leader=%v", flag)
-	instance.leader = flag
-	return instance.leader
 }

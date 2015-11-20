@@ -89,21 +89,6 @@ func TestGetParam(t *testing.T) {
 	}
 }
 
-func TestLeader(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-
-	var ans bool
-	ans = instance.setLeader(true)
-	if !ans {
-		t.Fatalf("Unable to set validating peer as leader")
-	}
-	ans = instance.isLeader()
-	if !ans {
-		t.Fatalf("Unable to query validating peer for leader status")
-	}
-}
-
 func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
@@ -342,8 +327,6 @@ func TestNetwork(t *testing.T) {
 		inst.plugin.f = f
 		net.replicas = append(net.replicas, inst)
 	}
-
-	net.replicas[0].plugin.setLeader(true)
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}

@@ -14,25 +14,6 @@ general:
 
 ################################################################################
 #
-#   SECTION: LEADER
-#
-#   - This applies to the leader.
-#
-################################################################################
-leader:
-
-    # Set to true if this validating peer is a leader.
-    # Useful only for fixed-leader scenarios.
-    is: true
-
-    # Send a `PRE_PREPARE` message for every `batch_size` requests received.
-    batch_size: 1
-
-    # Or every `tx_period` seconds, whichever one comes first.
-    tx_period: 30
-
-################################################################################
-#
 #   SECTION: REPLICA
 #
 #   - This applies to all validating peers.
