@@ -20,7 +20,6 @@ under the License.
 package pbft
 
 import (
-	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
@@ -312,21 +311,26 @@ func (net *testnet) process() error {
 	return nil
 }
 
-func TestNetwork(t *testing.T) {
-
-	fmt.Print("\n")
-
-	const f = 2
-	const replicaCount = 3*f + 1
+func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
+	replicaCount := 3*f + 1
 	net := &testnet{}
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = replicaCount
+		inst.plugin.replicaCount = uint64(replicaCount)
 		inst.plugin.f = f
+		for _, fn := range initFn {
+			fn(inst.plugin)
+		}
 		net.replicas = append(net.replicas, inst)
 	}
+
+	return net
+}
+
+func TestNetwork(t *testing.T) {
+	net := makeTestnet(2)
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
@@ -366,18 +370,9 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	const f = 1
-	const replicaCount = 3*f + 1
-	net := &testnet{}
-	for i := 0; i < replicaCount; i++ {
-		inst := &instance{id: i, net: net}
-		inst.plugin = New(inst)
-		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = replicaCount
-		inst.plugin.f = f
-		inst.plugin.K = 2
-		net.replicas = append(net.replicas, inst)
-	}
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.K = 2
+	})
 
 	execReq := func(iter int64) {
 		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
