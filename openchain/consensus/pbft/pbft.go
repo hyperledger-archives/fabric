@@ -357,13 +357,13 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 		return nil
 	}
 
-	var cert msgCert
-	if cert, ok := instance.certStore[msgID{preprep.View, preprep.SequenceNumber}]; ok {
+	cert, ok := instance.certStore[msgID{preprep.View, preprep.SequenceNumber}]
+	if ok {
 		if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
 			logger.Warning("Pre-prepare found for same view/seqNo but different digest: recevied %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
 		}
 	} else {
-		cert := instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
+		cert = instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
 		cert.prePrepare = preprep
 	}
 
