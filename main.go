@@ -336,7 +336,7 @@ func serve(args []string) error {
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
 
 	// Register ChaincodeSupport server
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport())
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(peer.GetPeerEndpoint))
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer()
