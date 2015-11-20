@@ -89,8 +89,7 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		// WARNING: We might end up getting the same message sent back to us
 		// due to Byzantine. We ignore this case for the no-ops consensus
 	}
-	// We process the message if it is OpenchainMessage_CONSENSUS or QUERY. For
-	// QUERY, we need to return the result to the caller
+	// We process the message if it is OpenchainMessage_CONSENSUS. ie, all transactions
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
@@ -99,6 +98,7 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 			return err
 		}
 		txarr := txs.GetTransactions()
+		logger.Debug("Executing transactions")
 		hash, errs2 := i.cpi.ExecTXs(txarr)
 		//there are n+1 elements of errors in this array. On complete success
 		//they'll all be nil. In particular, the last err will be error in
