@@ -86,6 +86,9 @@ peer:
 
     consensus:
 
+        # Define the consensus plugin that should be used.
+        plugin: pbft
+
         # If noops is true, the sever run without consensus.  Transactions will be executed on all connected Peers (in NOOPS mode)
         noops: false
 
