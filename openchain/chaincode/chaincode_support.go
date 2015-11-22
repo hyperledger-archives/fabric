@@ -179,6 +179,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
 	chaincodehandler.uuidMap = make(map[string]bool)
+	chaincodehandler.isTransaction = make(map[string]bool)
 
 	chaincodeLogger.Debug("registered handler complete for chaincode %s", key)
 
@@ -509,7 +510,7 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 	var notfy chan *pb.ChaincodeMessage
 	var err error
 	if notfy, err = handler.sendExecuteMessage(msg); err != nil {
-		return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
+		return nil, fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
 	select {
 	case ccresp := <-notfy:
