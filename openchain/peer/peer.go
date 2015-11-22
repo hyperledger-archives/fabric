@@ -386,6 +386,10 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 }
 
 func (p *Peer) chatWithPeer(peerAddress string) error {
+	if len(peerAddress) == 0 {
+		peerLogger.Debug("Starting up the first peer")
+		return nil // nothing to do
+	}
 	peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
