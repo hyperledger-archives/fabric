@@ -110,7 +110,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress = "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:40303"
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
 		t.Fail()
@@ -118,10 +118,12 @@ func TestExecuteDeployTransaction(t *testing.T) {
 		return
 	}
 
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport())
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+	}
 
-	//Override UserRunsCC if set to true
-	UserRunsCC = false
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
 
 	go grpcServer.Serve(lis)
 
@@ -217,7 +219,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress = "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:40303"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -226,10 +228,12 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		return
 	}
 
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport())
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+	}
 
-	//Override UserRunsCC if set to true
-	UserRunsCC = false
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
 
 	go grpcServer.Serve(lis)
 
@@ -319,7 +323,7 @@ func TestExecuteQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress = "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:40303"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -328,10 +332,12 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport())
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+	}
 
-	//Override UserRunsCC if set to true
-	UserRunsCC = false
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
 
 	go grpcServer.Serve(lis)
 
