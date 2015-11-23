@@ -20,6 +20,7 @@ under the License.
 package openchain
 
 import (
+	"fmt"
 	"bytes"
 	"testing"
 
@@ -28,8 +29,24 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
+
+func TestMain(m *testing.M) {
+	setupTestConfig()
+}
+
+
+func setupTestConfig() {
+	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AddConfigPath("./")   // path to look for the config file in
+	viper.AddConfigPath("./..")   // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+}
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a ledger with 0 blocks.
