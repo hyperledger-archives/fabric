@@ -73,11 +73,18 @@ type Plugin struct {
 	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64           // current view
 	chkpts       map[uint64]chkpt // state checkpoints
+	pset         map[uint64]*ViewChange_PQ
+	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
 	certStore       map[msgID]*msgCert  // track quorum certificates for requests
 	reqStore        map[string]*Request // track requests
 	checkpointStore map[Checkpoint]bool // track checkpoints as set
+}
+
+type qidx struct {
+	d string
+	n uint64
 }
 
 type chkpt struct {
@@ -178,6 +185,8 @@ func New(c consensus.CPI) *Plugin {
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
 	instance.chkpts = make(map[uint64]chkpt)
+	instance.pset = make(map[uint64]*ViewChange_PQ)
+	instance.qset = make(map[qidx]*ViewChange_PQ)
 
 	return instance
 }
@@ -313,6 +322,8 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		err = instance.recvCheckpoint(chkpt)
+	} else if vc := msg.GetViewChange(); vc != nil {
+		err = instance.recvViewChange(vc)
 	} else {
 		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
 		logger.Error("%s", err)
