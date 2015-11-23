@@ -192,7 +192,7 @@ func (instance *Plugin) inWV(v uint64, n uint64) bool {
 
 // Given a digest/view/seq, is there an entry in the certLog?
 // If so, return it. If not, create it.
-func (instance *Plugin) getCert(digest string, v uint64, n uint64) (cert *msgCert) {
+func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
 
 	cert, ok := instance.certStore[idx]
@@ -352,7 +352,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 				Request:        req,
 				ReplicaId:      instance.id,
 			}
-			cert := instance.getCert(digest, instance.view, n)
+			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
 			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
@@ -382,7 +382,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			logger.Warning("Pre-prepare found for same view/seqNo but different digest: recevied %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
 		}
 	} else {
-		cert := instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
+		cert := instance.getCert(preprep.View, preprep.SequenceNumber)
 		cert.prePrepare = preprep
 	}
 
@@ -427,7 +427,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 		prep.SequenceNumber)
 
 	if instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber) {
-		cert := instance.getCert(prep.RequestDigest, prep.View, prep.SequenceNumber)
+		cert := instance.getCert(prep.View, prep.SequenceNumber)
 		cert.prepare = append(cert.prepare, prep)
 	}
 	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
@@ -457,7 +457,7 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 		commit.SequenceNumber)
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
-		cert := instance.getCert(commit.RequestDigest, commit.View, commit.SequenceNumber)
+		cert := instance.getCert(commit.View, commit.SequenceNumber)
 		cert.commit = append(cert.commit, commit)
 
 		instance.executeOutstanding()
