@@ -62,13 +62,13 @@ type Plugin struct {
 
 	// PBFT data
 	activeView   bool             // view change happening
-	f            int              // number of faults we can tolerate
+	f            uint             // number of faults we can tolerate
 	h            uint64           // low watermark
 	id           uint64           // replica ID; PBFT `i`
 	K            uint64           // checkpoint period
 	L            uint64           // log size
 	lastExec     uint64           // last request we executed
-	replicaCount uint64           // number of replicas; PBFT `|R|`
+	replicaCount uint             // number of replicas; PBFT `|R|`
 	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64           // current view
 	chkpts       map[uint64]chkpt // state checkpoints
@@ -126,22 +126,40 @@ func New(c consensus.CPI) *Plugin {
 	// TODO Initialize the algorithm here
 	// You may want to set the fields of `instance` using `instance.GetParam()`.
 
-	// In dev/debugging mode you are expected to override the config value
-	// with the environment variable OPENCHAIN_PBFT_REPLICA_ID
-	replicaID, err := instance.getParam("replica.id")
+	// In dev/debugging mode you are expected to override the config values
+	// with the environment variable OPENCHAIN_PBFT_X_Y
+
+	// replica ID
+	id, err := instance.getParam("replica.id")
 	if err != nil {
 		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
 	}
-	id, err := strconv.ParseUint(replicaID, 10, 64)
+	instance.id, err = strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		panic(fmt.Errorf("Cannot convert ID to int: %s", err))
+		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
 	}
-	if id < 0 {
-		panic(fmt.Errorf("An invalid ID has been assigned to the replica: %s", err))
+	// byzantine nodes
+	f, err := instance.getParam("general.f")
+	if err != nil {
+		panic(fmt.Errorf("No f defined in the config file: %s", err))
 	}
-	instance.id = id
-
-	instance.K = 128
+	f2, err := strconv.ParseUint(f, 10, 0)
+	if err != nil {
+		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
+	}
+	instance.f = uint(f2)
+	// replica count
+	instance.replicaCount = 3*instance.f + 1
+	// checkpoint period
+	K, err := instance.getParam("general.K")
+	if err != nil {
+		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
+	}
+	instance.K, err = strconv.ParseUint(K, 10, 64)
+	if err != nil {
+		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
+	}
+	// log size
 	instance.L = 2 * instance.K
 
 	// init the logs
@@ -159,8 +177,7 @@ func New(c consensus.CPI) *Plugin {
 
 // Given a certain view n, what is the expected primary?
 func (instance *Plugin) getPrimary(n uint64) uint64 {
-	logger.Debug("Given the current view %d, leader should be %d", n, (n % instance.replicaCount))
-	return n % instance.replicaCount
+	return n % uint64(instance.replicaCount)
 }
 
 // Is the sequence number between watermarks?
@@ -216,7 +233,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := 0
+	quorum := uint(0)
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -239,7 +256,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := 0
+	quorum := uint(0)
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -325,7 +342,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 		}
 
 		if instance.inWV(instance.view, n) && !haveOther {
-			logger.Debug("Primary %d sending pre-prepare (v:%d,s:%d) for digest: %s",
+			logger.Debug("Primary %d broadcasting pre-prepare (v:%d,s:%d) for digest: %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
 			preprep := &PrePrepare{
@@ -341,7 +358,6 @@ func (instance *Plugin) recvRequest(req *Request) error {
 			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
 		}
 	}
-
 	return nil
 }
 
@@ -385,7 +401,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		// TODO speculative execution: ExecTXs
 
-		logger.Debug("Backup %d sending prepare (v:%d,s:%d)",
+		logger.Debug("Backup %d broadcasting prepare (v:%d,s:%d)",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
 		prep := &Prepare{
@@ -417,7 +433,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
 
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
-		logger.Debug("Replica %d sending commit (v:%d,s:%d)",
+		logger.Debug("Replica %d broadcasting commit (v:%d,s:%d)",
 			instance.id, prep.View, prep.SequenceNumber)
 
 		commit := &Commit{
@@ -521,7 +537,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := 0
+	quorum := uint(0)
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
