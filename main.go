@@ -309,7 +309,7 @@ func serve(args []string) error {
 	var peerServer *peer.Peer
 
 	if viper.GetString("peer.mode") == "dev" {
-		logger.Debug("Running in DEV mode, using NOOPS handler factory")
+		logger.Debug("Running in dev mode")
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else if viper.GetBool("peer.consensus.validator.enabled") {
 		logger.Debug("Installing consensus message handler")

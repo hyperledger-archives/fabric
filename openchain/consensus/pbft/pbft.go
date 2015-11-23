@@ -159,6 +159,7 @@ func New(c consensus.CPI) *Plugin {
 
 // Given a certain view n, what is the expected primary?
 func (instance *Plugin) getPrimary(n uint64) uint64 {
+	logger.Debug("Given the current view %d, leader should be %d", n, (n % instance.replicaCount))
 	return n % instance.replicaCount
 }
 
@@ -316,6 +317,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 		for _, cert := range instance.certStore {
 			if p := cert.prePrepare; p != nil {
 				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
+					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d ", p.SequenceNumber, n)
 					haveOther = true
 					break
 				}
@@ -520,9 +522,9 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	instance.checkpointStore[*chkpt] = true
 
 	quorum := 0
-	for testChkpt, _ := range instance.checkpointStore {
+	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
-			quorum += 1
+			quorum++
 		}
 	}
 
@@ -533,7 +535,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	for idx, _ := range instance.certStore {
+	for idx := range instance.certStore {
 		if idx.n <= chkpt.SequenceNumber {
 			logger.Debug("Replica %d cleaning quorum certificate (v:%d,s:%d)",
 				instance.id, idx.v, idx.n)
@@ -541,7 +543,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	for testChkpt, _ := range instance.checkpointStore {
+	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
 			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, digest %s",
 				instance.id, testChkpt.ReplicaId,
@@ -551,7 +553,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	}
 
 	instance.h = 0
-	for n, _ := range instance.chkpts {
+	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {
 			delete(instance.chkpts, n)
 		} else {
