@@ -22,12 +22,17 @@ package pbft
 func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
+			logger.Debug("invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
+				vc.View, vc.H, p.View, p.SequenceNumber)
 			return false
 		}
 	}
 
 	for _, c := range vc.Cset {
-		if !(c.SequenceNumber > vc.H && c.SequenceNumber <= vc.H+instance.L) {
+		// XXX the paper says c.n > vc.h
+		if !(c.SequenceNumber >= vc.H && c.SequenceNumber <= vc.H+instance.L) {
+			logger.Debug("invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
+				vc.View, vc.H, c.SequenceNumber)
 			return false
 		}
 	}
@@ -145,4 +150,48 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
 
 	return nil
+}
+
+func (instance *Plugin) selectInitialCheckpoint() (checkpoint uint64, ok bool) {
+	checkpoints := make(map[ViewChange_C][]*ViewChange)
+	for _, vc := range instance.viewChangeStore {
+		for _, c := range vc.Cset {
+			checkpoints[*c] = append(checkpoints[*c], vc)
+		}
+	}
+
+	if len(checkpoints) == 0 {
+		logger.Debug("no checkpoints to select from: %d %s",
+			len(instance.viewChangeStore), checkpoints)
+		return
+	}
+
+	for idx, vcList := range checkpoints {
+		// need weak certificate for the checkpoint
+		if len(vcList) <= instance.f {
+			logger.Debug("no weak certificate for n:%d",
+				idx.SequenceNumber)
+			continue
+		}
+
+		quorum := 0
+		for _, vc := range vcList {
+			if vc.H <= idx.SequenceNumber {
+				quorum += 1
+			}
+		}
+
+		if quorum <= 2*instance.f {
+			logger.Debug("no quorum for n:%d",
+				idx.SequenceNumber)
+			continue
+		}
+
+		if checkpoint <= idx.SequenceNumber {
+			checkpoint = idx.SequenceNumber
+			ok = true
+		}
+	}
+
+	return
 }

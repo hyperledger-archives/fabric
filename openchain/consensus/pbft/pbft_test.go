@@ -504,28 +504,47 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1)
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.K = 2
+	})
 
-	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txPacked, _ := proto.Marshal(tx)
+	execReq := func(iter int64) {
+		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			t.Fatalf("Failed to marshal TX block: %s", err)
+		}
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+			Payload: txPacked,
+		}
+		err = net.replicas[0].plugin.RecvMsg(msg)
+		if err != nil {
+			t.Fatalf("Request failed: %s", err)
+		}
 
-	req := &Request{
-		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
-		Payload:   txPacked,
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
 	}
 
-	_ = net.replicas[0].plugin.recvRequest(req)
+	execReq(1)
+	execReq(2)
+
+	for i := 1; i < len(net.replicas); i++ {
+		net.replicas[i].plugin.sendViewChange()
+	}
 
 	err := net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	net.replicas[2].plugin.sendViewChange()
-
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
+	if cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(); !ok || cp != 2 {
+		t.Fatalf("wrong new initial checkpoint: %s",
+			net.replicas[1].plugin.viewChangeStore)
 	}
 }
