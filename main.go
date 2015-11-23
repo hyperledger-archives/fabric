@@ -20,14 +20,14 @@ under the License.
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -335,8 +335,9 @@ func serve(args []string) error {
 	// Register the Admin server
 	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
 
-	// Register ChaincodeSupport server
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport())
+	// Register ChaincodeSupport server...
+	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer()
@@ -364,9 +365,6 @@ func serve(args []string) error {
 		return err
 	}
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, rootNode, viper.GetBool("peer.consensus.validator.enabled"))
-	if len(args) > 0 && args[0] == "cli" {
-		go doCLI()
-	}
 	grpcServer.Serve(lis)
 	return nil
 }
@@ -396,6 +394,24 @@ func stop() {
 	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
 	logger.Info("Current status: %s", status)
 
+}
+
+func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
+	//get user mode
+	userRunsCC := false
+	if viper.GetString("chaincode.chaincoderunmode") == "user_mode" {
+		userRunsCC = true
+	}
+
+	//get chaincode startup timeout
+	tOut, err := strconv.Atoi(viper.GetString("chaincode.startuptimeout"))
+	if err != nil { //what went wrong ?
+		fmt.Printf("could not retrive timeout var...setting to 5secs\n")
+		tOut = 5000
+	}
+	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
+
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout))
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {
@@ -558,50 +574,6 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		} else if resp != nil {
 			logger.Info("Trying to print as string: %s", string(resp.Msg))
 			logger.Info("Raw bytes %x", resp.Msg)
-		}
-	}
-}
-
-func doCLI() {
-	wio := bufio.NewWriter(os.Stdout)
-	rio := bufio.NewReader(os.Stdin)
-	help := "deploy <chaincodeid> <version> <funcname> <arg> <arg>...\n"
-	for {
-		wio.WriteString(">")
-		wio.Flush()
-		line, _ := rio.ReadString('\n')
-		if line == "q\n" {
-			break
-		}
-		toks := strings.Split(line, "\n") //get rid of /n
-		toks = strings.Split(toks[0], " ")
-		if toks == nil || len(toks) < 1 {
-			wio.WriteString("invalid input " + line + "\n")
-			continue
-		}
-		if toks[0] == "help" {
-			wio.WriteString(help)
-			continue
-		}
-		switch toks[0] {
-		case "deploy":
-			fallthrough
-		case "d":
-			if len(toks) < 5 {
-				wio.WriteString(help)
-				continue
-			}
-			chaincodeID := toks[1]
-			version := toks[2]
-			spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Url: chaincodeID, Version: version}, CtorMsg: &pb.ChaincodeInput{Function: toks[3], Args: toks[4:]}}
-			_, err := openchain.DeployLocal(context.Background(), spec)
-			if err != nil {
-				wio.WriteString("Error transacting : " + fmt.Sprintf("%s", err) + "\n")
-			} else {
-				wio.WriteString("Success\n")
-			}
-		default:
-			wio.WriteString(help)
 		}
 	}
 }

@@ -295,6 +295,56 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked transaction.\"}")
 }
 
+// Query performs the supplied query on the target Chaincode.
+func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
+	// Decode the incoming JSON payload
+	var spec pb.ChaincodeInvocationSpec
+	err := jsonpb.Unmarshal(req.Body, &spec)
+
+	// Check for proper JSON syntax
+	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character.
+		// Otherwise, the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+		rw.WriteHeader(http.StatusBadRequest)
+
+		// Client must supply payload
+		if err == io.EOF {
+			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeInvocationSpec.\"}")
+		} else {
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+		}
+		return
+	}
+
+	// Check for incomplete ChaincodeInvocationSpec
+	if spec.ChaincodeSpec.ChaincodeID.Url == "" {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
+		return
+	}
+	if spec.ChaincodeSpec.ChaincodeID.Version == "" {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
+		return
+	}
+	if (spec.ChaincodeSpec.CtorMsg.Function == "") || (len(spec.ChaincodeSpec.CtorMsg.Args) == 0) {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode function and arguments.\"}")
+		return
+	}
+
+	// Query the chainCode
+	resp, err := s.devops.Query(context.Background(), &spec)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	fmt.Fprintf(rw, "{\"OK\": %s}", string(resp.Msg))
+}
+
 // NotFound returns a custom landing page when a given openchain end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
@@ -325,6 +375,7 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
+	router.Post("/devops/query", (*ServerOpenchainREST).Query)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)

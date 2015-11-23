@@ -89,21 +89,6 @@ func TestGetParam(t *testing.T) {
 	}
 }
 
-func TestLeader(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-
-	var ans bool
-	ans = instance.setLeader(true)
-	if !ans {
-		t.Fatalf("Unable to set validating peer as leader")
-	}
-	ans = instance.isLeader()
-	if !ans {
-		t.Fatalf("Unable to query validating peer for leader status")
-	}
-}
-
 func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
@@ -176,6 +161,67 @@ func TestRecvMsg(t *testing.T) {
 	if msg := msg.GetPrePrepare(); msg == nil {
 		t.Fatal("expected pre-prepare after request")
 	}
+}
+
+func TestMaliciousPrePrepare(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
+	instance.id = 1
+	instance.replicaCount = 5
+
+	digest1 := "hi there"
+	request2 := &Request{Payload: []byte("other")}
+
+	nestedMsg := &Message{&Message_PrePrepare{&PrePrepare{
+		View:           0,
+		SequenceNumber: 1,
+		RequestDigest:  digest1,
+		Request:        request2,
+		ReplicaId:      0,
+	}}}
+	newPayload, err := proto.Marshal(nestedMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
+	}
+	msgWrapped := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: newPayload,
+	}
+	err = instance.RecvMsg(msgWrapped)
+	if err != nil {
+		t.Fatalf("Failed to handle pbft message: %s", err)
+	}
+
+	if len(mock.broadcasted) != 0 {
+		t.Fatalf("expected to ignore malicious pre-prepare")
+	}
+}
+
+func TestIncompletePayload(t *testing.T) {
+	mock := NewMock()
+	instance := New(mock)
+	instance.id = 1
+	instance.replicaCount = 5
+
+	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
+		newPayload, err := proto.Marshal(msg)
+		if err != nil {
+			t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
+		}
+		msgWrapped := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CONSENSUS,
+			Payload: newPayload,
+		}
+		_ = instance.RecvMsg(msgWrapped)
+		if len(mock.broadcasted) != 0 {
+			t.Errorf(errMsg, args...)
+		}
+	}
+
+	checkMsg(&Message{}, "should reject empty message")
+	checkMsg(&Message{&Message_Request{&Request{}}}, "should reject empty request")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "should reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "should reject empty pre-prepare")
 }
 
 // =============================================================================
@@ -282,8 +328,6 @@ func TestNetwork(t *testing.T) {
 		net.replicas = append(net.replicas, inst)
 	}
 
-	net.replicas[0].plugin.setLeader(true)
-
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -317,6 +361,64 @@ func TestNetwork(t *testing.T) {
 		if !reflect.DeepEqual(inst.executed[0][0], tx) {
 			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
 				inst.id, inst.executed[0], tx)
+		}
+	}
+}
+
+func TestCheckpoint(t *testing.T) {
+	const f = 1
+	const replicaCount = 3*f + 1
+	net := &testnet{}
+	for i := 0; i < replicaCount; i++ {
+		inst := &instance{id: i, net: net}
+		inst.plugin = New(inst)
+		inst.plugin.id = uint64(i)
+		inst.plugin.replicaCount = replicaCount
+		inst.plugin.f = f
+		inst.plugin.K = 2
+		net.replicas = append(net.replicas, inst)
+	}
+
+	execReq := func(iter int64) {
+		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			t.Fatalf("Failed to marshal TX block: %s", err)
+		}
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+			Payload: txPacked,
+		}
+		err = net.replicas[0].plugin.RecvMsg(msg)
+		if err != nil {
+			t.Fatalf("Request failed: %s", err)
+		}
+
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	execReq(1)
+	execReq(2)
+
+	for _, inst := range net.replicas {
+		if len(inst.plugin.chkpts) != 1 {
+			t.Errorf("expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
+			continue
+		}
+
+		if _, ok := inst.plugin.chkpts[2]; !ok {
+			t.Errorf("expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
+			continue
+		}
+
+		if inst.plugin.h != 2 {
+			t.Errorf("expected low water mark to be 2, is %d", inst.plugin.h)
+			continue
 		}
 	}
 }

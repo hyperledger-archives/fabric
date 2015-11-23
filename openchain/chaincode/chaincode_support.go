@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,64 +47,18 @@ const (
 	// DefaultChain is the name of the default chain.
 	DefaultChain ChainName = "default"
 	// DevModeUserRunsChaincode property allows user to run chaincode in development environment
-	DevModeUserRunsChaincode    string = "dev_mode"
-	chaincodeInstallPathDefault string = "/go/bin/"
-	peerAddressDefault          string = "0.0.0.0:30303"
+	DevModeUserRunsChaincode       string = "dev_mode"
+	chaincodeStartupTimeoutDefault int    = 5000
+	chaincodeInstallPathDefault    string = "/go/bin/"
+	peerAddressDefault             string = "0.0.0.0:30303"
 )
 
 // chains is a map between different blockchains and their ChaincodeSupport.
 //this needs to be a first class, top-level object... for now, lets just have a placeholder
 var chains map[ChainName]*ChaincodeSupport
 
-// ccStartupTimeout is the timeout after which deploy will fail.
-var ccStartupTimeout time.Duration
-var chaincodeInstallPath string
-
-// UserRunsCC is true when user is running the chaincode in dev mode and no container is launched.
-var UserRunsCC bool
-
-var peerAddress string
-
 func init() {
-	viper.SetEnvPrefix("OPENCHAIN")
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("openchain") // name of config file (without extension)
-	viper.AddConfigPath("./")        // path to look for the config file in
-	viper.AddConfigPath("./../")     // path to look for the config file in
-	viper.AddConfigPath("./../../")  // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {
-		fmt.Printf("Error reading viper :%s\n", err)
-	}
-
 	chains = make(map[ChainName]*ChaincodeSupport)
-	to, err := strconv.Atoi(viper.GetString("chaincode.startuptimeout"))
-	if err != nil { //what went wrong ?
-		fmt.Printf("could not retrive timeout var...setting to 5secs\n")
-		to = 5000
-	}
-	ccStartupTimeout = time.Duration(to) * time.Millisecond
-
-	mode := viper.GetString("chaincode.chaincoderunmode")
-	if mode == DevModeUserRunsChaincode {
-		UserRunsCC = true
-	} else {
-		UserRunsCC = false
-	}
-
-	chaincodeInstallPath = viper.GetString("chaincode.chaincodeinstallpath")
-	if chaincodeInstallPath == "" {
-		chaincodeInstallPath = chaincodeInstallPathDefault
-	}
-
-	peerAddress = viper.GetString("peer.address")
-	if peerAddress == "" {
-		peerAddress = peerAddressDefault
-	}
-
-	fmt.Printf("chaincode env using [startuptimeout-%d, chaincode run mode-%s, peer address-%s]\n", to, mode, peerAddress)
 }
 
 // handlerMap maps chaincodeIDs to their handlers, and maps Uuids to bool
@@ -121,12 +74,33 @@ func GetChain(name ChainName) *ChaincodeSupport {
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport() *ChaincodeSupport {
+func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
 	//we need to pass chainname when we do multiple chains...till then use DefaultChain
-	s := &ChaincodeSupport{name: DefaultChain, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
+	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
 	//initialize global chain
 	chains[DefaultChain] = s
+
+	peerEndpoint, err := getPeerEndpoint()
+	if err != nil {
+		chaincodeLog.Error(fmt.Sprintf("Error getting PeerEndpoint, using peer.address: %s", err))
+		s.peerAddress = viper.GetString("peer.address")
+	} else {
+		s.peerAddress = peerEndpoint.Address
+	}
+	chaincodeLog.Info("Chaincode support using peerAddress: %s\n", s.peerAddress)
+	//peerAddress = viper.GetString("peer.address")
+	// peerAddress = viper.GetString("peer.address")
+	if s.peerAddress == "" {
+		s.peerAddress = peerAddressDefault
+	}
+
+	s.userRunsCC = userrunsCC
+
+	s.ccStartupTimeout = ccstartuptimeout
+
+	//TODO I'm not sure if this needs to be on a per chain basis... too lowel and just needs to be a global default ?
+	s.chaincodeInstallPath = chaincodeInstallPathDefault
 
 	return s
 }
@@ -139,8 +113,12 @@ func NewChaincodeSupport() *ChaincodeSupport {
 
 // ChaincodeSupport responsible for providing interfacing with chaincodes from the Peer.
 type ChaincodeSupport struct {
-	name       ChainName
-	handlerMap *handlerMap
+	name                 ChainName
+	handlerMap           *handlerMap
+	peerAddress          string
+	ccStartupTimeout     time.Duration
+	chaincodeInstallPath string
+	userRunsCC           bool
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -301,7 +279,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 		if !ok {
 			err = fmt.Errorf("registration failed for %s(tx:%s)", vmname, uuid)
 		}
-	case <-time.After(ccStartupTimeout):
+	case <-time.After(chaincodeSupport.ccStartupTimeout):
 		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", vmname, uuid)
 		chaincodeSupport.handlerMap.Lock()
 		delete(chaincodeSupport.handlerMap.chaincodeMap, chaincode)
@@ -394,7 +372,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	chaincodeSupport.handlerMap.Unlock()
 
 	//from here on : if we launch the container and get an error, we need to stop the container
-	if !UserRunsCC {
+	if !chaincodeSupport.userRunsCC {
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cID, t.Uuid)
 		if err != nil {
 			chaincodeLog.Debug("launchAndWaitForRegister failed %s", err)
@@ -404,7 +382,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, ccStartupTimeout)
+		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout)
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
@@ -423,7 +401,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
 func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
-	if UserRunsCC {
+	if chaincodeSupport.userRunsCC {
 		chaincodeLog.Debug("command line, not deploying chaincode")
 		return nil, nil
 	}
@@ -454,7 +432,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	//openchain.yaml in the container likely will not have the right url:version. We know the right
 	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINCODE_ID_URL=" + cID.Url, "OPENCHAIN_CHAINCODE_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + peerAddress}
+	envs := []string{"OPENCHAIN_CHAINCODE_ID_URL=" + cID.Url, "OPENCHAIN_CHAINCODE_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
 	toks := strings.Split(vmname, ":")
 	if toks == nil {
 		return cds, fmt.Errorf("cannot get version from %s", vmname)
@@ -469,7 +447,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	//       need to revisit executable name assignment
 	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
 	//     exec is "chaincode_example01"
-	exec := []string{chaincodeInstallPath + toks[len(toks)-1]}
+	exec := []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
 	chaincodeLog.Debug("Executable is %s", exec[0])
 
 	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}

@@ -43,6 +43,7 @@ message Message {
         PrePrepare prePrepare = 2;
         Prepare prepare = 3;
         Commit commit = 4;
+        Checkpoint checkpoint = 5;
     }
 }
 
@@ -55,7 +56,7 @@ message PrePrepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
-    bytes request = 4;
+    Request request = 4;
     uint64 replica_id = 5;
 }
 
@@ -75,4 +76,10 @@ message Commit {
     string global_hash = 4;
     uint64 replica_id = 5;
     repeated string tx_errors = 6;
+}
+
+message Checkpoint {
+    uint64 sequence_number = 1;
+    string state_digest = 2;
+    uint64 replica_id = 3;
 }
