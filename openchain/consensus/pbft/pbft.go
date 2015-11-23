@@ -117,6 +117,7 @@ func New(c consensus.CPI) *Plugin {
 
 	instance.config.SetConfigName("config")
 	instance.config.AddConfigPath("./")
+	instance.config.AddConfigPath("./openchain/consensus/pbft/")
 	err := instance.config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
