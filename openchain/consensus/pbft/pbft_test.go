@@ -502,3 +502,30 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		}
 	}
 }
+
+func TestViewChange(t *testing.T) {
+	net := makeTestnet(1)
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   txPacked,
+	}
+
+	_ = net.replicas[0].plugin.recvRequest(req)
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	net.replicas[2].plugin.sendViewChange()
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+}
