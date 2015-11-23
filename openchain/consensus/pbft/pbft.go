@@ -77,9 +77,10 @@ type Plugin struct {
 	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert  // track quorum certificates for requests
-	reqStore        map[string]*Request // track requests
-	checkpointStore map[Checkpoint]bool // track checkpoints as set
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
+	reqStore        map[string]*Request   // track requests
+	checkpointStore map[Checkpoint]bool   // track checkpoints as set
+	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 }
 
 type qidx struct {
@@ -103,6 +104,11 @@ type msgCert struct {
 	prepare     []*Prepare
 	sentCommit  bool
 	commit      []*Commit
+}
+
+type vcidx struct {
+	v  uint64
+	id uint64
 }
 
 // =============================================================================
@@ -184,6 +190,7 @@ func New(c consensus.CPI) *Plugin {
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.chkpts = make(map[uint64]chkpt)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
@@ -595,6 +602,18 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 				instance.id, testChkpt.ReplicaId,
 				testChkpt.SequenceNumber, testChkpt.StateDigest)
 			delete(instance.checkpointStore, testChkpt)
+		}
+	}
+
+	for n, _ := range instance.pset {
+		if n <= chkpt.SequenceNumber {
+			delete(instance.pset, n)
+		}
+	}
+
+	for idx, _ := range instance.qset {
+		if idx.n <= chkpt.SequenceNumber {
+			delete(instance.qset, idx)
 		}
 	}
 
