@@ -204,6 +204,39 @@
                   }
               }
            }
+        },
+        "/devops/query": {
+           "post": {
+              "summary": "Service endpoint for querying Chaincode",
+              "description": "The /devops/query endpoint receives requests to query existing Chaincodes. The request triggers the query method on the target Chaincode, both specified in the required payload. If the Chaincode query is successful, the response defined within the Chaincode is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Devops"
+              ],
+              "operationId": "chaincodeQuery",
+              "parameters": [{
+                 "name": "ChaincodeInvocationSpec",
+                 "in": "body",
+                 "description": "Chaincode invocation message",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/ChaincodeInvocationSpec"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully queried chaincode",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
         }
     },
     "definitions": {
