@@ -200,7 +200,6 @@ func main() {
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
 
-
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
 	viper.AddConfigPath("./")    // Path to look for the config file in
