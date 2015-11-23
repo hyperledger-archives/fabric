@@ -19,6 +19,22 @@ under the License.
 
 package pbft
 
+func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
+	for _, p := range append(vc.Pset, vc.Qset...) {
+		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
+			return false
+		}
+	}
+
+	for _, c := range vc.Cset {
+		if !(c.SequenceNumber > vc.H && c.SequenceNumber <= vc.H+instance.L) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (instance *Plugin) sendViewChange() error {
 	instance.view += 1
 	instance.activeView = false
@@ -77,6 +93,19 @@ func (instance *Plugin) sendViewChange() error {
 		}
 	}
 
+	// clear old messages
+	for idx, _ := range instance.certStore {
+		if idx.v < instance.view {
+			delete(instance.certStore, idx)
+			// XXX how do we clear reqStore?
+		}
+	}
+	for idx, _ := range instance.viewChangeStore {
+		if idx.v < instance.view {
+			delete(instance.viewChangeStore, idx)
+		}
+	}
+
 	vc := &ViewChange{
 		View:      instance.view,
 		H:         instance.h,
@@ -101,12 +130,19 @@ func (instance *Plugin) sendViewChange() error {
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	return instance.broadcast(&Message{&Message_ViewChange{vc}}, false)
+	return instance.broadcast(&Message{&Message_ViewChange{vc}}, true)
 }
 
 func (instance *Plugin) recvViewChange(vc *ViewChange) error {
-	logger.Info("Replica %d received view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
-		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
+	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
+		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
+
+	if !(vc.View >= instance.view && instance.correctViewChange(vc) || instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] != nil) {
+		logger.Warning("View-change message incorrect")
+		return nil
+	}
+
+	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
 
 	return nil
 }
