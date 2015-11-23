@@ -399,7 +399,7 @@ func stop() {
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
 	//get user mode
 	userRunsCC := false
-	if viper.GetString("chaincode.chaincoderunmode") == "user_mode" {
+	if viper.GetString("chaincode.chaincoderunmode") == chaincode.DevModeUserRunsChaincode {
 		userRunsCC = true
 	}
 
