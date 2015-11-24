@@ -231,11 +231,11 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 		return instance.sendViewChange()
 	}
 
-	haveCheckpoint := false
 	for n, d := range nv.Xset {
+		// XXX why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
 		// "h ≥ min{n | ∃d : (<n,d> ∈ X)} ∧ ∀<n,d> ∈ X : (n ≤ h ∨ ∃m ∈ in : (D(m) = d))"
 		if instance.h >= n {
-			haveCheckpoint = true
+			continue
 		} else {
 			if d == "" {
 				// NULL request; skip
@@ -249,12 +249,6 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 				return nil
 			}
 		}
-	}
-	// XXX fails
-	if !haveCheckpoint {
-		logger.Warning("missing checkpoint for new-view, h=%d, X=%+v", instance.h, nv.Xset)
-		// XXX fetch checkpoint?
-		return nil
 	}
 
 	logger.Info("Accepting new-view to view %d", nv.View)
