@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
+	"golang.org/x/net/context"
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
@@ -70,7 +72,7 @@ type Handler struct {
 	responseNotifiers map[string]chan *pb.ChaincodeMessage
 	// Uuids of all in-progress state invocations
 	uuidMap map[string]bool
-	// Track which UUIDs are queries
+	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
 }
 
@@ -146,9 +148,10 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			"before_" + pb.ChaincodeMessage_REGISTER.String():  func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
 			"before_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
 			"before_" + pb.ChaincodeMessage_INIT.String():      func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_GET_STATE.String():  func(e *fsm.Event) { v.beforeGetState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_PUT_STATE.String():  func(e *fsm.Event) { v.beforePutState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_DEL_STATE.String():  func(e *fsm.Event) { v.beforeDelState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_GET_STATE.String():  func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_PUT_STATE.String():  func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_DEL_STATE.String():  func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String():  func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
 			"enter_" + establishedstate:                        func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
 			"enter_" + initstate:                               func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
 			"enter_" + readystate:                              func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
@@ -183,7 +186,7 @@ func (handler *Handler) deleteUUIDEntry(uuid string) {
 }
 
 // markIsTransaction marks a UUID as a transaction or a query; true = transaction, false = query
-func (handler *Handler) markIsTransaction(uuid string, bool isTrans) bool {
+func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
 	if handler.isTransaction == nil {
 		return false
 	}
@@ -276,8 +279,8 @@ func (handler *Handler) beforeInitState(e *fsm.Event, state string) {
 	handler.notifyDuringStartup(true)
 }
 
-// beforeGetState handles a GET_STATE request from the chaincode.
-func (handler *Handler) beforeGetState(e *fsm.Event, state string) {
+// afterGetState handles a GET_STATE request from the chaincode.
+func (handler *Handler) afterGetState(e *fsm.Event, state string) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -294,7 +297,7 @@ func (handler *Handler) beforeGetState(e *fsm.Event, state string) {
 func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
 	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the beforeGetState function is exited. Interesting bug fix!!
+	// the afterGetState function is exited. Interesting bug fix!!
 	go func() {
 		// Check if this is the unique state request from this chaincode uuid
 		uniqueReq := handler.createUUIDEntry(msg.Uuid)
@@ -342,8 +345,8 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 	}()
 }
 
-// beforePutState handles a PUT_STATE request from the chaincode.
-func (handler *Handler) beforePutState(e *fsm.Event, state string) {
+// afterPutState handles a PUT_STATE request from the chaincode.
+func (handler *Handler) afterPutState(e *fsm.Event, state string) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -360,7 +363,7 @@ func (handler *Handler) beforePutState(e *fsm.Event, state string) {
 func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
 	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the beforePutState function is exited. Interesting bug fix!!
+	// the afterPutState function is exited. Interesting bug fix!!
 	go func() {
 		// First check if this UUID is a transaction; error otherwise
 		if !handler.isTransaction[msg.Uuid] {
@@ -431,7 +434,7 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 			handler.ChatStream.Send(errMsg)
 		} else {
 			// Send response msg back to chaincode. GetState will not trigger event
-			chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
+			chaincodeLogger.Debug("Set state. Sending %s", pb.ChaincodeMessage_RESPONSE)
 			var res []byte
 			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
@@ -446,8 +449,8 @@ func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
 	}()
 }
 
-// beforeDelState handles a DEL_STATE request from the chaincode.
-func (handler *Handler) beforeDelState(e *fsm.Event, state string) {
+// afterDelState handles a DEL_STATE request from the chaincode.
+func (handler *Handler) afterDelState(e *fsm.Event, state string) {
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -463,7 +466,7 @@ func (handler *Handler) beforeDelState(e *fsm.Event, state string) {
 func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
 	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the beforeDelState function is exited. Interesting bug fix!!
+	// the afterDelState function is exited. Interesting bug fix!!
 	go func() {
 		// First check if this UUID is a transaction; error otherwise
 		if !handler.isTransaction[msg.Uuid] {
@@ -530,6 +533,120 @@ func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
 			handler.ChatStream.Send(responseMsg)
 		}
 
+	}()
+}
+
+// afterInvokeChaincode handles an INVOKE_CHAINCODE request from the chaincode.
+func (handler *Handler) afterInvokeChaincode(e *fsm.Event, state string) {
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	chaincodeLogger.Debug("Received %s in state %s, invoking another chaincode", pb.ChaincodeMessage_INVOKE_CHAINCODE, state)
+
+	// Invoke another chaincode
+	defer handler.handleInvokeChaincode(msg)
+	chaincodeLogger.Debug("Exiting INVOKE_CHAINCODE")
+}
+
+// handleInvokeChaincode Handles request to invoke another chaincode.
+func (handler *Handler) handleInvokeChaincode(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the afterPutState function is exited. Interesting bug fix!!
+	go func() {
+		// First check if this UUID is a transaction; error otherwise
+		if !handler.isTransaction[msg.Uuid] {
+			payload := []byte("Cannot invoke chaincode in query context")
+			chaincodeLogger.Debug("Cannot invoke chaincode in query context. Sending %s", pb.ChaincodeMessage_ERROR)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// Check if this is the unique request from this chaincode uuid
+		uniqueReq := handler.createUUIDEntry(msg.Uuid)
+		if !uniqueReq {
+			// Drop this request
+			chaincodeLogger.Debug("Another request pending for this Uuid. Cannot process.")
+			return
+		}
+
+		chaincodeSpec := &pb.ChaincodeSpec{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
+		if unmarshalErr != nil {
+			payload := []byte(unmarshalErr.Error())
+			chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Send FSM event to trigger state change
+			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), unmarshalErr)
+			if eventErr != nil {
+				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+			}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// Get the chaincodeID to invoke
+		newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+
+		// Create the transaction object
+		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
+		transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_EXECUTE)
+
+		// Launch the new chaincode if not already running
+		_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+		if launchErr != nil {
+			payload := []byte(launchErr.Error())
+			chaincodeLogger.Debug("Failed to launch invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Send FSM event to trigger state change
+			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), launchErr)
+			if eventErr != nil {
+				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+			}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// TODO: Need to handle timeout correctly
+		timeout := time.Duration(30000) * time.Millisecond
+
+		ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
+
+		// Execute the chaincode
+		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
+		if execErr != nil {
+			payload := []byte(execErr.Error())
+			chaincodeLogger.Debug("Failed to execute invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Send FSM event to trigger state change
+			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), execErr)
+			if eventErr != nil {
+				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+			}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// Successfully executed invoked chaincode; return response
+		chaincodeLogger.Debug("Chaincode invoke complete. Sending %s", pb.ChaincodeMessage_RESPONSE)
+		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: response.Payload, Uuid: msg.Uuid}
+		// Send FSM event to trigger state change
+		eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
+		if eventErr != nil {
+			chaincodeLogger.Debug("Failed to trigger FSM event RESPONSE: %s", eventErr)
+		}
+		// Remove uuid from current set
+		handler.deleteUUIDEntry(msg.Uuid)
+		handler.ChatStream.Send(responseMsg)
 	}()
 }
 
