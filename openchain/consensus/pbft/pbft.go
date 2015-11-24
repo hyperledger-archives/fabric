@@ -81,6 +81,7 @@ type Plugin struct {
 	reqStore        map[string]*Request   // track requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
+	lastNewView     uint64                // track last new-view we received or sent
 }
 
 type qidx struct {
@@ -331,6 +332,8 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		err = instance.recvCheckpoint(chkpt)
 	} else if vc := msg.GetViewChange(); vc != nil {
 		err = instance.recvViewChange(vc)
+	} else if nv := msg.GetNewView(); nv != nil {
+		err = instance.recvNewView(nv)
 	} else {
 		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
 		logger.Error("%s", err)

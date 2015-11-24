@@ -19,6 +19,10 @@ under the License.
 
 package pbft
 
+import (
+	"reflect"
+)
+
 func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
@@ -149,12 +153,131 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 
 	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
 
+	if instance.getPrimary(instance.view) == instance.id {
+		return instance.sendNewView()
+	}
+
 	return nil
 }
 
-func (instance *Plugin) selectInitialCheckpoint() (checkpoint uint64, ok bool) {
-	checkpoints := make(map[ViewChange_C][]*ViewChange)
+func (instance *Plugin) sendNewView() (err error) {
+	if instance.lastNewView == instance.view {
+		return
+	}
+
+	vset := instance.getViewChanges()
+
+	cp, ok := instance.selectInitialCheckpoint(vset)
+	if !ok {
+		return
+	}
+
+	msgList := instance.assignSequenceNumbers(vset, cp)
+	if msgList == nil {
+		return
+	}
+
+	instance.lastNewView = instance.view
+
+	nv := &NewView{
+		View:      instance.view,
+		Vset:      vset,
+		Xset:      msgList,
+		ReplicaId: instance.id,
+	}
+
+	logger.Info("New primary %d sending new-view, v:%d, X:%+v",
+		instance.id, nv.View, nv.Xset)
+
+	return instance.broadcast(&Message{&Message_NewView{nv}}, false)
+}
+
+func (instance *Plugin) recvNewView(nv *NewView) error {
+	logger.Info("Replica %d received new-view %d",
+		instance.id, nv.View)
+
+	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.lastNewView != nv.View) {
+		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
+			instance.id, nv.ReplicaId, nv.View)
+	}
+
+	// process new view
+
+	if instance.activeView {
+		logger.Info("Replica %d ignoring new-view from %d, v:%d: we are active",
+			instance.id, nv.ReplicaId, nv.View)
+		return nil
+	}
+
+	// XXX check new-view certificate
+
+	cp, ok := instance.selectInitialCheckpoint(nv.Vset)
+	if !ok {
+		logger.Warning("could not determine initial checkpoint: %+v",
+			instance.viewChangeStore)
+		return instance.sendViewChange()
+	}
+
+	msgList := instance.assignSequenceNumbers(nv.Vset, cp)
+	if msgList == nil {
+		logger.Warning("could not assign sequence numbers: %+v",
+			instance.viewChangeStore)
+		return instance.sendViewChange()
+	}
+
+	if !reflect.DeepEqual(msgList, nv.Xset) {
+		logger.Warning("failed to verify new-view Xset: computed %+v, received %+v",
+			msgList, nv.Xset)
+		return instance.sendViewChange()
+	}
+
+	haveCheckpoint := false
+	for n, d := range nv.Xset {
+		// "h ≥ min{n | ∃d : (<n,d> ∈ X)} ∧ ∀<n,d> ∈ X : (n ≤ h ∨ ∃m ∈ in : (D(m) = d))"
+		if instance.h >= n {
+			haveCheckpoint = true
+		} else {
+			if d == "" {
+				// NULL request; skip
+				continue
+			}
+
+			if _, ok := instance.reqStore[d]; !ok {
+				logger.Warning("missing assigned, non-checkpointed request %s",
+					d)
+				// XXX fetch request?
+				return nil
+			}
+		}
+	}
+	// XXX fails
+	if !haveCheckpoint {
+		logger.Warning("missing checkpoint for new-view, h=%d, X=%+v", instance.h, nv.Xset)
+		// XXX fetch checkpoint?
+		return nil
+	}
+
+	logger.Info("Accepting new-view to view %d", nv.View)
+
+	instance.activeView = true
+	// XXX produce pre-prepare and prepare for requests in Xset
+
+	return nil
+}
+
+func (instance *Plugin) getViewChanges() (vset []*ViewChange) {
+	vset = make([]*ViewChange, 0)
 	for _, vc := range instance.viewChangeStore {
+		vset = append(vset, vc)
+	}
+
+	return
+
+}
+
+func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
+	checkpoints := make(map[ViewChange_C][]*ViewChange)
+	for _, vc := range vset {
 		for _, c := range vc.Cset {
 			checkpoints[*c] = append(checkpoints[*c], vc)
 		}
@@ -196,28 +319,30 @@ func (instance *Plugin) selectInitialCheckpoint() (checkpoint uint64, ok bool) {
 	return
 }
 
-func (instance *Plugin) assignSequenceNumbers(h uint64) (msgList map[uint64]string) {
+func (instance *Plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
 	// "for all n such that h < n <= h + L"
 nLoop:
 	for n := h + 1; n < h+instance.L; n++ {
 		// "∃m ∈ S..."
-		for _, m := range instance.viewChangeStore {
+		for _, m := range vset {
 			// "...with <n,d,v> ∈ m.P"
 			for _, em := range m.Pset {
 				quorum := 0
 				// "A1. ∃2f+1 messages m' ∈ S"
-				for _, mp := range instance.viewChangeStore {
+			mpLoop:
+				for _, mp := range vset {
 					if mp.H >= n {
 						continue
 					}
 					// "∀<n,d',v'> ∈ m'.P"
 					for _, emp := range mp.Pset {
-						if n == emp.SequenceNumber && emp.View < em.View || (emp.View == em.View && emp.Digest == em.Digest) {
-							quorum += 1
+						if n == emp.SequenceNumber && !(emp.View < em.View || (emp.View == em.View && emp.Digest == em.Digest)) {
+							continue mpLoop
 						}
 					}
+					quorum += 1
 				}
 
 				if quorum < 2*instance.f+1 {
@@ -226,7 +351,7 @@ nLoop:
 
 				quorum = 0
 				// "A2. ∃f+1 messages m' ∈ S"
-				for _, mp := range instance.viewChangeStore {
+				for _, mp := range vset {
 					// "∃<n,d',v'> ∈ m'.Q"
 					for _, emp := range mp.Qset {
 						if n == emp.SequenceNumber && emp.View >= em.View && emp.Digest == em.Digest {
@@ -249,7 +374,7 @@ nLoop:
 		quorum := 0
 		// "else if ∃2f+1 messages m ∈ S"
 	nullLoop:
-		for _, m := range instance.viewChangeStore {
+		for _, m := range vset {
 			// "m.P has no entry"
 			for _, em := range m.Pset {
 				if em.SequenceNumber == n {
@@ -262,7 +387,11 @@ nLoop:
 		if quorum >= 2*instance.f+1 {
 			// "then select the null request for number n"
 			msgList[n] = ""
+
+			continue nLoop
 		}
+
+		return nil
 	}
 
 	return
