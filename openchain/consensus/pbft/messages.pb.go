@@ -16,6 +16,7 @@ It has these top-level messages:
 	Commit
 	Checkpoint
 	ViewChange
+	NewView
 */
 package pbft
 
@@ -37,6 +38,7 @@ type Message struct {
 	//	*Message_Commit
 	//	*Message_Checkpoint
 	//	*Message_ViewChange
+	//	*Message_NewView
 	Payload isMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -66,6 +68,9 @@ type Message_Checkpoint struct {
 type Message_ViewChange struct {
 	ViewChange *ViewChange `protobuf:"bytes,6,opt,name=viewChange,oneof"`
 }
+type Message_NewView struct {
+	NewView *NewView `protobuf:"bytes,7,opt,name=newView,oneof"`
+}
 
 func (*Message_Request) isMessage_Payload()    {}
 func (*Message_PrePrepare) isMessage_Payload() {}
@@ -73,6 +78,7 @@ func (*Message_Prepare) isMessage_Payload()    {}
 func (*Message_Commit) isMessage_Payload()     {}
 func (*Message_Checkpoint) isMessage_Payload() {}
 func (*Message_ViewChange) isMessage_Payload() {}
+func (*Message_NewView) isMessage_Payload()    {}
 
 func (m *Message) GetPayload() isMessage_Payload {
 	if m != nil {
@@ -123,6 +129,13 @@ func (m *Message) GetViewChange() *ViewChange {
 	return nil
 }
 
+func (m *Message) GetNewView() *NewView {
+	if x, ok := m.GetPayload().(*Message_NewView); ok {
+		return x.NewView
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
@@ -132,6 +145,7 @@ func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error
 		(*Message_Commit)(nil),
 		(*Message_Checkpoint)(nil),
 		(*Message_ViewChange)(nil),
+		(*Message_NewView)(nil),
 	}
 }
 
@@ -167,6 +181,11 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_ViewChange:
 		b.EncodeVarint(6<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.ViewChange); err != nil {
+			return err
+		}
+	case *Message_NewView:
+		b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NewView); err != nil {
 			return err
 		}
 	case nil:
@@ -226,6 +245,14 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(ViewChange)
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_ViewChange{msg}
+		return true, err
+	case 7: // payload.newView
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NewView)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_NewView{msg}
 		return true, err
 	default:
 		return false, nil
@@ -355,3 +382,28 @@ type ViewChange_PQ struct {
 func (m *ViewChange_PQ) Reset()         { *m = ViewChange_PQ{} }
 func (m *ViewChange_PQ) String() string { return proto.CompactTextString(m) }
 func (*ViewChange_PQ) ProtoMessage()    {}
+
+type NewView struct {
+	View      uint64            `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	Vset      []*ViewChange     `protobuf:"bytes,2,rep,name=Vset" json:"Vset,omitempty"`
+	Xset      map[uint64]string `protobuf:"bytes,3,rep,name=Xset" json:"Xset,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ReplicaId uint64            `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *NewView) Reset()         { *m = NewView{} }
+func (m *NewView) String() string { return proto.CompactTextString(m) }
+func (*NewView) ProtoMessage()    {}
+
+func (m *NewView) GetVset() []*ViewChange {
+	if m != nil {
+		return m.Vset
+	}
+	return nil
+}
+
+func (m *NewView) GetXset() map[uint64]string {
+	if m != nil {
+		return m.Xset
+	}
+	return nil
+}

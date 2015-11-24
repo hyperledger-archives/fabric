@@ -45,6 +45,7 @@ message Message {
         Commit commit = 4;
         Checkpoint checkpoint = 5;
         ViewChange viewChange = 6;
+        NewView newView = 7;
     }
 }
 
@@ -102,4 +103,11 @@ message ViewChange {
     repeated PQ pset = 4;
     repeated PQ qset = 5;
     uint64 replica_id = 6;
+}
+
+message NewView {
+    uint64 view = 1;
+    repeated ViewChange Vset = 2;
+    map<uint64, string> Xset = 3;
+    uint64 replica_id = 4;
 }
