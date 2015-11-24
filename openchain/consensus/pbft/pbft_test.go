@@ -506,6 +506,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 func TestViewChange(t *testing.T) {
 	net := makeTestnet(1, func(inst *Plugin) {
 		inst.K = 2
+		inst.L = inst.K * 2
 	})
 
 	execReq := func(iter int64) {
@@ -533,6 +534,7 @@ func TestViewChange(t *testing.T) {
 
 	execReq(1)
 	execReq(2)
+	execReq(3)
 
 	for i := 1; i < len(net.replicas); i++ {
 		net.replicas[i].plugin.sendViewChange()
@@ -543,8 +545,14 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(); !ok || cp != 2 {
+	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint()
+	if !ok || cp != 2 {
 		t.Fatalf("wrong new initial checkpoint: %s",
 			net.replicas[1].plugin.viewChangeStore)
+	}
+
+	msgList := net.replicas[1].plugin.assignSequenceNumbers(cp)
+	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
+		t.Fatalf("wrong message list: %+v", msgList)
 	}
 }
