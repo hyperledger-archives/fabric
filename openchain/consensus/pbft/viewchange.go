@@ -195,3 +195,75 @@ func (instance *Plugin) selectInitialCheckpoint() (checkpoint uint64, ok bool) {
 
 	return
 }
+
+func (instance *Plugin) assignSequenceNumbers(h uint64) (msgList map[uint64]string) {
+	msgList = make(map[uint64]string)
+
+	// "for all n such that h < n <= h + L"
+nLoop:
+	for n := h + 1; n < h+instance.L; n++ {
+		// "∃m ∈ S..."
+		for _, m := range instance.viewChangeStore {
+			// "...with <n,d,v> ∈ m.P"
+			for _, em := range m.Pset {
+				quorum := 0
+				// "A1. ∃2f+1 messages m' ∈ S"
+				for _, mp := range instance.viewChangeStore {
+					if mp.H >= n {
+						continue
+					}
+					// "∀<n,d',v'> ∈ m'.P"
+					for _, emp := range mp.Pset {
+						if n == emp.SequenceNumber && emp.View < em.View || (emp.View == em.View && emp.Digest == em.Digest) {
+							quorum += 1
+						}
+					}
+				}
+
+				if quorum < 2*instance.f+1 {
+					continue
+				}
+
+				quorum = 0
+				// "A2. ∃f+1 messages m' ∈ S"
+				for _, mp := range instance.viewChangeStore {
+					// "∃<n,d',v'> ∈ m'.Q"
+					for _, emp := range mp.Qset {
+						if n == emp.SequenceNumber && emp.View >= em.View && emp.Digest == em.Digest {
+							quorum += 1
+						}
+					}
+				}
+
+				if quorum < instance.f+1 {
+					continue
+				}
+
+				// "then select the null request with digest d for number n"
+				msgList[n] = em.Digest
+
+				continue nLoop
+			}
+		}
+
+		quorum := 0
+		// "else if ∃2f+1 messages m ∈ S"
+	nullLoop:
+		for _, m := range instance.viewChangeStore {
+			// "m.P has no entry"
+			for _, em := range m.Pset {
+				if em.SequenceNumber == n {
+					continue nullLoop
+				}
+			}
+			quorum += 1
+		}
+
+		if quorum >= 2*instance.f+1 {
+			// "then select the null request for number n"
+			msgList[n] = ""
+		}
+	}
+
+	return
+}
