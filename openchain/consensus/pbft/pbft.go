@@ -220,14 +220,6 @@ func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 // =============================================================================
 
 func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
-	keys := make([]string, len(instance.reqStore))
-	i := 0
-	for k := range instance.reqStore {
-		keys[i] = k
-		i++
-	}
-	logger.Debug("reqStore keys: %v", keys)
-
 	_, mInLog := instance.reqStore[digest]
 
 	if !mInLog {
@@ -426,8 +418,6 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
-		// TODO speculative execution: ExecTXs
-
 		logger.Debug("Backup %d broadcasting prepare (v:%d,s:%d)",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
@@ -436,8 +426,6 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			SequenceNumber: preprep.SequenceNumber,
 			RequestDigest:  preprep.RequestDigest,
 			ReplicaId:      instance.id,
-			// GlobalHash:
-			// TxErrors:
 		}
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
