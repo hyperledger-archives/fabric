@@ -155,32 +155,32 @@ func New(c consensus.CPI) *Plugin {
 	// with the environment variable OPENCHAIN_PBFT_X_Y
 
 	// replica ID
-	id, err := instance.getParam("replica.id")
+	paramID, err := instance.getParam("replica.id")
 	if err != nil {
 		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
 	}
-	instance.id, err = strconv.ParseUint(id, 10, 64)
+	instance.id, err = strconv.ParseUint(paramID, 10, 64)
 	if err != nil {
 		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
 	}
 	// byzantine nodes
-	f, err := instance.getParam("general.f")
+	paramF, err := instance.getParam("general.f")
 	if err != nil {
 		panic(fmt.Errorf("No f defined in the config file: %s", err))
 	}
-	f2, err := strconv.ParseUint(f, 10, 0)
+	f, err := strconv.ParseUint(paramF, 10, 0)
 	if err != nil {
 		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
 	}
-	instance.f = uint(f2)
+	instance.f = uint(f)
 	// replica count
 	instance.replicaCount = 3*instance.f + 1
 	// checkpoint period
-	K, err := instance.getParam("general.K")
+	paramK, err := instance.getParam("general.K")
 	if err != nil {
 		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
 	}
-	instance.K, err = strconv.ParseUint(K, 10, 64)
+	instance.K, err = strconv.ParseUint(paramK, 10, 64)
 	if err != nil {
 		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
 	}
@@ -250,7 +250,7 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 			return true
 		}
 	}
-	logger.Debug("Replica %d does not have v:%d,s:%d pre-prepared",
+	logger.Debug("Replica %d does not have view=%d/seqNo=%d pre-prepared",
 		instance.id, v, n)
 	return false
 }
@@ -272,7 +272,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d prepare count for v:%d,s:%d is: %d",
+	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= 2*instance.f
@@ -295,7 +295,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d commit count for v:%d,s:%d is: %d",
+	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= 2*instance.f+1
@@ -357,22 +357,14 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	// TODO test timestamp
 	instance.reqStore[digest] = req
 
-	keys := make([]string, len(instance.reqStore))
-	i := 0
-	for k := range instance.reqStore {
-		keys[i] = k
-		i++
-	}
-
 	n := instance.seqNo + 1
 
 	if instance.getPrimary(instance.view) == instance.id { // if we're primary of current view
-		// check for other PRE-PREPARE for same digest, but different seqNo
 		haveOther := false
-		for _, cert := range instance.certStore {
+		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
 				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
-					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d ", p.SequenceNumber, n)
+					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
 					haveOther = true
 					break
 				}
@@ -380,7 +372,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 		}
 
 		if instance.inWV(instance.view, n) && !haveOther {
-			logger.Debug("Primary %d broadcasting pre-prepare (v:%d,s:%d) for digest: %s",
+			logger.Debug("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
 			preprep := &PrePrepare{
@@ -401,7 +393,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 }
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
-	logger.Debug("Replica %d received pre-prepare from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View,
 		preprep.SequenceNumber)
 
@@ -417,13 +409,12 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 
 	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
 	if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
-		logger.Warning("Pre-prepare found for same view/seqNo but different digest: recevied %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
+		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
 	} else {
 		cert.prePrepare = preprep
 	}
 
-	// Store the request if, for whatever reason, we haven't received it
-	// from an earlier broadcast.
+	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
 		digest := hashReq(preprep.Request)
 		if digest != preprep.RequestDigest {
@@ -435,7 +426,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
-		logger.Debug("Backup %d broadcasting prepare (v:%d,s:%d)",
+		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
 		prep := &Prepare{
@@ -454,7 +445,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 }
 
 func (instance *Plugin) recvPrepare(prep *Prepare) error {
-	logger.Debug("Replica %d received prepare from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
 
@@ -465,7 +456,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 
 	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
-		logger.Debug("Replica %d broadcasting commit (v:%d,s:%d)",
+		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
 			instance.id, prep.View, prep.SequenceNumber)
 
 		commit := &Commit{
@@ -490,7 +481,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 }
 
 func (instance *Plugin) recvCommit(commit *Commit) error {
-	logger.Debug("Replica %d received commit from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View,
 		commit.SequenceNumber)
 
@@ -502,7 +493,7 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 		// broadcasting a commit ourselves
 		instance.executeOutstanding()
 	} else {
-		logger.Warning("Replica %d ignoring commit (v:%d,s:%d): not in-wv",
+		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
 	}
 
@@ -528,7 +519,7 @@ func (instance *Plugin) executeOutstanding() error {
 
 			// we have a commit certificate for this batch
 
-			logger.Info("Replica %d executing/committing request (v:%d,s:%d): %s",
+			logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 				instance.id, idx.v, idx.n, digest)
 			instance.lastExec = idx.n
 
@@ -548,7 +539,7 @@ func (instance *Plugin) executeOutstanding() error {
 					state: stateHash,
 				}
 
-				logger.Debug("Replica %d preparing checkpoint (v:%d,s:%d), digest %s",
+				logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and digest %s",
 					instance.id, instance.view, instance.lastExec, stateHash)
 
 				chkpt := &Checkpoint{
@@ -593,7 +584,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	for idx := range instance.certStore {
 		if idx.n <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning quorum certificate (v:%d,s:%d)",
+			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
 			delete(instance.certStore, idx)
 		}
