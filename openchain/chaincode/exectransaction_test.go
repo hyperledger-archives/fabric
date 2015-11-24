@@ -75,19 +75,20 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	return Execute(ctx, GetChain(DefaultChain), transaction)
 }
 
-func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) ([]byte, error) {
+func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) (string, []byte, error) {
 	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
 	// Now create the Transactions message and send to Peer.
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {
-		return nil, uuidErr
+		return "", nil, uuidErr
 	}
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		return uuid, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	return Execute(ctx, GetChain(DefaultChain), transaction)
+	retval, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	return uuid, retval, err
 }
 
 func closeListenerAndSleep(l net.Listener) {
@@ -163,7 +164,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error
 	f = "invoke"
 	args = []string{"a", "b", "10"}
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	_, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
+	uuid,_, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
 	if err != nil {
 		return fmt.Errorf("Error invoking <%s>: %s", chaincodeID, err)
 	}
@@ -173,6 +174,18 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error
 	if ledgerErr != nil {
 		return fmt.Errorf("Error checking ledger for <%s>: %s", chaincodeID, ledgerErr)
 	}
+
+	_,delta,err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
+
+	if err != nil {
+		return fmt.Errorf("Error getting delta for invoke transaction <%s>: %s", chaincodeID, err)
+	}
+
+	if delta[uuid] == nil {
+		return fmt.Errorf("expected delta for transaction <%s> but found nil", uuid)
+	}
+
+	fmt.Printf("found delta for transaction <%s>\n", uuid)
 
 	// Invoke ledger to get state
 	var Aval, Bval int
@@ -282,8 +295,31 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 			fmt.Printf("Going to invoke QUERY num %d\n", qnum)
 		}
 
-		_, err := invoke(ctxt, spec, typ)
+		uuid,_, err := invoke(ctxt, spec, typ)
 
+	
+		if typ == pb.Transaction_CHAINCODE_EXECUTE {
+			ledgerObj, ledgerErr := ledger.GetLedger()
+			if ledgerErr != nil {
+				errs[qnum] = fmt.Errorf("Error getting ledger %s", ledgerErr)
+				wg.Done()
+				return
+			} 
+			_,delta,err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
+			if err != nil {
+				errs[qnum] = fmt.Errorf("Error getting delta for invoke transaction <%s> :%s", uuid, err)
+				wg.Done()
+				return
+			}
+		
+			if delta[uuid] == nil {
+				errs[qnum] = fmt.Errorf("expected delta for transaction <%s> but found nil", uuid)
+				wg.Done()
+				return
+			}
+			fmt.Printf("found delta for transaction <%s>\n", uuid)
+		}
+	
 		if err != nil {
 			chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
 			errs[qnum] = fmt.Errorf("Error executign <%s>: %s", chaincodeID, err)
