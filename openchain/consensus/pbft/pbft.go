@@ -48,7 +48,7 @@ var logger *logging.Logger // package-level logger
 var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
-	logger = logging.MustGetLogger("consensus/plugin")
+	logger = logging.MustGetLogger("consensus/pbft")
 }
 
 // =============================================================================
