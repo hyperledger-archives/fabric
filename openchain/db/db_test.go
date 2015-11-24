@@ -77,10 +77,10 @@ func deleteTestDB() {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("openchain") // name of config file (without extension)
-	viper.AddConfigPath("./../..")   // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.SetConfigName("db_test") // name of config file (without extension)
+	viper.AddConfigPath(".")       // path to look for the config file in
+	err := viper.ReadInConfig()    // Find and read the config file
+	if err != nil {                // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	deleteTestDBPath()
