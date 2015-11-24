@@ -342,7 +342,6 @@ func (instance *Plugin) recvRequest(req *Request) error {
 		keys[i] = k
 		i++
 	}
-	logger.Debug("reqStore keys: %v", keys)
 
 	n := instance.seqNo + 1
 
@@ -457,6 +456,12 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 		cert.commit = append(cert.commit, commit)
 		cert.sentCommit = true
 
+		// cover the case where you have received enough commits
+		// before broadcasting your own
+		if instance.committed(prep.RequestDigest, prep.View, prep.SequenceNumber) {
+			go instance.executeOutstanding()
+		}
+
 		return instance.broadcast(&Message{&Message_Commit{commit}}, false)
 	}
 
@@ -472,6 +477,8 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 		cert := instance.getCert(commit.View, commit.SequenceNumber)
 		cert.commit = append(cert.commit, commit)
 
+		// note that we can reach this point without
+		// broadcasting a commit ourselves
 		instance.executeOutstanding()
 	} else {
 		logger.Warning("Replica %d ignoring commit (v:%d,s:%d): not in-wv",
