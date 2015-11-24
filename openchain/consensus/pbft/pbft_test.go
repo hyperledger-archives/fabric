@@ -110,14 +110,14 @@ func TestRecvRequest(t *testing.T) {
 
 	msgOut := mock.broadcasted[0]
 	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("expected broadcast after request, received %s", msgWrapped.Type)
+		t.Fatalf("Expected broadcast after request, received %s", msgWrapped.Type)
 	}
 
 	msgRaw := msgOut.Payload
 	msgReq := &Message{}
 	err = proto.Unmarshal(msgRaw, msgReq)
 	if err != nil {
-		t.Fatal("could not unmarshal message")
+		t.Fatal("Could not unmarshal message")
 	}
 	// TODO test for correct transaction passing
 }
@@ -141,21 +141,21 @@ func TestRecvMsg(t *testing.T) {
 	}
 	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
-		t.Fatalf("Failed to handle pbft message: %s", err)
+		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
 
 	if len(mock.broadcasted) != 1 {
-		t.Fatalf("expected message, got %d", len(mock.broadcasted))
+		t.Fatalf("Expected 1 message to be broadcasted, got %d", len(mock.broadcasted))
 	}
 
 	msgOut := mock.broadcasted[0]
 	if msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("expected CONSENSUS, received %s", msgOut.Type)
+		t.Fatalf("Expected CONSENSUS, received %s", msgOut.Type)
 	}
 	msg := &Message{}
 	err = proto.Unmarshal(msgOut.Payload, msg)
 	if err != nil {
-		t.Fatal("could not unmarshal message")
+		t.Fatal("Could not unmarshal message")
 	}
 	if msg := msg.GetPrePrepare(); msg == nil {
 		t.Fatal("expected pre-prepare after request")
@@ -188,11 +188,11 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	}
 	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
-		t.Fatalf("Failed to handle pbft message: %s", err)
+		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
 
 	if len(mock.broadcasted) != 0 {
-		t.Fatalf("expected to ignore malicious pre-prepare")
+		t.Fatalf("Expected to ignore malicious pre-prepare")
 	}
 }
 
@@ -217,10 +217,10 @@ func TestIncompletePayload(t *testing.T) {
 		}
 	}
 
-	checkMsg(&Message{}, "should reject empty message")
-	checkMsg(&Message{&Message_Request{&Request{}}}, "should reject empty request")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "should reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "should reject empty pre-prepare")
+	checkMsg(&Message{}, "Expected to reject empty message")
+	checkMsg(&Message{&Message_Request{&Request{}}}, "Expected to reject empty request")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "Expected to reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject empty pre-prepare")
 }
 
 // =============================================================================
@@ -402,17 +402,17 @@ func TestCheckpoint(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if len(inst.plugin.chkpts) != 1 {
-			t.Errorf("expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
+			t.Errorf("Expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
 			continue
 		}
 
 		if _, ok := inst.plugin.chkpts[2]; !ok {
-			t.Errorf("expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
+			t.Errorf("Expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
 			continue
 		}
 
 		if inst.plugin.h != 2 {
-			t.Errorf("expected low water mark to be 2, is %d", inst.plugin.h)
+			t.Errorf("Expected low water mark to be 2, is %d", inst.plugin.h)
 			continue
 		}
 	}
@@ -448,11 +448,11 @@ func TestLostPrePrepare(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if inst.id != 3 && len(inst.executed) != 1 {
-			t.Errorf("expected execution")
+			t.Errorf("Expected execution")
 			continue
 		}
 		if inst.id == 3 && len(inst.executed) != 0 {
-			t.Errorf("expected no execution")
+			t.Errorf("Expected no execution")
 			continue
 		}
 	}
@@ -497,7 +497,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if len(inst.executed) != 0 {
-			t.Errorf("expected no execution")
+			t.Errorf("Expected no execution")
 			continue
 		}
 	}
@@ -547,13 +547,13 @@ func TestViewChange(t *testing.T) {
 
 	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
 	if ok {
-		t.Fatalf("early selection of initial checkpoint: %+v",
+		t.Fatalf("Early selection of initial checkpoint: %+v",
 			net.replicas[1].plugin.viewChangeStore)
 	}
 
 	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), 2)
 	if msgList != nil {
-		t.Fatalf("early selection of message list: %+v", msgList)
+		t.Fatalf("Early selection of message list: %+v", msgList)
 	}
 
 	net.replicas[1].plugin.sendViewChange()
@@ -564,12 +564,12 @@ func TestViewChange(t *testing.T) {
 
 	cp, ok = net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
 	if !ok || cp != 2 {
-		t.Fatalf("wrong new initial checkpoint: %+v",
+		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].plugin.viewChangeStore)
 	}
 
 	msgList = net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
-		t.Fatalf("wrong message list: %+v", msgList)
+		t.Fatalf("Wrong message list: %+v", msgList)
 	}
 }
