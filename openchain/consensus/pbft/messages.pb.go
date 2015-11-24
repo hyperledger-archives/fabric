@@ -15,6 +15,8 @@ It has these top-level messages:
 	Prepare
 	Commit
 	Checkpoint
+	ViewChange
+	NewView
 */
 package pbft
 
@@ -35,6 +37,8 @@ type Message struct {
 	//	*Message_Prepare
 	//	*Message_Commit
 	//	*Message_Checkpoint
+	//	*Message_ViewChange
+	//	*Message_NewView
 	Payload isMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -61,12 +65,20 @@ type Message_Commit struct {
 type Message_Checkpoint struct {
 	Checkpoint *Checkpoint `protobuf:"bytes,5,opt,name=checkpoint,oneof"`
 }
+type Message_ViewChange struct {
+	ViewChange *ViewChange `protobuf:"bytes,6,opt,name=viewChange,oneof"`
+}
+type Message_NewView struct {
+	NewView *NewView `protobuf:"bytes,7,opt,name=newView,oneof"`
+}
 
 func (*Message_Request) isMessage_Payload()    {}
 func (*Message_PrePrepare) isMessage_Payload() {}
 func (*Message_Prepare) isMessage_Payload()    {}
 func (*Message_Commit) isMessage_Payload()     {}
 func (*Message_Checkpoint) isMessage_Payload() {}
+func (*Message_ViewChange) isMessage_Payload() {}
+func (*Message_NewView) isMessage_Payload()    {}
 
 func (m *Message) GetPayload() isMessage_Payload {
 	if m != nil {
@@ -110,6 +122,20 @@ func (m *Message) GetCheckpoint() *Checkpoint {
 	return nil
 }
 
+func (m *Message) GetViewChange() *ViewChange {
+	if x, ok := m.GetPayload().(*Message_ViewChange); ok {
+		return x.ViewChange
+	}
+	return nil
+}
+
+func (m *Message) GetNewView() *NewView {
+	if x, ok := m.GetPayload().(*Message_NewView); ok {
+		return x.NewView
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
@@ -118,6 +144,8 @@ func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error
 		(*Message_Prepare)(nil),
 		(*Message_Commit)(nil),
 		(*Message_Checkpoint)(nil),
+		(*Message_ViewChange)(nil),
+		(*Message_NewView)(nil),
 	}
 }
 
@@ -148,6 +176,16 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_Checkpoint:
 		b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Checkpoint); err != nil {
+			return err
+		}
+	case *Message_ViewChange:
+		b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ViewChange); err != nil {
+			return err
+		}
+	case *Message_NewView:
+		b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NewView); err != nil {
 			return err
 		}
 	case nil:
@@ -199,6 +237,22 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(Checkpoint)
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_Checkpoint{msg}
+		return true, err
+	case 6: // payload.viewChange
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ViewChange)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_ViewChange{msg}
+		return true, err
+	case 7: // payload.newView
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NewView)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_NewView{msg}
 		return true, err
 	default:
 		return false, nil
@@ -271,3 +325,81 @@ type Checkpoint struct {
 func (m *Checkpoint) Reset()         { *m = Checkpoint{} }
 func (m *Checkpoint) String() string { return proto.CompactTextString(m) }
 func (*Checkpoint) ProtoMessage()    {}
+
+type ViewChange struct {
+	View      uint64           `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	H         uint64           `protobuf:"varint,2,opt,name=h" json:"h,omitempty"`
+	Cset      []*ViewChange_C  `protobuf:"bytes,3,rep,name=cset" json:"cset,omitempty"`
+	Pset      []*ViewChange_PQ `protobuf:"bytes,4,rep,name=pset" json:"pset,omitempty"`
+	Qset      []*ViewChange_PQ `protobuf:"bytes,5,rep,name=qset" json:"qset,omitempty"`
+	ReplicaId uint64           `protobuf:"varint,6,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *ViewChange) Reset()         { *m = ViewChange{} }
+func (m *ViewChange) String() string { return proto.CompactTextString(m) }
+func (*ViewChange) ProtoMessage()    {}
+
+func (m *ViewChange) GetCset() []*ViewChange_C {
+	if m != nil {
+		return m.Cset
+	}
+	return nil
+}
+
+func (m *ViewChange) GetPset() []*ViewChange_PQ {
+	if m != nil {
+		return m.Pset
+	}
+	return nil
+}
+
+func (m *ViewChange) GetQset() []*ViewChange_PQ {
+	if m != nil {
+		return m.Qset
+	}
+	return nil
+}
+
+type ViewChange_C struct {
+	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
+	Digest         string `protobuf:"bytes,2,opt,name=digest" json:"digest,omitempty"`
+}
+
+func (m *ViewChange_C) Reset()         { *m = ViewChange_C{} }
+func (m *ViewChange_C) String() string { return proto.CompactTextString(m) }
+func (*ViewChange_C) ProtoMessage()    {}
+
+type ViewChange_PQ struct {
+	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
+	Digest         string `protobuf:"bytes,2,opt,name=digest" json:"digest,omitempty"`
+	View           uint64 `protobuf:"varint,3,opt,name=view" json:"view,omitempty"`
+}
+
+func (m *ViewChange_PQ) Reset()         { *m = ViewChange_PQ{} }
+func (m *ViewChange_PQ) String() string { return proto.CompactTextString(m) }
+func (*ViewChange_PQ) ProtoMessage()    {}
+
+type NewView struct {
+	View      uint64            `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	Vset      []*ViewChange     `protobuf:"bytes,2,rep,name=Vset" json:"Vset,omitempty"`
+	Xset      map[uint64]string `protobuf:"bytes,3,rep,name=Xset" json:"Xset,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ReplicaId uint64            `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *NewView) Reset()         { *m = NewView{} }
+func (m *NewView) String() string { return proto.CompactTextString(m) }
+func (*NewView) ProtoMessage()    {}
+
+func (m *NewView) GetVset() []*ViewChange {
+	if m != nil {
+		return m.Vset
+	}
+	return nil
+}
+
+func (m *NewView) GetXset() map[uint64]string {
+	if m != nil {
+		return m.Xset
+	}
+	return nil
+}

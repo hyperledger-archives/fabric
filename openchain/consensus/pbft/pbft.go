@@ -73,11 +73,20 @@ type Plugin struct {
 	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64           // current view
 	chkpts       map[uint64]chkpt // state checkpoints
+	pset         map[uint64]*ViewChange_PQ
+	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert  // track quorum certificates for requests
-	reqStore        map[string]*Request // track requests
-	checkpointStore map[Checkpoint]bool // track checkpoints as set
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
+	reqStore        map[string]*Request   // track requests
+	checkpointStore map[Checkpoint]bool   // track checkpoints as set
+	viewChangeStore map[vcidx]*ViewChange // track view-change messages
+	lastNewView     uint64                // track last new-view we received or sent
+}
+
+type qidx struct {
+	d string
+	n uint64
 }
 
 type chkpt struct {
@@ -96,6 +105,11 @@ type msgCert struct {
 	prepare     []*Prepare
 	sentCommit  bool
 	commit      []*Commit
+}
+
+type vcidx struct {
+	v  uint64
+	id uint64
 }
 
 // =============================================================================
@@ -177,7 +191,10 @@ func New(c consensus.CPI) *Plugin {
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.chkpts = make(map[uint64]chkpt)
+	instance.pset = make(map[uint64]*ViewChange_PQ)
+	instance.qset = make(map[qidx]*ViewChange_PQ)
 
 	return instance
 }
@@ -313,6 +330,10 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		err = instance.recvCheckpoint(chkpt)
+	} else if vc := msg.GetViewChange(); vc != nil {
+		err = instance.recvViewChange(vc)
+	} else if nv := msg.GetNewView(); nv != nil {
+		err = instance.recvNewView(nv)
 	} else {
 		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
 		logger.Error("%s", err)
@@ -443,6 +464,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 	}
 
 	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
+
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit (v:%d,s:%d)",
 			instance.id, prep.View, prep.SequenceNumber)
@@ -584,6 +606,18 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 				instance.id, testChkpt.ReplicaId,
 				testChkpt.SequenceNumber, testChkpt.StateDigest)
 			delete(instance.checkpointStore, testChkpt)
+		}
+	}
+
+	for n := range instance.pset {
+		if n <= chkpt.SequenceNumber {
+			delete(instance.pset, n)
+		}
+	}
+
+	for idx := range instance.qset {
+		if idx.n <= chkpt.SequenceNumber {
+			delete(instance.qset, idx)
 		}
 	}
 

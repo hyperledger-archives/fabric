@@ -44,6 +44,8 @@ message Message {
         Prepare prepare = 3;
         Commit commit = 4;
         Checkpoint checkpoint = 5;
+        ViewChange viewChange = 6;
+        NewView newView = 7;
     }
 }
 
@@ -78,4 +80,30 @@ message Checkpoint {
     uint64 sequence_number = 1;
     string state_digest = 2;
     uint64 replica_id = 3;
+}
+
+message ViewChange {
+    message C {
+        uint64 sequence_number = 1;
+        string digest = 2;
+    }
+    message PQ {
+        uint64 sequence_number = 1;
+        string digest = 2;
+        uint64 view = 3;
+    }
+
+    uint64 view = 1;
+    uint64 h = 2;
+    repeated C cset = 3;
+    repeated PQ pset = 4;
+    repeated PQ qset = 5;
+    uint64 replica_id = 6;
+}
+
+message NewView {
+    uint64 view = 1;
+    repeated ViewChange Vset = 2;
+    map<uint64, string> Xset = 3;
+    uint64 replica_id = 4;
 }
