@@ -45,6 +45,7 @@ const configPrefix = "OPENCHAIN_PBFT"
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
+var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
 	logger = logging.MustGetLogger("consensus/plugin")
@@ -100,6 +101,16 @@ type msgCert struct {
 // =============================================================================
 // Constructors go here
 // =============================================================================
+
+// GetPlugin returns the handle to the Plugin singleton and updates the CPI if necessary.
+func GetPlugin(c consensus.CPI) *Plugin {
+	if pluginInstance == nil {
+		pluginInstance = New(c)
+	} else {
+		pluginInstance.cpi = c // otherwise, just update the CPI
+	}
+	return pluginInstance
+}
 
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
 func New(c consensus.CPI) *Plugin {
@@ -194,7 +205,6 @@ func (instance *Plugin) inWV(v uint64, n uint64) bool {
 // If so, return it. If not, create it.
 func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
-
 	cert, ok := instance.certStore[idx]
 	if ok {
 		return
@@ -210,6 +220,14 @@ func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 // =============================================================================
 
 func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
+	keys := make([]string, len(instance.reqStore))
+	i := 0
+	for k := range instance.reqStore {
+		keys[i] = k
+		i++
+	}
+	logger.Debug("reqStore keys: %v", keys)
+
 	_, mInLog := instance.reqStore[digest]
 
 	if !mInLog {
@@ -326,6 +344,14 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	// TODO test timestamp
 	instance.reqStore[digest] = req
 
+	keys := make([]string, len(instance.reqStore))
+	i := 0
+	for k := range instance.reqStore {
+		keys[i] = k
+		i++
+	}
+	logger.Debug("reqStore keys: %v", keys)
+
 	n := instance.seqNo + 1
 
 	if instance.getPrimary(instance.view) == instance.id { // if we're primary of current view
@@ -358,6 +384,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
 		}
 	}
+
 	return nil
 }
 
@@ -425,13 +452,11 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d (v:%d,s:%d)",
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
-
 	if instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber) {
 		cert := instance.getCert(prep.View, prep.SequenceNumber)
 		cert.prepare = append(cert.prepare, prep)
 	}
 	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
-
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit (v:%d,s:%d)",
 			instance.id, prep.View, prep.SequenceNumber)
