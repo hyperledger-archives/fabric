@@ -49,7 +49,7 @@ The chaincode is ready to receive requests. Please follow the steps detailed bel
 First we send a chaincode deploy transaction, only once, to the validating peer. The CLI knows how to connect to the validating peer based on the properties defined in the openchain.yaml file.
 
     cd  $GOPATH/src/github.com/openblockchain/obc-peer
- 	  ./obc-peer chaincode deploy -p mycc -v 0.0.1 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	./obc-peer chaincode deploy -p mycc -v 0.0.1 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 Alternatively, you can run the chaincode deploy transaction through the REST API.
 
