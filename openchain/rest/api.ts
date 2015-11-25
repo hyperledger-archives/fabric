@@ -134,6 +134,13 @@ export class ChaincodeDeploymentSpec {
     codePackage: string;
 }
 
+export class ChaincodeInvocationSpec {
+    /**
+    * Chaincode specification message.
+    */
+    chaincodeSpec: ChaincodeSpec;
+}
+
 export class ChaincodeMessage {
     /**
     * Function to execute within a Chaincode.
@@ -150,6 +157,13 @@ export class Error {
     * A descriptive message explaining the cause of error.
     */
     error: string;
+}
+
+export class OK {
+    /**
+    * A descriptive message confirming a successful request.
+    */
+    OK: string;
 }
 
 
@@ -473,7 +487,7 @@ export class DevopsApi {
         return <T1&T2>objA;
     }
 
-    public chaincodeBuild (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }> {
+    public chaincodeBuild (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {
         const path = this.url + this.basePath + '/devops/build';
         let queryParameters: any = {};
         let headerParams: any = this.extendObj({}, this.defaultHeaders);
@@ -487,7 +501,7 @@ export class DevopsApi {
 
         let useFormData = false;
 
-        let deferred = promise.defer<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }>();
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
 
         let requestOptions: request.Options = {
             method: 'POST',
@@ -523,7 +537,7 @@ export class DevopsApi {
         return deferred.promise;
     }
 
-    public chaincodeDeploy (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }> {
+    public chaincodeDeploy (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {
         const path = this.url + this.basePath + '/devops/deploy';
         let queryParameters: any = {};
         let headerParams: any = this.extendObj({}, this.defaultHeaders);
@@ -537,7 +551,7 @@ export class DevopsApi {
 
         let useFormData = false;
 
-        let deferred = promise.defer<{ response: http.ClientResponse; body: ChaincodeDeploymentSpec;  }>();
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
 
         let requestOptions: request.Options = {
             method: 'POST',
@@ -546,6 +560,106 @@ export class DevopsApi {
             uri: path,
             json: true,
             body: chaincodeSpec,
+        }
+
+        this.authentications.default.applyToRequest(requestOptions);
+
+        if (Object.keys(formParams).length) {
+            if (useFormData) {
+                (<any>requestOptions).formData = formParams;
+            } else {
+                requestOptions.form = formParams;
+            }
+        }
+
+        request(requestOptions, (error, response, body) => {
+            if (error) {
+                deferred.reject(error);
+            } else {
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                    deferred.resolve({ response: response, body: body });
+                } else {
+                    deferred.reject({ response: response, body: body });
+                }
+            }
+        });
+
+        return deferred.promise;
+    }
+
+    public chaincodeInvoke (chaincodeInvocationSpec: ChaincodeInvocationSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {
+        const path = this.url + this.basePath + '/devops/invoke';
+        let queryParameters: any = {};
+        let headerParams: any = this.extendObj({}, this.defaultHeaders);
+        let formParams: any = {};
+
+
+        // verify required parameter 'chaincodeInvocationSpec' is set
+        if (!chaincodeInvocationSpec) {
+            throw new Error('Missing required parameter chaincodeInvocationSpec when calling chaincodeInvoke');
+        }
+
+        let useFormData = false;
+
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
+
+        let requestOptions: request.Options = {
+            method: 'POST',
+            qs: queryParameters,
+            headers: headerParams,
+            uri: path,
+            json: true,
+            body: chaincodeInvocationSpec,
+        }
+
+        this.authentications.default.applyToRequest(requestOptions);
+
+        if (Object.keys(formParams).length) {
+            if (useFormData) {
+                (<any>requestOptions).formData = formParams;
+            } else {
+                requestOptions.form = formParams;
+            }
+        }
+
+        request(requestOptions, (error, response, body) => {
+            if (error) {
+                deferred.reject(error);
+            } else {
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                    deferred.resolve({ response: response, body: body });
+                } else {
+                    deferred.reject({ response: response, body: body });
+                }
+            }
+        });
+
+        return deferred.promise;
+    }
+
+    public chaincodeQuery (chaincodeInvocationSpec: ChaincodeInvocationSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {
+        const path = this.url + this.basePath + '/devops/query';
+        let queryParameters: any = {};
+        let headerParams: any = this.extendObj({}, this.defaultHeaders);
+        let formParams: any = {};
+
+
+        // verify required parameter 'chaincodeInvocationSpec' is set
+        if (!chaincodeInvocationSpec) {
+            throw new Error('Missing required parameter chaincodeInvocationSpec when calling chaincodeQuery');
+        }
+
+        let useFormData = false;
+
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
+
+        let requestOptions: request.Options = {
+            method: 'POST',
+            qs: queryParameters,
+            headers: headerParams,
+            uri: path,
+            json: true,
+            body: chaincodeInvocationSpec,
         }
 
         this.authentications.default.applyToRequest(requestOptions);

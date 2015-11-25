@@ -1,8 +1,5 @@
-// Initialize the TypeScript package
-require('typescript-require');
-
-// Read in the Openchain API functions from the TypeScript file
-var openchain = require("./api.ts");
+// Read in the Openchain API functions from the compiled TypeScript file
+var openchain = require("./built/api.js");
 
 /**********
 
@@ -15,15 +12,14 @@ var openchain = require("./api.ts");
 // methods.
 
 // Initialize the constructor with an empty url string, as default address
-// of the local peer node is already encoded inside the api.ts as
+// of the local peer node is already set inside the api.js to
 // 'http://127.0.0.1:3000'.
 var blockchain = new openchain.BlockApi('');
 
-// The api.ts exposes the APIs with the use of Promises as async callbacks.
+// The api.js exposes the APIs with the use of Promises as async callbacks.
 
-// Query the chainBlocksBlockGet() API with Promises to retrive the contents of
+// Query the getBlock() API with Promises to retrive the contents of
 // Block 3 in the blockchain.
-//var promise = blockchain.chainBlocksBlockGet(3);
 var promise = blockchain.getBlock(3);
 
 // Once promise is fulfilled, print the contents of the response body.
@@ -47,14 +43,13 @@ promise.then(function(block) {
 // methods.
 
 // Initialize the constructor with an empty url string, as default address
-// of the local peer node is already encoded inside the api.ts as
+// of the local peer node is already set inside the api.js to
 // 'http://127.0.0.1:3000'.
 var blockchain = new openchain.BlockchainApi('');
 
-// The api.ts exposes the APIs with the use of Promises as async callbacks.
+// The api.js exposes the APIs with the use of Promises as async callbacks.
 
-// Query the chainGet() API with Promises.
-//var promise = blockchain.chainGet();
+// Query the getChain() API with Promises.
 var promise = blockchain.getChain();
 
 // Once promise is fulfilled, print the contents of the response body.
@@ -78,14 +73,13 @@ promise.then(function(blockchain) {
 // methods.
 
 // Initialize the constructor with an empty url string, as default address
-// of the local peer node is already encoded inside the api.ts as
+// of the local peer node is already set inside the api.js to
 // 'http://127.0.0.1:3000'.
 var blockchain = new openchain.StateApi('');
 
-// The api.ts exposes the APIs with the use of Promises as async callbacks.
+// The api.js exposes the APIs with the use of Promises as async callbacks.
 
-// Query the stateChaincodeIDKeyGet() API with Promises.
-//var promise = blockchain.stateChaincodeIDKeyGet('MyContract', 'x');
+// Query the getChaincodeState() API with Promises.
 var promise = blockchain.getChaincodeState('MyContract', 'x');
 
 // Once promise is fulfilled, print the contents of the response body.
@@ -109,17 +103,17 @@ promise.then(function(state) {
 // methods.
 
 // Initialize the constructor with an empty url string, as default address
-// of the local peer node is already encoded inside the api.ts as
+// of the local peer node is already set inside the api.js to
 // 'http://127.0.0.1:3000'.
 var blockchain = new openchain.DevopsApi('');
 
-// The api.ts exposes the APIs with the use of Promises as async callbacks.
+// The api.js exposes the APIs with the use of Promises as async callbacks.
 
-// Query the devopsBuildPost() API with Promises.
+// Query the chaincodeBuild() API with Promises.
 var chaincodeSpec = {
     type: "GOLANG",
     chaincodeID: {
-        url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
+        url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01",
         version: "0.1.0"
     }
 };
@@ -130,8 +124,8 @@ promise.then(function(devops) {
     console.log('Result of Devops Build:\n');
     console.log('-----------------------\n');
 
-    // Print chaincodeSpec only, as codePackage is too large to be printed
-    console.log(devops.body.chaincodeSpec);
+    // Print confirmation message only, as codePackage is too large to be printed
+    console.log(devops.body);
     console.log('\n');
     return;
 });
