@@ -465,16 +465,10 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 			RequestDigest:  prep.RequestDigest,
 			ReplicaId:      instance.id,
 		}
-		cert.commit = append(cert.commit, commit)
+
 		cert.sentCommit = true
 
-		// cover the case where you have received enough commits
-		// before broadcasting your own
-		if instance.committed(prep.RequestDigest, prep.View, prep.SequenceNumber) {
-			go instance.executeOutstanding()
-		}
-
-		return instance.broadcast(&Message{&Message_Commit{commit}}, false)
+		return instance.broadcast(&Message{&Message_Commit{commit}}, true)
 	}
 
 	return nil
