@@ -440,6 +440,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.db.path", "/var/openchain/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
