@@ -275,7 +275,18 @@ func SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb
 	}
 	defer stream.CloseSend()
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
-	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+
+	//stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+	peerEndpoint, err := GetPeerEndpoint()
+	if err != nil {
+		return nil
+	}
+	data, err := proto.Marshal(peerEndpoint)
+	if err != nil {
+		return nil
+	}
+	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data})
+
 	waitc := make(chan struct{})
 	var response *pb.Response
 	go func() {

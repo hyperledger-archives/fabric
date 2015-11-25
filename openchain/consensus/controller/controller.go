@@ -49,7 +49,7 @@ func NewConsenter(cpi consensus.CPI) consensus.Consenter {
 		return noops.New(cpi)
 	}
 
-	plugin := viper.GetString("peer.consensus.plugin")
+	plugin := viper.GetString("peer.validator.consensus")
 	var algo consensus.Consenter
 	if plugin == "pbft" {
 		logger.Debug("Running with PBFT consensus")
