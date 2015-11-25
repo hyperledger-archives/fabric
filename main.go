@@ -253,51 +253,7 @@ func main() {
 
 }
 
-// func serverValidator() error {
-// 	lis, err := net.Listen("tcp", viper.GetString("validator.address"))
-// 	if err != nil {
-// 		grpclog.Fatalf("failed to listen: %v", err)
-// 	}
-// 	var opts []grpc.ServerOption
-// 	if viper.GetBool("validator.tls.enabled") {
-// 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("validator.tls.cert.file"), viper.GetString("validator.tls.key.file"))
-// 		if err != nil {
-// 			grpclog.Fatalf("Failed to generate credentials %v", err)
-// 		}
-// 		opts = []grpc.ServerOption{grpc.Creds(creds)}
-// 	}
-// 	grpcServer := grpc.NewServer(opts...)
-
-// 	// Register the Peer server
-// 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-// 	var peer *openchain.Peer
-// 	if viper.GetBool("peer.consensus.validator.enabled") {
-// 		log.Debug("Running as validator")
-// 		newValidator := openchain.NewSimpleValidator()
-// 		peer, _ = openchain.NewPeerWithHandler(newValidator.GetHandler)
-// 	} else {
-// 		log.Debug("Running as peer")
-// 		peer, _ = openchain.NewPeerWithHandler(func(stream openchain.PeerChatStream) openchain.MessageHandler {
-// 			return openchain.NewPeerFSM("", stream)
-// 		})
-// 		//pb.RegisterPeerServer(grpcServer, peer)
-// 	}
-// 	pb.RegisterPeerServer(grpcServer, peer)
-
-// 	rootNode, err := openchain.GetRootNode()
-// 	if err != nil {
-// 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
-// 	}
-// 	log.Info("Starting validator with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", viper.GetString("peer.id"), viper.GetString("peer.networkId"), viper.GetString("peer.address"), rootNode, viper.GetBool("peer.consensus.validator.enabled"))
-// 	go grpcServer.Serve(lis)
-// 	return nil
-// }
-
 func serve(args []string) error {
-
-	// if viper.GetBool("validator.enabled") {
-	// 	serverValidator()
-	// }
 	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
@@ -319,24 +275,12 @@ func serve(args []string) error {
 	if viper.GetString("peer.mode") == "dev" {
 		logger.Debug("Running in dev mode")
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
-	} else if viper.GetBool("peer.consensus.validator.enabled") {
+	} else if viper.GetBool("peer.validator.enabled") {
 		logger.Debug("Installing consensus message handler")
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
-		//  if viper.GetBool("peer.consensus.validator.enabled") {
-		// 	logger.Debug("Running as validator")
-		// 	newValidator, err := peer.NewSimpleValidator(viper.GetBool("peer.consensus.leader.enabled"))
-		// 	if err != nil {
-		// 		return fmt.Errorf("Error creating simple Validator: %s", err)
-		// 	}
-		// 	peerServer, _ = peer.NewPeerWithHandler(newValidator.GetHandler)
-
 		logger.Debug("Running as peer")
-		// peerServer, _ = peer.NewPeerWithHandler(func(p *peer.Peer, stream peer.PeerChatStream) peer.MessageHandler {
-		// 	return peer.NewPeerHandlerTo("", stream)
-		// })
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
-		//pb.RegisterPeerServer(grpcServer, peer)
 	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
@@ -372,7 +316,9 @@ func serve(args []string) error {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
 		return err
 	}
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v", peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, rootNode, viper.GetBool("peer.consensus.validator.enabled"))
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"),
+		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
 	grpcServer.Serve(lis)
 	return nil
 }

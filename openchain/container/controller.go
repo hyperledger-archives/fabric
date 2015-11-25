@@ -269,7 +269,16 @@ func GetVMName(chaincodeID *pb.ChaincodeID) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error building VM name: %s", err)
 	}
-	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(chaincodeID.Url, string(os.PathSeparator), ".", -1), version)
+
+	var urlLocation string
+	if strings.HasPrefix(chaincodeID.Url, "http://") {
+		urlLocation = chaincodeID.Url[7:]
+	} else if strings.HasPrefix(chaincodeID.Url, "https://") {
+		urlLocation = chaincodeID.Url[8:]
+	} else {
+		urlLocation = chaincodeID.Url
+	}
+	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(urlLocation, string(os.PathSeparator), ".", -1), version)
 	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }

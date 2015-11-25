@@ -143,7 +143,7 @@ var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainC
 func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
-		chaincodeID := cID.Url + ":" + cID.Version
+		chaincodeID, _ := getChaincodeID(cID)
 		txUUID, err := ledger.GetState(chaincodeID, "github.com_openblockchain_obc-peer_chaincode_id", true)
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))

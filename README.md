@@ -68,9 +68,9 @@ Since chaincode is written in Go language, you can set up the environment to acc
 
 ## Setting Up a Network
 
-To set up the Openchain network of several validating peers, follow the instructions on the [Network Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/Network%20Setup.md) page.
+To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/DevnetSetup.md)
+page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
-**Note:** Before you proceed with setting up the testing network, you must first run the full Openchain testing suite as described above. Running the full test suite will download the required Docker image. If you fail to run the test suite, the Docker commands in the network setup instructions will fail.
 
 ## Working with CLI, REST, and Node.js
 
