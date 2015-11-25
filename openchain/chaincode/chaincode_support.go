@@ -139,7 +139,15 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 	if cID == nil {
 		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
 	}
-	return cID.Url + ":" + cID.Version, nil
+	var urlLocation string
+	if strings.HasPrefix(cID.Url, "http://") {
+		urlLocation = cID.Url[7:]
+	} else if strings.HasPrefix(cID.Url, "https://") {
+		urlLocation = cID.Url[8:]
+	} else {
+		urlLocation = cID.Url
+	}
+	return urlLocation + ":" + cID.Version, nil
 }
 
 func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Handler) error {
