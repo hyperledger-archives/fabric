@@ -62,17 +62,17 @@ type Plugin struct {
 	cpi    consensus.CPI // link to the CPI
 
 	// PBFT data
-	activeView   bool             // view change happening
-	f            uint             // number of faults we can tolerate
-	h            uint64           // low watermark
-	id           uint64           // replica ID; PBFT `i`
-	K            uint64           // checkpoint period
-	L            uint64           // log size
-	lastExec     uint64           // last request we executed
-	replicaCount uint             // number of replicas; PBFT `|R|`
-	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64           // current view
-	chkpts       map[uint64]chkpt // state checkpoints
+	activeView   bool              // view change happening
+	f            uint              // number of faults we can tolerate
+	h            uint64            // low watermark
+	id           uint64            // replica ID; PBFT `i`
+	K            uint64            // checkpoint period
+	L            uint64            // log size
+	lastExec     uint64            // last request we executed
+	replicaCount uint              // number of replicas; PBFT `|R|`
+	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64            // current view
+	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
@@ -87,11 +87,6 @@ type Plugin struct {
 type qidx struct {
 	d string
 	n uint64
-}
-
-type chkpt struct {
-	n     uint64
-	state string // replace with CPI ref to system state
 }
 
 type msgID struct { // our index through certStore
@@ -192,7 +187,7 @@ func New(c consensus.CPI) *Plugin {
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
-	instance.chkpts = make(map[uint64]chkpt)
+	instance.chkpts = make(map[uint64]string)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 
@@ -527,14 +522,11 @@ func (instance *Plugin) executeOutstanding() error {
 
 			if instance.lastExec%instance.K == 0 {
 				// TODO obtain checkpoint from CPI
-				stateHash := "TODO state hash"
+				stateHash := "foo" // TODO state hash
 
-				instance.chkpts[instance.lastExec] = chkpt{
-					n:     instance.lastExec,
-					state: stateHash,
-				}
+				instance.chkpts[instance.lastExec] = stateHash
 
-				logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and digest %s",
+				logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 					instance.id, instance.view, instance.lastExec, stateHash)
 
 				chkpt := &Checkpoint{
