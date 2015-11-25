@@ -78,7 +78,7 @@ func TestVM_BuildImage_Peer(t *testing.T) {
 	}
 }
 
-func TestVM_BuildImage_Chaincode(t *testing.T) {
+func TestVM_BuildImage_ChaincodeLocal(t *testing.T) {
 	vm, err := NewVM()
 	if err != nil {
 		t.Fail()
@@ -87,6 +87,22 @@ func TestVM_BuildImage_Chaincode(t *testing.T) {
 	}
 	// Build the spec
 	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: "0.1.0"}}
+	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
+		t.Fail()
+		t.Log(err)
+	}
+}
+
+func TestVM_BuildImage_ChaincodeRemote(t *testing.T) {
+	vm, err := NewVM()
+	if err != nil {
+		t.Fail()
+		t.Logf("Error getting VM: %s", err)
+		return
+	}
+	// Build the spec
+	chaincodePath := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: "0.1.0"}}
 	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
 		t.Fail()
