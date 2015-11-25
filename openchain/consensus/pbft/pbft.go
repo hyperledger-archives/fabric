@@ -493,55 +493,71 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 func (instance *Plugin) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
-		for idx, cert := range instance.certStore {
-			if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
-				continue
+		for idx := range instance.certStore {
+			if instance.executeOne(idx) {
+				retry = true
+				break
 			}
-
-			// we now have the right sequence number that doesn't create holes
-
-			digest := cert.prePrepare.RequestDigest
-			req := instance.reqStore[digest]
-
-			if !instance.committed(digest, idx.v, idx.n) {
-				continue
-			}
-
-			// we have a commit certificate for this batch
-
-			logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
-				instance.id, idx.v, idx.n, digest)
-			instance.lastExec = idx.n
-
-			tx := &pb.Transaction{}
-			err := proto.Unmarshal(req.Payload, tx)
-			if err == nil {
-				// TODO handle errors
-				instance.cpi.ExecTXs([]*pb.Transaction{tx})
-			}
-
-			if instance.lastExec%instance.K == 0 {
-				// TODO obtain checkpoint from CPI
-				stateHash := "foo" // TODO state hash
-
-				instance.chkpts[instance.lastExec] = stateHash
-
-				logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
-					instance.id, instance.view, instance.lastExec, stateHash)
-
-				chkpt := &Checkpoint{
-					SequenceNumber: instance.lastExec,
-					StateDigest:    stateHash,
-					ReplicaId:      instance.id,
-				}
-				instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
-			}
-
-			retry = true
 		}
 	}
 
 	return nil
+}
+
+func (instance *Plugin) executeOne(idx msgID) bool {
+	cert := instance.certStore[idx]
+
+	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
+		return false
+	}
+
+	// we now have the right sequence number that doesn't create holes
+
+	digest := cert.prePrepare.RequestDigest
+	req := instance.reqStore[digest]
+
+	if !instance.committed(digest, idx.v, idx.n) {
+		return false
+	}
+
+	// we have a commit certificate for this request
+
+	instance.lastExec = idx.n
+
+	// null request
+	if digest == "" {
+		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
+			instance.id, idx.v, idx.n)
+	} else {
+		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
+			instance.id, idx.v, idx.n, digest)
+
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(req.Payload, tx)
+		if err == nil {
+			// TODO handle errors
+			instance.cpi.ExecTXs([]*pb.Transaction{tx})
+		}
+	}
+
+	if instance.lastExec%instance.K == 0 {
+		// TODO obtain checkpoint from CPI
+		stateHash := "foo" // TODO state hash
+
+		instance.chkpts[instance.lastExec] = stateHash
+
+		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
+			instance.id, instance.view, instance.lastExec, stateHash)
+
+		chkpt := &Checkpoint{
+			SequenceNumber: instance.lastExec,
+			StateDigest:    stateHash,
+			ReplicaId:      instance.id,
+		}
+		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+	}
+
+	return true
 }
 
 func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
