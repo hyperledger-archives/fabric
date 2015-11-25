@@ -121,10 +121,10 @@ func (instance *Plugin) sendViewChange() error {
 		ReplicaId: instance.id,
 	}
 
-	for _, chkpt := range instance.chkpts {
+	for n, state := range instance.chkpts {
 		vc.Cset = append(vc.Cset, &ViewChange_C{
-			SequenceNumber: chkpt.n,
-			Digest:         chkpt.state,
+			SequenceNumber: n,
+			Digest:         state,
 		})
 	}
 
