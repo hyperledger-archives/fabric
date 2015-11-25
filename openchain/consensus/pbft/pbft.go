@@ -240,6 +240,10 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
+	if q, ok := instance.qset[qidx{digest, n}]; ok && q.View == v {
+		return true
+	}
+
 	cert := instance.certStore[msgID{v, n}]
 	if cert != nil {
 		p := cert.prePrepare
@@ -255,6 +259,10 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 	if !instance.prePrepared(digest, v, n) {
 		return false
+	}
+
+	if p, ok := instance.pset[n]; ok && p.View == v && p.Digest == digest {
+		return true
 	}
 
 	quorum := uint(0)
