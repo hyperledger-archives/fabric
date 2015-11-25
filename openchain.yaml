@@ -86,8 +86,8 @@ peer:
 
     consensus:
 
-        # If noops is true, the sever run without consensus.  Transactions will be executed on all connected Peers (in NOOPS mode)
-        noops: false
+        # in development mode this will be overridden to noops
+        plugin: pbft
 
         validator:
             enabled: false

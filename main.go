@@ -70,6 +70,26 @@ var peerCmd = &cobra.Command{
 	},
 }
 
+var peerDevModeCmd = &cobra.Command{
+	Use:       "dev",
+	Short:     fmt.Sprintf("Run the peer in dev mode"),
+	Long:      fmt.Sprintf("Run the peer in dev mode.\nBy default this will setup noops consensus and have user run chaincode.\nUser can override the two with user-runs-chaincode and consensus-algorithm respectively"),
+	ValidArgs: []string{"1"},
+	Run: func(cmd *cobra.Command, args []string) {
+		viper.Set("peer.mode", "dev")
+		if userRunsChaincode {
+			fmt.Printf("Setting chaincode.chaincoderunmode to dev_mode\n")
+			viper.Set("chaincode.chaincoderunmode", "dev_mode")
+		} else {
+			fmt.Printf("Setting chaincode.chaincoderunmode to net_mode\n")
+			viper.Set("chaincode.chaincoderunmode", "net_mode")
+		}
+		fmt.Printf("Setting peer.consensus.plugin to %s\n", consensusAlgorithm)
+		viper.Set("peer.consensus.plugin", consensusAlgorithm)
+		serve(args)
+	},
+}
+
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Status of the openchain peer.",
@@ -109,6 +129,8 @@ var (
 	chaincodeCtorJSON string
 	chaincodePath     string
 	chaincodeVersion  string
+	userRunsChaincode bool
+	consensusAlgorithm string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -221,6 +243,11 @@ func main() {
 		logging.SetLevel(logging.ERROR, "peer")
 		logging.SetLevel(logging.ERROR, "server")
 	}
+
+	peerDevModeCmd.PersistentFlags().BoolVarP(&userRunsChaincode, "user-runs-chaincode", "u", true, fmt.Sprintf("User will run chaincode in development mode"))
+	peerDevModeCmd.PersistentFlags().StringVarP(&consensusAlgorithm, "consensus-algorithm", "c", "noops", fmt.Sprintf("System will use noops in development mode"))
+
+	peerCmd.AddCommand(peerDevModeCmd)
 
 	mainCmd.AddCommand(peerCmd)
 	mainCmd.AddCommand(statusCmd)
