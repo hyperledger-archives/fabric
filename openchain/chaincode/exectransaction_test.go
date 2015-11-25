@@ -275,73 +275,12 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
-func TestExecuteInvokeInvalidTransaction(t *testing.T) {
-	var opts []grpc.ServerOption
-	if viper.GetBool("peer.tls.enabled") {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
-		if err != nil {
-			grpclog.Fatalf("Failed to generate credentials %v", err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-	grpcServer := grpc.NewServer(opts...)
-
-	//use a different address than what we usually use for "peer"
-	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
-
-	lis, err := net.Listen("tcp", peerAddress)
-	if err != nil {
-		t.Fail()
-		t.Logf("Error starting peer listener %s", err)
-		return
-	}
-
-	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
-	}
-
-	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
-
-	go grpcServer.Serve(lis)
-
-	var ctxt = context.Background()
-
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	version := "0.0.0"
-	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
-
-	//FAIL, FAIL!
-	args := []string{"x", "-1"}
-	err = invokeExample02Transaction(ctxt, chaincodeID, args)
-
-	//this HAS to fail with kEXPECTED_DELTA_STRING_PREFIX
-	if err != nil {
-		errStr := err.Error()
-		if strings.Index(errStr, kEXPECTED_DELTA_STRING_PREFIX) == 0 {
-			fmt.Printf("InvalidInvoke test passed\n")
-			t.Logf("InvalidInvoke test passed")
-			GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
-
-			closeListenerAndSleep(lis)
-			return
-		}
-	}
-
-	t.Fail()
-	t.Logf("Error invoking transaction %s", err)
-
-	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
-
-	closeListenerAndSleep(lis)
-}
-
 func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 	var wg sync.WaitGroup
 	errs := make([]error, numTrans+numQueries)
 
-	exec := func(qnum int, typ pb.Transaction_Type) {
+	e := func(qnum int, typ pb.Transaction_Type) {
+		defer wg.Done()
 		url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
 		version := "0.0.0"
 
@@ -369,19 +308,16 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 			ledgerObj, ledgerErr := ledger.GetLedger()
 			if ledgerErr != nil {
 				errs[qnum] = fmt.Errorf("Error getting ledger %s", ledgerErr)
-				wg.Done()
 				return
 			} 
 			_,delta,err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
 			if err != nil {
 				errs[qnum] = fmt.Errorf("Error getting delta for invoke transaction <%s> :%s", uuid, err)
-				wg.Done()
 				return
 			}
 		
 			if delta[uuid] == nil {
 				errs[qnum] = fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX,uuid)
-				wg.Done()
 				return
 			}
 			fmt.Printf("found delta for transaction <%s>\n", uuid)
@@ -390,26 +326,25 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 		if err != nil {
 			chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
 			errs[qnum] = fmt.Errorf("Error executign <%s>: %s", chaincodeID, err)
-			wg.Done()
 			return
 		}
-		wg.Done()
 	}
 	wg.Add(numTrans + numQueries)
 
 	//execute transactions sequentially..
 	go func() {
 		for i := 0; i < numTrans; i++ {
-			exec(i, pb.Transaction_CHAINCODE_EXECUTE)
+			e(i, pb.Transaction_CHAINCODE_EXECUTE)
 		}
 	}()
 
 	//...but queries in parallel
 	for i := numTrans; i < numTrans+numQueries; i++ {
-		go exec(i, pb.Transaction_CHAINCODE_QUERY)
+		go e(i, pb.Transaction_CHAINCODE_QUERY)
 	}
 
 	wg.Wait()
+	fmt.Printf("EXEC DONE\n")
 	return errs
 }
 
@@ -490,6 +425,69 @@ func TestExecuteQuery(t *testing.T) {
 	GetChain(DefaultChain).stopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
 }
+
+func TestExecuteInvokeInvalidTransaction(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	version := "0.0.0"
+	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
+
+	//FAIL, FAIL!
+	args := []string{"x", "-1"}
+	err = invokeExample02Transaction(ctxt, chaincodeID, args)
+
+	//this HAS to fail with kEXPECTED_DELTA_STRING_PREFIX
+	if err != nil {
+		errStr := err.Error()
+		if strings.Index(errStr, kEXPECTED_DELTA_STRING_PREFIX) == 0 {
+			fmt.Printf("InvalidInvoke test passed\n")
+			t.Logf("InvalidInvoke test passed")
+			GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+
+			closeListenerAndSleep(lis)
+			return
+		}
+	}
+
+	t.Fail()
+	t.Logf("Error invoking transaction %s", err)
+
+	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+
+	closeListenerAndSleep(lis)
+}
+
 func TestMain(m *testing.M) {
 	SetupTestConfig()
 	os.Exit(m.Run())
