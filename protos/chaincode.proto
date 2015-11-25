@@ -123,6 +123,11 @@ message ChaincodeMessage {
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
     string uuid = 4;
+    //need this to distinguish between ERROR to be sent
+    //to validator vs ERROR received from it (probably
+    //better done with another state but don't want to
+    //disturb the FSM right now)
+    bool sendError = 5;
 
 }
 

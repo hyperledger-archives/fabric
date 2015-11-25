@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -146,13 +147,17 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
-func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error {
+const (
+	kEXPECTED_DELTA_STRING_PREFIX = "expected delta for transaction "
+)
+
+func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
 
 	chaincodeID, _ := getChaincodeID(cID)
 
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
-	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	argsDeploy := []string{"a", "100", "b", "200"}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsDeploy}}
 	_, err := deploy(ctxt, spec)
 	if err != nil {
 		return fmt.Errorf("Error deploying <%s>: %s", chaincodeID, err)
@@ -162,7 +167,6 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error
 
 	fmt.Printf("Going to invoke\n")
 	f = "invoke"
-	args = []string{"a", "b", "10"}
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	uuid,_, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
 	if err != nil {
@@ -182,7 +186,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID) error
 	}
 
 	if delta[uuid] == nil {
-		return fmt.Errorf("expected delta for transaction <%s> but found nil", uuid)
+		return fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX, uuid)
 	}
 
 	fmt.Printf("found delta for transaction <%s>\n", uuid)
@@ -256,7 +260,8 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	version := "0.0.0"
 	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
 
-	err = invokeExample02Transaction(ctxt, chaincodeID)
+	args := []string{"a", "b", "10"}
+	err = invokeExample02Transaction(ctxt, chaincodeID, args)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking transaction %s", err)
@@ -264,6 +269,68 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		fmt.Printf("Invoke test passed\n")
 		t.Logf("Invoke test passed")
 	}
+
+	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+
+	closeListenerAndSleep(lis)
+}
+
+func TestExecuteInvokeInvalidTransaction(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	version := "0.0.0"
+	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
+
+	//FAIL, FAIL!
+	args := []string{"x", "-1"}
+	err = invokeExample02Transaction(ctxt, chaincodeID, args)
+
+	//this HAS to fail with kEXPECTED_DELTA_STRING_PREFIX
+	if err != nil {
+		errStr := err.Error()
+		if strings.Index(errStr, kEXPECTED_DELTA_STRING_PREFIX) == 0 {
+			fmt.Printf("InvalidInvoke test passed\n")
+			t.Logf("InvalidInvoke test passed")
+			GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+
+			closeListenerAndSleep(lis)
+			return
+		}
+	}
+
+	t.Fail()
+	t.Logf("Error invoking transaction %s", err)
 
 	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
 
@@ -313,7 +380,7 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 			}
 		
 			if delta[uuid] == nil {
-				errs[qnum] = fmt.Errorf("expected delta for transaction <%s> but found nil", uuid)
+				errs[qnum] = fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX,uuid)
 				wg.Done()
 				return
 			}
