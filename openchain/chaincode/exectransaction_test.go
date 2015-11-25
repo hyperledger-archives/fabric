@@ -241,8 +241,8 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	//url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	url := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
+	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	//url := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
 	version := "0.0.0"
 	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
 
