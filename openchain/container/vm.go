@@ -32,7 +32,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/blang/semver"
 	"github.com/spf13/viper"
 
 	"github.com/fsouza/go-dockerclient"
@@ -77,18 +76,6 @@ func (vm *VM) ListImages(context context.Context) error {
 	return nil
 }
 
-// BuildVMName gets the container name given the chaincode spec
-func BuildVMName(spec *pb.ChaincodeSpec) (string, error) {
-	// Make sure version is specfied correctly
-	version, err := semver.Make(spec.ChaincodeID.Version)
-	if err != nil {
-		return "", fmt.Errorf("Error building VM name: %s", err)
-	}
-	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(spec.ChaincodeID.Url, string(os.PathSeparator), ".", -1), version)
-	vmLogger.Debug("return VM name: %s", vmName)
-	return vmName, nil
-}
-
 // BuildChaincodeContainer builds the container for the supplied chaincode specification
 func (vm *VM) BuildChaincodeContainer(spec *pb.ChaincodeSpec) ([]byte, error) {
 	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
@@ -105,7 +92,7 @@ func (vm *VM) BuildChaincodeContainer(spec *pb.ChaincodeSpec) ([]byte, error) {
 // Builds the Chaincode image using the supplied Dockerfile package contents
 func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChaincodeSpec, inputbuf io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
-	vmName, err := BuildVMName(spec)
+	vmName, err := GetVMName(spec.ChaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error building chaincode using package bytes: %s", err)
 	}
@@ -192,7 +179,16 @@ func (vm *VM) writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) erro
 	startTime := time.Now()
 
 	// Dynamically create the Dockerfile from the base config and required additions
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChaincodeID.Url)
+	var newRunLine string
+	if strings.HasPrefix(spec.ChaincodeID.Url, "http://") {
+		urlLocation := spec.ChaincodeID.Url[7:]
+		newRunLine = fmt.Sprintf("RUN go get %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	} else if strings.HasPrefix(spec.ChaincodeID.Url, "https://") {
+		urlLocation := spec.ChaincodeID.Url[8:]
+		newRunLine = fmt.Sprintf("RUN go get %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	} else {
+		newRunLine = fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChaincodeID.Url)
+	}
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 

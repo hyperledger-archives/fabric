@@ -105,7 +105,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path","/var/openchain/tmpdb")
+	viper.Set("peer.db.path", "/var/openchain/tmpdb")
 
 	//lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 
@@ -120,7 +120,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	}
 
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
@@ -217,7 +217,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path","/var/openchain/tmpdb")
+	viper.Set("peer.db.path", "/var/openchain/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -231,7 +231,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	}
 
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
@@ -241,7 +241,8 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	//url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
 	version := "0.0.0"
 	chaincodeID := &pb.ChaincodeID{Url: url, Version: version}
 
@@ -322,7 +323,7 @@ func TestExecuteQuery(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path","/var/openchain/tmpdb")
+	viper.Set("peer.db.path", "/var/openchain/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -336,7 +337,7 @@ func TestExecuteQuery(t *testing.T) {
 	}
 
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
