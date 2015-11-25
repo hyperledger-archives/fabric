@@ -356,7 +356,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 	n := instance.seqNo + 1
 
-	if instance.getPrimary(instance.view) == instance.id { // if we're primary of current view
+	if instance.getPrimary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
 		haveOther := false
 		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
@@ -393,6 +393,10 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View,
 		preprep.SequenceNumber)
+
+	if !instance.activeView {
+		return nil
+	}
 
 	if instance.getPrimary(instance.view) != preprep.ReplicaId {
 		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.getPrimary(instance.view))
