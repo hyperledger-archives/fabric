@@ -157,11 +157,11 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 		return instance.sendNewView()
 	}
 
-	return nil
+	return instance.processNewView()
 }
 
 func (instance *Plugin) sendNewView() (err error) {
-	if instance.lastNewView == instance.view {
+	if instance.lastNewView.View == instance.view {
 		return
 	}
 
@@ -177,8 +177,6 @@ func (instance *Plugin) sendNewView() (err error) {
 		return
 	}
 
-	instance.lastNewView = instance.view
-
 	nv := &NewView{
 		View:      instance.view,
 		Vset:      vset,
@@ -189,23 +187,38 @@ func (instance *Plugin) sendNewView() (err error) {
 	logger.Info("New primary %d sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	return instance.broadcast(&Message{&Message_NewView{nv}}, false)
+	err = instance.broadcast(&Message{&Message_NewView{nv}}, false)
+	if err != nil {
+		return err
+	}
+	instance.lastNewView = *nv
+	return instance.processNewView()
 }
 
 func (instance *Plugin) recvNewView(nv *NewView) error {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
-	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.lastNewView != nv.View) {
+	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.lastNewView.View != nv.View) {
 		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
 			instance.id, nv.ReplicaId, nv.View)
+		return nil
 	}
 
-	// process new view
+	instance.lastNewView = *nv
+	return instance.processNewView()
+}
+
+func (instance *Plugin) processNewView() error {
+	nv := instance.lastNewView
+
+	if nv.View == 0 {
+		return nil
+	}
 
 	if instance.activeView {
-		logger.Info("Replica %d ignoring new-view from %d, v:%d: we are active",
-			instance.id, nv.ReplicaId, nv.View)
+		logger.Info("Replica %d ignoring new-view from %d, v:%d: we are active in view %d",
+			instance.id, nv.ReplicaId, nv.View, instance.view)
 		return nil
 	}
 
@@ -234,7 +247,7 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 	for n, d := range nv.Xset {
 		// XXX why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
 		// "h ≥ min{n | ∃d : (<n,d> ∈ X)} ∧ ∀<n,d> ∈ X : (n ≤ h ∨ ∃m ∈ in : (D(m) = d))"
-		if instance.h >= n {
+		if n <= instance.h {
 			continue
 		} else {
 			if d == "" {
@@ -251,10 +264,37 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 		}
 	}
 
-	logger.Info("Accepting new-view to view %d", nv.View)
+	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
-	// XXX produce pre-prepare and prepare for requests in Xset
+	for n, d := range nv.Xset {
+		preprep := &PrePrepare{
+			View:           instance.view,
+			SequenceNumber: n,
+			RequestDigest:  d,
+			ReplicaId:      instance.id,
+		}
+		cert := instance.getCert(instance.view, n)
+		cert.prePrepare = preprep
+		if n < instance.seqNo {
+			instance.seqNo = n
+		}
+	}
+
+	if instance.getPrimary(instance.view) != instance.id {
+		for n, d := range nv.Xset {
+			prep := &Prepare{
+				View:           instance.view,
+				SequenceNumber: n,
+				RequestDigest:  d,
+				ReplicaId:      instance.id,
+			}
+			cert := instance.getCert(instance.view, n)
+			cert.prepare = append(cert.prepare, prep)
+			cert.sentPrepare = true
+			instance.broadcast(&Message{&Message_Prepare{prep}}, true)
+		}
+	}
 
 	return nil
 }
@@ -318,7 +358,7 @@ func (instance *Plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msg
 
 	// "for all n such that h < n <= h + L"
 nLoop:
-	for n := h + 1; n < h+instance.L; n++ {
+	for n := h + 1; n <= h+instance.L; n++ {
 		// "∃m ∈ S..."
 		for _, m := range vset {
 			// "...with <n,d,v> ∈ m.P"

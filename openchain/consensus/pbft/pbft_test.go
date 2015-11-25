@@ -572,4 +572,10 @@ func TestViewChange(t *testing.T) {
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
+
+	net.replicas[0].plugin.sendViewChange()
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
 }

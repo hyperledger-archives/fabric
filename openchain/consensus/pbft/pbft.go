@@ -81,7 +81,7 @@ type Plugin struct {
 	reqStore        map[string]*Request   // track requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
-	lastNewView     uint64                // track last new-view we received or sent
+	lastNewView     NewView               // track last new-view we received or sent
 }
 
 type qidx struct {
@@ -182,6 +182,8 @@ func New(c consensus.CPI) *Plugin {
 	// log size
 	instance.L = 2 * instance.K
 
+	instance.activeView = true
+
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
@@ -234,7 +236,7 @@ func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
-	if !mInLog {
+	if digest != "" && !mInLog {
 		return false
 	}
 
@@ -613,6 +615,8 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
+	// XXX this breaks if we accept a quorum checkpoint which we do not have ourselves.
+	// in that case we will remove all recorded checkpoints and drop our low watermark to 0.
 	instance.h = 0
 	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {
@@ -623,6 +627,9 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 			}
 		}
 	}
+
+	logger.Debug("Replica %d updated low watermark to %d",
+		instance.id, instance.h)
 
 	// TODO clean instance.reqStore - requires client timestamps
 
