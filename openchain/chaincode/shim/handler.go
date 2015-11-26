@@ -20,7 +20,6 @@ under the License.
 package shim
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sync"
@@ -414,9 +413,8 @@ func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) 
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
 		chaincodeLogger.Debug("Received %s. Payload %s, Uuid %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload, responseMsg.Uuid)
-		n := bytes.IndexByte(responseMsg.Payload, 0)
 		handler.deleteChannel(uuid)
-		return nil, errors.New(string(responseMsg.Payload[:n]))
+		return nil, errors.New(string(responseMsg.Payload[:]))
 	}
 
 	// Incorrect chaincode message received
@@ -466,10 +464,9 @@ func (handler *Handler) handlePutState(key string, value []byte, uuid string) er
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
-		chaincodeLogger.Debug("Received %s. Payload %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload)
-		n := bytes.IndexByte(responseMsg.Payload, 0)
+		chaincodeLogger.Debug("Received %s. Payload: %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload)
 		handler.deleteChannel(uuid)
-		return errors.New(string(responseMsg.Payload[:n]))
+		return errors.New(string(responseMsg.Payload[:]))
 	}
 
 	// Incorrect chaincode message received
@@ -515,9 +512,8 @@ func (handler *Handler) handleDelState(key string, uuid string) error {
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
 		chaincodeLogger.Debug("Received %s. Payload %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload)
-		n := bytes.IndexByte(responseMsg.Payload, 0)
 		handler.deleteChannel(uuid)
-		return errors.New(string(responseMsg.Payload[:n]))
+		return errors.New(string(responseMsg.Payload[:]))
 	}
 
 	// Incorrect chaincode message received
@@ -570,9 +566,8 @@ func (handler *Handler) handleInvokeChaincode(chaincodeUrl string, chaincodeVers
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
 		chaincodeLogger.Debug("Received %s. Payload %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload)
-		n := bytes.IndexByte(responseMsg.Payload, 0)
 		handler.deleteChannel(uuid)
-		return nil, errors.New(string(responseMsg.Payload[:n]))
+		return nil, errors.New(string(responseMsg.Payload[:]))
 	}
 
 	// Incorrect chaincode message received

@@ -221,6 +221,15 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 
 	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
+	// Test for delete state
+	f = "delete"
+	delArgs := []string{"a"}
+	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: delArgs}}
+	uuid, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
+	if err != nil {
+		return fmt.Errorf("Error deleting state in <%s>: %s", chaincodeID, err)
+	}
+
 	return nil
 }
 
@@ -267,7 +276,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	err = invokeExample02Transaction(ctxt, chaincodeID, args)
 	if err != nil {
 		t.Fail()
-		t.Logf("Error invoking transaction %s", err)
+		t.Logf("Error invoking transaction: %s", err)
 	} else {
 		fmt.Printf("Invoke test passed\n")
 		t.Logf("Invoke test passed")
@@ -327,7 +336,7 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 
 		if err != nil {
 			chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
-			errs[qnum] = fmt.Errorf("Error executign <%s>: %s", chaincodeID, err)
+			errs[qnum] = fmt.Errorf("Error executing <%s>: %s", chaincodeID, err)
 			return
 		}
 	}

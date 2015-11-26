@@ -86,12 +86,18 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	Avalbytes, err := stub.GetState(A)
 	if err != nil {
 		return nil, errors.New("Failed to get state")
+	} 
+	if Avalbytes == nil {
+		return nil, errors.New("Entity not found")
 	}
 	Aval, _ = strconv.Atoi(string(Avalbytes))
 
 	Bvalbytes, err := stub.GetState(B)
 	if err != nil {
 		return nil, errors.New("Failed to get state")
+	} 
+	if Avalbytes == nil {
+		return nil, errors.New("Entity not found")
 	}
 	Bval, _ = strconv.Atoi(string(Bvalbytes))
 
@@ -115,6 +121,23 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	return nil, nil
 }
 
+// Deletes an entity from state
+func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
+	}
+
+	A := args[0]
+
+	// Delete the key from the state in ledger
+	err := stub.DelState(A)
+	if err != nil {
+		return nil, errors.New("Failed to delete state")
+	}
+
+	return nil, nil
+}
+
 // Run callback representing the invocation of a chaincode
 // This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
 func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -126,6 +149,9 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 	} else if function == "invoke" {
 		// Transaction makes payment of X units from A to B
 		return t.invoke(stub, args)
+	} else if function == "delete" {
+		// Deletes an entity from its state
+		return t.delete(stub, args)
 	}
 
 	return nil, nil
