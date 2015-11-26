@@ -412,7 +412,7 @@ func TestCheckpoint(t *testing.T) {
 		}
 
 		if inst.plugin.h != 2 {
-			t.Errorf("Expected low water mark to be 2, is %d", inst.plugin.h)
+			t.Errorf("Expected low water mark to be 2, got %d", inst.plugin.h)
 			continue
 		}
 	}
