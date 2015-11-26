@@ -146,7 +146,7 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	if !(vc.View >= instance.view && instance.correctViewChange(vc) || instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] != nil) {
+	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
 		logger.Warning("View-change message incorrect")
 		return nil
 	}
