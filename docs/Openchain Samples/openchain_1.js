@@ -49,15 +49,15 @@ var swagger = new client({
     var chaincodeSpec = {
         type: "GOLANG",
         chaincodeID: {
-            url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_simple",
+            url: "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01",
             version: "0.1.0"
         }
     };
 
-    // Print chaincodeSpec only, as codePackage is too large to be printed
+    // Print confirmation message only, as codePackage is too large to be printed
     swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chaincodeSpec);
+        console.log(Devops);
         console.log("----------\n\n");
     });
 
@@ -70,10 +70,10 @@ var swagger = new client({
         }
     };
 
-    // Print chaincodeSpec only, as codePackage is too large to be printed
+    // Print confirmation message only, as codePackage is too large to be printed
     swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chaincodeSpec);
+        console.log(Devops);
         console.log("----------\n\n");
     });
 
@@ -86,10 +86,10 @@ var swagger = new client({
         }
     };
 
-    // Print chaincodeSpec only, as codePackage is too large to be printed
+    // Print confirmation message only, as codePackage is too large to be printed
     swagger.Devops.chaincodeBuild({'ChaincodeSpec': chaincodeSpec},{responseContentType: 'application/json'},function(Devops){
         console.log("----- Devops Build Triggered: -----\n");
-        console.log(Devops.obj.chaincodeSpec);
+        console.log(Devops);
         console.log("----------\n\n");
     });
   },

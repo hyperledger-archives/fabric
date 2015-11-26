@@ -252,11 +252,6 @@ type ChaincodeMessage struct {
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid      string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	// need this to distinguish between ERROR to be sent
-	// to validator vs ERROR received from it (probably
-	// better done with another state but don't want to
-	// disturb the FSM right now)
-	SendError bool `protobuf:"varint,5,opt,name=sendError" json:"sendError,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
