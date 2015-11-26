@@ -155,8 +155,8 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			"enter_" + establishedstate:                        func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
 			"enter_" + initstate:                               func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
 			"enter_" + readystate:                              func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
-			"enter_" + busyinitstate:                           func(e *fsm.Event) { v.enterBusyInitState(e, v.FSM.Current()) },
-			"enter_" + busyxactstate:                           func(e *fsm.Event) { v.enterBusyXactState(e, v.FSM.Current()) },
+			"enter_" + busyinitstate:                           func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + busyxactstate:                           func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
 			"enter_" + transactionstate:                        func(e *fsm.Event) { v.enterTransactionState(e, v.FSM.Current()) },
 			"enter_" + endstate:                                func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
 		},
@@ -346,229 +346,49 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 
 // afterPutState handles a PUT_STATE request from the chaincode.
 func (handler *Handler) afterPutState(e *fsm.Event, state string) {
-	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	_, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
 	chaincodeLogger.Debug("Received %s in state %s, invoking put state to ledger", pb.ChaincodeMessage_PUT_STATE, state)
 
-	// Put state into ledger
-	defer handler.handlePutState(msg)
-	chaincodeLogger.Debug("Exiting PUT_STATE")
-}
-
-// Handles request to ledger to put state
-func (handler *Handler) handlePutState(msg *pb.ChaincodeMessage) {
-	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
-	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the afterPutState function is exited. Interesting bug fix!!
-	go func() {
-		// First check if this UUID is a transaction; error otherwise
-		if !handler.isTransaction[msg.Uuid] {
-			payload := []byte("Cannot put state in query context")
-			chaincodeLogger.Debug("Cannot put state in query context. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		// Check if this is the unique state request from this chaincode uuid
-		uniqueReq := handler.createUUIDEntry(msg.Uuid)
-		if !uniqueReq {
-			// Drop this request
-			chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
-			return
-		}
-
-		putStateInfo := &pb.PutStateInfo{}
-		unmarshalErr := proto.Unmarshal(msg.Payload, putStateInfo)
-		if unmarshalErr != nil {
-			payload := []byte(unmarshalErr.Error())
-			chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		ledgerObj, ledgerErr := ledger.GetLedger()
-		if ledgerErr != nil {
-			// Send error msg back to chaincode and trigger event
-			payload := []byte(ledgerErr.Error())
-			chaincodeLogger.Debug("Failed to set chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		// Invoke ledger to set state
-		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
-		err := ledgerObj.SetState(chaincodeID, putStateInfo.Key, putStateInfo.Value)
-		if err != nil {
-			// Send error msg back to chaincode and trigger event
-			payload := []byte(err.Error())
-			chaincodeLogger.Debug("Failed to set chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-		} else {
-			// Send response msg back to chaincode. GetState will not trigger event
-			chaincodeLogger.Debug("Set state. Sending %s", pb.ChaincodeMessage_RESPONSE)
-			var res []byte
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event RESPONSE: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(responseMsg)
-		}
-	}()
+	// Put state into ledger handled within enterBusyState
 }
 
 // afterDelState handles a DEL_STATE request from the chaincode.
 func (handler *Handler) afterDelState(e *fsm.Event, state string) {
-	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	_, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
 	chaincodeLogger.Debug("Received %s, invoking delete state from ledger", pb.ChaincodeMessage_DEL_STATE)
 
-	// Delete state from ledger
-	defer handler.handleDelState(msg)
-}
-
-// Handles request to ledger to delete state
-func (handler *Handler) handleDelState(msg *pb.ChaincodeMessage) {
-	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
-	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the afterDelState function is exited. Interesting bug fix!!
-	go func() {
-		// First check if this UUID is a transaction; error otherwise
-		if !handler.isTransaction[msg.Uuid] {
-			payload := []byte("Cannot delete state in query context")
-			chaincodeLogger.Debug("Cannot delete state in query context. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		// Check if this is the unique state request from this chaincode uuid
-		uniqueReq := handler.createUUIDEntry(msg.Uuid)
-		if !uniqueReq {
-			// Drop this request
-			chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
-			return
-		}
-
-		key := string(msg.Payload)
-		ledgerObj, ledgerErr := ledger.GetLedger()
-		if ledgerErr != nil {
-			// Send error msg back to chaincode and trigger event
-			payload := []byte(ledgerErr.Error())
-			chaincodeLogger.Debug("Failed to delete chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
-		err := ledgerObj.DeleteState(chaincodeID, key)
-		if err != nil {
-			// Send error msg back to chaincode and trigger event
-			payload := []byte(err.Error())
-			chaincodeLogger.Debug("Failed to delete chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-		} else {
-			// Send response msg back to chaincode. DelState will not trigger event
-			var res []byte
-			chaincodeLogger.Debug("Deleted state. Sending %s", pb.ChaincodeMessage_RESPONSE)
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event RESPONSE: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(responseMsg)
-		}
-
-	}()
+	// Delete state from ledger handled within enterBusyState
 }
 
 // afterInvokeChaincode handles an INVOKE_CHAINCODE request from the chaincode.
 func (handler *Handler) afterInvokeChaincode(e *fsm.Event, state string) {
-	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	_, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
 	chaincodeLogger.Debug("Received %s in state %s, invoking another chaincode", pb.ChaincodeMessage_INVOKE_CHAINCODE, state)
 
-	// Invoke another chaincode
-	defer handler.handleInvokeChaincode(msg)
-	chaincodeLogger.Debug("Exiting INVOKE_CHAINCODE")
+	// Invoke another chaincode handled within enterBusyState
 }
 
-// handleInvokeChaincode Handles request to invoke another chaincode.
-func (handler *Handler) handleInvokeChaincode(msg *pb.ChaincodeMessage) {
-	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
-	// is completed before the next one is triggered. The previous state transition is deemed complete only when
-	// the afterPutState function is exited. Interesting bug fix!!
+// Handles request to ledger to put state
+func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 	go func() {
+		chaincodeLogger.Debug("[enterBusyState] State is %s", state)
+		msg, _ := e.Args[0].(*pb.ChaincodeMessage)
 		// First check if this UUID is a transaction; error otherwise
 		if !handler.isTransaction[msg.Uuid] {
-			payload := []byte("Cannot invoke chaincode in query context")
-			chaincodeLogger.Debug("Cannot invoke chaincode in query context. Sending %s", pb.ChaincodeMessage_ERROR)
+			payload := []byte(fmt.Sprintf("Cannot handle %s in query context", msg.Type.String()))
+			chaincodeLogger.Debug("Cannot handle %s in query context. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
 			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
@@ -587,11 +407,11 @@ func (handler *Handler) handleInvokeChaincode(msg *pb.ChaincodeMessage) {
 			return
 		}
 
-		chaincodeSpec := &pb.ChaincodeSpec{}
-		unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
-		if unmarshalErr != nil {
-			payload := []byte(unmarshalErr.Error())
-			chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
+		ledgerObj, ledgerErr := ledger.GetLedger()
+		if ledgerErr != nil {
+			// Send error msg back to chaincode and trigger event
+			payload := []byte(ledgerErr.Error())
+			chaincodeLogger.Debug("Failed to handle %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
 			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
@@ -604,18 +424,92 @@ func (handler *Handler) handleInvokeChaincode(msg *pb.ChaincodeMessage) {
 			return
 		}
 
-		// Get the chaincodeID to invoke
-		newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+		// Invoke ledger to set state
+		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
+		var err error
+		var res []byte
 
-		// Create the transaction object
-		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
-		transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_EXECUTE)
+		if msg.Type.String() == pb.ChaincodeMessage_PUT_STATE.String() {
+			putStateInfo := &pb.PutStateInfo{}
+			unmarshalErr := proto.Unmarshal(msg.Payload, putStateInfo)
+			if unmarshalErr != nil {
+				payload := []byte(unmarshalErr.Error())
+				chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+				// Send FSM event to trigger state change
+				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
+				if eventErr != nil {
+					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+				}
+				// Remove uuid from current set
+				handler.deleteUUIDEntry(msg.Uuid)
+				handler.ChatStream.Send(errMsg)
+				return
+			}
 
-		// Launch the new chaincode if not already running
-		_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
-		if launchErr != nil {
-			payload := []byte(launchErr.Error())
-			chaincodeLogger.Debug("Failed to launch invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Invoke ledger to put state
+			err = ledgerObj.SetState(chaincodeID, putStateInfo.Key, putStateInfo.Value)
+		} else if msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() {
+			// Invoke ledger to delete state
+			key := string(msg.Payload)
+			err = ledgerObj.DeleteState(chaincodeID, key)
+		} else if msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() {
+			chaincodeSpec := &pb.ChaincodeSpec{}
+			unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
+			if unmarshalErr != nil {
+				payload := []byte(unmarshalErr.Error())
+				chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+				// Send FSM event to trigger state change
+				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
+				if eventErr != nil {
+					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+				}
+				// Remove uuid from current set
+				handler.deleteUUIDEntry(msg.Uuid)
+				handler.ChatStream.Send(errMsg)
+				return
+			}
+
+			// Get the chaincodeID to invoke
+			newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+
+			// Create the transaction object
+			chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
+			transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_EXECUTE)
+
+			// Launch the new chaincode if not already running
+			_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+			if launchErr != nil {
+				payload := []byte(launchErr.Error())
+				chaincodeLogger.Debug("Failed to launch invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+				// Send FSM event to trigger state change
+				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
+				if eventErr != nil {
+					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
+				}
+				// Remove uuid from current set
+				handler.deleteUUIDEntry(msg.Uuid)
+				handler.ChatStream.Send(errMsg)
+				return
+			}
+
+			// TODO: Need to handle timeout correctly
+			timeout := time.Duration(30000) * time.Millisecond
+
+			ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
+
+			// Execute the chaincode
+			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
+			err = execErr
+			res = response.Payload
+		}
+
+		if err != nil {
+			// Send error msg back to chaincode and trigger event
+			payload := []byte(err.Error())
+			chaincodeLogger.Debug("Failed to handle %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			// Send FSM event to trigger state change
 			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
@@ -626,33 +520,11 @@ func (handler *Handler) handleInvokeChaincode(msg *pb.ChaincodeMessage) {
 			handler.deleteUUIDEntry(msg.Uuid)
 			handler.ChatStream.Send(errMsg)
 			return
-		}
+		} 
 
-		// TODO: Need to handle timeout correctly
-		timeout := time.Duration(30000) * time.Millisecond
-
-		ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
-
-		// Execute the chaincode
-		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
-		if execErr != nil {
-			payload := []byte(execErr.Error())
-			chaincodeLogger.Debug("Failed to execute invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
-			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
-			return
-		}
-
-		// Successfully executed invoked chaincode; return response
-		chaincodeLogger.Debug("Chaincode invoke complete. Sending %s", pb.ChaincodeMessage_RESPONSE)
-		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: response.Payload, Uuid: msg.Uuid}
+		// Send response msg back to chaincode.
+		chaincodeLogger.Debug("Completed %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
+		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 		// Send FSM event to trigger state change
 		eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
 		if eventErr != nil {
@@ -698,14 +570,6 @@ func (handler *Handler) enterReadyState(e *fsm.Event, state string) {
 	handler.notify(msg)
 
 	chaincodeLogger.Debug("(enterReadyState)Entered state %s", state)
-}
-
-func (handler *Handler) enterBusyInitState(e *fsm.Event, state string) {
-	chaincodeLogger.Debug("(enterBusyInitState)Entered state %s", state)
-}
-
-func (handler *Handler) enterBusyXactState(e *fsm.Event, state string) {
-	chaincodeLogger.Debug("(enterBusyXactState)Entered state %s", state)
 }
 
 func (handler *Handler) enterTransactionState(e *fsm.Event, state string) {

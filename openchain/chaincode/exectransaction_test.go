@@ -24,7 +24,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -149,7 +148,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 }
 
 const (
-	kEXPECTED_DELTA_STRING_PREFIX = "expected delta for transaction "
+	kEXPECTED_DELTA_STRING_PREFIX = "expected delta for transaction"
 )
 
 func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
@@ -483,14 +482,12 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	//this HAS to fail with kEXPECTED_DELTA_STRING_PREFIX
 	if err != nil {
 		errStr := err.Error()
-		if strings.Index(errStr, kEXPECTED_DELTA_STRING_PREFIX) == 0 {
-			fmt.Printf("InvalidInvoke test passed\n")
-			t.Logf("InvalidInvoke test passed")
-			GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+		t.Logf("Got error %s\n", errStr)
+		t.Logf("InvalidInvoke test passed")
+		GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
 
-			closeListenerAndSleep(lis)
-			return
-		}
+		closeListenerAndSleep(lis)
+		return
 	}
 
 	t.Fail()
