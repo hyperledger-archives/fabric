@@ -300,7 +300,6 @@ func (instance *Plugin) processNewView() error {
 }
 
 func (instance *Plugin) getViewChanges() (vset []*ViewChange) {
-	vset = make([]*ViewChange, 0)
 	for _, vc := range instance.viewChangeStore {
 		vset = append(vset, vc)
 	}
@@ -398,7 +397,7 @@ nLoop:
 					continue
 				}
 
-				// "then select the null request with digest d for number n"
+				// "then select the request with digest d for number n"
 				msgList[n] = em.Digest
 
 				continue nLoop
