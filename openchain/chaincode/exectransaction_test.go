@@ -169,7 +169,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	fmt.Printf("Going to invoke\n")
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	uuid,_, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
+	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
 	if err != nil {
 		return fmt.Errorf("Error invoking <%s>: %s", chaincodeID, err)
 	}
@@ -180,7 +180,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 		return fmt.Errorf("Error checking ledger for <%s>: %s", chaincodeID, ledgerErr)
 	}
 
-	_,delta,err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
+	_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
 
 	if err != nil {
 		return fmt.Errorf("Error getting delta for invoke transaction <%s>: %s", chaincodeID, err)
@@ -304,28 +304,27 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 			fmt.Printf("Going to invoke QUERY num %d\n", qnum)
 		}
 
-		uuid,_, err := invoke(ctxt, spec, typ)
+		uuid, _, err := invoke(ctxt, spec, typ)
 
-	
 		if typ == pb.Transaction_CHAINCODE_EXECUTE {
 			ledgerObj, ledgerErr := ledger.GetLedger()
 			if ledgerErr != nil {
 				errs[qnum] = fmt.Errorf("Error getting ledger %s", ledgerErr)
 				return
-			} 
-			_,delta,err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
+			}
+			_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
 			if err != nil {
 				errs[qnum] = fmt.Errorf("Error getting delta for invoke transaction <%s> :%s", uuid, err)
 				return
 			}
-		
+
 			if delta[uuid] == nil {
-				errs[qnum] = fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX,uuid)
+				errs[qnum] = fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX, uuid)
 				return
 			}
 			fmt.Printf("found delta for transaction <%s>\n", uuid)
 		}
-	
+
 		if err != nil {
 			chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
 			errs[qnum] = fmt.Errorf("Error executign <%s>: %s", chaincodeID, err)
@@ -454,7 +453,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	}
 
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-	    return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer" }, Address: peerAddress}, nil
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
