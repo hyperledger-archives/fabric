@@ -609,7 +609,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, digest %s",
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
 				instance.id, testChkpt.ReplicaId,
 				testChkpt.SequenceNumber, testChkpt.StateDigest)
 			delete(instance.checkpointStore, testChkpt)
