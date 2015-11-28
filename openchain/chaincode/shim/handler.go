@@ -274,7 +274,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		}
 
 		// Mark as a query (do not allow put/del state)
-		handler.markIsTransaction(msg.Uuid, true)
+		handler.markIsTransaction(msg.Uuid, false)
 
 		// Call chaincode's Query
 		// Create the ChaincodeStub which the chaincode can use to callback
@@ -426,6 +426,7 @@ func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) 
 // handlePutState communicates with the validator to put state information into the ledger.
 func (handler *Handler) handlePutState(key string, value []byte, uuid string) error {
 	// Check if this is a transaction
+	chaincodeLogger.Debug("Inside putstate, isTransaction = %t", handler.isTransaction[uuid])
 	if !handler.isTransaction[uuid] {
 		return errors.New("Cannot put state in query context")
 	}

@@ -654,6 +654,19 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		return nil
 	}
 	if handler.FSM.Cannot(msg.Type.String()) {
+		// Check if this is a request from validator in query context
+		if msg.Type.String() == pb.ChaincodeMessage_PUT_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() { 
+			// Check if this UUID is a transaction
+			if !handler.isTransaction[msg.Uuid] {
+				payload := []byte(fmt.Sprintf("Cannot handle %s in query context", msg.Type.String()))
+				chaincodeLogger.Debug("Cannot handle %s in query context. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+				handler.ChatStream.Send(errMsg)
+				return fmt.Errorf("Cannot handle %s in query context", msg.Type.String())
+			}
+		}
+
+		// Other errors	
 		return fmt.Errorf("Chaincode handler validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 	}
 	chaincodeLogger.Debug("Received message %s from shim", msg.Type.String())
