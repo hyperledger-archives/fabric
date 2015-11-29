@@ -73,21 +73,21 @@ func (handler *Handler) deleteChannel(uuid string) {
 
 // markIsTransaction marks a UUID as a transaction or a query; true = transaction, false = query
 func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
-        if handler.isTransaction == nil {
-                return false
-        }
-        handler.Lock()
-        defer handler.Unlock()
-        handler.isTransaction[uuid] = isTrans
-        return true
+	if handler.isTransaction == nil {
+		return false
+	}
+	handler.Lock()
+	defer handler.Unlock()
+	handler.isTransaction[uuid] = isTrans
+	return true
 }
 
 func (handler *Handler) deleteIsTransaction(uuid string) {
-        handler.Lock()
-        if handler.isTransaction != nil {
-                delete(handler.isTransaction, uuid)
-        }
-        handler.Unlock()
+	handler.Lock()
+	if handler.isTransaction != nil {
+		delete(handler.isTransaction, uuid)
+	}
+	handler.Unlock()
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
@@ -313,7 +313,7 @@ func (handler *Handler) enterTransactionState(e *fsm.Event) {
 		// Call the chaincode's Run function to invoke transaction
 		handler.handleTransaction(msg)
 	}
-	/* This is being called from beforeQuery() 
+	/* This is being called from beforeQuery()
 	else if msg.Type.String() == pb.ChaincodeMessage_QUERY.String() {
 		handler.handleQuery(msg)
 	}

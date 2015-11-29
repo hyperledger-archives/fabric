@@ -33,8 +33,8 @@ type SimpleChaincode struct {
 }
 
 func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var A string    // Entity
-	var Aval int    // Asset holding
+	var A string // Entity
+	var Aval int // Asset holding
 	var err error
 
 	if len(args) != 2 {
@@ -76,7 +76,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
 	var A string // Entity
-	var Aval int    // Asset holding
+	var Aval int // Asset holding
 	var err error
 
 	if len(args) != 2 {

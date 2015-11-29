@@ -155,7 +155,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 }
 
 const (
-	kEXPECTED_DELTA_STRING_PREFIX = "expected delta for transaction"
+	expectedDeltaStringPrefix = "expected delta for transaction"
 )
 
 // Check the correctness of the final state after transaction execution.
@@ -173,7 +173,7 @@ func checkFinalState(uuid string, chaincodeID string) error {
 	}
 
 	if delta[uuid] == nil {
-		return fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX, uuid)
+		return fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
 	}
 
 	fmt.Printf("found delta for transaction <%s>\n", uuid)
@@ -347,7 +347,7 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 			}
 
 			if delta[uuid] == nil {
-				errs[qnum] = fmt.Errorf("%s <%s> but found nil", kEXPECTED_DELTA_STRING_PREFIX, uuid)
+				errs[qnum] = fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
 				return
 			}
 			fmt.Printf("found delta for transaction <%s>\n", uuid)
@@ -501,7 +501,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	args := []string{"x", "-1"}
 	err = invokeExample02Transaction(ctxt, chaincodeID, args)
 
-	//this HAS to fail with kEXPECTED_DELTA_STRING_PREFIX
+	//this HAS to fail with expectedDeltaStringPrefix
 	if err != nil {
 		errStr := err.Error()
 		t.Logf("Got error %s\n", errStr)
@@ -577,7 +577,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	time.Sleep(time.Second)
 
 	f = "query"
-	args = []string{"b","200"}
+	args = []string{"b", "200"}
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// This query should fail as it attempts to put state
@@ -586,7 +586,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	if err == nil {
 		t.Fail()
 		t.Logf("This query should not have succeeded as it attempts to put state")
-	}	
+	}
 
 	GetChain(DefaultChain).stopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
@@ -674,7 +674,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	// Invoke second chaincode, which will inturn invoke the first chaincode
 	f = "invoke"
-	args = []string{"e","1"}
+	args = []string{"e", "1"}
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode

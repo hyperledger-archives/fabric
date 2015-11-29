@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
@@ -145,20 +145,20 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			{Name: pb.ChaincodeMessage_RESPONSE.String(), Src: []string{busyxactstate}, Dst: transactionstate},
 		},
 		fsm.Callbacks{
-			"before_" + pb.ChaincodeMessage_REGISTER.String():  func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_INIT.String():      func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_GET_STATE.String():  func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_PUT_STATE.String():  func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_DEL_STATE.String():  func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String():  func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
-			"enter_" + establishedstate:                        func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
-			"enter_" + initstate:                               func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
-			"enter_" + readystate:                              func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
-			"enter_" + busyinitstate:                           func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + busyxactstate:                           func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + transactionstate:                        func(e *fsm.Event) { v.enterTransactionState(e, v.FSM.Current()) },
-			"enter_" + endstate:                                func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_REGISTER.String():        func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_COMPLETED.String():       func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_INIT.String():            func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_GET_STATE.String():        func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_PUT_STATE.String():        func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_DEL_STATE.String():        func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String(): func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
+			"enter_" + establishedstate:                              func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
+			"enter_" + initstate:                                     func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
+			"enter_" + readystate:                                    func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
+			"enter_" + busyinitstate:                                 func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + busyxactstate:                                 func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + transactionstate:                              func(e *fsm.Event) { v.enterTransactionState(e, v.FSM.Current()) },
+			"enter_" + endstate:                                      func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
 		},
 	)
 	return v
@@ -518,7 +518,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			handler.deleteUUIDEntry(msg.Uuid)
 			handler.ChatStream.Send(errMsg)
 			return
-		} 
+		}
 
 		// Send response msg back to chaincode.
 		chaincodeLogger.Debug("Completed %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
@@ -694,7 +694,7 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 			handler.deleteUUIDEntry(msg.Uuid)
 			handler.ChatStream.Send(errMsg)
 			return
-		} 
+		}
 
 		// Send response msg back to chaincode.
 		chaincodeLogger.Debug("Completed %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
@@ -704,7 +704,6 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		handler.ChatStream.Send(responseMsg)
 	}()
 }
-
 
 // HandleMessage implementation of MessageHandler interface.  Peer's handling of Chaincode messages.
 func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
@@ -729,7 +728,7 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	}
 	if handler.FSM.Cannot(msg.Type.String()) {
 		// Check if this is a request from validator in query context
-		if msg.Type.String() == pb.ChaincodeMessage_PUT_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() { 
+		if msg.Type.String() == pb.ChaincodeMessage_PUT_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() {
 			// Check if this UUID is a transaction
 			if !handler.isTransaction[msg.Uuid] {
 				payload := []byte(fmt.Sprintf("Cannot handle %s in query context", msg.Type.String()))
@@ -740,7 +739,7 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 			}
 		}
 
-		// Other errors	
+		// Other errors
 		return fmt.Errorf("Chaincode handler validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 	}
 	chaincodeLogger.Debug("Received message %s from shim", msg.Type.String())

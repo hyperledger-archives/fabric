@@ -34,8 +34,8 @@ type SimpleChaincode struct {
 }
 
 func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var sum string    // Sum of asset holdings across accounts. Initially 0
-	var sumVal int    // Sum of holdings
+	var sum string // Sum of asset holdings across accounts. Initially 0
+	var sumVal int // Sum of holdings
 	var err error
 
 	if len(args) != 2 {
@@ -61,8 +61,8 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 
 // Transaction queries another chaincode and updates its own state
 func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var sum string    // Sum entity
-	var Aval, Bval, sumVal int    // value of sum entity - to be computed
+	var sum string             // Sum entity
+	var Aval, Bval, sumVal int // value of sum entity - to be computed
 	var err error
 
 	if len(args) != 3 {
@@ -88,7 +88,7 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 		fmt.Printf(errStr)
 		return nil, errors.New(errStr)
 	}
-	 
+
 	queryArgs = []string{"b"}
 	response, err = stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
 	if err != nil {
@@ -122,7 +122,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 
 	// Handle different functions
 	if function == "init" {
-		// Initialize 
+		// Initialize
 		return t.init(stub, args)
 	} else if function == "invoke" {
 		// Transaction queries another chaincode
@@ -137,8 +137,8 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
-	var sum string    // Sum entity
-	var Aval, Bval, sumVal int    // value of sum entity - to be computed
+	var sum string             // Sum entity
+	var Aval, Bval, sumVal int // value of sum entity - to be computed
 	var err error
 
 	// Can query another chaincode within query, but cannot put state or invoke another chaincode (in transaction context)
@@ -165,7 +165,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		fmt.Printf(errStr)
 		return nil, errors.New(errStr)
 	}
-	 
+
 	queryArgs = []string{"b"}
 	response, err = stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
 	if err != nil {

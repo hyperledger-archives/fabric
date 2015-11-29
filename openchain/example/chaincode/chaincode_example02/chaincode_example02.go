@@ -86,7 +86,7 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	Avalbytes, err := stub.GetState(A)
 	if err != nil {
 		return nil, errors.New("Failed to get state")
-	} 
+	}
 	if Avalbytes == nil {
 		return nil, errors.New("Entity not found")
 	}
@@ -95,7 +95,7 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	Bvalbytes, err := stub.GetState(B)
 	if err != nil {
 		return nil, errors.New("Failed to get state")
-	} 
+	}
 	if Avalbytes == nil {
 		return nil, errors.New("Entity not found")
 	}

@@ -34,8 +34,8 @@ type SimpleChaincode struct {
 }
 
 func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var event string    // Indicates whether event has happened. Initially 0
-	var eventVal int    // State of event
+	var event string // Indicates whether event has happened. Initially 0
+	var eventVal int // State of event
 	var err error
 
 	if len(args) != 2 {
@@ -61,8 +61,8 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 
 // Transaction invokes another chaincode and changes event state
 func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var event string    // Event entity
-	var eventVal int    // State of event
+	var event string // Event entity
+	var eventVal int // State of event
 	var err error
 
 	if len(args) != 2 {
@@ -77,22 +77,22 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 
 	if eventVal != 1 {
 		fmt.Printf("Unexpected event. Doing nothing\n")
-		return nil, nil	
+		return nil, nil
 	}
 
 	// Invoke chaincode_example02 - assuming its URL and vesion are known
-	// Better coding will pass the chaincodeID's URL and version as arguments to this function (or to another function that stores it in the ledger state)	
+	// Better coding will pass the chaincodeID's URL and version as arguments to this function (or to another function that stores it in the ledger state)
 	chaincodeUrl := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
 	chaincodeVersion := "0.0.1"
 	f := "invoke"
-	invokeArgs := []string{"a","b","10"}
+	invokeArgs := []string{"a", "b", "10"}
 	response, err := stub.InvokeChaincode(chaincodeUrl, chaincodeVersion, f, invokeArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
 		return nil, errors.New(errStr)
 	}
-	 
+
 	fmt.Printf("Invoke chaincode successful. Got response %s", string(response))
 
 	// Write the event state back to the ledger
