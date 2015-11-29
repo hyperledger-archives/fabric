@@ -255,7 +255,6 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 	} else {
 		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
 		notfy <- msg
-		chaincodeLogger.Debug("notified Uuid:%s", msg.Uuid)
 	}
 }
 
@@ -424,7 +423,6 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			return
 		}
 
-		// Invoke ledger to set state
 		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
 		var err error
 		var res []byte
@@ -637,6 +635,77 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	return notfy, eventErr
 }
 
+// Handles request to query another chaincode
+func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
+	go func() {
+		// Check if this is the unique request from this chaincode uuid
+		uniqueReq := handler.createUUIDEntry(msg.Uuid)
+		if !uniqueReq {
+			// Drop this request
+			chaincodeLogger.Debug("Another request pending for this Uuid. Cannot process.")
+			return
+		}
+
+		chaincodeSpec := &pb.ChaincodeSpec{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
+		if unmarshalErr != nil {
+			payload := []byte(unmarshalErr.Error())
+			chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// Get the chaincodeID to invoke
+		newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+
+		// Create the transaction object
+		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
+		transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_QUERY)
+
+		// Launch the new chaincode if not already running
+		_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+		if launchErr != nil {
+			payload := []byte(launchErr.Error())
+			chaincodeLogger.Debug("Failed to launch invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// TODO: Need to handle timeout correctly
+		timeout := time.Duration(30000) * time.Millisecond
+
+		ccMsg, _ := createQueryMessage(transaction.Uuid, chaincodeInput)
+
+		// Query the chaincode
+		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
+
+		if execErr != nil {
+			// Send error msg back to chaincode and trigger event
+			payload := []byte(execErr.Error())
+			chaincodeLogger.Debug("Failed to handle %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			handler.ChatStream.Send(errMsg)
+			return
+		} 
+
+		// Send response msg back to chaincode.
+		chaincodeLogger.Debug("Completed %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
+		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: response.Payload, Uuid: msg.Uuid}
+		// Remove uuid from current set
+		handler.deleteUUIDEntry(msg.Uuid)
+		handler.ChatStream.Send(responseMsg)
+	}()
+}
+
+
 // HandleMessage implementation of MessageHandler interface.  Peer's handling of Chaincode messages.
 func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s in state %s", msg.Type, handler.FSM.Current())
@@ -651,6 +720,11 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		chaincodeLogger.Debug("HandleMessage- QUERY_ERROR (%s) for uuid:%s. Notify", string(msg.Payload), msg.Uuid)
 		handler.deleteIsTransaction(msg.Uuid)
 		handler.notify(msg)
+		return nil
+	} else if msg.Type == pb.ChaincodeMessage_INVOKE_QUERY {
+		// Received request to query another chaincode from shim
+		chaincodeLogger.Debug("HandleMessage- Received request to query another chaincode")
+		handler.handleQueryChaincode(msg)
 		return nil
 	}
 	if handler.FSM.Cannot(msg.Type.String()) {
@@ -670,6 +744,9 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		return fmt.Errorf("Chaincode handler validator FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 	}
 	chaincodeLogger.Debug("Received message %s from shim", msg.Type.String())
+	if msg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
+		chaincodeLogger.Debug("Got error: %s", string(msg.Payload))
+	}
 	eventErr := handler.FSM.Event(msg.Type.String(), msg)
 	filteredErr := filterError(eventErr)
 	if filteredErr != nil {

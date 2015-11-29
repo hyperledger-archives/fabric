@@ -96,6 +96,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
+			fmt.Printf("Got ERROR inside execute")
 			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction

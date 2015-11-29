@@ -514,8 +514,11 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 	}
 	select {
 	case ccresp := <-notfy:
-		//we delete the now that it has been delivered
+		//we delete the notifier now that it has been delivered
 		handler.deleteNotifier(msg.Uuid)
+		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
+			return ccresp, fmt.Errorf(string(ccresp.Payload))
+		}
 		return ccresp, nil
 	case <-time.After(timeout):
 		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)

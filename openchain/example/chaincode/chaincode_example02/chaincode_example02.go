@@ -154,7 +154,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		return t.delete(stub, args)
 	}
 
-	return nil, nil
+	return nil, errors.New("Received unknown function invocation")
 }
 
 // Query callback representing the query of a chaincode
@@ -185,7 +185,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 	jsonResp := "{\"Name\":\"" + A + "\",\"Amount\":\"" + string(Avalbytes) + "\"}"
 	fmt.Printf("Query Response:%s\n", jsonResp)
-	return []byte(jsonResp), nil
+	return Avalbytes, nil
 }
 
 func main() {

@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+// Build a chaincode.
 func build(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	fmt.Printf("Received build request for chaincode spec: %v\n", spec)
 	var codePackageBytes []byte
@@ -56,6 +57,7 @@ func build(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploy
 	return chaincodeDeploymentSpec, nil
 }
 
+// Deploy a chaincode - i.e., build and initialize.
 func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	// First build and get the deployment spec
 	chaincodeDeploymentSpec, err := build(ctx, spec)
@@ -75,6 +77,7 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	return Execute(ctx, GetChain(DefaultChain), transaction)
 }
 
+// Invoke or query a chaincode.
 func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) (string, []byte, error) {
 	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
@@ -96,6 +99,7 @@ func closeListenerAndSleep(l net.Listener) {
 	time.Sleep(2 * time.Second)
 }
 
+// Test deploy of a transaction.
 func TestExecuteDeployTransaction(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -139,14 +143,14 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
 	_, err = deploy(ctxt, spec)
 	if err != nil {
-		GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+		GetChain(DefaultChain).stopChaincode(ctxt, &pb.ChaincodeID{Url: url, Version: version})
 		closeListenerAndSleep(lis)
 		t.Fail()
 		t.Logf("Error deploying <%s>: %s", chaincodeID, err)
 		return
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+	GetChain(DefaultChain).stopChaincode(ctxt, &pb.ChaincodeID{Url: url, Version: version})
 	closeListenerAndSleep(lis)
 }
 
@@ -154,6 +158,7 @@ const (
 	kEXPECTED_DELTA_STRING_PREFIX = "expected delta for transaction"
 )
 
+// Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {
 	// Check the state in the ledger
 	ledgerObj, ledgerErr := ledger.GetLedger()
@@ -205,6 +210,7 @@ func checkFinalState(uuid string, chaincodeID string) error {
 	return nil
 }
 
+// Invoke chaincode_example02
 func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
 
 	chaincodeID, _ := getChaincodeID(cID)
@@ -244,6 +250,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	return nil
 }
 
+// Test the invocation of a transaction.
 func TestExecuteInvokeTransaction(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -298,6 +305,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// Execute multiple transactions and queries.
 func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 	var wg sync.WaitGroup
 	errs := make([]error, numTrans+numQueries)
@@ -370,6 +378,7 @@ func exec(ctxt context.Context, numTrans int, numQueries int) []error {
 	return errs
 }
 
+// Test the execution of a query.
 func TestExecuteQuery(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -449,6 +458,7 @@ func TestExecuteQuery(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// Test the execution of an invalid transaction.
 func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -510,6 +520,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// Test the execution of an invalid query.
 func TestExecuteInvalidQuery(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -581,6 +592,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// Test the execution of a chaincode that invokes another chaincode.
 func TestChaincodeInvokeChaincode(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -644,7 +656,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	cID2 := &pb.ChaincodeID{Url: url2, Version: version2}
 	chaincodeID2, _ := getChaincodeID(cID2)
 	f = "init"
-	args = []string{"a", "0"}
+	args = []string{"e", "0"}
 
 	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -683,6 +695,150 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+	GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+	closeListenerAndSleep(lis)
+}
+
+// Test the execution of a chaincode query that queries another chaincode.
+func TestChaincodeQueryChaincode(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	// Deploy first chaincode
+	url1 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	version1 := "0.0.1"
+
+	cID1 := &pb.ChaincodeID{Url: url1, Version: version1}
+	chaincodeID1, _ := getChaincodeID(cID1)
+	f := "init"
+	args := []string{"a", "100", "b", "200"}
+
+	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec1)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Deploy second chaincode
+	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example05"
+	version2 := "0.0.1"
+
+	cID2 := &pb.ChaincodeID{Url: url2, Version: version2}
+	chaincodeID2, _ := getChaincodeID(cID2)
+	f = "init"
+	args = []string{"sum", "0"}
+
+	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec2)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Invoke second chaincode, which will inturn query the first chaincode
+	t.Logf("Starting chaincode query chaincode in transaction mode")
+	f = "invoke"
+	args = []string{"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02", "0.0.1", "sum"}
+
+	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	// Invoke chaincode
+	var retVal []byte
+	_, retVal, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_EXECUTE)
+
+	if err != nil {
+		t.Fail()
+		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	// Check the return value
+	result, err := strconv.Atoi(string(retVal))
+	if err != nil || result != 300 {
+		t.Fail()
+		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	// Query second chaincode, which will inturn query the first chaincode
+	t.Logf("Starting chaincode query chaincode in query mode")
+	f = "query"
+	args = []string{"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02", "0.0.1", "sum"}
+
+	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	// Invoke chaincode
+	_, retVal, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_QUERY)
+
+	if err != nil {
+		t.Fail()
+		t.Logf("Error querying <%s>: %s", chaincodeID2, err)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	// Check the return value
+	result, err = strconv.Atoi(string(retVal))
+	if err != nil || result != 300 {
+		t.Fail()
+		t.Logf("Incorrect final value after query for <%s>: %s", chaincodeID1, err)
 		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
 		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)

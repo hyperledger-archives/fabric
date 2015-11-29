@@ -63,7 +63,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 
 	// Handle different functions
 	if function == "init" {
-		// Initialize the entities and their asset holdings
+		// Initialize
 		return t.init(stub, args)
 	}
 
