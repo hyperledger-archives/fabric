@@ -258,7 +258,7 @@ func serve(args []string) error {
 		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
 		viper.Set("peer.validator.enabled", "true")
 		viper.Set("peer.validator.consensus", "noops")
-		viper.Set("chaincode.chaincoderunmode", chaincode.DevModeUserRunsChaincode)
+		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
 
 	var opts []grpc.ServerOption
@@ -354,7 +354,7 @@ func stop() {
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
 	//get user mode
 	userRunsCC := false
-	if viper.GetString("chaincode.chaincoderunmode") == chaincode.DevModeUserRunsChaincode {
+	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
 		userRunsCC = true
 	}
 

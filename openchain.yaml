@@ -206,10 +206,10 @@ chaincode:
     #timeout for starting up a container and waiting for Register to come through
     startuptimeout: 20000
 
-    #chaincoderunmode - options are "dev_mode", "net_mode"
-    #dev_mode - in dev mode, user runs the chaincode after starting validator from command line on local machine
-    #net_mode - in net mode validator will run chaincode in a docker container
+    #mode - options are "dev", "net"
+    #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #net - in net mode validator will run chaincode in a docker container
 
-    chaincoderunmode: net_mode
+    mode: net
 
-    chaincodeinstallpath: /go/bin/
+    installpath: /go/bin/
