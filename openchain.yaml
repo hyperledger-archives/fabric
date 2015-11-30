@@ -37,9 +37,6 @@ peer:
     # The Peer id is used for identifying this Peer instance.
     id: jdoe
 
-    # Mode the Peer is to run in, one of [dev|production]
-    mode: production
-
     # The privateKey to be used by this peer
     privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
 
@@ -209,10 +206,10 @@ chaincode:
     #timeout for starting up a container and waiting for Register to come through
     startuptimeout: 20000
 
-    #chaincoderunmode - options are "dev_mode", "net_mode"
-    #dev_mode - in dev mode, user runs the chaincode after starting validator from command line on local machine
-    #net_mode - in net mode validator will run chaincode in a docker container
+    #mode - options are "dev", "net"
+    #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #net - in net mode validator will run chaincode in a docker container
 
-    chaincoderunmode: net_mode
+    mode: net
 
-    chaincodeinstallpath: /go/bin/
+    installpath: /go/bin/

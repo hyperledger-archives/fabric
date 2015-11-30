@@ -109,6 +109,7 @@ var (
 	chaincodeCtorJSON string
 	chaincodePath     string
 	chaincodeVersion  string
+	chaincodeDevMode  bool
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -189,13 +190,16 @@ func main() {
 	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
 	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
 
+	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
+
 	viper.BindPFlag("peer_logging_level", flags.Lookup("peer-logging-level"))
 	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
 	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer_port", flags.Lookup("peer-ports"))
+	viper.BindPFlag("peer_port", flags.Lookup("peer-port"))
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
+
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
@@ -250,6 +254,13 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
+	if chaincodeDevMode {
+		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
+		viper.Set("peer.validator.enabled", "true")
+		viper.Set("peer.validator.consensus", "noops")
+		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+	}
+
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
@@ -258,17 +269,15 @@ func serve(args []string) error {
 		}
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
+
 	grpcServer := grpc.NewServer(opts...)
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.Peer
 
-	if viper.GetString("peer.mode") == "dev" {
-		logger.Debug("Running in DEV mode, using NOOPS handler factory")
-		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
-	} else if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Installing consensus message handler")
+	if viper.GetBool("peer.validator.enabled") {
+		logger.Debug("Running as validator - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
 		logger.Debug("Running as peer")
@@ -345,7 +354,7 @@ func stop() {
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
 	//get user mode
 	userRunsCC := false
-	if viper.GetString("chaincode.chaincoderunmode") == chaincode.DevModeUserRunsChaincode {
+	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
 		userRunsCC = true
 	}
 

@@ -10,20 +10,16 @@ Go to obc-peer directory:
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
 
-Edit openchain.yaml to set the peer mode “mode” to “dev”, as shown below:
+Also edit openchain.yaml to set the “mode” to “dev” under the "chaincode" property, as shown below:
 
-	 mode: dev
-
-Also edit openchain.yaml to set the “chaincoderunmode” to “dev_mode”, as shown below:
-
-    chaincoderunmode: dev_mode
+    mode: dev
 
 This will run the chaincode independent of the validating peers. We need 3 terminal windows: the first terminal runs the validating peer; the second terminal runs the chaincode; and the third terminal runs the CLI (or REST API) to execute transactions.
 
 ###Window 1 (validating peer)
 Run obc-peer:
 
-    ./obc-peer peer
+    ./obc-peer peer --peer-chaincodedev
 
 ###Window 2 (chaincode)
 Use the example chaincode_example02 provided in the source code repository and build it:

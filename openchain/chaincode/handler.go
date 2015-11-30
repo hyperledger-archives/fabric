@@ -187,7 +187,7 @@ func (handler *Handler) notifyDuringStartup(val bool) {
 		handler.readyNotify <- val
 		chaincodeLogger.Debug("Notified during startup")
 	} else {
-		chaincodeLogger.Debug("readyNotify is nil!!!!")
+		chaincodeLogger.Debug("nothing to notify (dev mode ?)")
 	}
 }
 
