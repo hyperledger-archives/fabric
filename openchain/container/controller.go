@@ -37,7 +37,7 @@ import (
 type vm interface {
 	build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error
-	stop(ctxt context.Context, id string, timeout uint) error
+	stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
 
 //dockerVM is a vm. It is identified by an image id
@@ -106,7 +106,7 @@ func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach
 	return nil
 }
 
-func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint) error {
+func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
 	client, err := vm.newClient()
 	if err != nil {
 		fmt.Printf("start - cannot create client %s\n", err)
@@ -114,7 +114,27 @@ func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint) error {
 	}
 	id = strings.Replace(id, ":", "_", -1)
 	err = client.StopContainer(id, timeout)
-	vmLogger.Debug("Stopped container %s", id)
+	if err != nil {
+		vmLogger.Debug("Stopped container %s(%s)", id, err)
+	} else {
+		vmLogger.Debug("Stopped container %s", id)
+	}
+	if !dontkill {
+		err = client.KillContainer(docker.KillContainerOptions{ID: id})
+		if err != nil {
+			vmLogger.Debug("Killed container %s (%s)", id, err)
+		} else {
+			vmLogger.Debug("Killed container %s", id)
+		}
+	}
+	if !dontremove {
+		err = client.RemoveContainer(docker.RemoveContainerOptions{ID: id, Force: true})
+		if err != nil {
+			vmLogger.Debug("Removed container %s (%s)", id, err)
+		} else {
+			vmLogger.Debug("Removed container %s", id)
+		}
+	}
 	return err
 }
 
@@ -217,11 +237,15 @@ func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 type StopImageReq struct {
 	ID      string
 	Timeout uint
+	//by default we will kill the container after stopping
+	Dontkill bool
+	//by default we will remove the container after killing
+	Dontremove bool
 }
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.stop(ctxt, si.ID, si.Timeout); err != nil {
+	if err := v.stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
