@@ -236,9 +236,19 @@ func (f *protoFuzzer) Fuzz(v reflect.Value) {
 		}
 		return
 	case reflect.Slice:
-		// XXX add/remove entries
-		if v.Len() > 0 {
+		mode := f.r.Intn(3)
+		switch {
+		case v.Len() > 0 && mode == 0:
+			// fuzz entry
 			f.Fuzz(v.Index(f.r.Intn(v.Len())))
+		case v.Len() > 0 && mode == 1:
+			// remove entry
+			entry := f.r.Intn(v.Len())
+			pre := v.Slice(0, entry)
+			post := v.Slice(entry+1, v.Len())
+			v.Set(reflect.AppendSlice(pre, post))
+		default:
+			// add entry
 		}
 		return
 	case reflect.Struct:
