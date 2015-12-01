@@ -238,7 +238,7 @@ func (instance *Plugin) processNewView() error {
 		return instance.sendViewChange()
 	}
 
-	if !reflect.DeepEqual(msgList, nv.Xset) {
+	if !(len(msgList) == 0 && len(nv.Xset) == 0) && !reflect.DeepEqual(msgList, nv.Xset) {
 		logger.Warning("failed to verify new-view Xset: computed %+v, received %+v",
 			msgList, nv.Xset)
 		return instance.sendViewChange()
@@ -355,6 +355,8 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 func (instance *Plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
+	maxN := h
+
 	// "for all n such that h < n <= h + L"
 nLoop:
 	for n := h + 1; n <= h+instance.L; n++ {
@@ -399,6 +401,7 @@ nLoop:
 
 				// "then select the request with digest d for number n"
 				msgList[n] = em.Digest
+				maxN = n
 
 				continue nLoop
 			}
@@ -425,6 +428,13 @@ nLoop:
 		}
 
 		return nil
+	}
+
+	// prune top null requests
+	for n, msg := range msgList {
+		if n > maxN && msg == "" {
+			delete(msgList, n)
+		}
 	}
 
 	return
