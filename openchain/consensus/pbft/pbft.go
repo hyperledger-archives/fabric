@@ -462,12 +462,13 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
 
-	if instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber) {
-		cert := instance.getCert(prep.View, prep.SequenceNumber)
-		cert.prepare = append(cert.prepare, prep)
+	if !(instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
+		logger.Warning("Ignoring invalid prepare")
+		return nil
 	}
 
-	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
+	cert := instance.getCert(prep.View, prep.SequenceNumber)
+	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
 			instance.id, prep.View, prep.SequenceNumber)
@@ -619,20 +620,20 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	for n, _ := range instance.pset {
+	for n := range instance.pset {
 		if n <= chkpt.SequenceNumber {
 			delete(instance.pset, n)
 		}
 	}
 
-	for idx, _ := range instance.qset {
+	for idx := range instance.qset {
 		if idx.n <= chkpt.SequenceNumber {
 			delete(instance.qset, idx)
 		}
 	}
 
-	// XXX this breaks if we accept a quorum checkpoint which we do not have ourselves.
-	// in that case we will remove all recorded checkpoints and drop our low watermark to 0.
+	// TODO this breaks if we accept a quorum checkpoint which we do not have ourselves.
+	// In that case we will remove all recorded checkpoints and drop our low watermark to 0.
 	instance.h = 0
 	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {

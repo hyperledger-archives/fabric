@@ -210,9 +210,10 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 }
 
 func (instance *Plugin) processNewView() error {
+	// TODO maintain a list of received new-view messages
 	nv := instance.lastNewView
 
-	if nv.View == 0 {
+	if nv.View != instance.view {
 		return nil
 	}
 
@@ -222,7 +223,7 @@ func (instance *Plugin) processNewView() error {
 		return nil
 	}
 
-	// XXX check new-view certificate
+	// TODO check new-view certificate
 
 	cp, ok := instance.selectInitialCheckpoint(nv.Vset)
 	if !ok {
@@ -245,7 +246,7 @@ func (instance *Plugin) processNewView() error {
 	}
 
 	for n, d := range nv.Xset {
-		// XXX why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
+		// TODO why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
 		// "h ≥ min{n | ∃d : (<n,d> ∈ X)} ∧ ∀<n,d> ∈ X : (n ≤ h ∨ ∃m ∈ in : (D(m) = d))"
 		if n <= instance.h {
 			continue
@@ -276,7 +277,7 @@ func (instance *Plugin) processNewView() error {
 		}
 		cert := instance.getCert(instance.view, n)
 		cert.prePrepare = preprep
-		if n < instance.seqNo {
+		if n > instance.seqNo {
 			instance.seqNo = n
 		}
 	}
@@ -324,7 +325,7 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
-		if uint(len(vcList)) <= instance.f {
+		if uint(len(vcList)) <= instance.f { // type casting necessary to match types
 			logger.Debug("no weak certificate for n:%d",
 				idx.SequenceNumber)
 			continue
