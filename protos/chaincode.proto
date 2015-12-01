@@ -113,10 +113,11 @@ message ChaincodeMessage {
 	PUT_STATE = 9;
 	DEL_STATE = 10;
 	INVOKE_CHAINCODE = 11;
-	RESPONSE = 12;
-	QUERY = 13;
-	QUERY_COMPLETED = 14;
-	QUERY_ERROR = 15;
+	INVOKE_QUERY = 12;
+	RESPONSE = 13;
+	QUERY = 14;
+	QUERY_COMPLETED = 15;
+	QUERY_ERROR = 16;
     }
 
     Type type = 1;
