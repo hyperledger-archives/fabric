@@ -462,13 +462,13 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
 
-	if instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber) {
-		cert := instance.getCert(prep.View, prep.SequenceNumber)
-		cert.prepare = append(cert.prepare, prep)
+	if !(instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
+		logger.Warning("Ignoring invalid prepare")
+		return nil
 	}
 
-	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
-
+	cert := instance.getCert(prep.View, prep.SequenceNumber)
+	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
 			instance.id, prep.View, prep.SequenceNumber)
