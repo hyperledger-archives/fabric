@@ -187,6 +187,26 @@ func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gor
 	stateLogger.Debug("state.addChangesForPersistence()...finished")
 }
 
+// addRawStateKeysAndValuesForPersistence commits raw keys and values to the
+// state. This should only be used during state synchronization.
+func (state *state) addRawStateKeysAndValuesForPersistence(keys, values [][]byte) error {
+	if keys == nil || values == nil || len(keys) != len(values) {
+		return fmt.Errorf("Key and value lengths do not match or are nil")
+	}
+	cf := db.GetDBHandle().StateCF
+	writeBatch := gorocksdb.NewWriteBatch()
+	for i := 0; i < len(keys); i++ {
+		writeBatch.PutCF(cf, keys[i], values[i])
+	}
+	opt := gorocksdb.NewDefaultWriteOptions()
+	err := db.GetDBHandle().DB.Write(opt, writeBatch)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (state *state) fetchStateFromDB(chaincodeID string, key string) ([]byte, error) {
 	return db.GetDBHandle().GetFromStateCF(encodeStateDBKey(chaincodeID, key))
 }

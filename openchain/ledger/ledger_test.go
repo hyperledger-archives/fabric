@@ -20,6 +20,7 @@ under the License.
 package ledger
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"reflect"
@@ -162,6 +163,93 @@ func TestStateSnapshot(t *testing.T) {
 
 	if snapshot.GetBlockNumber() != 1 {
 		t.Fatalf("Expected blocknumber to be 1, but got %d", snapshot.GetBlockNumber())
+	}
+
+}
+
+func TestSetRawState(t *testing.T) {
+	ledger := InitTestLedger(t)
+	beginTxBatch(t, 1)
+	ledger.TxBegin("txUuid")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
+	transaction, _ := buildTestTx()
+	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
+
+	// Ensure values are in the DB
+	val, err := ledger.GetState("chaincode1", "key1", true)
+	if bytes.Compare(val, []byte("value1")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key1 to be %s, but got %s", []byte("value1"), val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if bytes.Compare(val, []byte("value2")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key2 to be %s, but got %s", []byte("value2"), val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if bytes.Compare(val, []byte("value3")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
+	}
+
+	snapshot, snapshotError := ledger.GetStateSnapshot()
+	if snapshotError != nil {
+		t.Fatalf("Error fetching snapshot %s", snapshotError)
+	}
+	defer snapshot.Release()
+
+	// Delete keys
+	beginTxBatch(t, 2)
+	ledger.TxBegin("txUuid")
+	ledger.DeleteState("chaincode1", "key1")
+	ledger.DeleteState("chaincode2", "key2")
+	ledger.DeleteState("chaincode3", "key3")
+	ledger.TxFinished("txUuid", true)
+	transaction, _ = buildTestTx()
+	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// ensure keys are deleted
+	val, err = ledger.GetState("chaincode1", "key1", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode1 key1 to be nil, but got %s", val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode2 key2 to be nil, but got %s", val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode3 key3 to be nil, but got %s", val)
+	}
+
+	// put key/values from the snapshot back in the DB
+	var keys, values [][]byte
+	for i := 0; snapshot.Next(); i++ {
+		k, v := snapshot.GetRawKeyValue()
+		copyK := make([]byte, len(k))
+		copyV := make([]byte, len(v))
+		copy(copyK, k)
+		copy(copyV, v)
+		keys = append(keys, copyK)
+		values = append(values, copyV)
+	}
+	err = ledger.SetRawState(keys, values)
+	if err != nil {
+		t.Fatalf("Error setting raw state, %s", err)
+	}
+
+	// Ensure values are back in the DB
+	val, err = ledger.GetState("chaincode1", "key1", true)
+	if bytes.Compare(val, []byte("value1")) != 0 {
+		t.Fatalf("Expected chaincode1 key1 to be %s, but got %s", []byte("value1"), val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if bytes.Compare(val, []byte("value2")) != 0 {
+		t.Fatalf("Expected chaincode1 key2 to be %s, but got %s", []byte("value2"), val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if bytes.Compare(val, []byte("value3")) != 0 {
+		t.Fatalf("Expected chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
 	}
 
 }

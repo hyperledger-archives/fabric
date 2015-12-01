@@ -152,6 +152,13 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
 	return fetchStateDeltaFromDB(blockNumber)
 }
 
+// SetRawState sets raw key/values into the state database. The key a key[i]
+// should correspond to the value at value[i]. The commit to the DB is atomic.
+// This should only be used by state synchronization.
+func (ledger *Ledger) SetRawState(keys, values [][]byte) error {
+	return ledger.state.addRawStateKeysAndValuesForPersistence(keys, values)
+}
+
 /////////////////// blockchain related methods /////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
