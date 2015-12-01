@@ -25,7 +25,9 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/config"
@@ -57,7 +59,20 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 		return err
 	}
 	defer stream.CloseSend()
-	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
+	t.Log("Starting performChat")
+
+	peerEndpoint, err := GetPeerEndpoint()
+	if err != nil {
+		return fmt.Errorf("Error getting PeerEndpoint: %s", err)
+	}
+	data, err := proto.Marshal(peerEndpoint)
+	if err != nil {
+		return fmt.Errorf("Error marshalling peerEndpoint: %s", err)
+	}
+	if err := stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}); err != nil {
+		return fmt.Errorf("Error sending %s: %s", pb.OpenchainMessage_DISC_HELLO, err)
+	}
+
 	waitc := make(chan struct{})
 	go func() {
 		// Be sure to close the channel
@@ -73,19 +88,27 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 				return
 			}
 			if in.Type == pb.OpenchainMessage_DISC_HELLO {
-				t.Logf("Received message: %s", in.Type)
+				t.Logf("Received message: %s, sending %s", in.Type, pb.OpenchainMessage_DISC_GET_PEERS)
 				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS})
 			} else if in.Type == pb.OpenchainMessage_DISC_PEERS {
 				//stream.Send(&pb.DiscoveryMessage{Type: pb.DiscoveryMessage_PEERS})
 				t.Logf("Received message: %s", in.Type)
 				t.Logf("Closing stream and channel")
 				return
+			} else {
+				t.Logf("Received message: %s", in.Type)
+
 			}
 
 		}
 	}()
-	<-waitc
-	return nil
+	select {
+	case <-waitc:
+		return nil
+	case <-time.After(1 * time.Second):
+		t.Fail()
+		return fmt.Errorf("Timeout expired while performChat")
+	}
 }
 
 func sendLargeMsg(t testing.TB) (*pb.OpenchainMessage, error) {
