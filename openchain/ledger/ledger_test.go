@@ -223,19 +223,17 @@ func TestSetRawState(t *testing.T) {
 	}
 
 	// put key/values from the snapshot back in the DB
-	var keys, values [][]byte
+	//var keys, values [][]byte
+	delta := newStateDelta()
 	for i := 0; snapshot.Next(); i++ {
 		k, v := snapshot.GetRawKeyValue()
-		copyK := make([]byte, len(k))
-		copyV := make([]byte, len(v))
-		copy(copyK, k)
-		copy(copyV, v)
-		keys = append(keys, copyK)
-		values = append(values, copyV)
+		cID, kID := decodeStateDBKey(k)
+		delta.set(cID, kID, v)
 	}
-	err = ledger.SetRawState(keys, values)
+
+	err = ledger.ApplyRawStateDelta(delta)
 	if err != nil {
-		t.Fatalf("Error setting raw state, %s", err)
+		t.Fatalf("Error applying raw state delta, %s", err)
 	}
 
 	// Ensure values are back in the DB
