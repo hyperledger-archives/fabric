@@ -55,7 +55,7 @@ func (*Devops) Build(context context.Context, spec *pb.ChaincodeSpec) (*pb.Chain
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
 		devopsLogger.Debug("Received build request for chaincode spec: %v", spec)
-		if err := checkSpec(spec); err != nil {
+		if err := CheckSpec(spec); err != nil {
 			return nil, err
 		}
 		// Get new VM and as for building of container image
@@ -175,8 +175,8 @@ func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.Chaincod
 	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, false)
 }
 
-// Checks to see if chaincode resides within current package capture for language.
-func checkSpec(spec *pb.ChaincodeSpec) error {
+// CheckSpec to see if chaincode resides within current package capture for language.
+func CheckSpec(spec *pb.ChaincodeSpec) error {
 	// Don't allow nil value
 	if spec == nil {
 		return errors.New("Expected chaincode specification, nil received")
@@ -226,7 +226,7 @@ func BuildLocal(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeD
 	mode := viper.GetString("chaincode.mode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		if err := checkSpec(spec); err != nil {
+		if err := CheckSpec(spec); err != nil {
 			devopsLogger.Debug("check spec failed: %s", err)
 			return nil, err
 		}
