@@ -277,7 +277,7 @@ func (instance *Plugin) processNewView() error {
 		}
 		cert := instance.getCert(instance.view, n)
 		cert.prePrepare = preprep
-		if n < instance.seqNo {
+		if n > instance.seqNo {
 			instance.seqNo = n
 		}
 	}
