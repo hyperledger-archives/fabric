@@ -45,7 +45,7 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 }
 
 func (instance *Plugin) sendViewChange() error {
-	instance.view += 1
+	instance.view++
 	instance.activeView = false
 
 	// P set: requests that have prepared here
@@ -103,13 +103,13 @@ func (instance *Plugin) sendViewChange() error {
 	}
 
 	// clear old messages
-	for idx, _ := range instance.certStore {
+	for idx := range instance.certStore {
 		if idx.v < instance.view {
 			delete(instance.certStore, idx)
 			// XXX how do we clear reqStore?
 		}
 	}
-	for idx, _ := range instance.viewChangeStore {
+	for idx := range instance.viewChangeStore {
 		if idx.v < instance.view {
 			delete(instance.viewChangeStore, idx)
 		}
@@ -324,16 +324,16 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
-		if len(vcList) <= instance.f {
+		if uint(len(vcList)) <= instance.f {
 			logger.Debug("no weak certificate for n:%d",
 				idx.SequenceNumber)
 			continue
 		}
 
-		quorum := 0
+		quorum := uint(0)
 		for _, vc := range vcList {
 			if vc.H <= idx.SequenceNumber {
-				quorum += 1
+				quorum++
 			}
 		}
 
@@ -364,7 +364,7 @@ nLoop:
 		for _, m := range vset {
 			// "...with <n,d,v> ∈ m.P"
 			for _, em := range m.Pset {
-				quorum := 0
+				quorum := uint(0)
 				// "A1. ∃2f+1 messages m' ∈ S"
 			mpLoop:
 				for _, mp := range vset {
@@ -377,7 +377,7 @@ nLoop:
 							continue mpLoop
 						}
 					}
-					quorum += 1
+					quorum++
 				}
 
 				if quorum < 2*instance.f+1 {
@@ -390,7 +390,7 @@ nLoop:
 					// "∃<n,d',v'> ∈ m'.Q"
 					for _, emp := range mp.Qset {
 						if n == emp.SequenceNumber && emp.View >= em.View && emp.Digest == em.Digest {
-							quorum += 1
+							quorum++
 						}
 					}
 				}
@@ -407,7 +407,7 @@ nLoop:
 			}
 		}
 
-		quorum := 0
+		quorum := uint(0)
 		// "else if ∃2f+1 messages m ∈ S"
 	nullLoop:
 		for _, m := range vset {
@@ -417,7 +417,7 @@ nLoop:
 					continue nullLoop
 				}
 			}
-			quorum += 1
+			quorum++
 		}
 
 		if quorum >= 2*instance.f+1 {
