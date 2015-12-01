@@ -193,6 +193,10 @@ func New(c consensus.CPI) *Plugin {
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 
+	// initialize genesis checkpoint
+	// TODO load state from disk
+	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
+
 	return instance
 }
 
