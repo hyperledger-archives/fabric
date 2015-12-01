@@ -290,19 +290,38 @@ func NewMock() *mockCPI {
 	return mock
 }
 
-func (net *testnet) process() error {
+func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) error {
 	for len(net.msgs) > 0 {
 		msgs := net.msgs
 		net.msgs = nil
 
 		for _, taggedMsg := range msgs {
+			msg := taggedMsg.msg
+			for _, f := range filterfns {
+				msg = f(true, taggedMsg.id, msg)
+				if msg == nil {
+					break
+				}
+			}
+
 			for i, replica := range net.replicas {
 				if i == taggedMsg.id {
 					continue
 				}
-				err := replica.plugin.RecvMsg(taggedMsg.msg)
-				if err != nil {
-					return nil
+
+				msg := msg
+				for _, f := range filterfns {
+					msg = f(false, i, msg)
+					if msg == nil {
+						break
+					}
+				}
+
+				if msg != nil {
+					err := replica.plugin.RecvMsg(msg)
+					if err != nil {
+						return nil
+					}
 				}
 			}
 		}
