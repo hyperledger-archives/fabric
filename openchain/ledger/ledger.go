@@ -172,9 +172,19 @@ func (ledger *Ledger) GetBlockchainSize() uint64 {
 	return ledger.blockchain.getSize()
 }
 
-//GetTransactionByUUID return transaction by it's uuid
+// GetTransactionByUUID return transaction by it's uuid
 func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, error) {
 	return ledger.blockchain.getTransactionByUUID(txUUID)
+}
+
+// PutRawBlock puts a raw block on the chain. This function should only be
+// used for synchronization between peers.
+func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
+	hash, err := block.GetHash()
+	if err != nil {
+		return err
+	}
+	return ledger.blockchain.persistBlock(block, blockNumber, hash, false)
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {
