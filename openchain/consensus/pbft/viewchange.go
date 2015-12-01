@@ -210,9 +210,10 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 }
 
 func (instance *Plugin) processNewView() error {
+	// XXX maintain a list of received new-view messages
 	nv := instance.lastNewView
 
-	if nv.View == 0 {
+	if nv.View != instance.view {
 		return nil
 	}
 
