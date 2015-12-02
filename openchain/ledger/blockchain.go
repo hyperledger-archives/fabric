@@ -199,7 +199,7 @@ func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block)
 	if err != nil {
 		return err
 	}
-	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash)
+	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash, true)
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func fetchBlockchainSizeFromDB() (uint64, error) {
 	return decodeToUint64(bytes), nil
 }
 
-func (blockchain *blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte) error {
+func (blockchain *blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte, persistState bool) error {
 	state := getState()
 	blockBytes, blockBytesErr := block.Bytes()
 	if blockBytesErr != nil {
@@ -251,10 +251,16 @@ func (blockchain *blockchain) persistBlock(block *protos.Block, blockNumber uint
 	writeBatch := gorocksdb.NewWriteBatch()
 	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
 
-	sizeBytes := encodeUint64(blockNumber + 1)
-	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
+	// Need to check as we suport out of order blocks in cases such as block/state synchronization. This is
+	// really blockchain height, not size.
+	if blockchain.getSize() < blockNumber+1 {
+		sizeBytes := encodeUint64(blockNumber + 1)
+		writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
+	}
 
-	state.addChangesForPersistence(blockNumber, writeBatch)
+	if persistState {
+		state.addChangesForPersistence(blockNumber, writeBatch)
+	}
 
 	if blockchain.indexer.isSynchronous() {
 		blockchain.indexer.createIndexesSync(block, blockNumber, blockHash, writeBatch)

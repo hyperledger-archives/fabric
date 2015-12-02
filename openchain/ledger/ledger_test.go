@@ -166,6 +166,23 @@ func TestStateSnapshot(t *testing.T) {
 
 }
 
+func TestPutRawBlock(t *testing.T) {
+	ledger := InitTestLedger(t)
+	block := new(protos.Block)
+	block.ProposerID = "test"
+	block.PreviousBlockHash = []byte("foo")
+	block.StateHash = []byte("bar")
+	ledger.PutRawBlock(block, 4)
+
+	retrievedBlock, err := ledger.GetBlockByNumber(4)
+	if err != nil {
+		t.Fatalf("Error retrieving block, %s", err)
+	}
+	if !reflect.DeepEqual(block, retrievedBlock) {
+		t.Fatalf("Expected blocks to be equal. Instead got, original block: %s, retrived block: %s", block, retrievedBlock)
+	}
+}
+
 func setupTestConfig() {
 	viper.AddConfigPath(".")
 	viper.SetConfigName("ledger_test")
