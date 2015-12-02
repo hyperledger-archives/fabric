@@ -192,6 +192,11 @@ func TestSetRawState(t *testing.T) {
 		t.Fatalf("Expected initial chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
 	}
 
+	hash1, hash1Err := ledger.GetTempStateHash()
+	if hash1Err != nil {
+		t.Fatalf("Error getting hash1 %s", hash1Err)
+	}
+
 	snapshot, snapshotError := ledger.GetStateSnapshot()
 	if snapshotError != nil {
 		t.Fatalf("Error fetching snapshot %s", snapshotError)
@@ -222,6 +227,15 @@ func TestSetRawState(t *testing.T) {
 		t.Fatalf("Expected chaincode3 key3 to be nil, but got %s", val)
 	}
 
+	hash2, hash2Err := ledger.GetTempStateHash()
+	if hash2Err != nil {
+		t.Fatalf("Error getting hash2 %s", hash2Err)
+	}
+
+	if bytes.Compare(hash1, hash2) == 0 {
+		t.Fatalf("Expected hashes to not match, but they both equal %s", hash1)
+	}
+
 	// put key/values from the snapshot back in the DB
 	//var keys, values [][]byte
 	delta := newStateDelta()
@@ -248,6 +262,14 @@ func TestSetRawState(t *testing.T) {
 	val, err = ledger.GetState("chaincode3", "key3", true)
 	if bytes.Compare(val, []byte("value3")) != 0 {
 		t.Fatalf("Expected chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
+	}
+
+	hash3, hash3Err := ledger.GetTempStateHash()
+	if hash3Err != nil {
+		t.Fatalf("Error getting hash3 %s", hash3Err)
+	}
+	if bytes.Compare(hash1, hash3) != 0 {
+		t.Fatalf("Expected hashes to be equal, but they are %s and %s", hash1, hash3)
 	}
 
 }

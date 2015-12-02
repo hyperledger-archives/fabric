@@ -189,12 +189,18 @@ func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gor
 
 func (state *state) applyStateDelta(delta *stateDelta) error {
 
+	state.stateDelta = delta
+	state.recomputeHash = true
 	writeBatch := gorocksdb.NewWriteBatch()
 	delta.addChangesForPersistence(writeBatch)
+	_, err := state.getHash()
+	if err != nil {
+		return err
+	}
 	state.statehash.addChangesForPersistence(writeBatch)
 
 	opt := gorocksdb.NewDefaultWriteOptions()
-	err := db.GetDBHandle().DB.Write(opt, writeBatch)
+	err = db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		return err
 	}
