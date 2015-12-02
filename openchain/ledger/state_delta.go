@@ -170,7 +170,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
 }
 
 func (chaincodeStateDelta *chaincodeStateDelta) addChangesForPersistence(writeBatch *gorocksdb.WriteBatch) {
-	stateLogger.Debug("chaincodeStateDelta.addChangesForPersistence() for codechainId = [%s]", chaincodeStateDelta.chaincodeID)
+	stateLogger.Debug("stating chaincodeStateDelta.addChangesForPersistence() for codechainId = [%s]", chaincodeStateDelta.chaincodeID)
 	openChainDB := db.GetDBHandle()
 	for key, updatedValue := range chaincodeStateDelta.updatedKVs {
 		dbKey := encodeStateDBKey(chaincodeStateDelta.chaincodeID, key)
@@ -180,7 +180,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) addChangesForPersistence(writeBa
 			writeBatch.DeleteCF(openChainDB.StateCF, dbKey)
 		}
 	}
-	stateLogger.Debug("chaincodeStateDelta.addChangesForPersistence() for codechainId = [%s]", chaincodeStateDelta.chaincodeID)
+	stateLogger.Debug("finished chaincodeStateDelta.addChangesForPersistence() for codechainId = [%s]", chaincodeStateDelta.chaincodeID)
 }
 
 // marshalling / Unmarshalling code
