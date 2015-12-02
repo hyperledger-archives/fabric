@@ -155,7 +155,7 @@ func TestVMCStartContainer(t *testing.T) {
 	//wait for VMController to complete.
 	fmt.Println("VMCStartContainer-waiting for response")
 	<-c
-	stopr := StopImageReq{ID: "simple", Timeout: 0}
+	stopr := StopImageReq{ID: "simple", Timeout: 0, Dontremove: true}
 	VMCProcess(ctxt, "Docker", stopr)
 }
 
@@ -170,7 +170,7 @@ func TestVMCSyncStartContainer(t *testing.T) {
 		t.Logf("Error starting container: %s", err)
 		return
 	}
-	stopr := StopImageReq{ID: "simple", Timeout: 0}
+	stopr := StopImageReq{ID: "simple", Timeout: 0, Dontremove: true}
 	VMCProcess(ctxt, "Docker", stopr)
 }
 
