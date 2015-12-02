@@ -416,7 +416,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		logger.Warning("Pre-prepare sequence number outside watermarks: seqNo %d, low-mark %d", preprep.SequenceNumber, instance.h)
+		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.getPrimary(instance.view), preprep.SequenceNumber, instance.h)
 		return nil
 	}
 
