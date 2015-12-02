@@ -4,21 +4,12 @@ Chaincode developers need a way to test and debug their chaincode quickly withou
 
 This document contains instructions on how to write, build, and test chaincode in a development sandbox locally.
 
-##Setup Environment
-
-Go to obc-peer directory:
-
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-
-Also edit openchain.yaml to set the “mode” to “dev” under the "chaincode" property, as shown below:
-
-    mode: dev
-
-This will run the chaincode independent of the validating peers. We need 3 terminal windows: the first terminal runs the validating peer; the second terminal runs the chaincode; and the third terminal runs the CLI (or REST API) to execute transactions.
+We need 3 terminal windows: the first terminal runs the validating peer; the second terminal runs the chaincode; and the third terminal runs the CLI (or REST API) to execute transactions.
 
 ###Window 1 (validating peer)
 Run obc-peer:
 
+    cd $GOPATH/src/github.com/openblockchain/obc-peer
     ./obc-peer peer --peer-chaincodedev
 
 ###Window 2 (chaincode)
