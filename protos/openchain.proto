@@ -111,12 +111,17 @@ message OpenchainMessage {
         CHAIN_TRANSACTION = 8;
         CHAIN_GET_TRANSACTIONS = 9;
         CHAIN_QUERY = 10;
-        CHAIN_GET_BLOCKS = 11;
-        CHAIN_BLOCKS = 12;
-        CHAIN_NEW_BLOCK = 13;
 
-        RESPONSE = 14;
-        CONSENSUS = 15;
+        SYNC_REQUEST = 13;
+        SYNC_RESPONSE = 14;
+        SYNC_GET_BLOCKS = 15;
+        SYNC_BLOCKS = 16;
+        SYNC_NEW_BLOCK = 17;
+        SYNC_GET_STATE = 18;
+        SYNC_STATE = 19;
+
+        RESPONSE = 20;
+        CONSENSUS = 21;
     }
 
     Type type = 1;
@@ -138,3 +143,7 @@ message Response {
 
 }
 
+message NewBlock {
+    bytes block = 1;
+    bytes stateDelta = 2;
+}
