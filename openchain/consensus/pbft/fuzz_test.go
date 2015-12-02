@@ -49,7 +49,7 @@ func TestFuzz(t *testing.T) {
 
 	for i := 0; i < 30; i++ {
 		msg := &Message{}
-		f.Fuzz(&msg)
+		f.Fuzz(msg)
 
 		payload, _ := proto.Marshal(msg)
 		msgWrapped := &pb.OpenchainMessage{
@@ -135,12 +135,12 @@ func TestMinimalFuzz(t *testing.T) {
 		quorum := 0
 		for _, r := range net.replicas {
 			if len(r.executed) > 0 {
-				quorum += 1
+				quorum++
 				r.executed = nil
 			}
 		}
 		if quorum < len(net.replicas)/3 {
-			noExec += 1
+			noExec++
 		}
 		if noExec > 1 {
 			noExec = 0
@@ -201,15 +201,19 @@ func (f *protoFuzzer) fuzzPayload(s interface{}) {
 	t := v.Type()
 
 	var elems []reflect.Value
+	var fields []string
 	for i := 0; i < v.NumField(); i++ {
 		if t.Field(i).Name == "ReplicaId" {
 			continue
 		}
 		elems = append(elems, v.Field(i))
+		fields = append(fields, t.Field(i).Name)
 	}
 
-	e := elems[f.r.Intn(len(elems))]
-	println(fmt.Sprintf("fuzzing %v", e))
+	i := f.r.Intn(len(elems))
+	e := elems[i]
+	fld := fields[i]
+	println(fmt.Sprintf("fuzzing %s:%v", fld, e))
 	f.Fuzz(e)
 }
 
