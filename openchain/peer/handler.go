@@ -38,6 +38,7 @@ type Handler struct {
 	doneChan        chan bool
 	FSM             *fsm.FSM
 	initiatedStream bool // Was the stream initiated within this Peer
+	registered      bool
 }
 
 // NewPeerHandler returns a new Peer handler
@@ -88,6 +89,13 @@ func (d *Handler) enterState(e *fsm.Event) {
 	peerLogger.Debug("The Peer's bi-directional stream to %s is %s, from event %s\n", d.ToPeerEndpoint, e.Dst, e.Event)
 }
 
+func (d *Handler) deregister() error {
+	if d.registered {
+		return d.Coordinator.DeregisterHandler(d)
+	}
+	return nil
+}
+
 // To return the PeerEndpoint this Handler is connected to.
 func (d *Handler) To() (pb.PeerEndpoint, error) {
 	if d.ToPeerEndpoint == nil {
@@ -99,8 +107,9 @@ func (d *Handler) To() (pb.PeerEndpoint, error) {
 // Stop stops this handler, which will trigger the Deregister from the MessageHandlerCoordinator.
 func (d *Handler) Stop() error {
 	// Deregister the handler
-	err := d.Coordinator.DeregisterHandler(d)
+	err := d.deregister()
 	d.doneChan <- true
+	d.registered = false
 	if err != nil {
 		return fmt.Errorf("Error stopping MessageHandler: %s", err)
 	}
@@ -148,8 +157,11 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	err = d.Coordinator.RegisterHandler(d)
 	if err != nil {
 		e.Cancel(fmt.Errorf("Error registering Handler: %s", err))
+	} else {
+		// Registered successfully
+		d.registered = true
+		go d.start()
 	}
-	go d.start()
 }
 
 func (d *Handler) beforeGetPeers(e *fsm.Event) {

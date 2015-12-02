@@ -53,7 +53,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		if err != nil {
 			//TODO rollback transaction as init might have set state
 			markTxFinish(ledger, t, false)
-			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
+			return nil, fmt.Errorf("%s", err)
 		}
 		markTxFinish(ledger, t, true)
 	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
@@ -94,18 +94,23 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		markTxBegin(ledger, t)
 		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
 		if err != nil {
-			//TODO rollback transaction....
+			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			return nil, fmt.Errorf("Failed to execute transaction(%s)", err)
+			fmt.Printf("Got ERROR inside execute")
+			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
-			//TODO rollback transaction....
+			// Rollback transaction
 			markTxFinish(ledger, t, false)
 			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
-			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED ||
-				resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
+			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
+				// Success
 				markTxFinish(ledger, t, true)
 				return resp.Payload, nil
+			} else if resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
+				// Rollback transaction
+				markTxFinish(ledger, t, false)
+				return nil, fmt.Errorf("Transaction or query returned with failure: %s", string(resp.Payload))
 			}
 			markTxFinish(ledger, t, false)
 			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)

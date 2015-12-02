@@ -1,0 +1,197 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
+package main
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+)
+
+// This chaincode is a test for chaincode querying another chaincode - invokes chaincode_example02 and computes the sum of a and b and stores it as state
+
+// SimpleChaincode example simple Chaincode implementation
+type SimpleChaincode struct {
+}
+
+func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var sum string // Sum of asset holdings across accounts. Initially 0
+	var sumVal int // Sum of holdings
+	var err error
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 2")
+	}
+
+	// Initialize the chaincode
+	sum = args[0]
+	sumVal, err = strconv.Atoi(args[1])
+	if err != nil {
+		return nil, errors.New("Expecting integer value for sum")
+	}
+	fmt.Printf("sumVal = %d\n", sumVal)
+
+	// Write the state to the ledger
+	err = stub.PutState(sum, []byte(strconv.Itoa(sumVal)))
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+// Transaction queries another chaincode and updates its own state
+func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var sum string             // Sum entity
+	var Aval, Bval, sumVal int // value of sum entity - to be computed
+	var err error
+
+	if len(args) != 3 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
+	}
+
+	chaincodeUrl := args[0]     // Expecting "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	chaincodeVersion := args[1] // Expecting "0.0.1"
+	sum = args[2]
+
+	// Query chaincode_example02
+	f := "query"
+	queryArgs := []string{"a"}
+	response, err := stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
+	if err != nil {
+		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+	Aval, err = strconv.Atoi(string(response))
+	if err != nil {
+		errStr := fmt.Sprintf("Error retrieving state from ledger for queried chaincode: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+
+	queryArgs = []string{"b"}
+	response, err = stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
+	if err != nil {
+		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+	Bval, err = strconv.Atoi(string(response))
+	if err != nil {
+		errStr := fmt.Sprintf("Error retrieving state from ledger for queried chaincode: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+
+	// Compute sum
+	sumVal = Aval + Bval
+
+	// Write sumVal back to the ledger
+	err = stub.PutState(sum, []byte(strconv.Itoa(sumVal)))
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Invoke chaincode successful. Got sum %d\n", sumVal)
+	return []byte(strconv.Itoa(sumVal)), nil
+}
+
+// Run callback representing the invocation of a chaincode
+// This chaincode queries another chaincode - chaincode_example02, upon receipt of an event
+func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+
+	// Handle different functions
+	if function == "init" {
+		// Initialize
+		return t.init(stub, args)
+	} else if function == "invoke" {
+		// Transaction queries another chaincode
+		return t.invoke(stub, args)
+	}
+
+	return nil, nil
+}
+
+// Query callback representing the query of a chaincode
+func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if function != "query" {
+		return nil, errors.New("Invalid query function name. Expecting \"query\"")
+	}
+	var sum string             // Sum entity
+	var Aval, Bval, sumVal int // value of sum entity - to be computed
+	var err error
+
+	// Can query another chaincode within query, but cannot put state or invoke another chaincode (in transaction context)
+	if len(args) != 3 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
+	}
+
+	chaincodeUrl := args[0]     // Expecting "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	chaincodeVersion := args[1] // Expecting "0.0.1"
+	sum = args[2]
+
+	// Query chaincode_example02
+	f := "query"
+	queryArgs := []string{"a"}
+	response, err := stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
+	if err != nil {
+		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+	Aval, err = strconv.Atoi(string(response))
+	if err != nil {
+		errStr := fmt.Sprintf("Error retrieving state from ledger for queried chaincode: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+
+	queryArgs = []string{"b"}
+	response, err = stub.QueryChaincode(chaincodeUrl, chaincodeVersion, f, queryArgs)
+	if err != nil {
+		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+	Bval, err = strconv.Atoi(string(response))
+	if err != nil {
+		errStr := fmt.Sprintf("Error retrieving state from ledger for queried chaincode: %s", err.Error())
+		fmt.Printf(errStr)
+		return nil, errors.New(errStr)
+	}
+
+	// Compute sum
+	sumVal = Aval + Bval
+
+	fmt.Printf("Query chaincode successful. Got sum %d\n", sumVal)
+	jsonResp := "{\"Name\":\"" + sum + "\",\"Value\":\"" + strconv.Itoa(sumVal) + "\"}"
+	fmt.Printf("Query Response:%s\n", jsonResp)
+	return []byte(strconv.Itoa(sumVal)), nil
+}
+
+func main() {
+	err := shim.Start(new(SimpleChaincode))
+	if err != nil {
+		fmt.Printf("Error starting Simple chaincode: %s", err)
+	}
+}
