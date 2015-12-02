@@ -143,9 +143,6 @@ func New(c consensus.CPI) *Plugin {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
 
-	// TODO Initialize the algorithm here
-	// You may want to set the fields of `instance` using `instance.GetParam()`.
-
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
 
@@ -355,7 +352,7 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 // txs will be passed to CPI.ExecTXs once consensus is reached.
 func (instance *Plugin) Request(txs []byte) error {
 	logger.Info("New consensus request received")
-	req := &Request{Payload: txs}                                    // TODO assign "client" timestamp
+	req := &Request{Payload: txs}
 	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
 }
 
@@ -363,7 +360,11 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	// TODO test timestamp
+	// TODO verify transaction
+	// if err := instance.cpi.VerifyTransaction(...); err != nil {
+	//   logger.Warning("Invalid request");
+	//   return err
+	// }
 	instance.reqStore[digest] = req
 
 	n := instance.seqNo + 1
@@ -435,6 +436,11 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
+		// TODO verify transaction
+		// if err := instance.cpi.VerifyTransaction(...); err != nil {
+		//   logger.Warning("Invalid request");
+		//   return err
+		// }
 		instance.reqStore[digest] = preprep.Request
 	}
 
@@ -553,16 +559,14 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(req.Payload, tx)
 		if err == nil {
-			// TODO handle errors
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		// TODO obtain checkpoint from CPI
-		stateHash := "foo" // TODO state hash
-
-		instance.chkpts[instance.lastExec] = stateHash
+		// XXX replace with instance.cpi.GetStateHash()
+		stateHashBytes := []byte("XXX get current state hash")
+		stateHash := base64.StdEncoding.EncodeToString(stateHashBytes)
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 			instance.id, instance.view, instance.lastExec, stateHash)
@@ -572,6 +576,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 			StateDigest:    stateHash,
 			ReplicaId:      instance.id,
 		}
+		instance.chkpts[instance.lastExec] = stateHash
 		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
@@ -600,13 +605,22 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
+	// If we do not have this checkpoint locally, we should not
+	// clear our state.
+	// PBFT: This diverges from the paper.
+	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
+		// XXX fetch checkpoint from other replica
+		return nil
+	}
+
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	for idx := range instance.certStore {
+	for idx, cert := range instance.certStore {
 		if idx.n <= chkpt.SequenceNumber {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
+			delete(instance.reqStore, cert.prePrepare.RequestDigest)
 			delete(instance.certStore, idx)
 		}
 	}
@@ -632,8 +646,6 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	// TODO this breaks if we accept a quorum checkpoint which we do not have ourselves.
-	// In that case we will remove all recorded checkpoints and drop our low watermark to 0.
 	instance.h = 0
 	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {
@@ -648,9 +660,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d updated low watermark to %d",
 		instance.id, instance.h)
 
-	// TODO clean instance.reqStore - requires client timestamps
-
-	return nil
+	return instance.processNewView()
 }
 
 // =============================================================================
