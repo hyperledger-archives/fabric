@@ -36,6 +36,7 @@ It has these top-level messages:
 	PeersMessage
 	OpenchainMessage
 	Response
+	BlockState
 	ServerStatus
 */
 package protos

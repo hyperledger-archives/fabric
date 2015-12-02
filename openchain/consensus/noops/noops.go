@@ -115,15 +115,17 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 			return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
 		}
 
-		// TODO: Broadcast CHAIN_NEW_BLOCK to connected NVPs
+		// TODO: Broadcast SYNC_NEW_BLOCK to connected NVPs (VPs already know
+		// about this newly added block since they participate in the execution)
 		// For now, send to everyone until broadcast has better discrimination
-		block := ledger.GetBlockByNumber(ledger.GetBlockchainSize())
-		delta := ledger.GetStateDelta(ledger.GetBlockchainSize())
-		data, err := proto.Marshal(&pb.NewBlock{Block: block, StateDelta: delta})
+		blockHeight := ledger.GetBlockchainSize()
+		block := ledger.GetBlockByNumber(blockHeight)
+		delta := ledger.GetStateDelta(blockHeight).marshal()
+		data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta})
 		if err != nil {
-			return fmt.Errorf("Fail to marshall NewBlock structure: %v", err)
+			return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 		}
-		msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_NEW_BLOCK, Payload: data}
+		msg = &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED, Payload: data}
 		if errs := i.cpi.Broadcast(msg); nil != errs {
 			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 		}

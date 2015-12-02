@@ -116,7 +116,7 @@ message OpenchainMessage {
         SYNC_RESPONSE = 14;
         SYNC_GET_BLOCKS = 15;
         SYNC_BLOCKS = 16;
-        SYNC_NEW_BLOCK = 17;
+        SYNC_BLOCK_ADDED = 17;
         SYNC_GET_STATE = 18;
         SYNC_STATE = 19;
 
@@ -143,7 +143,7 @@ message Response {
 
 }
 
-message NewBlock {
-    bytes block = 1;
+message BlockState {
+    Block block = 1;
     bytes stateDelta = 2;
 }

@@ -68,7 +68,7 @@ const (
 	OpenchainMessage_SYNC_RESPONSE          OpenchainMessage_Type = 14
 	OpenchainMessage_SYNC_GET_BLOCKS        OpenchainMessage_Type = 15
 	OpenchainMessage_SYNC_BLOCKS            OpenchainMessage_Type = 16
-	OpenchainMessage_SYNC_NEW_BLOCK         OpenchainMessage_Type = 17
+	OpenchainMessage_SYNC_BLOCK_ADDED       OpenchainMessage_Type = 17
 	OpenchainMessage_SYNC_GET_STATE         OpenchainMessage_Type = 18
 	OpenchainMessage_SYNC_STATE             OpenchainMessage_Type = 19
 	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 20
@@ -90,7 +90,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	14: "SYNC_RESPONSE",
 	15: "SYNC_GET_BLOCKS",
 	16: "SYNC_BLOCKS",
-	17: "SYNC_NEW_BLOCK",
+	17: "SYNC_BLOCK_ADDED",
 	18: "SYNC_GET_STATE",
 	19: "SYNC_STATE",
 	20: "RESPONSE",
@@ -111,7 +111,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"SYNC_RESPONSE":          14,
 	"SYNC_GET_BLOCKS":        15,
 	"SYNC_BLOCKS":            16,
-	"SYNC_NEW_BLOCK":         17,
+	"SYNC_BLOCK_ADDED":       17,
 	"SYNC_GET_STATE":         18,
 	"SYNC_STATE":             19,
 	"RESPONSE":               20,
@@ -296,14 +296,21 @@ func (m *Response) Reset()         { *m = Response{} }
 func (m *Response) String() string { return proto.CompactTextString(m) }
 func (*Response) ProtoMessage()    {}
 
-type NewBlock struct {
-	Block      []byte `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
+type BlockState struct {
+	Block      *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 	StateDelta []byte `protobuf:"bytes,2,opt,name=stateDelta,proto3" json:"stateDelta,omitempty"`
 }
 
-func (m *NewBlock) Reset()         { *m = NewBlock{} }
-func (m *NewBlock) String() string { return proto.CompactTextString(m) }
-func (*NewBlock) ProtoMessage()    {}
+func (m *BlockState) Reset()         { *m = BlockState{} }
+func (m *BlockState) String() string { return proto.CompactTextString(m) }
+func (*BlockState) ProtoMessage()    {}
+
+func (m *BlockState) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
