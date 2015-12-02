@@ -20,7 +20,6 @@ under the License.
 package pbft
 
 import (
-	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
@@ -111,14 +110,14 @@ func TestRecvRequest(t *testing.T) {
 
 	msgOut := mock.broadcasted[0]
 	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("expected broadcast after request, received %s", msgWrapped.Type)
+		t.Fatalf("Expected broadcast after request, received %s", msgWrapped.Type)
 	}
 
 	msgRaw := msgOut.Payload
 	msgReq := &Message{}
 	err = proto.Unmarshal(msgRaw, msgReq)
 	if err != nil {
-		t.Fatal("could not unmarshal message")
+		t.Fatal("Could not unmarshal message")
 	}
 	// TODO test for correct transaction passing
 }
@@ -142,21 +141,21 @@ func TestRecvMsg(t *testing.T) {
 	}
 	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
-		t.Fatalf("Failed to handle pbft message: %s", err)
+		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
 
 	if len(mock.broadcasted) != 1 {
-		t.Fatalf("expected message, got %d", len(mock.broadcasted))
+		t.Fatalf("Expected 1 message to be broadcasted, got %d", len(mock.broadcasted))
 	}
 
 	msgOut := mock.broadcasted[0]
 	if msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("expected CONSENSUS, received %s", msgOut.Type)
+		t.Fatalf("Expected CONSENSUS, received %s", msgOut.Type)
 	}
 	msg := &Message{}
 	err = proto.Unmarshal(msgOut.Payload, msg)
 	if err != nil {
-		t.Fatal("could not unmarshal message")
+		t.Fatal("Could not unmarshal message")
 	}
 	if msg := msg.GetPrePrepare(); msg == nil {
 		t.Fatal("expected pre-prepare after request")
@@ -189,11 +188,11 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	}
 	err = instance.RecvMsg(msgWrapped)
 	if err != nil {
-		t.Fatalf("Failed to handle pbft message: %s", err)
+		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
 
 	if len(mock.broadcasted) != 0 {
-		t.Fatalf("expected to ignore malicious pre-prepare")
+		t.Fatalf("Expected to ignore malicious pre-prepare")
 	}
 }
 
@@ -218,10 +217,10 @@ func TestIncompletePayload(t *testing.T) {
 		}
 	}
 
-	checkMsg(&Message{}, "should reject empty message")
-	checkMsg(&Message{&Message_Request{&Request{}}}, "should reject empty request")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "should reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "should reject empty pre-prepare")
+	checkMsg(&Message{}, "Expected to reject empty message")
+	checkMsg(&Message{&Message_Request{&Request{}}}, "Expected to reject empty request")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "Expected to reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject empty pre-prepare")
 }
 
 // =============================================================================
@@ -291,19 +290,38 @@ func NewMock() *mockCPI {
 	return mock
 }
 
-func (net *testnet) process() error {
+func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) error {
 	for len(net.msgs) > 0 {
 		msgs := net.msgs
 		net.msgs = nil
 
 		for _, taggedMsg := range msgs {
+			msg := taggedMsg.msg
+			for _, f := range filterfns {
+				msg = f(true, taggedMsg.id, msg)
+				if msg == nil {
+					break
+				}
+			}
+
 			for i, replica := range net.replicas {
 				if i == taggedMsg.id {
 					continue
 				}
-				err := replica.plugin.RecvMsg(taggedMsg.msg)
-				if err != nil {
-					return nil
+
+				msg := msg
+				for _, f := range filterfns {
+					msg = f(false, i, msg)
+					if msg == nil {
+						break
+					}
+				}
+
+				if msg != nil {
+					err := replica.plugin.RecvMsg(msg)
+					if err != nil {
+						return nil
+					}
 				}
 			}
 		}
@@ -312,21 +330,26 @@ func (net *testnet) process() error {
 	return nil
 }
 
-func TestNetwork(t *testing.T) {
-
-	fmt.Print("\n")
-
-	const f = 2
-	const replicaCount = 3*f + 1
+func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
+	replicaCount := 3*f + 1
 	net := &testnet{}
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = replicaCount
-		inst.plugin.f = f
+		inst.plugin.replicaCount = uint(replicaCount)
+		inst.plugin.f = uint(f)
+		for _, fn := range initFn {
+			fn(inst.plugin)
+		}
 		net.replicas = append(net.replicas, inst)
 	}
+
+	return net
+}
+
+func TestNetwork(t *testing.T) {
+	net := makeTestnet(2)
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
@@ -366,18 +389,9 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	const f = 1
-	const replicaCount = 3*f + 1
-	net := &testnet{}
-	for i := 0; i < replicaCount; i++ {
-		inst := &instance{id: i, net: net}
-		inst.plugin = New(inst)
-		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = replicaCount
-		inst.plugin.f = f
-		inst.plugin.K = 2
-		net.replicas = append(net.replicas, inst)
-	}
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.K = 2
+	})
 
 	execReq := func(iter int64) {
 		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -407,18 +421,180 @@ func TestCheckpoint(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if len(inst.plugin.chkpts) != 1 {
-			t.Errorf("expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
+			t.Errorf("Expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
 			continue
 		}
 
 		if _, ok := inst.plugin.chkpts[2]; !ok {
-			t.Errorf("expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
+			t.Errorf("Expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
 			continue
 		}
 
 		if inst.plugin.h != 2 {
-			t.Errorf("expected low water mark to be 2, is %d", inst.plugin.h)
+			t.Errorf("Expected low water mark to be 2, got %d", inst.plugin.h)
 			continue
 		}
+	}
+}
+
+func TestLostPrePrepare(t *testing.T) {
+	net := makeTestnet(1)
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   txPacked,
+	}
+
+	_ = net.replicas[0].plugin.recvRequest(req)
+
+	// clear all messages sent by primary
+	msg := net.msgs[0]
+	net.msgs = net.msgs[:0]
+
+	// deliver pre-prepare to subset of replicas
+	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
+		inst.plugin.RecvMsg(msg.msg)
+	}
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		if inst.id != 3 && len(inst.executed) != 1 {
+			t.Errorf("Expected execution")
+			continue
+		}
+		if inst.id == 3 && len(inst.executed) != 0 {
+			t.Errorf("Expected no execution")
+			continue
+		}
+	}
+}
+
+func TestInconsistentPrePrepare(t *testing.T) {
+	net := makeTestnet(1)
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	makePP := func(iter int64) *PrePrepare {
+		req := &Request{
+			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
+			Payload:   txPacked,
+		}
+		preprep := &PrePrepare{
+			View:           0,
+			SequenceNumber: 1,
+			RequestDigest:  hashReq(req),
+			Request:        req,
+			ReplicaId:      0,
+		}
+		return preprep
+	}
+
+	_ = net.replicas[0].plugin.recvRequest(makePP(1).Request)
+
+	// clear all messages sent by primary
+	net.msgs = net.msgs[:0]
+
+	// replace with fake messages
+	_ = net.replicas[1].plugin.recvPrePrepare(makePP(1))
+	_ = net.replicas[2].plugin.recvPrePrepare(makePP(2))
+	_ = net.replicas[3].plugin.recvPrePrepare(makePP(3))
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		if len(inst.executed) != 0 {
+			t.Errorf("Expected no execution")
+			continue
+		}
+	}
+}
+
+func TestViewChange(t *testing.T) {
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.K = 2
+		inst.L = inst.K * 2
+	})
+
+	execReq := func(iter int64) {
+		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			t.Fatalf("Failed to marshal TX block: %s", err)
+		}
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+			Payload: txPacked,
+		}
+		err = net.replicas[0].plugin.RecvMsg(msg)
+		if err != nil {
+			t.Fatalf("Request failed: %s", err)
+		}
+
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	execReq(1)
+	execReq(2)
+	execReq(3)
+
+	for i := 2; i < len(net.replicas); i++ {
+		net.replicas[i].plugin.sendViewChange()
+	}
+
+	err := net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
+	if ok {
+		t.Fatalf("Early selection of initial checkpoint: %+v",
+			net.replicas[1].plugin.viewChangeStore)
+	}
+
+	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), 2)
+	if msgList != nil {
+		t.Fatalf("Early selection of message list: %+v", msgList)
+	}
+
+	net.replicas[1].plugin.sendViewChange()
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	cp, ok = net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
+	if !ok || cp != 2 {
+		t.Fatalf("Wrong new initial checkpoint: %+v",
+			net.replicas[1].plugin.viewChangeStore)
+	}
+
+	msgList = net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
+	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
+		t.Fatalf("Wrong message list: %+v", msgList)
+	}
+
+	net.replicas[0].plugin.sendViewChange()
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
 	}
 }

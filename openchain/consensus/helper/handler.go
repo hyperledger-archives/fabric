@@ -67,33 +67,35 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 // HandleMessage handles the incoming Openchain messages for the Peer.
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS || msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		//if transaction return Uuid (we have to return *something* to the blocking grpc client)
+		// if this is a Tx return uuid
+		// (we have to return *something* to the blocking gRPC client)
 		if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 			var response *pb.Response
-			t := &pb.Transaction{}
-			err := proto.Unmarshal(msg.Payload, t)
+			tx := &pb.Transaction{}
+			err := proto.Unmarshal(msg.Payload, tx)
 			if err != nil {
-				response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
 			} else {
-				response =  &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(t.Uuid)}
+				response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
 			}
 			payload, err := proto.Marshal(response)
 			handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE, Payload: payload})
 		}
 		return handler.consenter.RecvMsg(msg)
 	}
+
 	if msg.Type == pb.OpenchainMessage_CHAIN_QUERY {
 		var response *pb.Response
-		t := &pb.Transaction{}
-		err := proto.Unmarshal(msg.Payload, t)
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(msg.Payload, tx)
 		if err != nil {
-			response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
 		} else {
-			b, err := chaincode.Execute(context.Background(), chaincode.GetChain(chaincode.DefaultChain), t)
-			if err != nil  {
-				response =  &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error:%s", err))}
+			b, err := chaincode.Execute(context.Background(), chaincode.GetChain(chaincode.DefaultChain), tx)
+			if err != nil {
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error:%s", err))}
 			} else {
-				response =  &pb.Response{Status: pb.Response_SUCCESS, Msg: b}
+				response = &pb.Response{Status: pb.Response_SUCCESS, Msg: b}
 			}
 		}
 		payload, _ := proto.Marshal(response)

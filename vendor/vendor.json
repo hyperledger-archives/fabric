@@ -138,6 +138,11 @@
 			"revisionTime": "2015-10-28T16:14:47+11:00"
 		},
 		{
+			"path": "github.com/google/gofuzz",
+			"revision": "e4af62d086c303f2bed467b227fc0a034b218916",
+			"revisionTime": "2015-09-03T16:45:19-07:00"
+		},
+		{
 			"path": "github.com/inconshreveable/mousetrap",
 			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
 			"revisionTime": "2014-10-17T13:07:13-07:00"

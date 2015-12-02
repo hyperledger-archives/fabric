@@ -12,6 +12,12 @@ general:
     # Algorithm/plugin name goes here. Set it to the package name.
     name: pbft
 
+    # How many Byzantine nodes can we tolerate?
+    f: 1
+
+    # Checkpoint period.
+    K: 128
+
 ################################################################################
 #
 #   SECTION: REPLICA

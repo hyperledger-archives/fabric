@@ -451,7 +451,7 @@ func (p *Peer) handleChat(ctx context.Context, stream ChatStream, initiatedStrea
 //The address to stream requests to
 func getValidatorStreamAddress() string {
 	var localaddr = viper.GetString("peer.address")
-	if viper.GetBool("peer.validator.enabled") { //in validator mode, send your own address
+	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
 		return localaddr
 	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
 		return valaddr
@@ -463,7 +463,7 @@ func getValidatorStreamAddress() string {
 func ExecuteTransaction(transaction *pb.Transaction) *pb.Response {
 	peerAddress := getValidatorStreamAddress()
 	var response *pb.Response
-	if viper.GetBool("peer.validator.enabled") { //send gRPC request to yourself
+	if viper.GetBool("peer.validator.enabled") { // send gRPC request to yourself
 		response = sendTransactionsToThisPeer(peerAddress, transaction)
 
 	} else {

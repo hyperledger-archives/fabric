@@ -200,7 +200,6 @@ func main() {
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
 
-
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
 	viper.AddConfigPath("./")    // Path to look for the config file in
@@ -214,6 +213,10 @@ func main() {
 		// No error, use the setting.
 		logging.SetLevel(level, chainFuncName)
 		logging.SetLevel(level, "consensus")
+		logging.SetLevel(level, "consensus/controller")
+		logging.SetLevel(level, "consensus/helper")
+		logging.SetLevel(level, "consensus/noops")
+		logging.SetLevel(level, "consensus/pbft")
 		logging.SetLevel(level, "main")
 		logging.SetLevel(level, "peer")
 		logging.SetLevel(level, "server")
@@ -221,6 +224,10 @@ func main() {
 		logger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
 		logging.SetLevel(logging.ERROR, chainFuncName)
 		logging.SetLevel(logging.ERROR, "consensus")
+		logging.SetLevel(logging.ERROR, "consensus/controller")
+		logging.SetLevel(logging.ERROR, "consensus/helper")
+		logging.SetLevel(logging.ERROR, "consensus/noops")
+		logging.SetLevel(logging.ERROR, "consensus/pbft")
 		logging.SetLevel(logging.ERROR, "main")
 		logging.SetLevel(logging.ERROR, "peer")
 		logging.SetLevel(logging.ERROR, "server")

@@ -45,9 +45,10 @@ const configPrefix = "OPENCHAIN_PBFT"
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
+var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
-	logger = logging.MustGetLogger("consensus/plugin")
+	logger = logging.MustGetLogger("consensus/pbft")
 }
 
 // =============================================================================
@@ -61,27 +62,31 @@ type Plugin struct {
 	cpi    consensus.CPI // link to the CPI
 
 	// PBFT data
-	activeView   bool             // view change happening
-	f            int              // number of faults we can tolerate
-	h            uint64           // low watermark
-	id           uint64           // replica ID; PBFT `i`
-	K            uint64           // checkpoint period
-	L            uint64           // log size
-	lastExec     uint64           // last request we executed
-	replicaCount uint64           // number of replicas; PBFT `|R|`
-	seqNo        uint64           // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64           // current view
-	chkpts       map[uint64]chkpt // state checkpoints
+	activeView   bool              // view change happening
+	f            uint              // number of faults we can tolerate
+	h            uint64            // low watermark
+	id           uint64            // replica ID; PBFT `i`
+	K            uint64            // checkpoint period
+	L            uint64            // log size
+	lastExec     uint64            // last request we executed
+	replicaCount uint              // number of replicas; PBFT `|R|`
+	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64            // current view
+	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
+	pset         map[uint64]*ViewChange_PQ
+	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert  // track quorum certificates for requests
-	reqStore        map[string]*Request // track requests
-	checkpointStore map[Checkpoint]bool // track checkpoints as set
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
+	reqStore        map[string]*Request   // track requests
+	checkpointStore map[Checkpoint]bool   // track checkpoints as set
+	viewChangeStore map[vcidx]*ViewChange // track view-change messages
+	lastNewView     NewView               // track last new-view we received or sent
 }
 
-type chkpt struct {
-	n     uint64
-	state string // replace with CPI ref to system state
+type qidx struct {
+	d string
+	n uint64
 }
 
 type msgID struct { // our index through certStore
@@ -97,9 +102,24 @@ type msgCert struct {
 	commit      []*Commit
 }
 
+type vcidx struct {
+	v  uint64
+	id uint64
+}
+
 // =============================================================================
 // Constructors go here
 // =============================================================================
+
+// GetPlugin returns the handle to the Plugin singleton and updates the CPI if necessary.
+func GetPlugin(c consensus.CPI) *Plugin {
+	if pluginInstance == nil {
+		pluginInstance = New(c)
+	} else {
+		pluginInstance.cpi = c // otherwise, just update the CPI
+	}
+	return pluginInstance
+}
 
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
 func New(c consensus.CPI) *Plugin {
@@ -117,6 +137,7 @@ func New(c consensus.CPI) *Plugin {
 
 	instance.config.SetConfigName("config")
 	instance.config.AddConfigPath("./")
+	instance.config.AddConfigPath("./openchain/consensus/pbft/")
 	err := instance.config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
@@ -125,29 +146,56 @@ func New(c consensus.CPI) *Plugin {
 	// TODO Initialize the algorithm here
 	// You may want to set the fields of `instance` using `instance.GetParam()`.
 
-	// In dev/debugging mode you are expected to override the config value
-	// with the environment variable OPENCHAIN_PBFT_REPLICA_ID
-	replicaID, err := instance.getParam("replica.id")
+	// In dev/debugging mode you are expected to override the config values
+	// with the environment variable OPENCHAIN_PBFT_X_Y
+
+	// replica ID
+	paramID, err := instance.getParam("replica.id")
 	if err != nil {
 		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
 	}
-	id, err := strconv.ParseUint(replicaID, 10, 64)
+	instance.id, err = strconv.ParseUint(paramID, 10, 64)
 	if err != nil {
-		panic(fmt.Errorf("Cannot convert ID to int: %s", err))
+		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
 	}
-	if id < 0 {
-		panic(fmt.Errorf("An invalid ID has been assigned to the replica: %s", err))
+	// byzantine nodes
+	paramF, err := instance.getParam("general.f")
+	if err != nil {
+		panic(fmt.Errorf("No f defined in the config file: %s", err))
 	}
-	instance.id = id
-
-	instance.K = 128
+	f, err := strconv.ParseUint(paramF, 10, 0)
+	if err != nil {
+		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
+	}
+	instance.f = uint(f)
+	// replica count
+	instance.replicaCount = 3*instance.f + 1
+	// checkpoint period
+	paramK, err := instance.getParam("general.K")
+	if err != nil {
+		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
+	}
+	instance.K, err = strconv.ParseUint(paramK, 10, 64)
+	if err != nil {
+		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
+	}
+	// log size
 	instance.L = 2 * instance.K
+
+	instance.activeView = true
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.chkpts = make(map[uint64]chkpt)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
+	instance.chkpts = make(map[uint64]string)
+	instance.pset = make(map[uint64]*ViewChange_PQ)
+	instance.qset = make(map[qidx]*ViewChange_PQ)
+
+	// initialize genesis checkpoint
+	// TODO load state from disk
+	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
 
 	return instance
 }
@@ -158,7 +206,7 @@ func New(c consensus.CPI) *Plugin {
 
 // Given a certain view n, what is the expected primary?
 func (instance *Plugin) getPrimary(n uint64) uint64 {
-	return n % instance.replicaCount
+	return n % uint64(instance.replicaCount)
 }
 
 // Is the sequence number between watermarks?
@@ -173,9 +221,8 @@ func (instance *Plugin) inWV(v uint64, n uint64) bool {
 
 // Given a digest/view/seq, is there an entry in the certLog?
 // If so, return it. If not, create it.
-func (instance *Plugin) getCert(digest string, v uint64, n uint64) (cert *msgCert) {
+func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
-
 	cert, ok := instance.certStore[idx]
 	if ok {
 		return
@@ -193,8 +240,12 @@ func (instance *Plugin) getCert(digest string, v uint64, n uint64) (cert *msgCer
 func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
-	if !mInLog {
+	if digest != "" && !mInLog {
 		return false
+	}
+
+	if q, ok := instance.qset[qidx{digest, n}]; ok && q.View == v {
+		return true
 	}
 
 	cert := instance.certStore[msgID{v, n}]
@@ -204,7 +255,7 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 			return true
 		}
 	}
-	logger.Debug("Replica %d does not have v:%d,s:%d pre-prepared",
+	logger.Debug("Replica %d does not have view=%d/seqNo=%d pre-prepared",
 		instance.id, v, n)
 	return false
 }
@@ -214,7 +265,11 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := 0
+	if p, ok := instance.pset[n]; ok && p.View == v && p.Digest == digest {
+		return true
+	}
+
+	quorum := uint(0)
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -226,7 +281,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d prepared v:%d,s:%d quorum %d",
+	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= 2*instance.f
@@ -237,7 +292,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := 0
+	quorum := uint(0)
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -249,7 +304,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d committed v:%d,s:%d quorum %d",
+	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= 2*instance.f+1
@@ -284,6 +339,10 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		err = instance.recvCheckpoint(chkpt)
+	} else if vc := msg.GetViewChange(); vc != nil {
+		err = instance.recvViewChange(vc)
+	} else if nv := msg.GetNewView(); nv != nil {
+		err = instance.recvNewView(nv)
 	} else {
 		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
 		logger.Error("%s", err)
@@ -309,12 +368,12 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 	n := instance.seqNo + 1
 
-	if instance.getPrimary(instance.view) == instance.id { // if we're primary of current view
-		// check for other PRE-PREPARE for same digest, but different seqNo
+	if instance.getPrimary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
 		haveOther := false
-		for _, cert := range instance.certStore {
+		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
 				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
+					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
 					haveOther = true
 					break
 				}
@@ -322,7 +381,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 		}
 
 		if instance.inWV(instance.view, n) && !haveOther {
-			logger.Debug("Primary %d sending pre-prepare (v:%d,s:%d) for digest: %s",
+			logger.Debug("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
 			preprep := &PrePrepare{
@@ -332,7 +391,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 				Request:        req,
 				ReplicaId:      instance.id,
 			}
-			cert := instance.getCert(digest, instance.view, n)
+			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
 			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
@@ -343,9 +402,13 @@ func (instance *Plugin) recvRequest(req *Request) error {
 }
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
-	logger.Debug("Replica %d received pre-prepare from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View,
 		preprep.SequenceNumber)
+
+	if !instance.activeView {
+		return nil
+	}
 
 	if instance.getPrimary(instance.view) != preprep.ReplicaId {
 		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.getPrimary(instance.view))
@@ -353,22 +416,18 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		logger.Warning("Pre-prepare sequence number outside watermarks: seqNo %d, low-mark %d", preprep.SequenceNumber, instance.h)
+		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.getPrimary(instance.view), preprep.SequenceNumber, instance.h)
 		return nil
 	}
 
-	var cert msgCert
-	if cert, ok := instance.certStore[msgID{preprep.View, preprep.SequenceNumber}]; ok {
-		if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
-			logger.Warning("Pre-prepare found for same view/seqNo but different digest: recevied %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
-		}
+	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
+	if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
+		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
 	} else {
-		cert := instance.getCert(preprep.RequestDigest, preprep.View, preprep.SequenceNumber)
 		cert.prePrepare = preprep
 	}
 
-	// Store the request if, for whatever reason, we haven't received it
-	// from an earlier broadcast.
+	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
 		digest := hashReq(preprep.Request)
 		if digest != preprep.RequestDigest {
@@ -380,9 +439,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
-		// TODO speculative execution: ExecTXs
-
-		logger.Debug("Backup %d sending prepare (v:%d,s:%d)",
+		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
 		prep := &Prepare{
@@ -390,8 +447,6 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			SequenceNumber: preprep.SequenceNumber,
 			RequestDigest:  preprep.RequestDigest,
 			ReplicaId:      instance.id,
-			// GlobalHash:
-			// TxErrors:
 		}
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
@@ -403,18 +458,19 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 }
 
 func (instance *Plugin) recvPrepare(prep *Prepare) error {
-	logger.Debug("Replica %d received prepare from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
 
-	if instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber) {
-		cert := instance.getCert(prep.RequestDigest, prep.View, prep.SequenceNumber)
-		cert.prepare = append(cert.prepare, prep)
+	if !(instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
+		logger.Warning("Ignoring invalid prepare")
+		return nil
 	}
-	cert := instance.certStore[msgID{prep.View, prep.SequenceNumber}]
 
+	cert := instance.getCert(prep.View, prep.SequenceNumber)
+	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
-		logger.Debug("Replica %d sending commit (v:%d,s:%d)",
+		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
 			instance.id, prep.View, prep.SequenceNumber)
 
 		commit := &Commit{
@@ -423,27 +479,29 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 			RequestDigest:  prep.RequestDigest,
 			ReplicaId:      instance.id,
 		}
-		cert.commit = append(cert.commit, commit)
+
 		cert.sentCommit = true
 
-		return instance.broadcast(&Message{&Message_Commit{commit}}, false)
+		return instance.broadcast(&Message{&Message_Commit{commit}}, true)
 	}
 
 	return nil
 }
 
 func (instance *Plugin) recvCommit(commit *Commit) error {
-	logger.Debug("Replica %d received commit from replica %d (v:%d,s:%d)",
+	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View,
 		commit.SequenceNumber)
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
-		cert := instance.getCert(commit.RequestDigest, commit.View, commit.SequenceNumber)
+		cert := instance.getCert(commit.View, commit.SequenceNumber)
 		cert.commit = append(cert.commit, commit)
 
+		// note that we can reach this point without
+		// broadcasting a commit ourselves
 		instance.executeOutstanding()
 	} else {
-		logger.Warning("Replica %d ignoring commit (v:%d,s:%d): not in-wv",
+		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
 	}
 
@@ -453,58 +511,71 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 func (instance *Plugin) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
-		for idx, cert := range instance.certStore {
-			if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
-				continue
+		for idx := range instance.certStore {
+			if instance.executeOne(idx) {
+				retry = true
+				break
 			}
-
-			// we now have the right sequence number that doesn't create holes
-
-			digest := cert.prePrepare.RequestDigest
-			req := instance.reqStore[digest]
-
-			if !instance.committed(digest, idx.v, idx.n) {
-				continue
-			}
-
-			// we have a commit certificate for this batch
-
-			logger.Info("Replica %d executing/committing request (v:%d,s:%d): %s",
-				instance.id, idx.v, idx.n, digest)
-			instance.lastExec = idx.n
-
-			tx := &pb.Transaction{}
-			err := proto.Unmarshal(req.Payload, tx)
-			if err == nil {
-				// XXX handle errors
-				instance.cpi.ExecTXs([]*pb.Transaction{tx})
-			}
-
-			if instance.lastExec%instance.K == 0 {
-				// XXX obtain checkpoint from CPI
-				stateHash := "XXX state hash"
-
-				instance.chkpts[instance.lastExec] = chkpt{
-					n:     instance.lastExec,
-					state: stateHash,
-				}
-
-				logger.Debug("Replica %d preparing checkpoint (v:%d,s:%d), digest %s",
-					instance.id, instance.view, instance.lastExec, stateHash)
-
-				chkpt := &Checkpoint{
-					SequenceNumber: instance.lastExec,
-					StateDigest:    stateHash,
-					ReplicaId:      instance.id,
-				}
-				instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
-			}
-
-			retry = true
 		}
 	}
 
 	return nil
+}
+
+func (instance *Plugin) executeOne(idx msgID) bool {
+	cert := instance.certStore[idx]
+
+	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
+		return false
+	}
+
+	// we now have the right sequence number that doesn't create holes
+
+	digest := cert.prePrepare.RequestDigest
+	req := instance.reqStore[digest]
+
+	if !instance.committed(digest, idx.v, idx.n) {
+		return false
+	}
+
+	// we have a commit certificate for this request
+
+	instance.lastExec = idx.n
+
+	// null request
+	if digest == "" {
+		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
+			instance.id, idx.v, idx.n)
+	} else {
+		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
+			instance.id, idx.v, idx.n, digest)
+
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(req.Payload, tx)
+		if err == nil {
+			// TODO handle errors
+			instance.cpi.ExecTXs([]*pb.Transaction{tx})
+		}
+	}
+
+	if instance.lastExec%instance.K == 0 {
+		// TODO obtain checkpoint from CPI
+		stateHash := "foo" // TODO state hash
+
+		instance.chkpts[instance.lastExec] = stateHash
+
+		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
+			instance.id, instance.view, instance.lastExec, stateHash)
+
+		chkpt := &Checkpoint{
+			SequenceNumber: instance.lastExec,
+			StateDigest:    stateHash,
+			ReplicaId:      instance.id,
+		}
+		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+	}
+
+	return true
 }
 
 func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
@@ -518,10 +589,10 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := 0
-	for testChkpt, _ := range instance.checkpointStore {
+	quorum := uint(0)
+	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
-			quorum += 1
+			quorum++
 		}
 	}
 
@@ -532,25 +603,39 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	for idx, _ := range instance.certStore {
+	for idx := range instance.certStore {
 		if idx.n <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning quorum certificate (v:%d,s:%d)",
+			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
 			delete(instance.certStore, idx)
 		}
 	}
 
-	for testChkpt, _ := range instance.checkpointStore {
+	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, digest %s",
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
 				instance.id, testChkpt.ReplicaId,
 				testChkpt.SequenceNumber, testChkpt.StateDigest)
 			delete(instance.checkpointStore, testChkpt)
 		}
 	}
 
+	for n := range instance.pset {
+		if n <= chkpt.SequenceNumber {
+			delete(instance.pset, n)
+		}
+	}
+
+	for idx := range instance.qset {
+		if idx.n <= chkpt.SequenceNumber {
+			delete(instance.qset, idx)
+		}
+	}
+
+	// TODO this breaks if we accept a quorum checkpoint which we do not have ourselves.
+	// In that case we will remove all recorded checkpoints and drop our low watermark to 0.
 	instance.h = 0
-	for n, _ := range instance.chkpts {
+	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {
 			delete(instance.chkpts, n)
 		} else {
@@ -560,7 +645,10 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	// XXX clean instance.reqStore - requires client timestamps
+	logger.Debug("Replica %d updated low watermark to %d",
+		instance.id, instance.h)
+
+	// TODO clean instance.reqStore - requires client timestamps
 
 	return nil
 }
@@ -569,7 +657,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // Misc. methods go here
 // =============================================================================
 
-// Marshals a Message and hands it to the CPI.  If toSelf is true,
+// Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
 func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 	msgPacked, err := proto.Marshal(msg)
