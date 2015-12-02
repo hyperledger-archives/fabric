@@ -26,6 +26,7 @@ import (
 	"github.com/op/go-logging"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -66,47 +67,67 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	//cannot be QUERY. it is filtered out by handler
 	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		t := &pb.Transaction{}
-		err := proto.Unmarshal(msg.Payload, t)
-		if err != nil {
-			err = fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
-			return err
+		if err := proto.Unmarshal(msg.Payload, t); err != nil {
+			return fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
 		}
+
+		// Change the msg type to consensus and broadcast to the network so that
+		// other validators may execute the transaction
 		msg.Type = pb.OpenchainMessage_CONSENSUS
 		logger.Debug("Broadcasting %s", msg.Type)
-
-		// broadcast to others so they can exec the tx
 		txs := &pb.TransactionBlock{Transactions: []*pb.Transaction{t}}
-		payload, err := proto.Marshal(txs)
-		if err != nil {
+		if payload, err := proto.Marshal(txs); err != nil {
 			return err
 		}
 		msg.Payload = payload
-		errs := i.cpi.Broadcast(msg)
-		if nil != errs {
+		if errs := i.cpi.Broadcast(msg); nil != errs {
 			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 		}
-
-		// WARNING: We might end up getting the same message sent back to us
-		// due to Byzantine. We ignore this case for the no-ops consensus
 	}
 	// We process the message if it is OpenchainMessage_CONSENSUS. ie, all transactions
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 		txs := &pb.TransactionBlock{}
-		err := proto.Unmarshal(msg.Payload, txs)
-		if err != nil {
+		if err := proto.Unmarshal(msg.Payload, txs); err != nil {
 			return err
 		}
 		txarr := txs.GetTransactions()
 		logger.Debug("Executing transactions")
-		hash, errs2 := i.cpi.ExecTXs(txarr)
+
+		// We start each tx in its own block
+		if ledger, err := ledger.GetLedger(); err != nil {
+			return fmt.Errorf("Fail to get the ledger: %v", err)
+		}
+		if err := ledger.BeginTxBatch(msg.timestamp); err != nil {
+			return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+		}
+
+		hash, errs := i.cpi.ExecTXs(txarr)
 		//there are n+1 elements of errors in this array. On complete success
 		//they'll all be nil. In particular, the last err will be error in
 		//producing the hash, if any. That's the only error we do want to check
-		if errs2[len(txarr)] != nil {
-			return fmt.Errorf("(noops.RecvMsg)Fail to execute transactions: %v", errs2)
+		if errs[len(txarr)] != nil {
+			return fmt.Errorf("Fail to execute transactions: %v", errs)
 		}
-		fmt.Printf("(noops.RecvMsg)execute transactions successfully: %x\n", hash)
+
+		if err := ledger.CommitTxBatch(msg.timestamp, txarr, nil); err != nil {
+			ledger.RollbackTxBatch(msg.timestamp)
+			return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
+		}
+
+		// TODO: Broadcast CHAIN_NEW_BLOCK to connected NVPs
+		// For now, send to everyone until broadcast has better discrimination
+		block := ledger.GetBlockByNumber(ledger.GetBlockchainSize())
+		delta := ledger.GetStateDelta(ledger.GetBlockchainSize())
+		data, err := proto.Marshal(&pb.NewBlock{Block: block, StateDelta: delta})
+		if err != nil {
+			return fmt.Errorf("Fail to marshall NewBlock structure: %v", err)
+		}
+		msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_NEW_BLOCK, Payload: data}
+		if errs := i.cpi.Broadcast(msg); nil != errs {
+			return fmt.Errorf("Failed to broadcast with errors: %v", errs)
+		}
+
 	}
 	return nil
 }
