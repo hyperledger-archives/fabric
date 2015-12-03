@@ -161,6 +161,7 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			"enter_" + endstate:                                      func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
 		},
 	)
+
 	return v
 }
 
@@ -382,7 +383,7 @@ func (handler *Handler) afterInvokeChaincode(e *fsm.Event, state string) {
 // Handles request to ledger to put state
 func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 	go func() {
-		chaincodeLogger.Debug("[enterBusyState] State is %s", state)
+		chaincodeLogger.Debug("state is %s", state)
 		msg, _ := e.Args[0].(*pb.ChaincodeMessage)
 		// First check if this UUID is a transaction; error otherwise
 		if !handler.isTransaction[msg.Uuid] {
@@ -536,11 +537,11 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 
 func (handler *Handler) enterEstablishedState(e *fsm.Event, state string) {
 	handler.notifyDuringStartup(true)
-	chaincodeLogger.Debug("(enterEstablishedState)Entered state; notified %s", state)
+	chaincodeLogger.Debug("Entered state; notified %s", state)
 }
 
 func (handler *Handler) enterInitState(e *fsm.Event, state string) {
-	chaincodeLogger.Debug("(enterInitState)Entered state %s", state)
+	chaincodeLogger.Debug("Entered state %s", state)
 	ccMsg, ok := e.Args[0].(*pb.ChaincodeMessage)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
@@ -567,11 +568,11 @@ func (handler *Handler) enterReadyState(e *fsm.Event, state string) {
 	}
 	handler.notify(msg)
 
-	chaincodeLogger.Debug("(enterReadyState)Entered state %s", state)
+	chaincodeLogger.Debug("Entered state %s", state)
 }
 
 func (handler *Handler) enterTransactionState(e *fsm.Event, state string) {
-	chaincodeLogger.Debug("(enterTransactionState)Entered state %s", state)
+	chaincodeLogger.Debug("Entered state %s", state)
 }
 
 func (handler *Handler) enterEndState(e *fsm.Event, state string) {
@@ -584,7 +585,7 @@ func (handler *Handler) enterEndState(e *fsm.Event, state string) {
 		return
 	}
 	handler.notify(msg)
-	chaincodeLogger.Debug("(enterEndState)Entered state %s", state)
+	chaincodeLogger.Debug("Entered state %s", state)
 	e.Cancel(fmt.Errorf("Entered end state"))
 }
 
