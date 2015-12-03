@@ -282,7 +282,7 @@ func serve(args []string) error {
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	var peerServer *peer.Peer
+	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
 		logger.Debug("Running as validator - installing consensus %s", viper.GetString("peer.validator.consensus"))
@@ -301,7 +301,7 @@ func serve(args []string) error {
 	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
 
 	// Register Devops server
-	serverDevops := openchain.NewDevopsServer()
+	serverDevops := openchain.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server

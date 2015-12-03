@@ -40,13 +40,15 @@ import (
 var devopsLogger = logging.MustGetLogger("devops")
 
 // NewDevopsServer creates and returns a new Devops server instance.
-func NewDevopsServer() *Devops {
+func NewDevopsServer(coord peer.MessageHandlerCoordinator) *Devops {
 	d := new(Devops)
+	d.coord = coord
 	return d
 }
 
 // Devops implementation of Devops services
 type Devops struct {
+	coord peer.MessageHandlerCoordinator
 }
 
 // Build builds the supplied chaincode image
@@ -95,26 +97,9 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	//mode := viper.GetString("chaincode.mode")
-
-	//if mode == chaincode.DevModeUserRunsChaincode {
-	//	_, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	//	return chaincodeDeploymentSpec, execErr
-	//}
-	//
-	//we are not in "dev mode", we have to pass requests to remote validator via stream
-	//peerAddress, err := GetRootNode()
-	//if err != nil {
-	//	return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
-	//}
-	// send the transaction
-	//resp := peer.SendTransactionsToPeer(peerAddress, transaction)
-	//if resp.Status == pb.Response_FAILURE {
-	//	err = fmt.Errorf(string(resp.Msg))
-	//}
 
 	devopsLogger.Debug("Sending deploy transaction (%s) to validator", transaction.Uuid)
-	resp := peer.ExecuteTransaction(transaction)
+	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
 	}
@@ -157,7 +142,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	// }
 
 	devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
-	resp := peer.ExecuteTransaction(transaction)
+	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
 	}

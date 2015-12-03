@@ -37,10 +37,17 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 const defaultTimeout = time.Second * 3
+
+// Peer provides interface for a peer
+type Peer interface {
+	GetPeerEndpoint() (*pb.PeerEndpoint, error)
+	NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error)
+}
 
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
@@ -52,11 +59,13 @@ type MessageHandler interface {
 
 // MessageHandlerCoordinator responsible for coordinating between the registered MessageHandler's
 type MessageHandlerCoordinator interface {
+	Peer
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
 	GetPeers() (*pb.PeersMessage, error)
 	PeersDiscovered(*pb.PeersMessage) error
+	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
 }
 
 // ChatStream interface supported by stream between Peers
@@ -137,36 +146,47 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 	return conn, err
 }
 
+type ledgerWrapper struct {
+	sync.RWMutex
+	ledger *ledger.Ledger
+}
+
 type handlerMap struct {
 	sync.RWMutex
 	m map[string]MessageHandler
 }
 
-// Peer implementation of the Peer service
-type Peer struct {
+// PeerImpl implementation of the Peer service
+type PeerImpl struct {
 	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 	handlerMap     *handlerMap
+	ledgerWrapper  *ledgerWrapper
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)) (*Peer, error) {
-	peer := new(Peer)
+func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)) (*PeerImpl, error) {
+	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
 	peer.handlerFactory = handlerFact
 	peer.handlerMap = &handlerMap{m: make(map[string]MessageHandler)}
+	ledgerPtr, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
+	}
+	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
 	return peer, nil
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
-func (p *Peer) Chat(stream pb.Peer_ChatServer) error {
+func (p *PeerImpl) Chat(stream pb.Peer_ChatServer) error {
 	return p.handleChat(stream.Context(), stream, false)
 }
 
 // GetPeers returns the currently registered PeerEndpoints
-func (p *Peer) GetPeers() (*pb.PeersMessage, error) {
+func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	peers := []*pb.PeerEndpoint{}
@@ -182,7 +202,7 @@ func (p *Peer) GetPeers() (*pb.PeersMessage, error) {
 }
 
 // PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
-func (p *Peer) PeersDiscovered(peersMessage *pb.PeersMessage) error {
+func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	thisPeersEndpoint, err := GetPeerEndpoint()
@@ -214,7 +234,7 @@ func getHandlerKeyFromPeerEndpoint(peerEndpoint *pb.PeerEndpoint) string {
 }
 
 // RegisterHandler register a MessageHandler with this coordinator
-func (p *Peer) RegisterHandler(messageHandler MessageHandler) error {
+func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 	key, err := getHandlerKey(messageHandler)
 	if err != nil {
 		return fmt.Errorf("Error registering handler: %s", err)
@@ -231,7 +251,7 @@ func (p *Peer) RegisterHandler(messageHandler MessageHandler) error {
 }
 
 // DeregisterHandler deregisters an already registered MessageHandler for this coordinator
-func (p *Peer) DeregisterHandler(messageHandler MessageHandler) error {
+func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 	key, err := getHandlerKey(messageHandler)
 	if err != nil {
 		return fmt.Errorf("Error deregistering handler: %s", err)
@@ -248,7 +268,7 @@ func (p *Peer) DeregisterHandler(messageHandler MessageHandler) error {
 }
 
 // Broadcast broadcast a message to each of the currently registered PeerEndpoints.
-func (p *Peer) Broadcast(msg *pb.OpenchainMessage) []error {
+func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	var errorsFromHandlers []error
@@ -263,7 +283,7 @@ func (p *Peer) Broadcast(msg *pb.OpenchainMessage) []error {
 }
 
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
-func SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
+func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
@@ -276,16 +296,11 @@ func SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb
 	defer stream.CloseSend()
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 
-	//stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO})
-	peerEndpoint, err := GetPeerEndpoint()
+	helloMessage, err := p.NewOpenchainDiscoveryHello()
 	if err != nil {
-		return nil
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error creating new HelloMessage (%s):  %s", peerAddress, err))}
 	}
-	data, err := proto.Marshal(peerEndpoint)
-	if err != nil {
-		return nil
-	}
-	stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data})
+	stream.Send(helloMessage)
 
 	waitc := make(chan struct{})
 	var response *pb.Response
@@ -396,7 +411,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	return response
 }
 
-func (p *Peer) chatWithPeer(peerAddress string) error {
+func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 	if len(peerAddress) == 0 {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
@@ -421,7 +436,7 @@ func (p *Peer) chatWithPeer(peerAddress string) error {
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
-func (p *Peer) handleChat(ctx context.Context, stream ChatStream, initiatedStream bool) error {
+func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedStream bool) error {
 	deadline, ok := ctx.Deadline()
 	peerLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
 	handler, err := p.handlerFactory(p, stream, initiatedStream, nil)
@@ -460,15 +475,44 @@ func getValidatorStreamAddress() string {
 }
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
-func ExecuteTransaction(transaction *pb.Transaction) *pb.Response {
+func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response {
 	peerAddress := getValidatorStreamAddress()
 	var response *pb.Response
 	if viper.GetBool("peer.validator.enabled") { // send gRPC request to yourself
 		response = sendTransactionsToThisPeer(peerAddress, transaction)
 
 	} else {
-		response = SendTransactionsToPeer(peerAddress, transaction)
+		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
 
 	return response
+}
+
+// GetPeerEndpoint returns the endpoint for this peer
+func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
+	return GetPeerEndpoint()
+}
+
+func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
+	endpoint, err := GetPeerEndpoint()
+	if err != nil {
+		return nil, fmt.Errorf("Error creating hello message: %s", err)
+	}
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	size := p.ledgerWrapper.ledger.GetBlockchainSize()
+	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
+}
+
+// NewOpenchainDiscoveryHello constructs a new HelloMessage for sending
+func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
+	helloMessage, err := p.newHelloMessage()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting new HelloMessage: %s", err)
+	}
+	data, err := proto.Marshal(helloMessage)
+	if err != nil {
+		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
+	}
+	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}, nil
 }

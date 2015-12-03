@@ -69,15 +69,11 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 	// If the stream was initiated from this Peer, send an Initial HELLO message
 	if d.initiatedStream {
 		// Send intiial Hello
-		peerEndpoint, err := GetPeerEndpoint()
+		helloMessage, err := d.Coordinator.NewOpenchainDiscoveryHello()
 		if err != nil {
-			return nil, fmt.Errorf("Error getting new Peer handler: %s", err)
+			return nil, fmt.Errorf("Error getting new HelloMessage: %s", err)
 		}
-		data, err := proto.Marshal(peerEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("Error marshalling peerEndpoint: %s", err)
-		}
-		if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}); err != nil {
+		if err := d.ChatStream.Send(helloMessage); err != nil {
 			return nil, fmt.Errorf("Error creating new Peer Handler, error returned sending %s: %s", pb.OpenchainMessage_DISC_HELLO, err)
 		}
 	}
@@ -125,30 +121,25 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	}
 	msg := e.Args[0].(*pb.OpenchainMessage)
 
-	peerEndpoint := &pb.PeerEndpoint{}
-	err := proto.Unmarshal(msg.Payload, peerEndpoint)
+	helloMessage := &pb.HelloMessage{}
+	err := proto.Unmarshal(msg.Payload, helloMessage)
 	if err != nil {
-		e.Cancel(fmt.Errorf("Error unmarshalling PeerEndpoint: %s", err))
+		e.Cancel(fmt.Errorf("Error unmarshalling HelloMessage: %s", err))
 		return
 	}
 	// Store the PeerEndpoint
-	d.ToPeerEndpoint = peerEndpoint
-	peerLogger.Debug("Received %s from endpoint=%s", e.Event, peerEndpoint)
+	d.ToPeerEndpoint = helloMessage.PeerEndpoint
+	peerLogger.Debug("Received %s from endpoint=%s", e.Event, helloMessage)
 	if d.initiatedStream == false {
 		// Did NOT intitiate the stream, need to send back HELLO
 		peerLogger.Debug("Received %s, sending back %s", e.Event, pb.OpenchainMessage_DISC_HELLO.String())
 		// Send back out PeerID information in a Hello
-		peerEndpoint, err := GetPeerEndpoint()
+		helloMessage, err := d.Coordinator.NewOpenchainDiscoveryHello()
 		if err != nil {
-			e.Cancel(fmt.Errorf("Error in processing %s: %s", e.Event, err))
+			e.Cancel(fmt.Errorf("Error getting new HelloMessage: %s", err))
 			return
 		}
-		data, err := proto.Marshal(peerEndpoint)
-		if err != nil {
-			e.Cancel(fmt.Errorf("Error marshalling peerEndpoint: %s", err))
-			return
-		}
-		if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}); err != nil {
+		if err := d.ChatStream.Send(helloMessage); err != nil {
 			e.Cancel(fmt.Errorf("Error sending response to %s:  %s", e.Event, err))
 			return
 		}

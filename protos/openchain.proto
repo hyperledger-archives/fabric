@@ -96,6 +96,11 @@ message PeersMessage {
     repeated PeerEndpoint peers = 1;
 }
 
+message HelloMessage {
+  PeerEndpoint peerEndpoint = 1;
+  uint64 blockNumber = 2;
+}
+
 
 message OpenchainMessage {
 
@@ -137,4 +142,3 @@ message Response {
     bytes msg = 2;
 
 }
-
