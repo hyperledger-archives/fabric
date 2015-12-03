@@ -253,6 +253,9 @@ func (f *protoFuzzer) Fuzz(v reflect.Value) {
 			v.Set(reflect.AppendSlice(pre, post))
 		default:
 			// add entry
+			entry := reflect.MakeSlice(v.Type(), 1, 1)
+			f.Fuzz(entry) // XXX fill all fields
+			v.Set(reflect.AppendSlice(v, entry))
 		}
 		return
 	case reflect.Struct:
