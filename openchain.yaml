@@ -213,3 +213,24 @@ chaincode:
     mode: net
 
     installpath: /go/bin/
+
+###############################################################################
+#
+#    Ledger section - allows for the deployment of chaincodes into the
+#    genesis block.
+#
+###############################################################################
+# ledger:
+#   genesis:
+#     chaincode:
+#       - id:
+#           url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+#           version: 0.1.0
+#         type: GOLANG
+#         constructor:
+#           func: init
+#           args:
+#             - alice
+#             - "4"
+#             - bob
+#             - "10"
