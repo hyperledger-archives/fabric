@@ -63,6 +63,7 @@ type Plugin struct {
 
 	// PBFT data
 	activeView   bool              // view change happening
+	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
 	f            uint              // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
@@ -77,8 +78,8 @@ type Plugin struct {
 	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	reqStore        map[string]*Request   // track requests
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	lastNewView     NewView               // track last new-view we received or sent
@@ -178,6 +179,11 @@ func New(c consensus.CPI) *Plugin {
 	}
 	// log size
 	instance.L = 2 * instance.K
+	// byzantine or not?
+	paramByzantine, _ := instance.getParam("replica.byzantine")
+	if paramByzantine == "true" {
+		instance.byzantine = true
+	} // in any other case, it should be set to false (default)
 
 	instance.activeView = true
 
@@ -185,8 +191,8 @@ func New(c consensus.CPI) *Plugin {
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.chkpts = make(map[uint64]string)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 
@@ -404,8 +410,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
-		instance.id, preprep.ReplicaId, preprep.View,
-		preprep.SequenceNumber)
+		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
 		return nil
@@ -454,6 +459,11 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			RequestDigest:  preprep.RequestDigest,
 			ReplicaId:      instance.id,
 		}
+
+		if instance.byzantine {
+			prep.RequestDigest = "foo"
+		}
+
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
 
@@ -519,6 +529,7 @@ func (instance *Plugin) executeOutstanding() error {
 		retry = false
 		for idx := range instance.certStore {
 			if instance.executeOne(idx) {
+				// range over the certStore again
 				retry = true
 				break
 			}
@@ -559,6 +570,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(req.Payload, tx)
 		if err == nil {
+			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
 	}

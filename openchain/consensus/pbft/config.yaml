@@ -40,4 +40,7 @@ replica:
         # Timeout if you don't receive a message within `message` seconds.
         message: 3
 
+    # Whether the replica should act as a byzantine one.
+    # Useful for debugging on the live network.
+    byzantine: false
 ...
