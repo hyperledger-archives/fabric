@@ -20,7 +20,7 @@ under the License.
 package peer
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
+	obc "github.com/openblockchain/obc-peer/protos"
 
 	"fmt"
 	"os"
@@ -72,13 +72,13 @@ func TestInvokeTransactionPreValidation(t *testing.T) {
 	}
 }
 
-func mockDeployTransaction() *pb.Transaction {
-	tx, _ := pb.NewChaincodeDeployTransaction(
-		&pb.ChaincodeDeploymentSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:       pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-				CtorMsg:    nil,
+func mockDeployTransaction() *obc.Transaction {
+	tx, _ := obc.NewChaincodeDeployTransaction(
+		&obc.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &obc.ChaincodeSpec{
+				Type:        obc.ChaincodeSpec_GOLANG,
+				ChaincodeID: &obc.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				CtorMsg:     nil,
 			},
 			EffectiveDate: nil,
 			CodePackage:   nil,
@@ -88,17 +88,17 @@ func mockDeployTransaction() *pb.Transaction {
 	return tx
 }
 
-func mockInvokeTransaction() *pb.Transaction {
-	tx, _ := pb.NewChaincodeExecute(
-		&pb.ChaincodeInvocationSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:       pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-				CtorMsg:    nil,
+func mockInvokeTransaction() *obc.Transaction {
+	tx, _ := obc.NewChaincodeExecute(
+		&obc.ChaincodeInvocationSpec{
+			ChaincodeSpec: &obc.ChaincodeSpec{
+				Type:        obc.ChaincodeSpec_GOLANG,
+				ChaincodeID: &obc.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				CtorMsg:     nil,
 			},
 		},
 		"uuid",
-		pb.Transaction_CHAINCODE_EXECUTE,
+		obc.Transaction_CHAINCODE_EXECUTE,
 	)
 	return tx
 }
