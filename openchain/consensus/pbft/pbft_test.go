@@ -23,7 +23,9 @@ import (
 	gp "google/protobuf"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -220,6 +222,8 @@ type taggedMsg struct {
 }
 
 type testnet struct {
+	cond     *sync.Cond
+	closed   bool
 	replicas []*instance
 	msgs     []taggedMsg
 }
@@ -251,7 +255,10 @@ func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	net := inst.net
+	net.cond.L.Lock()
 	net.msgs = append(net.msgs, taggedMsg{inst.id, msg})
+	net.cond.Signal()
+	net.cond.L.Unlock()
 	return nil
 }
 
@@ -272,47 +279,56 @@ func NewMock() *mockCPI {
 	return mock
 }
 
+func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) (msgs []taggedMsg) {
+	msg := outMsg.msg
+	for _, f := range filterfns {
+		msg = f(true, outMsg.id, msg)
+		if msg == nil {
+			break
+		}
+	}
+
+	for i := range net.replicas {
+		if i == outMsg.id {
+			continue
+		}
+
+		msg := msg
+		for _, f := range filterfns {
+			msg = f(false, i, msg)
+			if msg == nil {
+				break
+			}
+		}
+
+		if msg == nil || msg.Type != pb.OpenchainMessage_CONSENSUS {
+			continue
+		}
+
+		msgs = append(msgs, taggedMsg{i, msg})
+	}
+
+	return msgs
+}
+
 func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) error {
+	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
+
 	for len(net.msgs) > 0 {
 		msgs := net.msgs
 		net.msgs = nil
 
 		for _, taggedMsg := range msgs {
-			msg := taggedMsg.msg
-			for _, f := range filterfns {
-				msg = f(true, taggedMsg.id, msg)
-				if msg == nil {
-					break
-				}
-			}
-
-			for i, replica := range net.replicas {
-				if i == taggedMsg.id {
+			for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
+				msgMsg := &Message{}
+				err := proto.Unmarshal(msg.msg.Payload, msgMsg)
+				if err != nil {
 					continue
 				}
-
-				msg := msg
-				for _, f := range filterfns {
-					msg = f(false, i, msg)
-					if msg == nil {
-						break
-					}
-				}
-
-				if msg != nil {
-					if msg.Type != pb.OpenchainMessage_CONSENSUS {
-						continue
-					}
-					msgMsg := &Message{}
-					err := proto.Unmarshal(msg.Payload, msgMsg)
-					if err != nil {
-						continue
-					}
-					err = replica.plugin.recvMsgSync(msgMsg)
-					if err != nil {
-						continue
-					}
-				}
+				net.cond.L.Unlock()
+				net.replicas[msg.id].plugin.recvMsgSync(msgMsg)
+				net.cond.L.Lock()
 			}
 		}
 	}
@@ -320,9 +336,33 @@ func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *
 	return nil
 }
 
+func (net *testnet) processContinually(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) {
+	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
+	for {
+		if net.closed {
+			break
+		}
+		if len(net.msgs) == 0 {
+			net.cond.Wait()
+		}
+		for len(net.msgs) > 0 {
+			msgs := net.msgs
+			net.msgs = nil
+
+			for _, taggedMsg := range msgs {
+				for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
+					net.replicas[msg.id].plugin.RecvMsg(msg.msg)
+				}
+			}
+		}
+	}
+}
+
 func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 	replicaCount := 3*f + 1
 	net := &testnet{}
+	net.cond = sync.NewCond(&sync.Mutex{})
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
@@ -339,9 +379,16 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 }
 
 func (net *testnet) Close() {
+	if net.closed {
+		return
+	}
 	for _, inst := range net.replicas {
 		inst.plugin.Close()
 	}
+	net.cond.L.Lock()
+	net.closed = true
+	net.cond.Signal()
+	net.cond.L.Unlock()
 }
 
 func TestNetwork(t *testing.T) {
@@ -631,4 +678,34 @@ func TestInconsistentDataViewChange(t *testing.T) {
 
 	// XXX once state transfer works, make sure that a request
 	// was executed by all replicas.
+}
+
+func TestNewViewTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping timeout test")
+	}
+
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.newViewTimeout = 100 * time.Millisecond
+	})
+	defer net.Close()
+	go net.processContinually(func(out bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
+		if out && replica == 1 {
+			return nil
+		}
+		return msg
+	})
+
+	for _, inst := range net.replicas {
+		inst.plugin.newViewTimer.Reset(0)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	net.Close()
+	for _, inst := range net.replicas {
+		if inst.plugin.view != 2 {
+			t.Fatalf("should have reached view 2")
+		}
+	}
 }

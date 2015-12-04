@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -76,6 +77,11 @@ type Plugin struct {
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
+
+	newViewTimer       *time.Timer   // timeout triggering a view change
+	requestTimeout     time.Duration // progress timeout for requests
+	newViewTimeout     time.Duration // progress timeout for new views
+	lastNewViewTimeout time.Duration // last timeout we used during this view change
 
 	// Implementation of PBFT `in`
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
@@ -177,6 +183,23 @@ func New(c consensus.CPI) *Plugin {
 	if err != nil {
 		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
 	}
+	paramRequestTimeout, err := instance.getParam("general.timeout.request")
+	if err != nil {
+		panic(fmt.Errorf("No request timeout defined"))
+	}
+	instance.requestTimeout, err = time.ParseDuration(paramRequestTimeout)
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
+	}
+	paramNewViewTimeout, err := instance.getParam("general.timeout.request")
+	if err != nil {
+		panic(fmt.Errorf("No new view timeout defined"))
+	}
+	instance.newViewTimeout, err = time.ParseDuration(paramNewViewTimeout)
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
+	}
+
 	// log size
 	instance.L = 2 * instance.K
 
@@ -194,6 +217,10 @@ func New(c consensus.CPI) *Plugin {
 	// initialize genesis checkpoint
 	// TODO load state from disk
 	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
+
+	// create non-running timer XXX ugly
+	instance.newViewTimer = time.NewTimer(100 * time.Hour)
+	instance.newViewTimer.Stop()
 
 	instance.c = make(chan *Message, 100)
 	go instance.msgPump()
@@ -244,6 +271,9 @@ func (instance *Plugin) msgPump() {
 				return
 			}
 			_ = instance.recvMsgSync(msg)
+		case <-instance.newViewTimer.C:
+			logger.Info("Replica %d view change timeout expired", instance.id)
+			instance.sendViewChange()
 		}
 	}
 }
@@ -710,10 +740,10 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		Payload: msgPacked,
 	}
 
-	err = instance.cpi.Broadcast(msgWrapped)
 	if toSelf {
 		err = instance.recvMsgSync(msg)
 	}
+	err = instance.cpi.Broadcast(msgWrapped)
 	return err
 }
 

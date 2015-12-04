@@ -45,6 +45,23 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 }
 
 func (instance *Plugin) sendViewChange() error {
+	if instance.activeView {
+		instance.lastNewViewTimeout = instance.newViewTimeout
+	} else {
+		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+	}
+	// remove timeouts that may have raced, to prevent additional view change
+	instance.newViewTimer.Stop()
+loop:
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+		default:
+			break loop
+		}
+	}
+	instance.newViewTimer.Reset(instance.lastNewViewTimeout)
+
 	instance.view++
 	instance.activeView = false
 
@@ -306,7 +323,10 @@ func (instance *Plugin) processNewView() error {
 
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
+	// TODO wait for first request to execute before stopping timer
+	instance.newViewTimer.Stop()
 	instance.activeView = true
+
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
 			View:           instance.view,

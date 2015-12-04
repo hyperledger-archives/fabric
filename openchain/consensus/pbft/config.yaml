@@ -18,6 +18,16 @@ general:
     # Checkpoint period.
     K: 128
 
+    # Timeouts
+    timeout:
+
+        # How long may a request take between reception and execution
+        request: 2s
+
+        # How long may a view change take
+        viewchange: 2s
+
+
 ################################################################################
 #
 #   SECTION: REPLICA
@@ -30,14 +40,5 @@ replica:
     # The ID of the peer. Should be a non-negative integer.
     # The value set here is only read when running in testing mode.
     id: 0
-
-    timeout:
-
-        # Timeout if you don't receive a PRE_PREPARE message with
-        # candidate TXs by the leader within `block` seconds.
-        block: 12
-
-        # Timeout if you don't receive a message within `message` seconds.
-        message: 3
 
 ...
