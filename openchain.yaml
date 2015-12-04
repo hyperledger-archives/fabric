@@ -85,8 +85,12 @@ peer:
     # it is enabled, what consensus plugin to load
     validator:
         enabled: true
-        # Consensus plugin to use. The value is the name of the plugin; ie bpft, noops
+
+        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops
         consensus: noops
+
+        # List of validating peers. For MVP, assume list is static.
+        replicas: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
 
     # TLS Settings for p2p communications
     tls:

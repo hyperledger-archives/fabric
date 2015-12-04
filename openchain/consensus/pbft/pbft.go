@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
@@ -148,7 +149,8 @@ func New(c consensus.CPI) *Plugin {
 	// read from the config file
 	// you can override the config values with the
 	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
-	instance.id = uint64(instance.config.GetInt("replica.id"))
+	instance.id, _ = instance.cpi.GetReplicaID()
+	// instance.id = uint64(instance.config.GetInt("replica.id"))
 	instance.f = uint(instance.config.GetInt("general.f"))
 	instance.K = uint64(instance.config.GetInt("general.K"))
 	instance.byzantine = instance.config.GetBool("replica.byzantine")
@@ -667,4 +669,9 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		err = instance.RecvMsg(msgWrapped)
 	}
 	return err
+}
+
+func hashReq(req *Request) (digest string) {
+	packedReq, _ := proto.Marshal(req)
+	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
 }
