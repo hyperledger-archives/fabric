@@ -327,8 +327,8 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 		inst := &instance{id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = uint(replicaCount)
-		inst.plugin.f = uint(f)
+		inst.plugin.replicaCount = replicaCount
+		inst.plugin.f = f
 		for _, fn := range initFn {
 			fn(inst.plugin)
 		}

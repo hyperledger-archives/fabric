@@ -64,13 +64,13 @@ type Plugin struct {
 
 	// PBFT data
 	activeView   bool              // view change happening
-	f            uint              // number of faults we can tolerate
+	f            int               // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
 	L            uint64            // log size
 	lastExec     uint64            // last request we executed
-	replicaCount uint              // number of replicas; PBFT `|R|`
+	replicaCount int               // number of replicas; PBFT `|R|`
 	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64            // current view
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
@@ -165,7 +165,7 @@ func New(c consensus.CPI) *Plugin {
 	if err != nil {
 		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
 	}
-	instance.f = uint(f)
+	instance.f = int(f)
 	// replica count
 	instance.replicaCount = 3*instance.f + 1
 	// checkpoint period
@@ -317,7 +317,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return true
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -340,7 +340,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -624,7 +624,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := uint(0)
+	quorum := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
