@@ -21,7 +21,10 @@ package peer
 
 import (
 	"crypto/rand"
+	"crypto/x509"
 	"errors"
+	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -31,13 +34,23 @@ var ErrRegistrationRequired error = errors.New("Peer Not Registered to the Membe
 var ErrModuleNotInitialized = errors.New("Peer Security Module Not Initilized.")
 var ErrModuleAlreadyInitialized error = errors.New("Peer Security Module Already Initilized.")
 
+// Log
+
+var peerLogger = logging.MustGetLogger("CRYPTO.PEER")
+
 // Public Struct
 
 type Peer struct {
 	isInitialized bool
 
+	rootsCertPool *x509.CertPool
+
 	// 48-bytes identifier
 	id []byte
+
+	// Enrollment Certificate and private key
+	enrollCert    *x509.Certificate
+	enrollPrivKey interface{}
 }
 
 // Public Methods
@@ -95,4 +108,19 @@ func (peer *Peer) TransactionPreValidation(tx *pb.Transaction) (*pb.Transaction,
 	}
 
 	return tx, nil
+}
+
+func (peer *Peer) initCryptoEngine() error {
+	// Init certificate pool
+	peerLogger.Info("Initialing roots cert pool...")
+
+	//	validator.rootsCertPool = x509.NewCertPool()
+	//	validator.rootsCertPool.AppendCertsFromPEM([]byte(tcaChainCert))
+
+	// TODO: Load enrollment secret key
+	peerLogger.Info("Loading enrollment key...")
+	var err error
+	peer.enrollPrivKey, err = utils.NewECDSAKey()
+
+	return err
 }

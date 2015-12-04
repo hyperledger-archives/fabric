@@ -150,6 +150,8 @@ type Transaction struct {
 	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
