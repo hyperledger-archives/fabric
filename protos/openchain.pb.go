@@ -60,15 +60,17 @@ const (
 	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
 	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
 	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 5
-	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 9
-	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 10
-	OpenchainMessage_CHAIN_GET_BLOCKS       OpenchainMessage_Type = 11
-	OpenchainMessage_CHAIN_BLOCKS           OpenchainMessage_Type = 12
-	OpenchainMessage_CHAIN_NEW_BLOCK        OpenchainMessage_Type = 13
-	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 14
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 15
+	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 6
+	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 7
+	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
+	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 9
+	OpenchainMessage_SYNC_GET_BLOCKS        OpenchainMessage_Type = 11
+	OpenchainMessage_SYNC_BLOCKS            OpenchainMessage_Type = 12
+	OpenchainMessage_SYNC_BLOCK_ADDED       OpenchainMessage_Type = 13
+	OpenchainMessage_SYNC_GET_STATE         OpenchainMessage_Type = 14
+	OpenchainMessage_SYNC_STATE             OpenchainMessage_Type = 15
+	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 20
+	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 21
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -78,15 +80,17 @@ var OpenchainMessage_Type_name = map[int32]string{
 	3:  "DISC_GET_PEERS",
 	4:  "DISC_PEERS",
 	5:  "DISC_NEWMSG",
-	7:  "CHAIN_STATUS",
-	8:  "CHAIN_TRANSACTION",
-	9:  "CHAIN_GET_TRANSACTIONS",
-	10: "CHAIN_QUERY",
-	11: "CHAIN_GET_BLOCKS",
-	12: "CHAIN_BLOCKS",
-	13: "CHAIN_NEW_BLOCK",
-	14: "RESPONSE",
-	15: "CONSENSUS",
+	6:  "CHAIN_STATUS",
+	7:  "CHAIN_TRANSACTION",
+	8:  "CHAIN_GET_TRANSACTIONS",
+	9:  "CHAIN_QUERY",
+	11: "SYNC_GET_BLOCKS",
+	12: "SYNC_BLOCKS",
+	13: "SYNC_BLOCK_ADDED",
+	14: "SYNC_GET_STATE",
+	15: "SYNC_STATE",
+	20: "RESPONSE",
+	21: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
 	"UNDEFINED":              0,
@@ -95,15 +99,17 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"DISC_GET_PEERS":         3,
 	"DISC_PEERS":             4,
 	"DISC_NEWMSG":            5,
-	"CHAIN_STATUS":           7,
-	"CHAIN_TRANSACTION":      8,
-	"CHAIN_GET_TRANSACTIONS": 9,
-	"CHAIN_QUERY":            10,
-	"CHAIN_GET_BLOCKS":       11,
-	"CHAIN_BLOCKS":           12,
-	"CHAIN_NEW_BLOCK":        13,
-	"RESPONSE":               14,
-	"CONSENSUS":              15,
+	"CHAIN_STATUS":           6,
+	"CHAIN_TRANSACTION":      7,
+	"CHAIN_GET_TRANSACTIONS": 8,
+	"CHAIN_QUERY":            9,
+	"SYNC_GET_BLOCKS":        11,
+	"SYNC_BLOCKS":            12,
+	"SYNC_BLOCK_ADDED":       13,
+	"SYNC_GET_STATE":         14,
+	"SYNC_STATE":             15,
+	"RESPONSE":               20,
+	"CONSENSUS":              21,
 }
 
 func (x OpenchainMessage_Type) String() string {
@@ -299,6 +305,22 @@ type Response struct {
 func (m *Response) Reset()         { *m = Response{} }
 func (m *Response) String() string { return proto.CompactTextString(m) }
 func (*Response) ProtoMessage()    {}
+
+type BlockState struct {
+	Block      *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	StateDelta []byte `protobuf:"bytes,2,opt,name=stateDelta,proto3" json:"stateDelta,omitempty"`
+}
+
+func (m *BlockState) Reset()         { *m = BlockState{} }
+func (m *BlockState) String() string { return proto.CompactTextString(m) }
+func (*BlockState) ProtoMessage()    {}
+
+func (m *BlockState) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)

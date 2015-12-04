@@ -112,16 +112,19 @@ message OpenchainMessage {
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
 
-        CHAIN_STATUS = 7;
-        CHAIN_TRANSACTION = 8;
-        CHAIN_GET_TRANSACTIONS = 9;
-        CHAIN_QUERY = 10;
-        CHAIN_GET_BLOCKS = 11;
-        CHAIN_BLOCKS = 12;
-        CHAIN_NEW_BLOCK = 13;
+        CHAIN_STATUS = 6;
+        CHAIN_TRANSACTION = 7;
+        CHAIN_GET_TRANSACTIONS = 8;
+        CHAIN_QUERY = 9;
 
-        RESPONSE = 14;
-        CONSENSUS = 15;
+        SYNC_GET_BLOCKS = 11;
+        SYNC_BLOCKS = 12;
+        SYNC_BLOCK_ADDED = 13;
+        SYNC_GET_STATE = 14;
+        SYNC_STATE = 15;
+
+        RESPONSE = 20;
+        CONSENSUS = 21;
     }
 
     Type type = 1;
@@ -141,4 +144,9 @@ message Response {
     StatusCode status = 1;
     bytes msg = 2;
 
+}
+
+message BlockState {
+    Block block = 1;
+    bytes stateDelta = 2;
 }

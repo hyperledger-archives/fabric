@@ -37,6 +37,7 @@ It has these top-level messages:
 	HelloMessage
 	OpenchainMessage
 	Response
+	BlockState
 	ServerStatus
 */
 package protos
