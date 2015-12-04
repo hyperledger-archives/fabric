@@ -1,0 +1,86 @@
+###############################################################################
+#
+#    CAs section
+#
+###############################################################################
+eca:
+    # ECA's settings
+    crypto:
+        # location on file system
+        path: .obcca
+
+        pport: 50051
+
+    users:
+          nepumuk: 9gvZQRwhUq9q
+          nepumuk2: 9gvZQRwhUq9q
+          jim: AwbeJH2kw9qK
+
+tca:
+    # TCA's settings
+    crypto:
+        # location on file system
+        path: .obcca
+
+        pport: 50551
+
+ports:
+        ecaP: ":50051"
+        ecaA: ":50052"
+        tcaP: ":50551"
+        tcaA: ":50552"
+
+defaults:
+        certSetSize: 32
+
+
+###############################################################################
+#
+#    Client section
+#
+###############################################################################
+client:
+    # Client's settings
+    crypto:
+        enrollid: nepumuk2
+        enrollpw: 9gvZQRwhUq9q
+
+        # location on file system
+        path: .obc-client
+
+        # eca settings
+        eca:
+
+            paddr: localhost:50051
+
+        # tca settings
+        tca:
+
+            paddr: localhost:50551
+
+
+###############################################################################
+#
+#    Validator section
+#
+###############################################################################
+validator:
+
+    # Validator's crypto settings
+    crypto:
+          # enrollment (id,pw) (only for testing
+          enrollid: jim
+          enrollpw: AwbeJH2kw9qK
+
+          # where to store data
+          path: .obc-validator
+
+          # eca settings
+          eca:
+
+              paddr: localhost:50051
+
+          # tca settings
+          tca:
+
+              paddr: localhost:50551
