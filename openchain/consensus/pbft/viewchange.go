@@ -60,7 +60,6 @@ loop:
 			break loop
 		}
 	}
-	instance.newViewTimer.Reset(instance.lastNewViewTimeout)
 
 	instance.view++
 	instance.activeView = false
@@ -194,6 +193,16 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 		// subtract one, because sendViewChange() increments
 		instance.view = minView - 1
 		return instance.sendViewChange()
+	}
+
+	quorum := 0
+	for idx := range instance.viewChangeStore {
+		if idx.v == instance.view {
+			quorum++
+		}
+	}
+	if vc.View == instance.view && quorum == 2*instance.f+1 {
+		instance.newViewTimer.Reset(instance.lastNewViewTimeout)
 	}
 
 	if instance.getPrimary(instance.view) == instance.id {

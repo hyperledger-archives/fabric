@@ -696,7 +696,10 @@ func TestNewViewTimeout(t *testing.T) {
 		return msg
 	})
 
-	for _, inst := range net.replicas {
+	net.replicas[0].plugin.newViewTimer.Reset(0)
+	time.Sleep(1 * time.Second)
+
+	for _, inst := range net.replicas[1:] {
 		inst.plugin.newViewTimer.Reset(0)
 	}
 
