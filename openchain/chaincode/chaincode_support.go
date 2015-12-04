@@ -384,7 +384,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	if !chaincodeSupport.userRunsCC {
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cID, t.Uuid)
 		if err != nil {
-			chaincodeLog.Debug("launchAndWaitForRegister failed %s", err)
+			chaincodeLog.Error("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
 		}
 	}

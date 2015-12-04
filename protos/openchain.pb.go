@@ -264,6 +264,22 @@ func (m *PeersMessage) GetPeers() []*PeerEndpoint {
 	return nil
 }
 
+type HelloMessage struct {
+	PeerEndpoint *PeerEndpoint `protobuf:"bytes,1,opt,name=peerEndpoint" json:"peerEndpoint,omitempty"`
+	BlockNumber  uint64        `protobuf:"varint,2,opt,name=blockNumber" json:"blockNumber,omitempty"`
+}
+
+func (m *HelloMessage) Reset()         { *m = HelloMessage{} }
+func (m *HelloMessage) String() string { return proto.CompactTextString(m) }
+func (*HelloMessage) ProtoMessage()    {}
+
+func (m *HelloMessage) GetPeerEndpoint() *PeerEndpoint {
+	if m != nil {
+		return m.PeerEndpoint
+	}
+	return nil
+}
+
 type OpenchainMessage struct {
 	Type      OpenchainMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.OpenchainMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
