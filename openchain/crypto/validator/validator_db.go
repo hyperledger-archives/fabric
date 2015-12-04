@@ -27,6 +27,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var ErrDBAlreadyInitialized error = errors.New("DB already Initilized.")
@@ -40,6 +41,9 @@ func (db *DB) Init() error {
 }
 
 func (db *DB) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, error)) ([]byte, error) {
+	m.Lock()
+	defer m.Unlock()
+
 	sid := utils.EncodeBase64(id)
 
 	cert, err := db.selectEnrollmentCert(sid)
@@ -134,6 +138,7 @@ func (db *DB) selectEnrollmentCert(id string) ([]byte, error) {
 
 var db *DB
 var isOpen bool
+var m sync.Mutex
 
 func initDB() error {
 	// TODO: applay syncronization
@@ -203,7 +208,7 @@ func getDBHandle() *DB {
 }
 
 func getDBName() string {
-	return "client.db"
+	return "validator.db"
 }
 
 func createDBIfDBPathEmpty() error {

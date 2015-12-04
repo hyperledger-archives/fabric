@@ -262,6 +262,12 @@ func (validator *Validator) Verify(vkID, signature, message []byte) error {
 	return nil
 }
 
+func (validator *Validator) Close() error {
+	getDBHandle().CloseDB()
+
+	return nil
+}
+
 // Private Methods
 
 func (validator *Validator) initCryptoEngine() error {

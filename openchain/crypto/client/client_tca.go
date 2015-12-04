@@ -20,7 +20,7 @@ under the License.
 package client
 
 import (
-	obcca "github.com/openblockchain/obc-peer/protos"
+	obcca "github.com/openblockchain/obc-peer/obcca/protos"
 
 	"crypto/ecdsa"
 	"crypto/hmac"

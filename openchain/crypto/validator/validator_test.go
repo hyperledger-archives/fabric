@@ -22,7 +22,7 @@ package validator
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
-	"../client"
+	"github.com/openblockchain/obc-peer/openchain/crypto/client"
 	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
@@ -30,7 +30,8 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"github.com/openblockchain/obc-peer/obcca/obbca"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"time"
 )
 
 var validator *Validator
@@ -277,7 +278,18 @@ func getClientEnrollmentData() (string, string) {
 
 func cleanup() {
 	killCAs()
+	mockClient.Close()
+	validator.Close()
+
+	fmt.Println("Prepare to cleanup...")
+	time.Sleep(10 * time.Second)
+
+	fmt.Println("Test...")
+	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
+		fmt.Println("AAA Someone already listening")
+	}
 	removeFolders()
+	fmt.Println("Cleanup...done!")
 }
 
 func killCAs() {
@@ -291,7 +303,13 @@ func killCAs() {
 }
 
 func removeFolders() {
-	os.RemoveAll(viper.GetString("tca.crypto.path"))
-	os.RemoveAll(viper.GetString("client.crypto.path"))
-	os.RemoveAll(viper.GetString("validator.crypto.path"))
+	if err := os.RemoveAll(viper.GetString("eca.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("eca.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("client.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("client.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("validator.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("validator.crypto.path"), err)
+	}
 }

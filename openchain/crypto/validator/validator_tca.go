@@ -20,7 +20,7 @@ under the License.
 package validator
 
 import (
-	obcca "github.com/openblockchain/obc-peer/protos"
+	obcca "github.com/openblockchain/obc-peer/obcca/protos"
 
 	"errors"
 	"golang.org/x/net/context"

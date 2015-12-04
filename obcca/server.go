@@ -24,7 +24,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/openblockchain/obc-peer/obcca/obbca"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"github.com/spf13/viper"
 )
 

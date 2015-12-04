@@ -224,7 +224,17 @@ func getEnrollmentData() (string, string, error) {
 
 func cleanup() {
 	killCAs()
+	client.Close()
+
+	fmt.Println("Prepare to cleanup...")
+	time.Sleep(10 * time.Second)
+
+	fmt.Println("Test...")
+	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
+		fmt.Println("AAA Someone already listening")
+	}
 	removeFolders()
+	fmt.Println("Cleanup...done!")
 }
 
 func killCAs() {
@@ -233,16 +243,14 @@ func killCAs() {
 	eca.Stop()
 	tca.Stop()
 
-	time.Sleep(10 * time.Second)
-
-	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
-		fmt.Println("AAA Someone already listening")
-	}
-
 	fmt.Println("Stopping CAs...done")
 }
 
 func removeFolders() {
-	os.RemoveAll(viper.GetString("eca.crypto.path"))
-	os.RemoveAll(viper.GetString("client.crypto.path"))
+	if err := os.RemoveAll(viper.GetString("eca.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("eca.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("client.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("client.crypto.path"), err)
+	}
 }

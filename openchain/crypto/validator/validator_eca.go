@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	obcca "github.com/openblockchain/obc-peer/protos"
+	obcca "github.com/openblockchain/obc-peer/obcca/protos"
 	protobuf "google/protobuf"
 	"time"
 
