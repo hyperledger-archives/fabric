@@ -152,16 +152,6 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
 	return fetchStateDeltaFromDB(blockNumber)
 }
 
-// GetStateDeltaBytes will return the state delta marshalled to bytes for the
-// specified block if available.
-func (ledger *Ledger) GetStateDeltaBytes(blockNumber uint64) ([]byte, error) {
-	delta, err := fetchStateDeltaFromDB(blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	return delta.marshal(), nil
-}
-
 // ApplyRawStateDelta applies a raw state delta to the current state.
 // This should only be used as part of state synchronization. State deltas
 // can be retrieved from another peer though the Ledger.GetStateDelta function
