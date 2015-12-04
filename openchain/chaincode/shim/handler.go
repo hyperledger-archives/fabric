@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
@@ -524,13 +525,13 @@ func (handler *Handler) handleDelState(key string, uuid string) error {
 }
 
 // handleInvokeChaincode communicates with the validator to invoke another chaincode.
-func (handler *Handler) handleInvokeChaincode(chaincodeUrl string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
+func (handler *Handler) handleInvokeChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
 	// Check if this is a transaction
 	if !handler.isTransaction[uuid] {
 		return nil, errors.New("Cannot invoke chaincode in query context")
 	}
 
-	chaincodeID := &pb.ChaincodeID{Url: chaincodeUrl, Version: chaincodeVersion}
+	chaincodeID := &pb.ChaincodeID{Url: chaincodeURL, Version: chaincodeVersion}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
 	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
 	payloadBytes, err := proto.Marshal(payload)
@@ -578,8 +579,8 @@ func (handler *Handler) handleInvokeChaincode(chaincodeUrl string, chaincodeVers
 }
 
 // handleQueryChaincode communicates with the validator to query another chaincode.
-func (handler *Handler) handleQueryChaincode(chaincodeUrl string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
-	chaincodeID := &pb.ChaincodeID{Url: chaincodeUrl, Version: chaincodeVersion}
+func (handler *Handler) handleQueryChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
+	chaincodeID := &pb.ChaincodeID{Url: chaincodeURL, Version: chaincodeVersion}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
 	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
 	payloadBytes, err := proto.Marshal(payload)
@@ -628,14 +629,31 @@ func (handler *Handler) handleQueryChaincode(chaincodeUrl string, chaincodeVersi
 
 // handleMessage message handles loop for shim side of chaincode/validator stream.
 func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
-	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s ", msg.Type)
+	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s(state:%s)", msg.Type, handler.FSM.Current())
 	if handler.FSM.Cannot(msg.Type.String()) {
-		errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
-		err := errors.New(errStr)
-		payload := []byte(err.Error())
-		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-		handler.ChatStream.Send(errorMsg)
-		return err
+		//TODO - this is a hack but it fixes an important hole that's
+		//tricky to fix. "FSM.Cannot(..)" may fail not because we are in a bad state
+		//but because FSM's transition object is not nilled. There is a tiny timing
+		//window in looplab's fsm.go
+		//	f.transition()
+		//	f.transition = nil
+		//before f.transition is set to nil where we could get a message causing Cannot() to return false.
+		//We see this typically in ready state. Some rearranging might help us here
+		//but for now, trying once more after a small sleep/seems to fix this and
+		//helps the test cases run smoothly.
+		//NEEDS REVISITING...
+
+		time.Sleep(2 * time.Millisecond)
+
+		//try again
+		if handler.FSM.Cannot(msg.Type.String()) {
+			errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
+			err := errors.New(errStr)
+			payload := []byte(err.Error())
+			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errorMsg)
+			return err
+		}
 	}
 	err := handler.FSM.Event(msg.Type.String(), msg)
 	return filterError(err)

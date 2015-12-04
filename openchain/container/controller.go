@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/blang/semver"
 	"github.com/fsouza/go-dockerclient"
@@ -37,7 +38,7 @@ import (
 type vm interface {
 	build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error
-	stop(ctxt context.Context, id string, timeout uint) error
+	stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
 
 //dockerVM is a vm. It is identified by an image id
@@ -71,7 +72,7 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	switch err {
 	case nil:
 		if err = client.BuildImage(opts); err != nil {
-			fmt.Printf("Error building Peer container: %s", err)
+			vmLogger.Debug("Error building Peer container: %s", err)
 			return err
 		}
 		vmLogger.Debug("Created image: %s", id)
@@ -81,7 +82,7 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
 	containerID := strings.Replace(id, ":", "_", -1)
 	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
-	vmLogger.Debug("Create image: %s", containerID)
+	vmLogger.Debug("Create container: %s", containerID)
 	_, err = client.CreateContainer(copts)
 	if err != nil {
 		return err
@@ -93,28 +94,48 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error {
 	client, err := vm.newClient()
 	if err != nil {
-		fmt.Printf("start - cannot create client %s\n", err)
+		vmLogger.Debug("start - cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
 	err = client.StartContainer(id, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
-		fmt.Printf("start-could not start container %s\n", err)
+		vmLogger.Debug("start-could not start container %s", err)
 		return err
 	}
 	vmLogger.Debug("Started container %s", id)
 	return nil
 }
 
-func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint) error {
+func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
 	client, err := vm.newClient()
 	if err != nil {
-		fmt.Printf("start - cannot create client %s\n", err)
+		vmLogger.Debug("start - cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
 	err = client.StopContainer(id, timeout)
-	vmLogger.Debug("Stopped container %s", id)
+	if err != nil {
+		vmLogger.Debug("Stopped container %s(%s)", id, err)
+	} else {
+		vmLogger.Debug("Stopped container %s", id)
+	}
+	if !dontkill {
+		err = client.KillContainer(docker.KillContainerOptions{ID: id})
+		if err != nil {
+			vmLogger.Debug("Killed container %s (%s)", id, err)
+		} else {
+			vmLogger.Debug("Killed container %s", id)
+		}
+	}
+	if !dontremove {
+		err = client.RemoveContainer(docker.RemoveContainerOptions{ID: id, Force: true})
+		if err != nil {
+			vmLogger.Debug("Removed container %s (%s)", id, err)
+		} else {
+			vmLogger.Debug("Removed container %s", id)
+		}
+	}
 	return err
 }
 
@@ -129,11 +150,20 @@ type image struct {
 	v    vm
 }
 
+type refCountedLock struct {
+	refCount int
+	lock     *sync.RWMutex
+}
+
 //VMController - manages VMs
 //   . abstract construction of different types of VMs (we only care about Docker for now)
 //   . manage lifecycle of VM (start with build, start, stop ...
 //     eventually probably need fine grained management)
-type VMController struct{}
+type VMController struct {
+	sync.RWMutex
+	// Handlers for each chaincode
+	containerLocks map[string]*refCountedLock
+}
 
 //singleton...acess through NewVMController
 var vmcontroller *VMController
@@ -141,6 +171,7 @@ var vmcontroller *VMController
 //NewVMController - creates/returns singleton
 func init() {
 	vmcontroller = new(VMController)
+	vmcontroller.containerLocks = make(map[string]*refCountedLock)
 }
 
 func (vmc *VMController) newVM(typ string) vm {
@@ -157,12 +188,48 @@ func (vmc *VMController) newVM(typ string) vm {
 	return v
 }
 
+func (vmc *VMController) lockContainer(id string) {
+	//get the container lock under global lock
+	vmcontroller.Lock()
+	var refLck *refCountedLock
+	var ok bool
+	if refLck, ok = vmcontroller.containerLocks[id]; !ok {
+		refLck = &refCountedLock{refCount: 1, lock: &sync.RWMutex{}}
+		vmcontroller.containerLocks[id] = refLck
+	} else {
+		refLck.refCount++
+		vmLogger.Debug("refcount %d (%s)", refLck.refCount, id)
+	}
+	vmcontroller.Unlock()
+	vmLogger.Debug("waiting for container(%s) lock", id)
+	refLck.lock.Lock()
+	vmLogger.Debug("got container (%s) lock", id)
+}
+
+func (vmc *VMController) unlockContainer(id string) {
+	vmcontroller.Lock()
+	if refLck, ok := vmcontroller.containerLocks[id]; ok {
+		if refLck.refCount <= 0 {
+			panic("refcnt <= 0")
+		}
+		refLck.lock.Unlock()
+		if refLck.refCount--; refLck.refCount == 0 {
+			vmLogger.Debug("container lock deleted(%s)", id)
+			delete(vmcontroller.containerLocks, id)
+		}
+	} else {
+		vmLogger.Debug("no lock to unlock(%s)!!", id)
+	}
+	vmcontroller.Unlock()
+}
+
 //VMCReqIntf - all requests should implement this interface.
 //The context should be passed and tested at each layer till we stop
 //note that we'd stop on the first method on the stack that does not
 //take context
 type VMCReqIntf interface {
 	do(ctxt context.Context, v vm) VMCResp
+	getID() string
 }
 
 //VMCResp - response from requests. resp field is a anon interface.
@@ -193,6 +260,10 @@ func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
+func (bp CreateImageReq) getID() string {
+	return bp.ID
+}
+
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
 	ID        string
@@ -213,21 +284,33 @@ func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
+func (si StartImageReq) getID() string {
+	return si.ID
+}
+
 //StopImageReq - properties for stopping a container.
 type StopImageReq struct {
 	ID      string
 	Timeout uint
+	//by default we will kill the container after stopping
+	Dontkill bool
+	//by default we will remove the container after killing
+	Dontremove bool
 }
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.stop(ctxt, si.ID, si.Timeout); err != nil {
+	if err := v.stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
 	}
 
 	return resp
+}
+
+func (si StopImageReq) getID() string {
+	return si.ID
 }
 
 //VMCProcess should be used as follows
@@ -249,7 +332,10 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	var resp interface{}
 	go func() {
 		defer close(c)
+		id := req.getID()
+		vmcontroller.lockContainer(id)
 		resp = req.do(ctxt, v)
+		vmcontroller.unlockContainer(id)
 	}()
 
 	select {
@@ -279,7 +365,6 @@ func GetVMName(chaincodeID *pb.ChaincodeID) (string, error) {
 		urlLocation = chaincodeID.Url
 	}
 	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(urlLocation, string(os.PathSeparator), ".", -1), version)
-	vmLogger.Debug("return VM name: %s", vmName)
 	return vmName, nil
 }
 

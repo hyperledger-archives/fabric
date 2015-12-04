@@ -20,6 +20,7 @@ under the License.
 package ledger
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"reflect"
@@ -181,6 +182,113 @@ func TestPutRawBlock(t *testing.T) {
 	if !reflect.DeepEqual(block, retrievedBlock) {
 		t.Fatalf("Expected blocks to be equal. Instead got, original block: %s, retrived block: %s", block, retrievedBlock)
 	}
+}
+
+func TestSetRawState(t *testing.T) {
+	ledger := InitTestLedger(t)
+	beginTxBatch(t, 1)
+	ledger.TxBegin("txUuid")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid", true)
+	transaction, _ := buildTestTx()
+	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
+
+	// Ensure values are in the DB
+	val, err := ledger.GetState("chaincode1", "key1", true)
+	if bytes.Compare(val, []byte("value1")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key1 to be %s, but got %s", []byte("value1"), val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if bytes.Compare(val, []byte("value2")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key2 to be %s, but got %s", []byte("value2"), val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if bytes.Compare(val, []byte("value3")) != 0 {
+		t.Fatalf("Expected initial chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
+	}
+
+	hash1, hash1Err := ledger.GetTempStateHash()
+	if hash1Err != nil {
+		t.Fatalf("Error getting hash1 %s", hash1Err)
+	}
+
+	snapshot, snapshotError := ledger.GetStateSnapshot()
+	if snapshotError != nil {
+		t.Fatalf("Error fetching snapshot %s", snapshotError)
+	}
+	defer snapshot.Release()
+
+	// Delete keys
+	beginTxBatch(t, 2)
+	ledger.TxBegin("txUuid")
+	ledger.DeleteState("chaincode1", "key1")
+	ledger.DeleteState("chaincode2", "key2")
+	ledger.DeleteState("chaincode3", "key3")
+	ledger.TxFinished("txUuid", true)
+	transaction, _ = buildTestTx()
+	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// ensure keys are deleted
+	val, err = ledger.GetState("chaincode1", "key1", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode1 key1 to be nil, but got %s", val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode2 key2 to be nil, but got %s", val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if val != nil {
+		t.Fatalf("Expected chaincode3 key3 to be nil, but got %s", val)
+	}
+
+	hash2, hash2Err := ledger.GetTempStateHash()
+	if hash2Err != nil {
+		t.Fatalf("Error getting hash2 %s", hash2Err)
+	}
+
+	if bytes.Compare(hash1, hash2) == 0 {
+		t.Fatalf("Expected hashes to not match, but they both equal %s", hash1)
+	}
+
+	// put key/values from the snapshot back in the DB
+	//var keys, values [][]byte
+	delta := newStateDelta()
+	for i := 0; snapshot.Next(); i++ {
+		k, v := snapshot.GetRawKeyValue()
+		cID, kID := decodeStateDBKey(k)
+		delta.set(cID, kID, v)
+	}
+
+	err = ledger.ApplyRawStateDelta(delta)
+	if err != nil {
+		t.Fatalf("Error applying raw state delta, %s", err)
+	}
+
+	// Ensure values are back in the DB
+	val, err = ledger.GetState("chaincode1", "key1", true)
+	if bytes.Compare(val, []byte("value1")) != 0 {
+		t.Fatalf("Expected chaincode1 key1 to be %s, but got %s", []byte("value1"), val)
+	}
+	val, err = ledger.GetState("chaincode2", "key2", true)
+	if bytes.Compare(val, []byte("value2")) != 0 {
+		t.Fatalf("Expected chaincode1 key2 to be %s, but got %s", []byte("value2"), val)
+	}
+	val, err = ledger.GetState("chaincode3", "key3", true)
+	if bytes.Compare(val, []byte("value3")) != 0 {
+		t.Fatalf("Expected chaincode1 key3 to be %s, but got %s", []byte("value3"), val)
+	}
+
+	hash3, hash3Err := ledger.GetTempStateHash()
+	if hash3Err != nil {
+		t.Fatalf("Error getting hash3 %s", hash3Err)
+	}
+	if bytes.Compare(hash1, hash3) != 0 {
+		t.Fatalf("Expected hashes to be equal, but they are %s and %s", hash1, hash3)
+	}
+
 }
 
 func setupTestConfig() {

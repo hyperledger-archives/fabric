@@ -43,6 +43,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -281,7 +282,7 @@ func serve(args []string) error {
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	var peerServer *peer.Peer
+	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
 		logger.Debug("Running as validator - installing consensus %s", viper.GetString("peer.validator.consensus"))
@@ -300,7 +301,7 @@ func serve(args []string) error {
 	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
 
 	// Register Devops server
-	serverDevops := openchain.NewDevopsServer()
+	serverDevops := openchain.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
@@ -327,7 +328,24 @@ func serve(args []string) error {
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
-	grpcServer.Serve(lis)
+
+	// Start the grpc server. Done in a goroutine so we can deploy the
+	// genesis block if needed.
+	serve := make(chan bool)
+	go func() {
+		grpcServer.Serve(lis)
+		serve <- true
+	}()
+
+	// Deploy the geneis block if needed.
+	makeGeneisError := genesis.MakeGenesis()
+	if makeGeneisError != nil {
+		return makeGeneisError
+	}
+
+	// Block until grpc server exits
+	<-serve
+
 	return nil
 }
 

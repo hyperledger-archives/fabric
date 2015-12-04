@@ -143,7 +143,7 @@ peer:
     # Peer's DB settings
     db:
         # location on file system
-        path: /var/openchain/db
+        path: /var/openchain/genesis_test/db
 
 ### NOTE: The validator section below is not needed and will be removed - BN
 ###############################################################################
@@ -216,21 +216,20 @@ chaincode:
 
 ###############################################################################
 #
-#    Ledger section - allows for the deployment of chaincodes into the
-#    genesis block.
+#    Ledger section
 #
 ###############################################################################
-# ledger:
-#   genesis:
-#     chaincode:
-#       - id:
-#           url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-#           version: 0.1.0
-#         type: GOLANG
-#         constructor:
-#           func: init
-#           args:
-#             - alice
-#             - "4"
-#             - bob
-#             - "10"
+ledger:
+  genesis:
+    chaincode:
+      - id:
+          url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+          version: 0.1.0
+        type: GOLANG
+        constructor:
+          func: init
+          args:
+            - alice
+            - "4"
+            - bob
+            - "10"
