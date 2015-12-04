@@ -38,7 +38,7 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/openblockchain/obc-peer/obcca/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

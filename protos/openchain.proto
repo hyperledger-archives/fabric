@@ -46,6 +46,8 @@ message Transaction {
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
 
+    bytes cert = 6;
+    bytes signature = 7;
 }
 
 // TransactionBlock carries a batch of transactions.
