@@ -34,6 +34,7 @@ func TestEnvOverride(t *testing.T) {
 
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 
 	key := "general.name"                    // for a key that exists
 	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
@@ -65,6 +66,7 @@ func TestEnvOverride(t *testing.T) {
 func TestGetParam(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 
 	key := "general.name" // for a key that exists
 	realVal := "pbft"     // expected value
@@ -91,6 +93,7 @@ func TestGetParam(t *testing.T) {
 func TestRecvRequest(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 	instance.replicaCount = 5
 
 	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
@@ -125,21 +128,14 @@ func TestRecvRequest(t *testing.T) {
 func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 	instance.id = 0
 	instance.replicaCount = 5
 
 	nestedMsg := &Message{&Message_Request{&Request{
 		Payload: []byte("hello world"),
 	}}}
-	newPayload, err := proto.Marshal(nestedMsg)
-	if err != nil {
-		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: newPayload,
-	}
-	err = instance.RecvMsg(msgWrapped)
+	err := instance.recvMsgSync(nestedMsg)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
@@ -165,6 +161,7 @@ func TestRecvMsg(t *testing.T) {
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 	instance.id = 1
 	instance.replicaCount = 5
 
@@ -178,15 +175,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 		Request:        request2,
 		ReplicaId:      0,
 	}}}
-	newPayload, err := proto.Marshal(nestedMsg)
-	if err != nil {
-		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: newPayload,
-	}
-	err = instance.RecvMsg(msgWrapped)
+	err := instance.recvMsgSync(nestedMsg)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
@@ -199,19 +188,12 @@ func TestMaliciousPrePrepare(t *testing.T) {
 func TestIncompletePayload(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
+	defer instance.Close()
 	instance.id = 1
 	instance.replicaCount = 5
 
 	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
-		newPayload, err := proto.Marshal(msg)
-		if err != nil {
-			t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-		}
-		msgWrapped := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CONSENSUS,
-			Payload: newPayload,
-		}
-		_ = instance.RecvMsg(msgWrapped)
+		_ = instance.recvMsgSync(msg)
 		if len(mock.broadcasted) != 0 {
 			t.Errorf(errMsg, args...)
 		}
@@ -318,9 +300,17 @@ func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *
 				}
 
 				if msg != nil {
-					err := replica.plugin.RecvMsg(msg)
+					if msg.Type != pb.OpenchainMessage_CONSENSUS {
+						continue
+					}
+					msgMsg := &Message{}
+					err := proto.Unmarshal(msg.Payload, msgMsg)
 					if err != nil {
-						return nil
+						continue
+					}
+					err = replica.plugin.recvMsgSync(msgMsg)
+					if err != nil {
+						continue
 					}
 				}
 			}
@@ -348,8 +338,15 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 	return net
 }
 
+func (net *testnet) Close() {
+	for _, inst := range net.replicas {
+		inst.plugin.Close()
+	}
+}
+
 func TestNetwork(t *testing.T) {
 	net := makeTestnet(2)
+	defer net.Close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
@@ -358,11 +355,8 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	err = net.replicas[0].plugin.RecvMsg(msg)
+	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+	err = net.replicas[0].plugin.recvMsgSync(msg)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -392,20 +386,17 @@ func TestCheckpoint(t *testing.T) {
 	net := makeTestnet(1, func(inst *Plugin) {
 		inst.K = 2
 	})
+	defer net.Close()
 
 	execReq := func(iter int64) {
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
-		}
-		err = net.replicas[0].plugin.RecvMsg(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		err = net.replicas[0].plugin.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -439,6 +430,7 @@ func TestCheckpoint(t *testing.T) {
 
 func TestLostPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -457,7 +449,12 @@ func TestLostPrePrepare(t *testing.T) {
 
 	// deliver pre-prepare to subset of replicas
 	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
-		inst.plugin.RecvMsg(msg.msg)
+		msgReq := &Message{}
+		err := proto.Unmarshal(msg.msg.Payload, msgReq)
+		if err != nil {
+			t.Fatal("Could not unmarshal message")
+		}
+		inst.plugin.recvMsgSync(msgReq)
 	}
 
 	err := net.process()
@@ -479,6 +476,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 func TestInconsistentPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -527,20 +525,17 @@ func TestViewChange(t *testing.T) {
 		inst.K = 2
 		inst.L = inst.K * 2
 	})
+	defer net.Close()
 
 	execReq := func(iter int64) {
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
-		}
-		err = net.replicas[0].plugin.RecvMsg(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		err = net.replicas[0].plugin.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -601,6 +596,7 @@ func TestViewChange(t *testing.T) {
 
 func TestInconsistentDataViewChange(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
