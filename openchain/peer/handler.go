@@ -57,12 +57,14 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_DISC_GET_PEERS.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_DISC_PEERS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
-			"enter_state":                                           func(e *fsm.Event) { d.enterState(e) },
-			"before_" + pb.OpenchainMessage_DISC_HELLO.String():     func(e *fsm.Event) { d.beforeHello(e) },
-			"before_" + pb.OpenchainMessage_DISC_GET_PEERS.String(): func(e *fsm.Event) { d.beforeGetPeers(e) },
-			"before_" + pb.OpenchainMessage_DISC_PEERS.String():     func(e *fsm.Event) { d.beforePeers(e) },
+			"enter_state":                                             func(e *fsm.Event) { d.enterState(e) },
+			"before_" + pb.OpenchainMessage_DISC_HELLO.String():       func(e *fsm.Event) { d.beforeHello(e) },
+			"before_" + pb.OpenchainMessage_DISC_GET_PEERS.String():   func(e *fsm.Event) { d.beforeGetPeers(e) },
+			"before_" + pb.OpenchainMessage_DISC_PEERS.String():       func(e *fsm.Event) { d.beforePeers(e) },
+			"before_" + pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(): func(e *fsm.Event) { d.beforeBlockAdded(e) },
 		},
 	)
 
@@ -196,6 +198,17 @@ func (d *Handler) beforePeers(e *fsm.Event) {
 	// 	d.Coordinator.Broadcast(&pb.OpenchainMessage{Type: pb.OpenchainMessage_UNDEFINED})
 	// }
 
+}
+
+func (d *Handler) beforeBlockAdded(e *fsm.Event) {
+	peerLogger.Debug("Received message: %s", e.Event)
+	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	// Add the block and any delta state to the ledger
+	_ = msg
 }
 
 func (d *Handler) when(stateToCheck string) bool {
