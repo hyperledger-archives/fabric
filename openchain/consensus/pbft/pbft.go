@@ -22,12 +22,10 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
@@ -147,44 +145,16 @@ func New(c consensus.CPI) *Plugin {
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
 
-	// replica ID
-	paramID, err := instance.getParam("replica.id")
-	if err != nil {
-		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
-	}
-	instance.id, err = strconv.ParseUint(paramID, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
-	}
-	// byzantine nodes
-	paramF, err := instance.getParam("general.f")
-	if err != nil {
-		panic(fmt.Errorf("No f defined in the config file: %s", err))
-	}
-	f, err := strconv.ParseUint(paramF, 10, 0)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
-	}
-	instance.f = uint(f)
-	// replica count
-	instance.replicaCount = 3*instance.f + 1
-	// checkpoint period
-	paramK, err := instance.getParam("general.K")
-	if err != nil {
-		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
-	}
-	instance.K, err = strconv.ParseUint(paramK, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
-	}
-	// log size
-	instance.L = 2 * instance.K
-	// byzantine or not?
-	paramByzantine, _ := instance.getParam("replica.byzantine")
-	if paramByzantine == "true" {
-		instance.byzantine = true
-	} // in any other case, it should be set to false (default)
+	// read from the config file
+	// you can override the config values with the
+	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
+	instance.id = uint64(instance.config.GetInt("replica.id"))
+	instance.f = uint(instance.config.GetInt("general.f"))
+	instance.K = uint64(instance.config.GetInt("general.K"))
+	instance.byzantine = instance.config.GetBool("replica.byzantine")
 
+	instance.replicaCount = 3*instance.f + 1
+	instance.L = 2 * instance.K
 	instance.activeView = true
 
 	// init the logs
@@ -697,19 +667,4 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		err = instance.RecvMsg(msgWrapped)
 	}
 	return err
-}
-
-// A getter for the values listed in `config.yaml`.
-func (instance *Plugin) getParam(param string) (val string, err error) {
-	if ok := instance.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config", param)
-		return "nil", err
-	}
-	val = instance.config.GetString(param)
-	return val, nil
-}
-
-func hashReq(req *Request) (digest string) {
-	packedReq, _ := proto.Marshal(req)
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
 }
