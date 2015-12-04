@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/config"
@@ -60,18 +59,6 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	}
 	defer stream.CloseSend()
 	t.Log("Starting performChat")
-
-	peerEndpoint, err := GetPeerEndpoint()
-	if err != nil {
-		return fmt.Errorf("Error getting PeerEndpoint: %s", err)
-	}
-	data, err := proto.Marshal(peerEndpoint)
-	if err != nil {
-		return fmt.Errorf("Error marshalling peerEndpoint: %s", err)
-	}
-	if err := stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}); err != nil {
-		return fmt.Errorf("Error sending %s: %s", pb.OpenchainMessage_DISC_HELLO, err)
-	}
 
 	waitc := make(chan struct{})
 	go func() {
@@ -146,5 +133,6 @@ func Benchmark_Chat_Parallel(b *testing.B) {
 }
 
 func TestServer_Chat(t *testing.T) {
+	t.Skip()
 	performChat(t, peerClientConn)
 }

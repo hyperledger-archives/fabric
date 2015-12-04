@@ -199,11 +199,11 @@ func (stub *ChaincodeStub) DelState(key string) error {
 }
 
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
-func (stub *ChaincodeStub) InvokeChaincode(chaincodeUrl string, chaincodeVersion string, function string, args []string) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeUrl, chaincodeVersion, function, args, stub.UUID)
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string) ([]byte, error) {
+	return handler.handleInvokeChaincode(chaincodeURL, chaincodeVersion, function, args, stub.UUID)
 }
 
 // QueryChaincode function can be invoked by a chaincode to query another chaincode.
-func (stub *ChaincodeStub) QueryChaincode(chaincodeUrl string, chaincodeVersion string, function string, args []string) ([]byte, error) {
-	return handler.handleQueryChaincode(chaincodeUrl, chaincodeVersion, function, args, stub.UUID)
+func (stub *ChaincodeStub) QueryChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string) ([]byte, error) {
+	return handler.handleQueryChaincode(chaincodeURL, chaincodeVersion, function, args, stub.UUID)
 }

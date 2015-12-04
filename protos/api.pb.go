@@ -34,8 +34,10 @@ It has these top-level messages:
 	PeerID
 	PeerEndpoint
 	PeersMessage
+	HelloMessage
 	OpenchainMessage
 	Response
+	BlockState
 	ServerStatus
 */
 package protos
