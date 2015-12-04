@@ -125,6 +125,7 @@ func GetPlugin(c consensus.CPI) *Plugin {
 func New(c consensus.CPI) *Plugin {
 	instance := &Plugin{}
 	instance.cpi = c
+	instance.id, _ = instance.cpi.GetReplicaID()
 
 	// setup the link to the config file
 	instance.config = viper.New()
@@ -149,14 +150,13 @@ func New(c consensus.CPI) *Plugin {
 	// read from the config file
 	// you can override the config values with the
 	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
-	instance.id, _ = instance.cpi.GetReplicaID()
-	// instance.id = uint64(instance.config.GetInt("replica.id"))
 	instance.f = uint(instance.config.GetInt("general.f"))
 	instance.K = uint64(instance.config.GetInt("general.K"))
 	instance.byzantine = instance.config.GetBool("replica.byzantine")
 
 	instance.replicaCount = 3*instance.f + 1
 	instance.L = 2 * instance.K
+
 	instance.activeView = true
 
 	// init the logs
