@@ -64,35 +64,42 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // Stack-facing implementation goes here
 // =============================================================================
 
-// GetReplicas returns the IP:Ports for all replicas in the network.
-// The replica handles are the indexes of the return slice.
-func (h *Helper) GetReplicas() (replicas []string, err error) {
-	config := viper.New()
-	config.SetConfigName("openchain")
-	config.AddConfigPath("./")
-	err = config.ReadInConfig()
-	if err != nil {
-		err = fmt.Errorf("Fatal error reading root config: %s", err)
-		return nil, err
+// GetReplicaAddress returns the IP:Port for the current replica (self:true) or the whole network (self:false).
+// Will be eventually return crypto IDs.
+func (h *Helper) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		pe, err := peer.GetPeerEndpoint()
+		if err != nil {
+			err = fmt.Errorf("Couldn't get own peer endpoint: %s", err)
+			return nil, err
+		}
+		addresses = append(addresses, pe.Address)
+	} else {
+		config := viper.New()
+		config.SetConfigName("openchain")
+		config.AddConfigPath("./")
+		err = config.ReadInConfig()
+		if err != nil {
+			err = fmt.Errorf("Fatal error reading root config: %s", err)
+			return nil, err
+		}
+		addresses = config.GetStringSlice("peer.validator.replicas")
 	}
-	replicas = config.GetStringSlice("peer.validator.replicas")
-	return replicas, nil
+	return addresses, nil
 }
 
-// GetReplicaID returns our own replica handle.
-func (h *Helper) GetReplicaID() (id uint64, err error) {
-	replicas, err := h.GetReplicas()
+// GetReplicaID returns the uint handle corresponding to a replica address.
+func (h *Helper) GetReplicaID(address string) (id uint64, err error) {
+	addresses, err := h.GetReplicaAddress(false)
 	if err != nil {
 		return uint64(0), err
 	}
-	pe, _ := peer.GetPeerEndpoint()
-	for i, v := range replicas {
-		if v == pe.Address {
-			fmt.Printf("\nID: %v\n", i)
+	for i, v := range addresses {
+		if v == address {
 			return uint64(i), nil
 		}
 	}
-	err = fmt.Errorf("Couldn't find own IP in list of VP IDs given in config")
+	err = fmt.Errorf("Couldn't find address in list of VP addresses given in config")
 	return uint64(0), err
 }
 

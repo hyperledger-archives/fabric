@@ -125,7 +125,10 @@ func GetPlugin(c consensus.CPI) *Plugin {
 func New(c consensus.CPI) *Plugin {
 	instance := &Plugin{}
 	instance.cpi = c
-	instance.id, _ = instance.cpi.GetReplicaID()
+
+	// set ID
+	address, _ := instance.cpi.GetReplicaAddress(true)
+	instance.id, _ = instance.cpi.GetReplicaID(address[0])
 
 	// setup the link to the config file
 	instance.config = viper.New()

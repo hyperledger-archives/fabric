@@ -20,9 +20,11 @@ under the License.
 package pbft
 
 import (
+	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -99,7 +101,6 @@ func TestRecvRequest(t *testing.T) {
 func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
-	instance.id = 0
 	instance.replicaCount = 5
 
 	nestedMsg := &Message{&Message_Request{&Request{
@@ -194,7 +195,7 @@ func TestIncompletePayload(t *testing.T) {
 	checkMsg(&Message{}, "Expected to reject empty message")
 	checkMsg(&Message{&Message_Request{&Request{}}}, "Expected to reject empty request")
 	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "Expected to reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject incomplete pre-prepare")
 }
 
 // =============================================================================
@@ -212,11 +213,13 @@ type taggedMsg struct {
 }
 
 type testnet struct {
-	replicas []*instance
-	msgs     []taggedMsg
+	replicas  []*instance
+	msgs      []taggedMsg
+	addresses []string
 }
 
 type instance struct {
+	address  string
 	id       int
 	plugin   *Plugin
 	net      *testnet
@@ -227,11 +230,15 @@ type instance struct {
 // Interface implementations
 // =============================================================================
 
-func (mock *mockCPI) GetReplicas() (replicas []string, err error) {
-	panic("not implemented yet")
+func (mock *mockCPI) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		addresses = append(addresses, "0")
+		return addresses, nil
+	}
+	panic("not implemented")
 }
 
-func (mock *mockCPI) GetReplicaID() (id uint64, err error) {
+func (mock *mockCPI) GetReplicaID(address string) (id uint64, err error) {
 	return uint64(0), nil
 }
 
@@ -249,12 +256,22 @@ func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return []byte("hash"), make([]error, len(txs)+1)
 }
 
-func (inst *instance) GetReplicas() (replicas []string, err error) {
-	panic("not implemented yet")
+func (inst *instance) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		addresses = append(addresses, inst.address)
+		return addresses, nil
+	}
+	return inst.net.addresses, nil
 }
 
-func (inst *instance) GetReplicaID() (id uint64, err error) {
-	return uint64(0), nil
+func (inst *instance) GetReplicaID(address string) (id uint64, err error) {
+	for i, v := range inst.net.addresses {
+		if v == address {
+			return uint64(i), nil
+		}
+	}
+	err = fmt.Errorf("Couldn't find address in list of addresses in testnet")
+	return uint64(0), err
 }
 
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
@@ -324,7 +341,7 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 	replicaCount := 3*f + 1
 	net := &testnet{}
 	for i := 0; i < replicaCount; i++ {
-		inst := &instance{id: i, net: net}
+		inst := &instance{address: strconv.Itoa(i), id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
 		inst.plugin.replicaCount = uint(replicaCount)
@@ -333,6 +350,7 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 			fn(inst.plugin)
 		}
 		net.replicas = append(net.replicas, inst)
+		net.addresses = append(net.addresses, inst.address)
 	}
 
 	return net
