@@ -43,6 +43,22 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 }
 
 func (instance *Plugin) sendViewChange() error {
+	if instance.activeView {
+		instance.lastNewViewTimeout = instance.newViewTimeout
+	} else {
+		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+	}
+	// remove timeouts that may have raced, to prevent additional view change
+	instance.newViewTimer.Stop()
+loop:
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+		default:
+			break loop
+		}
+	}
+
 	instance.view++
 	instance.activeView = false
 
@@ -151,6 +167,41 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	}
 
 	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
+
+	// PBFT TOCS 4.5.1 Liveness: "if a replica receives a set of
+	// f+1 valid VIEW-CHANGE messages from other replicas for
+	// views greater than its current view, it sends a VIEW-CHANGE
+	// message for the smallest view in the set, even if its timer
+	// has not expired"
+	replicas := make(map[uint64]bool)
+	minView := uint64(0)
+	for idx := range instance.viewChangeStore {
+		if idx.v <= instance.view {
+			continue
+		}
+
+		replicas[idx.id] = true
+		if minView == 0 || idx.v < minView {
+			minView = idx.v
+		}
+	}
+	if len(replicas) >= instance.f+1 {
+		logger.Info("Replica %d received f+1 view-change messages, triggering view-change to view %d",
+			instance.id, minView)
+		// subtract one, because sendViewChange() increments
+		instance.view = minView - 1
+		return instance.sendViewChange()
+	}
+
+	quorum := 0
+	for idx := range instance.viewChangeStore {
+		if idx.v == instance.view {
+			quorum++
+		}
+	}
+	if vc.View == instance.view && quorum == 2*instance.f+1 {
+		instance.newViewTimer.Reset(instance.lastNewViewTimeout)
+	}
 
 	if instance.getPrimary(instance.view) == instance.id {
 		return instance.sendNewView()
@@ -279,7 +330,10 @@ func (instance *Plugin) processNewView() error {
 
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
+	// TODO wait for first request to execute before stopping timer
+	instance.newViewTimer.Stop()
 	instance.activeView = true
+
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
 			View:           instance.view,
@@ -336,13 +390,13 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
-		if uint(len(vcList)) <= instance.f { // type casting necessary to match types
+		if len(vcList) <= instance.f { // type casting necessary to match types
 			logger.Debug("no weak certificate for n:%d",
 				idx.SequenceNumber)
 			continue
 		}
 
-		quorum := uint(0)
+		quorum := 0
 		for _, vc := range vcList {
 			if vc.H <= idx.SequenceNumber {
 				quorum++
@@ -376,7 +430,7 @@ nLoop:
 		for _, m := range vset {
 			// "...with <n,d,v> ∈ m.P"
 			for _, em := range m.Pset {
-				quorum := uint(0)
+				quorum := 0
 				// "A1. ∃2f+1 messages m' ∈ S"
 			mpLoop:
 				for _, mp := range vset {
@@ -419,7 +473,7 @@ nLoop:
 			}
 		}
 
-		quorum := uint(0)
+		quorum := 0
 		// "else if ∃2f+1 messages m ∈ S"
 	nullLoop:
 		for _, m := range vset {

@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -59,22 +60,28 @@ type Plugin struct {
 	// internal data
 	config *viper.Viper  // link to the plugin config file
 	cpi    consensus.CPI // link to the CPI
+	c      chan *Message // serialization of incoming messages
 
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            uint              // number of faults we can tolerate
+	f            int               // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
 	L            uint64            // log size
 	lastExec     uint64            // last request we executed
-	replicaCount uint              // number of replicas; PBFT `|R|`
+	replicaCount int               // number of replicas; PBFT `|R|`
 	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64            // current view
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
+
+	newViewTimer       *time.Timer   // timeout triggering a view change
+	requestTimeout     time.Duration // progress timeout for requests
+	newViewTimeout     time.Duration // progress timeout for new views
+	lastNewViewTimeout time.Duration // last timeout we used during this view change
 
 	// Implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
@@ -153,14 +160,29 @@ func New(c consensus.CPI) *Plugin {
 	// read from the config file
 	// you can override the config values with the
 	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
-	instance.f = uint(instance.config.GetInt("general.f"))
-	instance.K = uint64(instance.config.GetInt("general.K"))
 	instance.byzantine = instance.config.GetBool("replica.byzantine")
-
-	instance.replicaCount = 3*instance.f + 1
-	instance.L = 2 * instance.K
+	instance.f = instance.config.GetInt("general.f")
+	instance.K = uint64(instance.config.GetInt("general.K"))
+	paramRequestTimeout, err := instance.getParam("general.timeout.request")
+	if err != nil {
+		panic(fmt.Errorf("No request timeout defined"))
+	}
+	instance.requestTimeout, err = time.ParseDuration(paramRequestTimeout)
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
+	}
+	paramNewViewTimeout, err := instance.getParam("general.timeout.request")
+	if err != nil {
+		panic(fmt.Errorf("No new view timeout defined"))
+	}
+	instance.newViewTimeout, err = time.ParseDuration(paramNewViewTimeout)
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
+	}
 
 	instance.activeView = true
+	instance.L = 2 * instance.K // log size
+	instance.replicaCount = 3*instance.f + 1
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -175,7 +197,65 @@ func New(c consensus.CPI) *Plugin {
 	// TODO load state from disk
 	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
 
+	// create non-running timer XXX ugly
+	instance.newViewTimer = time.NewTimer(100 * time.Hour)
+	instance.newViewTimer.Stop()
+
+	// to control concurrency in arriving messages
+	instance.c = make(chan *Message, 100)
+	go instance.msgPump()
+
 	return instance
+}
+
+// Close tears down resources opened by `New`.
+func (instance *Plugin) Close() {
+	close(instance.c)
+}
+
+// RecvMsg handles messages from both the stack, as well as internal
+// consensus messages.  Consensus messages are serialized via
+// instance.c and msgPump().
+func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
+	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+		logger.Info("New consensus request received")
+		req := &Request{Payload: msgWrapped.Payload}
+		msg := &Message{&Message_Request{req}}
+		// We pass through the channel, instead of using
+		// .broadcast(..., true), so that this msg will be
+		// processed synchronously
+		instance.c <- msg
+		return instance.broadcast(msg, false)
+	}
+	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
+		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
+	}
+
+	msg := &Message{}
+	err := proto.Unmarshal(msgWrapped.Payload, msg)
+	if err != nil {
+		return fmt.Errorf("Error unpacking payload from message: %s", err)
+	}
+	instance.c <- msg
+
+	return nil
+}
+
+// msgPump takes messages queued by `RecvMsg`, and provides a
+// sequential context to process those messages.
+func (instance *Plugin) msgPump() {
+	for {
+		select {
+		case msg, ok := <-instance.c:
+			if !ok {
+				return
+			}
+			_ = instance.recvMsgSync(msg)
+		case <-instance.newViewTimer.C:
+			logger.Info("Replica %d view change timeout expired", instance.id)
+			instance.sendViewChange()
+		}
+	}
 }
 
 // =============================================================================
@@ -247,7 +327,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return true
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -270,7 +350,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -292,21 +372,8 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 // Receive methods go here
 // =============================================================================
 
-// RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
-func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		return instance.Request(msgWrapped.Payload)
-	}
-	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
-	}
-
-	msg := &Message{}
-	err := proto.Unmarshal(msgWrapped.Payload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-
+// recvMsgSync processes messages in the synchronous context of msgPump().
+func (instance *Plugin) recvMsgSync(msg *Message) (err error) {
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -322,19 +389,11 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
 	} else {
-		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
+		err = fmt.Errorf("Invalid message: %v", msg)
 		logger.Error("%s", err)
 	}
 
 	return err
-}
-
-// Request is the main entry into the consensus plugin.
-// txs will be passed to CPI.ExecTXs once consensus is reached.
-func (instance *Plugin) Request(txs []byte) error {
-	logger.Info("New consensus request received")
-	req := &Request{Payload: txs}
-	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
 }
 
 func (instance *Plugin) recvRequest(req *Request) error {
@@ -581,7 +640,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := uint(0)
+	quorum := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
@@ -667,11 +726,21 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		Payload: msgPacked,
 	}
 
-	err = instance.cpi.Broadcast(msgWrapped)
-	if err == nil && toSelf {
-		err = instance.RecvMsg(msgWrapped)
+	if toSelf {
+		err = instance.recvMsgSync(msg)
 	}
+	err = instance.cpi.Broadcast(msgWrapped)
 	return err
+}
+
+// A getter for the values listed in `config.yaml`.
+func (instance *Plugin) getParam(param string) (val string, err error) {
+	if ok := instance.config.IsSet(param); !ok {
+		err := fmt.Errorf("Key %s does not exist in algo config", param)
+		return "nil", err
+	}
+	val = instance.config.GetString(param)
+	return val, nil
 }
 
 func hashReq(req *Request) (digest string) {
