@@ -60,17 +60,15 @@ const (
 	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
 	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
 	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 5
-	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 9
-	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 10
-	OpenchainMessage_SYNC_REQUEST           OpenchainMessage_Type = 13
-	OpenchainMessage_SYNC_RESPONSE          OpenchainMessage_Type = 14
-	OpenchainMessage_SYNC_GET_BLOCKS        OpenchainMessage_Type = 15
-	OpenchainMessage_SYNC_BLOCKS            OpenchainMessage_Type = 16
-	OpenchainMessage_SYNC_BLOCK_ADDED       OpenchainMessage_Type = 17
-	OpenchainMessage_SYNC_GET_STATE         OpenchainMessage_Type = 18
-	OpenchainMessage_SYNC_STATE             OpenchainMessage_Type = 19
+	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 6
+	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 7
+	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
+	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 9
+	OpenchainMessage_SYNC_GET_BLOCKS        OpenchainMessage_Type = 11
+	OpenchainMessage_SYNC_BLOCKS            OpenchainMessage_Type = 12
+	OpenchainMessage_SYNC_BLOCK_ADDED       OpenchainMessage_Type = 13
+	OpenchainMessage_SYNC_GET_STATE         OpenchainMessage_Type = 14
+	OpenchainMessage_SYNC_STATE             OpenchainMessage_Type = 15
 	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 20
 	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 21
 )
@@ -82,17 +80,15 @@ var OpenchainMessage_Type_name = map[int32]string{
 	3:  "DISC_GET_PEERS",
 	4:  "DISC_PEERS",
 	5:  "DISC_NEWMSG",
-	7:  "CHAIN_STATUS",
-	8:  "CHAIN_TRANSACTION",
-	9:  "CHAIN_GET_TRANSACTIONS",
-	10: "CHAIN_QUERY",
-	13: "SYNC_REQUEST",
-	14: "SYNC_RESPONSE",
-	15: "SYNC_GET_BLOCKS",
-	16: "SYNC_BLOCKS",
-	17: "SYNC_BLOCK_ADDED",
-	18: "SYNC_GET_STATE",
-	19: "SYNC_STATE",
+	6:  "CHAIN_STATUS",
+	7:  "CHAIN_TRANSACTION",
+	8:  "CHAIN_GET_TRANSACTIONS",
+	9:  "CHAIN_QUERY",
+	11: "SYNC_GET_BLOCKS",
+	12: "SYNC_BLOCKS",
+	13: "SYNC_BLOCK_ADDED",
+	14: "SYNC_GET_STATE",
+	15: "SYNC_STATE",
 	20: "RESPONSE",
 	21: "CONSENSUS",
 }
@@ -103,17 +99,15 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"DISC_GET_PEERS":         3,
 	"DISC_PEERS":             4,
 	"DISC_NEWMSG":            5,
-	"CHAIN_STATUS":           7,
-	"CHAIN_TRANSACTION":      8,
-	"CHAIN_GET_TRANSACTIONS": 9,
-	"CHAIN_QUERY":            10,
-	"SYNC_REQUEST":           13,
-	"SYNC_RESPONSE":          14,
-	"SYNC_GET_BLOCKS":        15,
-	"SYNC_BLOCKS":            16,
-	"SYNC_BLOCK_ADDED":       17,
-	"SYNC_GET_STATE":         18,
-	"SYNC_STATE":             19,
+	"CHAIN_STATUS":           6,
+	"CHAIN_TRANSACTION":      7,
+	"CHAIN_GET_TRANSACTIONS": 8,
+	"CHAIN_QUERY":            9,
+	"SYNC_GET_BLOCKS":        11,
+	"SYNC_BLOCKS":            12,
+	"SYNC_BLOCK_ADDED":       13,
+	"SYNC_GET_STATE":         14,
+	"SYNC_STATE":             15,
 	"RESPONSE":               20,
 	"CONSENSUS":              21,
 }

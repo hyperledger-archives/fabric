@@ -107,18 +107,16 @@ message OpenchainMessage {
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
 
-        CHAIN_STATUS = 7;
-        CHAIN_TRANSACTION = 8;
-        CHAIN_GET_TRANSACTIONS = 9;
-        CHAIN_QUERY = 10;
+        CHAIN_STATUS = 6;
+        CHAIN_TRANSACTION = 7;
+        CHAIN_GET_TRANSACTIONS = 8;
+        CHAIN_QUERY = 9;
 
-        SYNC_REQUEST = 13;
-        SYNC_RESPONSE = 14;
-        SYNC_GET_BLOCKS = 15;
-        SYNC_BLOCKS = 16;
-        SYNC_BLOCK_ADDED = 17;
-        SYNC_GET_STATE = 18;
-        SYNC_STATE = 19;
+        SYNC_GET_BLOCKS = 11;
+        SYNC_BLOCKS = 12;
+        SYNC_BLOCK_ADDED = 13;
+        SYNC_GET_STATE = 14;
+        SYNC_STATE = 15;
 
         RESPONSE = 20;
         CONSENSUS = 21;
