@@ -559,38 +559,19 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
+	if net.replicas[1].plugin.view != 1 || net.replicas[0].plugin.view != 1 {
+		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
+	}
+
 	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
-	if ok {
-		t.Fatalf("Early selection of initial checkpoint: %+v",
-			net.replicas[1].plugin.viewChangeStore)
-	}
-
-	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), 2)
-	if msgList != nil {
-		t.Fatalf("Early selection of message list: %+v", msgList)
-	}
-
-	net.replicas[1].plugin.sendViewChange()
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
-
-	cp, ok = net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
 	if !ok || cp != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].plugin.viewChangeStore)
 	}
 
-	msgList = net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
+	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
-	}
-
-	net.replicas[0].plugin.sendViewChange()
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
 	}
 }
 

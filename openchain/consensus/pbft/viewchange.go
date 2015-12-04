@@ -154,6 +154,31 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 
 	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
 
+	// PBFT TOCS 4.5.1 Liveness: "if a replica receives a set of
+	// f+1 valid VIEW-CHANGE messages from other replicas for
+	// views greater than its current view, it sends a VIEW-CHANGE
+	// message for the smallest view in the set, even if its timer
+	// has not expired"
+	replicas := make(map[uint64]bool)
+	minView := uint64(0)
+	for idx := range instance.viewChangeStore {
+		if idx.v <= instance.view {
+			continue
+		}
+
+		replicas[idx.id] = true
+		if minView == 0 || idx.v < minView {
+			minView = idx.v
+		}
+	}
+	if uint(len(replicas)) >= instance.f+1 {
+		logger.Info("Replica %d received f+1 view-change messages, triggering view-change to view %d",
+			instance.id, minView)
+		// subtract one, because sendViewChange() increments
+		instance.view = minView - 1
+		return instance.sendViewChange()
+	}
+
 	if instance.getPrimary(instance.view) == instance.id {
 		return instance.sendNewView()
 	}
