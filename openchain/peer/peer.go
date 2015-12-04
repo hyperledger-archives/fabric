@@ -101,6 +101,7 @@ func GetLocalIP() string {
 // GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
 func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	var peerAddress string
+	var peerType pb.PeerEndpoint_Type
 	if viper.GetBool("peer.addressAutoDetect") {
 		// Need to get the port from the peer.address setting, and append to the determined host IP
 		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
@@ -112,7 +113,12 @@ func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	} else {
 		peerAddress = viper.GetString("peer.address")
 	}
-	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress}, nil
+	if viper.GetBool("peer.validator.enabled") {
+		peerType = pb.PeerEndpoint_VALIDATOR
+	} else {
+		peerType = pb.PeerEndpoint_NON_VALIDATOR
+	}
+	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
 
 }
 
