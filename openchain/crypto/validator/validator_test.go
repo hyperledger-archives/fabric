@@ -277,12 +277,12 @@ func getClientEnrollmentData() (string, string) {
 }
 
 func cleanup() {
-	killCAs()
 	mockClient.Close()
 	validator.Close()
+	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	fmt.Println("Test...")
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {

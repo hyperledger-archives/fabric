@@ -223,11 +223,11 @@ func getEnrollmentData() (string, string, error) {
 }
 
 func cleanup() {
-	killCAs()
 	client.Close()
+	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	fmt.Println("Test...")
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
@@ -241,7 +241,9 @@ func killCAs() {
 	fmt.Println("Stopping CAs...")
 
 	eca.Stop()
+	eca.Close()
 	tca.Stop()
+	tca.Close()
 
 	fmt.Println("Stopping CAs...done")
 }
