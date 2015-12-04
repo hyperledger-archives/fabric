@@ -27,9 +27,9 @@ general:
 ################################################################################
 replica:
 
-    # The ID of the peer. Should be a non-negative integer.
-    # The value set here is only read when running in testing mode.
-    id: 0
+    # Whether the replica should act as a byzantine one.
+    # Useful for debugging on the live network.
+    byzantine: false
 
     timeout:
 
@@ -39,5 +39,4 @@ replica:
 
         # Timeout if you don't receive a message within `message` seconds.
         message: 3
-
 ...

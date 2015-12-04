@@ -19,9 +19,7 @@ under the License.
 
 package pbft
 
-import (
-	"reflect"
-)
+import "reflect"
 
 func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
@@ -33,7 +31,7 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	}
 
 	for _, c := range vc.Cset {
-		// XXX the paper says c.n > vc.h
+		// PBFT: the paper says c.n > vc.h
 		if !(c.SequenceNumber >= vc.H && c.SequenceNumber <= vc.H+instance.L) {
 			logger.Debug("invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
 				vc.View, vc.H, c.SequenceNumber)
@@ -106,7 +104,6 @@ func (instance *Plugin) sendViewChange() error {
 	for idx := range instance.certStore {
 		if idx.v < instance.view {
 			delete(instance.certStore, idx)
-			// XXX how do we clear reqStore?
 		}
 	}
 	for idx := range instance.viewChangeStore {
@@ -146,6 +143,8 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
+	// TODO check view-change signature
+	// ... && instance.validator.Verify() == nil)
 	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
 		logger.Warning("View-change message incorrect")
 		return nil
@@ -205,6 +204,15 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 		return nil
 	}
 
+	for _, vc := range nv.Vset {
+		// TODO check view-change signatures
+		// if instance.validator.Verify() != nil {
+		//   logger.Error("Invalid new-view message: view-change message does not verify")
+		//   return nil
+		// }
+		_ = vc
+	}
+
 	instance.lastNewView = *nv
 	return instance.processNewView()
 }
@@ -222,8 +230,6 @@ func (instance *Plugin) processNewView() error {
 			instance.id, nv.ReplicaId, nv.View, instance.view)
 		return nil
 	}
-
-	// TODO check new-view certificate
 
 	cp, ok := instance.selectInitialCheckpoint(nv.Vset)
 	if !ok {
@@ -245,8 +251,14 @@ func (instance *Plugin) processNewView() error {
 		return instance.sendViewChange()
 	}
 
+	if instance.h < cp {
+		logger.Warning("missing base checkpoint %d", cp)
+		// XXX fetch checkpoint
+		return nil
+	}
+
 	for n, d := range nv.Xset {
-		// TODO why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
+		// PBFT: why should we use "h ≥ min{n | ∃d : (<n,d> ∈ X)}"?
 		// "h ≥ min{n | ∃d : (<n,d> ∈ X)} ∧ ∀<n,d> ∈ X : (n ≤ h ∨ ∃m ∈ in : (D(m) = d))"
 		if n <= instance.h {
 			continue
@@ -259,7 +271,7 @@ func (instance *Plugin) processNewView() error {
 			if _, ok := instance.reqStore[d]; !ok {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
-				// XXX fetch request?
+				// XXX fetch request
 				return nil
 			}
 		}
@@ -306,7 +318,6 @@ func (instance *Plugin) getViewChanges() (vset []*ViewChange) {
 	}
 
 	return
-
 }
 
 func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {

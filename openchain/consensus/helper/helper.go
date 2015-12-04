@@ -20,7 +20,10 @@ under the License.
 package helper
 
 import (
+	"fmt"
+
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
@@ -60,6 +63,45 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // =============================================================================
 // Stack-facing implementation goes here
 // =============================================================================
+
+// GetReplicaAddress returns the IP:Port for the current replica (self:true) or the whole network (self:false).
+// Will be eventually return crypto IDs.
+func (h *Helper) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		pe, err := peer.GetPeerEndpoint()
+		if err != nil {
+			err = fmt.Errorf("Couldn't get own peer endpoint: %s", err)
+			return nil, err
+		}
+		addresses = append(addresses, pe.Address)
+	} else {
+		config := viper.New()
+		config.SetConfigName("openchain")
+		config.AddConfigPath("./")
+		err = config.ReadInConfig()
+		if err != nil {
+			err = fmt.Errorf("Fatal error reading root config: %s", err)
+			return nil, err
+		}
+		addresses = config.GetStringSlice("peer.validator.replicas")
+	}
+	return addresses, nil
+}
+
+// GetReplicaID returns the uint handle corresponding to a replica address.
+func (h *Helper) GetReplicaID(address string) (id uint64, err error) {
+	addresses, err := h.GetReplicaAddress(false)
+	if err != nil {
+		return uint64(0), err
+	}
+	for i, v := range addresses {
+		if v == address {
+			return uint64(i), nil
+		}
+	}
+	err = fmt.Errorf("Couldn't find address in list of VP addresses given in config")
+	return uint64(0), err
+}
 
 // Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {

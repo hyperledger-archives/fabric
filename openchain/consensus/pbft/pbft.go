@@ -22,7 +22,6 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -63,6 +62,7 @@ type Plugin struct {
 
 	// PBFT data
 	activeView   bool              // view change happening
+	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
 	f            uint              // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
@@ -77,8 +77,8 @@ type Plugin struct {
 	qset         map[qidx]*ViewChange_PQ
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	reqStore        map[string]*Request   // track requests
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	lastNewView     NewView               // track last new-view we received or sent
@@ -126,6 +126,10 @@ func New(c consensus.CPI) *Plugin {
 	instance := &Plugin{}
 	instance.cpi = c
 
+	// set ID
+	address, _ := instance.cpi.GetReplicaAddress(true)
+	instance.id, _ = instance.cpi.GetReplicaID(address[0])
+
 	// setup the link to the config file
 	instance.config = viper.New()
 
@@ -143,43 +147,17 @@ func New(c consensus.CPI) *Plugin {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
 
-	// TODO Initialize the algorithm here
-	// You may want to set the fields of `instance` using `instance.GetParam()`.
-
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
 
-	// replica ID
-	paramID, err := instance.getParam("replica.id")
-	if err != nil {
-		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
-	}
-	instance.id, err = strconv.ParseUint(paramID, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
-	}
-	// byzantine nodes
-	paramF, err := instance.getParam("general.f")
-	if err != nil {
-		panic(fmt.Errorf("No f defined in the config file: %s", err))
-	}
-	f, err := strconv.ParseUint(paramF, 10, 0)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
-	}
-	instance.f = uint(f)
-	// replica count
+	// read from the config file
+	// you can override the config values with the
+	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
+	instance.f = uint(instance.config.GetInt("general.f"))
+	instance.K = uint64(instance.config.GetInt("general.K"))
+	instance.byzantine = instance.config.GetBool("replica.byzantine")
+
 	instance.replicaCount = 3*instance.f + 1
-	// checkpoint period
-	paramK, err := instance.getParam("general.K")
-	if err != nil {
-		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
-	}
-	instance.K, err = strconv.ParseUint(paramK, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
-	}
-	// log size
 	instance.L = 2 * instance.K
 
 	instance.activeView = true
@@ -188,8 +166,8 @@ func New(c consensus.CPI) *Plugin {
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.chkpts = make(map[uint64]string)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 
@@ -355,7 +333,7 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 // txs will be passed to CPI.ExecTXs once consensus is reached.
 func (instance *Plugin) Request(txs []byte) error {
 	logger.Info("New consensus request received")
-	req := &Request{Payload: txs}                                    // TODO assign "client" timestamp
+	req := &Request{Payload: txs}
 	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
 }
 
@@ -363,7 +341,11 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	// TODO test timestamp
+	// TODO verify transaction
+	// if err := instance.cpi.VerifyTransaction(...); err != nil {
+	//   logger.Warning("Invalid request");
+	//   return err
+	// }
 	instance.reqStore[digest] = req
 
 	n := instance.seqNo + 1
@@ -403,8 +385,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
-		instance.id, preprep.ReplicaId, preprep.View,
-		preprep.SequenceNumber)
+		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
 		return nil
@@ -435,6 +416,11 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
+		// TODO verify transaction
+		// if err := instance.cpi.VerifyTransaction(...); err != nil {
+		//   logger.Warning("Invalid request");
+		//   return err
+		// }
 		instance.reqStore[digest] = preprep.Request
 	}
 
@@ -448,6 +434,11 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			RequestDigest:  preprep.RequestDigest,
 			ReplicaId:      instance.id,
 		}
+
+		if instance.byzantine {
+			prep.RequestDigest = "foo"
+		}
+
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
 
@@ -513,6 +504,7 @@ func (instance *Plugin) executeOutstanding() error {
 		retry = false
 		for idx := range instance.certStore {
 			if instance.executeOne(idx) {
+				// range over the certStore again
 				retry = true
 				break
 			}
@@ -553,16 +545,15 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(req.Payload, tx)
 		if err == nil {
-			// TODO handle errors
+			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		// TODO obtain checkpoint from CPI
-		stateHash := "foo" // TODO state hash
-
-		instance.chkpts[instance.lastExec] = stateHash
+		// XXX replace with instance.cpi.GetStateHash()
+		stateHashBytes := []byte("XXX get current state hash")
+		stateHash := base64.StdEncoding.EncodeToString(stateHashBytes)
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 			instance.id, instance.view, instance.lastExec, stateHash)
@@ -572,6 +563,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 			StateDigest:    stateHash,
 			ReplicaId:      instance.id,
 		}
+		instance.chkpts[instance.lastExec] = stateHash
 		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
@@ -600,13 +592,22 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
+	// If we do not have this checkpoint locally, we should not
+	// clear our state.
+	// PBFT: This diverges from the paper.
+	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
+		// XXX fetch checkpoint from other replica
+		return nil
+	}
+
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	for idx := range instance.certStore {
+	for idx, cert := range instance.certStore {
 		if idx.n <= chkpt.SequenceNumber {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
+			delete(instance.reqStore, cert.prePrepare.RequestDigest)
 			delete(instance.certStore, idx)
 		}
 	}
@@ -632,8 +633,6 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	// TODO this breaks if we accept a quorum checkpoint which we do not have ourselves.
-	// In that case we will remove all recorded checkpoints and drop our low watermark to 0.
 	instance.h = 0
 	for n := range instance.chkpts {
 		if n < chkpt.SequenceNumber {
@@ -648,9 +647,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d updated low watermark to %d",
 		instance.id, instance.h)
 
-	// TODO clean instance.reqStore - requires client timestamps
-
-	return nil
+	return instance.processNewView()
 }
 
 // =============================================================================
@@ -675,16 +672,6 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 		err = instance.RecvMsg(msgWrapped)
 	}
 	return err
-}
-
-// A getter for the values listed in `config.yaml`.
-func (instance *Plugin) getParam(param string) (val string, err error) {
-	if ok := instance.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config", param)
-		return "nil", err
-	}
-	val = instance.config.GetString(param)
-	return val, nil
 }
 
 func hashReq(req *Request) (digest string) {
