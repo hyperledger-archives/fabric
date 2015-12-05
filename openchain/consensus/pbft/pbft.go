@@ -159,23 +159,15 @@ func New(c consensus.CPI) *Plugin {
 
 	// read from the config file
 	// you can override the config values with the
-	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
+	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
 	instance.byzantine = instance.config.GetBool("replica.byzantine")
 	instance.f = instance.config.GetInt("general.f")
 	instance.K = uint64(instance.config.GetInt("general.K"))
-	paramRequestTimeout, err := instance.getParam("general.timeout.request")
-	if err != nil {
-		panic(fmt.Errorf("No request timeout defined"))
-	}
-	instance.requestTimeout, err = time.ParseDuration(paramRequestTimeout)
+	instance.requestTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
 	}
-	paramNewViewTimeout, err := instance.getParam("general.timeout.request")
-	if err != nil {
-		panic(fmt.Errorf("No new view timeout defined"))
-	}
-	instance.newViewTimeout, err = time.ParseDuration(paramNewViewTimeout)
+	instance.newViewTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.viewchange"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
 	}
@@ -651,8 +643,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	// If we do not have this checkpoint locally, we should not
-	// clear our state.
+	// If we do not have this checkpoint locally, we should not clear our state.
 	// PBFT: This diverges from the paper.
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		// XXX fetch checkpoint from other replica
@@ -731,16 +722,6 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 	}
 	err = instance.cpi.Broadcast(msgWrapped)
 	return err
-}
-
-// A getter for the values listed in `config.yaml`.
-func (instance *Plugin) getParam(param string) (val string, err error) {
-	if ok := instance.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config", param)
-		return "nil", err
-	}
-	val = instance.config.GetString(param)
-	return val, nil
 }
 
 func hashReq(req *Request) (digest string) {
