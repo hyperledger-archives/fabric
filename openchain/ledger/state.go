@@ -160,7 +160,7 @@ func fetchStateDeltaFromDB(blockNumber uint64) (*stateDelta, error) {
 		return nil, nil
 	}
 	stateDelta := newStateDelta()
-	stateDelta.unmarshal(stateDeltaBytes)
+	stateDelta.Unmarshal(stateDeltaBytes)
 	return stateDelta, nil
 }
 
@@ -168,7 +168,7 @@ func (state *state) addChangesForPersistence(blockNumber uint64, writeBatch *gor
 	stateLogger.Debug("state.addChangesForPersistence()...start")
 	state.stateDelta.addChangesForPersistence(writeBatch)
 
-	serializedStateDelta := state.stateDelta.marshal()
+	serializedStateDelta := state.stateDelta.Marshal()
 	cf := db.GetDBHandle().StateCF
 
 	stateLogger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)

@@ -187,7 +187,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) addChangesForPersistence(writeBa
 // We need to revisit the following when we define proto messages
 // for state related structures for transporting. May be we can
 // completely get rid of custom marshalling / Unmarshalling of a state delta
-func (stateDelta *stateDelta) marshal() (b []byte) {
+func (stateDelta *stateDelta) Marshal() (b []byte) {
 	buffer := proto.NewBuffer([]byte{})
 	err := buffer.EncodeVarint(uint64(len(stateDelta.chaincodeStateDeltas)))
 	if err != nil {
@@ -222,7 +222,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) {
 	return
 }
 
-func (stateDelta *stateDelta) unmarshal(bytes []byte) {
+func (stateDelta *stateDelta) Unmarshal(bytes []byte) {
 	buffer := proto.NewBuffer(bytes)
 	size, err := buffer.DecodeVarint()
 	if err != nil {
