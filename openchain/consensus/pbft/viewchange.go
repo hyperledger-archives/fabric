@@ -45,6 +45,7 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 func (instance *Plugin) sendViewChange() error {
 	instance.stopTimer()
 
+	delete(instance.newViewStore, instance.view)
 	instance.view++
 	instance.activeView = false
 
@@ -198,7 +199,7 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 }
 
 func (instance *Plugin) sendNewView() (err error) {
-	if instance.lastNewView.View == instance.view {
+	if _, ok := instance.newViewStore[instance.view]; ok {
 		return
 	}
 
@@ -228,7 +229,7 @@ func (instance *Plugin) sendNewView() (err error) {
 	if err != nil {
 		return err
 	}
-	instance.lastNewView = *nv
+	instance.newViewStore[instance.view] = nv
 	return instance.processNewView()
 }
 
@@ -236,7 +237,7 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
-	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.lastNewView.View != nv.View) {
+	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
 		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
 			instance.id, nv.ReplicaId, nv.View)
 		return nil
@@ -251,15 +252,13 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 		_ = vc
 	}
 
-	instance.lastNewView = *nv
+	instance.newViewStore[nv.View] = nv
 	return instance.processNewView()
 }
 
 func (instance *Plugin) processNewView() error {
-	// TODO maintain a list of received new-view messages
-	nv := instance.lastNewView
-
-	if nv.View != instance.view {
+	nv, ok := instance.newViewStore[instance.view]
+	if !ok {
 		return nil
 	}
 
@@ -318,6 +317,7 @@ func (instance *Plugin) processNewView() error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
+	delete(instance.newViewStore, instance.view)
 
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{

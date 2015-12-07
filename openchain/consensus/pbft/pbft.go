@@ -90,7 +90,7 @@ type Plugin struct {
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
-	lastNewView     NewView               // track last new-view we received or sent
+	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
 }
 
 type qidx struct {
@@ -186,6 +186,7 @@ func New(c consensus.CPI) *Plugin {
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
+	instance.newViewStore = make(map[uint64]*NewView)
 
 	// initialize genesis checkpoint
 	// TODO load state from disk
