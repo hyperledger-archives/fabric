@@ -31,10 +31,10 @@ import (
 
 func TestStateDeltaMarshalling(t *testing.T) {
 	stateDelta := createTestStateDelta()
-	by := stateDelta.marshal()
+	by := stateDelta.Marshal()
 	t.Logf("length of marshalled bytes = [%d]", len(by))
 	stateDelta1 := newStateDelta()
-	stateDelta1.unmarshal(by)
+	stateDelta1.Unmarshal(by)
 
 	if !reflect.DeepEqual(stateDelta, stateDelta1) {
 		t.Fatalf("Delta state not same. Found=[%s], Expected=[%s]", stateDelta1, stateDelta)
