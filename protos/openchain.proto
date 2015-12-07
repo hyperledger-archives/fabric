@@ -54,6 +54,7 @@ message Block {
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
     bytes previousBlockHash = 5;
+    bytes consensusMetadata = 6;
 }
 // Interface exported by the server.
 service Peer {
