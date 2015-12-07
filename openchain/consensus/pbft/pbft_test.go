@@ -687,28 +687,46 @@ func TestNewViewTimeout(t *testing.T) {
 
 	net := makeTestnet(1, func(inst *Plugin) {
 		inst.newViewTimeout = 100 * time.Millisecond
+		inst.requestTimeout = inst.newViewTimeout
+		inst.lastNewViewTimeout = inst.newViewTimeout
 	})
 	defer net.Close()
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+	msgPacked, _ := proto.Marshal(msg)
+
+	replica1Disabled := false
+
 	go net.processContinually(func(out bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
-		if out && replica == 1 {
+		if out && replica == 1 && replica1Disabled {
 			return nil
 		}
 		return msg
 	})
 
-	net.replicas[0].plugin.newViewTimer.Reset(0)
+	// This will eventually trigger 1's request timeout
+	// We check that one single timed out replica will not keep trying to change views by itself
+	net.replicas[1].plugin.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
 	time.Sleep(1 * time.Second)
 
-	for _, inst := range net.replicas[1:] {
-		inst.plugin.newViewTimer.Reset(0)
-	}
-
+	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
+	// However, we disable 1, which will disable the new-view going through.
+	// This checks that replicas will automatically move to view 2 when the view change times out.
+	// However, 2 does not know about the missing request, and therefore the request will not be
+	// pre-prepared and finally executed.  This will lead to another view-change timeout, even on
+	// the replicas that never saw the request (e.g. 0)
+	// Finally, 3 will be new primary and pre-prepare the missing request.
+	replica1Disabled = true
+	net.replicas[3].plugin.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
 	time.Sleep(1 * time.Second)
 
 	net.Close()
 	for _, inst := range net.replicas {
-		if inst.plugin.view != 2 {
-			t.Fatalf("should have reached view 2")
+		if inst.plugin.view != 3 {
+			t.Fatalf("should have reached view 3")
 		}
 	}
 }

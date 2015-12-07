@@ -78,10 +78,12 @@ type Plugin struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
-	newViewTimer       *time.Timer   // timeout triggering a view change
-	requestTimeout     time.Duration // progress timeout for requests
-	newViewTimeout     time.Duration // progress timeout for new views
-	lastNewViewTimeout time.Duration // last timeout we used during this view change
+	newViewTimer       *time.Timer         // timeout triggering a view change
+	timerActive        bool                // is the timer running?
+	requestTimeout     time.Duration       // progress timeout for requests
+	newViewTimeout     time.Duration       // progress timeout for new views
+	lastNewViewTimeout time.Duration       // last timeout we used during this view change
+	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 
 	// Implementation of PBFT `in`
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
@@ -221,6 +223,8 @@ func New(c consensus.CPI) *Plugin {
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
+	instance.lastNewViewTimeout = instance.newViewTimeout
+	instance.outstandingReqs = make(map[string]*Request)
 
 	instance.c = make(chan *Message, 100)
 	go instance.msgPump()
@@ -426,6 +430,10 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	//   return err
 	// }
 	instance.reqStore[digest] = req
+	instance.outstandingReqs[digest] = req
+	if !instance.timerActive {
+		instance.startTimer(instance.requestTimeout)
+	}
 
 	n := instance.seqNo + 1
 
@@ -502,6 +510,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 		//   return err
 		// }
 		instance.reqStore[digest] = preprep.Request
+		instance.outstandingReqs[digest] = preprep.Request
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
@@ -621,6 +630,14 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		if err == nil {
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
+
+		delete(instance.outstandingReqs, digest)
+	}
+
+	instance.stopTimer()
+	instance.lastNewViewTimeout = instance.newViewTimeout
+	if len(instance.outstandingReqs) > 0 {
+		instance.newViewTimer.Reset(instance.requestTimeout)
 	}
 
 	if instance.lastExec%instance.K == 0 {
@@ -745,6 +762,25 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 	}
 	err = instance.cpi.Broadcast(msgWrapped)
 	return err
+}
+
+func (instance *Plugin) startTimer(timeout time.Duration) {
+	instance.newViewTimer.Reset(timeout)
+	instance.timerActive = true
+}
+
+func (instance *Plugin) stopTimer() {
+	// remove timeouts that may have raced, to prevent additional view change
+	instance.newViewTimer.Stop()
+	instance.timerActive = false
+loop:
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+		default:
+			break loop
+		}
+	}
 }
 
 // A getter for the values listed in `config.yaml`.

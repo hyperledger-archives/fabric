@@ -45,21 +45,7 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 }
 
 func (instance *Plugin) sendViewChange() error {
-	if instance.activeView {
-		instance.lastNewViewTimeout = instance.newViewTimeout
-	} else {
-		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
-	}
-	// remove timeouts that may have raced, to prevent additional view change
-	instance.newViewTimer.Stop()
-loop:
-	for {
-		select {
-		case <-instance.newViewTimer.C:
-		default:
-			break loop
-		}
-	}
+	instance.stopTimer()
 
 	instance.view++
 	instance.activeView = false
@@ -202,7 +188,8 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 		}
 	}
 	if vc.View == instance.view && quorum == 2*instance.f+1 {
-		instance.newViewTimer.Reset(instance.lastNewViewTimeout)
+		instance.startTimer(instance.lastNewViewTimeout)
+		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 	}
 
 	if instance.getPrimary(instance.view) == instance.id {
@@ -332,8 +319,6 @@ func (instance *Plugin) processNewView() error {
 
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
-	// TODO wait for first request to execute before stopping timer
-	instance.newViewTimer.Stop()
 	instance.activeView = true
 
 	for n, d := range nv.Xset {
@@ -362,6 +347,19 @@ func (instance *Plugin) processNewView() error {
 			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
 			instance.broadcast(&Message{&Message_Prepare{prep}}, true)
+		}
+	} else {
+	outer:
+		for d, req := range instance.outstandingReqs {
+			for _, cert := range instance.certStore {
+				if cert.prePrepare != nil && cert.prePrepare.RequestDigest == d {
+					continue outer
+				}
+			}
+
+			// This is a request that has not been pre-prepared yet
+			// Trigger request processing again.
+			instance.recvRequest(req)
 		}
 	}
 
