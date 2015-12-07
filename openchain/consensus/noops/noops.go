@@ -47,18 +47,30 @@ func init() {
 // Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
 	cpi consensus.CPI
+	txQ *Queue
 }
+
+var iNoops consensus.Consenter
 
 // =============================================================================
 // Constructors go here
 // =============================================================================
 
-// New is a constructor returning a consensus.Consenter object.
-func New(c consensus.CPI) consensus.Consenter {
+// NewNoops is a constructor returning a consensus.Consenter object.
+func NewNoops(c consensus.CPI) consensus.Consenter {
 	logger.Debug("Creating a NOOPS object")
 	i := &Noops{}
 	i.cpi = c
+	i.txQ = NewQueue()
 	return i
+}
+
+// GetNoops returns a singleton of NOOPS
+func GetNoops(c consensus.CPI) consensus.Consenter {
+	if iNoops == nil {
+		iNoops = NewNoops(c)
+	}
+	return iNoops
 }
 
 // RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
@@ -71,12 +83,13 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 	}
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		txarr, err := i.getTransactions(msg)
+		txarr, err := i.getTransactionsFromMsg(msg)
 		if nil != err {
 			return err
 		}
 		if i.canProcess(txarr) {
-			return i.doTransactions(txarr, msg)
+			i.txQ.Push(txarr)
+			return i.doTransactions(msg)
 		}
 		i.queueTransactions(txarr)
 	}
@@ -105,7 +118,7 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (i *Noops) getTransactions(msg *pb.OpenchainMessage) ([]*pb.Transaction, error) {
+func (i *Noops) getTransactionsFromMsg(msg *pb.OpenchainMessage) ([]*pb.Transaction, error) {
 	txs := &pb.TransactionBlock{}
 	if err := proto.Unmarshal(msg.Payload, txs); err != nil {
 		return nil, err
@@ -113,21 +126,38 @@ func (i *Noops) getTransactions(msg *pb.OpenchainMessage) ([]*pb.Transaction, er
 	return txs.GetTransactions(), nil
 }
 
+func (i *Noops) getTransactionsFromQueue() []*pb.Transaction {
+	var txarr []*pb.Transaction
+	txs := i.txQ.Pop().([]*pb.Transaction)
+	for k := 0; nil != txs; k++ {
+		txarr[k] = txs[0]
+		txs = i.txQ.Pop().([]*pb.Transaction)
+	}
+	return txarr
+}
+
 func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
 	// TODO: Figure out whether we have the current state or not
+
+	// For NOOPS, if we have completed the sync since we last connected,
+	// we can assume that we are at the current state; otherwise, we need to
+	// wait for the sync process to complete before we can exec the transactions
 	return true
 }
 
-func (i *Noops) doTransactions(txarr []*pb.Transaction, msg *pb.OpenchainMessage) error {
+func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	logger.Debug("Executing transactions")
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Fail to get the ledger: %v", err)
 	}
+	logger.Debug("message timestamp: %v", msg.Timestamp)
 	if err := ledger.BeginTxBatch(msg.Timestamp); err != nil {
 		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
 	}
 
+	// Grab all transactions from the FIFO queue and run them in order
+	txarr := i.getTransactionsFromQueue()
 	_, errs := i.cpi.ExecTXs(txarr)
 
 	//there are n+1 elements of errors in this array. On complete success
@@ -157,6 +187,7 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 	if nil != err {
 		return err
 	}
+	//delta, err := ledger.GetStateDeltaBytes(blockHeight)
 	delta, err := ledger.GetStateDelta(blockHeight)
 	if nil != err {
 		return err
@@ -176,6 +207,7 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 }
 
 func (i *Noops) queueTransactions(txarr []*pb.Transaction) {
-	// TODO
 	logger.Debug("Queueing transactions")
+	i.txQ.Push(txarr)
+	logger.Debug("Transaction queue size: %d", i.txQ.Size())
 }

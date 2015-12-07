@@ -52,7 +52,7 @@ func NewConsenter(cpi consensus.CPI) consensus.Consenter {
 		algo = pbft.GetPlugin(cpi)
 	} else {
 		logger.Debug("Running with NOOPS consensus")
-		algo = noops.New(cpi)
+		algo = noops.GetNoops(cpi)
 	}
 	return algo
 }
