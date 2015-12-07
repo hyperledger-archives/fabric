@@ -398,7 +398,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
 	// TODO verify transaction
-	// if err := instance.cpi.VerifyTransaction(...); err != nil {
+	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
 	//   logger.Warning("Invalid request");
 	//   return err
 	// }
@@ -477,7 +477,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			return nil
 		}
 		// TODO verify transaction
-		// if err := instance.cpi.VerifyTransaction(...); err != nil {
+		// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
 		//   logger.Warning("Invalid request");
 		//   return err
 		// }
@@ -606,6 +606,12 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(req.Payload, tx)
 		if err == nil {
+			// TODO verify transaction
+			// if tx, err = instance.cpi.TransactionPreExecution(...); err != nil {
+			//   logger.Error("Invalid request");
+			// } else {
+			// ...
+			// }
 			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
