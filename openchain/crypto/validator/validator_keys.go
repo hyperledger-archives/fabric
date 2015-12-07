@@ -21,8 +21,8 @@ package validator
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 )
 
@@ -32,7 +32,7 @@ func (validator *Validator) createKeyStorage() error {
 }
 
 func (validator *Validator) retrieveEnrollmentData(userId, pwd string) error {
-	key, enrollCertRaw, err := validator.getEnrollmentCertificateFromECA(userId, pwd)
+	key, enrollCertRaw, enrollChainKey, err := validator.getEnrollmentCertificateFromECA(userId, pwd)
 	if err != nil {
 		log.Error("Failed getting enrollment certificate %s", err)
 
@@ -86,6 +86,14 @@ func (validator *Validator) retrieveEnrollmentData(userId, pwd string) error {
 	err = ioutil.WriteFile(getEnrollmentIDPath(), []byte(userId), 0700)
 	if err != nil {
 		log.Error("Failed storing enrollment certificate: %s", err)
+		return err
+	}
+
+	// Store enrollment chain key
+	log.Info("Storing chain key %s", utils.EncodeBase64(enrollChainKey))
+	err = ioutil.WriteFile(getEnrollmentChainKeyPath(), utils.AEStoPEM(enrollChainKey), 0700)
+	if err != nil {
+		log.Error("Failed storing enrollment chain key [id=%s]: %s", userId, err)
 		return err
 	}
 
@@ -161,4 +169,26 @@ func (validator *Validator) loadEnrollmentID() error {
 	log.Info("Setting enrollment id to [%s]", validator.enrollId)
 
 	return nil
+}
+
+func (validator *Validator) loadEnrollmentChainKey(pwd []byte) error {
+	log.Info("Loading enrollment chain key at %s...", getEnrollmentChainKeyPath())
+
+	pem, err := ioutil.ReadFile(getEnrollmentChainKeyPath())
+	if err != nil {
+		log.Error("Failed loading enrollment chain key: %s", err.Error())
+
+		return err
+	}
+
+	enrollChainKey, err := utils.PEMtoAES(pem, pwd)
+	if err != nil {
+		log.Error("Failed parsing enrollment chain  key: %s", err.Error())
+
+		return err
+	}
+	validator.enrollChainKey = enrollChainKey
+
+	return nil
+
 }

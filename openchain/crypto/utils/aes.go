@@ -33,6 +33,10 @@ const (
 	AES_KEY_LENGTH_BYTES = 32
 )
 
+func GenAESKey() ([]byte, error) {
+	return GetRandomBytes(AES_KEY_LENGTH_BYTES)
+}
+
 func PKCS7Padding(src []byte) []byte {
 	padding := aes.BlockSize - len(src)%aes.BlockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)

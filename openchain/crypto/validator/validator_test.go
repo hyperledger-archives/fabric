@@ -22,15 +22,15 @@ package validator
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto/client"
 	"fmt"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto/client"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"sync"
 	"testing"
-	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"time"
 )
 
@@ -99,10 +99,10 @@ func TestID(t *testing.T) {
 	}
 }
 
-func TestDeployTransactionPreValidation(t *testing.T) {
+func TestDeployTransaction(t *testing.T) {
 	tx, err := mockDeployTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+		t.Fatalf("Failed creating deploy transaction: %s", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
@@ -112,12 +112,20 @@ func TestDeployTransactionPreValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
 	}
+
+	res, err = validator.TransactionPreExecution(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
+	}
+	if err != nil {
+		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+	}
 }
 
-func TestInvokeTransactionPreValidation(t *testing.T) {
+func TestInvokeTransaction(t *testing.T) {
 	tx, err := mockInvokeTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+		t.Fatalf("Failed creating invoke transaction: %s", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
@@ -127,36 +135,16 @@ func TestInvokeTransactionPreValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
 	}
-}
 
-func TestDeployTransactionPreExecution(t *testing.T) {
-	tx, err := mockDeployTransaction()
-	if err != nil {
-		t.Fatalf("TransactionPreExecution: failed creating transaction: %s", err)
-	}
-
-	res, err := validator.TransactionPreExecution(tx)
+	res, err = validator.TransactionPreExecution(tx)
 	if res == nil {
 		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
 	}
 	if err != nil {
 		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
 	}
-}
 
-func TestInvokeTransactionPreExecution(t *testing.T) {
-	tx, err := mockInvokeTransaction()
-	if err != nil {
-		t.Fatalf("TransactionPreExecution: failed creating transaction: %s", err)
-	}
-
-	res, err := validator.TransactionPreExecution(tx)
-	if res == nil {
-		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
-	}
-	if err != nil {
-		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
-	}
+	t.Log("tx to String: %s", tx.String())
 }
 
 func TestSignVerify(t *testing.T) {

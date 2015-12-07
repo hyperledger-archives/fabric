@@ -105,6 +105,14 @@ func getEnrollmentIDFilename() string {
 	return "enrollment.id"
 }
 
+func getEnrollmentChainKeyPath() string {
+	return filepath.Join(getKeysPath(), getEnrollmentChainKeyFilename())
+}
+
+func getEnrollmentChainKeyFilename() string {
+	return "chain.key"
+}
+
 func getTCACertsChainPath() string {
 	return filepath.Join(getKeysPath(), getTCACertsChainFilename())
 }

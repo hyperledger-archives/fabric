@@ -25,8 +25,8 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	_ "github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -55,6 +55,9 @@ type Client struct {
 	enrollId      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey *ecdsa.PrivateKey
+
+	// Enrollment Chain
+	enrollChainKey []byte
 }
 
 // Public Methods
@@ -166,8 +169,28 @@ func (client *Client) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.
 		return nil, err
 	}
 
-	// TODO: implement like this.
-	// getNextTCert returns only a TCert
+	// TODO: confidentiality
+
+	// 1. set confidentiality level and nonce
+	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
+	tx.Nonce, err = utils.GetRandomBytes(32) // TODO: magic number?
+	if err != nil {
+		log.Error("Failed creating nonce %s:", err)
+		return nil, err
+	}
+
+	// 2. encrypt and set payload
+	ct, err := client.encryptPayload(tx)
+	if err != nil {
+		log.Error("Failed encrypting payload %s:", err)
+		return nil, err
+	}
+	tx.Payload = ct
+	log.Info("Payload %s", utils.EncodeBase64(tx.Payload))
+
+	// TODO: Sign the transaction
+
+	// Implement like this: getNextTCert returns only a TCert
 	// Then, invoke signWithTCert to sign the signature
 
 	// Get next available (not yet used) transaction certificate
@@ -220,8 +243,27 @@ func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.Cha
 		return nil, err
 	}
 
-	// TODO: implement like this.
-	// getNextTCert returns only a TCert
+	// TODO: confidentiality
+
+	// 1. set confidentiality level and nonce
+	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
+	tx.Nonce, err = utils.GetRandomBytes(32) // TODO: magic number?
+	if err != nil {
+		log.Error("Failed creating nonce %s:", err)
+		return nil, err
+	}
+
+	// 2. encrypt and set payload
+	ct, err := client.encryptPayload(tx)
+	if err != nil {
+		log.Error("Failed encrypting payload %s:", err)
+		return nil, err
+	}
+	tx.Payload = ct
+
+	// TODO: Sign the transaction
+
+	// Implement like this: getNextTCert returns only a TCert
 	// Then, invoke signWithTCert to sign the signature
 
 	// Get next available (not yet used) transaction certificate
@@ -260,48 +302,13 @@ func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.Cha
 	return tx, nil
 }
 
-// Private Methods
-
-func (client *Client) initCryptoEngine() error {
-	log.Info("Initialing Crypto Engine...")
-
-	client.rootsCertPool = x509.NewCertPool()
-
-	// Load ECA certs chain
-	if err := client.loadECACertsChain(); err != nil {
-		return err
-	}
-
-	// Load TCA certs chain
-	if err := client.loadTCACertsChain(); err != nil {
-		return err
-	}
-
-	// Load enrollment secret key
-	// TODO: finalize encrypted pem support
-	if err := client.loadEnrollmentKey(nil); err != nil {
-		return err
-	}
-
-	// Load enrollment certificate
-	if err := client.loadEnrollmentCertificate(); err != nil {
-		return err
-	}
-
-	// Load enrollment id
-	if err := client.loadEnrollmentID(); err != nil {
-		return err
-	}
-
-	log.Info("Initialing Crypto Engine...done!")
-	return nil
-}
-
 func (client *Client) Close() error {
 	getDBHandle().CloseDB()
 
 	return nil
 }
+
+// Private Methods
 
 // CheckTransaction is used to verify that a transaction
 // is well formed with the respect to the security layer

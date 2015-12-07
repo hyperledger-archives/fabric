@@ -25,9 +25,9 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	_ "github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/crypto/peer"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -40,6 +40,7 @@ var ErrModuleAlreadyInitialized error = errors.New("Validator Security Module Al
 var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
 var ErrTransactionCertificate error = errors.New("Missing Transaction Certificate.")
 var ErrTransactionSignature error = errors.New("Missing Transaction Signature.")
+var ErrInvalidPayloadNilOrEmpty error = errors.New("Invalid payload. Nil or empty")
 
 var ErrInvalidSignature error = errors.New("Invalid Signature.")
 
@@ -65,6 +66,9 @@ type Validator struct {
 	enrollId      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey interface{}
+
+	// Enrollment Chain
+	enrollChainKey []byte
 }
 
 // Public Methods
@@ -175,13 +179,15 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 	}
 
 	if tx.Cert != nil && tx.Signature != nil {
-		log.Info("TransactionPreValidation: executing...")
+		// TODO: validating signature (and ciphertexts?)
+
+		log.Info("Validating signature...")
 
 		// Verify the transaction
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			log.Error("TransactionPreExecution: failed unmarshalling cert %s:", err)
+			log.Error("Failed unmarshalling cert: %s", err)
 			return tx, err
 		}
 		// TODO: verify cert
@@ -191,7 +197,7 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			log.Error("Failed marshaling tx %s:", err)
 			return tx, err
 		}
 		tx.Signature = signature
@@ -199,12 +205,32 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 		// 2. Verify signature
 		ok, err := validator.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			log.Error("Failed verifying tx signature: %s", err)
 			return tx, err
 		}
-
 		if !ok {
 			return tx, ErrInvalidTransactionSignature
+		}
+
+		// Confidentiality
+		switch tx.ConfidentialityLevel {
+		case obc.Transaction_CHAINCODE_PUBLIC:
+
+			break
+		case obc.Transaction_CHAINCODE_CONFIDENTIAL:
+			// Check that all the required fields are there.
+
+			if tx.Payload == nil || len(tx.Payload) == 0 {
+				return nil, ErrInvalidPayloadNilOrEmpty
+			}
+
+			// TODO: shall we try to decrypt?
+			_, err := validator.decryptPayload(tx)
+			if err != nil {
+				log.Error("Failed decrypting payload: %s", err)
+
+				return nil, err
+			}
 		}
 	} else {
 		if tx.Cert == nil {
@@ -226,6 +252,22 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 func (validator *Validator) TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error) {
 	if !validator.isInitialized {
 		return nil, ErrModuleNotInitialized
+	}
+
+	switch tx.ConfidentialityLevel {
+	case obc.Transaction_CHAINCODE_PUBLIC:
+		// TODO: Nothing to do here?
+
+		break
+	case obc.Transaction_CHAINCODE_CONFIDENTIAL:
+		// Decrypt payload
+		payload, err := validator.decryptPayload(tx)
+		if err != nil {
+			log.Error("Failed decrypting payload: %s", err)
+
+			return nil, err
+		}
+		tx.Payload = payload
 	}
 
 	return tx, nil
@@ -264,45 +306,6 @@ func (validator *Validator) Verify(vkID, signature, message []byte) error {
 
 func (validator *Validator) Close() error {
 	getDBHandle().CloseDB()
-
-	return nil
-}
-
-// Private Methods
-
-func (validator *Validator) initCryptoEngine() error {
-	log.Info("Initialing Crypto Engine...")
-
-	validator.rootsCertPool = x509.NewCertPool()
-	validator.enrollCerts = make(map[string]*x509.Certificate)
-
-	// Load ECA certs chain
-	if err := validator.loadECACertsChain(); err != nil {
-		return err
-	}
-
-	// Load TCA certs chain
-	if err := validator.loadTCACertsChain(); err != nil {
-		return err
-	}
-
-	// Load enrollment secret key
-	// TODO: finalize encrypted pem support
-	if err := validator.loadEnrollmentKey(nil); err != nil {
-		return err
-	}
-
-	// Load enrollment certificate and set validator ID
-	if err := validator.loadEnrollmentCertificate(); err != nil {
-		return err
-	}
-
-	// Load enrollment id
-	if err := validator.loadEnrollmentID(); err != nil {
-		return err
-	}
-
-	log.Info("Initialing Crypto Engine...done!")
 
 	return nil
 }

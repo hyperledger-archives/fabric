@@ -29,10 +29,14 @@ import (
 
 	"errors"
 	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"io/ioutil"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+)
+
+var (
+	mockKey []byte = []byte("a very very very very secret key")
 )
 
 func (client *Client) retrieveECACertsChain(userId string) error {
@@ -127,13 +131,13 @@ func (client *Client) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 	return cert, nil
 }
 
-func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
+func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
 		log.Error("Failed generating key: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Prepare the request
@@ -148,7 +152,9 @@ func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
-		panic(err)
+		log.Error("Failed signing request: %s", err)
+
+		return nil, nil, nil, err
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
@@ -158,7 +164,7 @@ func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	if err != nil {
 		log.Error("Failed requesting enrollment certificate: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	log.Info("Verifing enrollment certificate...")
@@ -170,7 +176,7 @@ func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	log.Info("Verifing enrollment certificate...done!")
 
 	// Verify pbCert.Cert
-	return priv, pbCert.Cert, nil
+	return priv, pbCert.Cert, mockKey, nil
 }
 
 func (client *Client) getECACertificate() ([]byte, error) {

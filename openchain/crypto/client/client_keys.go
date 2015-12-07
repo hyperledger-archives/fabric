@@ -21,8 +21,8 @@ package client
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 )
 
@@ -32,7 +32,7 @@ func (client *Client) createKeyStorage() error {
 }
 
 func (client *Client) retrieveEnrollmentData(userId, pwd string) error {
-	key, enrollCertRaw, err := client.getEnrollmentCertificateFromECA(userId, pwd)
+	key, enrollCertRaw, enrollChainKey, err := client.getEnrollmentCertificateFromECA(userId, pwd)
 	if err != nil {
 		log.Error("Failed getting enrollment certificate [id=%s] %s", userId, err)
 
@@ -67,6 +67,14 @@ func (client *Client) retrieveEnrollmentData(userId, pwd string) error {
 	err = ioutil.WriteFile(getEnrollmentIDPath(), []byte(userId), 0700)
 	if err != nil {
 		log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
+		return err
+	}
+
+	// Store enrollment chain key
+	log.Info("Storing chain key %s", utils.EncodeBase64(enrollChainKey))
+	err = ioutil.WriteFile(getEnrollmentChainKeyPath(), utils.AEStoPEM(enrollChainKey), 0700)
+	if err != nil {
+		log.Error("Failed storing enrollment chain key [id=%s]: %s", userId, err)
 		return err
 	}
 
@@ -142,4 +150,26 @@ func (client *Client) loadEnrollmentID() error {
 	log.Info("Setting enrollment id to [%s]", client.enrollId)
 
 	return nil
+}
+
+func (client *Client) loadEnrollmentChainKey(pwd []byte) error {
+	log.Info("Loading enrollment chain key at %s...", getEnrollmentChainKeyPath())
+
+	pem, err := ioutil.ReadFile(getEnrollmentChainKeyPath())
+	if err != nil {
+		log.Error("Failed loading enrollment chain key: %s", err.Error())
+
+		return err
+	}
+
+	enrollChainKey, err := utils.PEMtoAES(pem, pwd)
+	if err != nil {
+		log.Error("Failed parsing enrollment chain  key: %s", err.Error())
+
+		return err
+	}
+	client.enrollChainKey = enrollChainKey
+
+	return nil
+
 }

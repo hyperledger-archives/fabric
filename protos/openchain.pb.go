@@ -51,6 +51,26 @@ func (x Transaction_Type) String() string {
 	return proto.EnumName(Transaction_Type_name, int32(x))
 }
 
+type Transaction_CType int32
+
+const (
+	Transaction_CHAINCODE_PUBLIC       Transaction_CType = 0
+	Transaction_CHAINCODE_CONFIDENTIAL Transaction_CType = 1
+)
+
+var Transaction_CType_name = map[int32]string{
+	0: "CHAINCODE_PUBLIC",
+	1: "CHAINCODE_CONFIDENTIAL",
+}
+var Transaction_CType_value = map[string]int32{
+	"CHAINCODE_PUBLIC":       0,
+	"CHAINCODE_CONFIDENTIAL": 1,
+}
+
+func (x Transaction_CType) String() string {
+	return proto.EnumName(Transaction_CType_name, int32(x))
+}
+
 type PeerEndpoint_Type int32
 
 const (
@@ -168,13 +188,15 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type        Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
-	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
+	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	ConfidentialityLevel Transaction_CType          `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.Transaction_CType" json:"confidentialityLevel,omitempty"`
+	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,8,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,9,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -405,6 +427,7 @@ func (*SyncState) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
+	proto.RegisterEnum("protos.Transaction_CType", Transaction_CType_name, Transaction_CType_value)
 	proto.RegisterEnum("protos.PeerEndpoint_Type", PeerEndpoint_Type_name, PeerEndpoint_Type_value)
 	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
 	proto.RegisterEnum("protos.Response_StatusCode", Response_StatusCode_name, Response_StatusCode_value)

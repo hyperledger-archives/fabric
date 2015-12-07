@@ -98,6 +98,28 @@ func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	return cert, err
 }
 
+func PEMtoAES(raw []byte, pwd []byte) ([]byte, error) {
+	block, _ := pem.Decode(raw)
+
+	if x509.IsEncryptedPEMBlock(block) {
+		if pwd == nil {
+			return nil, errors.New("Encrypted Key. Need a password!!!")
+		}
+
+		decrypted, err := x509.DecryptPEMBlock(block, pwd)
+		if err != nil {
+			return nil, err
+		}
+		return decrypted, nil
+	}
+
+	return block.Bytes, nil
+}
+
+func AEStoPEM(raw []byte) []byte {
+	return pem.EncodeToMemory(&pem.Block{Type: "AES PRIVATE KEY", Bytes: raw})
+}
+
 func PublicKeyToBytes(publicKey interface{}) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(publicKey)
 }
