@@ -157,12 +157,12 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 	if nil != err {
 		return err
 	}
-	delta, err := ledger.GetStateDeltaBytes(blockHeight)
+	delta, err := ledger.GetStateDelta(blockHeight)
 	if nil != err {
 		return err
 	}
 
-	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta})
+	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}

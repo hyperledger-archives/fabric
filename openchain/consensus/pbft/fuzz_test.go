@@ -109,7 +109,7 @@ func TestMinimalFuzz(t *testing.T) {
 	for reqid := 1; reqid < 30; reqid++ {
 		if reqid%3 == 0 {
 			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.replicas))
-			println("fuzzing node", fuzzer.fuzzNode)
+			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
 		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -171,7 +171,7 @@ func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter *pb.Openchain
 		panic("could not unmarshal")
 	}
 
-	println("will fuzz", msg)
+	fmt.Printf("Will fuzz %v\n", msg)
 
 	if m := msg.GetPrePrepare(); m != nil {
 		f.fuzzPayload(m)
@@ -210,11 +210,11 @@ func (f *protoFuzzer) fuzzPayload(s interface{}) {
 		fields = append(fields, t.Field(i).Name)
 	}
 
-	i := f.r.Intn(len(elems))
-	e := elems[i]
-	fld := fields[i]
-	println(fmt.Sprintf("fuzzing %s:%v", fld, e))
-	f.Fuzz(e)
+	idx := f.r.Intn(len(elems))
+	elm := elems[idx]
+	fld := fields[idx]
+	fmt.Printf("Fuzzing %s:%v\n", fld, elm)
+	f.Fuzz(elm)
 }
 
 func (f *protoFuzzer) Fuzz(v reflect.Value) {
@@ -264,7 +264,7 @@ func (f *protoFuzzer) Fuzz(v reflect.Value) {
 	case reflect.Map:
 		// TODO fuzz map
 	default:
-		panic(fmt.Sprintf("not fuzzing %v %+v", v.Kind(), v))
+		panic(fmt.Sprintf("Not fuzzing %v %+v", v.Kind(), v))
 	}
 }
 
@@ -288,7 +288,7 @@ func (f *protoFuzzer) fuzzyInt() int64 {
 	if rand.Intn(2) == 0 {
 		i = -i
 	}
-	println("changing int by", i)
+	fmt.Printf("Changing int by %d\n", i)
 	return i
 }
 

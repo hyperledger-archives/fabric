@@ -19,9 +19,7 @@ under the License.
 
 package pbft
 
-import (
-	"reflect"
-)
+import "reflect"
 
 func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {

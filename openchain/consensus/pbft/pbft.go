@@ -22,7 +22,6 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +64,7 @@ type Plugin struct {
 
 	// PBFT data
 	activeView   bool              // view change happening
+	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
 	f            int               // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
@@ -86,8 +86,8 @@ type Plugin struct {
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 
 	// Implementation of PBFT `in`
-	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	reqStore        map[string]*Request   // track requests
+	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	lastNewView     NewView               // track last new-view we received or sent
@@ -135,6 +135,10 @@ func New(c consensus.CPI) *Plugin {
 	instance := &Plugin{}
 	instance.cpi = c
 
+	// set ID
+	address, _ := instance.cpi.GetReplicaAddress(true)
+	instance.id, _ = instance.cpi.GetReplicaID(address[0])
+
 	// setup the link to the config file
 	instance.config = viper.New()
 
@@ -155,64 +159,31 @@ func New(c consensus.CPI) *Plugin {
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
 
-	// replica ID
-	paramID, err := instance.getParam("replica.id")
-	if err != nil {
-		panic(fmt.Errorf("No ID assigned to the replica: %s", err))
-	}
-	instance.id, err = strconv.ParseUint(paramID, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config ID to uint64: %s", err))
-	}
-	// byzantine nodes
-	paramF, err := instance.getParam("general.f")
-	if err != nil {
-		panic(fmt.Errorf("No f defined in the config file: %s", err))
-	}
-	f, err := strconv.ParseUint(paramF, 10, 0)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config f to uint64: %s", err))
-	}
-	instance.f = int(f)
-	// replica count
-	instance.replicaCount = 3*instance.f + 1
-	// checkpoint period
-	paramK, err := instance.getParam("general.K")
-	if err != nil {
-		panic(fmt.Errorf("Checkpoint period is not defined: %s", err))
-	}
-	instance.K, err = strconv.ParseUint(paramK, 10, 64)
-	if err != nil {
-		panic(fmt.Errorf("Cannot convert config checkpoint period to uint64: %s", err))
-	}
-	paramRequestTimeout, err := instance.getParam("general.timeout.request")
-	if err != nil {
-		panic(fmt.Errorf("No request timeout defined"))
-	}
-	instance.requestTimeout, err = time.ParseDuration(paramRequestTimeout)
+	// read from the config file
+	// you can override the config values with the
+	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
+	instance.byzantine = instance.config.GetBool("replica.byzantine")
+	instance.f = instance.config.GetInt("general.f")
+	instance.K = uint64(instance.config.GetInt("general.K"))
+	instance.requestTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
 	}
-	paramNewViewTimeout, err := instance.getParam("general.timeout.request")
-	if err != nil {
-		panic(fmt.Errorf("No new view timeout defined"))
-	}
-	instance.newViewTimeout, err = time.ParseDuration(paramNewViewTimeout)
+	instance.newViewTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.viewchange"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
 	}
 
-	// log size
-	instance.L = 2 * instance.K
-
 	instance.activeView = true
+	instance.L = 2 * instance.K // log size
+	instance.replicaCount = 3*instance.f + 1
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.chkpts = make(map[uint64]string)
+	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 
@@ -226,6 +197,7 @@ func New(c consensus.CPI) *Plugin {
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 
+	// to control concurrency in arriving messages
 	instance.c = make(chan *Message, 100)
 	go instance.msgPump()
 
@@ -472,8 +444,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 
 func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
-		instance.id, preprep.ReplicaId, preprep.View,
-		preprep.SequenceNumber)
+		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
 		return nil
@@ -523,6 +494,11 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			RequestDigest:  preprep.RequestDigest,
 			ReplicaId:      instance.id,
 		}
+
+		if instance.byzantine {
+			prep.RequestDigest = "foo"
+		}
+
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
 
@@ -588,6 +564,7 @@ func (instance *Plugin) executeOutstanding() error {
 		retry = false
 		for idx := range instance.certStore {
 			if instance.executeOne(idx) {
+				// range over the certStore again
 				retry = true
 				break
 			}
@@ -628,6 +605,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(req.Payload, tx)
 		if err == nil {
+			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
 			instance.cpi.ExecTXs([]*pb.Transaction{tx})
 		}
 
@@ -682,8 +660,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	// If we do not have this checkpoint locally, we should not
-	// clear our state.
+	// If we do not have this checkpoint locally, we should not clear our state.
 	// PBFT: This diverges from the paper.
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		// XXX fetch checkpoint from other replica
@@ -781,16 +758,6 @@ loop:
 			break loop
 		}
 	}
-}
-
-// A getter for the values listed in `config.yaml`.
-func (instance *Plugin) getParam(param string) (val string, err error) {
-	if ok := instance.config.IsSet(param); !ok {
-		err := fmt.Errorf("Key %s does not exist in algo config", param)
-		return "nil", err
-	}
-	val = instance.config.GetString(param)
-	return val, nil
 }
 
 func hashReq(req *Request) (digest string) {

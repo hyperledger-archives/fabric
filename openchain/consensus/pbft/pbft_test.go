@@ -20,9 +20,11 @@ under the License.
 package pbft
 
 import (
+	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -63,33 +65,6 @@ func TestEnvOverride(t *testing.T) {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
 
-}
-
-func TestGetParam(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-	defer instance.Close()
-
-	key := "general.name" // for a key that exists
-	realVal := "pbft"     // expected value
-
-	testVal, err := instance.getParam(key) // read key
-	// Error should be nil, since the key exists.
-	if err != nil {
-		t.Fatalf("Error when retrieving value for existing key %s: %s", key, err)
-	}
-	// Values should match.
-	if testVal != realVal {
-		t.Fatalf("Expected value %s for key %s, got %s instead", realVal, key, testVal)
-	}
-
-	// read key
-	key = "non.existing.key"
-	_, err = instance.getParam(key)
-	// Error should not be nil, since the key does not exist.
-	if err == nil {
-		t.Fatal("Expected error since retrieving value for non-existing key, got nil instead")
-	}
 }
 
 func TestRecvRequest(t *testing.T) {
@@ -204,7 +179,7 @@ func TestIncompletePayload(t *testing.T) {
 	checkMsg(&Message{}, "Expected to reject empty message")
 	checkMsg(&Message{&Message_Request{&Request{}}}, "Expected to reject empty request")
 	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "Expected to reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject incomplete pre-prepare")
 }
 
 // =============================================================================
@@ -222,13 +197,15 @@ type taggedMsg struct {
 }
 
 type testnet struct {
-	cond     *sync.Cond
-	closed   bool
-	replicas []*instance
-	msgs     []taggedMsg
+	cond      *sync.Cond
+	closed    bool
+	replicas  []*instance
+	msgs      []taggedMsg
+	addresses []string
 }
 
 type instance struct {
+	address  string
 	id       int
 	plugin   *Plugin
 	net      *testnet
@@ -238,6 +215,18 @@ type instance struct {
 // =============================================================================
 // Interface implementations
 // =============================================================================
+
+func (mock *mockCPI) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		addresses = append(addresses, "0")
+		return addresses, nil
+	}
+	panic("not implemented")
+}
+
+func (mock *mockCPI) GetReplicaID(address string) (id uint64, err error) {
+	return uint64(0), nil
+}
 
 func (mock *mockCPI) Broadcast(msg *pb.OpenchainMessage) error {
 	mock.broadcasted = append(mock.broadcasted, msg)
@@ -251,6 +240,24 @@ func (mock *mockCPI) Unicast(msgPayload []byte, dest string) error {
 func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	mock.executed = append(mock.executed, txs)
 	return []byte("hash"), make([]error, len(txs)+1)
+}
+
+func (inst *instance) GetReplicaAddress(self bool) (addresses []string, err error) {
+	if self {
+		addresses = append(addresses, inst.address)
+		return addresses, nil
+	}
+	return inst.net.addresses, nil
+}
+
+func (inst *instance) GetReplicaID(address string) (id uint64, err error) {
+	for i, v := range inst.net.addresses {
+		if v == address {
+			return uint64(i), nil
+		}
+	}
+	err = fmt.Errorf("Couldn't find address in list of addresses in testnet")
+	return uint64(0), err
 }
 
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
@@ -364,7 +371,7 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 	net := &testnet{}
 	net.cond = sync.NewCond(&sync.Mutex{})
 	for i := 0; i < replicaCount; i++ {
-		inst := &instance{id: i, net: net}
+		inst := &instance{address: strconv.Itoa(i), id: i, net: net}
 		inst.plugin = New(inst)
 		inst.plugin.id = uint64(i)
 		inst.plugin.replicaCount = replicaCount
@@ -373,6 +380,7 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 			fn(inst.plugin)
 		}
 		net.replicas = append(net.replicas, inst)
+		net.addresses = append(net.addresses, inst.address)
 	}
 
 	return net

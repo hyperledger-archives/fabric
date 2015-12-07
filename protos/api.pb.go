@@ -38,6 +38,9 @@ It has these top-level messages:
 	OpenchainMessage
 	Response
 	BlockState
+	SyncBlockRange
+	SyncBlocks
+	SyncState
 	ServerStatus
 */
 package protos

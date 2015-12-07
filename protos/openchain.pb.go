@@ -51,6 +51,29 @@ func (x Transaction_Type) String() string {
 	return proto.EnumName(Transaction_Type_name, int32(x))
 }
 
+type PeerEndpoint_Type int32
+
+const (
+	PeerEndpoint_UNDEFINED     PeerEndpoint_Type = 0
+	PeerEndpoint_VALIDATOR     PeerEndpoint_Type = 1
+	PeerEndpoint_NON_VALIDATOR PeerEndpoint_Type = 2
+)
+
+var PeerEndpoint_Type_name = map[int32]string{
+	0: "UNDEFINED",
+	1: "VALIDATOR",
+	2: "NON_VALIDATOR",
+}
+var PeerEndpoint_Type_value = map[string]int32{
+	"UNDEFINED":     0,
+	"VALIDATOR":     1,
+	"NON_VALIDATOR": 2,
+}
+
+func (x PeerEndpoint_Type) String() string {
+	return proto.EnumName(PeerEndpoint_Type_name, int32(x))
+}
+
 type OpenchainMessage_Type int32
 
 const (
@@ -150,6 +173,8 @@ type Transaction struct {
 	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -234,8 +259,9 @@ func (m *PeerID) String() string { return proto.CompactTextString(m) }
 func (*PeerID) ProtoMessage()    {}
 
 type PeerEndpoint struct {
-	ID      *PeerID `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
-	Address string  `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	ID      *PeerID           `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Address string            `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Type    PeerEndpoint_Type `protobuf:"varint,3,opt,name=type,enum=protos.PeerEndpoint_Type" json:"type,omitempty"`
 }
 
 func (m *PeerEndpoint) Reset()         { *m = PeerEndpoint{} }
@@ -306,6 +332,11 @@ func (m *Response) Reset()         { *m = Response{} }
 func (m *Response) String() string { return proto.CompactTextString(m) }
 func (*Response) ProtoMessage()    {}
 
+// BlockState is the payload of OpenchainMessage.SYNC_BLOCK_ADDED. When a VP
+// commits a new block to the ledger, it will notify its connected NVPs of the
+// block and the delta state. The NVP may call the ledger APIs to apply the
+// block and the delta state to its ledger if the block's previousBlockHash
+// equals to the NVP's current block hash
 type BlockState struct {
 	Block      *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 	StateDelta []byte `protobuf:"bytes,2,opt,name=stateDelta,proto3" json:"stateDelta,omitempty"`
@@ -322,8 +353,59 @@ func (m *BlockState) GetBlock() *Block {
 	return nil
 }
 
+// SyncBlockRange is the payload of OpenchainMessage.SYNC_GET_BLOCKS, where
+// start and end indicate the starting and ending blocks inclusively
+type SyncBlockRange struct {
+	Start uint64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	End   uint64 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
+}
+
+func (m *SyncBlockRange) Reset()         { *m = SyncBlockRange{} }
+func (m *SyncBlockRange) String() string { return proto.CompactTextString(m) }
+func (*SyncBlockRange) ProtoMessage()    {}
+
+// SyncBlocks is the payload of OpenchainMessage.SYNC_BLOCKS, where the range
+// indicates the blocks responded to the request SYNC_GET_BLOCKS
+type SyncBlocks struct {
+	Range  *SyncBlockRange `protobuf:"bytes,1,opt,name=range" json:"range,omitempty"`
+	Blocks []*Block        `protobuf:"bytes,2,rep,name=blocks" json:"blocks,omitempty"`
+}
+
+func (m *SyncBlocks) Reset()         { *m = SyncBlocks{} }
+func (m *SyncBlocks) String() string { return proto.CompactTextString(m) }
+func (*SyncBlocks) ProtoMessage()    {}
+
+func (m *SyncBlocks) GetRange() *SyncBlockRange {
+	if m != nil {
+		return m.Range
+	}
+	return nil
+}
+
+func (m *SyncBlocks) GetBlocks() []*Block {
+	if m != nil {
+		return m.Blocks
+	}
+	return nil
+}
+
+// SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
+// to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
+// snapshot on stream, and in which case, the sequence indicate the order
+// starting at 1, and 0 indicates the last chunk.
+type SyncState struct {
+	Snapshot    []byte `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Sequence    uint32 `protobuf:"varint,2,opt,name=sequence" json:"sequence,omitempty"`
+	BlockNumber uint64 `protobuf:"varint,3,opt,name=blockNumber" json:"blockNumber,omitempty"`
+}
+
+func (m *SyncState) Reset()         { *m = SyncState{} }
+func (m *SyncState) String() string { return proto.CompactTextString(m) }
+func (*SyncState) ProtoMessage()    {}
+
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
+	proto.RegisterEnum("protos.PeerEndpoint_Type", PeerEndpoint_Type_name, PeerEndpoint_Type_value)
 	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
 	proto.RegisterEnum("protos.Response_StatusCode", Response_StatusCode_name, Response_StatusCode_value)
 }

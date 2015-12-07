@@ -47,6 +47,8 @@ type Consenter interface {
 // CPI stands for Consensus Programming Interface.
 // It is the set of stack-facing methods available to the plugin.
 type CPI interface {
+	GetReplicaAddress(self bool) (addresses []string, err error)
+	GetReplicaID(address string) (id uint64, err error)
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msgPayload []byte, receiver string) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
