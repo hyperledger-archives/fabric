@@ -67,41 +67,6 @@ func TestEnvOverride(t *testing.T) {
 
 }
 
-func TestRecvRequest(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-	defer instance.Close()
-	instance.replicaCount = 5
-
-	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txPacked, err := proto.Marshal(tx)
-	if err != nil {
-		t.Fatalf("Failed to marshal TX : %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	err = instance.RecvMsg(msgWrapped)
-	if err != nil {
-		t.Fatalf("Failed to handle request: %s", err)
-	}
-
-	msgOut := mock.broadcasted[0]
-	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("Expected broadcast after request, received %s", msgWrapped.Type)
-	}
-
-	msgRaw := msgOut.Payload
-	msgReq := &Message{}
-	err = proto.Unmarshal(msgRaw, msgReq)
-	if err != nil {
-		t.Fatal("Could not unmarshal message")
-	}
-	// TODO test for correct transaction passing
-}
-
 func TestRecvMsg(t *testing.T) {
 	mock := NewMock()
 	instance := New(mock)
