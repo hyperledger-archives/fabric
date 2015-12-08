@@ -161,7 +161,7 @@ func (state *State) GetSnapshot(blockNumber uint64, dbSnapshot *gorocksdb.Snapsh
 }
 
 func (state *State) FetchStateDeltaFromDB(blockNumber uint64) (*statemgmt.StateDelta, error) {
-	stateDeltaBytes, err := db.GetDBHandle().GetFromStateHashCF(encodeStateDeltaKey(blockNumber))
+	stateDeltaBytes, err := db.GetDBHandle().GetFromStateDeltaCF(encodeStateDeltaKey(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 	state.stateImpl.AddChangesForPersistence(writeBatch)
 
 	serializedStateDelta := state.stateDelta.Marshal()
-	cf := db.GetDBHandle().StateHashCF
+	cf := db.GetDBHandle().StateDeltaCF
 	logger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)
 	writeBatch.PutCF(cf, encodeStateDeltaKey(blockNumber), serializedStateDelta)
 	if blockNumber >= historyStateDeltaSize {

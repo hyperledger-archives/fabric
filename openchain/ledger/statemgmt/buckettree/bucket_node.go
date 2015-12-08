@@ -21,6 +21,7 @@ package buckettree
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/util"
 	openchainUtil "github.com/openblockchain/obc-peer/openchain/util"

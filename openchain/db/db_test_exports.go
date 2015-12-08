@@ -20,16 +20,19 @@ under the License.
 package db
 
 import (
-	"github.com/spf13/viper"
-	"github.com/tecbot/gorocksdb"
 	"os"
 	"testing"
+
+	"github.com/spf13/viper"
+	"github.com/tecbot/gorocksdb"
 )
 
+// TestDBWrapper wraps the db. Can be used by other modules for testing
 type TestDBWrapper struct {
 	performCleanup bool
 }
 
+// NewTestDBWrapper constructs a new TestDBWrapper
 func NewTestDBWrapper() *TestDBWrapper {
 	return &TestDBWrapper{}
 }
@@ -37,10 +40,12 @@ func NewTestDBWrapper() *TestDBWrapper {
 ///////////////////////////
 // Test db creation and cleanup functions
 
+// CreateFreshDB This method closes existing db, remove the db dir and create db again.
+// Can be called before starting a test so that data from other tests does not interfere
 func (testDB *TestDBWrapper) CreateFreshDB(t *testing.T) {
 	// cleaning up test db here so that each test does not have to call it explicitly
 	// at the end of the test
-	testDB.Cleanup()
+	testDB.cleanup()
 	testDB.removeDBPath()
 	t.Logf("Creating testDB")
 	err := CreateDB()
@@ -50,7 +55,7 @@ func (testDB *TestDBWrapper) CreateFreshDB(t *testing.T) {
 	testDB.performCleanup = true
 }
 
-func (testDB *TestDBWrapper) Cleanup() {
+func (testDB *TestDBWrapper) cleanup() {
 	if testDB.performCleanup {
 		GetDBHandle().CloseDB()
 		testDB.performCleanup = false
@@ -62,6 +67,7 @@ func (testDB *TestDBWrapper) removeDBPath() {
 	os.RemoveAll(dbPath)
 }
 
+// WriteToDB tests can use this method for persisting a given batch to db
 func (testDB *TestDBWrapper) WriteToDB(t *testing.T, writeBatch *gorocksdb.WriteBatch) {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	err := GetDBHandle().DB.Write(opt, writeBatch)
@@ -70,6 +76,7 @@ func (testDB *TestDBWrapper) WriteToDB(t *testing.T, writeBatch *gorocksdb.Write
 	}
 }
 
+// GetFromStateCF tests can use this method for getting value from StateCF column-family
 func (testDB *TestDBWrapper) GetFromStateCF(t *testing.T, key []byte) []byte {
 	openchainDB := GetDBHandle()
 	value, err := openchainDB.GetFromStateCF(key)
@@ -79,9 +86,10 @@ func (testDB *TestDBWrapper) GetFromStateCF(t *testing.T, key []byte) []byte {
 	return value
 }
 
+// GetFromStateDeltaCF tests can use this method for getting value from StateDeltaCF column-family
 func (testDB *TestDBWrapper) GetFromStateDeltaCF(t *testing.T, key []byte) []byte {
 	openchainDB := GetDBHandle()
-	value, err := openchainDB.GetFromStateHashCF(key)
+	value, err := openchainDB.GetFromStateDeltaCF(key)
 	if err != nil {
 		t.Fatalf("Error while getting from db. Error:%s", err)
 	}

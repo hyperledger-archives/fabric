@@ -21,6 +21,7 @@ package statemgmt
 
 import (
 	"bytes"
+
 	"github.com/op/go-logging"
 )
 
@@ -28,6 +29,8 @@ var logger = logging.MustGetLogger("statemgmt")
 
 var stateKeyDelimiter = []byte{0x00}
 
+// ConstructCompositeKey returns a []byte that uniquely represents a given chaincodeID and key.
+// This assumes that chaincodeID and key does not contain a nil byte
 func ConstructCompositeKey(chaincodeID string, key string) []byte {
 	compositeKey := []byte(chaincodeID)
 	compositeKey = append(compositeKey, stateKeyDelimiter...)
@@ -35,11 +38,14 @@ func ConstructCompositeKey(chaincodeID string, key string) []byte {
 	return compositeKey
 }
 
+// DecodeCompositeKey decodes the compositeKey constructed by ConstructCompositeKey method
+// back to the original chaincodeID and key form
 func DecodeCompositeKey(compositeKey []byte) (string, string) {
 	split := bytes.Split(compositeKey, stateKeyDelimiter)
 	return string(split[0]), string(split[1])
 }
 
+// Copy returns a copy of given bytes
 func Copy(src []byte) []byte {
 	dest := make([]byte, len(src))
 	copy(dest, src)

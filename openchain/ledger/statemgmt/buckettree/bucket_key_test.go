@@ -20,8 +20,9 @@ under the License.
 package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 )
 
 func TestBucketKeyGetParentKey(t *testing.T) {

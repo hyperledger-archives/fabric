@@ -20,12 +20,13 @@ under the License.
 package state
 
 import (
+	"os"
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/tecbot/gorocksdb"
-	"os"
-	"testing"
 )
 
 var testDBWrapper = db.NewTestDBWrapper()

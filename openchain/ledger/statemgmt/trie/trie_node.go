@@ -21,10 +21,11 @@ package trie
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	ledgerUtil "github.com/openblockchain/obc-peer/openchain/ledger/util"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"sort"
 )
 
 type trieNode struct {

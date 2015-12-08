@@ -20,9 +20,10 @@ under the License.
 package buckettree
 
 import (
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
 )
 
 func TestStateImpl_ComputeHash_AllInMemory_NoContents(t *testing.T) {
