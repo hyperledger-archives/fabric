@@ -25,9 +25,9 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	_ "github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/crypto/peer"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -36,6 +36,7 @@ import (
 var ErrRegistrationRequired error = errors.New("Validator Not Registered to the Membership Service.")
 var ErrModuleNotInitialized = errors.New("Validator Security Module Not Initilized.")
 var ErrModuleAlreadyInitialized error = errors.New("Validator Security Module Already Initilized.")
+var ErrModuleAlreadyRegistered error = errors.New("Validator Security Module Already Registered.")
 
 var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
 var ErrTransactionCertificate error = errors.New("Missing Transaction Certificate.")
@@ -75,32 +76,43 @@ type Validator struct {
 // This method is supposed to be called only once when the client
 // is first deployed.
 func (validator *Validator) Register(userId, pwd string) error {
+	if validator.isInitialized {
+		return ErrModuleAlreadyInitialized
+	}
+
 	log.Info("Registering validator [%s]...", userId)
 
-	if err := validator.createKeyStorage(); err != nil {
-		log.Error("Failed creating key storage:: %s", err)
+	if validator.isAlreadyRegistered() {
+		log.Error("Registering validator [%s]...done! Registration already performed", userId)
 
-		return err
+		return ErrModuleAlreadyRegistered
+	} else {
+
+		if err := validator.createKeyStorage(); err != nil {
+			log.Error("Failed creating key storage:: %s", err)
+
+			return err
+		}
+
+		if err := validator.retrieveECACertsChain(userId); err != nil {
+			log.Error("Failed retrieveing ECA certs chain:: %s", err)
+
+			return err
+		}
+
+		if err := validator.retrieveTCACertsChain(userId); err != nil {
+			log.Error("Failed retrieveing ECA certs chain:: %s", err)
+
+			return err
+		}
+
+		if err := validator.retrieveEnrollmentData(userId, pwd); err != nil {
+			log.Error("Failed retrieveing enrollment data:: %s", err)
+
+			return err
+		}
+
 	}
-
-	if err := validator.retrieveECACertsChain(userId); err != nil {
-		log.Error("Failed retrieveing ECA certs chain:: %s", err)
-
-		return err
-	}
-
-	if err := validator.retrieveTCACertsChain(userId); err != nil {
-		log.Error("Failed retrieveing ECA certs chain:: %s", err)
-
-		return err
-	}
-
-	if err := validator.retrieveEnrollmentData(userId, pwd); err != nil {
-		log.Error("Failed retrieveing enrollment data:: %s", err)
-
-		return err
-	}
-
 	log.Info("Registering validator [%s]...done!", userId)
 
 	return nil

@@ -25,8 +25,8 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	_ "github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -37,6 +37,7 @@ var ErrModuleNotInitialized error = errors.New("Client Security Module Not Initi
 var ErrModuleAlreadyInitialized error = errors.New("Client Security Module Already Initilized.")
 var ErrTransactionMissingCert error = errors.New("Transaction missing certificate or signature.")
 var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction signature.")
+var ErrModuleAlreadyRegistered error = errors.New("Validator Security Module Already Registered.")
 
 // Log
 
@@ -65,30 +66,40 @@ type Client struct {
 // This method is supposed to be called only once when the client
 // is first deployed.
 func (client *Client) Register(userId, pwd string) error {
+	if client.isInitialized {
+		return ErrModuleAlreadyInitialized
+	}
+
 	log.Info("Registering user [%s]...", userId)
 
-	if err := client.createKeyStorage(); err != nil {
-		log.Error("Failed creating key storage: %s", err)
+	if client.isAlreadyRegistered() {
+		log.Error("Registering validator [%s]...done! Registration already performed", userId)
 
-		return err
-	}
+		return ErrModuleAlreadyRegistered
+	} else {
+		if err := client.createKeyStorage(); err != nil {
+			log.Error("Failed creating key storage: %s", err)
 
-	if err := client.retrieveECACertsChain(userId); err != nil {
-		log.Error("Failed retrieveing ECA certs chain: %s", err)
+			return err
+		}
 
-		return err
-	}
+		if err := client.retrieveECACertsChain(userId); err != nil {
+			log.Error("Failed retrieveing ECA certs chain: %s", err)
 
-	if err := client.retrieveTCACertsChain(userId); err != nil {
-		log.Error("Failed retrieveing ECA certs chain: %s", err)
+			return err
+		}
 
-		return err
-	}
+		if err := client.retrieveTCACertsChain(userId); err != nil {
+			log.Error("Failed retrieveing ECA certs chain: %s", err)
 
-	if err := client.retrieveEnrollmentData(userId, pwd); err != nil {
-		log.Error("Failed retrieveing enrollment data: %s", err)
+			return err
+		}
 
-		return err
+		if err := client.retrieveEnrollmentData(userId, pwd); err != nil {
+			log.Error("Failed retrieveing enrollment data: %s", err)
+
+			return err
+		}
 	}
 
 	log.Info("Registering user [%s]...done!", userId)

@@ -21,14 +21,20 @@ package client
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 )
 
 func (client *Client) createKeyStorage() error {
 	// Create directory
 	return os.MkdirAll(getKeysPath(), 0755)
+}
+
+func (client *Client) isAlreadyRegistered() bool {
+	missing, _ := utils.FileMissing(getKeysPath(), getEnrollmentIDFilename())
+
+	return !missing
 }
 
 func (client *Client) retrieveEnrollmentData(userId, pwd string) error {

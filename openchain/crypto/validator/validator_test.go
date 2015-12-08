@@ -22,15 +22,15 @@ package validator
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto/client"
 	"fmt"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto/client"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"sync"
 	"testing"
-	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"time"
 )
 
@@ -66,6 +66,12 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("Failed registerting to the ECA: %s", err))
 	}
 
+	// Verify that a second call to Register fails
+	err = validator.Register(getValidatorEnrollmentData())
+	if err != ErrModuleAlreadyRegistered {
+		panic(fmt.Errorf("Failed checking registration: %s", err))
+	}
+
 	// Init
 	err = validator.Init()
 	var ret int
@@ -78,6 +84,14 @@ func TestMain(m *testing.M) {
 	cleanup()
 
 	os.Exit(ret)
+}
+
+func TestRegistration(t *testing.T) {
+	err := validator.Register(getValidatorEnrollmentData())
+
+	if err != ErrModuleAlreadyInitialized {
+		t.Fatalf(err.Error())
+	}
 }
 
 func TestID(t *testing.T) {

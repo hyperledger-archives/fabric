@@ -21,12 +21,12 @@ package client
 
 import (
 	"fmt"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
-	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"sync"
 	"testing"
@@ -52,16 +52,17 @@ func TestMain(m *testing.M) {
 	client = new(Client)
 
 	// Register
-	usr, pwd, err := getEnrollmentData()
-	if err != nil {
-		killCAs()
-		panic(fmt.Errorf("Failed getting enrollment data from config: %s", err))
-	}
-
-	err = client.Register(usr, pwd)
+	err := client.Register(getEnrollmentData())
 	if err != nil {
 		killCAs()
 		panic(fmt.Errorf("Failed registerting: %s", err))
+	}
+
+	// Verify that a second call to Register fails
+	err = client.Register(getEnrollmentData())
+	if err != ErrModuleAlreadyRegistered {
+		killCAs()
+		panic(fmt.Errorf("Failed checking registration: %s", err))
 	}
 
 	// Init client
@@ -83,6 +84,14 @@ func TestMain(m *testing.M) {
 	cleanup()
 
 	os.Exit(ret)
+}
+
+func TestRegistration(t *testing.T) {
+	err := client.Register(getEnrollmentData())
+
+	if err != ErrModuleAlreadyInitialized {
+		t.Fatalf(err.Error())
+	}
 }
 
 func Test_NewChaincodeDeployTransaction(t *testing.T) {
@@ -209,17 +218,18 @@ func initMockCAs() {
 	caWaitGroup.Wait()
 }
 
-func getEnrollmentData() (string, string, error) {
+func getEnrollmentData() (string, string) {
 	id := viper.GetString("client.crypto.enrollid")
 	if id == "" {
-		return "", "", fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollid' is set")
-	}
-	pw := viper.GetString("client.crypto.enrollpw")
-	if pw == "" {
-		return "", "", fmt.Errorf("Enrollment pw not specified in configuration file. Please check that property 'client.crypto.enrollpw' is set")
+		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollid' is set"))
 	}
 
-	return id, pw, nil
+	pw := viper.GetString("client.crypto.enrollpw")
+	if id == "" {
+		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollpw' is set"))
+	}
+
+	return id, pw
 }
 
 func cleanup() {

@@ -21,14 +21,20 @@ package validator
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 )
 
 func (validator *Validator) createKeyStorage() error {
 	// Create directory
 	return os.MkdirAll(getKeysPath(), 0755)
+}
+
+func (validator *Validator) isAlreadyRegistered() bool {
+	missing, _ := utils.FileMissing(getKeysPath(), getEnrollmentIDFilename())
+
+	return !missing
 }
 
 func (validator *Validator) retrieveEnrollmentData(userId, pwd string) error {
