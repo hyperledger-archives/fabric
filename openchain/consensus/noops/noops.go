@@ -193,12 +193,12 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 	// For now, send to everyone until broadcast has better discrimination
 	blockHeight := ledger.GetBlockchainSize()
 	logger.Debug("Preparing to broadcast with block number %v", blockHeight)
-	block, err := ledger.GetBlockByNumber(blockHeight)
+	block, err := ledger.GetBlockByNumber(blockHeight - 1)
 	if nil != err {
 		return err
 	}
 	//delta, err := ledger.GetStateDeltaBytes(blockHeight)
-	delta, err := ledger.GetStateDelta(blockHeight)
+	delta, err := ledger.GetStateDelta(blockHeight - 1)
 	if nil != err {
 		return err
 	}
