@@ -136,6 +136,8 @@ func (instance *Plugin) sendViewChange() error {
 		vc.Qset = append(vc.Qset, q)
 	}
 
+	instance.sign(vc)
+
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -146,8 +148,11 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	// TODO check view-change signature
-	// ... && instance.validator.Verify() == nil)
+	if err := instance.verify(vc); err != nil {
+		logger.Warning("incorrect signature in view-change message: %s", err)
+		return nil
+	}
+
 	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
 		logger.Warning("View-change message incorrect")
 		return nil
@@ -244,12 +249,10 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 	}
 
 	for _, vc := range nv.Vset {
-		// TODO check view-change signatures
-		// if instance.validator.Verify() != nil {
-		//   logger.Error("Invalid new-view message: view-change message does not verify")
-		//   return nil
-		// }
-		_ = vc
+		if err := instance.verify(vc); err != nil {
+			logger.Warning("incorrect view-change signature in new-view message: %s", err)
+			return nil
+		}
 	}
 
 	instance.newViewStore[nv.View] = nv

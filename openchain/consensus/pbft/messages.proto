@@ -99,6 +99,7 @@ message ViewChange {
     repeated PQ pset = 4;
     repeated PQ qset = 5;
     uint64 replica_id = 6;
+    bytes signature = 7;
 }
 
 message NewView {
