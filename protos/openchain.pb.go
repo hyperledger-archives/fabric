@@ -391,11 +391,11 @@ func (m *SyncBlocks) GetBlocks() []*Block {
 }
 
 // SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
-// block_number indicates the block number for the delta which is being
+// blockNumber indicates the block number for the delta which is being
 // requested. If no payload is included with SYNC_GET_STATE, it represents
 // a request for a snapshot of the current state.
 type SyncStateRequest struct {
-	BlockNumber uint64 `protobuf:"varint,1,opt,name=block_number" json:"block_number,omitempty"`
+	BlockNumber uint64 `protobuf:"varint,1,opt,name=blockNumber" json:"blockNumber,omitempty"`
 }
 
 func (m *SyncStateRequest) Reset()         { *m = SyncStateRequest{} }
