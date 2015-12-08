@@ -27,6 +27,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -47,7 +48,7 @@ func init() {
 // Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
 	cpi consensus.CPI
-	txQ *Queue
+	txQ *util.Queue
 }
 
 var iNoops consensus.Consenter
@@ -61,7 +62,7 @@ func NewNoops(c consensus.CPI) consensus.Consenter {
 	logger.Debug("Creating a NOOPS object")
 	i := &Noops{}
 	i.cpi = c
-	i.txQ = NewQueue()
+	i.txQ = util.NewQueue()
 	return i
 }
 
@@ -127,21 +128,25 @@ func (i *Noops) getTransactionsFromMsg(msg *pb.OpenchainMessage) ([]*pb.Transact
 }
 
 func (i *Noops) getTransactionsFromQueue() []*pb.Transaction {
-	var txarr []*pb.Transaction
-	txs := i.txQ.Pop().([]*pb.Transaction)
-	for k := 0; nil != txs; k++ {
+	len := i.txQ.Size()
+	if len == 1 {
+		return i.txQ.Pop().([]*pb.Transaction)
+	}
+	txarr := make([]*pb.Transaction, len)
+	for k := 0; k < len; k++ {
+		txs := i.txQ.Pop().([]*pb.Transaction)
 		txarr[k] = txs[0]
-		txs = i.txQ.Pop().([]*pb.Transaction)
 	}
 	return txarr
 }
 
 func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
-	// TODO: Figure out whether we have the current state or not
-
 	// For NOOPS, if we have completed the sync since we last connected,
 	// we can assume that we are at the current state; otherwise, we need to
 	// wait for the sync process to complete before we can exec the transactions
+
+	// TODO: Ask coordinator if we need to start sync
+
 	return true
 }
 
@@ -151,24 +156,28 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	if err != nil {
 		return fmt.Errorf("Fail to get the ledger: %v", err)
 	}
-	logger.Debug("message timestamp: %v", msg.Timestamp)
+	logger.Debug("Starting TX batch with timestamp: %v", msg.Timestamp)
 	if err := ledger.BeginTxBatch(msg.Timestamp); err != nil {
 		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
 	}
 
 	// Grab all transactions from the FIFO queue and run them in order
 	txarr := i.getTransactionsFromQueue()
+	logger.Debug("Executing batch of %d transactions", len(txarr))
 	_, errs := i.cpi.ExecTXs(txarr)
 
 	//there are n+1 elements of errors in this array. On complete success
 	//they'll all be nil. In particular, the last err will be error in
 	//producing the hash, if any. That's the only error we do want to check
 	if errs[len(txarr)] != nil {
+		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
 		ledger.RollbackTxBatch(msg.Timestamp)
 		return fmt.Errorf("Fail to execute transactions: %v", errs)
 	}
 
+	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
 	if err := ledger.CommitTxBatch(msg.Timestamp, txarr, nil); err != nil {
+		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
 		ledger.RollbackTxBatch(msg.Timestamp)
 		return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
 	}
@@ -183,6 +192,7 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 	// the network block
 	// For now, send to everyone until broadcast has better discrimination
 	blockHeight := ledger.GetBlockchainSize()
+	logger.Debug("Preparing to broadcast with block number %v", blockHeight)
 	block, err := ledger.GetBlockByNumber(blockHeight)
 	if nil != err {
 		return err
@@ -193,13 +203,15 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 		return err
 	}
 
+	logger.Debug("Got the delta state of block number %v", blockHeight)
 	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}
 
 	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED")
-	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED, Payload: data}
+	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED,
+		Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	if errs := i.cpi.Broadcast(msg); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
@@ -207,7 +219,6 @@ func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
 }
 
 func (i *Noops) queueTransactions(txarr []*pb.Transaction) {
-	logger.Debug("Queueing transactions")
 	i.txQ.Push(txarr)
 	logger.Debug("Transaction queue size: %d", i.txQ.Size())
 }

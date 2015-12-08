@@ -17,13 +17,13 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package noops
+package util
 
 // Queue is a classic implmentation of a FIFO queue object
 type Queue struct {
 	head  *element
 	tail  *element
-	count int32
+	count int
 }
 
 // Element is a single linked list with a data field containing any data
@@ -40,7 +40,7 @@ func NewQueue() *Queue {
 }
 
 // Size returns the number of elements on the queue
-func (q *Queue) Size() int32 {
+func (q *Queue) Size() int {
 	return q.count
 }
 
@@ -66,6 +66,7 @@ func (q *Queue) Pop() interface{} {
 		return nil
 	}
 
+	// Move head to the next elment
 	element := q.head
 	q.head = element.next
 
