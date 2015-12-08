@@ -29,6 +29,7 @@ It has these top-level messages:
 	BuildResult
 	Transaction
 	TransactionBlock
+	TransactionResult
 	Block
 	NonHashData
 	PeerAddress

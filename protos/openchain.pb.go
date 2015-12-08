@@ -211,9 +211,24 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 	return nil
 }
 
+// TransactionResult contains the return value of a transaction. It does
+// not track potential state changes that were a result of the transaction.
+// uuid - The unique identifier of this transaction.
+// result - The return value of the transaction.
+// error - Any errors that occured as a result of running the transaction.
+type TransactionResult struct {
+	Uuid   string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
+	Result []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
+}
+
+func (m *TransactionResult) Reset()         { *m = TransactionResult{} }
+func (m *TransactionResult) String() string { return proto.CompactTextString(m) }
+func (*TransactionResult) ProtoMessage()    {}
+
 // Block carries The data that describes a block in the blockchain.
 // proposerID - The ID of the peer that proposed the Block.
-// Timestamp - The time at which the block or transaction order
+// timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
 // stateHash - The state hash after running transactions in this block.
@@ -260,8 +275,12 @@ func (m *Block) GetNonHashData() *NonHashData {
 
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
+// localLedgerCommitTimestamp - The time at which the block was added
+// to the ledger on the local peer.
+// transactionResults - The results of transactions.
 type NonHashData struct {
 	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=localLedgerCommitTimestamp" json:"localLedgerCommitTimestamp,omitempty"`
+	TransactionResults         []*TransactionResult       `protobuf:"bytes,2,rep,name=transactionResults" json:"transactionResults,omitempty"`
 }
 
 func (m *NonHashData) Reset()         { *m = NonHashData{} }
@@ -271,6 +290,13 @@ func (*NonHashData) ProtoMessage()    {}
 func (m *NonHashData) GetLocalLedgerCommitTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.LocalLedgerCommitTimestamp
+	}
+	return nil
+}
+
+func (m *NonHashData) GetTransactionResults() []*TransactionResult {
+	if m != nil {
+		return m.TransactionResults
 	}
 	return nil
 }
