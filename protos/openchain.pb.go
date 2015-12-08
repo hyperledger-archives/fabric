@@ -423,6 +423,18 @@ func (m *SyncBlocks) GetBlocks() []*Block {
 	return nil
 }
 
+// SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
+// blockNumber indicates the block number for the delta which is being
+// requested. If no payload is included with SYNC_GET_STATE, it represents
+// a request for a snapshot of the current state.
+type SyncStateRequest struct {
+	BlockNumber uint64 `protobuf:"varint,1,opt,name=blockNumber" json:"blockNumber,omitempty"`
+}
+
+func (m *SyncStateRequest) Reset()         { *m = SyncStateRequest{} }
+func (m *SyncStateRequest) String() string { return proto.CompactTextString(m) }
+func (*SyncStateRequest) ProtoMessage()    {}
+
 // SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
 // to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
 // snapshot on stream, and in which case, the sequence indicate the order
