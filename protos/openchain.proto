@@ -140,6 +140,13 @@ message SyncBlocks {
     SyncBlockRange range = 1;
     repeated Block blocks = 2;
 }
+// SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
+// block_number indicates the block number for the delta which is being
+// requested. If no payload is included with SYNC_GET_STATE, it represents
+// a request for a snapshot of the current state.
+message SyncStateRequest {
+  uint64 block_number = 1;
+}
 // SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
 // to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
 // snapshot on stream, and in which case, the sequence indicate the order
