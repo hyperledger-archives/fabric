@@ -196,9 +196,9 @@ func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block)
 	}
 	block.StateHash = stateHash
 	if block.NonHashData == nil {
-		block.NonHashData = &protos.NonHashData{Timestamp: util.CreateUtcTimestamp()}
+		block.NonHashData = &protos.NonHashData{LocalLedgerCommitTimestamp: util.CreateUtcTimestamp()}
 	} else {
-		block.NonHashData.Timestamp = util.CreateUtcTimestamp()
+		block.NonHashData.LocalLedgerCommitTimestamp = util.CreateUtcTimestamp()
 	}
 	currentBlockNumber := blockchain.size
 	currentBlockHash, err := block.GetHash()

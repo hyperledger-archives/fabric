@@ -98,7 +98,7 @@ func TestBlockChainEmptyChain(t *testing.T) {
 	t.Logf("last block = [%s]", block)
 }
 
-func TestBlockchainBlockTimestamp(t *testing.T) {
+func TestBlockchainBlockLedgerCommitTimestamp(t *testing.T) {
 	chain := initTestBlockChain(t)
 	block1 := protos.NewBlock("sheehan", nil)
 	startTime := util.CreateUtcTimestamp()
@@ -111,10 +111,10 @@ func TestBlockchainBlockTimestamp(t *testing.T) {
 	if lastBlock.NonHashData == nil {
 		t.Fatal("Expected block to have non-hash-data, but it was nil")
 	}
-	if lastBlock.NonHashData.Timestamp == nil {
+	if lastBlock.NonHashData.LocalLedgerCommitTimestamp == nil {
 		t.Fatal("Expected block to have non-hash-data timestamp, but it was nil")
 	}
-	if startTime.Seconds >= lastBlock.NonHashData.Timestamp.Seconds {
+	if startTime.Seconds >= lastBlock.NonHashData.LocalLedgerCommitTimestamp.Seconds {
 		t.Fatal("Expected block time to be after start time")
 	}
 }

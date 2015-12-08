@@ -253,16 +253,16 @@ func (m *Block) GetNonHashData() *NonHashData {
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
 type NonHashData struct {
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=local_ledger_commit_timestamp" json:"local_ledger_commit_timestamp,omitempty"`
 }
 
 func (m *NonHashData) Reset()         { *m = NonHashData{} }
 func (m *NonHashData) String() string { return proto.CompactTextString(m) }
 func (*NonHashData) ProtoMessage()    {}
 
-func (m *NonHashData) GetTimestamp() *google_protobuf.Timestamp {
+func (m *NonHashData) GetLocalLedgerCommitTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
-		return m.Timestamp
+		return m.LocalLedgerCommitTimestamp
 	}
 	return nil
 }

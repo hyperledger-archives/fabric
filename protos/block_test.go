@@ -68,8 +68,8 @@ func TestBlockNonHashData(t *testing.T) {
 	time1 := util.CreateUtcTimestamp()
 	time.Sleep(100 * time.Millisecond)
 	time2 := util.CreateUtcTimestamp()
-	block1.NonHashData = &NonHashData{Timestamp: time1}
-	block2.NonHashData = &NonHashData{Timestamp: time2}
+	block1.NonHashData = &NonHashData{LocalLedgerCommitTimestamp: time1}
+	block2.NonHashData = &NonHashData{LocalLedgerCommitTimestamp: time2}
 	hash1, err := block1.GetHash()
 	if err != nil {
 		t.Fatalf("Error generating block1 hash: %s", err)
@@ -81,10 +81,10 @@ func TestBlockNonHashData(t *testing.T) {
 	if bytes.Compare(hash1, hash2) != 0 {
 		t.Fatalf("Expected block hashes to be equal, but there were not")
 	}
-	if time1 != block1.NonHashData.Timestamp {
+	if time1 != block1.NonHashData.LocalLedgerCommitTimestamp {
 		t.Fatalf("Expected time1 and block1 times to be equal, but there were not")
 	}
-	if time2 != block2.NonHashData.Timestamp {
+	if time2 != block2.NonHashData.LocalLedgerCommitTimestamp {
 		t.Fatalf("Expected time2 and block2 times to be equal, but there were not")
 	}
 }
