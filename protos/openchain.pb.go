@@ -211,18 +211,26 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 	return nil
 }
 
-// TODO: Explain when this message type is used.
-// TODO: Explain fields.
-// TODO: Rename field names according to style guide:
-// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
+// Block carries The data that describes a block in the blockchain.
+// proposerID - The ID of the peer that proposed the Block.
+// Timestamp - The time at which the block or transaction order
+// was proposed. This may not be used by all consensus modules.
+// transactions - The ordered list of transactions in the block.
+// stateHash - The state hash after running transactions in this block.
+// previousBlockHash - The hash of the previous block in the chain.
+// consensusMetadata - Consensus modules may optionaly store any
+// additional metadata in this field.
+// nonHashData - Data stored with the block, but not included in the blocks
+// hash. This allows this data to be different per peer or discarded without
+// impacting the blockchain.
 type Block struct {
 	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
-	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
+	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Transactions      []*Transaction             `protobuf:"bytes,3,rep,name=transactions" json:"transactions,omitempty"`
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`
 	PreviousBlockHash []byte                     `protobuf:"bytes,5,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
 	ConsensusMetadata []byte                     `protobuf:"bytes,6,opt,name=consensusMetadata,proto3" json:"consensusMetadata,omitempty"`
-	NonHashData       *NonHashData               `protobuf:"bytes,7,opt,name=non_hash_data" json:"non_hash_data,omitempty"`
+	NonHashData       *NonHashData               `protobuf:"bytes,7,opt,name=nonHashData" json:"nonHashData,omitempty"`
 }
 
 func (m *Block) Reset()         { *m = Block{} }
@@ -253,7 +261,7 @@ func (m *Block) GetNonHashData() *NonHashData {
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
 type NonHashData struct {
-	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=local_ledger_commit_timestamp" json:"local_ledger_commit_timestamp,omitempty"`
+	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=localLedgerCommitTimestamp" json:"localLedgerCommitTimestamp,omitempty"`
 }
 
 func (m *NonHashData) Reset()         { *m = NonHashData{} }

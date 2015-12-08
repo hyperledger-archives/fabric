@@ -44,24 +44,33 @@ message Transaction {
 message TransactionBlock {
     repeated Transaction transactions = 1;
 }
-// TODO: Explain when this message type is used.
-// TODO: Explain fields.
-// TODO: Rename field names according to style guide:
-// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
+
+// Block carries The data that describes a block in the blockchain.
+// proposerID - The ID of the peer that proposed the Block.
+// Timestamp - The time at which the block or transaction order
+// was proposed. This may not be used by all consensus modules.
+// transactions - The ordered list of transactions in the block.
+// stateHash - The state hash after running transactions in this block.
+// previousBlockHash - The hash of the previous block in the chain.
+// consensusMetadata - Consensus modules may optionaly store any
+// additional metadata in this field.
+// nonHashData - Data stored with the block, but not included in the blocks
+// hash. This allows this data to be different per peer or discarded without
+// impacting the blockchain.
 message Block {
     string proposerID = 1;
-    google.protobuf.Timestamp Timestamp = 2;
+    google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
     bytes previousBlockHash = 5;
     bytes consensusMetadata = 6;
-    NonHashData non_hash_data = 7;
+    NonHashData nonHashData = 7;
 }
 
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
 message NonHashData {
-    google.protobuf.Timestamp local_ledger_commit_timestamp = 1;
+    google.protobuf.Timestamp localLedgerCommitTimestamp = 1;
 }
 
 // Interface exported by the server.
