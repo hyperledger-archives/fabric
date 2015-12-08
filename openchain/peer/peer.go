@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -337,8 +338,10 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 				} else {
 					ttyp = pb.OpenchainMessage_CHAIN_QUERY
 				}
-				stream.Send(&pb.OpenchainMessage{Type: ttyp, Payload: payload})
-				peerLogger.Debug("Transaction sent to peer address: %s", peerAddress)
+
+				msg := &pb.OpenchainMessage{Type: ttyp, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
+				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
+				stream.Send(msg)
 			} else if in.Type == pb.OpenchainMessage_RESPONSE {
 				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
 				response = &pb.Response{}
@@ -369,7 +372,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer stream.CloseSend()
-	peerLogger.Debug("Sending %s to this Peer", transaction.Type)
+	peerLogger.Debug("Sending transaction %s to self", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
@@ -381,7 +384,9 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		ttyp = pb.OpenchainMessage_CHAIN_QUERY
 	}
 
-	stream.Send(&pb.OpenchainMessage{Type: ttyp, Payload: data})
+	msg := &pb.OpenchainMessage{Type: ttyp, Payload: data, Timestamp: util.CreateUtcTimestamp()}
+	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
+	stream.Send(msg)
 
 	waitc := make(chan struct{})
 	var response *pb.Response
@@ -520,5 +525,5 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
 	}
-	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data}, nil
+	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}, nil
 }

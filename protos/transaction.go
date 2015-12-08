@@ -21,8 +21,8 @@ package protos
 
 import (
 	"fmt"
-
 	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/util"
 )
 
 // Bytes returns this transaction as an array of bytes.
@@ -43,7 +43,7 @@ func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, argum
 	transaction := new(Transaction)
 	transaction.ChaincodeID = &chaincodeID
 	transaction.Uuid = uuid
-
+	transaction.Timestamp = util.CreateUtcTimestamp()
 	/*
 		// Build the spec
 		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
@@ -66,6 +66,7 @@ func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentS
 	transaction := new(Transaction)
 	transaction.Type = Transaction_CHAINCODE_NEW
 	transaction.Uuid = uuid
+	transaction.Timestamp = util.CreateUtcTimestamp()
 	transaction.ChaincodeID = chaincodeDeploymentSpec.ChaincodeSpec.GetChaincodeID()
 	//if chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg() != nil {
 	//	transaction.Function = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Function
@@ -80,11 +81,12 @@ func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentS
 	return transaction, nil
 }
 
-// NewChaincodeInvokeTransaction is used to deploy chaincode.
+// NewChaincodeExecute is used to deploy chaincode.
 func NewChaincodeExecute(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid string, typ Transaction_Type) (*Transaction, error) {
 	transaction := new(Transaction)
 	transaction.Type = typ
 	transaction.Uuid = uuid
+	transaction.Timestamp = util.CreateUtcTimestamp()
 	transaction.ChaincodeID = chaincodeInvocationSpec.ChaincodeSpec.GetChaincodeID()
 	data, err := proto.Marshal(chaincodeInvocationSpec)
 	if err != nil {
