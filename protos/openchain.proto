@@ -55,7 +55,15 @@ message Block {
     bytes stateHash = 4;
     bytes previousBlockHash = 5;
     bytes consensusMetadata = 6;
+    NonHashData non_hash_data = 7;
 }
+
+// NonHashData is data that is recorded on the block, but not included in
+// the block hash when verifying the blockchain.
+message NonHashData {
+    google.protobuf.Timestamp local_ledger_commit_timestamp = 1;
+}
+
 // Interface exported by the server.
 service Peer {
     // Accepts a stream of OpenchainMessage during chat session, while receiving

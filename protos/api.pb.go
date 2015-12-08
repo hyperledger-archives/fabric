@@ -30,6 +30,7 @@ It has these top-level messages:
 	Transaction
 	TransactionBlock
 	Block
+	NonHashData
 	PeerAddress
 	PeerID
 	PeerEndpoint

@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"
@@ -194,6 +195,11 @@ func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block)
 		return err
 	}
 	block.StateHash = stateHash
+	if block.NonHashData == nil {
+		block.NonHashData = &protos.NonHashData{LocalLedgerCommitTimestamp: util.CreateUtcTimestamp()}
+	} else {
+		block.NonHashData.LocalLedgerCommitTimestamp = util.CreateUtcTimestamp()
+	}
 	currentBlockNumber := blockchain.size
 	currentBlockHash, err := block.GetHash()
 	if err != nil {
