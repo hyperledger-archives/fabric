@@ -59,6 +59,7 @@ message Block {
 }
 
 // NonHashData is data that is recorded on the block, but not included in
+// the block hash when verifying the blockchain.
 message NonHashData {
     google.protobuf.Timestamp timestamp = 1;
 }

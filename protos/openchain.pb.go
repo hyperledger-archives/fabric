@@ -251,6 +251,7 @@ func (m *Block) GetNonHashData() *NonHashData {
 }
 
 // NonHashData is data that is recorded on the block, but not included in
+// the block hash when verifying the blockchain.
 type NonHashData struct {
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
 }
