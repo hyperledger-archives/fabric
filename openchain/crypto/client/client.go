@@ -58,6 +58,9 @@ type Client struct {
 
 	// Enrollment Chain
 	enrollChainKey []byte
+
+	// TCA KDFKey
+	tCertOwnerKDFKey []byte
 }
 
 // Public Methods
@@ -186,7 +189,7 @@ func (client *Client) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.
 		return nil, err
 	}
 	tx.Payload = ct
-	log.Info("Payload %s", utils.EncodeBase64(tx.Payload))
+	log.Info("Encrypted Payload [%s]", utils.EncodeBase64(tx.Payload))
 
 	// TODO: Sign the transaction
 
@@ -195,14 +198,14 @@ func (client *Client) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.
 
 	// Get next available (not yet used) transaction certificate
 	// with the relative signing key.
-	rawTCert, signKey, err := client.getNextTCert()
+	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		log.Error("Failed getting next transaction certificate %s:", err)
 		return nil, err
 	}
 
 	// Append the certificate to the transaction
-	log.Info("Appending certificate %s", utils.EncodeBase64(rawTCert))
+	log.Info("Appending certificate [%s]", utils.EncodeBase64(rawTCert))
 	tx.Cert = rawTCert
 
 	// Sign the transaction and append the signature
@@ -215,7 +218,7 @@ func (client *Client) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.
 
 	// 2. Sign rawTx and check signature
 	log.Info("Signing tx %s", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.sign(signKey, rawTx)
+	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
 	if err != nil {
 		log.Error("Failed creating signature %s:", err)
 		return nil, err
@@ -268,7 +271,7 @@ func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.Cha
 
 	// Get next available (not yet used) transaction certificate
 	// with the relative signing key.
-	rawTCert, signKey, err := client.getNextTCert()
+	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		log.Error("Failed getting next transaction certificate %s:", err)
 		return nil, err
@@ -288,7 +291,7 @@ func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.Cha
 
 	// 2. Sign rawTx and check signature
 	log.Info("Signing tx %s", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.sign(signKey, rawTx)
+	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
 	if err != nil {
 		log.Error("Failed creating signature %s:", err)
 		return nil, err

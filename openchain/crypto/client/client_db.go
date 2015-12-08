@@ -40,15 +40,15 @@ func (db *DB) Init() error {
 	return nil
 }
 
-func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
+func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) ([]byte, error) {
 	m.Lock()
 	defer m.Unlock()
 
-	cert, key, err := db.selectNextTCert()
+	cert, err := db.selectNextTCert()
 	if err != nil {
 		log.Error("Failed selecting next TCert: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 	//	log.Info("key %s", utils.EncodeBase64(key))
 	log.Info("cert %s", utils.EncodeBase64(cert))
@@ -58,9 +58,9 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 
 		// 1. Fetch
 		log.Info("Fectch TCerts from TCA...")
-		certs, keys, err := tCertFetcher(10)
+		certs, err := tCertFetcher(10)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// 2. Store
@@ -69,7 +69,7 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 		if err != nil {
 			log.Error("Failed beginning transaction: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 
 		for i, cert := range certs {
@@ -82,7 +82,7 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 			// store only the cert from which the corresponding key
 			// can be derived
 
-			_, err := tx.Exec("INSERT INTO TCerts (cert, key) VALUES (?, ?)", cert, keys[i])
+			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
 			if err != nil {
 				log.Error("Failed inserting cert %s", err)
@@ -96,20 +96,20 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 
 			tx.Rollback()
 
-			return nil, nil, err
+			return nil, err
 		}
 
 		log.Info("Fectch TCerts from TCA...done!")
 
-		cert, key, err = db.selectNextTCert()
+		cert, err = db.selectNextTCert()
 		if err != nil {
 			log.Error("Failed selecting next TCert after fetching: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return cert, key, nil
+	return cert, nil
 	//	return nil, nil, errors.New("No cert obtained")
 	//	return utils.NewSelfSignedCert()
 }
@@ -119,7 +119,7 @@ func (db *DB) CloseDB() {
 	isOpen = false
 }
 
-func (db *DB) selectNextTCert() ([]byte, []byte, error) {
+func (db *DB) selectNextTCert() ([]byte, error) {
 	log.Info("Select next TCert...")
 
 	// Open transaction
@@ -127,21 +127,21 @@ func (db *DB) selectNextTCert() ([]byte, []byte, error) {
 	if err != nil {
 		log.Error("Failed beginning transaction: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Get the first row available
 	var id int
-	var cert, key []byte
-	row := db.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
-	err = row.Scan(&id, &cert, &key)
+	var cert []byte
+	row := db.sqlDB.QueryRow("SELECT id, cert FROM TCerts")
+	err = row.Scan(&id, &cert)
 
 	if err == sql.ErrNoRows {
-		return nil, nil, nil
+		return nil, nil
 	} else if err != nil {
 		log.Error("Error during select: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	log.Info("id %d", id)
@@ -159,7 +159,7 @@ func (db *DB) selectNextTCert() ([]byte, []byte, error) {
 
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	log.Info("Removing row with id [%d]...done", id)
@@ -170,12 +170,12 @@ func (db *DB) selectNextTCert() ([]byte, []byte, error) {
 		log.Error("Failed commiting: %s", err)
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	log.Info("Select next TCert...done!")
 
-	return cert, key, nil
+	return cert, nil
 }
 
 var db *DB
@@ -231,7 +231,7 @@ func createDB() error {
 
 	// create tables
 	log.Debug("Create Table [%s] at [%s]", "TCert", dbPath)
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
 		log.Debug("Failed creating table: %s", err)
 		return err
 	}

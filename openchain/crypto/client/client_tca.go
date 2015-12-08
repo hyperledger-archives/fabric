@@ -22,6 +22,7 @@ package client
 import (
 	obcca "github.com/openblockchain/obc-peer/obcca/protos"
 
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/x509"
@@ -132,42 +133,100 @@ func (client *Client) getTCACertificate() ([]byte, error) {
 
 // getNextTCert returns the next available (not yet used) transaction certificate
 // corresponding to the tuple (cert, signing key)
-func (client *Client) getNextTCert() ([]byte, interface{}, error) {
+func (client *Client) getNextTCert() ([]byte, error) {
 	log.Info("Getting next TCert...")
-	rawCert, rawKey, err := getDBHandle().GetNextTCert(client.getTCertsFromTCA)
+	rawCert, err := getDBHandle().GetNextTCert(client.getTCertsFromTCA)
 	if err != nil {
 		log.Error("getNextTCert: failed accessing db: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	// rawCert and rawKey are supposed to have been already verified at this point.
 	log.Info("getNextTCert:cert %s", utils.EncodeBase64(rawCert))
-	//	log.Info("getNextTCert:key %s", utils.EncodeBase64(rawKey))
-
-	signKey, err := utils.DERToPrivateKey(rawKey)
-	if err != nil {
-		log.Error("getNextTCert: failed parsing key: %s", err)
-
-		return nil, nil, err
-	}
 
 	log.Info("Getting next TCert...done!")
 
-	return rawCert, signKey, nil
+	return rawCert, nil
 }
 
-func (client *Client) signWithTCert(tCert *x509.Certificate, msg []byte) ([]byte, error) {
-	// TODO: to be implemented
+func (client *Client) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
+	// Extract the signing key from the tCert
 
-	// 1. Extract secret key from the transaction certificate
+	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AES_KEY_LENGTH_BYTES)
+	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
-	// 2. Sign msg with the extracted signing key
+	tCert, err := utils.DERToX509Certificate(tCertDER)
+	if err != nil {
+		log.Debug("Failed parsing certificate bytes [%s]", utils.EncodeBase64(tCertDER))
 
-	return nil, nil
+		return nil, err
+	}
+
+	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
+	// Let TCertIndex = Timestamp, RandValue, 1,2,…
+	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
+
+	// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
+	ct, err := utils.GetExtension(tCert, utils.TCERT_ENC_TCERTINDEX)
+	if err != nil {
+		log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
+
+		return nil, err
+	}
+
+	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
+	pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
+	if err != nil {
+		log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
+
+		return nil, err
+	}
+
+	// Compute ExpansionValue based on TCertIndex
+	TCertIndex := pt
+	//		TCertIndex := []byte(strconv.Itoa(i))
+
+	log.Info("TCertIndex: %s", TCertIndex)
+	mac := hmac.New(utils.NewHash, ExpansionKey)
+	mac.Write(TCertIndex)
+	ExpansionValue := mac.Sum(nil)
+
+	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
+	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
+
+	// Compute temporary secret key
+	tempSK := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: client.enrollPrivKey.Curve,
+			X:     new(big.Int),
+			Y:     new(big.Int),
+		},
+		D: new(big.Int),
+	}
+
+	var k = new(big.Int).SetBytes(ExpansionValue)
+	var one = new(big.Int).SetInt64(1)
+	n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
+	k.Mod(k, n)
+	k.Add(k, one)
+
+	tempSK.D.Add(client.enrollPrivKey.D, k)
+	tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
+
+	// Compute temporary public key
+	tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
+	tempSK.PublicKey.X, tempSK.PublicKey.Y =
+		tempSK.PublicKey.Add(
+			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
+			tempX, tempY,
+		)
+
+	return client.sign(tempSK, msg)
 }
 
-func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
+func (client *Client) getTCertsFromTCA(num int) ([][]byte, error) {
 	log.Info("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
@@ -175,7 +234,18 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 	if err != nil {
 		log.Debug("Failed contacting TCA %s", err)
 
-		return nil, nil, err
+		return nil, err
+	}
+
+	if client.tCertOwnerKDFKey != nil {
+		// Check that the keys are the same
+		equal := bytes.Equal(client.tCertOwnerKDFKey, TCertOwnerKDFKey)
+		if !equal {
+			return nil, errors.New("Failed reciving kdf key from TCA. The keys are different.")
+		}
+	} else {
+		client.tCertOwnerKDFKey = TCertOwnerKDFKey
+		// TODO: store this key
 	}
 
 	// TODO: Store TCertOwnerKDFKey and checks that every time it is always the same key
@@ -190,7 +260,6 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 	ExpansionKey := utils.HMAC(TCertOwnerKDFKey, []byte{2})
 
 	resCert := make([][]byte, num)
-	resKeys := make([][]byte, num)
 
 	j := 0
 	for i := 0; i < num; i++ {
@@ -309,7 +378,6 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 
 		// Marshall certificate and secret key to be stored in the database
 		resCert[j] = derBytes[i]
-		resKeys[j], err = utils.PrivateKeyToDER(tempSK)
 		if err != nil {
 			log.Error("Failed marshalling private key: %s", err)
 
@@ -325,10 +393,10 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 	if j == 0 {
 		log.Error("No valid TCert was sent")
 
-		return nil, nil, errors.New("No valid TCert was sent.")
+		return nil, errors.New("No valid TCert was sent.")
 	}
 
-	return resCert[:j], resKeys[:j], nil
+	return resCert[:j], nil
 }
 
 func (client *Client) tcaCreateCertificateSet(num int) ([]byte, [][]byte, error) {
