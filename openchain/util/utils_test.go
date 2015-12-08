@@ -22,6 +22,7 @@ package util
 import (
 	"bytes"
 	"testing"
+	"time"
 )
 
 func TestComputeCryptoHash(t *testing.T) {
@@ -47,5 +48,12 @@ func TestUUIDGeneration(t *testing.T) {
 	}
 	if uuid == uuid2 {
 		t.Fatalf("Two UUIDs are equal. This should never occur")
+	}
+}
+
+func TestTimestamp(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		t.Logf("timestamp now: %v", CreateUtcTimestamp())
+		time.Sleep(200 * time.Millisecond)
 	}
 }
