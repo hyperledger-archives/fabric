@@ -222,6 +222,7 @@ type Block struct {
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`
 	PreviousBlockHash []byte                     `protobuf:"bytes,5,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
 	ConsensusMetadata []byte                     `protobuf:"bytes,6,opt,name=consensusMetadata,proto3" json:"consensusMetadata,omitempty"`
+	NonHashData       *NonHashData               `protobuf:"bytes,7,opt,name=non_hash_data" json:"non_hash_data,omitempty"`
 }
 
 func (m *Block) Reset()         { *m = Block{} }
@@ -238,6 +239,29 @@ func (m *Block) GetTimestamp() *google_protobuf.Timestamp {
 func (m *Block) GetTransactions() []*Transaction {
 	if m != nil {
 		return m.Transactions
+	}
+	return nil
+}
+
+func (m *Block) GetNonHashData() *NonHashData {
+	if m != nil {
+		return m.NonHashData
+	}
+	return nil
+}
+
+// NonHashData is data that is recorded on the block, but not included in
+type NonHashData struct {
+	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+}
+
+func (m *NonHashData) Reset()         { *m = NonHashData{} }
+func (m *NonHashData) String() string { return proto.CompactTextString(m) }
+func (*NonHashData) ProtoMessage()    {}
+
+func (m *NonHashData) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
 	}
 	return nil
 }

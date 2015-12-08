@@ -22,6 +22,7 @@ package ledger
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
@@ -34,7 +35,7 @@ func TestChain_Transaction_ContractNew_Golang_FromFile(t *testing.T) {
 	// Create the Chaincode specification
 	chaincodeSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
 		ChaincodeID: &protos.ChaincodeID{Url: "Contracts"},
-		CtorMsg:    &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
+		CtorMsg:     &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
 	chaincodeDeploymentSepc := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: chaincodeSpec}
 	uuid, uuidErr := util.GenerateUUID()
 	if uuidErr != nil {
@@ -95,6 +96,27 @@ func TestBlockChainEmptyChain(t *testing.T) {
 		t.Fatalf("Get last block on an empty chain should return nil.")
 	}
 	t.Logf("last block = [%s]", block)
+}
+
+func TestBlockchainBlockTimestamp(t *testing.T) {
+	chain := initTestBlockChain(t)
+	block1 := protos.NewBlock("sheehan", nil)
+	startTime := util.CreateUtcTimestamp()
+	time.Sleep(2 * time.Second)
+	chain.addBlock(context.Background(), block1)
+	lastBlock, err := chain.getLastBlock()
+	if err != nil {
+		t.Fatalf("Error retrieving last block: %s", err)
+	}
+	if lastBlock.NonHashData == nil {
+		t.Fatal("Expected block to have non-hash-data, but it was nil")
+	}
+	if lastBlock.NonHashData.Timestamp == nil {
+		t.Fatal("Expected block to have non-hash-data timestamp, but it was nil")
+	}
+	if startTime.Seconds >= lastBlock.NonHashData.Timestamp.Seconds {
+		t.Fatal("Expected block time to be after start time")
+	}
 }
 
 func buildSimpleChain(t *testing.T) (blocks []*protos.Block, hashes [][]byte) {
