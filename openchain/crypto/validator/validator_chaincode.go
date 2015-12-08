@@ -29,7 +29,7 @@ func (validator *Validator) decryptPayload(tx *obc.Transaction) ([]byte, error) 
 
 	// Derive key
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Failed encrypting payload. Invalid nonce.")
+		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
 	}
 	key := utils.HMACTruncated(validator.enrollChainKey, tx.Nonce, utils.AES_KEY_LENGTH_BYTES)
 	//	log.Info("Deriving from %s", utils.EncodeBase64(validator.enrollChainKey))

@@ -28,12 +28,12 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	_ "github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google/protobuf"
 	"io/ioutil"
 	"math/big"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"time"
 )
 
@@ -178,6 +178,8 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 		return nil, nil, err
 	}
 
+	// TODO: Store TCertOwnerKDFKey and checks that every time it is always the same key
+
 	// Validate the Certificates obtained
 	opts := x509.VerifyOptions{
 		//		DNSName: "test.example.com",
@@ -224,7 +226,7 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) {
 			continue
 		}
 
-		// Decrypt ct to TCertIndex || EnrollPub_Key || EnrollID
+		// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
 		pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
 		if err != nil {
 			log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)

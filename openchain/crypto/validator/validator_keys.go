@@ -63,7 +63,7 @@ func (validator *Validator) retrieveEnrollmentData(userId, pwd string) error {
 	// Store enrollment  key
 	log.Info("Storing enrollment key and certificate for user [%s]...", userId)
 
-	rawKey, err := utils.PrivateKeyToPEM("", key)
+	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {
 		log.Error("Failed converting enrollment key to PEM: %s", err)
 		return err

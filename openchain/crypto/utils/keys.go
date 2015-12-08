@@ -21,6 +21,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -30,7 +31,7 @@ func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)
 }
 
-func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
+func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
 		raw, err := x509.MarshalECPrivateKey(x)
@@ -41,10 +42,37 @@ func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
 
 		return pem.EncodeToMemory(
 			&pem.Block{
-				Type:  algo + "ECDSA PRIVATE KEY",
+				Type:  "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			},
 		), nil
+	default:
+		return nil, nil
+	}
+}
+
+func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
+	switch x := privateKey.(type) {
+	case *ecdsa.PrivateKey:
+		raw, err := x509.MarshalECPrivateKey(x)
+
+		if err != nil {
+			return nil, err
+		}
+
+		block, err := x509.EncryptPEMBlock(
+			rand.Reader,
+			"ECDSA PRIVATE KEY",
+			raw,
+			pwd,
+			x509.PEMCipherAES256)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return pem.EncodeToMemory(block), nil
+
 	default:
 		return nil, nil
 	}
@@ -120,11 +148,26 @@ func AEStoPEM(raw []byte) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "AES PRIVATE KEY", Bytes: raw})
 }
 
-func PublicKeyToBytes(publicKey interface{}) ([]byte, error) {
+func AEStoEncryptedPEM(raw []byte, pwd []byte) ([]byte, error) {
+	block, err := x509.EncryptPEMBlock(
+		rand.Reader,
+		"AES PRIVATE KEY",
+		raw,
+		pwd,
+		x509.PEMCipherAES256)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pem.EncodeToMemory(block), nil
+}
+
+func PublicKeyToDER(publicKey interface{}) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(publicKey)
 }
 
-func BytesToPublicKey(derBytes []byte) (pub interface{}, err error) {
+func DERToPublicKey(derBytes []byte) (pub interface{}, err error) {
 	key, err := x509.ParsePKIXPublicKey(derBytes)
 
 	return key, err
@@ -138,7 +181,7 @@ func PublicKeyToPEM(algo string, publicKey interface{}) ([]byte, error) {
 
 	return pem.EncodeToMemory(
 		&pem.Block{
-			Type:  algo + " PRIVATE KEY",
+			Type:  algo + " PUBLIC KEY",
 			Bytes: PubASN1,
 		},
 	), nil
