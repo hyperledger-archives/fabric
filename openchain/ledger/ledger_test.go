@@ -21,10 +21,11 @@ package ledger
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/protos"
-	"testing"
 )
 
 func TestLedgerCommit(t *testing.T) {
@@ -270,4 +271,48 @@ func TestLedgerSetRawState(t *testing.T) {
 	if bytes.Compare(hash1, hash3) != 0 {
 		t.Fatalf("Expected hashes to be equal, but they are %s and %s", hash1, hash3)
 	}
+}
+
+func TestDeleteAllStateKeysAndValues(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx()
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// Confirm values are present in state
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
+
+	// Delete all keys/values
+	err := ledger.DeleteALLStateKeysAndValues()
+	if err != nil {
+		t.Fatalf("Error calling deleting all keys/values from state: %s", err)
+	}
+
+	// Confirm values are deleted
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode1", "key1", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode2", "key2", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode3", "key3", true))
+
+	// Test that we can now store new stuff in the state
+	ledger.BeginTxBatch(2)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ = buildTestTx()
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// Confirm values are present in state
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
 }

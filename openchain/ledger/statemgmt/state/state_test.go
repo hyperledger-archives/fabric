@@ -124,3 +124,44 @@ func TestStateTxWrongCallCausePanic_3(t *testing.T) {
 	state.TxBegin("txUuid")
 	state.TxFinish("anotherUuid", true)
 }
+
+func TestDeleteState(t *testing.T) {
+
+	stateTestWrapper, state := createFreshDBAndConstructState(t)
+
+	// Add keys
+	state.TxBegin("txUuid")
+	state.Set("chaincode1", "key1", []byte("value1"))
+	state.Set("chaincode1", "key2", []byte("value2"))
+	state.TxFinish("txUuid", true)
+	state.getStateDelta()
+	stateTestWrapper.persistAndClearInMemoryChanges(0)
+
+	// confirm keys are present
+	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key2", true), []byte("value2"))
+
+	// Delete the State
+	err := state.DeleteState()
+	if err != nil {
+		t.Fatalf("Error deleting the state: %s", err)
+	}
+
+	// confirm the values are empty
+	testutil.AssertNil(t, stateTestWrapper.get("chaincode1", "key1", false))
+	testutil.AssertNil(t, stateTestWrapper.get("chaincode1", "key2", false))
+	testutil.AssertNil(t, stateTestWrapper.get("chaincode1", "key1", true))
+	testutil.AssertNil(t, stateTestWrapper.get("chaincode1", "key2", true))
+
+	// Confirm that we can now store new stuff in the state
+	state.TxBegin("txUuid")
+	state.Set("chaincode1", "key1", []byte("value1"))
+	state.Set("chaincode1", "key2", []byte("value2"))
+	state.TxFinish("txUuid", true)
+	state.getStateDelta()
+	stateTestWrapper.persistAndClearInMemoryChanges(1)
+
+	// confirm keys are present
+	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key2", true), []byte("value2"))
+}

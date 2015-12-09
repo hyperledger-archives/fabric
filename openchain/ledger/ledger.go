@@ -199,6 +199,13 @@ func (ledger *Ledger) ApplyRawStateDelta(delta *statemgmt.StateDelta) error {
 	return ledger.state.ApplyStateDelta(delta)
 }
 
+// DeleteALLStateKeysAndValues deletes all keys and values from the state.
+// This is generally only used during state synchronization when creating a
+// new state from a snapshot.
+func (ledger *Ledger) DeleteALLStateKeysAndValues() error {
+	return ledger.state.DeleteState()
+}
+
 /////////////////// blockchain related methods /////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
