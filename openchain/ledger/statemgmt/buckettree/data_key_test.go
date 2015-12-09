@@ -17,22 +17,25 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
 )
 
-var testDBWrapper = db.NewTestDBWrapper()
+func TestDataKey(t *testing.T) {
+	conf = initConfig(26, 3, fnvHash)
+	dataKey := newDataKey("chaincodeID", "key")
+	encodedBytes := dataKey.getEncodedBytes()
+	dataKeyFromEncodedBytes := newDataKeyFromEncodedBytes(encodedBytes)
+	testutil.AssertEquals(t, dataKey, dataKeyFromEncodedBytes)
+}
 
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+func TestDataKeyGetBucketKey(t *testing.T) {
+	conf = initConfig(26, 3, fnvHash)
+	newDataKey("chaincodeID1", "key1").getBucketKey()
+	newDataKey("chaincodeID1", "key2").getBucketKey()
+	newDataKey("chaincodeID2", "key1").getBucketKey()
+	newDataKey("chaincodeID2", "key2").getBucketKey()
 }

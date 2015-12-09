@@ -17,22 +17,30 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package trie
 
 import (
 	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
 )
 
-var testDBWrapper = db.NewTestDBWrapper()
+func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
+	stateTrieLogger.Debug("Enter fetchTrieNodeFromDB() for trieKey [%s]", key)
+	openchainDB := db.GetDBHandle()
+	trieNodeBytes, err := openchainDB.GetFromStateCF(key.getEncodedBytes())
+	if err != nil {
+		stateTrieLogger.Error("Error in retrieving trie node from DB for triekey [%s]. Error:%s", key, err)
+		return nil, err
+	}
 
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+	if trieNodeBytes == nil {
+		return nil, nil
+	}
+
+	trieNode, err := unmarshalTrieNode(key, trieNodeBytes)
+	if err != nil {
+		stateTrieLogger.Error("Error in unmarshalling trie node for triekey [%s]. Error:%s", key, err)
+		return nil, err
+	}
+	stateTrieLogger.Debug("Exit fetchTrieNodeFromDB() for trieKey [%s]", key)
+	return trieNode, nil
 }

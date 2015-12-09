@@ -34,17 +34,17 @@ var dbLogger = logging.MustGetLogger("db")
 
 const blockchainCF = "blockchainCF"
 const stateCF = "stateCF"
-const statehashCF = "statehashCF"
+const stateDeltaCF = "stateDeltaCF"
 const indexesCF = "indexesCF"
 
-var columnfamilies = []string{blockchainCF, stateCF, statehashCF, indexesCF}
+var columnfamilies = []string{blockchainCF, stateCF, stateDeltaCF, indexesCF}
 
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
 	DB           *gorocksdb.DB
 	BlockchainCF *gorocksdb.ColumnFamilyHandle
 	StateCF      *gorocksdb.ColumnFamilyHandle
-	StateHashCF  *gorocksdb.ColumnFamilyHandle
+	StateDeltaCF *gorocksdb.ColumnFamilyHandle
 	IndexesCF    *gorocksdb.ColumnFamilyHandle
 }
 
@@ -118,9 +118,9 @@ func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
 	return openchainDB.get(openchainDB.StateCF, key)
 }
 
-// GetFromStateHashCF get value for given key from column family - statehashCF
-func (openchainDB *OpenchainDB) GetFromStateHashCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateHashCF, key)
+// GetFromStateDeltaCF get value for given key from column family - stateDeltaCF
+func (openchainDB *OpenchainDB) GetFromStateDeltaCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.StateDeltaCF, key)
 }
 
 // GetFromIndexesCF get value for given key from column family - indexCF
@@ -145,9 +145,9 @@ func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator(snapshot *gorocksdb.S
 	return openchainDB.getSnapshotIterator(snapshot, openchainDB.StateCF)
 }
 
-// GetStateHashCFIterator get iterator for column family - statehashCF
-func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateHashCF)
+// GetStateDeltaCFIterator get iterator for column family - stateDeltaCF
+func (openchainDB *OpenchainDB) GetStateDeltaCFIterator() *gorocksdb.Iterator {
+	return openchainDB.getIterator(openchainDB.StateDeltaCF)
 }
 
 // GetSnapshot returns a point-in-time view of the DB. You MUST call snapshot.Release()
@@ -188,7 +188,7 @@ func openDB() (*OpenchainDB, error) {
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
-		[]string{"default", blockchainCF, stateCF, statehashCF, indexesCF},
+		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
 		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
 
 	if err != nil {
@@ -203,7 +203,7 @@ func openDB() (*OpenchainDB, error) {
 func (openchainDB *OpenchainDB) CloseDB() {
 	openchainDB.BlockchainCF.Destroy()
 	openchainDB.StateCF.Destroy()
-	openchainDB.StateHashCF.Destroy()
+	openchainDB.StateDeltaCF.Destroy()
 	openchainDB.DB.Close()
 	isOpen = false
 }
