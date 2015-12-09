@@ -320,7 +320,7 @@ func (instance *Plugin) processNewView() error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
-	delete(instance.newViewStore, instance.view)
+	delete(instance.newViewStore, instance.view-1)
 
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
