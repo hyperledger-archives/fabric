@@ -219,6 +219,18 @@ func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 	return nil
 }
 
+// DeleteState deletes ALL state keys/values from the DB. This is generally
+// only used during state synchronization when creating a new state from
+// a snapshot.
+func (state *State) DeleteState() error {
+	state.ClearInMemoryChanges()
+	err := db.GetDBHandle().DeleteState()
+	if err != nil {
+		logger.Error("Error deleting state", err)
+	}
+	return err
+}
+
 func encodeStateDeltaKey(blockNumber uint64) []byte {
 	return encodeUint64(blockNumber)
 }

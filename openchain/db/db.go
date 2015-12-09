@@ -208,6 +208,34 @@ func (openchainDB *OpenchainDB) CloseDB() {
 	isOpen = false
 }
 
+// DeleteState delets ALL state keys/values from the DB. This is generally
+// only used during state synchronization when creating a new state from
+// a snapshot.
+func (openchainDB *OpenchainDB) DeleteState() error {
+	err := openchainDB.DB.DropColumnFamily(openchainDB.StateCF)
+	if err != nil {
+		dbLogger.Error("Error dropping state CF", err)
+		return err
+	}
+	err = openchainDB.DB.DropColumnFamily(openchainDB.StateDeltaCF)
+	if err != nil {
+		dbLogger.Error("Error dropping state delta CF", err)
+		return err
+	}
+	opts := gorocksdb.NewDefaultOptions()
+	openchainDB.StateCF, err = openchainDB.DB.CreateColumnFamily(opts, stateCF)
+	if err != nil {
+		dbLogger.Error("Error creating state CF", err)
+		return err
+	}
+	openchainDB.StateDeltaCF, err = openchainDB.DB.CreateColumnFamily(opts, stateDeltaCF)
+	if err != nil {
+		dbLogger.Error("Error creating state delta CF", err)
+		return err
+	}
+	return nil
+}
+
 func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
