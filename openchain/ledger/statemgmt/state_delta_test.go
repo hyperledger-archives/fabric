@@ -42,6 +42,8 @@ func TestStateDeltaMarshalling(t *testing.T) {
 func TestStateDeltaCryptoHash(t *testing.T) {
 	stateDelta := NewStateDelta()
 
+	testutil.AssertNil(t, stateDelta.ComputeCryptoHash())
+
 	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
 	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
 	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))

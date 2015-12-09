@@ -21,6 +21,7 @@ package buckettree
 
 import (
 	"bytes"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -31,6 +32,7 @@ import (
 
 var logger = logging.MustGetLogger("buckettree")
 
+// StateImpl - implements the interface - 'statemgmt.HashableState'
 type StateImpl struct {
 	dataNodesDelta         *dataNodesDelta
 	bucketTreeDelta        *bucketTreeDelta
@@ -38,10 +40,12 @@ type StateImpl struct {
 	recomputeCryptoHash    bool
 }
 
+// NewStateImpl constructs a new StateImpl
 func NewStateImpl() *StateImpl {
 	return &StateImpl{}
 }
 
+// Initialize - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) Initialize() error {
 	rootBucketNode, err := fetchBucketNodeFromDB(constructRootBucketKey())
 	if err != nil {
@@ -51,8 +55,15 @@ func (stateImpl *StateImpl) Initialize() error {
 		stateImpl.lastComputedCryptoHash = rootBucketNode.computeCryptoHash()
 	}
 	return nil
+
+	// We can create a cache and keep all the bucket nodes pre-loaded.
+	// Since, the bucket nodes do not contain actual data and max possible
+	// buckets are pre-determined, the memory demand may not be very high or can easily
+	// be controlled - by keeping seletive buckets in the cache (most likely first few levels of the bucket tree - because,
+	// higher the level of the bucket, more are the chances that the bucket would be required for recomputation of hash)
 }
 
+// Get - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) Get(chaincodeID string, key string) ([]byte, error) {
 	dataKey := newDataKey(chaincodeID, key)
 	dataNode, err := fetchDataNodeFromDB(dataKey)
@@ -65,6 +76,7 @@ func (stateImpl *StateImpl) Get(chaincodeID string, key string) ([]byte, error) 
 	return dataNode.value, nil
 }
 
+// PrepareWorkingSet - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) error {
 	logger.Debug("Enter - PrepareWorkingSet()")
 	if stateDelta.IsEmpty() {
@@ -77,6 +89,7 @@ func (stateImpl *StateImpl) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 	return nil
 }
 
+// ClearWorkingSet - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) ClearWorkingSet() {
 	logger.Debug("Enter - ClearWorkingSet()")
 	stateImpl.dataNodesDelta = nil
@@ -84,6 +97,7 @@ func (stateImpl *StateImpl) ClearWorkingSet() {
 	stateImpl.recomputeCryptoHash = false
 }
 
+// ComputeCryptoHash - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) ComputeCryptoHash() ([]byte, error) {
 	logger.Debug("Enter - ComputeCryptoHash()")
 	if stateImpl.recomputeCryptoHash {
@@ -202,6 +216,7 @@ func addNodeData(content []byte, node *dataNode) []byte {
 	return content
 }
 
+// AddChangesForPersistence - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) AddChangesForPersistence(writeBatch *gorocksdb.WriteBatch) error {
 
 	if stateImpl.dataNodesDelta == nil {
@@ -250,10 +265,13 @@ func (stateImpl *StateImpl) addBucketNodeChangesForPersistence(writeBatch *goroc
 	}
 }
 
+// PerfHintKeyChanged - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) PerfHintKeyChanged(chaincodeID string, key string) {
-	// do nothing for now.
+	// We can create a cache. Pull all the keys for the bucket (to which given key belongs) in a separate thread
+	// This prefetching can help making method 'ComputeCryptoHash' faster.
 }
 
+// GetStateSnapshotIterator - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
 	return newStateSnapshotIterator(snapshot)
 }

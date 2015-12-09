@@ -32,7 +32,6 @@ type dataKey struct {
 	compositeKey []byte
 }
 
-// dataKey methods
 func newDataKey(chaincodeID string, key string) *dataKey {
 	logger.Debug("Enter - newDataKey. chaincodeID=[%s], key=[%s]", chaincodeID, key)
 	compositeKey := statemgmt.ConstructCompositeKey(chaincodeID, key)
@@ -59,22 +58,22 @@ func newDataKeyFromEncodedBytes(encodedBytes []byte) *dataKey {
 	return &dataKey{newBucketKeyAtLowestLevel(int(bucketNum)), compositeKey}
 }
 
-func (dataKey *dataKey) getBucketKey() *bucketKey {
-	return dataKey.bucketKey
+func (key *dataKey) getBucketKey() *bucketKey {
+	return key.bucketKey
 }
 
-func (dataKey *dataKey) getEncodedBytes() []byte {
-	encodedBytes := proto.EncodeVarint(uint64(dataKey.bucketKey.bucketNumber))
+func (key *dataKey) getEncodedBytes() []byte {
+	encodedBytes := proto.EncodeVarint(uint64(key.bucketKey.bucketNumber))
 	encodedBytes = append(encodedBytes, byte(0))
-	encodedBytes = append(encodedBytes, dataKey.compositeKey...)
+	encodedBytes = append(encodedBytes, key.compositeKey...)
 	return encodedBytes
 }
 
-func (dataKey *dataKey) String() string {
-	return fmt.Sprintf("bucketKey=[%s], compositeKey=[%s]", dataKey.bucketKey, string(dataKey.compositeKey))
+func (key *dataKey) String() string {
+	return fmt.Sprintf("bucketKey=[%s], compositeKey=[%s]", key.bucketKey, string(key.compositeKey))
 }
 
-func (dataKey1 *dataKey) clone() *dataKey {
-	clone := &dataKey{dataKey1.bucketKey.clone(), dataKey1.compositeKey}
+func (key *dataKey) clone() *dataKey {
+	clone := &dataKey{key.bucketKey.clone(), key.compositeKey}
 	return clone
 }

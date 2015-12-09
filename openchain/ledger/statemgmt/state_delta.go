@@ -28,14 +28,18 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 )
 
+// StateDelta holds the changes to existing state. This struct is used for holding the uncommited changes during execution of a tx-batch
+// Also, to be used for transferring the state to another peer in chunks
 type StateDelta struct {
 	chaincodeStateDeltas map[string]*chaincodeStateDelta
 }
 
+// NewStateDelta constructs an empty StateDelta struct
 func NewStateDelta() *StateDelta {
 	return &StateDelta{make(map[string]*chaincodeStateDelta)}
 }
 
+// Get get the state from delta if exists
 func (stateDelta *StateDelta) Get(chaincodeID string, key string) *UpdatedValue {
 	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
 	if ok {
@@ -47,18 +51,21 @@ func (stateDelta *StateDelta) Get(chaincodeID string, key string) *UpdatedValue 
 	return nil
 }
 
+// Set sets state value for a key
 func (stateDelta *StateDelta) Set(chaincodeID string, key string, value []byte) {
 	chaincodeStateDelta := stateDelta.getOrCreateChaincodeStateDelta(chaincodeID)
 	chaincodeStateDelta.set(key, value)
 	return
 }
 
+// Delete deletes a key from the state
 func (stateDelta *StateDelta) Delete(chaincodeID string, key string) {
 	chaincodeStateDelta := stateDelta.getOrCreateChaincodeStateDelta(chaincodeID)
 	chaincodeStateDelta.remove(key)
 	return
 }
 
+// ApplyChanges merges another delta - if a key is present in both, the value of the existing key is overwritten
 func (stateDelta *StateDelta) ApplyChanges(anotherStateDelta *StateDelta) {
 	for chaincodeID, chaincodeStateDelta := range anotherStateDelta.chaincodeStateDeltas {
 		for key, valueHolder := range chaincodeStateDelta.updatedKVs {
@@ -71,10 +78,13 @@ func (stateDelta *StateDelta) ApplyChanges(anotherStateDelta *StateDelta) {
 	}
 }
 
+// IsEmpty checks whether StateDelta contains any data
 func (stateDelta *StateDelta) IsEmpty() bool {
 	return len(stateDelta.chaincodeStateDeltas) == 0
 }
 
+// GetUpdatedChaincodeIds return the chaincodeIDs that are prepsent in the delta
+// If sorted is true, the method return chaincodeIDs in lexicographical sorted order
 func (stateDelta *StateDelta) GetUpdatedChaincodeIds(sorted bool) []string {
 	updatedChaincodeIds := make([]string, len(stateDelta.chaincodeStateDeltas))
 	i := 0
@@ -88,8 +98,9 @@ func (stateDelta *StateDelta) GetUpdatedChaincodeIds(sorted bool) []string {
 	return updatedChaincodeIds
 }
 
-func (stateDelta *StateDelta) GetUpdates(chaincodeId string) map[string]*UpdatedValue {
-	chaincodeStateDelta := stateDelta.chaincodeStateDeltas[chaincodeId]
+// GetUpdates returns changes associated with given chaincodeId
+func (stateDelta *StateDelta) GetUpdates(chaincodeID string) map[string]*UpdatedValue {
+	chaincodeStateDelta := stateDelta.chaincodeStateDeltas[chaincodeID]
 	if chaincodeStateDelta == nil {
 		return nil
 	}
@@ -105,9 +116,13 @@ func (stateDelta *StateDelta) getOrCreateChaincodeStateDelta(chaincodeID string)
 	return chaincodeStateDelta
 }
 
+// ComputeCryptoHash computes crypto-hash for the data held
+// returns nil if no data is present
 func (stateDelta *StateDelta) ComputeCryptoHash() []byte {
+	if stateDelta.IsEmpty() {
+		return nil
+	}
 	var buffer bytes.Buffer
-	//sort chaincodeIDs
 	sortedChaincodeIds := stateDelta.GetUpdatedChaincodeIds(true)
 	for _, chaincodeID := range sortedChaincodeIds {
 		buffer.WriteString(chaincodeID)
@@ -154,7 +169,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) hasChanges() bool {
 
 func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
 	updatedKeys := []string{}
-	for k, _ := range chaincodeStateDelta.updatedKVs {
+	for k := range chaincodeStateDelta.updatedKVs {
 		updatedKeys = append(updatedKeys, k)
 	}
 	sort.Strings(updatedKeys)
@@ -162,14 +177,17 @@ func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
 	return updatedKeys
 }
 
+// UpdatedValue hods the value for a key
 type UpdatedValue struct {
 	value []byte
 }
 
+// IsDelete checks whether the key was deleted
 func (updatedValue *UpdatedValue) IsDelete() bool {
 	return updatedValue.value == nil
 }
 
+// GetValue returns the value
 func (updatedValue *UpdatedValue) GetValue() []byte {
 	return updatedValue.value
 }
@@ -178,6 +196,8 @@ func (updatedValue *UpdatedValue) GetValue() []byte {
 // We need to revisit the following when we define proto messages
 // for state related structures for transporting. May be we can
 // completely get rid of custom marshalling / Unmarshalling of a state delta
+
+// Marshal serializes the StateDelta
 func (stateDelta *StateDelta) Marshal() (b []byte) {
 	buffer := proto.NewBuffer([]byte{})
 	err := buffer.EncodeVarint(uint64(len(stateDelta.chaincodeStateDeltas)))
@@ -213,6 +233,7 @@ func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) {
 	return
 }
 
+// Unmarshal deserializes StateDelta
 func (stateDelta *StateDelta) Unmarshal(bytes []byte) {
 	buffer := proto.NewBuffer(bytes)
 	size, err := buffer.DecodeVarint()

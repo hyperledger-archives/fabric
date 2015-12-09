@@ -24,6 +24,7 @@ import (
 	"github.com/tecbot/gorocksdb"
 )
 
+// StateSnapshot encapsulates StateSnapshotIterator given by actual state implementation and the db snapshot
 type StateSnapshot struct {
 	blockNumber  uint64
 	stateImplItr statemgmt.StateSnapshotIterator

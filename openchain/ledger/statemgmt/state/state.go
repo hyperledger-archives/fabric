@@ -22,6 +22,7 @@ package state
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -35,16 +36,19 @@ var logger = logging.MustGetLogger("state")
 var historyStateDeltaSize = uint64(500)
 var stateImpl = buckettree.NewStateImpl()
 
-// State structure for maintaining world state. This is not thread safe
+// State structure for maintaining world state.
+// This encapsulates a particular implementation for managing the state persistence
+// This is not thread safe
 type State struct {
 	stateImpl           statemgmt.HashableState
 	stateDelta          *statemgmt.StateDelta
 	currentTxStateDelta *statemgmt.StateDelta
-	currentTxUuid       string
+	currentTxUUID       string
 	txStateDeltaHash    map[string][]byte
 	updateStateImpl     bool
 }
 
+// NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
 	err := stateImpl.Initialize()
 	if err != nil {
@@ -54,38 +58,40 @@ func NewState() *State {
 
 }
 
-func (state *State) TxBegin(txUuid string) {
-	logger.Debug("txBegin() for txUuid [%s]", txUuid)
+// TxBegin marks begin of a new tx. If a tx is already in progress, this call panics
+func (state *State) TxBegin(txUUID string) {
+	logger.Debug("txBegin() for txUuid [%s]", txUUID)
 	if state.txInProgress() {
-		panic(fmt.Errorf("A tx [%s] is already in progress. Received call for begin of another tx [%s]", state.currentTxUuid, txUuid))
+		panic(fmt.Errorf("A tx [%s] is already in progress. Received call for begin of another tx [%s]", state.currentTxUUID, txUUID))
 	}
-	state.currentTxUuid = txUuid
+	state.currentTxUUID = txUUID
 }
 
-func (state *State) TxFinish(txUuid string, txSuccessful bool) {
-	logger.Debug("txFinish() for txUuid [%s], txSuccessful=[%t]", txUuid, txSuccessful)
-	if state.currentTxUuid != txUuid {
-		panic(fmt.Errorf("Different Uuid in tx-begin [%s] and tx-finish [%s]", state.currentTxUuid, txUuid))
+// TxFinish marks the completion of on-going tx. If txUUID is not same as of the on-going tx, this call panics
+func (state *State) TxFinish(txUUID string, txSuccessful bool) {
+	logger.Debug("txFinish() for txUuid [%s], txSuccessful=[%t]", txUUID, txSuccessful)
+	if state.currentTxUUID != txUUID {
+		panic(fmt.Errorf("Different Uuid in tx-begin [%s] and tx-finish [%s]", state.currentTxUUID, txUUID))
 	}
 	if txSuccessful {
 		if !state.currentTxStateDelta.IsEmpty() {
-			logger.Debug("txFinish() for txUuid [%s] merging state changes", txUuid)
+			logger.Debug("txFinish() for txUuid [%s] merging state changes", txUUID)
 			state.stateDelta.ApplyChanges(state.currentTxStateDelta)
-			state.txStateDeltaHash[txUuid] = state.currentTxStateDelta.ComputeCryptoHash()
+			state.txStateDeltaHash[txUUID] = state.currentTxStateDelta.ComputeCryptoHash()
 			state.updateStateImpl = true
 		} else {
-			state.txStateDeltaHash[txUuid] = nil
+			state.txStateDeltaHash[txUUID] = nil
 		}
 	}
 	state.currentTxStateDelta = statemgmt.NewStateDelta()
-	state.currentTxUuid = ""
+	state.currentTxUUID = ""
 }
 
 func (state *State) txInProgress() bool {
-	return state.currentTxUuid != ""
+	return state.currentTxUUID != ""
 }
 
-// get - get state for chaincodeID and key. If committed is false, this first looks in memory and if missing,
+// Get returns state for chaincodeID and key. If committed is false, this first looks in memory and if missing,
 // pulls from db. If committed is true, this pulls from the db only.
 func (state *State) Get(chaincodeID string, key string, committed bool) ([]byte, error) {
 	if !committed {
@@ -101,7 +107,7 @@ func (state *State) Get(chaincodeID string, key string, committed bool) ([]byte,
 	return state.stateImpl.Get(chaincodeID, key)
 }
 
-// set - sets state to given value for chaincodeID and key. Does not immideatly writes to memory
+// Set sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (state *State) Set(chaincodeID string, key string, value []byte) error {
 	logger.Debug("set() chaincodeID=[%s], key=[%s], value=[%#v]", chaincodeID, key, value)
 	if !state.txInProgress() {
@@ -111,7 +117,7 @@ func (state *State) Set(chaincodeID string, key string, value []byte) error {
 	return nil
 }
 
-// delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to memory
+// Delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
 func (state *State) Delete(chaincodeID string, key string) error {
 	logger.Debug("delete() chaincodeID=[%s], key=[%s]", chaincodeID, key)
 	if !state.txInProgress() {
@@ -121,7 +127,7 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	return nil
 }
 
-// getHash computes new state hash if the stateDelta is to be applied.
+// GetHash computes new state hash if the stateDelta is to be applied.
 // Recomputes only if stateDelta has changed after most recent call to this function
 func (state *State) GetHash() ([]byte, error) {
 	logger.Debug("Enter - GetHash()")
@@ -138,11 +144,12 @@ func (state *State) GetHash() ([]byte, error) {
 	return hash, nil
 }
 
+// GetTxStateDeltaHash return the hash of the StateDelta
 func (state *State) GetTxStateDeltaHash() map[string][]byte {
 	return state.txStateDeltaHash
 }
 
-// clearInMemoryChanges remove from memory all the changes to state
+// ClearInMemoryChanges remove from memory all the changes to state
 func (state *State) ClearInMemoryChanges() {
 	state.stateDelta = statemgmt.NewStateDelta()
 	state.txStateDeltaHash = make(map[string][]byte)
@@ -154,12 +161,13 @@ func (state *State) getStateDelta() *statemgmt.StateDelta {
 	return state.stateDelta
 }
 
-// getSnapshot returns a snapshot of the global state for the current block. stateSnapshot.Release()
+// GetSnapshot returns a snapshot of the global state for the current block. stateSnapshot.Release()
 // must be called once you are done.
 func (state *State) GetSnapshot(blockNumber uint64, dbSnapshot *gorocksdb.Snapshot) (*StateSnapshot, error) {
 	return newStateSnapshot(blockNumber, dbSnapshot)
 }
 
+// FetchStateDeltaFromDB fetches the StateDelta corrsponding to given blockNumber
 func (state *State) FetchStateDeltaFromDB(blockNumber uint64) (*statemgmt.StateDelta, error) {
 	stateDeltaBytes, err := db.GetDBHandle().GetFromStateDeltaCF(encodeStateDeltaKey(blockNumber))
 	if err != nil {
@@ -173,6 +181,7 @@ func (state *State) FetchStateDeltaFromDB(blockNumber uint64) (*statemgmt.StateD
 	return stateDelta, nil
 }
 
+// AddChangesForPersistence adds key-value pairs to writeBatch
 func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gorocksdb.WriteBatch) {
 	logger.Debug("state.addChangesForPersistence()...start")
 	if state.updateStateImpl {
@@ -196,6 +205,8 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 	logger.Debug("state.addChangesForPersistence()...finished")
 }
 
+// ApplyStateDelta applies already prepared stateDelta to the existing state
+// This method is to be used in state transfer
 func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 	state.stateImpl.PrepareWorkingSet(delta)
 	writeBatch := gorocksdb.NewWriteBatch()

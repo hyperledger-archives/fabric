@@ -25,6 +25,7 @@ import (
 	"github.com/tecbot/gorocksdb"
 )
 
+// StateSnapshotIterator implements the interface 'statemgmt.StateSnapshotIterator'
 type StateSnapshotIterator struct {
 	dbItr *gorocksdb.Iterator
 }
@@ -36,11 +37,13 @@ func newStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (*StateSnapshotItera
 	return &StateSnapshotIterator{dbItr}, nil
 }
 
+// Next - see interface 'statemgmt.StateSnapshotIterator' for details
 func (snapshotItr *StateSnapshotIterator) Next() bool {
 	snapshotItr.dbItr.Next()
 	return snapshotItr.dbItr.Valid()
 }
 
+// GetRawKeyValue - see interface 'statemgmt.StateSnapshotIterator' for details
 func (snapshotItr *StateSnapshotIterator) GetRawKeyValue() ([]byte, []byte) {
 	keyBytes := statemgmt.Copy(snapshotItr.dbItr.Key().Data())
 	valueBytes := snapshotItr.dbItr.Value().Data()
@@ -48,6 +51,7 @@ func (snapshotItr *StateSnapshotIterator) GetRawKeyValue() ([]byte, []byte) {
 	return dataNode.getCompositeKey(), dataNode.getValue()
 }
 
+// Close - see interface 'statemgmt.StateSnapshotIterator' for details
 func (snapshotItr *StateSnapshotIterator) Close() {
 	snapshotItr.dbItr.Close()
 }

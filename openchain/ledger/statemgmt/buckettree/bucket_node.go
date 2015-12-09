@@ -45,7 +45,7 @@ func unmarshalBucketNode(bucketKey *bucketKey, serializedBytes []byte) *bucketNo
 	for i := 0; i < conf.getMaxGroupingAtEachLevel(); i++ {
 		childCryptoHash, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			panic("this error should not occur")
+			panic(fmt.Errorf("this error should not occur: %s", err))
 		}
 		if !util.IsNil(childCryptoHash) {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
@@ -112,10 +112,9 @@ func (bucketNode *bucketNode) String() string {
 	str := fmt.Sprintf("bucketKey={%s}\n NumChildren={%d}\n", bucketNode.bucketKey, numChildren)
 	if numChildren == 0 {
 		return str
-	} else {
-		str = str + "Childern crypto-hashes:\n"
 	}
 
+	str = str + "Childern crypto-hashes:\n"
 	for i := range bucketNode.childrenCryptoHash {
 		childCryptoHash := bucketNode.childrenCryptoHash[i]
 		if util.NotNil(childCryptoHash) {

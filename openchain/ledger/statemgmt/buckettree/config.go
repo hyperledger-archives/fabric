@@ -24,10 +24,14 @@ import (
 	"hash/fnv"
 )
 
-var DEFALUT_NUM_BUCKETS = 1009
-var DEFALUT_MAX_GROUPING_AT_EACH_LEVEL = 5
+// DefaultNumBuckets - total buckets
+const DefaultNumBuckets = 10009
 
-var conf = initConfig(DEFALUT_NUM_BUCKETS, DEFALUT_MAX_GROUPING_AT_EACH_LEVEL, fnvHash)
+// DefaultMaxGroupingAtEachLevel - Number of max buckets to group at each level.
+// Grouping is started from left. The last group may have less buckets
+const DefaultMaxGroupingAtEachLevel = 10
+
+var conf = initConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
 
 type config struct {
 	maxGroupingAtEachLevel int

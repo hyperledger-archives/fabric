@@ -21,8 +21,9 @@ package buckettree
 
 import (
 	"bytes"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"sort"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 )
 
 // Code for managing changes in data nodes
@@ -69,7 +70,7 @@ func (dataNodesDelta *dataNodesDelta) add(chaincodeID string, key string, value 
 
 func (dataNodesDelta *dataNodesDelta) getAffectedBuckets() []*bucketKey {
 	changedBuckets := []*bucketKey{}
-	for bucketKey, _ := range dataNodesDelta.byBucket {
+	for bucketKey := range dataNodesDelta.byBucket {
 		copyOfBucketKey := bucketKey.clone()
 		logger.Debug("Adding changed bucket [%s]", copyOfBucketKey)
 		changedBuckets = append(changedBuckets, copyOfBucketKey)

@@ -119,11 +119,11 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 
-	expectedHash_1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
+	expectedHash1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
 		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3"),
 		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
 		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6"))
-	testutil.AssertEquals(t, rootHash, expectedHash_1)
+	testutil.AssertEquals(t, rootHash, expectedHash1)
 
 	// modify boundary keys and a middle key
 	stateDelta = statemgmt.NewStateDelta()
@@ -132,11 +132,11 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	stateDelta.Set("chaincodeID6", "key6", []byte("value6_new"))
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
-	expectedHash_2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
+	expectedHash2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
 		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3_new"),
 		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
 		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6_new"))
-	testutil.AssertEquals(t, rootHash, expectedHash_2)
+	testutil.AssertEquals(t, rootHash, expectedHash2)
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID2", "key2"), []byte("value2_new"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID3", "key3"), []byte("value3_new"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID6", "key6"), []byte("value6_new"))
@@ -148,14 +148,14 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	stateDelta.Set("chaincodeID7", "key7", []byte("value7"))
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
-	expectedHash_3 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
+	expectedHash3 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
 		statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
 		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3_new"),
 		statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"),
 		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
 		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6_new"),
 		statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7"))
-	testutil.AssertEquals(t, rootHash, expectedHash_3)
+	testutil.AssertEquals(t, rootHash, expectedHash3)
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID1", "key1"), []byte("value1"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID4", "key4"), []byte("value4"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID7", "key7"), []byte("value7"))
@@ -167,7 +167,7 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	stateDelta.Delete("chaincodeID7", "key7")
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
-	testutil.AssertEquals(t, rootHash, expectedHash_2)
+	testutil.AssertEquals(t, rootHash, expectedHash2)
 	testutil.AssertNil(t, stateImplTestWrapper.get("chaincodeID1", "key1"))
 	testutil.AssertNil(t, stateImplTestWrapper.get("chaincodeID4", "key4"))
 	testutil.AssertNil(t, stateImplTestWrapper.get("chaincodeID7", "key7"))
@@ -287,7 +287,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 
 func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 	// simple test... not using custom hasher
-	conf = initConfig(DEFALUT_NUM_BUCKETS, DEFALUT_MAX_GROUPING_AT_EACH_LEVEL, fnvHash)
+	conf = initConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
 	testDBWrapper.CreateFreshDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl
