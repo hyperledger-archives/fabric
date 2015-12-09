@@ -84,7 +84,7 @@ func TestBlockChain_SimpleChain(t *testing.T) {
 func TestBlockChainEmptyChain(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
-	testutil.AssertEquals(t, blockchainTestWrapper.blockchain.getSize(), 0)
+	testutil.AssertEquals(t, blockchainTestWrapper.blockchain.getSize(), uint64(0))
 	block := blockchainTestWrapper.getLastBlock()
 	if block != nil {
 		t.Fatalf("Get last block on an empty chain should return nil.")
