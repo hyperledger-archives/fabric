@@ -414,7 +414,10 @@ func (m *BlockState) GetBlock() *Block {
 }
 
 // SyncBlockRange is the payload of OpenchainMessage.SYNC_GET_BLOCKS, where
-// start and end indicate the starting and ending blocks inclusively
+// start and end indicate the starting and ending blocks inclusively. The order
+// in which blocks are returned is defined by the start and end values. For
+// example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
+// If start=5 and end=3, the order will be 5, 4, 3.
 type SyncBlockRange struct {
 	Start uint64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
 	End   uint64 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
