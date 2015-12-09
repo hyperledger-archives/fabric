@@ -54,7 +54,7 @@ type Message_Request struct {
 	Request *Request `protobuf:"bytes,1,opt,name=request,oneof"`
 }
 type Message_PrePrepare struct {
-	PrePrepare *PrePrepare `protobuf:"bytes,2,opt,name=prePrepare,oneof"`
+	PrePrepare *PrePrepare `protobuf:"bytes,2,opt,name=pre_prepare,oneof"`
 }
 type Message_Prepare struct {
 	Prepare *Prepare `protobuf:"bytes,3,opt,name=prepare,oneof"`
@@ -66,10 +66,10 @@ type Message_Checkpoint struct {
 	Checkpoint *Checkpoint `protobuf:"bytes,5,opt,name=checkpoint,oneof"`
 }
 type Message_ViewChange struct {
-	ViewChange *ViewChange `protobuf:"bytes,6,opt,name=viewChange,oneof"`
+	ViewChange *ViewChange `protobuf:"bytes,6,opt,name=view_change,oneof"`
 }
 type Message_NewView struct {
-	NewView *NewView `protobuf:"bytes,7,opt,name=newView,oneof"`
+	NewView *NewView `protobuf:"bytes,7,opt,name=new_view,oneof"`
 }
 
 func (*Message_Request) isMessage_Payload()    {}
@@ -206,7 +206,7 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_Request{msg}
 		return true, err
-	case 2: // payload.prePrepare
+	case 2: // payload.pre_prepare
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -238,7 +238,7 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_Checkpoint{msg}
 		return true, err
-	case 6: // payload.viewChange
+	case 6: // payload.view_change
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -246,7 +246,7 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_ViewChange{msg}
 		return true, err
-	case 7: // payload.newView
+	case 7: // payload.new_view
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
