@@ -218,11 +218,7 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 		logger.Info("New consensus request received")
 		req := &Request{Payload: msgWrapped.Payload}
 		msg := &Message{&Message_Request{req}}
-		// We pass through the channel, instead of using
-		// .broadcast(..., true), so that this msg will be
-		// processed synchronously
-		instance.c <- msg
-		return instance.broadcast(msg, false)
+		return instance.broadcast(msg, true)
 	}
 	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
@@ -742,7 +738,7 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 	}
 
 	if toSelf {
-		err = instance.recvMsgSync(msg)
+		instance.c <- msg
 	}
 	err = instance.cpi.Broadcast(msgWrapped)
 	return err
