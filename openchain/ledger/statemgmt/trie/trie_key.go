@@ -22,6 +22,8 @@ package trie
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 )
 
 type trieKeyEncoderInterface interface {
@@ -38,7 +40,6 @@ type trieKeyInterface interface {
 }
 
 var trieKeyEncoderImpl = newByteTrieKeyEncoder()
-var stateKeyDelimiter = []byte{0x00}
 var rootTrieKey = []byte{}
 var rootTrieKeyStr = string(rootTrieKey)
 
@@ -47,11 +48,8 @@ type trieKey struct {
 }
 
 func newTrieKey(chaincodeID string, key string) *trieKey {
-	fullKey := []byte(chaincodeID)
-	fullKey = append(fullKey, stateKeyDelimiter...)
-	keybytes := ([]byte(key))
-	fullKey = append(fullKey, keybytes...)
-	return &trieKey{trieKeyEncoderImpl.encodeTrieKey(fullKey)}
+	compositeKey := statemgmt.ConstructCompositeKey(chaincodeID, key)
+	return &trieKey{trieKeyEncoderImpl.encodeTrieKey(compositeKey)}
 }
 
 func (key *trieKey) getEncodedBytes() []byte {
