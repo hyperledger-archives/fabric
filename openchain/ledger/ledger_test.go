@@ -286,44 +286,20 @@ func TestDeleteAllStateKeysAndValues(t *testing.T) {
 	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
 
 	// Confirm values are present in state
-	value1, err := ledger.GetState("chaincode1", "key1", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode1/key1 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value1, []byte("value1"))
-	value2, err := ledger.GetState("chaincode2", "key2", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode2/key2 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value2, []byte("value2"))
-	value3, err := ledger.GetState("chaincode3", "key3", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode3/key3 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value3, []byte("value3"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
 
 	// Delete all keys/values
-	err = ledger.DeleteALLStateKeysAndValues()
+	err := ledger.DeleteALLStateKeysAndValues()
 	if err != nil {
 		t.Fatalf("Error calling deleting all keys/values from state: %s", err)
 	}
 
 	// Confirm values are deleted
-	value1, err = ledger.GetState("chaincode1", "key1", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode1/key1 from state: %s", err)
-	}
-	testutil.AssertNil(t, value1)
-	value2, err = ledger.GetState("chaincode2", "key2", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode2/key2 from state: %s", err)
-	}
-	testutil.AssertNil(t, value2)
-	value3, err = ledger.GetState("chaincode3", "key3", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode3/key3 from state: %s", err)
-	}
-	testutil.AssertNil(t, value3)
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode1", "key1", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode2", "key2", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode3", "key3", true))
 
 	// Test that we can now store new stuff in the state
 	ledger.BeginTxBatch(2)
@@ -336,19 +312,7 @@ func TestDeleteAllStateKeysAndValues(t *testing.T) {
 	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
 
 	// Confirm values are present in state
-	value1, err = ledger.GetState("chaincode1", "key1", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode1/key1 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value1, []byte("value1"))
-	value2, err = ledger.GetState("chaincode2", "key2", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode2/key2 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value2, []byte("value2"))
-	value3, err = ledger.GetState("chaincode3", "key3", true)
-	if err != nil {
-		t.Fatalf("Error fetching chaincode3/key3 from state: %s", err)
-	}
-	testutil.AssertEquals(t, value3, []byte("value3"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
 }
