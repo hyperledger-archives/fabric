@@ -17,22 +17,12 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package util
 
-import (
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
-)
+func IsNil(b []byte) bool {
+	return b == nil || len(b) == 0
+}
 
-var testDBWrapper = db.NewTestDBWrapper()
-
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+func NotNil(b []byte) bool {
+	return !IsNil(b)
 }

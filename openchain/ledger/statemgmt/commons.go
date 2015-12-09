@@ -17,22 +17,31 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package statemgmt
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
+	"bytes"
+	"github.com/op/go-logging"
 )
 
-var testDBWrapper = db.NewTestDBWrapper()
+var logger = logging.MustGetLogger("statemgmt")
 
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+var stateKeyDelimiter = []byte{0x00}
+
+func ConstructCompositeKey(chaincodeID string, key string) []byte {
+	compositeKey := []byte(chaincodeID)
+	compositeKey = append(compositeKey, stateKeyDelimiter...)
+	compositeKey = append(compositeKey, []byte(key)...)
+	return compositeKey
+}
+
+func DecodeCompositeKey(compositeKey []byte) (string, string) {
+	split := bytes.Split(compositeKey, stateKeyDelimiter)
+	return string(split[0]), string(split[1])
+}
+
+func Copy(src []byte) []byte {
+	dest := make([]byte, len(src))
+	copy(dest, src)
+	return dest
 }

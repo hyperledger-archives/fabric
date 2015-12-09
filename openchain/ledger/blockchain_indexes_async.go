@@ -38,6 +38,7 @@ type blockWrapper struct {
 }
 
 type blockchainIndexerAsync struct {
+	blockchain *blockchain
 	// Channel for transferring block from block chain for indexing
 	blockChan    chan blockWrapper
 	indexerState *blockchainIndexerState
@@ -51,8 +52,9 @@ func (indexer *blockchainIndexerAsync) isSynchronous() bool {
 	return false
 }
 
-func (indexer *blockchainIndexerAsync) start() error {
-	indexerState, err := newBlockchainIndexerState()
+func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
+	indexer.blockchain = blockchain
+	indexerState, err := newBlockchainIndexerState(indexer)
 	if err != nil {
 		return err
 	}
@@ -144,10 +146,7 @@ func (indexer *blockchainIndexerAsync) fetchTransactionIndexByUUID(txUUID string
 }
 
 func (indexer *blockchainIndexerAsync) indexPendingBlocks() error {
-	blockchain, err := getBlockchain()
-	if err != nil {
-		return err
-	}
+	blockchain := indexer.blockchain
 	if blockchain.getSize() == 0 {
 		// chain is empty as yet
 		return nil
@@ -191,6 +190,8 @@ func (indexer *blockchainIndexerAsync) stop() {
 // when user query arrives?
 // If a delay of a couple of blocks are allowed, we can get rid of this synchronization stuff
 type blockchainIndexerState struct {
+	indexer *blockchainIndexerAsync
+
 	zerothBlockIndexed bool
 	lastBlockIndexed   uint64
 	err                error
@@ -198,13 +199,13 @@ type blockchainIndexerState struct {
 	newBlockIndexed    *sync.Cond
 }
 
-func newBlockchainIndexerState() (*blockchainIndexerState, error) {
+func newBlockchainIndexerState(indexer *blockchainIndexerAsync) (*blockchainIndexerState, error) {
 	var lock sync.RWMutex
 	zerothBlockIndexed, lastIndexedBlockNum, err := fetchLastIndexedBlockNumFromDB()
 	if err != nil {
 		return nil, err
 	}
-	return &blockchainIndexerState{zerothBlockIndexed, lastIndexedBlockNum, nil, &lock, sync.NewCond(&lock)}, nil
+	return &blockchainIndexerState{indexer, zerothBlockIndexed, lastIndexedBlockNum, nil, &lock, sync.NewCond(&lock)}, nil
 }
 
 func (indexerState *blockchainIndexerState) blockIndexed(blockNumber uint64) {
@@ -222,7 +223,7 @@ func (indexerState *blockchainIndexerState) getLastIndexedBlockNumber() uint64 {
 }
 
 func (indexerState *blockchainIndexerState) waitForLastCommittedBlock() (err error) {
-	chain, err := getBlockchain()
+	chain := indexerState.indexer.blockchain
 	if err != nil || chain.getSize() == 0 {
 		return
 	}

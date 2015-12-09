@@ -20,120 +20,68 @@ under the License.
 package ledger
 
 import (
-	"bytes"
-	"testing"
-
-	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/protos"
-	"golang.org/x/net/context"
+	"testing"
 )
 
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
 	for i := range blocks {
-		compareProtoMessages(t, getBlock(t, i), blocks[i])
+		testutil.AssertEquals(t, testBlockchainWrapper.getBlock(uint64(i)), blocks[i])
 	}
 }
 
 func TestIndexes_GetBlockByBlockHash(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
 	for i := range blocks {
-		compareProtoMessages(t, getBlockByHash(t, getBlockHash(t, blocks[i])), blocks[i])
+		blockHash, _ := blocks[i].GetHash()
+		testutil.AssertEquals(t, testBlockchainWrapper.getBlockByHash(blockHash), blocks[i])
 	}
 }
 
 func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
 	for i, block := range blocks {
 		for j, tx := range block.GetTransactions() {
-			compareProtoMessages(t, getTransactionByBlockNumberAndIndex(t, i, j), tx)
+			testutil.AssertEquals(t, testBlockchainWrapper.getTransaction(uint64(i), uint64(j)), tx)
 		}
 	}
 }
 
 func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
 	for _, block := range blocks {
+		blockHash, _ := block.GetHash()
 		for j, tx := range block.GetTransactions() {
-			compareProtoMessages(t, getTransactionByBlockHashAndIndex(t, getBlockHash(t, block), j), tx)
+			testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByBlockHash(blockHash, uint64(j)), tx)
 		}
 	}
 }
 
 func TestIndexes_GetTransactionByUUID(t *testing.T) {
-	initTestBlockChain(t)
-	chain := getTestBlockchain(t)
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	tx1, uuid1 := buildTestTx()
 	tx2, uuid2 := buildTestTx()
 	block1 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx1, tx2})
-	chain.addBlock(context.TODO(), block1)
+	testBlockchainWrapper.addNewBlock(block1, []byte("stateHash1"))
 
 	tx3, uuid3 := buildTestTx()
 	tx4, uuid4 := buildTestTx()
 	block2 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx3, tx4})
-	chain.addBlock(context.TODO(), block2)
+	testBlockchainWrapper.addNewBlock(block2, []byte("stateHash2"))
 
-	compareProtoMessages(t, getTransactionByUUID(t, uuid1), tx1)
-	compareProtoMessages(t, getTransactionByUUID(t, uuid2), tx2)
-	compareProtoMessages(t, getTransactionByUUID(t, uuid3), tx3)
-	compareProtoMessages(t, getTransactionByUUID(t, uuid4), tx4)
-}
-
-func getBlockByHash(t *testing.T, blockHash []byte) *protos.Block {
-	chain := getTestBlockchain(t)
-	block, err := chain.getBlockByHash(blockHash)
-	if err != nil {
-		t.Fatalf("Error while retrieving block from chain %s", err)
-	}
-	return block
-}
-
-func getTransactionByBlockNumberAndIndex(t *testing.T, blockNumber int, txIndex int) *protos.Transaction {
-	chain := getTestBlockchain(t)
-	tx, err := chain.getTransaction(uint64(blockNumber), uint64(txIndex))
-	if err != nil {
-		t.Fatalf("Error in API blockchain.GetTransaction(): %s", err)
-	}
-	return tx
-}
-
-func getTransactionByBlockHashAndIndex(t *testing.T, blockHash []byte, txIndex int) *protos.Transaction {
-	chain := getTestBlockchain(t)
-	tx, err := chain.getTransactionByBlockHash(blockHash, uint64(txIndex))
-	if err != nil {
-		t.Fatalf("Error in API blockchain.getTransactionByBlockHash(): %s", err)
-	}
-	return tx
-}
-
-func getTransactionByUUID(t *testing.T, txUUID string) *protos.Transaction {
-	chain := getTestBlockchain(t)
-	tx, err := chain.getTransactionByUUID(txUUID)
-	if err != nil {
-		t.Fatalf("Error in API blockchain.getTransactionByUUID(): %s", err)
-	}
-	return tx
-}
-
-func compareProtoMessages(t *testing.T, found proto.Message, expected proto.Message) {
-	if bytes.Compare(serializeProtoMessage(t, found), serializeProtoMessage(t, expected)) != 0 {
-		t.Fatalf("Proto messages are not same. Expected = [%s], found = [%s]", expected, found)
-	}
-}
-
-func serializeProtoMessage(t *testing.T, msg proto.Message) []byte {
-	t.Logf("message = [%s]", msg)
-	data, err := proto.Marshal(msg)
-	if err != nil {
-		t.Fatalf("Error while serializing proto message: %s", err)
-	}
-	return data
+	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid1), tx1)
+	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid2), tx2)
+	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid3), tx3)
+	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid4), tx4)
 }

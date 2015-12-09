@@ -25,6 +25,11 @@ import (
 	"sync"
 
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
+	"github.com/tecbot/gorocksdb"
+
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
@@ -34,7 +39,7 @@ var ledgerLogger = logging.MustGetLogger("ledger")
 // Ledger - the struct for openchain ledger
 type Ledger struct {
 	blockchain *blockchain
-	state      *state
+	state      *state.State
 	currentID  interface{}
 }
 
@@ -45,15 +50,19 @@ var once sync.Once
 // GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
 	once.Do(func() {
-		blockchain, err := getBlockchain()
-		if err != nil {
-			ledgerError = err
-		} else {
-			state := getState()
-			ledger = &Ledger{blockchain, state, nil}
-		}
+		ledger, ledgerError = newLedger()
 	})
 	return ledger, ledgerError
+}
+
+func newLedger() (*Ledger, error) {
+	blockchain, err := newBlockchain()
+	if err != nil {
+		return nil, err
+	} else {
+		state := state.NewState()
+		return &Ledger{blockchain, state, nil}, nil
+	}
 }
 
 /////////////////// Transaction-batch related methods ///////////////////////////////
@@ -77,9 +86,31 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	if err != nil {
 		return err
 	}
-	block := protos.NewBlock("proposerID string", transactions)
-	ledger.blockchain.addBlock(context.TODO(), block)
-	ledger.resetForNextTxGroup()
+
+	success := true
+	defer ledger.resetForNextTxGroup()
+	defer ledger.blockchain.blockPersistenceStatus(success)
+
+	stateHash, err := ledger.state.GetHash()
+	if err != nil {
+		success = false
+		return err
+	}
+
+	writeBatch := gorocksdb.NewWriteBatch()
+	block := protos.NewBlock("proposerID", transactions)
+	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
+	if err != nil {
+		success = false
+		return err
+	}
+	ledger.state.AddChangesForPersistence(newBlockNumber, writeBatch)
+	opt := gorocksdb.NewDefaultWriteOptions()
+	dbErr := db.GetDBHandle().DB.Write(opt, writeBatch)
+	if dbErr != nil {
+		success = false
+		return dbErr
+	}
 	return nil
 }
 
@@ -97,13 +128,13 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 
 // TxBegin - Marks the begin of a new transaction in the ongoing batch
 func (ledger *Ledger) TxBegin(txUUID string) {
-	ledger.state.txBegin(txUUID)
+	ledger.state.TxBegin(txUUID)
 }
 
 // TxFinished - Marks the finish of the on-going transaction.
 // If txSuccessful is false, the state changes made by the transaction are discarded
 func (ledger *Ledger) TxFinished(txUUID string, txSuccessful bool) {
-	ledger.state.txFinish(txUUID, txSuccessful)
+	ledger.state.TxFinish(txUUID, txSuccessful)
 }
 
 /////////////////// world-state related methods /////////////////////////////////////
@@ -112,44 +143,50 @@ func (ledger *Ledger) TxFinished(txUUID string, txSuccessful bool) {
 // GetTempStateHash - Computes state hash by taking into account the state changes that may have taken
 // place during the execution of current transaction-batch
 func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
-	return ledger.state.getHash()
+	return ledger.state.GetHash()
 }
 
 // GetTempStateHashWithTxDeltaStateHashes - In addition to the state hash (as defined in method GetTempStateHash),
 // this method returns a map [txUuid of Tx --> cryptoHash(stateChangesMadeByTx)]
 // Only successful txs appear in this map
 func (ledger *Ledger) GetTempStateHashWithTxDeltaStateHashes() ([]byte, map[string][]byte, error) {
-	stateHash, err := ledger.state.getHash()
-	return stateHash, ledger.state.txStateDeltaHash, err
+	stateHash, err := ledger.state.GetHash()
+	return stateHash, ledger.state.GetTxStateDeltaHash(), err
 }
 
 // GetState get state for chaincodeID and key. If committed is false, this first looks in memory
 // and if missing, pulls from db.  If committed is true, this pulls from the db only.
 func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) ([]byte, error) {
-	return ledger.state.get(chaincodeID, key, committed)
+	return ledger.state.Get(chaincodeID, key, committed)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
-	return ledger.state.set(chaincodeID, key, value)
+	return ledger.state.Set(chaincodeID, key, value)
 }
 
 // DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
-	return ledger.state.delete(chaincodeID, key)
+	return ledger.state.Delete(chaincodeID, key)
 }
 
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
 // should be used when transfering the state from one peer to another peer. You must call
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
-func (ledger *Ledger) GetStateSnapshot() (*stateSnapshot, error) {
-	return ledger.state.getSnapshot()
+func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
+	dbSnapshot := db.GetDBHandle().GetSnapshot()
+	blockNumber, err := fetchBlockchainSizeFromSnapshot(dbSnapshot)
+	if err != nil {
+		dbSnapshot.Release()
+		return nil, err
+	}
+	return ledger.state.GetSnapshot(blockNumber, dbSnapshot)
 }
 
 // GetStateDelta will return the state delta for the specified block if
 // available.
-func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
-	return fetchStateDeltaFromDB(blockNumber)
+func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
 
 // ApplyRawStateDelta applies a raw state delta to the current state.
@@ -158,8 +195,8 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
 // or by creating state deltas with keys retrieved from
 // Ledger.GetStateSnapshot(). For an example, see TestSetRawState in
 // ledger_test.go
-func (ledger *Ledger) ApplyRawStateDelta(delta *stateDelta) error {
-	return ledger.state.applyStateDelta(delta)
+func (ledger *Ledger) ApplyRawStateDelta(delta *statemgmt.StateDelta) error {
+	return ledger.state.ApplyStateDelta(delta)
 }
 
 /////////////////// blockchain related methods /////////////////////////////////////
@@ -190,11 +227,7 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 // PutRawBlock puts a raw block on the chain. This function should only be
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
-	hash, err := block.GetHash()
-	if err != nil {
-		return err
-	}
-	return ledger.blockchain.persistBlock(block, blockNumber, hash, false)
+	return ledger.blockchain.persistRawBlock(block, blockNumber)
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {
@@ -214,5 +247,5 @@ func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
 func (ledger *Ledger) resetForNextTxGroup() {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
-	ledger.state.clearInMemoryChanges()
+	ledger.state.ClearInMemoryChanges()
 }

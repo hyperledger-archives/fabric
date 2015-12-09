@@ -51,7 +51,7 @@ func setupTestConfig() {
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a ledger with 0 blocks.
-	ledger.InitTestLedger(t)
+	ledger := ledger.InitTestLedger(t)
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
 	if err != nil {
@@ -70,10 +70,8 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a ledger with 3 blocks.
-	ledger1 := ledger.InitTestLedger(t)
-	buildTestLedger1(ledger1, t)
-
+	// add 3 blocks to ledger.
+	buildTestLedger1(ledger, t)
 	// Attempt to retrieve the blockchain info.
 	info, err = server.GetBlockchainInfo(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
@@ -83,10 +81,8 @@ func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 		t.Logf("Blockchain 1 info: %v", info)
 	}
 
-	// Construct a ledger with 5 blocks.
-	ledger2 := ledger.InitTestLedger(t)
-	buildTestLedger2(ledger2, t)
-
+	// add 5 blocks more.
+	buildTestLedger2(ledger, t)
 	// Attempt to retrieve the blockchain info.
 	info, err = server.GetBlockchainInfo(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
@@ -162,7 +158,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	// OpenchainServer, as it needs that pointer.
 
 	// Construct a ledger with 0 blocks.
-	ledger.InitTestLedger(t)
+	ledger := ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
 	server, err := NewOpenchainServer()
@@ -183,9 +179,8 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 		t.Fail()
 	}
 
-	// Construct a ledger with 3 blocks.
-	ledger1 := ledger.InitTestLedger(t)
-	buildTestLedger1(ledger1, t)
+	// Add three 3 blocks to ledger.
+	buildTestLedger1(ledger, t)
 	// Retrieve the current number of blocks in the blockchain. Must be 3.
 	count, err = server.GetBlockCount(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
@@ -198,16 +193,15 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 		t.Logf("Current BlockCount: %v", count.Count)
 	}
 
-	// Construct a ledger with 5 blocks.
-	ledger2 := ledger.InitTestLedger(t)
-	buildTestLedger2(ledger2, t)
+	// Add 5 more blocks to ledger.
+	buildTestLedger2(ledger, t)
 	// Retrieve the current number of blocks in the blockchain. Must be 5.
 	count, err = server.GetBlockCount(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
 		t.Logf("Error retrieving BlockCount from blockchain: %s", err)
 		t.Fail()
-	} else if count.Count != 5 {
-		t.Logf("Error! Blockchain must have 5 blocks!")
+	} else if count.Count != 8 {
+		t.Logf("Error! Blockchain must have 8 blocks!")
 		t.Fail()
 	} else {
 		t.Logf("Current BlockCount: %v", count.Count)

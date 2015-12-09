@@ -17,59 +17,46 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package state
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/tecbot/gorocksdb"
 )
 
-type stateSnapshot struct {
-	blockNumber uint64
-	iterator    *gorocksdb.Iterator
-	snapshot    *gorocksdb.Snapshot
+type StateSnapshot struct {
+	blockNumber  uint64
+	stateImplItr statemgmt.StateSnapshotIterator
+	dbSnapshot   *gorocksdb.Snapshot
 }
 
 // newStateSnapshot creates a new snapshot of the global state for the current block.
-func newStateSnapshot() (*stateSnapshot, error) {
-	snapshot := db.GetDBHandle().GetSnapshot()
-	blockNumberBytes, err := db.GetDBHandle().GetFromBlockchainCFSnapshot(snapshot, []byte("blockCount"))
+func newStateSnapshot(blockNumber uint64, dbSnapshot *gorocksdb.Snapshot) (*StateSnapshot, error) {
+	itr, err := stateImpl.GetStateSnapshotIterator(dbSnapshot)
 	if err != nil {
-		snapshot.Release()
 		return nil, err
 	}
-	stateIterator := db.GetDBHandle().GetStateCFSnapshotIterator(snapshot)
-
-	var blockNumber uint64 = 0
-	if blockNumberBytes != nil {
-		blockNumber = decodeToUint64(blockNumberBytes)
-	} else {
-		blockNumber = 0
-	}
-	stateSnapshot := &stateSnapshot{blockNumber, stateIterator, snapshot}
-
-	stateSnapshot.iterator.SeekToFirst()
-	return stateSnapshot, nil
+	snapshot := &StateSnapshot{blockNumber, itr, dbSnapshot}
+	return snapshot, nil
 }
 
 // Release the snapshot. This MUST be called when you are done with this resouce.
-func (stateSnapshot *stateSnapshot) Release() {
-	stateSnapshot.iterator.Close()
-	stateSnapshot.snapshot.Release()
+func (ss *StateSnapshot) Release() {
+	ss.stateImplItr.Close()
+	ss.dbSnapshot.Release()
 }
 
 // Next moves the iterator to the next key/value pair in the state
-func (stateSnapshot *stateSnapshot) Next() bool {
-	stateSnapshot.iterator.Next()
-	return stateSnapshot.iterator.Valid()
+func (ss *StateSnapshot) Next() bool {
+	return ss.stateImplItr.Next()
 }
 
 // GetRawKeyValue returns the raw bytes for the key and value at the current iterator position
-func (stateSnapshot *stateSnapshot) GetRawKeyValue() ([]byte, []byte) {
-	return stateSnapshot.iterator.Key().Data(), stateSnapshot.iterator.Value().Data()
+func (ss *StateSnapshot) GetRawKeyValue() ([]byte, []byte) {
+	return ss.stateImplItr.GetRawKeyValue()
 }
 
 // GetBlockNumber returns the blocknumber associated with this global state snapshot
-func (stateSnapshot *stateSnapshot) GetBlockNumber() uint64 {
-	return stateSnapshot.blockNumber
+func (ss *StateSnapshot) GetBlockNumber() uint64 {
+	return ss.blockNumber
 }

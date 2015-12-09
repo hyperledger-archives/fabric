@@ -17,22 +17,37 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
+	"fmt"
 )
 
-var testDBWrapper = db.NewTestDBWrapper()
+type dataNode struct {
+	dataKey *dataKey
+	value   []byte
+}
 
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+func newDataNode(dataKey *dataKey, value []byte) *dataNode {
+	return &dataNode{dataKey, value}
+}
+
+func unmarshalDataNodeFromBytes(keyBytes []byte, valueBytes []byte) *dataNode {
+	return unmarshalDataNode(newDataKeyFromEncodedBytes(keyBytes), valueBytes)
+}
+
+func unmarshalDataNode(dataKey *dataKey, serializedBytes []byte) *dataNode {
+	return &dataNode{dataKey, serializedBytes}
+}
+
+func (dataNode *dataNode) getCompositeKey() []byte {
+	return dataNode.dataKey.compositeKey
+}
+
+func (dataNode *dataNode) getValue() []byte {
+	return dataNode.value
+}
+
+func (dataNode *dataNode) String() string {
+	return fmt.Sprintf("dataKey=[%s], value=[%s]", dataNode.dataKey, string(dataNode.value))
 }

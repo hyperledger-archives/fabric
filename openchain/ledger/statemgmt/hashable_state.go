@@ -17,22 +17,26 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ledger
+package statemgmt
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
+	"github.com/tecbot/gorocksdb"
 )
 
-var testDBWrapper = db.NewTestDBWrapper()
+//HashableState -
+type HashableState interface {
+	Initialize() error
+	Get(chaincodeID string, key string) ([]byte, error)
+	PrepareWorkingSet(stateDelta *StateDelta) error
+	ComputeCryptoHash() ([]byte, error)
+	AddChangesForPersistence(writeBatch *gorocksdb.WriteBatch) error
+	ClearWorkingSet()
+	GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (StateSnapshotIterator, error)
+	PerfHintKeyChanged(chaincodeID string, key string)
+}
 
-func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
-	_, err := GetLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	newLedger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	ledger = newLedger
-	return newLedger
+type StateSnapshotIterator interface {
+	Next() bool
+	GetRawKeyValue() ([]byte, []byte)
+	Close()
 }
