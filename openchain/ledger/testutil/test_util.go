@@ -21,6 +21,7 @@ package testutil
 
 import (
 	"fmt"
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"reflect"
@@ -35,11 +36,11 @@ func SetupTestConfig() {
 	if err != nil { // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
-	// formatter, err := logging.NewStringFormatter("%{shortfile}%{message}")
-	// if err != nil {
-	// 	fmt.Printf("Error in formatter: %s\n", err)
-	// }
-	// logging.SetFormatter(formatter)
+
+	var formatter = logging.MustStringFormatter(
+		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
+	)
+	logging.SetFormatter(formatter)
 }
 
 func AssertNil(t *testing.T, value interface{}) {

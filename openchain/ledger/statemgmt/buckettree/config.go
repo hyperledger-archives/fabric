@@ -52,9 +52,6 @@ func initConfig(numBuckets int, maxGroupingAtEachLevel int, hashFunc hashFunc) *
 			numBucketAtParentLevel++
 		}
 
-		logger.Debug("numBucketAtCurrentLevel=[%d], numBucketAtParentLevel=[%d], currentLevel=[%d]",
-			numBucketAtCurrentLevel, numBucketAtParentLevel, currentLevel)
-
 		numBucketAtCurrentLevel = numBucketAtParentLevel
 		currentLevel++
 		levelInfoMap[currentLevel] = numBucketAtCurrentLevel
