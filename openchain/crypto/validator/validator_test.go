@@ -22,10 +22,12 @@ package validator
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
+	"bytes"
 	"fmt"
 	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/client"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	obcutils "github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
@@ -160,6 +162,36 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
+func TestStateEncryption(t *testing.T) {
+	deployTx, err := mockDeployTransaction()
+	if err != nil {
+		t.Fatalf("Failed creating deploy transaction: %s", err)
+	}
+
+	invokeTx, err := mockInvokeTransaction()
+	if err != nil {
+		t.Fatalf("Failed creating invoke transaction: %s", err)
+	}
+
+	es, err := validator.GetStateEncryptionScheme(deployTx, invokeTx)
+	if err != nil {
+		t.Fatalf("Failed getting state encryption scheme: %s", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		var msg = []byte("Hello World!!!")
+		ct, err := es.Encrypt(msg)
+		if err != nil {
+			t.Fatalf("Failed encrypting state: %s", err)
+		}
+		msg1, err := es.Decrypt(ct)
+
+		if bytes.Compare(msg, msg1) != 0 {
+			t.Fatalf("Failed decrypting state [%s, %s]", string(msg), string(msg1))
+		}
+	}
+}
+
 func setupTestConfig() {
 	viper.SetConfigName("validator_test") // name of config file (without extension)
 	viper.AddConfigPath(".")              // path to look for the config file in
@@ -206,6 +238,11 @@ func initMockClient() error {
 }
 
 func mockDeployTransaction() (*pb.Transaction, error) {
+	uuid, err := obcutils.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := mockClient.NewChaincodeDeployTransaction(
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
@@ -216,12 +253,17 @@ func mockDeployTransaction() (*pb.Transaction, error) {
 			EffectiveDate: nil,
 			CodePackage:   nil,
 		},
-		"uuid",
+		uuid,
 	)
 	return tx, err
 }
 
 func mockInvokeTransaction() (*pb.Transaction, error) {
+	uuid, err := obcutils.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := mockClient.NewChaincodeInvokeTransaction(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
@@ -230,7 +272,7 @@ func mockInvokeTransaction() (*pb.Transaction, error) {
 				CtorMsg:     nil,
 			},
 		},
-		"uuid",
+		uuid,
 	)
 
 	return tx, err

@@ -30,11 +30,12 @@ import (
 )
 
 const (
-	AES_KEY_LENGTH_BYTES = 32
+	AESKeyLength = 32
+	NonceSize    = 24
 )
 
 func GenAESKey() ([]byte, error) {
-	return GetRandomBytes(AES_KEY_LENGTH_BYTES)
+	return GetRandomBytes(AESKeyLength)
 }
 
 func PKCS7Padding(src []byte) []byte {

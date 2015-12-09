@@ -32,11 +32,13 @@ import (
 
 // Errors
 
-var ErrRegistrationRequired error = errors.New("Client Not Registered to the Membership Service.")
-var ErrModuleNotInitialized error = errors.New("Client Security Module Not Initilized.")
-var ErrModuleAlreadyInitialized error = errors.New("Client Security Module Already Initilized.")
-var ErrTransactionMissingCert error = errors.New("Transaction missing certificate or signature.")
-var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction signature.")
+var (
+	ErrRegistrationRequired        error = errors.New("Client Not Registered to the Membership Service.")
+	ErrModuleNotInitialized        error = errors.New("Client Security Module Not Initilized.")
+	ErrModuleAlreadyInitialized    error = errors.New("Client Security Module Already Initilized.")
+	ErrTransactionMissingCert      error = errors.New("Transaction missing certificate or signature.")
+	ErrInvalidTransactionSignature error = errors.New("Invalid Transaction signature.")
+)
 
 // Log
 
@@ -183,13 +185,12 @@ func (client *Client) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.
 	}
 
 	// 2. encrypt and set payload
-	ct, err := client.encryptPayload(tx)
+	err = client.encryptTx(tx)
 	if err != nil {
 		log.Error("Failed encrypting payload %s:", err)
 		return nil, err
 	}
-	tx.Payload = ct
-	log.Info("Encrypted Payload [%s]", utils.EncodeBase64(tx.Payload))
+	log.Info("Encrypted Payload [%s]", utils.EncodeBase64(tx.EncryptedPayload))
 
 	// TODO: Sign the transaction
 
@@ -257,12 +258,11 @@ func (client *Client) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.Cha
 	}
 
 	// 2. encrypt and set payload
-	ct, err := client.encryptPayload(tx)
+	err = client.encryptTx(tx)
 	if err != nil {
 		log.Error("Failed encrypting payload %s:", err)
 		return nil, err
 	}
-	tx.Payload = ct
 
 	// TODO: Sign the transaction
 

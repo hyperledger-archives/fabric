@@ -153,7 +153,7 @@ func (client *Client) getNextTCert() ([]byte, error) {
 func (client *Client) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
 	// Extract the signing key from the tCert
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AES_KEY_LENGTH_BYTES)
+	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	tCert, err := utils.DERToX509Certificate(tCertDER)
@@ -256,7 +256,7 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, error) {
 		Roots: client.rootsCertPool,
 	}
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AES_KEY_LENGTH_BYTES)
+	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(TCertOwnerKDFKey, []byte{2})
 
 	resCert := make([][]byte, num)

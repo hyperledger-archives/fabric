@@ -33,14 +33,20 @@ import (
 
 // Errors
 
-var ErrRegistrationRequired error = errors.New("Validator Not Registered to the Membership Service.")
-var ErrModuleNotInitialized = errors.New("Validator Security Module Not Initilized.")
-var ErrModuleAlreadyInitialized error = errors.New("Validator Security Module Already Initilized.")
+var (
+	ErrRegistrationRequired     error = errors.New("Validator Not Registered to the Membership Service.")
+	ErrModuleNotInitialized           = errors.New("Validator Security Module Not Initilized.")
+	ErrModuleAlreadyInitialized error = errors.New("Validator Security Module Already Initilized.")
 
-var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
-var ErrTransactionCertificate error = errors.New("Missing Transaction Certificate.")
-var ErrTransactionSignature error = errors.New("Missing Transaction Signature.")
-var ErrInvalidPayloadNilOrEmpty error = errors.New("Invalid payload. Nil or empty")
+	ErrInvalidTransactionSignature           error = errors.New("Invalid Transaction Signature.")
+	ErrTransactionCertificate                error = errors.New("Missing Transaction Certificate.")
+	ErrTransactionSignature                  error = errors.New("Missing Transaction Signature.")
+	ErrInvalidEncryptedPayloadNilOrEmpty     error = errors.New("Invalid encrypted payload. Nil or empty")
+	ErrInvalidEncryptedChaincodeIDNilOrEmpty error = errors.New("Invalid encrypted chaincodeId. Nil or empty")
+
+	ErrEncrypt = errors.New("secret: encryption failed")
+	ErrDecrypt = errors.New("secret: decryption failed")
+)
 
 var ErrInvalidSignature error = errors.New("Invalid Signature.")
 
@@ -69,6 +75,12 @@ type Validator struct {
 
 	// Enrollment Chain
 	enrollChainKey []byte
+}
+
+type EncryptionScheme interface {
+	Encrypt(msg []byte) ([]byte, error)
+
+	Decrypt(ct []byte) ([]byte, error)
 }
 
 // Public Methods
@@ -220,17 +232,15 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 		case obc.Transaction_CHAINCODE_CONFIDENTIAL:
 			// Check that all the required fields are there.
 
-			if tx.Payload == nil || len(tx.Payload) == 0 {
-				return nil, ErrInvalidPayloadNilOrEmpty
+			if tx.EncryptedPayload == nil || len(tx.EncryptedPayload) == 0 {
+				return nil, ErrInvalidEncryptedPayloadNilOrEmpty
+			}
+
+			if tx.EncryptedChaincodeID == nil || len(tx.EncryptedChaincodeID) == 0 {
+				return nil, ErrInvalidEncryptedChaincodeIDNilOrEmpty
 			}
 
 			// TODO: shall we try to decrypt?
-			_, err := validator.decryptPayload(tx)
-			if err != nil {
-				log.Error("Failed decrypting payload: %s", err)
-
-				return nil, err
-			}
 		}
 	} else {
 		if tx.Cert == nil {
@@ -261,13 +271,12 @@ func (validator *Validator) TransactionPreExecution(tx *obc.Transaction) (*obc.T
 		break
 	case obc.Transaction_CHAINCODE_CONFIDENTIAL:
 		// Decrypt payload
-		payload, err := validator.decryptPayload(tx)
+		err := validator.decryptTx(tx)
 		if err != nil {
-			log.Error("Failed decrypting payload: %s", err)
+			log.Error("Failed decrypting: %s", err)
 
 			return nil, err
 		}
-		tx.Payload = payload
 	}
 
 	return tx, nil
