@@ -68,6 +68,18 @@ func (client *Client) retrieveTCACertsChain(userId string) error {
 	return nil
 }
 
+func (client *Client) storeTCertOwnerKDFKey(pwd []byte) error {
+	// TODO: handle synchronization. Multiple instances of Client could be running.
+
+	err := ioutil.WriteFile(getTCertOwnerKDFKeyPath(), utils.AEStoPEM(client.tCertOwnerKDFKey), 0700)
+	if err != nil {
+		log.Error("Failed storing TCertOwnerKDFKey: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func (client *Client) loadTCACertsChain() error {
 	// Load TCA certs chain
 	log.Info("Loading TCA certificates chain at %s...", getTCACertsChainPath())
@@ -85,6 +97,37 @@ func (client *Client) loadTCACertsChain() error {
 
 		return errors.New("Failed appending TCA certificates chain.")
 	}
+
+	return nil
+}
+
+func (client *Client) loadTCertOwnerKDFKey(pwd []byte) error {
+	// Load TCertOwnerKDFKey
+	log.Info("Loading TCertOwnerKDFKey at %s...", getTCertOwnerKDFKeyPath())
+
+	missing, _ := utils.FilePathMissing(getTCertOwnerKDFKeyPath())
+	if missing {
+		log.Info("Loading TCertOwnerKDFKey at %s...done! File is missing.", getTCertOwnerKDFKeyPath())
+
+		return nil
+	}
+
+	pem, err := ioutil.ReadFile(getTCertOwnerKDFKeyPath())
+	if err != nil {
+		log.Error("Failed loading enrollment chain key: %s", err.Error())
+
+		return err
+	}
+
+	tCertOwnerKDFKey, err := utils.PEMtoAES(pem, pwd)
+	if err != nil {
+		log.Error("Failed parsing enrollment chain  key: %s", err.Error())
+
+		return err
+	}
+	client.tCertOwnerKDFKey = tCertOwnerKDFKey
+
+	log.Info("Loading TCertOwnerKDFKey at %s...done!", getTCertOwnerKDFKeyPath())
 
 	return nil
 }
@@ -245,7 +288,11 @@ func (client *Client) getTCertsFromTCA(num int) ([][]byte, error) {
 		}
 	} else {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
-		// TODO: store this key
+
+		if err := client.storeTCertOwnerKDFKey(nil); err != nil {
+			log.Debug("Failed storing TCertOwnerKDFKey: %s", err)
+			// TODO: hanlde this situation more carefully
+		}
 	}
 
 	// TODO: Store TCertOwnerKDFKey and checks that every time it is always the same key

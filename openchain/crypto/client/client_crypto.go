@@ -38,6 +38,11 @@ func (client *Client) initCryptoEngine() error {
 		return err
 	}
 
+	// Load TCertOwnerKDFKey
+	if err := client.loadTCertOwnerKDFKey(nil); err != nil {
+		return err
+	}
+
 	// Load enrollment secret key
 	// TODO: finalize encrypted pem support
 	if err := client.loadEnrollmentKey(nil); err != nil {

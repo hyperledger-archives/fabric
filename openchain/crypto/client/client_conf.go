@@ -121,6 +121,14 @@ func getTCACertsChainFilename() string {
 	return "tca.cert.chain"
 }
 
+func getTCertOwnerKDFKeyPath() string {
+	return filepath.Join(getKeysPath(), getTCertOwnerKDFKeyFilename())
+}
+
+func getTCertOwnerKDFKeyFilename() string {
+	return "tca.kdf.key"
+}
+
 func getECACertsChainPath() string {
 	return filepath.Join(getKeysPath(), getECACertsChainFilename())
 }

@@ -42,7 +42,7 @@ func (client *Client) retrieveEnrollmentData(userId, pwd string) error {
 	//	validatorLogger.Info("Register:key %s", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	log.Info("Storing enrollment key and certificate for user [%s]...", userId)
+	log.Info("Storing enrollment data for user [%s]...", userId)
 
 	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {
@@ -71,7 +71,6 @@ func (client *Client) retrieveEnrollmentData(userId, pwd string) error {
 	}
 
 	// Store enrollment chain key
-	log.Info("Storing chain key %s", utils.EncodeBase64(enrollChainKey))
 	err = ioutil.WriteFile(getEnrollmentChainKeyPath(), utils.AEStoPEM(enrollChainKey), 0700)
 	if err != nil {
 		log.Error("Failed storing enrollment chain key [id=%s]: %s", userId, err)
