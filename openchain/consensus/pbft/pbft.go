@@ -26,9 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -45,7 +43,6 @@ const configPrefix = "OPENCHAIN_PBFT"
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
-var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
 	logger = logging.MustGetLogger("consensus/pbft")
@@ -55,12 +52,17 @@ func init() {
 // Custom structure definitions go here
 // =============================================================================
 
+type InnerCPI interface {
+	Broadcast(req []byte)
+	Execute(req []byte)
+}
+
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
 	// internal data
-	config *viper.Viper  // link to the plugin config file
-	cpi    consensus.CPI // link to the CPI
-	c      chan *Message // serialization of incoming messages
+	config   *viper.Viper  // link to the plugin config file
+	c        chan *Message // serialization of incoming messages
+	consumer InnerCPI
 
 	// PBFT data
 	activeView   bool              // view change happening
@@ -120,24 +122,11 @@ type vcidx struct {
 // Constructors go here
 // =============================================================================
 
-// GetPlugin returns the handle to the Plugin singleton and updates the CPI if necessary.
-func GetPlugin(c consensus.CPI) *Plugin {
-	if pluginInstance == nil {
-		pluginInstance = New(c)
-	} else {
-		pluginInstance.cpi = c // otherwise, just update the CPI
-	}
-	return pluginInstance
-}
-
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func New(c consensus.CPI) *Plugin {
+func NewPbft(id uint64, consumer InnerCPI) *Plugin {
 	instance := &Plugin{}
-	instance.cpi = c
-
-	// set ID
-	address, _ := instance.cpi.GetReplicaAddress(true)
-	instance.id, _ = instance.cpi.GetReplicaID(address[0])
+	instance.id = id
+	instance.consumer = consumer
 
 	// setup the link to the config file
 	instance.config = viper.New()
@@ -210,22 +199,19 @@ func (instance *Plugin) Close() {
 	close(instance.c)
 }
 
-// RecvMsg handles messages from both the stack, as well as internal
-// consensus messages.  Consensus messages are serialized via
-// instance.c and msgPump().
-func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		logger.Info("New consensus request received")
-		req := &Request{Payload: msgWrapped.Payload}
-		msg := &Message{&Message_Request{req}}
-		return instance.broadcast(msg, true)
-	}
-	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
-	}
+// Request handles new consensus requests.
+func (instance *Plugin) Request(payload []byte) error {
+	msg := &Message{&Message_Request{&Request{Payload: payload}}}
+	instance.c <- msg
 
+	return nil
+}
+
+// Receive handles internal consensus messages.  Consensus messages
+// are serialized via instance.c and msgPump().
+func (instance *Plugin) Receive(payload []byte) error {
 	msg := &Message{}
-	err := proto.Unmarshal(msgWrapped.Payload, msg)
+	err := proto.Unmarshal(payload, msg)
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
@@ -393,11 +379,6 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	// TODO verify transaction
-	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-	//   logger.Warning("Invalid request");
-	//   return err
-	// }
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
 	if !instance.timerActive {
@@ -599,19 +580,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		tx := &pb.Transaction{}
-		err := proto.Unmarshal(req.Payload, tx)
-		if err == nil {
-			// TODO verify transaction
-			// if tx, err = instance.cpi.TransactionPreExecution(...); err != nil {
-			//   logger.Error("Invalid request");
-			// } else {
-			// ...
-			// }
-			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
-			instance.cpi.ExecTXs([]*pb.Transaction{tx})
-		}
-
+		instance.consumer.Execute(req.Payload)
 		delete(instance.outstandingReqs, digest)
 	}
 
@@ -727,21 +696,16 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
 func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
+	if toSelf {
+		instance.c <- msg
+	}
+
 	msgPacked, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
 	}
-
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msgPacked,
-	}
-
-	if toSelf {
-		instance.c <- msg
-	}
-	err = instance.cpi.Broadcast(msgWrapped)
-	return err
+	instance.consumer.Broadcast(msgPacked)
+	return nil
 }
 
 func (instance *Plugin) startTimer(timeout time.Duration) {
