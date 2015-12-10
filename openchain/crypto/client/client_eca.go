@@ -29,55 +29,55 @@ import (
 
 	"errors"
 	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"io/ioutil"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
-func (client *Client) retrieveECACertsChain(userId string) error {
+func (client *clientImpl) retrieveECACertsChain(userId string) error {
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := client.getECACertificate()
 	if err != nil {
-		log.Error("Failed getting ECA certificate %s", err)
+		client.log.Error("Failed getting ECA certificate %s", err)
 
 		return err
 	}
-	log.Info("Storing ECAcert [%s]", utils.EncodeBase64(ecaCertRaw))
+	client.log.Info("Storing ECAcert [%s]", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
 	_, err = utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
-		log.Error("Failed parsing ECA certificate %s", err)
+		client.log.Error("Failed parsing ECA certificate %s", err)
 
 		return err
 	}
 
 	// Store ECA cert
-	log.Info("Storing ECA certificate for [%s]...", userId)
+	client.log.Info("Storing ECA certificate for [%s]...", userId)
 
-	err = ioutil.WriteFile(getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
+	err = ioutil.WriteFile(client.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {
-		log.Error("Failed storing eca certificate: %s", err)
+		client.log.Error("Failed storing eca certificate: %s", err)
 		return err
 	}
 
 	return nil
 }
 
-func (client *Client) loadECACertsChain() error {
-	log.Info("Loading ECA certificates chain at %s...", getECACertsChainPath())
+func (client *clientImpl) loadECACertsChain() error {
+	client.log.Info("Loading ECA certificates chain at %s...", client.conf.getECACertsChainPath())
 
-	chain, err := ioutil.ReadFile(getECACertsChainPath())
+	chain, err := ioutil.ReadFile(client.conf.getECACertsChainPath())
 	if err != nil {
-		log.Error("Failed loading ECA certificates chain : %s", err.Error())
+		client.log.Error("Failed loading ECA certificates chain : %s", err.Error())
 
 		return err
 	}
 
 	ok := client.rootsCertPool.AppendCertsFromPEM(chain)
 	if !ok {
-		log.Error("Failed appending ECA certificates chain.")
+		client.log.Error("Failed appending ECA certificates chain.")
 
 		return errors.New("Failed appending ECA certificates chain.")
 	}
@@ -85,10 +85,10 @@ func (client *Client) loadECACertsChain() error {
 	return nil
 }
 
-func (client *Client) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(getECAPAddr(), grpc.WithInsecure())
+func (client *clientImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(client.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		log.Error("Failed dailing in: %s", err)
+		client.log.Error("Failed dailing in: %s", err)
 
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (client *Client) callECACreateCertificate(ctx context.Context, in *obcca.EC
 
 	cert, err := ecaP.CreateCertificate(context.Background(), in)
 	if err != nil {
-		log.Error("Failed requesting enrollment certificate: %s", err)
+		client.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, err
 	}
@@ -106,10 +106,10 @@ func (client *Client) callECACreateCertificate(ctx context.Context, in *obcca.EC
 	return cert, nil
 }
 
-func (client *Client) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(getECAPAddr(), grpc.WithInsecure())
+func (client *clientImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(client.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		log.Error("Failed dailing key: %s", err)
+		client.log.Error("Failed dailing key: %s", err)
 
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (client *Client) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 
 	cert, err := ecaP.ReadCertificate(context.Background(), in)
 	if err != nil {
-		log.Error("Failed requesting read certificate: %s", err)
+		client.log.Error("Failed requesting read certificate: %s", err)
 
 		return nil, err
 	}
@@ -127,11 +127,11 @@ func (client *Client) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 	return cert, nil
 }
 
-func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
+func (client *clientImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
-		log.Error("Failed generating key: %s", err)
+		client.log.Error("Failed generating key: %s", err)
 
 		return nil, nil, err
 	}
@@ -156,29 +156,29 @@ func (client *Client) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 	pbCert, err := client.callECACreateCertificate(context.Background(), req)
 	if err != nil {
-		log.Error("Failed requesting enrollment certificate: %s", err)
+		client.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, nil, err
 	}
 
-	log.Info("Verifing enrollment certificate...")
+	client.log.Info("Verifing enrollment certificate...")
 
 	enrollCert, err := utils.DERToX509Certificate(pbCert.Cert)
 	certPK := enrollCert.PublicKey.(*ecdsa.PublicKey)
 	utils.VerifySignCapability(priv, certPK)
 
-	log.Info("Verifing enrollment certificate...done!")
+	client.log.Info("Verifing enrollment certificate...done!")
 
 	// Verify pbCert.Cert
 	return priv, pbCert.Cert, nil
 }
 
-func (client *Client) getECACertificate() ([]byte, error) {
+func (client *clientImpl) getECACertificate() ([]byte, error) {
 	// Prepare the request
 	req := &obcca.ECertReadReq{&obcca.Identity{Id: "eca-root"}, nil}
 	pbCert, err := client.callECAReadCertificate(context.Background(), req)
 	if err != nil {
-		log.Error("Failed requesting eca certificate: %s", err)
+		client.log.Error("Failed requesting eca certificate: %s", err)
 
 		return nil, err
 	}

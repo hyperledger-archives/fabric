@@ -26,72 +26,72 @@ import (
 	"os"
 )
 
-func (client *Client) createKeyStorage() error {
+func (client *clientImpl) createKeyStorage() error {
 	// Create directory
-	return os.MkdirAll(getKeysPath(), 0755)
+	return os.MkdirAll(client.conf.getKeysPath(), 0755)
 }
 
-func (client *Client) isAlreadyRegistered() bool {
-	missing, _ := utils.FileMissing(getKeysPath(), getEnrollmentIDFilename())
+func (client *clientImpl) isRegistered() bool {
+	missing, _ := utils.FileMissing(client.conf.getKeysPath(), client.conf.getEnrollmentIDFilename())
 
 	return !missing
 }
 
-func (client *Client) retrieveEnrollmentData(userId, pwd string) error {
+func (client *clientImpl) retrieveEnrollmentData(userId, pwd string) error {
 	key, enrollCertRaw, err := client.getEnrollmentCertificateFromECA(userId, pwd)
 	if err != nil {
-		log.Error("Failed getting enrollment certificate [id=%s] %s", userId, err)
+		client.log.Error("Failed getting enrollment certificate [id=%s] %s", userId, err)
 
 		return err
 	}
-	log.Info("Register:cert %s", utils.EncodeBase64(enrollCertRaw))
+	client.log.Info("Register:cert %s", utils.EncodeBase64(enrollCertRaw))
 	//	validatorLogger.Info("Register:key %s", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	log.Info("Storing enrollment key and certificate for user [%s]...", userId)
+	client.log.Info("Storing enrollment key and certificate for user [%s]...", userId)
 
 	rawKey, err := utils.PrivateKeyToPEM("", key)
 	if err != nil {
-		log.Error("Failed converting enrollment key to PEM [id=%s]: %s", userId, err)
+		client.log.Error("Failed converting enrollment key to PEM [id=%s]: %s", userId, err)
 		return err
 	}
 
-	err = ioutil.WriteFile(getEnrollmentKeyPath(), rawKey, 0700)
+	err = ioutil.WriteFile(client.conf.getEnrollmentKeyPath(), rawKey, 0700)
 	if err != nil {
-		log.Error("Failed storing enrollment key [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment key [id=%s]: %s", userId, err)
 		return err
 	}
 
 	// Store enrollment cert
-	err = ioutil.WriteFile(getEnrollmentCertPath(), utils.DERCertToPEM(enrollCertRaw), 0700)
+	err = ioutil.WriteFile(client.conf.getEnrollmentCertPath(), utils.DERCertToPEM(enrollCertRaw), 0700)
 	if err != nil {
-		log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
 		return err
 	}
 
 	// Store enrollment id
-	err = ioutil.WriteFile(getEnrollmentIDPath(), []byte(userId), 0700)
+	err = ioutil.WriteFile(client.conf.getEnrollmentIDPath(), []byte(userId), 0700)
 	if err != nil {
-		log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
 		return err
 	}
 
 	return nil
 }
 
-func (client *Client) loadEnrollmentKey(pwd []byte) error {
-	log.Info("Loading enrollment key at %s...", getEnrollmentKeyPath())
+func (client *clientImpl) loadEnrollmentKey(pwd []byte) error {
+	client.log.Info("Loading enrollment key at %s...", client.conf.getEnrollmentKeyPath())
 
-	rawEnrollPrivKey, err := ioutil.ReadFile(getEnrollmentKeyPath())
+	rawEnrollPrivKey, err := ioutil.ReadFile(client.conf.getEnrollmentKeyPath())
 	if err != nil {
-		log.Error("Failed loading enrollment private key: %s", err.Error())
+		client.log.Error("Failed loading enrollment private key: %s", err.Error())
 
 		return err
 	}
 
 	enrollPrivKey, err := utils.PEMtoPrivateKey(rawEnrollPrivKey, pwd)
 	if err != nil {
-		log.Error("Failed parsing enrollment private key: %s", err.Error())
+		client.log.Error("Failed parsing enrollment private key: %s", err.Error())
 
 		return err
 	}
@@ -100,19 +100,19 @@ func (client *Client) loadEnrollmentKey(pwd []byte) error {
 	return nil
 }
 
-func (client *Client) loadEnrollmentCertificate() error {
-	log.Info("Loading enrollment certificate at %s...", getEnrollmentCertPath())
+func (client *clientImpl) loadEnrollmentCertificate() error {
+	client.log.Info("Loading enrollment certificate at %s...", client.conf.getEnrollmentCertPath())
 
-	pemEnrollCert, err := ioutil.ReadFile(getEnrollmentCertPath())
+	pemEnrollCert, err := ioutil.ReadFile(client.conf.getEnrollmentCertPath())
 	if err != nil {
-		log.Error("Failed loading enrollment certificate: %s", err.Error())
+		client.log.Error("Failed loading enrollment certificate: %s", err.Error())
 
 		return err
 	}
 
 	enrollCert, rawEnrollCert, err := utils.PEMtoCertificateAndDER(pemEnrollCert)
 	if err != nil {
-		log.Error("Failed parsing enrollment certificate: %s", err.Error())
+		client.log.Error("Failed parsing enrollment certificate: %s", err.Error())
 
 		return err
 	}
@@ -120,12 +120,12 @@ func (client *Client) loadEnrollmentCertificate() error {
 
 	// Set ID
 	client.id = utils.Hash(rawEnrollCert)
-	log.Info("Setting id to [%s]", utils.EncodeBase64(client.id))
+	client.log.Info("Setting id to [%s]", utils.EncodeBase64(client.id))
 
 	pk := client.enrollCert.PublicKey.(*ecdsa.PublicKey)
 	err = utils.VerifySignCapability(client.enrollPrivKey, pk)
 	if err != nil {
-		log.Error("Failed checking enrollment certificate against enrollment key: %s", err.Error())
+		client.log.Error("Failed checking enrollment certificate against enrollment key: %s", err.Error())
 
 		return err
 	}
@@ -133,19 +133,19 @@ func (client *Client) loadEnrollmentCertificate() error {
 	return nil
 }
 
-func (client *Client) loadEnrollmentID() error {
-	log.Info("Loading enrollment id at %s...", getEnrollmentIDPath())
+func (client *clientImpl) loadEnrollmentID() error {
+	client.log.Info("Loading enrollment id at %s...", client.conf.getEnrollmentIDPath())
 
-	enrollID, err := ioutil.ReadFile(getEnrollmentIDPath())
+	enrollID, err := ioutil.ReadFile(client.conf.getEnrollmentIDPath())
 	if err != nil {
-		log.Error("Failed loading enrollment id: %s", err.Error())
+		client.log.Error("Failed loading enrollment id: %s", err.Error())
 
 		return err
 	}
 
 	// Set enrollment ID
 	client.enrollId = string(enrollID)
-	log.Info("Setting enrollment id to [%s]", client.enrollId)
+	client.log.Info("Setting enrollment id to [%s]", client.enrollId)
 
 	return nil
 }

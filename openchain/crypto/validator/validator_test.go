@@ -35,7 +35,9 @@ import (
 )
 
 var validator *Validator
-var mockClient *client.Client
+
+var deployer client.Client
+var invoker client.Client
 
 var eca *obcca.ECA
 var tca *obcca.TCA
@@ -54,7 +56,8 @@ func TestMain(m *testing.M) {
 	// Init a mock Client
 	err := initMockClient()
 	if err != nil {
-		panic(fmt.Errorf("Failed initializing mock client: %s", err))
+		fmt.Printf("Failed initializing clients: %s\n", err)
+		panic(fmt.Errorf("Failed initializing clients: %s", err))
 	}
 
 	// New Validator
@@ -219,20 +222,32 @@ func initMockCAs() {
 }
 
 func initMockClient() error {
-	mockClient = new(client.Client)
-
-	// Register
-	err := mockClient.Register(getClientEnrollmentData())
+	// Deployer
+	deployerConf := client.ClientConfiguration{Id: "deployer"}
+	if err := client.Register(deployerConf.Id, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	var err error
+	deployer, err = client.Init(deployerConf.Id)
 	if err != nil {
 		return err
 	}
 
-	// Init client
-	return mockClient.Init()
+	// Invoker
+	invokerConf := client.ClientConfiguration{Id: "invoker"}
+	if err := client.Register(invokerConf.Id, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	invoker, err = client.Init(invokerConf.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func mockDeployTransaction() (*pb.Transaction, error) {
-	tx, err := mockClient.NewChaincodeDeployTransaction(
+	tx, err := deployer.NewChaincodeDeployTransaction(
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
@@ -248,7 +263,7 @@ func mockDeployTransaction() (*pb.Transaction, error) {
 }
 
 func mockInvokeTransaction() (*pb.Transaction, error) {
-	tx, err := mockClient.NewChaincodeInvokeTransaction(
+	tx, err := invoker.NewChaincodeInvokeTransaction(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
@@ -276,22 +291,9 @@ func getValidatorEnrollmentData() (string, string) {
 	return id, pw
 }
 
-func getClientEnrollmentData() (string, string) {
-	id := viper.GetString("client.crypto.enrollid")
-	if id == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollid' is set"))
-	}
-
-	pw := viper.GetString("client.crypto.enrollpw")
-	if id == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollpw' is set"))
-	}
-
-	return id, pw
-}
-
 func cleanup() {
-	mockClient.Close()
+	client.Close(deployer)
+	client.Close(invoker)
 	validator.Close()
 	killCAs()
 

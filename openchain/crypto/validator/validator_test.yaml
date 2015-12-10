@@ -12,9 +12,10 @@ eca:
         pport: 50051
 
     users:
-          nepumuk: 9gvZQRwhUq9q
-          nepumuk2: 9gvZQRwhUq9q
-          jim: AwbeJH2kw9qK
+        nepumuk: 9gvZQRwhUq9q
+        nepumuk2: 9gvZQRwhUq9q
+        nepumuk3: 9gvZQRwhUq9q
+        jim: AwbeJH2kw9qK
 
 tca:
     # TCA's settings
@@ -42,8 +43,6 @@ defaults:
 client:
     # Client's settings
     crypto:
-        enrollid: nepumuk2
-        enrollpw: 9gvZQRwhUq9q
 
         # location on file system
         path: .obc-client
@@ -57,6 +56,18 @@ client:
         tca:
 
             paddr: localhost:50551
+
+        users:
+
+            deployer:
+
+                enrollid: nepumuk2
+                enrollpw: 9gvZQRwhUq9q
+
+            invoker:
+
+                enrollid: nepumuk3
+                enrollpw: 9gvZQRwhUq9q
 
 
 ###############################################################################

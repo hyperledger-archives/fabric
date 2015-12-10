@@ -14,6 +14,7 @@ eca:
     users:
         nepumuk: 9gvZQRwhUq9q
         nepumuk2: 9gvZQRwhUq9q
+        nepumuk3: 9gvZQRwhUq9q
         jim: AwbeJH2kw9qK
 
 tca:
@@ -42,9 +43,6 @@ defaults:
 client:
     # Client's settings
     crypto:
-        enrollid: nepumuk
-        enrollpw: 9gvZQRwhUq9q
-
         # location on file system
         path: .obc-client
 
@@ -57,3 +55,8 @@ client:
         tca:
 
             paddr: localhost:50551
+                          # nepumuk's settings
+        users:
+            client:
+                enrollid: nepumuk
+                enrollpw: 9gvZQRwhUq9q

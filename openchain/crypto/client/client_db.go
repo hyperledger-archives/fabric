@@ -23,60 +23,107 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	_ "fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
+	_ "os"
 	"path/filepath"
+	_ "path/filepath"
 	"sync"
+	_ "sync"
 )
 
 var ErrDBAlreadyInitialized error = errors.New("DB already Initilized.")
 
-type DB struct {
-	sqlDB *sql.DB
-}
+func (client *clientImpl) initKeyStore() error {
+	ks := keyStore{}
+	ks.log = client.log
+	ks.conf = client.conf
+	if err := ks.Init(); err != nil {
+		return err
+	}
 
-func (db *DB) Init() error {
+	client.ks = &ks
+
 	return nil
 }
 
-func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
-	m.Lock()
-	defer m.Unlock()
+type keyStore struct {
+	isOpen bool
 
-	cert, key, err := db.selectNextTCert()
+	// backend
+	sqlDB *sql.DB
+
+	// Configuration
+	conf *configuration
+
+	// Logging
+	log *logging.Logger
+
+	// Sync
+	m sync.Mutex
+}
+
+func (ks *keyStore) Init() error {
+	ks.m.Lock()
+	defer ks.m.Unlock()
+
+	if ks.isOpen {
+		return errors.New("DB already initialized.")
+	}
+
+	err := ks.createDBIfDBPathEmpty()
 	if err != nil {
-		log.Error("Failed selecting next TCert: %s", err)
+		return err
+	}
+
+	err = ks.openKeyStore()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
+	ks.m.Lock()
+	defer ks.m.Unlock()
+
+	cert, key, err := ks.selectNextTCert()
+	if err != nil {
+		ks.log.Error("Failed selecting next TCert: %s", err)
 
 		return nil, nil, err
 	}
-	//	log.Info("key %s", utils.EncodeBase64(key))
-	log.Info("cert %s", utils.EncodeBase64(cert))
+	//	db.log.Info("key %s", utils.EncodeBase64(key))
+	ks.log.Info("cert %s", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No TCert is available, fetch new ones, store them and return the first available.
 
 		// 1. Fetch
-		log.Info("Fectch TCerts from TCA...")
+		ks.log.Info("Fectch TCerts from TCA...")
 		certs, keys, err := tCertFetcher(10)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		// 2. Store
-		log.Info("Store them...")
-		tx, err := db.sqlDB.Begin()
+		ks.log.Info("Store them...")
+		tx, err := ks.sqlDB.Begin()
 		if err != nil {
-			log.Error("Failed beginning transaction: %s", err)
+			ks.log.Error("Failed beginning transaction: %s", err)
 
 			return nil, nil, err
 		}
 
 		for i, cert := range certs {
-			log.Info("Insert index %d", i)
+			ks.log.Info("Insert index %d", i)
 
-			//			log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
-			log.Info("Insert cert %s", utils.EncodeBase64(cert))
+			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
+			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
 
 			// TODO: once the TCert structure is finalized,
 			// store only the cert from which the corresponding key
@@ -85,25 +132,25 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 			_, err := tx.Exec("INSERT INTO TCerts (cert, key) VALUES (?, ?)", cert, keys[i])
 
 			if err != nil {
-				log.Error("Failed inserting cert %s", err)
+				ks.log.Error("Failed inserting cert %s", err)
 				continue
 			}
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			log.Error("Failed committing transaction: %s", err)
+			ks.log.Error("Failed committing transaction: %s", err)
 
 			tx.Rollback()
 
 			return nil, nil, err
 		}
 
-		log.Info("Fectch TCerts from TCA...done!")
+		ks.log.Info("Fectch TCerts from TCA...done!")
 
-		cert, key, err = db.selectNextTCert()
+		cert, key, err = ks.selectNextTCert()
 		if err != nil {
-			log.Error("Failed selecting next TCert after fetching: %s", err)
+			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
 
 			return nil, nil, err
 		}
@@ -114,18 +161,18 @@ func (db *DB) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error
 	//	return utils.NewSelfSignedCert()
 }
 
-func (db *DB) CloseDB() {
-	db.sqlDB.Close()
-	isOpen = false
+func (ks *keyStore) CloseDB() {
+	ks.sqlDB.Close()
+	ks.isOpen = false
 }
 
-func (db *DB) selectNextTCert() ([]byte, []byte, error) {
-	log.Info("Select next TCert...")
+func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
+	ks.log.Info("Select next TCert...")
 
 	// Open transaction
-	tx, err := db.sqlDB.Begin()
+	tx, err := ks.sqlDB.Begin()
 	if err != nil {
-		log.Error("Failed beginning transaction: %s", err)
+		ks.log.Error("Failed beginning transaction: %s", err)
 
 		return nil, nil, err
 	}
@@ -133,151 +180,73 @@ func (db *DB) selectNextTCert() ([]byte, []byte, error) {
 	// Get the first row available
 	var id int
 	var cert, key []byte
-	row := db.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
+	row := ks.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
 	err = row.Scan(&id, &cert, &key)
 
 	if err == sql.ErrNoRows {
 		return nil, nil, nil
 	} else if err != nil {
-		log.Error("Error during select: %s", err)
+		ks.log.Error("Error during select: %s", err)
 
 		return nil, nil, err
 	}
 
-	log.Info("id %d", id)
-	log.Info("cert %s", utils.EncodeBase64(cert))
-	//	log.Info("key %s", utils.EncodeBase64(key))
+	ks.log.Info("id %d", id)
+	ks.log.Info("cert %s", utils.EncodeBase64(cert))
+	//	db.log.Info("key %s", utils.EncodeBase64(key))
 
 	// TODO: instead of removing, move the TCert to a new table
 	// which stores the TCerts used
 
 	// Remove that row
-	log.Info("Removing row with id [%d]...", id)
+	ks.log.Info("Removing row with id [%d]...", id)
 
 	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		log.Error("Failed removing row [%d]: %s", id, err)
+		ks.log.Error("Failed removing row [%d]: %s", id, err)
 
 		tx.Rollback()
 
 		return nil, nil, err
 	}
 
-	log.Info("Removing row with id [%d]...done", id)
+	ks.log.Info("Removing row with id [%d]...done", id)
 
 	// Finalize
 	err = tx.Commit()
 	if err != nil {
-		log.Error("Failed commiting: %s", err)
+		ks.log.Error("Failed commiting: %s", err)
 		tx.Rollback()
 
 		return nil, nil, err
 	}
 
-	log.Info("Select next TCert...done!")
+	ks.log.Info("Select next TCert...done!")
 
 	return cert, key, nil
 }
 
-var db *DB
-var isOpen bool
-var m sync.Mutex
-
-func initDB() error {
-	m.Lock()
-	defer m.Unlock()
-
-	if isOpen {
-		return errors.New("DB already initialized.")
-	}
-
-	err := createDBIfDBPathEmpty()
-	if err != nil {
-		return err
-	}
-
-	db, err = openDB()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// CreateDB creates a ca db database
-func createDB() error {
-	dbPath := getDBPath()
-	log.Debug("Creating DB at [%s]", dbPath)
-
-	missing, err := utils.FileMissing(dbPath, getDBFilename())
-	if !missing {
-		return fmt.Errorf("db dir [%s] already exists", dbPath)
-	}
-
-	os.MkdirAll(dbPath, 0755)
-
-	log.Debug("Open DB at [%s]", dbPath)
-	db, err := sql.Open("sqlite3", filepath.Join(dbPath, getDBName()))
-	if err != nil {
-		return err
-	}
-
-	log.Debug("Ping DB at [%s]", dbPath)
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer db.Close()
-
-	// create tables
-	log.Debug("Create Table [%s] at [%s]", "TCert", dbPath)
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
-		log.Debug("Failed creating table: %s", err)
-		return err
-	}
-
-	log.Debug("DB created at [%s]", dbPath)
-	return nil
-}
-
-// DeleteDB deletes a ca db database
-func deleteDB() error {
-	log.Debug("Removing DB at [%s]", getDBPath())
-
-	return os.RemoveAll(getDBPath())
-}
-
-// GetDBHandle returns a handle to db
-func getDBHandle() *DB {
-	return db
-}
-
-func getDBName() string {
-	return "client.db"
-}
-
-func createDBIfDBPathEmpty() error {
+func (ks *keyStore) createDBIfDBPathEmpty() error {
 	// Check directory
-	dbPath := getDBPath()
+	dbPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(dbPath)
 	if err != nil {
-		log.Error("Failed checking directory %s: %s", dbPath, err)
+		ks.log.Error("Failed checking directory %s: %s", dbPath, err)
 	}
-	log.Debug("Db path [%s] missing [%t]", dbPath, missing)
+	ks.log.Debug("Db path [%s] missing [%t]", dbPath, missing)
 
 	if !missing {
 		// Check file
-		missing, err = utils.FileMissing(getDBPath(), getDBName())
+		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
 		if err != nil {
-			log.Error("Failed checking file %s: %s", getDBFilePath(), err)
+			ks.log.Error("Failed checking file %s: %s", ks.conf.getKeyStoreFilePath(), err)
 		}
-		log.Debug("Db file [%s] missing [%t]", getDBFilePath(), missing)
+		ks.log.Debug("Db file [%s] missing [%t]", ks.conf.getKeyStoreFilePath(), missing)
 	}
 
 	if missing {
-		err := createDB()
+		err := ks.createDB()
 		if err != nil {
-			log.Debug("Failed creating db At [%s]: %s", getDBFilePath(), err.Error())
+			ks.log.Debug("Failed creating db At [%s]: %s", ks.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}
@@ -285,19 +254,64 @@ func createDBIfDBPathEmpty() error {
 	return nil
 }
 
-func openDB() (*DB, error) {
-	if isOpen {
-		return db, nil
-	}
-	dbPath := getDBPath()
+// CreateDB creates a ca db database
+func (ks *keyStore) createDB() error {
+	dbPath := ks.conf.getKeyStorePath()
+	ks.log.Debug("Creating DB at [%s]", dbPath)
 
-	sqlDB, err := sql.Open("sqlite3", filepath.Join(dbPath, getDBName()))
+	missing, err := utils.FileMissing(dbPath, ks.conf.getKeyStoreFilename())
+	if !missing {
+		return fmt.Errorf("db dir [%s] already exists", dbPath)
+	}
+
+	os.MkdirAll(dbPath, 0755)
+
+	ks.log.Debug("Open DB at [%s]", dbPath)
+	db, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
+	if err != nil {
+		return err
+	}
+
+	ks.log.Debug("Ping DB at [%s]", dbPath)
+	err = db.Ping()
+	if err != nil {
+		ks.log.Fatal(err)
+	}
+
+	defer db.Close()
+
+	// create tables
+	ks.log.Debug("Create Table [%s] at [%s]", "TCert", dbPath)
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
+		ks.log.Debug("Failed creating table: %s", err)
+		return err
+	}
+
+	ks.log.Debug("DB created at [%s]", dbPath)
+	return nil
+}
+
+// DeleteDB deletes a ca db database
+func (ks *keyStore) deleteKeyStore() error {
+	ks.log.Debug("Removing DB at [%s]", ks.conf.getKeyStorePath())
+
+	return os.RemoveAll(ks.conf.getKeyStorePath())
+}
+
+func (ks *keyStore) openKeyStore() error {
+	if ks.isOpen {
+		return nil
+	}
+	dbPath := ks.conf.getKeyStorePath()
+
+	sqlDB, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
 
 	if err != nil {
-		log.Error("Error opening DB", err)
-		return nil, err
+		ks.log.Error("Error opening DB", err)
+		return err
 	}
-	isOpen = true
+	ks.isOpen = true
+	ks.sqlDB = sqlDB
 
-	return &DB{sqlDB}, nil
+	return nil
 }
