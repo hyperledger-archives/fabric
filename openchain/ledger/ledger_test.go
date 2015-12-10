@@ -21,6 +21,7 @@ package ledger
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -315,4 +316,66 @@ func TestDeleteAllStateKeysAndValues(t *testing.T) {
 	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
 	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
 	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
+}
+
+func TestVerifyChain(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Build a big blockchain
+	for i := 0; i < 100; i++ {
+		ledger.BeginTxBatch(i)
+		ledger.TxBegin("txUuid" + strconv.Itoa(i))
+		ledger.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))
+		ledger.TxFinished("txUuid"+strconv.Itoa(i), true)
+		transaction, _ := buildTestTx()
+		ledger.CommitTxBatch(i, []*protos.Transaction{transaction}, []byte("proof"))
+	}
+
+	// Verify the chain
+	for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+	}
+	for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
+	}
+
+	// Add bad blocks and test
+	badBlock := protos.NewBlock("Sheehan", nil)
+	badBlock.PreviousBlockHash = []byte("evil")
+	for i := uint64(0); i < ledger.GetBlockchainSize(); i++ {
+		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)
+		ledger.PutRawBlock(badBlock, i)
+		for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
+			if i >= lowBlock {
+				expected := uint64(i + 1)
+				if i == ledger.GetBlockchainSize()-1 {
+					expected--
+				}
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), expected)
+			} else {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+			}
+		}
+		for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
+			if i <= highBlock {
+				expected := uint64(i + 1)
+				if i == highBlock {
+					expected--
+				}
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), expected)
+			} else {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
+			}
+		}
+		ledgerTestWrapper.PutRawBlock(goodBlock, i)
+	}
+
+	// Test edge cases
+	_, err := ledger.VerifyChain(2, 10)
+	testutil.AssertError(t, err, "Expected error as high block is less than low block")
+	_, err = ledger.VerifyChain(2, 2)
+	testutil.AssertError(t, err, "Expected error as high block is equal to low block")
+	_, err = ledger.VerifyChain(0, 100)
+	testutil.AssertError(t, err, "Expected error as high block is out of bounds")
 }

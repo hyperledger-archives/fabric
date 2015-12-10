@@ -20,13 +20,14 @@ under the License.
 package ledger
 
 import (
+	"os"
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -169,4 +170,15 @@ func (ledgerTestWrapper *ledgerTestWrapper) GetBlockByNumber(blockNumber uint64)
 	block, err := ledgerTestWrapper.ledger.GetBlockByNumber(blockNumber)
 	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting block from ledger")
 	return block
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) VerifyChain(highBlock, lowBlock uint64) uint64 {
+	result, err := ledgerTestWrapper.ledger.VerifyChain(highBlock, lowBlock)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while verifying chain")
+	return result
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) PutRawBlock(block *protos.Block, blockNumber uint64) {
+	err := ledgerTestWrapper.ledger.PutRawBlock(block, blockNumber)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while verifying chain")
 }
