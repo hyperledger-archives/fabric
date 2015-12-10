@@ -20,6 +20,7 @@ under the License.
 package ledger
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sync"
@@ -59,10 +60,10 @@ func newLedger() (*Ledger, error) {
 	blockchain, err := newBlockchain()
 	if err != nil {
 		return nil, err
-	} else {
-		state := state.NewState()
-		return &Ledger{blockchain, state, nil}, nil
 	}
+
+	state := state.NewState()
+	return &Ledger{blockchain, state, nil}, nil
 }
 
 /////////////////// Transaction-batch related methods ///////////////////////////////
@@ -235,6 +236,53 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
 	return ledger.blockchain.persistRawBlock(block, blockNumber)
+}
+
+// VerifyChain will verify the integrety of the blockchain. This is accomplished
+// by ensuring that the previous block hash stored in each block matches
+// the actual hash of the previous block in the chain. The return value is the
+// block number of the block that contains the non-matching previous block hash.
+// For example, if VerifyChain(0, 99) is called and prevous hash values stored
+// in blocks 8, 32, and 42 do not match the actual hashes of respective previous
+// block 42 would be the return value from this function.
+// highBlock is the high block in the chain to include in verofication. If you
+// wish to verify the entire chain, use ledger.GetBlockchainSize() - 1.
+// lowBlock is the low block in the chain to include in verification. If
+// you wish to verify the entire chain, use 0 for the genesis block.
+func (ledger *Ledger) VerifyChain(highBlock, lowBlock uint64) (uint64, error) {
+	if highBlock >= ledger.GetBlockchainSize() {
+		return highBlock, fmt.Errorf("Out of bounds error. The highBlock %d is greater than the blockchain size.", highBlock)
+	}
+	if highBlock <= lowBlock {
+		return lowBlock, fmt.Errorf("highBlock %d must be greater than lowBlock. %d", highBlock, lowBlock)
+	}
+
+	for i := highBlock; i > lowBlock; i-- {
+		currentBlock, err := ledger.GetBlockByNumber(i)
+		if err != nil {
+			return i, fmt.Errorf("Error fetching block %d.", i)
+		}
+		if currentBlock == nil {
+			return i, fmt.Errorf("Block %d is nil.", i)
+		}
+		previousBlock, err := ledger.GetBlockByNumber(i - 1)
+		if err != nil {
+			return i - 1, fmt.Errorf("Error fetching block %d.", i)
+		}
+		if previousBlock == nil {
+			return i - 1, fmt.Errorf("Block %d is nil.", i-1)
+		}
+
+		previousBlockHash, err := previousBlock.GetHash()
+		if err != nil {
+			return i - 1, fmt.Errorf("Error calculating block hash for block %d.", i-1)
+		}
+		if bytes.Compare(previousBlockHash, currentBlock.PreviousBlockHash) != 0 {
+			return i, nil
+		}
+	}
+
+	return 0, nil
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {
