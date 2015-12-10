@@ -140,10 +140,8 @@ peer:
         # -1 for unlimited
         touchMaxNodes: 100
 
-    # Peer's DB settings
-    db:
-        # location on file system
-        path: /var/openchain/genesis_test/db
+    # Path on the file system where peer will store data
+    fileSystemPath: /var/openchain/test/genesis_test
 
 ### NOTE: The validator section below is not needed and will be removed - BN
 ###############################################################################

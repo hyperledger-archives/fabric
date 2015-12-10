@@ -4,7 +4,5 @@
 #
 ###############################################################################
 peer:
-    # Peer's DB settings
-    db:
-        # location on file system
-        path: /var/openchain/ledger_test/db
+    # Path on the file system where peer will store data
+    fileSystemPath: /var/openchain/test/ledger_test
