@@ -22,6 +22,7 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -74,6 +75,8 @@ type pbftCore struct {
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
+	hChkpts      map[uint64]uint64 // highest checkpoint sequence number observed for each node
+	outOfDate    bool              // we have fallen behind, and are currently recovering, participate in PBFT, but no request execution
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -113,6 +116,18 @@ type vcidx struct {
 	id uint64
 }
 
+type sortableUint64Array []uint64
+
+func (a sortableUint64Array) Len() int {
+	return len(a)
+}
+func (a sortableUint64Array) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a sortableUint64Array) Less(i, j int) bool {
+	return a[i] < a[j]
+}
+
 // =============================================================================
 // constructors
 // =============================================================================
@@ -130,6 +145,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
 	var err error
 	instance.byzantine = config.GetBool("replica.byzantine")
+	instance.outOfDate = false // TODO This should be set via HELLO processing
 	instance.f = config.GetInt("general.f")
 	instance.K = uint64(config.GetInt("general.K"))
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
@@ -154,6 +170,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
+	instance.hChkpts = make(map[uint64]uint64)
 
 	// initialize genesis checkpoint
 	// TODO load state from disk
@@ -598,18 +615,102 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	return true
 }
 
+func (instance *pbftCore) moveWatermarks(h uint64) {
+	for idx, cert := range instance.certStore {
+		if idx.n <= h {
+			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
+				instance.id, idx.v, idx.n)
+			delete(instance.reqStore, cert.prePrepare.RequestDigest)
+			delete(instance.certStore, idx)
+		}
+	}
+
+	for testChkpt := range instance.checkpointStore {
+		if testChkpt.SequenceNumber <= h {
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
+				instance.id, testChkpt.ReplicaId,
+				testChkpt.SequenceNumber, testChkpt.StateDigest)
+			delete(instance.checkpointStore, testChkpt)
+		}
+	}
+
+	for n := range instance.pset {
+		if n <= h {
+			delete(instance.pset, n)
+		}
+	}
+
+	for idx := range instance.qset {
+		if idx.n <= h {
+			delete(instance.qset, idx)
+		}
+	}
+
+	for n := range instance.chkpts {
+		if n < h {
+			delete(instance.chkpts, n)
+		}
+	}
+
+	instance.h = h
+
+	logger.Debug("Replica %d updated low watermark to %d",
+		instance.id, instance.h)
+}
+
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
+	H := instance.h + instance.L
+
+	// Track the last observed checkpoint sequence number if it exceeds our high watermark, keyed by replica to prevent unbounded growth
+	if chkpt.SequenceNumber < H {
+		// For non-byzantine nodes, the checkpoint sequence number increases monotonically
+		// We do not track the highest one, as a byzantine node could pick an arbitrarilly high sequence number
+		// and even if it recovered to be non-byzantine, we would still believe it to be far ahead
+		delete(instance.hChkpts, chkpt.ReplicaId)
+	} else {
+		instance.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
+
+		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
+		// we need to check to see if we have fallen behind.
+		if uint(len(instance.hChkpts)) >= instance.f+uint(1) {
+			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
+			index := 0
+			for replicaId, hChkpt := range instance.hChkpts {
+				chkptSeqNumArray[index] = hChkpt
+				index++
+				if hChkpt < H {
+					delete(instance.hChkpts, replicaId)
+				}
+			}
+			sort.Sort(sortableUint64Array(chkptSeqNumArray))
+
+			// If f+1 nodes have issued checkpoints above our high water mark, then
+			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
+			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
+			if m := chkptSeqNumArray[uint(len(instance.hChkpts))-(instance.f+uint(1))]; m > H {
+				logger.Warning("Replica is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", chkpt.SequenceNumber, H)
+				instance.outOfDate = true
+				instance.moveWatermarks(m + instance.K)
+			}
+
+			return nil
+		}
+	}
+
 	if !instance.inW(chkpt.SequenceNumber) {
-		logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
+		if !instance.outOfDate {
+			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+		}
 		return nil
 	}
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := 0
+	quorum := uint(0)
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
@@ -620,59 +721,24 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	// If we do not have this checkpoint locally, we should not clear our state.
-	// PBFT: This diverges from the paper.
+	// It is actually just fine if we do not have this checkpoint
+	// and should not trigger a state transfer
+	// Imagine we are executing sequence number k-1 and we are slow for some reason
+	// then everyone else finishes executing k, and we receive a checkpoint quorum
+	// which we will agree with very shortly, but do not move our watermarks until
+	// we have reached this checkpoint
+	// Note, this is not divergent from the paper, as the paper requires that
+	// the quorum certificate must contain 2f+1 messages, including its own
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
-		// XXX fetch checkpoint from other replica
+		logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
+			instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 		return nil
 	}
 
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	for idx, cert := range instance.certStore {
-		if idx.n <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
-				instance.id, idx.v, idx.n)
-			delete(instance.reqStore, cert.prePrepare.RequestDigest)
-			delete(instance.certStore, idx)
-		}
-	}
-
-	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
-				instance.id, testChkpt.ReplicaId,
-				testChkpt.SequenceNumber, testChkpt.StateDigest)
-			delete(instance.checkpointStore, testChkpt)
-		}
-	}
-
-	for n := range instance.pset {
-		if n <= chkpt.SequenceNumber {
-			delete(instance.pset, n)
-		}
-	}
-
-	for idx := range instance.qset {
-		if idx.n <= chkpt.SequenceNumber {
-			delete(instance.qset, idx)
-		}
-	}
-
-	instance.h = 0
-	for n := range instance.chkpts {
-		if n < chkpt.SequenceNumber {
-			delete(instance.chkpts, n)
-		} else {
-			if instance.h == 0 || n < instance.h {
-				instance.h = n
-			}
-		}
-	}
-
-	logger.Debug("Replica %d updated low watermark to %d",
-		instance.id, instance.h)
+	instance.moveWatermarks(chkpt.SequenceNumber)
 
 	return instance.processNewView()
 }

@@ -457,3 +457,69 @@ func TestNewViewTimeout(t *testing.T) {
 		}
 	}
 }
+
+func TestFallBehind(t *testing.T) {
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.K = 2
+		inst.L = 2 * inst.K
+	})
+
+	execReq := func(iter int64, skipThree bool) {
+		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, err := proto.Marshal(tx)
+		if err != nil {
+			t.Fatalf("Failed to marshal TX block: %s", err)
+		}
+
+		// Send the request for consensus to everone but replica 0
+		//req := &Request{Payload: txPacked}
+		//err = net.replicas[3].plugin.broadcast(&Message{&Message_Request{req}}, false)
+
+		msg := &pb.OpenchainMessage{
+			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+			Payload: txPacked,
+		}
+		err = net.replicas[0].plugin.RecvMsg(msg)
+		if err != nil {
+			t.Fatalf("Request failed: %s", err)
+		}
+
+		if skipThree {
+			err = net.process(func(all bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
+				if !all && replica == 3 {
+					return nil
+				}
+
+				return msg
+			})
+		} else {
+			err = net.process()
+		}
+
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	inst := net.replicas[3].plugin
+
+	// Send enough requests to get to a checkpoint quorum certificate with sequence number L+K
+	execReq(1, true)
+	for request := int64(2); uint64(request) <= inst.L+inst.K; request++ {
+		execReq(request, false)
+	}
+
+	if !inst.outOfDate {
+		t.Fatalf("Replica did not detect that it has fallen behind.")
+	}
+
+	if len(inst.chkpts) != 0 {
+		t.Fatalf("Expected no checkpoints, found %d", len(inst.chkpts))
+	}
+
+	if inst.h != inst.L+inst.K*2 {
+		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K*2, inst.h)
+	}
+}
