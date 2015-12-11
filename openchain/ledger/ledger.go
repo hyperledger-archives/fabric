@@ -187,16 +187,24 @@ func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 // GetStateDelta will return the state delta for the specified block if
 // available.
 func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	if blockNumber >= ledger.GetBlockchainSize() {
+		return nil, fmt.Errorf("Block number %d is out of range.", blockNumber)
+	}
 	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
 
-// ApplyRawStateDelta applies a raw state delta to the current state.
+// ApplyStateDelta applies a state delta to the current state.
 // This should only be used as part of state synchronization. State deltas
 // can be retrieved from another peer though the Ledger.GetStateDelta function
 // or by creating state deltas with keys retrieved from
 // Ledger.GetStateSnapshot(). For an example, see TestSetRawState in
 // ledger_test.go
-func (ledger *Ledger) ApplyRawStateDelta(delta *statemgmt.StateDelta) error {
+// Note that there is no order checking in this function and it is up to
+// the caller to ensure that deltas are applied in the correct order.
+// For example, if you are currently at block 8 and call this function
+// with a delta retrieved from Ledger.GetStateDelta(10), you would now
+// be in a bad state because you did not apply the delta for block 9.
+func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 	return ledger.state.ApplyStateDelta(delta)
 }
 
@@ -219,6 +227,9 @@ func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
 // GetBlockByNumber return block given the number of the block on blockchain.
 // Lowest block on chain is block number zero
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
+	if blockNumber >= ledger.GetBlockchainSize() {
+		return nil, fmt.Errorf("Block number %d is out of bounds.", blockNumber)
+	}
 	return ledger.blockchain.getBlock(blockNumber)
 }
 

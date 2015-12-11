@@ -230,6 +230,7 @@ func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber u
 	if blockchain.getSize() < blockNumber+1 {
 		sizeBytes := encodeUint64(blockNumber + 1)
 		writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
+		blockchain.size = blockNumber + 1
 	}
 	blockHash, err := block.GetHash()
 	if err != nil {

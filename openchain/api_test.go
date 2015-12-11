@@ -120,6 +120,7 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 	// Construct a ledger with 3 blocks.
 	ledger1 := ledger.InitTestLedger(t)
 	buildTestLedger1(ledger1, t)
+	server.ledger = ledger1
 
 	// Retrieve the 0th block from the blockchain.
 	block, err = server.GetBlockByNumber(context.Background(), &protos.BlockNumber{Number: 0})

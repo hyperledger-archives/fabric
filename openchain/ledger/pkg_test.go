@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
@@ -181,4 +182,10 @@ func (ledgerTestWrapper *ledgerTestWrapper) VerifyChain(highBlock, lowBlock uint
 func (ledgerTestWrapper *ledgerTestWrapper) PutRawBlock(block *protos.Block, blockNumber uint64) {
 	err := ledgerTestWrapper.ledger.PutRawBlock(block, blockNumber)
 	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while verifying chain")
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) GetStateDelta(blockNumber uint64) *statemgmt.StateDelta {
+	delta, err := ledgerTestWrapper.ledger.GetStateDelta(blockNumber)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state delta from ledger")
+	return delta
 }
