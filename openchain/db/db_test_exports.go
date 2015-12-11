@@ -63,7 +63,7 @@ func (testDB *TestDBWrapper) cleanup() {
 }
 
 func (testDB *TestDBWrapper) removeDBPath() {
-	dbPath := viper.GetString("peer.db.path")
+	dbPath := viper.GetString("peer.fileSystemPath")
 	os.RemoveAll(dbPath)
 }
 
