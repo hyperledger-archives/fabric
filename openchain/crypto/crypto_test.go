@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Register
-	validatorConf = utils.NodeConfiguration{Type: "Validator", Name: "validator"}
+	validatorConf = utils.NodeConfiguration{Type: "validator", Name: "validator"}
 	err = RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
