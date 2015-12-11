@@ -21,6 +21,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"github.com/op/go-logging"
 	obc "github.com/openblockchain/obc-peer/protos"
 	"sync"
@@ -129,4 +130,16 @@ func Close(client Client) error {
 
 	log.Info("Closing client [%s]...done!", id)
 	return err
+}
+
+func CloseAll() (bool, []error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	errs := make([]error, len(clients))
+	for _, value := range clients {
+		append(errs, Close(value))
+	}
+
+	return len(errs) != 0, errs
 }
