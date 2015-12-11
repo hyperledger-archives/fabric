@@ -43,6 +43,9 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 }
 
 func (instance *Plugin) sendViewChange() error {
+	instance.stopTimer()
+
+	delete(instance.newViewStore, instance.view)
 	instance.view++
 	instance.activeView = false
 
@@ -133,6 +136,8 @@ func (instance *Plugin) sendViewChange() error {
 		vc.Qset = append(vc.Qset, q)
 	}
 
+	instance.sign(vc)
+
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -143,14 +148,53 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	// TODO check view-change signature
-	// ... && instance.validator.Verify() == nil)
+	if err := instance.verify(vc); err != nil {
+		logger.Warning("incorrect signature in view-change message: %s", err)
+		return nil
+	}
+
 	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
 		logger.Warning("View-change message incorrect")
 		return nil
 	}
 
 	instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] = vc
+
+	// PBFT TOCS 4.5.1 Liveness: "if a replica receives a set of
+	// f+1 valid VIEW-CHANGE messages from other replicas for
+	// views greater than its current view, it sends a VIEW-CHANGE
+	// message for the smallest view in the set, even if its timer
+	// has not expired"
+	replicas := make(map[uint64]bool)
+	minView := uint64(0)
+	for idx := range instance.viewChangeStore {
+		if idx.v <= instance.view {
+			continue
+		}
+
+		replicas[idx.id] = true
+		if minView == 0 || idx.v < minView {
+			minView = idx.v
+		}
+	}
+	if len(replicas) >= instance.f+1 {
+		logger.Info("Replica %d received f+1 view-change messages, triggering view-change to view %d",
+			instance.id, minView)
+		// subtract one, because sendViewChange() increments
+		instance.view = minView - 1
+		return instance.sendViewChange()
+	}
+
+	quorum := 0
+	for idx := range instance.viewChangeStore {
+		if idx.v == instance.view {
+			quorum++
+		}
+	}
+	if vc.View == instance.view && quorum == 2*instance.f+1 {
+		instance.startTimer(instance.lastNewViewTimeout)
+		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+	}
 
 	if instance.getPrimary(instance.view) == instance.id {
 		return instance.sendNewView()
@@ -160,7 +204,7 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 }
 
 func (instance *Plugin) sendNewView() (err error) {
-	if instance.lastNewView.View == instance.view {
+	if _, ok := instance.newViewStore[instance.view]; ok {
 		return
 	}
 
@@ -190,7 +234,7 @@ func (instance *Plugin) sendNewView() (err error) {
 	if err != nil {
 		return err
 	}
-	instance.lastNewView = *nv
+	instance.newViewStore[instance.view] = nv
 	return instance.processNewView()
 }
 
@@ -198,30 +242,26 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
-	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.lastNewView.View != nv.View) {
+	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
 		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
 			instance.id, nv.ReplicaId, nv.View)
 		return nil
 	}
 
 	for _, vc := range nv.Vset {
-		// TODO check view-change signatures
-		// if instance.validator.Verify() != nil {
-		//   logger.Error("Invalid new-view message: view-change message does not verify")
-		//   return nil
-		// }
-		_ = vc
+		if err := instance.verify(vc); err != nil {
+			logger.Warning("incorrect view-change signature in new-view message: %s", err)
+			return nil
+		}
 	}
 
-	instance.lastNewView = *nv
+	instance.newViewStore[nv.View] = nv
 	return instance.processNewView()
 }
 
 func (instance *Plugin) processNewView() error {
-	// TODO maintain a list of received new-view messages
-	nv := instance.lastNewView
-
-	if nv.View != instance.view {
+	nv, ok := instance.newViewStore[instance.view]
+	if !ok {
 		return nil
 	}
 
@@ -280,6 +320,8 @@ func (instance *Plugin) processNewView() error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
+	delete(instance.newViewStore, instance.view-1)
+
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
 			View:           instance.view,
@@ -306,6 +348,19 @@ func (instance *Plugin) processNewView() error {
 			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
 			instance.broadcast(&Message{&Message_Prepare{prep}}, true)
+		}
+	} else {
+	outer:
+		for d, req := range instance.outstandingReqs {
+			for _, cert := range instance.certStore {
+				if cert.prePrepare != nil && cert.prePrepare.RequestDigest == d {
+					continue outer
+				}
+			}
+
+			// This is a request that has not been pre-prepared yet
+			// Trigger request processing again.
+			instance.recvRequest(req)
 		}
 	}
 
@@ -336,13 +391,13 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
-		if uint(len(vcList)) <= instance.f { // type casting necessary to match types
+		if len(vcList) <= instance.f { // type casting necessary to match types
 			logger.Debug("no weak certificate for n:%d",
 				idx.SequenceNumber)
 			continue
 		}
 
-		quorum := uint(0)
+		quorum := 0
 		for _, vc := range vcList {
 			if vc.H <= idx.SequenceNumber {
 				quorum++
@@ -376,7 +431,7 @@ nLoop:
 		for _, m := range vset {
 			// "...with <n,d,v> ∈ m.P"
 			for _, em := range m.Pset {
-				quorum := uint(0)
+				quorum := 0
 				// "A1. ∃2f+1 messages m' ∈ S"
 			mpLoop:
 				for _, mp := range vset {
@@ -419,7 +474,7 @@ nLoop:
 			}
 		}
 
-		quorum := uint(0)
+		quorum := 0
 		// "else if ∃2f+1 messages m ∈ S"
 	nullLoop:
 		for _, m := range vset {

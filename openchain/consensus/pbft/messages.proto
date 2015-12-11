@@ -39,50 +39,50 @@ package pbft;
 
 message Message {
     oneof payload {
-        Request request = 1;
-        PrePrepare prePrepare = 2;
-        Prepare prepare = 3;
-        Commit commit = 4;
-        Checkpoint checkpoint = 5;
-        ViewChange viewChange = 6;
-        NewView newView = 7;
+        request request = 1;
+        pre_prepare pre_prepare = 2;
+        prepare prepare = 3;
+        commit commit = 4;
+        checkpoint checkpoint = 5;
+        view_change view_change = 6;
+        new_view new_view = 7;
     }
 }
 
-message Request {
+message request {
     google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
     bytes payload = 2;  // Opaque payload
 }
 
-message PrePrepare {
+message pre_prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
-    Request request = 4;
+    request request = 4;
     uint64 replica_id = 5;
 }
 
-message Prepare {
+message prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     uint64 replica_id = 4;
 }
 
-message Commit {
+message commit {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     uint64 replica_id = 4;
 }
 
-message Checkpoint {
+message checkpoint {
     uint64 sequence_number = 1;
     string state_digest = 2;
     uint64 replica_id = 3;
 }
 
-message ViewChange {
+message view_change {
     message C {
         uint64 sequence_number = 1;
         string digest = 2;
@@ -99,11 +99,12 @@ message ViewChange {
     repeated PQ pset = 4;
     repeated PQ qset = 5;
     uint64 replica_id = 6;
+    bytes signature = 7;
 }
 
-message NewView {
+message new_view {
     uint64 view = 1;
-    repeated ViewChange Vset = 2;
+    repeated view_change Vset = 2;
     map<uint64, string> Xset = 3;
     uint64 replica_id = 4;
 }

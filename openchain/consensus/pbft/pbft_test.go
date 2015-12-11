@@ -20,12 +20,11 @@ under the License.
 package pbft
 
 import (
-	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
-	"strconv"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -33,9 +32,8 @@ import (
 )
 
 func TestEnvOverride(t *testing.T) {
-
-	mock := NewMock()
-	instance := New(mock)
+	instance := NewPbft(0, NewMock())
+	defer instance.Close()
 
 	key := "general.name"                    // for a key that exists
 	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
@@ -64,83 +62,10 @@ func TestEnvOverride(t *testing.T) {
 
 }
 
-func TestRecvRequest(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-	instance.replicaCount = 5
-
-	txTime := &gp.Timestamp{Seconds: 2000, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txPacked, err := proto.Marshal(tx)
-	if err != nil {
-		t.Fatalf("Failed to marshal TX : %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	err = instance.RecvMsg(msgWrapped)
-	if err != nil {
-		t.Fatalf("Failed to handle request: %s", err)
-	}
-
-	msgOut := mock.broadcasted[0]
-	if msgOut == nil || msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("Expected broadcast after request, received %s", msgWrapped.Type)
-	}
-
-	msgRaw := msgOut.Payload
-	msgReq := &Message{}
-	err = proto.Unmarshal(msgRaw, msgReq)
-	if err != nil {
-		t.Fatal("Could not unmarshal message")
-	}
-	// TODO test for correct transaction passing
-}
-
-func TestRecvMsg(t *testing.T) {
-	mock := NewMock()
-	instance := New(mock)
-	instance.replicaCount = 5
-
-	nestedMsg := &Message{&Message_Request{&Request{
-		Payload: []byte("hello world"),
-	}}}
-	newPayload, err := proto.Marshal(nestedMsg)
-	if err != nil {
-		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: newPayload,
-	}
-	err = instance.RecvMsg(msgWrapped)
-	if err != nil {
-		t.Fatalf("Failed to handle PBFT message: %s", err)
-	}
-
-	if len(mock.broadcasted) != 1 {
-		t.Fatalf("Expected 1 message to be broadcasted, got %d", len(mock.broadcasted))
-	}
-
-	msgOut := mock.broadcasted[0]
-	if msgOut.Type != pb.OpenchainMessage_CONSENSUS {
-		t.Fatalf("Expected CONSENSUS, received %s", msgOut.Type)
-	}
-	msg := &Message{}
-	err = proto.Unmarshal(msgOut.Payload, msg)
-	if err != nil {
-		t.Fatal("Could not unmarshal message")
-	}
-	if msg := msg.GetPrePrepare(); msg == nil {
-		t.Fatal("expected pre-prepare after request")
-	}
-}
-
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := NewMock()
-	instance := New(mock)
-	instance.id = 1
+	instance := NewPbft(1, mock)
+	defer instance.Close()
 	instance.replicaCount = 5
 
 	digest1 := "hi there"
@@ -153,15 +78,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 		Request:        request2,
 		ReplicaId:      0,
 	}}}
-	newPayload, err := proto.Marshal(nestedMsg)
-	if err != nil {
-		t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-	}
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: newPayload,
-	}
-	err = instance.RecvMsg(msgWrapped)
+	err := instance.recvMsgSync(nestedMsg)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
@@ -173,20 +90,12 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := NewMock()
-	instance := New(mock)
-	instance.id = 1
+	instance := NewPbft(1, mock)
+	defer instance.Close()
 	instance.replicaCount = 5
 
 	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
-		newPayload, err := proto.Marshal(msg)
-		if err != nil {
-			t.Fatalf("Failed to marshal payload for CONSENSUS message: %s", err)
-		}
-		msgWrapped := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CONSENSUS,
-			Payload: newPayload,
-		}
-		_ = instance.RecvMsg(msgWrapped)
+		_ = instance.recvMsgSync(msg)
 		if len(mock.broadcasted) != 0 {
 			t.Errorf(errMsg, args...)
 		}
@@ -198,166 +107,9 @@ func TestIncompletePayload(t *testing.T) {
 	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject incomplete pre-prepare")
 }
 
-// =============================================================================
-// Fake network structures
-// =============================================================================
-
-type mockCPI struct {
-	broadcasted []*pb.OpenchainMessage
-	executed    [][]*pb.Transaction
-}
-
-type taggedMsg struct {
-	id  int
-	msg *pb.OpenchainMessage
-}
-
-type testnet struct {
-	replicas  []*instance
-	msgs      []taggedMsg
-	addresses []string
-}
-
-type instance struct {
-	address  string
-	id       int
-	plugin   *Plugin
-	net      *testnet
-	executed [][]*pb.Transaction
-}
-
-// =============================================================================
-// Interface implementations
-// =============================================================================
-
-func (mock *mockCPI) GetReplicaAddress(self bool) (addresses []string, err error) {
-	if self {
-		addresses = append(addresses, "0")
-		return addresses, nil
-	}
-	panic("not implemented")
-}
-
-func (mock *mockCPI) GetReplicaID(address string) (id uint64, err error) {
-	return uint64(0), nil
-}
-
-func (mock *mockCPI) Broadcast(msg *pb.OpenchainMessage) error {
-	mock.broadcasted = append(mock.broadcasted, msg)
-	return nil
-}
-
-func (mock *mockCPI) Unicast(msgPayload []byte, dest string) error {
-	panic("not implemented yet")
-}
-
-func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	mock.executed = append(mock.executed, txs)
-	return []byte("hash"), make([]error, len(txs)+1)
-}
-
-func (inst *instance) GetReplicaAddress(self bool) (addresses []string, err error) {
-	if self {
-		addresses = append(addresses, inst.address)
-		return addresses, nil
-	}
-	return inst.net.addresses, nil
-}
-
-func (inst *instance) GetReplicaID(address string) (id uint64, err error) {
-	for i, v := range inst.net.addresses {
-		if v == address {
-			return uint64(i), nil
-		}
-	}
-	err = fmt.Errorf("Couldn't find address in list of addresses in testnet")
-	return uint64(0), err
-}
-
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
-	net := inst.net
-	net.msgs = append(net.msgs, taggedMsg{inst.id, msg})
-	return nil
-}
-
-func (*instance) Unicast(msgPayload []byte, receiver string) error {
-	panic("not implemented yet")
-}
-
-func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	inst.executed = append(inst.executed, txs)
-	return []byte("hash"), nil
-}
-
-func NewMock() *mockCPI {
-	mock := &mockCPI{
-		make([]*pb.OpenchainMessage, 0),
-		make([][]*pb.Transaction, 0),
-	}
-	return mock
-}
-
-func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) error {
-	for len(net.msgs) > 0 {
-		msgs := net.msgs
-		net.msgs = nil
-
-		for _, taggedMsg := range msgs {
-			msg := taggedMsg.msg
-			for _, f := range filterfns {
-				msg = f(true, taggedMsg.id, msg)
-				if msg == nil {
-					break
-				}
-			}
-
-			for i, replica := range net.replicas {
-				if i == taggedMsg.id {
-					continue
-				}
-
-				msg := msg
-				for _, f := range filterfns {
-					msg = f(false, i, msg)
-					if msg == nil {
-						break
-					}
-				}
-
-				if msg != nil {
-					err := replica.plugin.RecvMsg(msg)
-					if err != nil {
-						return nil
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
-	replicaCount := 3*f + 1
-	net := &testnet{}
-	for i := 0; i < replicaCount; i++ {
-		inst := &instance{address: strconv.Itoa(i), id: i, net: net}
-		inst.plugin = New(inst)
-		inst.plugin.id = uint64(i)
-		inst.plugin.replicaCount = uint(replicaCount)
-		inst.plugin.f = uint(f)
-		for _, fn := range initFn {
-			fn(inst.plugin)
-		}
-		net.replicas = append(net.replicas, inst)
-		net.addresses = append(net.addresses, inst.address)
-	}
-
-	return net
-}
-
 func TestNetwork(t *testing.T) {
 	net := makeTestnet(2)
+	defer net.Close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
@@ -370,10 +122,12 @@ func TestNetwork(t *testing.T) {
 		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
 		Payload: txPacked,
 	}
-	err = net.replicas[0].plugin.RecvMsg(msg)
+	err = net.replicas[0].cpi.RecvMsg(msg)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	err = net.process()
 	if err != nil {
@@ -400,20 +154,17 @@ func TestCheckpoint(t *testing.T) {
 	net := makeTestnet(1, func(inst *Plugin) {
 		inst.K = 2
 	})
+	defer net.Close()
 
 	execReq := func(iter int64) {
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
-		}
-		err = net.replicas[0].plugin.RecvMsg(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		err = net.replicas[0].plugin.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -447,6 +198,7 @@ func TestCheckpoint(t *testing.T) {
 
 func TestLostPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -465,7 +217,12 @@ func TestLostPrePrepare(t *testing.T) {
 
 	// deliver pre-prepare to subset of replicas
 	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
-		inst.plugin.RecvMsg(msg.msg)
+		msgReq := &Message{}
+		err := proto.Unmarshal(msg.msg.Payload, msgReq)
+		if err != nil {
+			t.Fatal("Could not unmarshal message")
+		}
+		inst.plugin.recvMsgSync(msgReq)
 	}
 
 	err := net.process()
@@ -487,6 +244,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 func TestInconsistentPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -535,20 +293,17 @@ func TestViewChange(t *testing.T) {
 		inst.K = 2
 		inst.L = inst.K * 2
 	})
+	defer net.Close()
 
 	execReq := func(iter int64) {
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
-		}
-		err = net.replicas[0].plugin.RecvMsg(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		err = net.replicas[0].plugin.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -572,43 +327,25 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
+	if net.replicas[1].plugin.view != 1 || net.replicas[0].plugin.view != 1 {
+		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
+	}
+
 	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
-	if ok {
-		t.Fatalf("Early selection of initial checkpoint: %+v",
-			net.replicas[1].plugin.viewChangeStore)
-	}
-
-	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), 2)
-	if msgList != nil {
-		t.Fatalf("Early selection of message list: %+v", msgList)
-	}
-
-	net.replicas[1].plugin.sendViewChange()
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
-
-	cp, ok = net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
 	if !ok || cp != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].plugin.viewChangeStore)
 	}
 
-	msgList = net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
+	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
-	}
-
-	net.replicas[0].plugin.sendViewChange()
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
 	}
 }
 
 func TestInconsistentDataViewChange(t *testing.T) {
 	net := makeTestnet(1)
+	defer net.Close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -662,4 +399,55 @@ func TestInconsistentDataViewChange(t *testing.T) {
 
 	// XXX once state transfer works, make sure that a request
 	// was executed by all replicas.
+}
+
+func TestNewViewTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping timeout test")
+	}
+
+	net := makeTestnet(1, func(inst *Plugin) {
+		inst.newViewTimeout = 100 * time.Millisecond
+		inst.requestTimeout = inst.newViewTimeout
+		inst.lastNewViewTimeout = inst.newViewTimeout
+	})
+	defer net.Close()
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+	msgPacked, _ := proto.Marshal(msg)
+
+	replica1Disabled := false
+
+	go net.processContinually(func(out bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
+		if out && replica == 1 && replica1Disabled {
+			return nil
+		}
+		return msg
+	})
+
+	// This will eventually trigger 1's request timeout
+	// We check that one single timed out replica will not keep trying to change views by itself
+	net.replicas[1].cpi.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
+	time.Sleep(1 * time.Second)
+
+	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
+	// However, we disable 1, which will disable the new-view going through.
+	// This checks that replicas will automatically move to view 2 when the view change times out.
+	// However, 2 does not know about the missing request, and therefore the request will not be
+	// pre-prepared and finally executed.  This will lead to another view-change timeout, even on
+	// the replicas that never saw the request (e.g. 0)
+	// Finally, 3 will be new primary and pre-prepare the missing request.
+	replica1Disabled = true
+	net.replicas[3].cpi.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
+	time.Sleep(1 * time.Second)
+
+	net.Close()
+	for _, inst := range net.replicas {
+		if inst.plugin.view != 3 {
+			t.Fatalf("should have reached view 3")
+		}
+	}
 }

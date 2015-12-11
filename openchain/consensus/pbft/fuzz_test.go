@@ -40,24 +40,22 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	mock := NewMock()
-	primary := New(mock)
-	backup := New(mock)
-	backup.id = 1
+	primary := NewPbft(0, NewMock())
+	defer primary.Close()
+	backup := NewPbft(1, NewMock())
+	defer backup.Close()
 
 	f := fuzz.New()
 
 	for i := 0; i < 30; i++ {
 		msg := &Message{}
 		f.Fuzz(msg)
-
-		payload, _ := proto.Marshal(msg)
-		msgWrapped := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CONSENSUS,
-			Payload: payload,
-		}
-		primary.RecvMsg(msgWrapped)
-		backup.RecvMsg(msgWrapped)
+		// roundtrip through protobufs to translate
+		// nil slices into empty slices
+		raw, _ := proto.Marshal(msg)
+		proto.Unmarshal(raw, msg)
+		primary.recvMsgSync(msg)
+		backup.recvMsgSync(msg)
 	}
 
 	logging.Reset()
@@ -102,6 +100,7 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	net := makeTestnet(1)
+	defer net.Close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 
 	noExec := 0
@@ -118,11 +117,10 @@ func TestMinimalFuzz(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		for _, inst := range net.replicas {
+			inst.plugin.recvMsgSync(msg)
 		}
-		err = net.replicas[fuzzer.r.Intn(len(net.replicas))].plugin.RecvMsg(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -261,6 +259,8 @@ func (f *protoFuzzer) Fuzz(v reflect.Value) {
 	case reflect.Struct:
 		f.Fuzz(v.Field(f.r.Intn(v.NumField())))
 		return
+	case reflect.Map:
+		// TODO fuzz map
 	default:
 		panic(fmt.Sprintf("Not fuzzing %v %+v", v.Kind(), v))
 	}

@@ -23,11 +23,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -44,7 +43,6 @@ const configPrefix = "OPENCHAIN_PBFT"
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
-var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
 	logger = logging.MustGetLogger("consensus/pbft")
@@ -54,34 +52,47 @@ func init() {
 // Custom structure definitions go here
 // =============================================================================
 
+type InnerCPI interface {
+	Broadcast(req []byte)
+	Execute(req []byte)
+}
+
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
 	// internal data
-	config *viper.Viper  // link to the plugin config file
-	cpi    consensus.CPI // link to the CPI
+	config   *viper.Viper  // link to the plugin config file
+	c        chan *Message // serialization of incoming messages
+	consumer InnerCPI
 
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            uint              // number of faults we can tolerate
+	f            int               // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
 	L            uint64            // log size
 	lastExec     uint64            // last request we executed
-	replicaCount uint              // number of replicas; PBFT `|R|`
+	replicaCount int               // number of replicas; PBFT `|R|`
 	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64            // current view
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
+	newViewTimer       *time.Timer         // timeout triggering a view change
+	timerActive        bool                // is the timer running?
+	requestTimeout     time.Duration       // progress timeout for requests
+	newViewTimeout     time.Duration       // progress timeout for new views
+	lastNewViewTimeout time.Duration       // last timeout we used during this view change
+	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+
 	// Implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
-	lastNewView     NewView               // track last new-view we received or sent
+	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
 }
 
 type qidx struct {
@@ -111,24 +122,11 @@ type vcidx struct {
 // Constructors go here
 // =============================================================================
 
-// GetPlugin returns the handle to the Plugin singleton and updates the CPI if necessary.
-func GetPlugin(c consensus.CPI) *Plugin {
-	if pluginInstance == nil {
-		pluginInstance = New(c)
-	} else {
-		pluginInstance.cpi = c // otherwise, just update the CPI
-	}
-	return pluginInstance
-}
-
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func New(c consensus.CPI) *Plugin {
+func NewPbft(id uint64, consumer InnerCPI) *Plugin {
 	instance := &Plugin{}
-	instance.cpi = c
-
-	// set ID
-	address, _ := instance.cpi.GetReplicaAddress(true)
-	instance.id, _ = instance.cpi.GetReplicaID(address[0])
+	instance.id = id
+	instance.consumer = consumer
 
 	// setup the link to the config file
 	instance.config = viper.New()
@@ -152,15 +150,22 @@ func New(c consensus.CPI) *Plugin {
 
 	// read from the config file
 	// you can override the config values with the
-	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
-	instance.f = uint(instance.config.GetInt("general.f"))
-	instance.K = uint64(instance.config.GetInt("general.K"))
+	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
 	instance.byzantine = instance.config.GetBool("replica.byzantine")
-
-	instance.replicaCount = 3*instance.f + 1
-	instance.L = 2 * instance.K
+	instance.f = instance.config.GetInt("general.f")
+	instance.K = uint64(instance.config.GetInt("general.K"))
+	instance.requestTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.request"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
+	}
+	instance.newViewTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.viewchange"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
+	}
 
 	instance.activeView = true
+	instance.L = 2 * instance.K // log size
+	instance.replicaCount = 3*instance.f + 1
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -170,12 +175,66 @@ func New(c consensus.CPI) *Plugin {
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
+	instance.newViewStore = make(map[uint64]*NewView)
 
 	// initialize genesis checkpoint
 	// TODO load state from disk
 	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
 
+	// create non-running timer XXX ugly
+	instance.newViewTimer = time.NewTimer(100 * time.Hour)
+	instance.newViewTimer.Stop()
+	instance.lastNewViewTimeout = instance.newViewTimeout
+	instance.outstandingReqs = make(map[string]*Request)
+
+	// to control concurrency in arriving messages
+	instance.c = make(chan *Message, 100)
+	go instance.msgPump()
+
 	return instance
+}
+
+// Close tears down resources opened by `New`.
+func (instance *Plugin) Close() {
+	close(instance.c)
+}
+
+// Request handles new consensus requests.
+func (instance *Plugin) Request(payload []byte) error {
+	msg := &Message{&Message_Request{&Request{Payload: payload}}}
+	instance.c <- msg
+
+	return nil
+}
+
+// Receive handles internal consensus messages.  Consensus messages
+// are serialized via instance.c and msgPump().
+func (instance *Plugin) Receive(payload []byte) error {
+	msg := &Message{}
+	err := proto.Unmarshal(payload, msg)
+	if err != nil {
+		return fmt.Errorf("Error unpacking payload from message: %s", err)
+	}
+	instance.c <- msg
+
+	return nil
+}
+
+// msgPump takes messages queued by `RecvMsg`, and provides a
+// sequential context to process those messages.
+func (instance *Plugin) msgPump() {
+	for {
+		select {
+		case msg, ok := <-instance.c:
+			if !ok {
+				return
+			}
+			_ = instance.recvMsgSync(msg)
+		case <-instance.newViewTimer.C:
+			logger.Info("Replica %d view change timeout expired", instance.id)
+			instance.sendViewChange()
+		}
+	}
 }
 
 // =============================================================================
@@ -247,7 +306,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return true
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -270,7 +329,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 		return false
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -292,21 +351,8 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 // Receive methods go here
 // =============================================================================
 
-// RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
-func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		return instance.Request(msgWrapped.Payload)
-	}
-	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
-	}
-
-	msg := &Message{}
-	err := proto.Unmarshal(msgWrapped.Payload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-
+// recvMsgSync processes messages in the synchronous context of msgPump().
+func (instance *Plugin) recvMsgSync(msg *Message) (err error) {
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -322,31 +368,22 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
 	} else {
-		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
+		err = fmt.Errorf("Invalid message: %v", msg)
 		logger.Error("%s", err)
 	}
 
 	return err
 }
 
-// Request is the main entry into the consensus plugin.
-// txs will be passed to CPI.ExecTXs once consensus is reached.
-func (instance *Plugin) Request(txs []byte) error {
-	logger.Info("New consensus request received")
-	req := &Request{Payload: txs}
-	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
-}
-
 func (instance *Plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	// TODO verify transaction
-	// if err := instance.cpi.VerifyTransaction(...); err != nil {
-	//   logger.Warning("Invalid request");
-	//   return err
-	// }
 	instance.reqStore[digest] = req
+	instance.outstandingReqs[digest] = req
+	if !instance.timerActive {
+		instance.startTimer(instance.requestTimeout)
+	}
 
 	n := instance.seqNo + 1
 
@@ -417,11 +454,12 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			return nil
 		}
 		// TODO verify transaction
-		// if err := instance.cpi.VerifyTransaction(...); err != nil {
+		// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
 		//   logger.Warning("Invalid request");
 		//   return err
 		// }
 		instance.reqStore[digest] = preprep.Request
+		instance.outstandingReqs[digest] = preprep.Request
 	}
 
 	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
@@ -542,12 +580,14 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		tx := &pb.Transaction{}
-		err := proto.Unmarshal(req.Payload, tx)
-		if err == nil {
-			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
-			instance.cpi.ExecTXs([]*pb.Transaction{tx})
-		}
+		instance.consumer.Execute(req.Payload)
+		delete(instance.outstandingReqs, digest)
+	}
+
+	instance.stopTimer()
+	instance.lastNewViewTimeout = instance.newViewTimeout
+	if len(instance.outstandingReqs) > 0 {
+		instance.newViewTimer.Reset(instance.requestTimeout)
 	}
 
 	if instance.lastExec%instance.K == 0 {
@@ -581,7 +621,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := uint(0)
+	quorum := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
@@ -592,8 +632,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	// If we do not have this checkpoint locally, we should not
-	// clear our state.
+	// If we do not have this checkpoint locally, we should not clear our state.
 	// PBFT: This diverges from the paper.
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		// XXX fetch checkpoint from other replica
@@ -657,21 +696,35 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
 func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
+	if toSelf {
+		instance.c <- msg
+	}
+
 	msgPacked, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
 	}
+	instance.consumer.Broadcast(msgPacked)
+	return nil
+}
 
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msgPacked,
-	}
+func (instance *Plugin) startTimer(timeout time.Duration) {
+	instance.newViewTimer.Reset(timeout)
+	instance.timerActive = true
+}
 
-	err = instance.cpi.Broadcast(msgWrapped)
-	if err == nil && toSelf {
-		err = instance.RecvMsg(msgWrapped)
+func (instance *Plugin) stopTimer() {
+	// remove timeouts that may have raced, to prevent additional view change
+	instance.newViewTimer.Stop()
+	instance.timerActive = false
+loop:
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+		default:
+			break loop
+		}
 	}
-	return err
 }
 
 func hashReq(req *Request) (digest string) {
