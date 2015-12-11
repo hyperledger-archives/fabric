@@ -21,16 +21,20 @@ package peer
 
 import (
 	"errors"
-	"fmt"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
 
 const (
+	// ConfigurationPath property for where configuration is stored
 	ConfigurationPath = "peer.crypto.path"
-	ECAPAddress       = "peer.crypto.eca.paddr"
-	TCAPAddress       = "peer.crypto.tca.paddr"
+
+	// ECAPAddress property for TCA public address
+	ECAPAddress = "peer.crypto.eca.paddr"
+
+	// TCAPAddress property for TCA public address
+	TCAPAddress = "peer.crypto.tca.paddr"
 )
 
 func (peer *peerImpl) initConfiguration(id string) error {
@@ -134,24 +138,4 @@ func (conf *configuration) getECACertsChainPath() string {
 
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
-}
-
-type NodeConfiguration struct {
-	Id string
-}
-
-func (conf *NodeConfiguration) GetEnrollmentID() string {
-	value := viper.GetString("peer.crypto.users." + conf.Id + ".enrollid")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'peer.crypto.enrollid' is set"))
-	}
-	return value
-}
-
-func (conf *NodeConfiguration) GetEnrollmentPWD() string {
-	value := viper.GetString("peer.crypto.users." + conf.Id + ".enrollpw")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'peer.crypto.enrollid' is set"))
-	}
-	return value
 }

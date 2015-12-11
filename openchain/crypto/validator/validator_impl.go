@@ -49,7 +49,7 @@ type validatorImpl struct {
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollId      string
+	enrollID      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey interface{}
 	enrollCerts   map[string]*x509.Certificate
@@ -81,8 +81,6 @@ func (validator *validatorImpl) Register(id string, pwd []byte, enrollID, enroll
 
 	if validator.isRegistered() {
 		validator.log.Error("Registering [%s]...done! Registration already performed", enrollID)
-
-		return nil
 	} else {
 		if err := validator.createKeyStorage(); err != nil {
 			validator.log.Error("Failed creating key storage: %s", err)
@@ -180,7 +178,7 @@ func (validator *validatorImpl) GetID() []byte {
 
 // GetEnrollmentID returns this validator's enroolment id
 func (validator *validatorImpl) GetEnrollmentID() string {
-	return validator.enrollId
+	return validator.enrollID
 }
 
 // TransactionPreValidation verifies that the transaction is

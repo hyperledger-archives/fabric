@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	clientConf ClientConfiguration
+	clientConf utils.NodeConfiguration
 	client     crypto.Client
 
 	eca         *obcca.ECA
@@ -51,8 +51,8 @@ func TestMain(m *testing.M) {
 	defer cleanup()
 
 	// Register
-	clientConf = ClientConfiguration{Id: "user1"}
-	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	clientConf = utils.NodeConfiguration{Type: "client", Name: "user1"}
+	err := Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
 		killCAs()
@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 	}
 
 	//	 Verify that a second call to Register fails
-	err = Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	err = Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed checking registerting: %s\n", err)
 		killCAs()
@@ -68,7 +68,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Init client
-	client, err = Init(clientConf.Id, nil)
+	client, err = Init(clientConf.Name, nil)
 
 	var ret int
 	if err != nil {
@@ -92,7 +92,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistration(t *testing.T) {
-	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	err := Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 
 	if err != nil {
 		t.Fatalf(err.Error())

@@ -35,7 +35,7 @@ import (
 	"io/ioutil"
 )
 
-func (validator *validatorImpl) retrieveECACertsChain(userId string) error {
+func (validator *validatorImpl) retrieveECACertsChain(userID string) error {
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := validator.getECACertificate()
 	if err != nil {
@@ -54,7 +54,7 @@ func (validator *validatorImpl) retrieveECACertsChain(userId string) error {
 	}
 
 	// Store ECA cert
-	validator.log.Info("Storing ECA certificate for validator [%s]...", userId)
+	validator.log.Info("Storing ECA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(validator.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {

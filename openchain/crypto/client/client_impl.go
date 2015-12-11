@@ -24,7 +24,6 @@ import (
 	"crypto/x509"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	_ "github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
@@ -48,7 +47,7 @@ type clientImpl struct {
 	rootsCertPool *x509.CertPool
 
 	// Enrollment Certificate and private key
-	enrollId      string
+	enrollID      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey *ecdsa.PrivateKey
 }
@@ -78,7 +77,6 @@ func (client *clientImpl) Register(id string, pwd []byte, enrollID, enrollPWD st
 	if client.isRegistered() {
 		client.log.Error("Registering [%s]...done! Registration already performed", enrollID)
 
-		return nil
 	} else {
 		if err := client.createKeyStorage(); err != nil {
 			client.log.Error("Failed creating key storage: %s", err)

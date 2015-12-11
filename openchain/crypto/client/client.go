@@ -30,7 +30,7 @@ import (
 
 var (
 	// Map of initialized clients
-	clients map[string]crypto.Client = make(map[string]crypto.Client)
+	clients = make(map[string]crypto.Client)
 
 	// Sync
 	mutex sync.Mutex
@@ -42,59 +42,62 @@ var log = logging.MustGetLogger("CRYPTO.CLIENT")
 
 // Public Methods
 
-func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
+// Register registers a client to the PKI infrastructure
+func Register(name string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+	log.Info("Registering [%s] with id [%s]...", enrollID, name)
 
-	if clients[id] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+	if clients[name] != nil {
+		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, name)
 		return nil
 	}
 
 	client := new(clientImpl)
-	if err := client.Register(id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
+	if err := client.Register(name, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, name, err)
 
 		return err
 	}
 	err := client.Close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, name, err)
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
+	log.Info("Registering [%s] with id [%s]...done!", enrollID, name)
 
 	return nil
 }
 
-func Init(id string, pwd []byte) (crypto.Client, error) {
+// Init initializes a client named name with password pwd
+func Init(name string, pwd []byte) (crypto.Client, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Initializing [%s]...", id)
+	log.Info("Initializing [%s]...", name)
 
-	if clients[id] != nil {
-		log.Info("Client already initiliazied [%s].", id)
+	if clients[name] != nil {
+		log.Info("Client already initiliazied [%s].", name)
 
-		return clients[id], nil
+		return clients[name], nil
 	}
 
 	client := new(clientImpl)
-	if err := client.Init(id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", id, err)
+	if err := client.Init(name, pwd); err != nil {
+		log.Error("Failed initialization [%s]: %s", name, err)
 
 		return nil, err
 	}
 
-	clients[id] = client
-	log.Info("Initializing [%s]...done!", id)
+	clients[name] = client
+	log.Info("Initializing [%s]...done!", name)
 
 	return client, nil
 }
 
+// Close releases all the resources allocated by clients
 func Close(client crypto.Client) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -102,6 +105,7 @@ func Close(client crypto.Client) error {
 	return closeInternal(client)
 }
 
+// CloseAll closes all the clients initialized so far
 func CloseAll() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()

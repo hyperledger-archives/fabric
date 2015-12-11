@@ -26,10 +26,12 @@ import (
 	"errors"
 )
 
+// PrivateKeyToDER marshals a private key to der
 func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)
 }
 
+// PrivateKeyToPEM marshals a private key to pem
 func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -50,6 +52,7 @@ func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
 	}
 }
 
+// DERToPrivateKey unmarshals a der to private key
 func DERToPrivateKey(der []byte) (interface{}, error) {
 	// Try RSA and then ECDSA
 	rsakey, err1 := x509.ParsePKCS1PrivateKey(der)
@@ -71,6 +74,7 @@ func DERToPrivateKey(der []byte) (interface{}, error) {
 	return nil, errors.New("Key not recognized.")
 }
 
+// PEMtoPrivateKey unmarshals a pem to private key
 func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	block, _ := pem.Decode(raw)
 
@@ -98,6 +102,7 @@ func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	return cert, err
 }
 
+/*
 func PublicKeyToBytes(publicKey interface{}) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(publicKey)
 }
@@ -107,7 +112,9 @@ func BytesToPublicKey(derBytes []byte) (pub interface{}, err error) {
 
 	return key, err
 }
+*/
 
+// PublicKeyToPEM marshals a public key to the pem forma
 func PublicKeyToPEM(algo string, publicKey interface{}) ([]byte, error) {
 	PubASN1, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {

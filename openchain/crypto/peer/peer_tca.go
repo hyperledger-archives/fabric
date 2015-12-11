@@ -31,7 +31,7 @@ import (
 	"time"
 )
 
-func (peer *peerImpl) retrieveTCACertsChain(userId string) error {
+func (peer *peerImpl) retrieveTCACertsChain(userID string) error {
 	// Retrieve TCA certificate and verify it
 	tcaCertRaw, err := peer.getTCACertificate()
 	if err != nil {
@@ -50,7 +50,7 @@ func (peer *peerImpl) retrieveTCACertsChain(userId string) error {
 	}
 
 	// Store TCA cert
-	peer.log.Info("Storing TCA certificate for validator [%s]...", userId)
+	peer.log.Info("Storing TCA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(peer.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {

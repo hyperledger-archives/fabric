@@ -31,7 +31,7 @@ import (
 	"time"
 )
 
-func (validator *validatorImpl) retrieveTCACertsChain(userId string) error {
+func (validator *validatorImpl) retrieveTCACertsChain(userID string) error {
 	// Retrieve TCA certificate and verify it
 	tcaCertRaw, err := validator.getTCACertificate()
 	if err != nil {
@@ -50,7 +50,7 @@ func (validator *validatorImpl) retrieveTCACertsChain(userId string) error {
 	}
 
 	// Store TCA cert
-	validator.log.Info("Storing TCA certificate for validator [%s]...", userId)
+	validator.log.Info("Storing TCA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(validator.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {

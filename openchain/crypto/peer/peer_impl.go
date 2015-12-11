@@ -48,7 +48,7 @@ type peerImpl struct {
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollId      string
+	enrollID      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey interface{}
 	enrollCerts   map[string]*x509.Certificate
@@ -80,8 +80,6 @@ func (peer *peerImpl) Register(id string, pwd []byte, enrollID, enrollPWD string
 
 	if peer.isRegistered() {
 		peer.log.Error("Registering [%s]...done! Registration already performed", enrollID)
-
-		return nil
 	} else {
 		if err := peer.createKeyStorage(); err != nil {
 			peer.log.Error("Failed creating key storage: %s", err)
@@ -179,7 +177,7 @@ func (peer *peerImpl) GetID() []byte {
 
 // GetEnrollmentID returns this peer's enroolment id
 func (peer *peerImpl) GetEnrollmentID() string {
-	return peer.enrollId
+	return peer.enrollID
 }
 
 // TransactionPreValidation verifies that the transaction is

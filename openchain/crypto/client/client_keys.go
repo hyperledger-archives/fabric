@@ -37,10 +37,10 @@ func (client *clientImpl) isRegistered() bool {
 	return !missing
 }
 
-func (client *clientImpl) retrieveEnrollmentData(userId, pwd string) error {
-	key, enrollCertRaw, err := client.getEnrollmentCertificateFromECA(userId, pwd)
+func (client *clientImpl) retrieveEnrollmentData(userID, pwd string) error {
+	key, enrollCertRaw, err := client.getEnrollmentCertificateFromECA(userID, pwd)
 	if err != nil {
-		client.log.Error("Failed getting enrollment certificate [id=%s] %s", userId, err)
+		client.log.Error("Failed getting enrollment certificate [id=%s] %s", userID, err)
 
 		return err
 	}
@@ -48,31 +48,31 @@ func (client *clientImpl) retrieveEnrollmentData(userId, pwd string) error {
 	//	validatorLogger.Info("Register:key %s", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	client.log.Info("Storing enrollment key and certificate for user [%s]...", userId)
+	client.log.Info("Storing enrollment key and certificate for user [%s]...", userID)
 
 	rawKey, err := utils.PrivateKeyToPEM("", key)
 	if err != nil {
-		client.log.Error("Failed converting enrollment key to PEM [id=%s]: %s", userId, err)
+		client.log.Error("Failed converting enrollment key to PEM [id=%s]: %s", userID, err)
 		return err
 	}
 
 	err = ioutil.WriteFile(client.conf.getEnrollmentKeyPath(), rawKey, 0700)
 	if err != nil {
-		client.log.Error("Failed storing enrollment key [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment key [id=%s]: %s", userID, err)
 		return err
 	}
 
 	// Store enrollment cert
 	err = ioutil.WriteFile(client.conf.getEnrollmentCertPath(), utils.DERCertToPEM(enrollCertRaw), 0700)
 	if err != nil {
-		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userID, err)
 		return err
 	}
 
 	// Store enrollment id
-	err = ioutil.WriteFile(client.conf.getEnrollmentIDPath(), []byte(userId), 0700)
+	err = ioutil.WriteFile(client.conf.getEnrollmentIDPath(), []byte(userID), 0700)
 	if err != nil {
-		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userId, err)
+		client.log.Error("Failed storing enrollment certificate [id=%s]: %s", userID, err)
 		return err
 	}
 
@@ -144,8 +144,8 @@ func (client *clientImpl) loadEnrollmentID() error {
 	}
 
 	// Set enrollment ID
-	client.enrollId = string(enrollID)
-	client.log.Info("Setting enrollment id to [%s]", client.enrollId)
+	client.enrollID = string(enrollID)
+	client.log.Info("Setting enrollment id to [%s]", client.enrollID)
 
 	return nil
 }

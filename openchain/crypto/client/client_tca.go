@@ -27,7 +27,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	_ "github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -37,7 +36,7 @@ import (
 	"time"
 )
 
-func (client *clientImpl) retrieveTCACertsChain(userId string) error {
+func (client *clientImpl) retrieveTCACertsChain(userID string) error {
 	// Retrieve TCA certificate and verify it
 	tcaCertRaw, err := client.getTCACertificate()
 	if err != nil {
@@ -56,7 +55,7 @@ func (client *clientImpl) retrieveTCACertsChain(userId string) error {
 	}
 
 	// Store TCA cert
-	client.log.Info("Storing TCA certificate for validator [%s]...", userId)
+	client.log.Info("Storing TCA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(client.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {
@@ -184,7 +183,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) 
 		Roots: client.rootsCertPool,
 	}
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AES_KEY_LENGTH_BYTES)
+	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(TCertOwnerKDFKey, []byte{2})
 
 	resCert := make([][]byte, num)
@@ -217,7 +216,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, [][]byte, error) 
 		// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 
 		// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
-		ct, err := utils.GetExtension(certificate, utils.TCERT_ENC_TCERTINDEX)
+		ct, err := utils.GetExtension(certificate, utils.TCertEncTCertIndex)
 		if err != nil {
 			client.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
 			//
@@ -346,7 +345,7 @@ func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, er
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 	req := &obcca.TCertCreateSetReq{
 		&timestamp,
-		&obcca.Identity{Id: client.enrollId},
+		&obcca.Identity{Id: client.enrollID},
 		uint32(num),
 		nil,
 	}

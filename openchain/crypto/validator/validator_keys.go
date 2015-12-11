@@ -37,8 +37,8 @@ func (validator *validatorImpl) isRegistered() bool {
 	return !missing
 }
 
-func (validator *validatorImpl) retrieveEnrollmentData(userId, pwd string) error {
-	key, enrollCertRaw, err := validator.getEnrollmentCertificateFromECA(userId, pwd)
+func (validator *validatorImpl) retrieveEnrollmentData(userID, pwd string) error {
+	key, enrollCertRaw, err := validator.getEnrollmentCertificateFromECA(userID, pwd)
 	if err != nil {
 		validator.log.Error("Failed getting enrollment certificate %s", err)
 
@@ -67,7 +67,7 @@ func (validator *validatorImpl) retrieveEnrollmentData(userId, pwd string) error
 	// TODO: store it in an encrypted form
 
 	// Store enrollment  key
-	validator.log.Info("Storing enrollment key and certificate for user [%s]...", userId)
+	validator.log.Info("Storing enrollment key and certificate for user [%s]...", userID)
 
 	rawKey, err := utils.PrivateKeyToPEM("", key)
 	if err != nil {
@@ -89,7 +89,7 @@ func (validator *validatorImpl) retrieveEnrollmentData(userId, pwd string) error
 	}
 
 	// Store enrollment id
-	err = ioutil.WriteFile(validator.conf.getEnrollmentIDPath(), []byte(userId), 0700)
+	err = ioutil.WriteFile(validator.conf.getEnrollmentIDPath(), []byte(userID), 0700)
 	if err != nil {
 		validator.log.Error("Failed storing enrollment certificate: %s", err)
 		return err
@@ -163,8 +163,8 @@ func (validator *validatorImpl) loadEnrollmentID() error {
 	}
 
 	// Set enrollment ID
-	validator.enrollId = string(enrollID)
-	validator.log.Info("Setting enrollment id to [%s]", validator.enrollId)
+	validator.enrollID = string(enrollID)
+	validator.log.Info("Setting enrollment id to [%s]", validator.enrollID)
 
 	return nil
 }

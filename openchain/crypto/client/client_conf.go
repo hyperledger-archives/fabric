@@ -21,16 +21,20 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
 
 const (
+	// ConfigurationPath property for where configuration is stored
 	ConfigurationPath = "client.crypto.path"
-	ECAPAddress       = "client.crypto.eca.paddr"
-	TCAPAddress       = "client.crypto.tca.paddr"
+
+	// ECAPAddress property for TCA public address
+	ECAPAddress = "client.crypto.eca.paddr"
+
+	// TCAPAddress property for TCA public address
+	TCAPAddress = "client.crypto.tca.paddr"
 )
 
 func (client *clientImpl) initConfiguration(id string) error {
@@ -134,24 +138,4 @@ func (conf *configuration) getECACertsChainPath() string {
 
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
-}
-
-type ClientConfiguration struct {
-	Id string
-}
-
-func (conf *ClientConfiguration) GetEnrollmentID() string {
-	value := viper.GetString("client.crypto.users." + conf.Id + ".enrollid")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollid' is set"))
-	}
-	return value
-}
-
-func (conf *ClientConfiguration) GetEnrollmentPWD() string {
-	value := viper.GetString("client.crypto.users." + conf.Id + ".enrollpw")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'client.crypto.enrollid' is set"))
-	}
-	return value
 }

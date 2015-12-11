@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	peerConf NodeConfiguration
+	peerConf utils.NodeConfiguration
 	peer     crypto.Peer
 
 	deployer crypto.Client
@@ -63,8 +63,8 @@ func TestMain(m *testing.M) {
 	}
 
 	// Register
-	peerConf = NodeConfiguration{Id: "peer"}
-	err = Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+	peerConf = utils.NodeConfiguration{Type: "peer", Name: "peer"}
+	err = Register(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
 		killCAs()
@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	}
 
 	//	 Verify that a second call to Register fails
-	err = Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+	err = Register(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed checking registerting: %s\n", err)
 		killCAs()
@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Init client
-	peer, err = Init(peerConf.Id, nil)
+	peer, err = Init(peerConf.Name, nil)
 
 	var ret int
 	if err != nil {
@@ -95,7 +95,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistration(t *testing.T) {
-	err := Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+	err := Register(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
 
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -185,22 +185,22 @@ func initMockCAs() {
 
 func initMockClient() error {
 	// Deployer
-	deployerConf := client.ClientConfiguration{Id: "user2"}
-	if err := client.Register(deployerConf.Id, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+	deployerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
+	if err := client.Register(deployerConf.Name, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	var err error
-	deployer, err = client.Init(deployerConf.Id, nil)
+	deployer, err = client.Init(deployerConf.Name, nil)
 	if err != nil {
 		return err
 	}
 
 	// Invoker
-	invokerConf := client.ClientConfiguration{Id: "user3"}
-	if err := client.Register(invokerConf.Id, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user3"}
+	if err := client.Register(invokerConf.Name, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
-	invoker, err = client.Init(invokerConf.Id, nil)
+	invoker, err = client.Init(invokerConf.Name, nil)
 	if err != nil {
 		return err
 	}

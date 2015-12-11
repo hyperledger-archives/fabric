@@ -22,16 +22,11 @@ package client
 import (
 	"database/sql"
 	"fmt"
-	_ "fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
-	_ "os"
 	"path/filepath"
-	_ "path/filepath"
 	"sync"
-	_ "sync"
 )
 
 func (client *clientImpl) initKeyStore() error {

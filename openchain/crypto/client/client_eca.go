@@ -35,7 +35,7 @@ import (
 	"io/ioutil"
 )
 
-func (client *clientImpl) retrieveECACertsChain(userId string) error {
+func (client *clientImpl) retrieveECACertsChain(userID string) error {
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := client.getECACertificate()
 	if err != nil {
@@ -54,7 +54,7 @@ func (client *clientImpl) retrieveECACertsChain(userId string) error {
 	}
 
 	// Store ECA cert
-	client.log.Info("Storing ECA certificate for [%s]...", userId)
+	client.log.Info("Storing ECA certificate for [%s]...", userID)
 
 	err = ioutil.WriteFile(client.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {

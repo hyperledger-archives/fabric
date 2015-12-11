@@ -35,7 +35,7 @@ import (
 	"io/ioutil"
 )
 
-func (peer *peerImpl) retrieveECACertsChain(userId string) error {
+func (peer *peerImpl) retrieveECACertsChain(userID string) error {
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := peer.getECACertificate()
 	if err != nil {
@@ -54,7 +54,7 @@ func (peer *peerImpl) retrieveECACertsChain(userId string) error {
 	}
 
 	// Store ECA cert
-	peer.log.Info("Storing ECA certificate for validator [%s]...", userId)
+	peer.log.Info("Storing ECA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(peer.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {

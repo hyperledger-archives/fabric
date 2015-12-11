@@ -21,16 +21,20 @@ package validator
 
 import (
 	"errors"
-	"fmt"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
 
 const (
+	// ConfigurationPath property for where configuration is stored
 	ConfigurationPath = "validator.crypto.path"
-	ECAPAddress       = "validator.crypto.eca.paddr"
-	TCAPAddress       = "validator.crypto.tca.paddr"
+
+	// ECAPAddress property for TCA public address
+	ECAPAddress = "validator.crypto.eca.paddr"
+
+	// TCAPAddress property for TCA public address
+	TCAPAddress = "validator.crypto.tca.paddr"
 )
 
 func (validator *validatorImpl) initConfiguration(id string) error {
@@ -134,24 +138,4 @@ func (conf *configuration) getECACertsChainPath() string {
 
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
-}
-
-type NodeConfiguration struct {
-	Id string
-}
-
-func (conf *NodeConfiguration) GetEnrollmentID() string {
-	value := viper.GetString("validator.crypto.users." + conf.Id + ".enrollid")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'validator.crypto.enrollid' is set"))
-	}
-	return value
-}
-
-func (conf *NodeConfiguration) GetEnrollmentPWD() string {
-	value := viper.GetString("validator.crypto.users." + conf.Id + ".enrollpw")
-	if value == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'validator.crypto.enrollid' is set"))
-	}
-	return value
 }

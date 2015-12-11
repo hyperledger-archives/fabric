@@ -37,8 +37,8 @@ func (peer *peerImpl) isRegistered() bool {
 	return !missing
 }
 
-func (peer *peerImpl) retrieveEnrollmentData(userId, pwd string) error {
-	key, enrollCertRaw, err := peer.getEnrollmentCertificateFromECA(userId, pwd)
+func (peer *peerImpl) retrieveEnrollmentData(userID, pwd string) error {
+	key, enrollCertRaw, err := peer.getEnrollmentCertificateFromECA(userID, pwd)
 	if err != nil {
 		peer.log.Error("Failed getting enrollment certificate %s", err)
 
@@ -67,7 +67,7 @@ func (peer *peerImpl) retrieveEnrollmentData(userId, pwd string) error {
 	// TODO: store it in an encrypted form
 
 	// Store enrollment  key
-	peer.log.Info("Storing enrollment key and certificate for user [%s]...", userId)
+	peer.log.Info("Storing enrollment key and certificate for user [%s]...", userID)
 
 	rawKey, err := utils.PrivateKeyToPEM("", key)
 	if err != nil {
@@ -89,7 +89,7 @@ func (peer *peerImpl) retrieveEnrollmentData(userId, pwd string) error {
 	}
 
 	// Store enrollment id
-	err = ioutil.WriteFile(peer.conf.getEnrollmentIDPath(), []byte(userId), 0700)
+	err = ioutil.WriteFile(peer.conf.getEnrollmentIDPath(), []byte(userID), 0700)
 	if err != nil {
 		peer.log.Error("Failed storing enrollment certificate: %s", err)
 		return err
@@ -163,8 +163,8 @@ func (peer *peerImpl) loadEnrollmentID() error {
 	}
 
 	// Set enrollment ID
-	peer.enrollId = string(enrollID)
-	peer.log.Info("Setting enrollment id to [%s]", peer.enrollId)
+	peer.enrollID = string(enrollID)
+	peer.log.Info("Setting enrollment id to [%s]", peer.enrollID)
 
 	return nil
 }

@@ -30,7 +30,7 @@ import (
 
 var (
 	// Map of initialized peers
-	peers map[string]crypto.Peer = make(map[string]crypto.Peer)
+	peers = make(map[string]crypto.Peer)
 
 	// Sync
 	mutex sync.Mutex
@@ -42,6 +42,7 @@ var log = logging.MustGetLogger("CRYPTO.PEER")
 
 // Public Methods
 
+// Register registers a client to the PKI infrastructure
 func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -70,6 +71,7 @@ func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
+// Init initializes a client named name with password pwd
 func Init(id string, pwd []byte) (crypto.Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -95,6 +97,7 @@ func Init(id string, pwd []byte) (crypto.Peer, error) {
 	return peer, nil
 }
 
+// Close releases all the resources allocated by clients
 func Close(peer crypto.Peer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -102,6 +105,7 @@ func Close(peer crypto.Peer) error {
 	return closeInternal(peer)
 }
 
+// CloseAll closes all the clients initialized so far
 func CloseAll() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()

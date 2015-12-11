@@ -32,14 +32,17 @@ var (
 	defaultCurve = elliptic.P384()
 )
 
+// ECDSASignature represents an ECDSA signature
 type ECDSASignature struct {
 	R, S *big.Int
 }
 
+// NewECDSAKey generates a new ECDSA Key
 func NewECDSAKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(defaultCurve, rand.Reader)
 }
 
+// ECDSASignDirect signs
 func ECDSASignDirect(signKey interface{}, msg []byte) (*big.Int, *big.Int, error) {
 	temp := signKey.(*ecdsa.PrivateKey)
 	r, s, err := ecdsa.Sign(rand.Reader, temp, Hash(msg))
@@ -50,6 +53,7 @@ func ECDSASignDirect(signKey interface{}, msg []byte) (*big.Int, *big.Int, error
 	return r, s, nil
 }
 
+// ECDSASign signs
 func ECDSASign(signKey interface{}, msg []byte) ([]byte, error) {
 	temp := signKey.(*ecdsa.PrivateKey)
 	r, s, err := ecdsa.Sign(rand.Reader, temp, Hash(msg))
@@ -70,6 +74,7 @@ func ECDSASign(signKey interface{}, msg []byte) ([]byte, error) {
 	return raw, nil
 }
 
+// ECDSAVerify verifies
 func ECDSAVerify(verKey interface{}, msg, signature []byte) (bool, error) {
 	ecdsaSignature := new(ECDSASignature)
 	_, err := asn1.Unmarshal(signature, ecdsaSignature)
@@ -85,6 +90,7 @@ func ECDSAVerify(verKey interface{}, msg, signature []byte) (bool, error) {
 	return ecdsa.Verify(temp, Hash(msg), ecdsaSignature.R, ecdsaSignature.S), nil
 }
 
+// VerifySignCapability tests signing capabilities
 func VerifySignCapability(tempSK interface{}, certPK interface{}) error {
 	msg := []byte("This is a message to be signed and verified by ECDSA!")
 

@@ -30,7 +30,7 @@ import (
 
 var (
 	// Map of initialized validators
-	validators map[string]crypto.Validator = make(map[string]crypto.Validator)
+	validators = make(map[string]crypto.Validator)
 
 	// Sync
 	mutex sync.Mutex
@@ -42,6 +42,7 @@ var log = logging.MustGetLogger("CRYPTO.VALIDATOR")
 
 // Public Methods
 
+// Register registers a client to the PKI infrastructure
 func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -70,6 +71,7 @@ func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
+// Init initializes a client named name with password pwd
 func Init(id string, pwd []byte) (crypto.Validator, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -95,6 +97,7 @@ func Init(id string, pwd []byte) (crypto.Validator, error) {
 	return validator, nil
 }
 
+// Close releases all the resources allocated by clients
 func Close(validator crypto.Validator) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -102,6 +105,7 @@ func Close(validator crypto.Validator) error {
 	return closeInternal(validator)
 }
 
+// CloseAll closes all the clients initialized so far
 func CloseAll() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()
