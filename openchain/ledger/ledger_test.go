@@ -246,7 +246,7 @@ func TestLedgerSetRawState(t *testing.T) {
 		delta.Set(cID, kID, v)
 	}
 
-	err = ledger.ApplyRawStateDelta(delta)
+	err = ledger.ApplyStateDelta(delta)
 	if err != nil {
 		t.Fatalf("Error applying raw state delta, %s", err)
 	}
@@ -378,4 +378,28 @@ func TestVerifyChain(t *testing.T) {
 	testutil.AssertError(t, err, "Expected error as high block is equal to low block")
 	_, err = ledger.VerifyChain(0, 100)
 	testutil.AssertError(t, err, "Expected error as high block is out of bounds")
+}
+
+func TestBlockNumberOutOfBoundsError(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Build a big blockchain
+	for i := 0; i < 10; i++ {
+		ledger.BeginTxBatch(i)
+		ledger.TxBegin("txUuid" + strconv.Itoa(i))
+		ledger.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))
+		ledger.TxFinished("txUuid"+strconv.Itoa(i), true)
+		transaction, _ := buildTestTx()
+		ledger.CommitTxBatch(i, []*protos.Transaction{transaction}, []byte("proof"))
+	}
+
+	ledgerTestWrapper.GetBlockByNumber(9)
+	_, err := ledger.GetBlockByNumber(10)
+	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+
+	ledgerTestWrapper.GetStateDelta(9)
+	_, err = ledger.GetStateDelta(10)
+	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+
 }
