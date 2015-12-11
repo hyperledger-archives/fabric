@@ -38,6 +38,8 @@ import (
 var ErrDBAlreadyInitialized error = errors.New("DB already Initilized.")
 
 func (client *clientImpl) initKeyStore() error {
+	// TODO: move all the ket/certificate store/load to the keyStore struct
+
 	ks := keyStore{}
 	ks.log = client.log
 	ks.conf = client.conf

@@ -137,6 +137,7 @@ func (client *clientImpl) Init(id string) error {
 
 	// Initialize DB
 	client.log.Info("Init DB...")
+	// TODO: password support
 	err := client.initKeyStore()
 	if err != nil {
 		if err != ErrDBAlreadyInitialized {
