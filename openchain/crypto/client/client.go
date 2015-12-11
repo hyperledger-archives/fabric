@@ -21,7 +21,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"github.com/op/go-logging"
 	obc "github.com/openblockchain/obc-peer/protos"
 	"sync"
@@ -117,29 +116,40 @@ func Close(client Client) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	id := client.GetID()
-	defer delete(clients, id)
-
-	log.Info("Closing client [%s]...", id)
-
-	if _, ok := clients[id]; !ok {
-		return ErrInvalidClientReference
-	}
-
-	err := clients[id].(*clientImpl).Close()
-
-	log.Info("Closing client [%s]...done!", id)
-	return err
+	return closeInternal(client)
 }
 
 func CloseAll() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	log.Info("Closing all clients...")
+
 	errs := make([]error, len(clients))
 	for _, value := range clients {
-		append(errs, Close(value))
+		err := closeInternal(value)
+
+		errs = append(errs, err)
 	}
 
+	log.Info("Closing all clients...done!")
+
 	return len(errs) != 0, errs
+}
+
+// Private Methods
+
+func closeInternal(client Client) error {
+	id := client.GetID()
+	log.Info("Closing client [%s]...", id)
+	if _, ok := clients[id]; !ok {
+		return ErrInvalidClientReference
+	}
+	defer delete(clients, id)
+
+	err := clients[id].(*clientImpl).Close()
+
+	log.Info("Closing client [%s]...done! [%s]", id, err)
+
+	return err
 }

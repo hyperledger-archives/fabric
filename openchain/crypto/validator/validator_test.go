@@ -292,8 +292,7 @@ func getValidatorEnrollmentData() (string, string) {
 }
 
 func cleanup() {
-	client.Close(deployer)
-	client.Close(invoker)
+	client.CloseAll()
 	validator.Close()
 	killCAs()
 
