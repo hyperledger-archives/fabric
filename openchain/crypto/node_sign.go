@@ -17,30 +17,25 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package crypto
 
 import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"math/big"
 )
 
-func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	sigma, err := utils.ECDSASign(signKey, msg)
-
-	validator.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
-
-	return sigma, err
+func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
+	node.log.Info("Signing message %s", utils.EncodeBase64(msg))
+	return utils.ECDSASign(signKey, msg)
 }
 
-func (validator *validatorImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	sigma, err := utils.ECDSASign(validator.enrollPrivKey, msg)
-
-	validator.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
-
-	return sigma, err
+func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
+	node.log.Info("Signing message direct %s", utils.EncodeBase64(msg))
+	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
 }
 
-func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	validator.log.Info("Verifing signature %s against message %s",
+func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
+	node.log.Info("Verifing signature %s against message %s",
 		utils.EncodeBase64(signature),
 		utils.EncodeBase64(msg),
 	)

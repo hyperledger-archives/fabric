@@ -13,6 +13,7 @@ var (
 	ErrTransactionSignature        error = errors.New("Missing Transaction Signature.")
 	ErrInvalidSignature            error = errors.New("Invalid Signature.")
 	ErrInvalidReference            error = errors.New("Invalid reference.")
+	ErrNotImplemented              error = errors.New("Not implemented.")
 
 	ErrKeyStoreAlreadyInitialized error = errors.New("Keystore already Initilized.")
 )

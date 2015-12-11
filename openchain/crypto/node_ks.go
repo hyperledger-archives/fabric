@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package crypto
 
 import (
 	"database/sql"
@@ -29,17 +29,17 @@ import (
 	"sync"
 )
 
-func (validator *validatorImpl) initKeyStore() error {
+func (node *nodeImpl) initKeyStore() error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
 
 	ks := keyStore{}
-	ks.log = validator.log
-	ks.conf = validator.conf
-	if err := ks.Init(); err != nil {
+	ks.log = node.log
+	ks.conf = node.conf
+	if err := ks.init(); err != nil {
 		return err
 	}
 
-	validator.ks = &ks
+	node.ks = &ks
 
 	return nil
 }
@@ -60,7 +60,7 @@ type keyStore struct {
 	m sync.Mutex
 }
 
-func (ks *keyStore) Init() error {
+func (ks *keyStore) init() error {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -81,75 +81,7 @@ func (ks *keyStore) Init() error {
 	return nil
 }
 
-func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, error)) ([]byte, error) {
-	ks.m.Lock()
-	defer ks.m.Unlock()
-
-	sid := utils.EncodeBase64(id)
-
-	cert, err := ks.selectEnrollmentCert(sid)
-	if err != nil {
-		ks.log.Error("Failed selecting enrollment cert: %s", err)
-
-		return nil, err
-	}
-	ks.log.Info("GetEnrollmentCert:cert %s", utils.EncodeBase64(cert))
-
-	if cert == nil {
-		// If No cert is available, fetch from ECA
-
-		// 1. Fetch
-		ks.log.Info("Fectch Enrollment Certificate from ECA...")
-		cert, err = certFetcher(id)
-		if err != nil {
-			return nil, err
-		}
-
-		// 2. Store
-		ks.log.Info("Store certificate...")
-		tx, err := ks.sqlDB.Begin()
-		if err != nil {
-			ks.log.Error("Failed beginning transaction: %s", err)
-
-			return nil, err
-		}
-
-		ks.log.Info("Insert id %s", sid)
-		ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
-
-		_, err = tx.Exec("INSERT INTO Certificates (id, cert) VALUES (?, ?)", sid, cert)
-
-		if err != nil {
-			ks.log.Error("Failed inserting cert %s", err)
-
-			tx.Rollback()
-
-			return nil, err
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			ks.log.Error("Failed committing transaction: %s", err)
-
-			tx.Rollback()
-
-			return nil, err
-		}
-
-		ks.log.Info("Fectch Enrollment Certificate from ECA...done!")
-
-		cert, err = ks.selectEnrollmentCert(sid)
-		if err != nil {
-			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
-
-			return nil, err
-		}
-	}
-
-	return cert, nil
-}
-
-func (ks *keyStore) Close() error {
+func (ks *keyStore) close() error {
 	ks.log.Info("Closing keystore...")
 	err := ks.sqlDB.Close()
 
@@ -161,29 +93,6 @@ func (ks *keyStore) Close() error {
 
 	ks.isOpen = false
 	return err
-}
-
-func (ks *keyStore) selectEnrollmentCert(id string) ([]byte, error) {
-	ks.log.Info("Select Enrollment TCert...")
-
-	// Get the first row available
-	var cert []byte
-	row := ks.sqlDB.QueryRow("SELECT cert FROM Certificates where id = ?", id)
-	err := row.Scan(&cert)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	} else if err != nil {
-		ks.log.Error("Error during select: %s", err)
-
-		return nil, err
-	}
-
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
-
-	ks.log.Info("Select Enrollment Cert...done!")
-
-	return cert, nil
 }
 
 func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {

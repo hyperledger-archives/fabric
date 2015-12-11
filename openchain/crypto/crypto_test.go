@@ -17,27 +17,30 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package client
+package crypto
 
 import (
+	pb "github.com/openblockchain/obc-peer/protos"
+
 	"fmt"
 	"github.com/openblockchain/obc-peer/obcca/obcca"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
-	_ "time"
 )
 
 var (
-	clientConf utils.NodeConfiguration
-	client     crypto.Client
+	validatorConf utils.NodeConfiguration
+	validator     Peer
 
+	deployer Client
+	invoker  Client
+
+	caAlreadyOn bool
 	eca         *obcca.ECA
 	tca         *obcca.TCA
 	caWaitGroup sync.WaitGroup
@@ -46,13 +49,20 @@ var (
 func TestMain(m *testing.M) {
 	setupTestConfig()
 
-	// Init ECA and register the user using the Admin interface
+	// Init ECA
 	go initMockCAs()
 	defer cleanup()
 
+	// Init a mock Client
+	err := initClients()
+	if err != nil {
+		fmt.Printf("Failed initializing clients: %s\n", err)
+		panic(fmt.Errorf("Failed initializing clients: %s", err))
+	}
+
 	// Register
-	clientConf = utils.NodeConfiguration{Type: "client", Name: "user1"}
-	err := Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	validatorConf = utils.NodeConfiguration{Type: "Validator", Name: "validator"}
+	err = RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
 		killCAs()
@@ -60,7 +70,7 @@ func TestMain(m *testing.M) {
 	}
 
 	//	 Verify that a second call to Register fails
-	err = Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	err = RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed checking registerting: %s\n", err)
 		killCAs()
@@ -68,22 +78,13 @@ func TestMain(m *testing.M) {
 	}
 
 	// Init client
-	client, err = Init(clientConf.Name, nil)
+	validator, err = InitValidator(validatorConf.Name, nil)
 
 	var ret int
 	if err != nil {
-		fmt.Println("Init...error")
-		os.Exit(-1)
-		fmt.Printf("Failed initializing: %s\n", err)
-		killCAs()
-		panic(fmt.Errorf("Failed initializing: %s", err))
+		panic(fmt.Errorf("Failed initializing: err %s", err))
 	} else {
 		ret = m.Run()
-	}
-
-	err = Close(client)
-	if err != nil {
-		panic(fmt.Errorf("Client Security Module:TestMain: failed cleanup: err %s", err))
 	}
 
 	cleanup()
@@ -92,10 +93,102 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistration(t *testing.T) {
-	err := Register(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	err := RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 
 	if err != nil {
 		t.Fatalf(err.Error())
+	}
+}
+
+func TestID(t *testing.T) {
+	// Verify that any id modification doesn't change
+	id := validator.GetID()
+
+	if id == nil {
+		t.Fatalf("Id is nil.")
+	}
+
+	if len(id) == 0 {
+		t.Fatalf("Id length is zero.")
+	}
+
+	id[0] = id[0] + 1
+	id2 := validator.GetID()
+	if id2[0] == id[0] {
+		t.Fatalf("Invariant not respected.")
+	}
+}
+
+func TestDeployTransactionPreValidation(t *testing.T) {
+	tx, err := mockDeployTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
+
+	res, err := validator.TransactionPreValidation(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreValidation: result must be diffrent from nil: %s", err)
+	}
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
+	}
+}
+
+func TestInvokeTransactionPreValidation(t *testing.T) {
+	tx, err := mockInvokeTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
+
+	res, err := validator.TransactionPreValidation(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreValidation: result must be diffrent from nil")
+	}
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
+	}
+}
+
+func TestDeployTransactionPreExecution(t *testing.T) {
+	tx, err := mockDeployTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreExecution: failed creating transaction: %s", err)
+	}
+
+	res, err := validator.TransactionPreExecution(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
+	}
+	if err != nil {
+		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+	}
+}
+
+func TestInvokeTransactionPreExecution(t *testing.T) {
+	tx, err := mockInvokeTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreExecution: failed creating transaction: %s", err)
+	}
+
+	res, err := validator.TransactionPreExecution(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
+	}
+	if err != nil {
+		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+	}
+}
+
+func TestSignVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("TestSign: failed generating signature: %s", err)
+	}
+
+	err = validator.Verify(validator.GetID(), signature, msg)
+	if err != nil {
+		t.Fatalf("TestSign: failed validating signature: %s", err)
 	}
 }
 
@@ -104,7 +197,7 @@ func Test_NewChaincodeDeployTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test_NewChaincodeDeployTransaction: failed generating uuid: err %s", err)
 	}
-	tx, err := client.NewChaincodeDeployTransaction(
+	tx, err := deployer.NewChaincodeDeployTransaction(
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
@@ -126,10 +219,10 @@ func Test_NewChaincodeDeployTransaction(t *testing.T) {
 	}
 
 	// Check transaction
-	err = client.(*clientImpl).checkTransaction(tx)
-	if err != nil {
-		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
-	}
+	//	err = client.(*node.clientImpl).checkTransaction(tx)
+	//	if err != nil {
+	//		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
+	//	}
 }
 
 func Test_NewChaincodeInvokeTransaction(t *testing.T) {
@@ -137,7 +230,7 @@ func Test_NewChaincodeInvokeTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
 	}
-	tx, err := client.NewChaincodeInvokeTransaction(
+	tx, err := deployer.NewChaincodeInvokeTransaction(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
@@ -169,7 +262,7 @@ func Test_MultipleNewChaincodeInvokeTransaction(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
 		}
-		tx, err := client.NewChaincodeInvokeTransaction(
+		tx, err := deployer.NewChaincodeInvokeTransaction(
 			&pb.ChaincodeInvocationSpec{
 				ChaincodeSpec: &pb.ChaincodeSpec{
 					Type:        pb.ChaincodeSpec_GOLANG,
@@ -198,7 +291,7 @@ func Test_MultipleNewChaincodeInvokeTransaction(t *testing.T) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("client_test") // name of config file (without extension)
+	viper.SetConfigName("crypto_test") // name of config file (without extension)
 	viper.AddConfigPath(".")           // path to look for the config file in
 	err := viper.ReadInConfig()        // Find and read the config file
 	if err != nil {                    // Handle errors reading the config file
@@ -210,8 +303,11 @@ func setupTestConfig() {
 func initMockCAs() {
 	// Check if the CAs are already up
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
+		caAlreadyOn = true
+		fmt.Println("Someone already listening")
 		return
 	}
+	caAlreadyOn = false
 
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
@@ -226,8 +322,65 @@ func initMockCAs() {
 	caWaitGroup.Wait()
 }
 
+func initClients() error {
+	// Deployer
+	deployerConf := utils.NodeConfiguration{Type: "client", Name: "user4"}
+	if err := RegisterClient(deployerConf.Name, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	var err error
+	deployer, err = InitClient(deployerConf.Name, nil)
+	if err != nil {
+		return err
+	}
+
+	// Invoker
+	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user5"}
+	if err := RegisterClient(invokerConf.Name, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	invoker, err = InitClient(invokerConf.Name, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func mockDeployTransaction() (*pb.Transaction, error) {
+	tx, err := deployer.NewChaincodeDeployTransaction(
+		&pb.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:        pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				CtorMsg:     nil,
+			},
+			EffectiveDate: nil,
+			CodePackage:   nil,
+		},
+		"uuid",
+	)
+	return tx, err
+}
+
+func mockInvokeTransaction() (*pb.Transaction, error) {
+	tx, err := invoker.NewChaincodeInvokeTransaction(
+		&pb.ChaincodeInvocationSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:        pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				CtorMsg:     nil,
+			},
+		},
+		"uuid",
+	)
+
+	return tx, err
+}
+
 func cleanup() {
-	Close(client)
+	CloseAllClients()
+	CloseAllValidators()
 	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
@@ -242,14 +395,13 @@ func cleanup() {
 }
 
 func killCAs() {
-	fmt.Println("Stopping CAs...")
+	if !caAlreadyOn {
+		eca.Stop()
+		eca.Close()
 
-	eca.Stop()
-	eca.Close()
-	tca.Stop()
-	tca.Close()
-
-	fmt.Println("Stopping CAs...done")
+		tca.Stop()
+		tca.Close()
+	}
 }
 
 func removeFolders() {
@@ -258,5 +410,8 @@ func removeFolders() {
 	}
 	if err := os.RemoveAll(viper.GetString("client.crypto.path")); err != nil {
 		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("client.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("validator.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("validator.crypto.path"), err)
 	}
 }

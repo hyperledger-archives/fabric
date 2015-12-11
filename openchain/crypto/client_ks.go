@@ -17,66 +17,22 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package client
+package crypto
 
 import (
 	"database/sql"
-	"fmt"
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"os"
-	"path/filepath"
-	"sync"
 )
 
 func (client *clientImpl) initKeyStore() error {
-	// TODO: move all the ket/certificate store/load to the keyStore struct
-
-	ks := keyStore{}
-	ks.log = client.log
-	ks.conf = client.conf
-	if err := ks.Init(); err != nil {
+	// create tables
+	client.node.ks.log.Debug("Create Table [%s] at [%s]", "TCert", client.node.ks.conf.getKeyStorePath())
+	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
+		client.node.ks.log.Debug("Failed creating table: %s", err)
 		return err
 	}
 
-	client.ks = &ks
-
-	return nil
-}
-
-type keyStore struct {
-	isOpen bool
-
-	// backend
-	sqlkeystore *sql.DB
-
-	// Configuration
-	conf *configuration
-
-	// Logging
-	log *logging.Logger
-
-	// Sync
-	m sync.Mutex
-}
-
-func (ks *keyStore) Init() error {
-	ks.m.Lock()
-	defer ks.m.Unlock()
-
-	if ks.isOpen {
-		return utils.ErrKeyStoreAlreadyInitialized
-	}
-
-	err := ks.createKeyStoreIfKeyStorePathEmpty()
-	if err != nil {
-		return err
-	}
-
-	err = ks.openKeyStore()
-	if err != nil {
-		return err
-	}
+	client.node.ks.log.Debug("keystore created at [%s]", client.node.ks.conf.getKeyStorePath())
 
 	return nil
 }
@@ -105,7 +61,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 
 		// 2. Store
 		ks.log.Info("Store them...")
-		tx, err := ks.sqlkeystore.Begin()
+		tx, err := ks.sqlDB.Begin()
 		if err != nil {
 			ks.log.Error("Failed beginning transaction: %s", err)
 
@@ -154,25 +110,11 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 	//	return utils.NewSelfSignedCert()
 }
 
-func (ks *keyStore) Close() error {
-	ks.log.Info("Closing keystore...")
-	err := ks.sqlkeystore.Close()
-
-	if err != nil {
-		ks.log.Error("Failed closing keystore: %s", err)
-	} else {
-		ks.log.Info("Closing keystore...done!")
-	}
-
-	ks.isOpen = false
-	return err
-}
-
 func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 	ks.log.Info("Select next TCert...")
 
 	// Open transaction
-	tx, err := ks.sqlkeystore.Begin()
+	tx, err := ks.sqlDB.Begin()
 	if err != nil {
 		ks.log.Error("Failed beginning transaction: %s", err)
 
@@ -182,7 +124,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 	// Get the first row available
 	var id int
 	var cert, key []byte
-	row := ks.sqlkeystore.QueryRow("SELECT id, cert, key FROM TCerts")
+	row := ks.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
 	err = row.Scan(&id, &cert, &key)
 
 	if err == sql.ErrNoRows {
@@ -225,93 +167,4 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 	ks.log.Info("Select next TCert...done!")
 
 	return cert, key, nil
-}
-
-func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
-	// Check directory
-	ksPath := ks.conf.getKeyStorePath()
-	missing, err := utils.DirMissingOrEmpty(ksPath)
-	if err != nil {
-		ks.log.Error("Failed checking directory %s: %s", ksPath, err)
-	}
-	ks.log.Debug("Keystore path [%s] missing [%t]", ksPath, missing)
-
-	if !missing {
-		// Check file
-		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		if err != nil {
-			ks.log.Error("Failed checking file %s: %s", ks.conf.getKeyStoreFilePath(), err)
-		}
-		ks.log.Debug("Keystore file [%s] missing [%t]", ks.conf.getKeyStoreFilePath(), missing)
-	}
-
-	if missing {
-		err := ks.createKeyStore()
-		if err != nil {
-			ks.log.Debug("Failed creating db At [%s]: %s", ks.conf.getKeyStoreFilePath(), err.Error())
-			return nil
-		}
-	}
-
-	return nil
-}
-
-func (ks *keyStore) createKeyStore() error {
-	dbPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating keystore at [%s]", dbPath)
-
-	missing, err := utils.FileMissing(dbPath, ks.conf.getKeyStoreFilename())
-	if !missing {
-		return fmt.Errorf("db dir [%s] already exists", dbPath)
-	}
-
-	os.MkdirAll(dbPath, 0755)
-
-	ks.log.Debug("Open keystore at [%s]", dbPath)
-	db, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
-	if err != nil {
-		return err
-	}
-
-	ks.log.Debug("Ping keystore at [%s]", dbPath)
-	err = db.Ping()
-	if err != nil {
-		ks.log.Fatal(err)
-	}
-
-	defer db.Close()
-
-	// create tables
-	ks.log.Debug("Create Table [%s] at [%s]", "TCert", dbPath)
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
-		ks.log.Debug("Failed creating table: %s", err)
-		return err
-	}
-
-	ks.log.Debug("keystore created at [%s]", dbPath)
-	return nil
-}
-
-func (ks *keyStore) deleteKeyStore() error {
-	ks.log.Debug("Removing KeyStore at [%s]", ks.conf.getKeyStorePath())
-
-	return os.RemoveAll(ks.conf.getKeyStorePath())
-}
-
-func (ks *keyStore) openKeyStore() error {
-	if ks.isOpen {
-		return nil
-	}
-	ksPath := ks.conf.getKeyStorePath()
-
-	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
-
-	if err != nil {
-		ks.log.Error("Error opening keystore", err)
-		return err
-	}
-	ks.isOpen = true
-	ks.sqlkeystore = sqlDB
-
-	return nil
 }
