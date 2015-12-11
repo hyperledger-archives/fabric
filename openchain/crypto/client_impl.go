@@ -86,7 +86,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-func (client *clientImpl) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized

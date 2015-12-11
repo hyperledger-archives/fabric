@@ -21,7 +21,7 @@ type Client interface {
 	NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
 	// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-	NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }
 
 // Peer is an entity able to verify transactions

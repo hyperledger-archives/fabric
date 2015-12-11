@@ -230,7 +230,7 @@ func Test_NewChaincodeInvokeTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
 	}
-	tx, err := deployer.NewChaincodeInvokeTransaction(
+	tx, err := deployer.NewChaincodeExecute(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
@@ -262,7 +262,7 @@ func Test_MultipleNewChaincodeInvokeTransaction(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
 		}
-		tx, err := deployer.NewChaincodeInvokeTransaction(
+		tx, err := deployer.NewChaincodeExecute(
 			&pb.ChaincodeInvocationSpec{
 				ChaincodeSpec: &pb.ChaincodeSpec{
 					Type:        pb.ChaincodeSpec_GOLANG,
@@ -364,7 +364,7 @@ func mockDeployTransaction() (*pb.Transaction, error) {
 }
 
 func mockInvokeTransaction() (*pb.Transaction, error) {
-	tx, err := invoker.NewChaincodeInvokeTransaction(
+	tx, err := invoker.NewChaincodeExecute(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
