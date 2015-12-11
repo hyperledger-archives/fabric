@@ -42,6 +42,9 @@ func NewMock() *mockCPI {
 	return mock
 }
 
+func (mock *mockCPI) ViewChange(nowPrimary bool) {
+}
+
 func (mock *mockCPI) Broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
