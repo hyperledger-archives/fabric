@@ -32,15 +32,14 @@ import (
 )
 
 func TestEnvOverride(t *testing.T) {
-	instance := NewPbft(0, NewMock())
-	defer instance.Close()
+	config := readConfig()
 
 	key := "general.name"                    // for a key that exists
 	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
 	overrideValue := "overide_test"          // value to override default value with
 
 	// test key
-	if ok := instance.config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.name"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
@@ -50,12 +49,12 @@ func TestEnvOverride(t *testing.T) {
 		os.Unsetenv(envName)
 	}()
 
-	if ok := instance.config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.name"); !ok {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
 	// read key
-	configVal := instance.config.GetString("general.name")
+	configVal := config.GetString("general.name")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
@@ -64,7 +63,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := NewMock()
-	instance := NewPbft(1, mock)
+	instance := NewPbft(1, readConfig(), mock)
 	defer instance.Close()
 	instance.replicaCount = 5
 
@@ -90,7 +89,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := NewMock()
-	instance := NewPbft(1, mock)
+	instance := NewPbft(1, readConfig(), mock)
 	defer instance.Close()
 	instance.replicaCount = 5
 

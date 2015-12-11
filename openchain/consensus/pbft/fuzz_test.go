@@ -40,9 +40,9 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	primary := NewPbft(0, NewMock())
+	primary := NewPbft(0, readConfig(), NewMock())
 	defer primary.Close()
-	backup := NewPbft(1, NewMock())
+	backup := NewPbft(1, readConfig(), NewMock())
 	defer backup.Close()
 
 	f := fuzz.New()

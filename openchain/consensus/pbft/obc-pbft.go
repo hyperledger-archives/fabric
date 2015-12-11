@@ -21,11 +21,16 @@ package pbft
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
+
+	"github.com/spf13/viper"
 )
+
+const configPrefix = "OPENCHAIN_PBFT"
 
 type ObcPbft struct {
 	cpi  consensus.CPI // link to the CPI
@@ -50,10 +55,31 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 func NewObcPbft(cpi consensus.CPI) (op *ObcPbft) {
 	op = &ObcPbft{cpi: cpi}
 
+	config := readConfig()
+
 	// set ID
 	address, _ := op.cpi.GetReplicaAddress(true)
 	id, _ := op.cpi.GetReplicaID(address[0])
-	op.pbft = NewPbft(id, op)
+	op.pbft = NewPbft(id, config, op)
+	return
+}
+
+func readConfig() (config *viper.Viper) {
+	config = viper.New()
+
+	// for environment variables
+	config.SetEnvPrefix(configPrefix)
+	config.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	config.SetEnvKeyReplacer(replacer)
+
+	config.SetConfigName("config")
+	config.AddConfigPath("./")
+	config.AddConfigPath("./openchain/consensus/pbft/")
+	err := config.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
+	}
 	return
 }
 

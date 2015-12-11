@@ -22,7 +22,6 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -31,12 +30,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const configPrefix = "OPENCHAIN_PBFT"
 
 // =============================================================================
 // Init
@@ -60,7 +53,6 @@ type InnerCPI interface {
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
 	// internal data
-	config   *viper.Viper  // link to the plugin config file
 	c        chan *Message // serialization of incoming messages
 	consumer InnerCPI
 
@@ -123,27 +115,10 @@ type vcidx struct {
 // =============================================================================
 
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func NewPbft(id uint64, consumer InnerCPI) *Plugin {
+func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
 	instance := &Plugin{}
 	instance.id = id
 	instance.consumer = consumer
-
-	// setup the link to the config file
-	instance.config = viper.New()
-
-	// for environment variables
-	instance.config.SetEnvPrefix(configPrefix)
-	instance.config.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	instance.config.SetEnvKeyReplacer(replacer)
-
-	instance.config.SetConfigName("config")
-	instance.config.AddConfigPath("./")
-	instance.config.AddConfigPath("./openchain/consensus/pbft/")
-	err := instance.config.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
-	}
 
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
@@ -151,14 +126,15 @@ func NewPbft(id uint64, consumer InnerCPI) *Plugin {
 	// read from the config file
 	// you can override the config values with the
 	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
-	instance.byzantine = instance.config.GetBool("replica.byzantine")
-	instance.f = instance.config.GetInt("general.f")
-	instance.K = uint64(instance.config.GetInt("general.K"))
-	instance.requestTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.request"))
+	var err error
+	instance.byzantine = config.GetBool("replica.byzantine")
+	instance.f = config.GetInt("general.f")
+	instance.K = uint64(config.GetInt("general.K"))
+	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
 	}
-	instance.newViewTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.viewchange"))
+	instance.newViewTimeout, err = time.ParseDuration(config.GetString("general.timeout.viewchange"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
 	}
