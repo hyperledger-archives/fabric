@@ -696,15 +696,17 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
 func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
-	if toSelf {
-		instance.c <- msg
-	}
-
 	msgPacked, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
 	}
 	instance.consumer.Broadcast(msgPacked)
+
+	// We call ourselves synchronously, so that testing can run
+	// synchronous.
+	if toSelf {
+		instance.recvMsgSync(msg)
+	}
 	return nil
 }
 
