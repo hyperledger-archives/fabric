@@ -81,10 +81,10 @@ func (validator *Validator) GetStateEncryptionScheme(deployTx, invokeTx *obc.Tra
 	}
 	// TODO: check that deployTx and invokeTx refers to the same chaincode
 
-	rootKey := utils.HMAC(validator.enrollChainKey, deployTx.Nonce)
+	txKey := utils.HMAC(validator.enrollChainKey, deployTx.Nonce)
 
-	aesKey := utils.HMACTruncated(rootKey, append([]byte{3}, invokeTx.Nonce...), utils.AESKeyLength)
-	nonceKey := utils.HMAC(rootKey, append([]byte{4}, invokeTx.Nonce...))
+	aesKey := utils.HMACTruncated(txKey, append([]byte{3}, invokeTx.Nonce...), utils.AESKeyLength)
+	nonceKey := utils.HMAC(txKey, append([]byte{4}, invokeTx.Nonce...))
 
 	ses := stateEncryptionScheme{aesKey: aesKey, nonceKey: nonceKey}
 	err := ses.init()

@@ -13,14 +13,14 @@ func (client *Client) encryptTx(tx *obc.Transaction) error {
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
 		return errors.New("Failed encrypting payload. Invalid nonce.")
 	}
-	key := utils.HMAC(client.enrollChainKey, tx.Nonce)
+	txKey := utils.HMAC(client.enrollChainKey, tx.Nonce)
 
 	log.Info("Deriving from %s", utils.EncodeBase64(client.enrollChainKey))
 	log.Info("Nonce %s", utils.EncodeBase64(tx.Nonce))
-	log.Info("Derived key %s", utils.EncodeBase64(key))
+	log.Info("Derived key %s", utils.EncodeBase64(txKey))
 
 	// Encrypt using the derived key
-	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
+	payloadKey := utils.HMACTruncated(txKey, []byte{1}, utils.AESKeyLength)
 	encryptedPayload, err := utils.CBCPKCS7Encrypt(payloadKey, tx.Payload)
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func (client *Client) encryptTx(tx *obc.Transaction) error {
 	tx.EncryptedPayload = encryptedPayload
 	tx.Payload = nil
 
-	chaincodeIdKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
+	chaincodeIdKey := utils.HMACTruncated(txKey, []byte{2}, utils.AESKeyLength)
 	rawChaincodeId, err := proto.Marshal(tx.ChaincodeID)
 	if err != nil {
 		return err
