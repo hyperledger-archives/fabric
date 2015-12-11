@@ -258,10 +258,25 @@ func main() {
 }
 
 func serve(args []string) error {
-	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
+
+	peerEndpoint, err := peer.GetPeerEndpoint()
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
+		return err
+	}
+
+	listenAddr := viper.GetString("peer.listenaddress")
+	
+	if "" == listenAddr {
+		logger.Debug("Listen address not specified, using peer endpoint address")
+		listenAddr = peerEndpoint.Address
+	}
+	
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
+
 	if chaincodeDevMode {
 		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
 		viper.Set("peer.validator.enabled", "true")
@@ -320,11 +335,7 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
-	peerEndpoint, err := peer.GetPeerEndpoint()
-	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
-		return err
-	}
+
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
