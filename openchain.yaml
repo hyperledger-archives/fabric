@@ -218,21 +218,34 @@ chaincode:
 
 ###############################################################################
 #
-#    Ledger section - allows for the deployment of chaincodes into the
-#    genesis block.
+#    Ledger section - ledger configuration encompases both the blockchain
+#    and the state
 #
 ###############################################################################
-# ledger:
-#   genesis:
-#     chaincode:
-#       - id:
-#           url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-#           version: 0.1.0
-#         type: GOLANG
-#         constructor:
-#           func: init
-#           args:
-#             - alice
-#             - "4"
-#             - bob
-#             - "10"
+ledger:
+
+  blockchain:
+
+    # Define the genesis block
+    genesisBlock:
+
+      # Deploy chaincodes into the genesis block
+      # chaincode:
+      #   - id:
+      #       url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+      #       version: 0.1.0
+      #     type: GOLANG
+      #     constructor:
+      #       func: init
+      #       args:
+      #         - alice
+      #         - "4"
+      #         - bob
+      #         - "10"
+
+  state:
+
+    # Control the number state deltas that are maintained. This takes additional
+    # disk space, but allow the state to be rolled backwards and forwards
+    # without the need to replay transactions.
+    deltaHistorySize: 500
