@@ -33,8 +33,9 @@ import (
 const configPrefix = "OPENCHAIN_PBFT"
 
 type ObcPbft struct {
-	cpi  consensus.CPI // link to the CPI
-	pbft *Plugin
+	cpi   consensus.CPI // link to the CPI
+	sieve bool
+	pbft  *Plugin
 }
 
 var pluginInstance *ObcPbft // Singleton service
@@ -56,6 +57,15 @@ func NewObcPbft(cpi consensus.CPI) (op *ObcPbft) {
 	op = &ObcPbft{cpi: cpi}
 
 	config := readConfig()
+
+	switch config.GetString("general.mode") {
+	case "classic":
+		// pass
+	case "sieve":
+		op.sieve = true
+	default:
+		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("general.mode")))
+	}
 
 	// set ID
 	address, _ := op.cpi.GetReplicaAddress(true)
