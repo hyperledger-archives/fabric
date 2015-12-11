@@ -34,12 +34,14 @@ import (
 	_ "time"
 )
 
-var client Client
+var (
+	clientConf ClientConfiguration
+	client     Client
 
-var eca *obcca.ECA
-var tca *obcca.TCA
-
-var caWaitGroup sync.WaitGroup
+	eca         *obcca.ECA
+	tca         *obcca.TCA
+	caWaitGroup sync.WaitGroup
+)
 
 func TestMain(m *testing.M) {
 	setupTestConfig()
@@ -49,23 +51,24 @@ func TestMain(m *testing.M) {
 	defer cleanup()
 
 	// Register
-	clientConf := ClientConfiguration{Id: "client"}
-	err := Register(clientConf.Id, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	clientConf = ClientConfiguration{Id: "client"}
+	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
 		killCAs()
 		panic(fmt.Errorf("Failed registerting: %s", err))
 	}
 
-	// Verify that a second call to Register fails
-	//	err = Init(getEnrollmendID())
-	//	if err != ErrModuleAlreadyRegistered {
-	//		killCAs()
-	//		panic(fmt.Errorf("Failed checking registration: %s", err))
-	//	}
+	//	 Verify that a second call to Register fails
+	err = Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+	if err != ErrAlreadyRegistered {
+		fmt.Printf("Failed checking registerting: %s\n", err)
+		killCAs()
+		panic(fmt.Errorf("Failed checking registration: %s", err))
+	}
 
 	// Init client
-	client, err = Init(clientConf.Id)
+	client, err = Init(clientConf.Id, nil)
 
 	var ret int
 	if err != nil {
@@ -89,12 +92,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistration(t *testing.T) {
-	// TODO
-	//	err := client.Register(getEnrollmentData())
-	//
-	//	if err != ErrModuleAlreadyInitialized {
-	//		t.Fatalf(err.Error())
-	//	}
+	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+
+	if err != ErrAlreadyInitialized {
+		t.Fatalf(err.Error())
+	}
 }
 
 func Test_NewChaincodeDeployTransaction(t *testing.T) {
@@ -123,11 +125,11 @@ func Test_NewChaincodeDeployTransaction(t *testing.T) {
 		t.Fatalf("Test_NewChaincodeDeployTransaction: failed creating NewChaincodeDeployTransaction: result is nil")
 	}
 
-	//	TODO:
-	//	err = client.checkTransaction(tx)
-	//	if err != nil {
-	//		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
-	//	}
+	// Check transaction
+	err = client.(*clientImpl).checkTransaction(tx)
+	if err != nil {
+		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
+	}
 }
 
 func Test_NewChaincodeInvokeTransaction(t *testing.T) {
@@ -229,7 +231,7 @@ func cleanup() {
 	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
-	time.Sleep(20 * time.Second)
+	time.Sleep(40 * time.Second)
 
 	fmt.Println("Test...")
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {

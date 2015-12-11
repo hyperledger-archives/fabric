@@ -29,14 +29,13 @@ import (
 // Errors
 
 var (
-	ErrRegistrationRequired        error = errors.New("Client Not Registered to the Membership Service.")
-	ErrModuleNotInitialized        error = errors.New("Client Security Module Not Initilized.")
-	ErrModuleAlreadyInitialized    error = errors.New("Client Security Module Already Initilized.")
+	ErrRegistrationRequired        error = errors.New("Registration to the Membership Service required.")
+	ErrNotInitialized              error = errors.New("Initilized required.")
+	ErrAlreadyInitialized          error = errors.New("Already initilized.")
+	ErrAlreadyRegistered           error = errors.New("Already registered.")
 	ErrTransactionMissingCert      error = errors.New("Transaction missing certificate or signature.")
 	ErrInvalidTransactionSignature error = errors.New("Invalid Transaction signature.")
-	ErrModuleAlreadyRegistered     error = errors.New("Already registered.")
-	ErrModuleNotRegisteredYet      error = errors.New("Not registered yet.")
-	ErrInvalidClientReference      error = errors.New("Invalid client reference.")
+	ErrInvalidReference            error = errors.New("Invalid reference.")
 )
 
 // Private Variables
@@ -67,28 +66,34 @@ type Client interface {
 
 // Public Methods
 
-func Register(id, enrollID, enrollPWD string) error {
+func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering [%s,%s] with id [%s]...", enrollID, enrollPWD, id)
+	log.Info("Registering [%s] with id [%s]...", enrollID, id)
 
 	if clients[id] != nil {
-		return ErrModuleAlreadyRegistered
+		return ErrAlreadyInitialized
 	}
 
 	client := new(clientImpl)
-	if err := client.Register(id, enrollID, enrollPWD); err != nil {
+	if err := client.Register(id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
+
 		return err
 	}
-	client.Close()
+	err := client.Close()
+	if err != nil {
+		// It is not necessary to report this error to the caller
+		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+	}
 
-	log.Info("Registering [%s,%s] with id [%s]...done!", enrollID, enrollPWD, id)
+	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
 
 	return nil
 }
 
-func Init(id string) (Client, error) {
+func Init(id string, pwd []byte) (Client, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -101,8 +106,9 @@ func Init(id string) (Client, error) {
 	}
 
 	client := new(clientImpl)
-	if err := client.Init(id); err != nil {
+	if err := client.Init(id, pwd); err != nil {
 		log.Error("Failed initialization [%s]: %s", id, err)
+
 		return nil, err
 	}
 
@@ -143,7 +149,7 @@ func closeInternal(client Client) error {
 	id := client.GetID()
 	log.Info("Closing client [%s]...", id)
 	if _, ok := clients[id]; !ok {
-		return ErrInvalidClientReference
+		return ErrInvalidReference
 	}
 	defer delete(clients, id)
 

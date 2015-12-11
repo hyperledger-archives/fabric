@@ -33,16 +33,17 @@ import (
 
 // Errors
 
-var ErrRegistrationRequired error = errors.New("Validator Not Registered to the Membership Service.")
-var ErrModuleNotInitialized = errors.New("Validator Security Module Not Initilized.")
-var ErrModuleAlreadyInitialized error = errors.New("Validator Security Module Already Initilized.")
-var ErrModuleAlreadyRegistered error = errors.New("Validator Security Module Already Registered.")
-
-var ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
-var ErrTransactionCertificate error = errors.New("Missing Transaction Certificate.")
-var ErrTransactionSignature error = errors.New("Missing Transaction Signature.")
-
-var ErrInvalidSignature error = errors.New("Invalid Signature.")
+var (
+	ErrRegistrationRequired        error = errors.New("Registration to the Membership Service required.")
+	ErrNotInitialized              error = errors.New("Initilized required.")
+	ErrAlreadyInitialized          error = errors.New("Already initilized.")
+	ErrAlreadyRegistered           error = errors.New("Already registered.")
+	ErrTransactionMissingCert      error = errors.New("Transaction missing certificate or signature.")
+	ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
+	ErrTransactionCertificate      error = errors.New("Missing Transaction Certificate.")
+	ErrTransactionSignature        error = errors.New("Missing Transaction Signature.")
+	ErrInvalidSignature            error = errors.New("Invalid Signature.")
+)
 
 // Log
 
@@ -77,7 +78,7 @@ type Validator struct {
 // is first deployed.
 func (validator *Validator) Register(userId, pwd string) error {
 	if validator.isInitialized {
-		return ErrModuleAlreadyInitialized
+		return ErrAlreadyInitialized
 	}
 
 	log.Info("Registering validator [%s]...", userId)
@@ -85,7 +86,7 @@ func (validator *Validator) Register(userId, pwd string) error {
 	if validator.isAlreadyRegistered() {
 		log.Error("Registering validator [%s]...done! Registration already performed", userId)
 
-		return ErrModuleAlreadyRegistered
+		return ErrAlreadyRegistered
 	} else {
 
 		if err := validator.createKeyStorage(); err != nil {
@@ -125,7 +126,7 @@ func (validator *Validator) Register(userId, pwd string) error {
 // all the methods will report an error (ErrModuleNotInitialized).
 func (validator *Validator) Init() error {
 	if validator.isInitialized {
-		return ErrModuleAlreadyInitialized
+		return ErrAlreadyInitialized
 	}
 
 	// Init Conf
@@ -183,7 +184,7 @@ func (validator *Validator) GetEnrollmentID() string {
 // prescriptions (i.e. signature verification).
 func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.Transaction, error) {
 	if !validator.isInitialized {
-		return nil, ErrModuleNotInitialized
+		return nil, ErrNotInitialized
 	}
 
 	if tx.Cert != nil && tx.Signature != nil {
@@ -237,7 +238,7 @@ func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.
 // the method prepares the transaction to be executed.
 func (validator *Validator) TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error) {
 	if !validator.isInitialized {
-		return nil, ErrModuleNotInitialized
+		return nil, ErrNotInitialized
 	}
 
 	return tx, nil

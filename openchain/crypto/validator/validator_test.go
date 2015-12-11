@@ -71,7 +71,7 @@ func TestMain(m *testing.M) {
 
 	// Verify that a second call to Register fails
 	err = validator.Register(getValidatorEnrollmentData())
-	if err != ErrModuleAlreadyRegistered {
+	if err != ErrAlreadyRegistered {
 		panic(fmt.Errorf("Failed checking registration: %s", err))
 	}
 
@@ -92,7 +92,7 @@ func TestMain(m *testing.M) {
 func TestRegistration(t *testing.T) {
 	err := validator.Register(getValidatorEnrollmentData())
 
-	if err != ErrModuleAlreadyInitialized {
+	if err != ErrAlreadyInitialized {
 		t.Fatalf(err.Error())
 	}
 }
@@ -224,21 +224,21 @@ func initMockCAs() {
 func initMockClient() error {
 	// Deployer
 	deployerConf := client.ClientConfiguration{Id: "deployer"}
-	if err := client.Register(deployerConf.Id, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+	if err := client.Register(deployerConf.Id, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	var err error
-	deployer, err = client.Init(deployerConf.Id)
+	deployer, err = client.Init(deployerConf.Id, nil)
 	if err != nil {
 		return err
 	}
 
 	// Invoker
 	invokerConf := client.ClientConfiguration{Id: "invoker"}
-	if err := client.Register(invokerConf.Id, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	if err := client.Register(invokerConf.Id, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
-	invoker, err = client.Init(invokerConf.Id)
+	invoker, err = client.Init(invokerConf.Id, nil)
 	if err != nil {
 		return err
 	}

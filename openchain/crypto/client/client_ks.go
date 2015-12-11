@@ -35,7 +35,7 @@ import (
 	_ "sync"
 )
 
-var ErrDBAlreadyInitialized error = errors.New("DB already Initilized.")
+var ErrKeyStoreAlreadyInitialized error = errors.New("Keystore already Initilized.")
 
 func (client *clientImpl) initKeyStore() error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
@@ -73,10 +73,10 @@ func (ks *keyStore) Init() error {
 	defer ks.m.Unlock()
 
 	if ks.isOpen {
-		return errors.New("DB already initialized.")
+		return ErrKeyStoreAlreadyInitialized
 	}
 
-	err := ks.createDBIfDBPathEmpty()
+	err := ks.createKeyStoreIfKeyStorePathEmpty()
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,6 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 
 		return nil, nil, err
 	}
-	//	db.log.Info("key %s", utils.EncodeBase64(key))
 	ks.log.Info("cert %s", utils.EncodeBase64(cert))
 
 	if cert == nil {
@@ -163,9 +162,18 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 	//	return utils.NewSelfSignedCert()
 }
 
-func (ks *keyStore) CloseDB() {
-	ks.sqlDB.Close()
+func (ks *keyStore) Close() error {
+	ks.log.Info("Closing keystore...")
+	err := ks.sqlDB.Close()
+
+	if err != nil {
+		ks.log.Error("Failed closing keystore: %s", err)
+	} else {
+		ks.log.Info("Closing keystore...done!")
+	}
+
 	ks.isOpen = false
+	return err
 }
 
 func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
@@ -227,14 +235,14 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func (ks *keyStore) createDBIfDBPathEmpty() error {
+func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 	// Check directory
-	dbPath := ks.conf.getKeyStorePath()
-	missing, err := utils.DirMissingOrEmpty(dbPath)
+	ksPath := ks.conf.getKeyStorePath()
+	missing, err := utils.DirMissingOrEmpty(ksPath)
 	if err != nil {
-		ks.log.Error("Failed checking directory %s: %s", dbPath, err)
+		ks.log.Error("Failed checking directory %s: %s", ksPath, err)
 	}
-	ks.log.Debug("Db path [%s] missing [%t]", dbPath, missing)
+	ks.log.Debug("Keystore path [%s] missing [%t]", ksPath, missing)
 
 	if !missing {
 		// Check file
@@ -242,11 +250,11 @@ func (ks *keyStore) createDBIfDBPathEmpty() error {
 		if err != nil {
 			ks.log.Error("Failed checking file %s: %s", ks.conf.getKeyStoreFilePath(), err)
 		}
-		ks.log.Debug("Db file [%s] missing [%t]", ks.conf.getKeyStoreFilePath(), missing)
+		ks.log.Debug("Keystore file [%s] missing [%t]", ks.conf.getKeyStoreFilePath(), missing)
 	}
 
 	if missing {
-		err := ks.createDB()
+		err := ks.createKeyStore()
 		if err != nil {
 			ks.log.Debug("Failed creating db At [%s]: %s", ks.conf.getKeyStoreFilePath(), err.Error())
 			return nil
@@ -256,8 +264,7 @@ func (ks *keyStore) createDBIfDBPathEmpty() error {
 	return nil
 }
 
-// CreateDB creates a ca db database
-func (ks *keyStore) createDB() error {
+func (ks *keyStore) createKeyStore() error {
 	dbPath := ks.conf.getKeyStorePath()
 	ks.log.Debug("Creating DB at [%s]", dbPath)
 
@@ -293,9 +300,8 @@ func (ks *keyStore) createDB() error {
 	return nil
 }
 
-// DeleteDB deletes a ca db database
 func (ks *keyStore) deleteKeyStore() error {
-	ks.log.Debug("Removing DB at [%s]", ks.conf.getKeyStorePath())
+	ks.log.Debug("Removing KeyStore at [%s]", ks.conf.getKeyStorePath())
 
 	return os.RemoveAll(ks.conf.getKeyStorePath())
 }
@@ -304,12 +310,12 @@ func (ks *keyStore) openKeyStore() error {
 	if ks.isOpen {
 		return nil
 	}
-	dbPath := ks.conf.getKeyStorePath()
+	ksPath := ks.conf.getKeyStorePath()
 
-	sqlDB, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
+	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
 
 	if err != nil {
-		ks.log.Error("Error opening DB", err)
+		ks.log.Error("Error opening keystore", err)
 		return err
 	}
 	ks.isOpen = true

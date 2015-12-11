@@ -60,9 +60,9 @@ type clientImpl struct {
 // locally and used for initialization.
 // This method is supposed to be called only once when the client
 // is first deployed.
-func (client *clientImpl) Register(id, enrollID, enrollPWD string) error {
+func (client *clientImpl) Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		return ErrModuleAlreadyInitialized
+		return ErrAlreadyInitialized
 	}
 
 	// Init Conf
@@ -76,7 +76,7 @@ func (client *clientImpl) Register(id, enrollID, enrollPWD string) error {
 	if client.isRegistered() {
 		client.log.Error("Registering validator [%s]...done! Registration already performed", enrollID)
 
-		return ErrModuleAlreadyRegistered
+		return ErrAlreadyRegistered
 	} else {
 		if err := client.createKeyStorage(); err != nil {
 			client.log.Error("Failed creating key storage: %s", err)
@@ -117,11 +117,11 @@ func (client *clientImpl) GetID() string {
 // This method must be called at the very beginning to able to use
 // the api. If the client is not initialized,
 // all the methods will report an error (ErrModuleNotInitialized).
-func (client *clientImpl) Init(id string) error {
+func (client *clientImpl) Init(id string, pwd []byte) error {
 	if client.isInitialized {
 		client.log.Error("Already initializaed.")
 
-		return ErrModuleAlreadyInitialized
+		return ErrAlreadyInitialized
 	}
 
 	// Init Conf
@@ -130,7 +130,7 @@ func (client *clientImpl) Init(id string) error {
 	}
 
 	if !client.isRegistered() {
-		return ErrModuleNotRegisteredYet
+		return ErrRegistrationRequired
 	}
 
 	client.log.Info("Initialization...")
@@ -140,7 +140,7 @@ func (client *clientImpl) Init(id string) error {
 	// TODO: password support
 	err := client.initKeyStore()
 	if err != nil {
-		if err != ErrDBAlreadyInitialized {
+		if err != ErrKeyStoreAlreadyInitialized {
 			client.log.Error("DB already initialized.")
 		} else {
 			client.log.Error("Failed initiliazing DB %s", err)
@@ -169,7 +169,7 @@ func (client *clientImpl) Init(id string) error {
 func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
-		return nil, ErrModuleNotInitialized
+		return nil, ErrNotInitialized
 	}
 
 	// Create a new transaction
@@ -223,7 +223,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 func (client *clientImpl) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
-		return nil, ErrModuleNotInitialized
+		return nil, ErrNotInitialized
 	}
 
 	// Create a new transaction
@@ -311,10 +311,14 @@ func (client *clientImpl) initCryptoEngine() error {
 }
 
 func (client *clientImpl) Close() error {
-	// TODO:
-	//	getDBHandle().CloseDB()
+	// Close keystore
+	var err error
 
-	return nil
+	if client.ks != nil {
+		err = client.ks.Close()
+	}
+
+	return err
 }
 
 // CheckTransaction is used to verify that a transaction
@@ -322,7 +326,7 @@ func (client *clientImpl) Close() error {
 // prescriptions. To be used for internal verifications.
 func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	if !client.isInitialized {
-		return ErrModuleNotInitialized
+		return ErrNotInitialized
 	}
 
 	if tx.Cert == nil && tx.Signature == nil {
