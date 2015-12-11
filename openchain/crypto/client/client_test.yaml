@@ -9,7 +9,7 @@ eca:
         # location on file system
         path: .obcca
 
-        pport: 50051
+        pport: 51051
 
     users:
         user1: 9gvZQRwhUq9q
@@ -29,10 +29,10 @@ tca:
         pport: 50551
 
 ports:
-        ecaP: ":50051"
-        ecaA: ":50052"
-        tcaP: ":50551"
-        tcaA: ":50552"
+        ecaP: ":51051"
+        ecaA: ":51052"
+        tcaP: ":51551"
+        tcaA: ":51552"
 
 defaults:
         certSetSize: 32
@@ -52,12 +52,12 @@ client:
         # eca settings
         eca:
 
-            paddr: localhost:50051
+            paddr: localhost:51051
 
         # tca settings
         tca:
 
-            paddr: localhost:50551
+            paddr: localhost:51551
                           # nepumuk's settings
         users:
             user1:

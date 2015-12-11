@@ -32,7 +32,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 )
 
 var (
@@ -288,7 +287,7 @@ func cleanup() {
 	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
-	time.Sleep(20 * time.Second)
+	//	time.Sleep(40 * time.Second)
 
 	fmt.Println("Test...")
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {

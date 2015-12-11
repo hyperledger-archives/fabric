@@ -9,7 +9,7 @@ eca:
         # location on file system
         path: .obcca
 
-        pport: 50051
+        pport: 52051
 
     users:
         user1: 9gvZQRwhUq9q
@@ -26,13 +26,13 @@ tca:
         # location on file system
         path: .obcca
 
-        pport: 50551
+        pport: 52551
 
 ports:
-        ecaP: ":50051"
-        ecaA: ":50052"
-        tcaP: ":50551"
-        tcaA: ":50552"
+        ecaP: ":52051"
+        ecaA: ":52052"
+        tcaP: ":52551"
+        tcaA: ":52552"
 
 defaults:
         certSetSize: 32
@@ -53,12 +53,12 @@ client:
         # eca settings
         eca:
 
-            paddr: localhost:50051
+            paddr: localhost:52051
 
         # tca settings
         tca:
 
-            paddr: localhost:50551
+            paddr: localhost:52551
 
         users:
 
@@ -88,12 +88,12 @@ peer:
           # eca settings
           eca:
 
-              paddr: localhost:50051
+              paddr: localhost:52051
 
           # tca settings
           tca:
 
-              paddr: localhost:50551
+              paddr: localhost:52551
 
           # enrollment (id,pw) (only for testing
           users:
