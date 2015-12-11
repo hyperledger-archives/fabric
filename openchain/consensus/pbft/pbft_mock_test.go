@@ -38,7 +38,7 @@ func NewMock() *mockCPI {
 	return mock
 }
 
-func (mock *mockCPI) ViewChange(nowPrimary bool) {
+func (mock *mockCPI) ViewChange(uint64) {
 }
 
 func (mock *mockCPI) Broadcast(msg []byte) {
@@ -108,7 +108,7 @@ func (inst *instance) Execute(payload []byte) {
 	inst.executed = append(inst.executed, payload)
 }
 
-func (inst *instance) ViewChange(bool) {
+func (inst *instance) ViewChange(uint64) {
 }
 
 func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, []byte) []byte) (msgs []taggedMsg) {

@@ -85,3 +85,23 @@ func (vc *ViewChange) SetId(id []byte) {
 func (vc *ViewChange) Serialize() ([]byte, error) {
 	return proto.Marshal(vc)
 }
+
+func (vc *Verify) GetSignature() []byte {
+	return vc.Signature
+}
+
+func (vc *Verify) SetSignature(sig []byte) {
+	vc.Signature = sig
+}
+
+func (vc *Verify) GetId() []byte {
+	return []byte("XXX ID")
+}
+
+func (vc *Verify) SetId(id []byte) {
+	// XXX set id
+}
+
+func (vc *Verify) Serialize() ([]byte, error) {
+	return proto.Marshal(vc)
+}

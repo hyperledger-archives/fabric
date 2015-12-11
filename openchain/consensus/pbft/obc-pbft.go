@@ -130,9 +130,9 @@ func (op *ObcPbft) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	return nil
 }
 
-// ViewChange is called by the inner pbft to signal whether there was
-// a view change, and whether the local replica is now a primary.
-func (op *ObcPbft) ViewChange(nowPrimary bool) {
+// ViewChange is called by the inner pbft to signal when a view change
+// happened.
+func (op *ObcPbft) ViewChange(uint64) {
 }
 
 // Execute is called by the inner pbft to execute an opaque request,

@@ -108,3 +108,36 @@ message new_view {
     map<uint64, string> Xset = 3;
     uint64 replica_id = 4;
 }
+
+// Sieve
+
+message SieveMessage {
+    oneof payload {
+        bytes request = 1;
+        execute execute = 2;
+        verify verify = 3;
+        decision decision = 4;
+        bytes pbft_message = 5;
+    }
+}
+
+message execute {
+    uint64 view = 1;
+    uint64 block_number = 2;
+    bytes request = 3;
+    uint64 replica_id = 4;
+}
+
+message verify {
+    uint64 block_number = 2;
+    string request_digest = 3;
+    bytes result_digest = 4;
+    uint64 replica_id = 5;
+    bytes signature = 6;
+}
+
+message decision {
+    uint64 block_number = 2;
+    string request_digest = 3;
+    repeated verify dset = 4;
+}

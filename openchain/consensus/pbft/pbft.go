@@ -49,7 +49,7 @@ func init() {
 type InnerCPI interface {
 	Broadcast(req []byte)
 	Execute(req []byte)
-	ViewChange(nowPrimary bool)
+	ViewChange(curView uint64)
 }
 
 // Plugin carries fields related to the consensus algorithm implementation.
@@ -168,7 +168,7 @@ func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
 
 	go instance.timerHander()
 
-	instance.consumer.ViewChange(instance.getPrimary(instance.view) == instance.id)
+	instance.consumer.ViewChange(instance.view)
 
 	return instance
 }
