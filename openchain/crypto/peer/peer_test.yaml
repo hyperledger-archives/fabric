@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#    CA section
+#    CAs section
 #
 ###############################################################################
 eca:
@@ -46,6 +46,7 @@ defaults:
 client:
     # Client's settings
     crypto:
+
         # location on file system
         path: .obc-client
 
@@ -58,8 +59,45 @@ client:
         tca:
 
             paddr: localhost:50551
-                          # nepumuk's settings
+
         users:
-            user1:
-                enrollid: user1
+
+            user2:
+
+                enrollid: user2
                 enrollpw: 9gvZQRwhUq9q
+
+            user3:
+
+                enrollid: user3
+                enrollpw: 9gvZQRwhUq9q
+
+
+###############################################################################
+#
+#    Validator section
+#
+###############################################################################
+peer:
+
+    # Validator's crypto settings
+    crypto:
+          # where to store data
+          path: .obc-peer
+
+          # eca settings
+          eca:
+
+              paddr: localhost:50051
+
+          # tca settings
+          tca:
+
+              paddr: localhost:50551
+
+          # enrollment (id,pw) (only for testing
+          users:
+
+              peer:
+                  enrollid: peer
+                  enrollpw: 9gvZQRwhUq9q

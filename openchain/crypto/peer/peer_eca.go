@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package peer
 
 import (
 	"crypto/ecdsa"
@@ -35,49 +35,49 @@ import (
 	"io/ioutil"
 )
 
-func (validator *validatorImpl) retrieveECACertsChain(userId string) error {
+func (peer *peerImpl) retrieveECACertsChain(userId string) error {
 	// Retrieve ECA certificate and verify it
-	ecaCertRaw, err := validator.getECACertificate()
+	ecaCertRaw, err := peer.getECACertificate()
 	if err != nil {
-		validator.log.Error("Failed getting ECA certificate %s", err)
+		peer.log.Error("Failed getting ECA certificate %s", err)
 
 		return err
 	}
-	validator.log.Info("Register:ECAcert %s", utils.EncodeBase64(ecaCertRaw))
+	peer.log.Info("Register:ECAcert %s", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
 	_, err = utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
-		validator.log.Error("Failed parsing ECA certificate %s", err)
+		peer.log.Error("Failed parsing ECA certificate %s", err)
 
 		return err
 	}
 
 	// Store ECA cert
-	validator.log.Info("Storing ECA certificate for validator [%s]...", userId)
+	peer.log.Info("Storing ECA certificate for validator [%s]...", userId)
 
-	err = ioutil.WriteFile(validator.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
+	err = ioutil.WriteFile(peer.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {
-		validator.log.Error("Failed storing eca certificate: %s", err)
+		peer.log.Error("Failed storing eca certificate: %s", err)
 		return err
 	}
 
 	return nil
 }
 
-func (validator *validatorImpl) loadECACertsChain() error {
-	validator.log.Info("Loading ECA certificates chain at %s...", validator.conf.getECACertsChainPath())
+func (peer *peerImpl) loadECACertsChain() error {
+	peer.log.Info("Loading ECA certificates chain at %s...", peer.conf.getECACertsChainPath())
 
-	chain, err := ioutil.ReadFile(validator.conf.getECACertsChainPath())
+	chain, err := ioutil.ReadFile(peer.conf.getECACertsChainPath())
 	if err != nil {
-		validator.log.Error("Failed loading ECA certificates chain : %s", err.Error())
+		peer.log.Error("Failed loading ECA certificates chain : %s", err.Error())
 
 		return err
 	}
 
-	ok := validator.rootsCertPool.AppendCertsFromPEM(chain)
+	ok := peer.rootsCertPool.AppendCertsFromPEM(chain)
 	if !ok {
-		validator.log.Error("Failed appending ECA certificates chain.")
+		peer.log.Error("Failed appending ECA certificates chain.")
 
 		return errors.New("Failed appending ECA certificates chain.")
 	}
@@ -85,10 +85,10 @@ func (validator *validatorImpl) loadECACertsChain() error {
 	return nil
 }
 
-func (validator *validatorImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(validator.conf.getECAPAddr(), grpc.WithInsecure())
+func (peer *peerImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(peer.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		validator.log.Error("Failed dailing in: %s", err)
+		peer.log.Error("Failed dailing in: %s", err)
 
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (validator *validatorImpl) callECACreateCertificate(ctx context.Context, in
 
 	cert, err := ecaP.CreateCertificate(context.Background(), in)
 	if err != nil {
-		validator.log.Error("Failed requesting enrollment certificate: %s", err)
+		peer.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, err
 	}
@@ -106,10 +106,10 @@ func (validator *validatorImpl) callECACreateCertificate(ctx context.Context, in
 	return cert, nil
 }
 
-func (validator *validatorImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(validator.conf.getECAPAddr(), grpc.WithInsecure())
+func (peer *peerImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(peer.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		validator.log.Error("Failed eca dialing in : %s", err)
+		peer.log.Error("Failed eca dialing in : %s", err)
 
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (validator *validatorImpl) callECAReadCertificate(ctx context.Context, in *
 
 	cert, err := ecaP.ReadCertificate(context.Background(), in)
 	if err != nil {
-		validator.log.Error("Failed requesting read certificate: %s", err)
+		peer.log.Error("Failed requesting read certificate: %s", err)
 
 		return nil, err
 	}
@@ -127,11 +127,11 @@ func (validator *validatorImpl) callECAReadCertificate(ctx context.Context, in *
 	return cert, nil
 }
 
-func (validator *validatorImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
+func (peer *peerImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
-		validator.log.Error("Failed generating key: %s", err)
+		peer.log.Error("Failed generating key: %s", err)
 
 		return nil, nil, err
 	}
@@ -151,25 +151,25 @@ func (validator *validatorImpl) getEnrollmentCertificateFromECA(id, pw string) (
 	S, _ := s.MarshalText()
 	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
 
-	pbCert, err := validator.callECACreateCertificate(context.Background(), req)
+	pbCert, err := peer.callECACreateCertificate(context.Background(), req)
 	if err != nil {
-		validator.log.Error("Failed requesting enrollment certificate: %s", err)
+		peer.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, nil, err
 	}
 
 	// Verify pbCert.Cert
-	validator.log.Info("Enrollment certificate hash: %s", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
+	peer.log.Info("Enrollment certificate hash: %s", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
 
 	return priv, pbCert.Cert, nil
 }
 
-func (validator *validatorImpl) getECACertificate() ([]byte, error) {
+func (peer *peerImpl) getECACertificate() ([]byte, error) {
 	// Prepare the request
 	req := &obcca.ECertReadReq{&obcca.Identity{Id: "eca-root"}, nil}
-	pbCert, err := validator.callECAReadCertificate(context.Background(), req)
+	pbCert, err := peer.callECAReadCertificate(context.Background(), req)
 	if err != nil {
-		validator.log.Error("Failed requesting enrollment certificate: %s", err)
+		peer.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, err
 	}
@@ -179,37 +179,37 @@ func (validator *validatorImpl) getECACertificate() ([]byte, error) {
 	return pbCert.Cert, nil
 }
 
-func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
+func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 	sid := utils.EncodeBase64(id)
 
-	if cert := validator.enrollCerts[sid]; cert != nil {
+	if cert := peer.enrollCerts[sid]; cert != nil {
 		return cert, nil
 	}
 
 	// Retrieve from the DB or from the ECA in case
-	rawCert, err := validator.ks.GetEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
+	rawCert, err := peer.ks.GetEnrollmentCert(id, peer.getEnrollmentCertByHashFromECA)
 	if err != nil {
-		validator.log.Error("Failed getting enrollment certificate for [%s]: %s", sid, err)
+		peer.log.Error("Failed getting enrollment certificate for [%s]: %s", sid, err)
 	}
 
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
-		validator.log.Error("Failed parsing enrollment certificate for [%s]: %s", sid, utils.EncodeBase64(rawCert))
+		peer.log.Error("Failed parsing enrollment certificate for [%s]: %s", sid, utils.EncodeBase64(rawCert))
 	}
 
-	validator.enrollCerts[sid] = cert
+	peer.enrollCerts[sid] = cert
 
 	return cert, nil
 }
 
-func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, error) {
+func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, error) {
 	// Prepare the request
-	validator.log.Info("Reading certificate for hash " + utils.EncodeBase64(id))
+	peer.log.Info("Reading certificate for hash " + utils.EncodeBase64(id))
 
 	req := &obcca.ECertReadReq{&obcca.Identity{Id: ""}, id}
-	pbCert, err := validator.callECAReadCertificate(context.Background(), req)
+	pbCert, err := peer.callECAReadCertificate(context.Background(), req)
 	if err != nil {
-		validator.log.Error("Failed requesting enrollment certificate: %s", err)
+		peer.log.Error("Failed requesting enrollment certificate: %s", err)
 
 		return nil, err
 	}

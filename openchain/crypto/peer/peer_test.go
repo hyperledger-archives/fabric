@@ -20,29 +20,100 @@ under the License.
 package peer
 
 import (
-	obc "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 
 	"fmt"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/client"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/spf13/viper"
+	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
+	"time"
 )
 
-var peer *Peer
+var (
+	peerConf NodeConfiguration
+	peer     crypto.Peer
+
+	deployer crypto.Client
+	invoker  crypto.Client
+
+	caAlreadyOn bool
+	eca         *obcca.ECA
+	tca         *obcca.TCA
+	caWaitGroup sync.WaitGroup
+)
 
 func TestMain(m *testing.M) {
-	peer = new(Peer)
+	setupTestConfig()
 
-	err := peer.Init()
+	// Init ECA
+	go initMockCAs()
+	defer cleanup()
+
+	// Init a mock Client
+	err := initMockClient()
 	if err != nil {
-		panic(fmt.Errorf("Peer Security Module:TestMain: failed initializing security layer: err %s", err))
+		fmt.Printf("Failed initializing clients: %s\n", err)
+		panic(fmt.Errorf("Failed initializing clients: %s", err))
+	}
+
+	// Register
+	peerConf = NodeConfiguration{Id: "peer"}
+	err = Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+	if err != nil {
+		fmt.Printf("Failed registerting: %s\n", err)
+		killCAs()
+		panic(fmt.Errorf("Failed registerting: %s", err))
+	}
+
+	//	 Verify that a second call to Register fails
+	err = Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+	if err != nil {
+		fmt.Printf("Failed checking registerting: %s\n", err)
+		killCAs()
+		panic(fmt.Errorf("Failed checking registration: %s", err))
+	}
+
+	// Init client
+	peer, err = Init(peerConf.Id, nil)
+
+	var ret int
+	if err != nil {
+		panic(fmt.Errorf("Failed initializing: err %s", err))
 	} else {
-		os.Exit(m.Run())
+		ret = m.Run()
+	}
+
+	cleanup()
+
+	os.Exit(ret)
+}
+
+func TestRegistration(t *testing.T) {
+	err := Register(peerConf.Id, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 }
 
 func TestID(t *testing.T) {
 	// Verify that any id modification doesn't change
 	id := peer.GetID()
+
+	if id == nil {
+		t.Fatalf("Id is nil.")
+	}
+
+	if len(id) == 0 {
+		t.Fatalf("Id length is zero.")
+	}
+
 	id[0] = id[0] + 1
 	id2 := peer.GetID()
 	if id2[0] == id[0] {
@@ -51,10 +122,14 @@ func TestID(t *testing.T) {
 }
 
 func TestDeployTransactionPreValidation(t *testing.T) {
-	tx, err := peer.TransactionPreValidation(mockDeployTransaction())
+	tx, err := mockDeployTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
 
-	if tx == nil {
-		t.Fatalf("TransactionPreValidation: transaction must be different from nil.")
+	res, err := peer.TransactionPreValidation(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreValidation: result must be diffrent from nil")
 	}
 	if err != nil {
 		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
@@ -62,22 +137,83 @@ func TestDeployTransactionPreValidation(t *testing.T) {
 }
 
 func TestInvokeTransactionPreValidation(t *testing.T) {
-	tx, err := peer.TransactionPreValidation(mockInvokeTransaction())
+	tx, err := mockInvokeTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
 
-	if tx == nil {
-		t.Fatalf("TransactionPreValidation: transaction must be different from nil.")
+	res, err := peer.TransactionPreValidation(tx)
+	if res == nil {
+		t.Fatalf("TransactionPreValidation: result must be diffrent from nil")
 	}
 	if err != nil {
 		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
 	}
 }
 
-func mockDeployTransaction() *obc.Transaction {
-	tx, _ := obc.NewChaincodeDeployTransaction(
-		&obc.ChaincodeDeploymentSpec{
-			ChaincodeSpec: &obc.ChaincodeSpec{
-				Type:        obc.ChaincodeSpec_GOLANG,
-				ChaincodeID: &obc.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+func setupTestConfig() {
+	viper.SetConfigName("peer_test") // name of config file (without extension)
+	viper.AddConfigPath(".")         // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+	removeFolders()
+}
+
+func initMockCAs() {
+	// Check if the CAs are already up
+	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
+		caAlreadyOn = true
+		fmt.Println("Someone already listening")
+		return
+	}
+	caAlreadyOn = false
+
+	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+
+	eca = obcca.NewECA()
+	defer eca.Close()
+	eca.Start(&caWaitGroup)
+
+	tca = obcca.NewTCA(eca)
+	defer tca.Close()
+	tca.Start(&caWaitGroup)
+
+	caWaitGroup.Wait()
+}
+
+func initMockClient() error {
+	// Deployer
+	deployerConf := client.ClientConfiguration{Id: "user2"}
+	if err := client.Register(deployerConf.Id, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	var err error
+	deployer, err = client.Init(deployerConf.Id, nil)
+	if err != nil {
+		return err
+	}
+
+	// Invoker
+	invokerConf := client.ClientConfiguration{Id: "user3"}
+	if err := client.Register(invokerConf.Id, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+		return err
+	}
+	invoker, err = client.Init(invokerConf.Id, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func mockDeployTransaction() (*pb.Transaction, error) {
+	tx, err := deployer.NewChaincodeDeployTransaction(
+		&pb.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:        pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:     nil,
 			},
 			EffectiveDate: nil,
@@ -85,20 +221,58 @@ func mockDeployTransaction() *obc.Transaction {
 		},
 		"uuid",
 	)
-	return tx
+	return tx, err
 }
 
-func mockInvokeTransaction() *obc.Transaction {
-	tx, _ := obc.NewChaincodeExecute(
-		&obc.ChaincodeInvocationSpec{
-			ChaincodeSpec: &obc.ChaincodeSpec{
-				Type:        obc.ChaincodeSpec_GOLANG,
-				ChaincodeID: &obc.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+func mockInvokeTransaction() (*pb.Transaction, error) {
+	tx, err := invoker.NewChaincodeInvokeTransaction(
+		&pb.ChaincodeInvocationSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:        pb.ChaincodeSpec_GOLANG,
+				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
 				CtorMsg:     nil,
 			},
 		},
 		"uuid",
-		obc.Transaction_CHAINCODE_EXECUTE,
 	)
-	return tx
+
+	return tx, err
+}
+
+func cleanup() {
+	client.CloseAll()
+	CloseAll()
+	killCAs()
+
+	fmt.Println("Prepare to cleanup...")
+	time.Sleep(40 * time.Second)
+
+	fmt.Println("Test...")
+	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
+		fmt.Println("AAA Someone already listening")
+	}
+	removeFolders()
+	fmt.Println("Cleanup...done!")
+}
+
+func killCAs() {
+	if !caAlreadyOn {
+		eca.Stop()
+		eca.Close()
+
+		tca.Stop()
+		tca.Close()
+	}
+}
+
+func removeFolders() {
+	if err := os.RemoveAll(viper.GetString("eca.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("eca.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("client.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("client.crypto.path"), err)
+	}
+	if err := os.RemoveAll(viper.GetString("peer.crypto.path")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("peer.crypto.path"), err)
+	}
 }

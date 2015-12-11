@@ -38,7 +38,7 @@ type clientImpl struct {
 	// Logging
 	log *logging.Logger
 
-	// DB
+	// keyStore
 	ks *keyStore
 
 	// Identifier
@@ -62,7 +62,9 @@ type clientImpl struct {
 // is first deployed.
 func (client *clientImpl) Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		return ErrAlreadyInitialized
+		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+
+		return nil
 	}
 
 	// Init Conf
@@ -71,12 +73,12 @@ func (client *clientImpl) Register(id string, pwd []byte, enrollID, enrollPWD st
 	}
 
 	// Start registration
-	client.log.Info("Registering user [%s]...", enrollID)
+	client.log.Info("Registering [%s]...", enrollID)
 
 	if client.isRegistered() {
-		client.log.Error("Registering validator [%s]...done! Registration already performed", enrollID)
+		client.log.Error("Registering [%s]...done! Registration already performed", enrollID)
 
-		return ErrAlreadyRegistered
+		return nil
 	} else {
 		if err := client.createKeyStorage(); err != nil {
 			client.log.Error("Failed creating key storage: %s", err)
@@ -103,12 +105,12 @@ func (client *clientImpl) Register(id string, pwd []byte, enrollID, enrollPWD st
 		}
 	}
 
-	client.log.Info("Registering user [%s]...done!", enrollID)
+	client.log.Info("Registering [%s]...done!", enrollID)
 
 	return nil
 }
 
-func (client *clientImpl) GetID() string {
+func (client *clientImpl) GetName() string {
 	return client.conf.id
 }
 
@@ -118,10 +120,11 @@ func (client *clientImpl) GetID() string {
 // the api. If the client is not initialized,
 // all the methods will report an error (ErrModuleNotInitialized).
 func (client *clientImpl) Init(id string, pwd []byte) error {
+
 	if client.isInitialized {
 		client.log.Error("Already initializaed.")
 
-		return ErrAlreadyInitialized
+		return nil
 	}
 
 	// Init Conf
@@ -130,25 +133,25 @@ func (client *clientImpl) Init(id string, pwd []byte) error {
 	}
 
 	if !client.isRegistered() {
-		return ErrRegistrationRequired
+		return utils.ErrRegistrationRequired
 	}
 
 	client.log.Info("Initialization...")
 
-	// Initialize DB
-	client.log.Info("Init DB...")
+	// Initialize keystore
+	client.log.Info("Init keystore...")
 	// TODO: password support
 	err := client.initKeyStore()
 	if err != nil {
-		if err != ErrKeyStoreAlreadyInitialized {
-			client.log.Error("DB already initialized.")
+		if err != utils.ErrKeyStoreAlreadyInitialized {
+			client.log.Error("Keystore already initialized.")
 		} else {
-			client.log.Error("Failed initiliazing DB %s", err)
+			client.log.Error("Failed initiliazing keystore %s", err)
 
 			return err
 		}
 	}
-	client.log.Info("Init DB...done.")
+	client.log.Info("Init keystore...done.")
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
@@ -169,7 +172,7 @@ func (client *clientImpl) Init(id string, pwd []byte) error {
 func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
-		return nil, ErrNotInitialized
+		return nil, utils.ErrNotInitialized
 	}
 
 	// Create a new transaction
@@ -223,7 +226,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 func (client *clientImpl) NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
-		return nil, ErrNotInitialized
+		return nil, utils.ErrNotInitialized
 	}
 
 	// Create a new transaction
@@ -326,11 +329,11 @@ func (client *clientImpl) Close() error {
 // prescriptions. To be used for internal verifications.
 func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	if !client.isInitialized {
-		return ErrNotInitialized
+		return utils.ErrNotInitialized
 	}
 
 	if tx.Cert == nil && tx.Signature == nil {
-		return ErrTransactionMissingCert
+		return utils.ErrTransactionMissingCert
 	}
 
 	if tx.Cert != nil && tx.Signature != nil {
@@ -364,8 +367,8 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 			return nil
 		}
 
-		return ErrInvalidTransactionSignature
+		return utils.ErrInvalidTransactionSignature
 	}
 
-	return ErrTransactionMissingCert
+	return utils.ErrTransactionMissingCert
 }

@@ -17,34 +17,30 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package client
+package peer
 
 import (
 	"database/sql"
 	"fmt"
-	_ "fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
-	_ "os"
 	"path/filepath"
-	_ "path/filepath"
 	"sync"
-	_ "sync"
 )
 
-func (client *clientImpl) initKeyStore() error {
+func (peer *peerImpl) initKeyStore() error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
 
 	ks := keyStore{}
-	ks.log = client.log
-	ks.conf = client.conf
+	ks.log = peer.log
+	ks.conf = peer.conf
 	if err := ks.Init(); err != nil {
 		return err
 	}
 
-	client.ks = &ks
+	peer.ks = &ks
 
 	return nil
 }
@@ -53,7 +49,7 @@ type keyStore struct {
 	isOpen bool
 
 	// backend
-	sqlkeystore *sql.DB
+	sqlDB *sql.DB
 
 	// Configuration
 	conf *configuration
@@ -86,53 +82,50 @@ func (ks *keyStore) Init() error {
 	return nil
 }
 
-func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
+func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, error)) ([]byte, error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
-	cert, key, err := ks.selectNextTCert()
-	if err != nil {
-		ks.log.Error("Failed selecting next TCert: %s", err)
+	sid := utils.EncodeBase64(id)
 
-		return nil, nil, err
+	cert, err := ks.selectEnrollmentCert(sid)
+	if err != nil {
+		ks.log.Error("Failed selecting enrollment cert: %s", err)
+
+		return nil, err
 	}
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
+	ks.log.Info("GetEnrollmentCert:cert %s", utils.EncodeBase64(cert))
 
 	if cert == nil {
-		// If No TCert is available, fetch new ones, store them and return the first available.
+		// If No cert is available, fetch from ECA
 
 		// 1. Fetch
-		ks.log.Info("Fectch TCerts from TCA...")
-		certs, keys, err := tCertFetcher(10)
+		ks.log.Info("Fectch Enrollment Certificate from ECA...")
+		cert, err = certFetcher(id)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// 2. Store
-		ks.log.Info("Store them...")
-		tx, err := ks.sqlkeystore.Begin()
+		ks.log.Info("Store certificate...")
+		tx, err := ks.sqlDB.Begin()
 		if err != nil {
 			ks.log.Error("Failed beginning transaction: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 
-		for i, cert := range certs {
-			ks.log.Info("Insert index %d", i)
+		ks.log.Info("Insert id %s", sid)
+		ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
 
-			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
-			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
+		_, err = tx.Exec("INSERT INTO Certificates (id, cert) VALUES (?, ?)", sid, cert)
 
-			// TODO: once the TCert structure is finalized,
-			// store only the cert from which the corresponding key
-			// can be derived
+		if err != nil {
+			ks.log.Error("Failed inserting cert %s", err)
 
-			_, err := tx.Exec("INSERT INTO TCerts (cert, key) VALUES (?, ?)", cert, keys[i])
+			tx.Rollback()
 
-			if err != nil {
-				ks.log.Error("Failed inserting cert %s", err)
-				continue
-			}
+			return nil, err
 		}
 
 		err = tx.Commit()
@@ -141,27 +134,25 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 
 			tx.Rollback()
 
-			return nil, nil, err
+			return nil, err
 		}
 
-		ks.log.Info("Fectch TCerts from TCA...done!")
+		ks.log.Info("Fectch Enrollment Certificate from ECA...done!")
 
-		cert, key, err = ks.selectNextTCert()
+		cert, err = ks.selectEnrollmentCert(sid)
 		if err != nil {
 			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return cert, key, nil
-	//	return nil, nil, errors.New("No cert obtained")
-	//	return utils.NewSelfSignedCert()
+	return cert, nil
 }
 
 func (ks *keyStore) Close() error {
 	ks.log.Info("Closing keystore...")
-	err := ks.sqlkeystore.Close()
+	err := ks.sqlDB.Close()
 
 	if err != nil {
 		ks.log.Error("Failed closing keystore: %s", err)
@@ -173,63 +164,27 @@ func (ks *keyStore) Close() error {
 	return err
 }
 
-func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
-	ks.log.Info("Select next TCert...")
-
-	// Open transaction
-	tx, err := ks.sqlkeystore.Begin()
-	if err != nil {
-		ks.log.Error("Failed beginning transaction: %s", err)
-
-		return nil, nil, err
-	}
+func (ks *keyStore) selectEnrollmentCert(id string) ([]byte, error) {
+	ks.log.Info("Select Enrollment TCert...")
 
 	// Get the first row available
-	var id int
-	var cert, key []byte
-	row := ks.sqlkeystore.QueryRow("SELECT id, cert, key FROM TCerts")
-	err = row.Scan(&id, &cert, &key)
+	var cert []byte
+	row := ks.sqlDB.QueryRow("SELECT cert FROM Certificates where id = ?", id)
+	err := row.Scan(&cert)
 
 	if err == sql.ErrNoRows {
-		return nil, nil, nil
+		return nil, nil
 	} else if err != nil {
 		ks.log.Error("Error during select: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
-	ks.log.Info("id %d", id)
 	ks.log.Info("cert %s", utils.EncodeBase64(cert))
-	//	db.log.Info("key %s", utils.EncodeBase64(key))
 
-	// TODO: instead of removing, move the TCert to a new table
-	// which stores the TCerts used
+	ks.log.Info("Select Enrollment Cert...done!")
 
-	// Remove that row
-	ks.log.Info("Removing row with id [%d]...", id)
-
-	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		ks.log.Error("Failed removing row [%d]: %s", id, err)
-
-		tx.Rollback()
-
-		return nil, nil, err
-	}
-
-	ks.log.Info("Removing row with id [%d]...done", id)
-
-	// Finalize
-	err = tx.Commit()
-	if err != nil {
-		ks.log.Error("Failed commiting: %s", err)
-		tx.Rollback()
-
-		return nil, nil, err
-	}
-
-	ks.log.Info("Select next TCert...done!")
-
-	return cert, key, nil
+	return cert, nil
 }
 
 func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
@@ -263,22 +218,22 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 
 func (ks *keyStore) createKeyStore() error {
 	dbPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating keystore at [%s]", dbPath)
+	ks.log.Debug("Creating Keystore at [%s]", dbPath)
 
 	missing, err := utils.FileMissing(dbPath, ks.conf.getKeyStoreFilename())
 	if !missing {
-		return fmt.Errorf("db dir [%s] already exists", dbPath)
+		return fmt.Errorf("Keystore dir [%s] already exists", dbPath)
 	}
 
 	os.MkdirAll(dbPath, 0755)
 
-	ks.log.Debug("Open keystore at [%s]", dbPath)
+	ks.log.Debug("Open Keystore at [%s]", dbPath)
 	db, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
 	if err != nil {
 		return err
 	}
 
-	ks.log.Debug("Ping keystore at [%s]", dbPath)
+	ks.log.Debug("Ping Keystore at [%s]", dbPath)
 	err = db.Ping()
 	if err != nil {
 		ks.log.Fatal(err)
@@ -287,13 +242,13 @@ func (ks *keyStore) createKeyStore() error {
 	defer db.Close()
 
 	// create tables
-	ks.log.Debug("Create Table [%s] at [%s]", "TCert", dbPath)
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
-		ks.log.Debug("Failed creating table: %s", err)
+	log.Debug("Create Table [%s] at [%s]", "Certificates", dbPath)
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, cert BLOB, PRIMARY KEY (id))"); err != nil {
+		log.Debug("Failed creating table: %s", err)
 		return err
 	}
 
-	ks.log.Debug("keystore created at [%s]", dbPath)
+	ks.log.Debug("Keystore created at [%s]", dbPath)
 	return nil
 }
 
@@ -316,7 +271,7 @@ func (ks *keyStore) openKeyStore() error {
 		return err
 	}
 	ks.isOpen = true
-	ks.sqlkeystore = sqlDB
+	ks.sqlDB = sqlDB
 
 	return nil
 }

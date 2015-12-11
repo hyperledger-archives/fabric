@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package peer
 
 import (
 	obcca "github.com/openblockchain/obc-peer/obcca/protos"
@@ -31,50 +31,50 @@ import (
 	"time"
 )
 
-func (validator *validatorImpl) retrieveTCACertsChain(userId string) error {
+func (peer *peerImpl) retrieveTCACertsChain(userId string) error {
 	// Retrieve TCA certificate and verify it
-	tcaCertRaw, err := validator.getTCACertificate()
+	tcaCertRaw, err := peer.getTCACertificate()
 	if err != nil {
-		validator.log.Error("Failed getting TCA certificate %s", err)
+		peer.log.Error("Failed getting TCA certificate %s", err)
 
 		return err
 	}
-	validator.log.Info("Register:TCAcert %s", utils.EncodeBase64(tcaCertRaw))
+	peer.log.Info("Register:TCAcert %s", utils.EncodeBase64(tcaCertRaw))
 
 	// TODO: Test TCA cert againt root CA
 	_, err = utils.DERToX509Certificate(tcaCertRaw)
 	if err != nil {
-		validator.log.Error("Failed parsing TCA certificate %s", err)
+		peer.log.Error("Failed parsing TCA certificate %s", err)
 
 		return err
 	}
 
 	// Store TCA cert
-	validator.log.Info("Storing TCA certificate for validator [%s]...", userId)
+	peer.log.Info("Storing TCA certificate for validator [%s]...", userId)
 
-	err = ioutil.WriteFile(validator.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
+	err = ioutil.WriteFile(peer.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {
-		validator.log.Error("Failed storing tca certificate: %s", err)
+		peer.log.Error("Failed storing tca certificate: %s", err)
 		return err
 	}
 
 	return nil
 }
 
-func (validator *validatorImpl) loadTCACertsChain() error {
+func (peer *peerImpl) loadTCACertsChain() error {
 	// Load TCA certs chain
-	validator.log.Info("Loading TCA certificates chain at %s...", validator.conf.getTCACertsChainPath())
+	peer.log.Info("Loading TCA certificates chain at %s...", peer.conf.getTCACertsChainPath())
 
-	chain, err := ioutil.ReadFile(validator.conf.getTCACertsChainPath())
+	chain, err := ioutil.ReadFile(peer.conf.getTCACertsChainPath())
 	if err != nil {
-		validator.log.Error("Failed loading TCA certificates chain : %s", err.Error())
+		peer.log.Error("Failed loading TCA certificates chain : %s", err.Error())
 
 		return err
 	}
 
-	ok := validator.rootsCertPool.AppendCertsFromPEM(chain)
+	ok := peer.rootsCertPool.AppendCertsFromPEM(chain)
 	if !ok {
-		validator.log.Error("Failed appending TCA certificates chain.")
+		peer.log.Error("Failed appending TCA certificates chain.")
 
 		return errors.New("Failed appending TCA certificates chain.")
 	}
@@ -82,10 +82,10 @@ func (validator *validatorImpl) loadTCACertsChain() error {
 	return nil
 }
 
-func (validator *validatorImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(validator.conf.getTCAPAddr(), grpc.WithInsecure())
+func (peer *peerImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(peer.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		validator.log.Error("Failed tca dial in: %s", err)
+		peer.log.Error("Failed tca dial in: %s", err)
 
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (validator *validatorImpl) callTCAReadCertificate(ctx context.Context, in *
 
 	cert, err := tcaP.ReadCertificate(context.Background(), in)
 	if err != nil {
-		validator.log.Error("Failed requesting tca read certificate: %s", err)
+		peer.log.Error("Failed requesting tca read certificate: %s", err)
 
 		return nil, err
 	}
@@ -103,23 +103,23 @@ func (validator *validatorImpl) callTCAReadCertificate(ctx context.Context, in *
 	return cert, nil
 }
 
-func (validator *validatorImpl) getTCACertificate() ([]byte, error) {
-	validator.log.Info("getTCACertificate...")
+func (peer *peerImpl) getTCACertificate() ([]byte, error) {
+	peer.log.Info("getTCACertificate...")
 
 	// Prepare the request
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 	req := &obcca.TCertReadReq{&timestamp, &obcca.Identity{Id: "tca-root"}, nil}
-	pbCert, err := validator.callTCAReadCertificate(context.Background(), req)
+	pbCert, err := peer.callTCAReadCertificate(context.Background(), req)
 	if err != nil {
-		validator.log.Error("Failed requesting tca certificate: %s", err)
+		peer.log.Error("Failed requesting tca certificate: %s", err)
 
 		return nil, err
 	}
 
 	// TODO Verify pbCert.Cert
 
-	validator.log.Info("getTCACertificate...done!")
+	peer.log.Info("getTCACertificate...done!")
 
 	return pbCert.Cert, nil
 }

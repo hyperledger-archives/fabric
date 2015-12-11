@@ -24,6 +24,7 @@ import (
 
 	"fmt"
 	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/client"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
@@ -34,17 +35,18 @@ import (
 	"time"
 )
 
-var validator *Validator
+var (
+	validatorConf NodeConfiguration
+	validator     crypto.Validator
 
-var deployer client.Client
-var invoker client.Client
+	deployer crypto.Client
+	invoker  crypto.Client
 
-var eca *obcca.ECA
-var tca *obcca.TCA
-
-var caAlreadyOn bool
-
-var caWaitGroup sync.WaitGroup
+	caAlreadyOn bool
+	eca         *obcca.ECA
+	tca         *obcca.TCA
+	caWaitGroup sync.WaitGroup
+)
 
 func TestMain(m *testing.M) {
 	setupTestConfig()
@@ -60,23 +62,26 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("Failed initializing clients: %s", err))
 	}
 
-	// New Validator
-	validator = new(Validator)
-
 	// Register
-	err = validator.Register(getValidatorEnrollmentData())
+	validatorConf = NodeConfiguration{Id: "validator"}
+	err = Register(validatorConf.Id, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 	if err != nil {
-		panic(fmt.Errorf("Failed registerting to the ECA: %s", err))
+		fmt.Printf("Failed registerting: %s\n", err)
+		killCAs()
+		panic(fmt.Errorf("Failed registerting: %s", err))
 	}
 
-	// Verify that a second call to Register fails
-	err = validator.Register(getValidatorEnrollmentData())
-	if err != ErrAlreadyRegistered {
+	//	 Verify that a second call to Register fails
+	err = Register(validatorConf.Id, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
+	if err != nil {
+		fmt.Printf("Failed checking registerting: %s\n", err)
+		killCAs()
 		panic(fmt.Errorf("Failed checking registration: %s", err))
 	}
 
-	// Init
-	err = validator.Init()
+	// Init client
+	validator, err = Init(validatorConf.Id, nil)
+
 	var ret int
 	if err != nil {
 		panic(fmt.Errorf("Failed initializing: err %s", err))
@@ -90,9 +95,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistration(t *testing.T) {
-	err := validator.Register(getValidatorEnrollmentData())
+	err := Register(validatorConf.Id, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 
-	if err != ErrAlreadyInitialized {
+	if err != nil {
 		t.Fatalf(err.Error())
 	}
 }
@@ -223,7 +228,7 @@ func initMockCAs() {
 
 func initMockClient() error {
 	// Deployer
-	deployerConf := client.ClientConfiguration{Id: "deployer"}
+	deployerConf := client.ClientConfiguration{Id: "user4"}
 	if err := client.Register(deployerConf.Id, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
@@ -234,7 +239,7 @@ func initMockClient() error {
 	}
 
 	// Invoker
-	invokerConf := client.ClientConfiguration{Id: "invoker"}
+	invokerConf := client.ClientConfiguration{Id: "user5"}
 	if err := client.Register(invokerConf.Id, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
@@ -277,23 +282,9 @@ func mockInvokeTransaction() (*pb.Transaction, error) {
 	return tx, err
 }
 
-func getValidatorEnrollmentData() (string, string) {
-	id := viper.GetString("validator.crypto.enrollid")
-	if id == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'validator.crypto.enrollid' is set"))
-	}
-
-	pw := viper.GetString("validator.crypto.enrollpw")
-	if id == "" {
-		panic(fmt.Errorf("Enrollment id not specified in configuration file. Please check that property 'validator.crypto.enrollpw' is set"))
-	}
-
-	return id, pw
-}
-
 func cleanup() {
 	client.CloseAll()
-	validator.Close()
+	CloseAll()
 	killCAs()
 
 	fmt.Println("Prepare to cleanup...")

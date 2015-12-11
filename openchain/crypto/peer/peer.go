@@ -20,107 +20,119 @@ under the License.
 package peer
 
 import (
-	"crypto/rand"
-	"crypto/x509"
-	"errors"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"sync"
 )
 
-// Errors
+// Private Variables
 
-var ErrRegistrationRequired error = errors.New("Peer Not Registered to the Membership Service.")
-var ErrModuleNotInitialized = errors.New("Peer Security Module Not Initilized.")
-var ErrModuleAlreadyInitialized error = errors.New("Peer Security Module Already Initilized.")
+var (
+	// Map of initialized peers
+	peers map[string]crypto.Peer = make(map[string]crypto.Peer)
+
+	// Sync
+	mutex sync.Mutex
+)
 
 // Log
 
-var peerLogger = logging.MustGetLogger("CRYPTO.PEER")
-
-// Public Struct
-
-type Peer struct {
-	isInitialized bool
-
-	rootsCertPool *x509.CertPool
-
-	// 48-bytes identifier
-	id []byte
-
-	// Enrollment Certificate and private key
-	enrollCert    *x509.Certificate
-	enrollPrivKey interface{}
-}
+var log = logging.MustGetLogger("CRYPTO.PEER")
 
 // Public Methods
 
-// Register is used to register this peer to the membership service.
-// The information received from the membership service are stored
-// locally and used for initialization.
-// This method is supposed to be called only once when the client
-// is first deployed.
-func (peer *Peer) Register(userId, pwd string) error {
-	return nil
-}
+func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-// Init initializes this peer by loading
-// the required certificates and keys which are created at registration time.
-// This method must be called at the very beginning to able to use
-// the api. If the client is not initialized,
-// all the methods will report an error (ErrModuleNotInitialized).
-func (peer *Peer) Init() error {
-	if peer.isInitialized {
-		return ErrModuleAlreadyInitialized
+	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+
+	if peers[id] != nil {
+		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+		return nil
 	}
 
-	// Init field
+	peer := new(peerImpl)
+	if err := peer.Register(id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
 
-	// id is initialized to a random value. Later on,
-	// id will be initialized as the hash of the enrollment certificate
-	peer.id = make([]byte, 48)
-	_, err := rand.Read(peer.id)
-	if err != nil {
 		return err
 	}
+	err := peer.Close()
+	if err != nil {
+		// It is not necessary to report this error to the caller
+		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+	}
 
-	// Initialisation complete
-	peer.isInitialized = true
+	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
 
 	return nil
 }
 
-// GetID returns this validator's identifier
-func (peer *Peer) GetID() []byte {
-	// Clone id to avoid exposure of internal data structure
-	clone := make([]byte, len(peer.id))
-	copy(clone, peer.id)
+func Init(id string, pwd []byte) (crypto.Peer, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	return clone
-}
+	log.Info("Initializing [%s]...", id)
 
-// TransactionPreValidation verifies that the transaction is
-// well formed with the respect to the security layer
-// prescriptions (i.e. signature verification)
-func (peer *Peer) TransactionPreValidation(tx *pb.Transaction) (*pb.Transaction, error) {
-	if !peer.isInitialized {
-		return nil, ErrModuleNotInitialized
+	if peers[id] != nil {
+		log.Info("Validator already initiliazied [%s].", id)
+
+		return peers[id], nil
 	}
 
-	return tx, nil
+	peer := new(peerImpl)
+	if err := peer.Init(id, pwd); err != nil {
+		log.Error("Failed initialization [%s]: %s", id, err)
+
+		return nil, err
+	}
+
+	peers[id] = peer
+	log.Info("Initializing [%s]...done!", id)
+
+	return peer, nil
 }
 
-func (peer *Peer) initCryptoEngine() error {
-	// Init certificate pool
-	peerLogger.Info("Initialing roots cert pool...")
+func Close(peer crypto.Peer) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	//	validator.rootsCertPool = x509.NewCertPool()
-	//	validator.rootsCertPool.AppendCertsFromPEM([]byte(tcaChainCert))
+	return closeInternal(peer)
+}
 
-	// TODO: Load enrollment secret key
-	peerLogger.Info("Loading enrollment key...")
-	var err error
-	peer.enrollPrivKey, err = utils.NewECDSAKey()
+func CloseAll() (bool, []error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	log.Info("Closing all peers...")
+
+	errs := make([]error, len(peers))
+	for _, value := range peers {
+		err := closeInternal(value)
+
+		errs = append(errs, err)
+	}
+
+	log.Info("Closing all peers...done!")
+
+	return len(errs) != 0, errs
+}
+
+// Private Methods
+
+func closeInternal(peer crypto.Peer) error {
+	id := peer.GetName()
+	log.Info("Closing peer [%s]...", id)
+	if _, ok := peers[id]; !ok {
+		return utils.ErrInvalidReference
+	}
+	defer delete(peers, id)
+
+	err := peers[id].(*peerImpl).Close()
+
+	log.Info("Closing peer [%s]...done! [%s]", id, err)
 
 	return err
 }

@@ -20,29 +20,17 @@ under the License.
 package client
 
 import (
-	"errors"
 	"github.com/op/go-logging"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"sync"
-)
-
-// Errors
-
-var (
-	ErrRegistrationRequired        error = errors.New("Registration to the Membership Service required.")
-	ErrNotInitialized              error = errors.New("Initilized required.")
-	ErrAlreadyInitialized          error = errors.New("Already initilized.")
-	ErrAlreadyRegistered           error = errors.New("Already registered.")
-	ErrTransactionMissingCert      error = errors.New("Transaction missing certificate or signature.")
-	ErrInvalidTransactionSignature error = errors.New("Invalid Transaction signature.")
-	ErrInvalidReference            error = errors.New("Invalid reference.")
 )
 
 // Private Variables
 
 var (
 	// Map of initialized clients
-	clients map[string]Client = make(map[string]Client)
+	clients map[string]crypto.Client = make(map[string]crypto.Client)
 
 	// Sync
 	mutex sync.Mutex
@@ -51,18 +39,6 @@ var (
 // Log
 
 var log = logging.MustGetLogger("CRYPTO.CLIENT")
-
-// Public Interfaces
-
-type Client interface {
-	GetID() string
-
-	// NewChaincodeDeployTransaction is used to deploy chaincode.
-	NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
-
-	// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-	NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
-}
 
 // Public Methods
 
@@ -73,7 +49,8 @@ func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	log.Info("Registering [%s] with id [%s]...", enrollID, id)
 
 	if clients[id] != nil {
-		return ErrAlreadyInitialized
+		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+		return nil
 	}
 
 	client := new(clientImpl)
@@ -93,7 +70,7 @@ func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
-func Init(id string, pwd []byte) (Client, error) {
+func Init(id string, pwd []byte) (crypto.Client, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -118,7 +95,7 @@ func Init(id string, pwd []byte) (Client, error) {
 	return client, nil
 }
 
-func Close(client Client) error {
+func Close(client crypto.Client) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -145,11 +122,11 @@ func CloseAll() (bool, []error) {
 
 // Private Methods
 
-func closeInternal(client Client) error {
-	id := client.GetID()
+func closeInternal(client crypto.Client) error {
+	id := client.GetName()
 	log.Info("Closing client [%s]...", id)
 	if _, ok := clients[id]; !ok {
-		return ErrInvalidReference
+		return utils.ErrInvalidReference
 	}
 	defer delete(clients, id)
 

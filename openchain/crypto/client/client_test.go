@@ -22,6 +22,7 @@ package client
 import (
 	"fmt"
 	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -30,13 +31,12 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 	_ "time"
 )
 
 var (
 	clientConf ClientConfiguration
-	client     Client
+	client     crypto.Client
 
 	eca         *obcca.ECA
 	tca         *obcca.TCA
@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 	defer cleanup()
 
 	// Register
-	clientConf = ClientConfiguration{Id: "client"}
+	clientConf = ClientConfiguration{Id: "user1"}
 	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 	if err != nil {
 		fmt.Printf("Failed registerting: %s\n", err)
@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 
 	//	 Verify that a second call to Register fails
 	err = Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
-	if err != ErrAlreadyRegistered {
+	if err != nil {
 		fmt.Printf("Failed checking registerting: %s\n", err)
 		killCAs()
 		panic(fmt.Errorf("Failed checking registration: %s", err))
@@ -94,7 +94,7 @@ func TestMain(m *testing.M) {
 func TestRegistration(t *testing.T) {
 	err := Register(clientConf.Id, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
 
-	if err != ErrAlreadyInitialized {
+	if err != nil {
 		t.Fatalf(err.Error())
 	}
 }
@@ -231,7 +231,7 @@ func cleanup() {
 	killCAs()
 
 	fmt.Println("Prepare to cleanup...")
-	time.Sleep(40 * time.Second)
+	//	time.Sleep(40 * time.Second)
 
 	fmt.Println("Test...")
 	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {

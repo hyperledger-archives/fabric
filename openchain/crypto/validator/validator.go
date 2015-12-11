@@ -20,302 +20,119 @@ under the License.
 package validator
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
-	"errors"
-	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	_ "github.com/openblockchain/obc-peer/openchain"
-	"github.com/openblockchain/obc-peer/openchain/crypto/peer"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"sync"
 )
 
-// Errors
+// Private Variables
 
 var (
-	ErrRegistrationRequired        error = errors.New("Registration to the Membership Service required.")
-	ErrNotInitialized              error = errors.New("Initilized required.")
-	ErrAlreadyInitialized          error = errors.New("Already initilized.")
-	ErrAlreadyRegistered           error = errors.New("Already registered.")
-	ErrTransactionMissingCert      error = errors.New("Transaction missing certificate or signature.")
-	ErrInvalidTransactionSignature error = errors.New("Invalid Transaction Signature.")
-	ErrTransactionCertificate      error = errors.New("Missing Transaction Certificate.")
-	ErrTransactionSignature        error = errors.New("Missing Transaction Signature.")
-	ErrInvalidSignature            error = errors.New("Invalid Signature.")
+	// Map of initialized validators
+	validators map[string]crypto.Validator = make(map[string]crypto.Validator)
+
+	// Sync
+	mutex sync.Mutex
 )
 
 // Log
 
 var log = logging.MustGetLogger("CRYPTO.VALIDATOR")
 
-// Public Struct
-
-type Validator struct {
-	*peer.Peer
-
-	isInitialized bool
-
-	rootsCertPool *x509.CertPool
-
-	enrollCerts map[string]*x509.Certificate
-
-	// 48-bytes identifier
-	id []byte
-
-	// Enrollment Certificate and private key
-	enrollId      string
-	enrollCert    *x509.Certificate
-	enrollPrivKey interface{}
-}
-
 // Public Methods
 
-// Register is used to register this validator to the membership service.
-// The information received from the membership service are stored
-// locally and used for initialization.
-// This method is supposed to be called only once when the client
-// is first deployed.
-func (validator *Validator) Register(userId, pwd string) error {
-	if validator.isInitialized {
-		return ErrAlreadyInitialized
+func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+
+	if validators[id] != nil {
+		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+		return nil
 	}
 
-	log.Info("Registering validator [%s]...", userId)
-
-	if validator.isAlreadyRegistered() {
-		log.Error("Registering validator [%s]...done! Registration already performed", userId)
-
-		return ErrAlreadyRegistered
-	} else {
-
-		if err := validator.createKeyStorage(); err != nil {
-			log.Error("Failed creating key storage:: %s", err)
-
-			return err
-		}
-
-		if err := validator.retrieveECACertsChain(userId); err != nil {
-			log.Error("Failed retrieveing ECA certs chain:: %s", err)
-
-			return err
-		}
-
-		if err := validator.retrieveTCACertsChain(userId); err != nil {
-			log.Error("Failed retrieveing ECA certs chain:: %s", err)
-
-			return err
-		}
-
-		if err := validator.retrieveEnrollmentData(userId, pwd); err != nil {
-			log.Error("Failed retrieveing enrollment data:: %s", err)
-
-			return err
-		}
-
-	}
-	log.Info("Registering validator [%s]...done!", userId)
-
-	return nil
-}
-
-// Init initializes this validator by loading
-// the required certificates and keys which are created at registration time.
-// This method must be called at the very beginning to able to use
-// the api. If the client is not initialized,
-// all the methods will report an error (ErrModuleNotInitialized).
-func (validator *Validator) Init() error {
-	if validator.isInitialized {
-		return ErrAlreadyInitialized
-	}
-
-	// Init Conf
-	if err := initConf(); err != nil {
-		log.Error("Invalid configuration: %s", err)
+	validator := new(validatorImpl)
+	if err := validator.Register(id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
 
 		return err
 	}
-
-	// Initialize DB
-	log.Info("Init DB...")
-	err := initDB()
+	err := validator.Close()
 	if err != nil {
-		if err != ErrDBAlreadyInitialized {
-			log.Error("DB already initialized.")
-		} else {
-			log.Error("Failed initiliazing DB %s", err)
-
-			return err
-		}
+		// It is not necessary to report this error to the caller
+		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
 	}
-	log.Info("Init DB...done.")
 
-	// Init crypto engine
-	log.Info("Init Crypto Engine...")
-	err = validator.initCryptoEngine()
-	if err != nil {
-		log.Error("Failed initiliazing crypto engine %s", err)
-		return err
-	}
-	log.Info("Init Crypto Engine...done.")
-
-	// Initialisation complete
-	validator.isInitialized = true
+	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
 
 	return nil
 }
 
-// GetID returns this validator's identifier
-func (validator *Validator) GetID() []byte {
-	// Clone id to avoid exposure of internal data structure
-	clone := make([]byte, len(validator.id))
-	copy(clone, validator.id)
+func Init(id string, pwd []byte) (crypto.Validator, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	return clone
-}
+	log.Info("Initializing [%s]...", id)
 
-// GetEnrollmentID returns this validator's enroolment id
-func (validator *Validator) GetEnrollmentID() string {
-	return validator.enrollId
-}
+	if validators[id] != nil {
+		log.Info("Validator already initiliazied [%s].", id)
 
-// TransactionPreValidation verifies that the transaction is
-// well formed with the respect to the security layer
-// prescriptions (i.e. signature verification).
-func (validator *Validator) TransactionPreValidation(tx *obc.Transaction) (*obc.Transaction, error) {
-	if !validator.isInitialized {
-		return nil, ErrNotInitialized
+		return validators[id], nil
 	}
 
-	if tx.Cert != nil && tx.Signature != nil {
-		log.Info("TransactionPreValidation: executing...")
+	validator := new(validatorImpl)
+	if err := validator.Init(id, pwd); err != nil {
+		log.Error("Failed initialization [%s]: %s", id, err)
 
-		// Verify the transaction
-		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
-		if err != nil {
-			log.Error("TransactionPreExecution: failed unmarshalling cert %s:", err)
-			return tx, err
-		}
-		// TODO: verify cert
-
-		// 3. Marshall tx without signature
-		signature := tx.Signature
-		tx.Signature = nil
-		rawTx, err := proto.Marshal(tx)
-		if err != nil {
-			log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
-			return tx, err
-		}
-		tx.Signature = signature
-
-		// 2. Verify signature
-		ok, err := validator.verify(cert.PublicKey, rawTx, tx.Signature)
-		if err != nil {
-			log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
-			return tx, err
-		}
-
-		if !ok {
-			return tx, ErrInvalidTransactionSignature
-		}
-	} else {
-		if tx.Cert == nil {
-			return tx, ErrTransactionCertificate
-		}
-
-		if tx.Signature == nil {
-			return tx, ErrTransactionSignature
-		}
+		return nil, err
 	}
 
-	return tx, nil
+	validators[id] = validator
+	log.Info("Initializing [%s]...done!", id)
+
+	return validator, nil
 }
 
-// TransactionPreValidation verifies that the transaction is
-// well formed with the respect to the security layer
-// prescriptions (i.e. signature verification). If this is the case,
-// the method prepares the transaction to be executed.
-func (validator *Validator) TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error) {
-	if !validator.isInitialized {
-		return nil, ErrNotInitialized
-	}
+func Close(validator crypto.Validator) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	return tx, nil
+	return closeInternal(validator)
 }
 
-// Sign signs msg with this validator's signing key and outputs
-// the signature if no error occurred.
-func (validator *Validator) Sign(msg []byte) ([]byte, error) {
-	return validator.signWithEnrollmentKey(msg)
-}
+func CloseAll() (bool, []error) {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-// Verify checks that signature if a valid signature of message under vkID's verification key.
-// If the verification succeeded, Verify returns nil meaning no error occurred.
-// If vkID is nil, then the signature is verified against this validator's verification key.
-func (validator *Validator) Verify(vkID, signature, message []byte) error {
-	cert, err := validator.getEnrollmentCert(vkID)
-	if err != nil {
-		log.Error("Failed getting enrollment cert for [%s]: %s", utils.EncodeBase64(vkID), err)
+	log.Info("Closing all validators...")
+
+	errs := make([]error, len(validators))
+	for _, value := range validators {
+		err := closeInternal(value)
+
+		errs = append(errs, err)
 	}
 
-	vk := cert.PublicKey.(*ecdsa.PublicKey)
+	log.Info("Closing all validators...done!")
 
-	ok, err := validator.verify(vk, message, signature)
-	if err != nil {
-		log.Error("Failed verifying signature for [%s]: %s", utils.EncodeBase64(vkID), err)
-	}
-
-	if !ok {
-		log.Error("Failed invalid signature for [%s]", utils.EncodeBase64(vkID))
-
-		return ErrInvalidSignature
-	}
-
-	return nil
-}
-
-func (validator *Validator) Close() error {
-	getDBHandle().CloseDB()
-
-	return nil
+	return len(errs) != 0, errs
 }
 
 // Private Methods
 
-func (validator *Validator) initCryptoEngine() error {
-	log.Info("Initialing Crypto Engine...")
-
-	validator.rootsCertPool = x509.NewCertPool()
-	validator.enrollCerts = make(map[string]*x509.Certificate)
-
-	// Load ECA certs chain
-	if err := validator.loadECACertsChain(); err != nil {
-		return err
+func closeInternal(validator crypto.Validator) error {
+	id := validator.GetName()
+	log.Info("Closing validator [%s]...", id)
+	if _, ok := validators[id]; !ok {
+		return utils.ErrInvalidReference
 	}
+	defer delete(validators, id)
 
-	// Load TCA certs chain
-	if err := validator.loadTCACertsChain(); err != nil {
-		return err
-	}
+	err := validators[id].(*validatorImpl).Close()
 
-	// Load enrollment secret key
-	// TODO: finalize encrypted pem support
-	if err := validator.loadEnrollmentKey(nil); err != nil {
-		return err
-	}
+	log.Info("Closing validator [%s]...done! [%s]", id, err)
 
-	// Load enrollment certificate and set validator ID
-	if err := validator.loadEnrollmentCertificate(); err != nil {
-		return err
-	}
-
-	// Load enrollment id
-	if err := validator.loadEnrollmentID(); err != nil {
-		return err
-	}
-
-	log.Info("Initialing Crypto Engine...done!")
-
-	return nil
+	return err
 }

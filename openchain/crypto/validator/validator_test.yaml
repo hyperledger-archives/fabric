@@ -12,10 +12,13 @@ eca:
         pport: 50051
 
     users:
-        nepumuk: 9gvZQRwhUq9q
-        nepumuk2: 9gvZQRwhUq9q
-        nepumuk3: 9gvZQRwhUq9q
-        jim: AwbeJH2kw9qK
+        user1: 9gvZQRwhUq9q
+        user2: 9gvZQRwhUq9q
+        user3: 9gvZQRwhUq9q
+        user4: 9gvZQRwhUq9q
+        user5: 9gvZQRwhUq9q
+        validator: 9gvZQRwhUq9q
+        peer: 9gvZQRwhUq9q
 
 tca:
     # TCA's settings
@@ -59,14 +62,14 @@ client:
 
         users:
 
-            deployer:
+            user4:
 
-                enrollid: nepumuk2
+                enrollid: user4
                 enrollpw: 9gvZQRwhUq9q
 
-            invoker:
+            user5:
 
-                enrollid: nepumuk3
+                enrollid: user5
                 enrollpw: 9gvZQRwhUq9q
 
 
@@ -79,10 +82,6 @@ validator:
 
     # Validator's crypto settings
     crypto:
-          # enrollment (id,pw) (only for testing
-          enrollid: jim
-          enrollpw: AwbeJH2kw9qK
-
           # where to store data
           path: .obc-validator
 
@@ -95,3 +94,10 @@ validator:
           tca:
 
               paddr: localhost:50551
+
+          # enrollment (id,pw) (only for testing
+          users:
+
+              validator:
+                  enrollid: validator
+                  enrollpw: 9gvZQRwhUq9q
