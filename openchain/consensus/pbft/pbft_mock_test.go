@@ -185,7 +185,9 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, *pb.Openchai
 
 			for _, taggedMsg := range msgs {
 				for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
+					net.cond.L.Unlock()
 					net.replicas[msg.id].cpi.RecvMsg(msg.msg)
+					net.cond.L.Lock()
 				}
 			}
 		}

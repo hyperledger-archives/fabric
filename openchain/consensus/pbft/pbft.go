@@ -22,6 +22,7 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -53,7 +54,8 @@ type InnerCPI interface {
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
 	// internal data
-	c        chan *Message // serialization of incoming messages
+	lock     sync.Mutex
+	closed   bool
 	consumer InnerCPI
 
 	// PBFT data
@@ -163,22 +165,25 @@ func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 
-	// to control concurrency in arriving messages
-	instance.c = make(chan *Message, 100)
-	go instance.msgPump()
+	go instance.timerHander()
 
 	return instance
 }
 
 // Close tears down resources opened by `New`.
 func (instance *Plugin) Close() {
-	close(instance.c)
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.closed = true
+	instance.newViewTimer.Reset(0)
 }
 
 // Request handles new consensus requests.
 func (instance *Plugin) Request(payload []byte) error {
 	msg := &Message{&Message_Request{&Request{Payload: payload}}}
-	instance.c <- msg
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
 	return nil
 }
@@ -191,24 +196,27 @@ func (instance *Plugin) Receive(payload []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
-	instance.c <- msg
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
 	return nil
 }
 
 // msgPump takes messages queued by `RecvMsg`, and provides a
 // sequential context to process those messages.
-func (instance *Plugin) msgPump() {
+func (instance *Plugin) timerHander() {
 	for {
 		select {
-		case msg, ok := <-instance.c:
-			if !ok {
+		case <-instance.newViewTimer.C:
+			instance.lock.Lock()
+			if instance.closed {
+				instance.lock.Unlock()
 				return
 			}
-			_ = instance.recvMsgSync(msg)
-		case <-instance.newViewTimer.C:
 			logger.Info("Replica %d view change timeout expired", instance.id)
 			instance.sendViewChange()
+			instance.lock.Unlock()
 		}
 	}
 }
@@ -695,6 +703,9 @@ func (instance *Plugin) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
 	instance.timerActive = false
+	if instance.closed {
+		return
+	}
 loop:
 	for {
 		select {
