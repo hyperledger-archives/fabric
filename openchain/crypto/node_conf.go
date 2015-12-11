@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package peer
+package crypto
 
 import (
 	"errors"
@@ -26,39 +26,37 @@ import (
 	"path/filepath"
 )
 
-const (
-	// ConfigurationPath property for where configuration is stored
-	ConfigurationPath = "peer.crypto.path"
-
-	// ECAPAddress property for TCA public address
-	ECAPAddress = "peer.crypto.eca.paddr"
-
-	// TCAPAddress property for TCA public address
-	TCAPAddress = "peer.crypto.tca.paddr"
-)
-
-func (peer *peerImpl) initConfiguration(id string) error {
+func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
-	peer.log = logging.MustGetLogger("CRYPTO.PEER." + id)
+	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
 
 	// Set configuration
-	peer.conf = &configuration{id: id}
-	return peer.conf.loadConfiguration()
+	node.conf = &configuration{prefix: prefix, name: name}
+	return node.conf.loadConfiguration()
 }
 
 type configuration struct {
-	id string
+	prefix string
+	name   string
+
+	configurationPath string
+	ecaPAddress       string
+	tcaPAddress       string
 }
 
 func (conf *configuration) loadConfiguration() error {
+	conf.configurationPath = conf.prefix + ".crypto.path"
+	conf.ecaPAddress = conf.prefix + ".crypto.eca.paddr"
+	conf.tcaPAddress = conf.prefix + ".crypto.tca.paddr"
+
 	// Check mandatory fields
-	if err := conf.checkProperty(ConfigurationPath); err != nil {
+	if err := conf.checkProperty(conf.configurationPath); err != nil {
 		return err
 	}
-	if err := conf.checkProperty(ECAPAddress); err != nil {
+	if err := conf.checkProperty(conf.ecaPAddress); err != nil {
 		return err
 	}
-	if err := conf.checkProperty(TCAPAddress); err != nil {
+	if err := conf.checkProperty(conf.tcaPAddress); err != nil {
 		return err
 	}
 	return nil
@@ -73,15 +71,15 @@ func (conf *configuration) checkProperty(property string) error {
 }
 
 func (conf *configuration) getTCAPAddr() string {
-	return viper.GetString(TCAPAddress)
+	return viper.GetString(conf.tcaPAddress)
 }
 
 func (conf *configuration) getECAPAddr() string {
-	return viper.GetString(ECAPAddress)
+	return viper.GetString(conf.ecaPAddress)
 }
 
 func (conf *configuration) getConfPath() string {
-	return filepath.Join(viper.GetString(ConfigurationPath), conf.id)
+	return filepath.Join(viper.GetString(conf.configurationPath), conf.name)
 }
 
 func (conf *configuration) getKeyStorePath() string {

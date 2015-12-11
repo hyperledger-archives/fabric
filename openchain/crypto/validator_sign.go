@@ -17,30 +17,30 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package peer
+package crypto
 
 import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
-func (peer *peerImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
+func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 	sigma, err := utils.ECDSASign(signKey, msg)
 
-	peer.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
+	validator.peer.node.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
 
 	return sigma, err
 }
 
-func (peer *peerImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	sigma, err := utils.ECDSASign(peer.enrollPrivKey, msg)
+func (validator *validatorImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
+	sigma, err := utils.ECDSASign(validator.peer.node.enrollPrivKey, msg)
 
-	peer.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
+	validator.peer.node.log.Info("Signing message %s, sigma %s", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
 
 	return sigma, err
 }
 
-func (peer *peerImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	peer.log.Info("Verifing signature %s against message %s",
+func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
+	validator.peer.node.log.Info("Verifing signature %s against message %s",
 		utils.EncodeBase64(signature),
 		utils.EncodeBase64(msg),
 	)

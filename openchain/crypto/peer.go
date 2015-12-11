@@ -17,11 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package crypto
 
 import (
-	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"sync"
 )
@@ -29,38 +27,34 @@ import (
 // Private Variables
 
 var (
-	// Map of initialized validators
-	validators = make(map[string]crypto.Validator)
+	// Map of initialized peers
+	peers = make(map[string]Peer)
 
 	// Sync
-	mutex sync.Mutex
+	peerMutex sync.Mutex
 )
-
-// Log
-
-var log = logging.MustGetLogger("CRYPTO.VALIDATOR")
 
 // Public Methods
 
 // Register registers a client to the PKI infrastructure
-func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
-	mutex.Lock()
-	defer mutex.Unlock()
+func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
+	peerMutex.Lock()
+	defer peerMutex.Unlock()
 
 	log.Info("Registering [%s] with id [%s]...", enrollID, id)
 
-	if validators[id] != nil {
+	if peers[id] != nil {
 		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
 		return nil
 	}
 
-	validator := new(validatorImpl)
-	if err := validator.Register(id, pwd, enrollID, enrollPWD); err != nil {
+	peer := new(peerImpl)
+	if err := peer.register("peer", id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
 
 		return err
 	}
-	err := validator.Close()
+	err := peer.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
 		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
@@ -72,71 +66,71 @@ func Register(id string, pwd []byte, enrollID, enrollPWD string) error {
 }
 
 // Init initializes a client named name with password pwd
-func Init(id string, pwd []byte) (crypto.Validator, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func InitPeeer(id string, pwd []byte) (Peer, error) {
+	peerMutex.Lock()
+	defer peerMutex.Unlock()
 
 	log.Info("Initializing [%s]...", id)
 
-	if validators[id] != nil {
+	if peers[id] != nil {
 		log.Info("Validator already initiliazied [%s].", id)
 
-		return validators[id], nil
+		return peers[id], nil
 	}
 
-	validator := new(validatorImpl)
-	if err := validator.Init(id, pwd); err != nil {
+	peer := new(peerImpl)
+	if err := peer.init("peer", id, pwd); err != nil {
 		log.Error("Failed initialization [%s]: %s", id, err)
 
 		return nil, err
 	}
 
-	validators[id] = validator
+	peers[id] = peer
 	log.Info("Initializing [%s]...done!", id)
 
-	return validator, nil
+	return peer, nil
 }
 
 // Close releases all the resources allocated by clients
-func Close(validator crypto.Validator) error {
-	mutex.Lock()
-	defer mutex.Unlock()
+func ClosePeer(peer Peer) error {
+	peerMutex.Lock()
+	defer peerMutex.Unlock()
 
-	return closeInternal(validator)
+	return closePeerInternal(peer)
 }
 
 // CloseAll closes all the clients initialized so far
-func CloseAll() (bool, []error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func CloseAllPeers() (bool, []error) {
+	peerMutex.Lock()
+	defer peerMutex.Unlock()
 
-	log.Info("Closing all validators...")
+	log.Info("Closing all peers...")
 
-	errs := make([]error, len(validators))
-	for _, value := range validators {
-		err := closeInternal(value)
+	errs := make([]error, len(peers))
+	for _, value := range peers {
+		err := closePeerInternal(value)
 
 		errs = append(errs, err)
 	}
 
-	log.Info("Closing all validators...done!")
+	log.Info("Closing all peers...done!")
 
 	return len(errs) != 0, errs
 }
 
 // Private Methods
 
-func closeInternal(validator crypto.Validator) error {
-	id := validator.GetName()
-	log.Info("Closing validator [%s]...", id)
-	if _, ok := validators[id]; !ok {
+func closePeerInternal(peer Peer) error {
+	id := peer.GetName()
+	log.Info("Closing peer [%s]...", id)
+	if _, ok := peers[id]; !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(validators, id)
+	defer delete(peers, id)
 
-	err := validators[id].(*validatorImpl).Close()
+	err := peers[id].(*peerImpl).close()
 
-	log.Info("Closing validator [%s]...done! [%s]", id, err)
+	log.Info("Closing peer [%s]...done! [%s]", id, err)
 
 	return err
 }

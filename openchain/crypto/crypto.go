@@ -21,7 +21,7 @@ type Client interface {
 	NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
 	// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-	NewChaincodeInvokeTransaction(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }
 
 // Peer is an entity able to verify transactions
@@ -38,12 +38,11 @@ type Peer interface {
 	// well formed with the respect to the security layer
 	// prescriptions (i.e. signature verification).
 	TransactionPreValidation(tx *obc.Transaction) (*obc.Transaction, error)
-}
 
-// Validator is an entity able to validate transactions
-type Validator interface {
-	Peer
-
+	// TransactionPreExecution verifies that the transaction is
+	// well formed with the respect to the security layer
+	// prescriptions (i.e. signature verification). If this is the case,
+	// the method prepares the transaction to be executed.
 	TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error)
 
 	// Sign signs msg with this validator's signing key and outputs

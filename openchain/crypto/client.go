@@ -17,11 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package client
+package crypto
 
 import (
-	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"sync"
 )
@@ -30,22 +28,18 @@ import (
 
 var (
 	// Map of initialized clients
-	clients = make(map[string]crypto.Client)
+	clients = make(map[string]Client)
 
 	// Sync
-	mutex sync.Mutex
+	clientMutex sync.Mutex
 )
-
-// Log
-
-var log = logging.MustGetLogger("CRYPTO.CLIENT")
 
 // Public Methods
 
 // Register registers a client to the PKI infrastructure
-func Register(name string, pwd []byte, enrollID, enrollPWD string) error {
-	mutex.Lock()
-	defer mutex.Unlock()
+func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
 
 	log.Info("Registering [%s] with id [%s]...", enrollID, name)
 
@@ -55,12 +49,12 @@ func Register(name string, pwd []byte, enrollID, enrollPWD string) error {
 	}
 
 	client := new(clientImpl)
-	if err := client.Register(name, pwd, enrollID, enrollPWD); err != nil {
+	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, name, err)
 
 		return err
 	}
-	err := client.Close()
+	err := client.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
 		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, name, err)
@@ -72,9 +66,9 @@ func Register(name string, pwd []byte, enrollID, enrollPWD string) error {
 }
 
 // Init initializes a client named name with password pwd
-func Init(name string, pwd []byte) (crypto.Client, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func InitClient(name string, pwd []byte) (Client, error) {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
 
 	log.Info("Initializing [%s]...", name)
 
@@ -85,7 +79,7 @@ func Init(name string, pwd []byte) (crypto.Client, error) {
 	}
 
 	client := new(clientImpl)
-	if err := client.Init(name, pwd); err != nil {
+	if err := client.init(name, pwd); err != nil {
 		log.Error("Failed initialization [%s]: %s", name, err)
 
 		return nil, err
@@ -98,23 +92,23 @@ func Init(name string, pwd []byte) (crypto.Client, error) {
 }
 
 // Close releases all the resources allocated by clients
-func Close(client crypto.Client) error {
-	mutex.Lock()
-	defer mutex.Unlock()
+func CloseClient(client Client) error {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
 
-	return closeInternal(client)
+	return closeClientInternal(client)
 }
 
 // CloseAll closes all the clients initialized so far
-func CloseAll() (bool, []error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func CloseAllClients() (bool, []error) {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
 
 	log.Info("Closing all clients...")
 
 	errs := make([]error, len(clients))
 	for _, value := range clients {
-		err := closeInternal(value)
+		err := closeClientInternal(value)
 
 		errs = append(errs, err)
 	}
@@ -126,7 +120,7 @@ func CloseAll() (bool, []error) {
 
 // Private Methods
 
-func closeInternal(client crypto.Client) error {
+func closeClientInternal(client Client) error {
 	id := client.GetName()
 	log.Info("Closing client [%s]...", id)
 	if _, ok := clients[id]; !ok {
@@ -134,7 +128,7 @@ func closeInternal(client crypto.Client) error {
 	}
 	defer delete(clients, id)
 
-	err := clients[id].(*clientImpl).Close()
+	err := clients[id].(*clientImpl).close()
 
 	log.Info("Closing client [%s]...done! [%s]", id, err)
 
