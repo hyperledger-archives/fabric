@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package validator
+package peer
 
 import (
 	"errors"
@@ -28,22 +28,22 @@ import (
 
 const (
 	// ConfigurationPath property for where configuration is stored
-	ConfigurationPath = "validator.crypto.path"
+	ConfigurationPath = "peer.crypto.path"
 
 	// ECAPAddress property for TCA public address
-	ECAPAddress = "validator.crypto.eca.paddr"
+	ECAPAddress = "peer.crypto.eca.paddr"
 
 	// TCAPAddress property for TCA public address
-	TCAPAddress = "validator.crypto.tca.paddr"
+	TCAPAddress = "peer.crypto.tca.paddr"
 )
 
-func (validator *validatorImpl) initConfiguration(id string) error {
+func (peer *peerImpl) initConfiguration(id string) error {
 	// Set logger
-	validator.log = logging.MustGetLogger("CRYPTO.VALIDATOR." + id)
+	peer.log = logging.MustGetLogger("CRYPTO.PEER." + id)
 
 	// Set configuration
-	validator.conf = &configuration{id: id}
-	return validator.conf.loadConfiguration()
+	peer.conf = &configuration{id: id}
+	return peer.conf.loadConfiguration()
 }
 
 type configuration struct {

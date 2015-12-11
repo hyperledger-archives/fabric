@@ -30,15 +30,18 @@ import (
 )
 
 const (
-	AES_KEY_LENGTH_BYTES = 32
+	//AESKeyLength is the keys length used for AES
+	AESKeyLength = 32
 )
 
+// PKCS7Padding pads as prescribed by the PKCS7 standard
 func PKCS7Padding(src []byte) []byte {
 	padding := aes.BlockSize - len(src)%aes.BlockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(src, padtext...)
 }
 
+// PKCS7UnPadding unpads as prescribed by the PKCS7 standard
 func PKCS7UnPadding(src []byte) ([]byte, error) {
 	length := len(src)
 	unpadding := int(src[length-1])
@@ -57,6 +60,7 @@ func PKCS7UnPadding(src []byte) ([]byte, error) {
 	return src[:(length - unpadding)], nil
 }
 
+// CBCEncrypt encrypts using CBC mode
 func CBCEncrypt(key, s []byte) ([]byte, error) {
 	// CBC mode works on blocks so plaintexts may need to be padded to the
 	// next whole block. For an example of such padding, see
@@ -88,6 +92,7 @@ func CBCEncrypt(key, s []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// CBCDecrypt decrypts using CBC mode
 func CBCDecrypt(key, src []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -123,10 +128,12 @@ func CBCDecrypt(key, src []byte) ([]byte, error) {
 	return src, nil
 }
 
+// CBCPKCS7Encrypt combines CBC encryption and PKCS7 padding
 func CBCPKCS7Encrypt(key, src []byte) ([]byte, error) {
 	return CBCEncrypt(key, PKCS7Padding(src))
 }
 
+// CBCPKCS7Decrypt combines CBC decryption and PKCS7 unpadding
 func CBCPKCS7Decrypt(key, src []byte) ([]byte, error) {
 	pt, err := CBCDecrypt(key, src)
 	if err != nil {

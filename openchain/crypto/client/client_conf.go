@@ -21,31 +21,50 @@ package client
 
 import (
 	"errors"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
 
 const (
+	// ConfigurationPath property for where configuration is stored
 	ConfigurationPath = "client.crypto.path"
-	ECAPAddress       = "client.crypto.eca.paddr"
-	TCAPAddress       = "client.crypto.tca.paddr"
+
+	// ECAPAddress property for TCA public address
+	ECAPAddress = "client.crypto.eca.paddr"
+
+	// TCAPAddress property for TCA public address
+	TCAPAddress = "client.crypto.tca.paddr"
 )
 
-func initConf() error {
+func (client *clientImpl) initConfiguration(id string) error {
+	// Set logger
+	client.log = logging.MustGetLogger("CRYPTO.CLIENT." + id)
+
+	// Set configuration
+	client.conf = &configuration{id: id}
+	return client.conf.loadConfiguration()
+}
+
+type configuration struct {
+	id string
+}
+
+func (conf *configuration) loadConfiguration() error {
 	// Check mandatory fields
-	if err := checkProperty(ConfigurationPath); err != nil {
+	if err := conf.checkProperty(ConfigurationPath); err != nil {
 		return err
 	}
-	if err := checkProperty(ECAPAddress); err != nil {
+	if err := conf.checkProperty(ECAPAddress); err != nil {
 		return err
 	}
-	if err := checkProperty(TCAPAddress); err != nil {
+	if err := conf.checkProperty(TCAPAddress); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkProperty(property string) error {
+func (conf *configuration) checkProperty(property string) error {
 	res := viper.GetString(property)
 	if res == "" {
 		return errors.New("Property not specified in configuration file. Please check that property is set: " + property)
@@ -53,70 +72,70 @@ func checkProperty(property string) error {
 	return nil
 }
 
-func getTCAPAddr() string {
+func (conf *configuration) getTCAPAddr() string {
 	return viper.GetString(TCAPAddress)
 }
 
-func getECAPAddr() string {
+func (conf *configuration) getECAPAddr() string {
 	return viper.GetString(ECAPAddress)
 }
 
-func getConfPath() string {
-	return viper.GetString(ConfigurationPath)
+func (conf *configuration) getConfPath() string {
+	return filepath.Join(viper.GetString(ConfigurationPath), conf.id)
 }
 
-func getDBPath() string {
-	return getConfPath()
+func (conf *configuration) getKeyStorePath() string {
+	return conf.getConfPath()
 }
 
-func getDBFilename() string {
-	return "client.db"
+func (conf *configuration) getKeyStoreFilename() string {
+	return "keystore"
 }
 
-func getDBFilePath() string {
-	return filepath.Join(getDBPath(), getDBFilename())
+func (conf *configuration) getKeyStoreFilePath() string {
+	return filepath.Join(conf.getKeyStorePath(), conf.getKeyStoreFilename())
 }
 
-func getKeysPath() string {
-	return getConfPath()
+func (conf *configuration) getKeysPath() string {
+	return conf.getConfPath()
 }
 
-func getEnrollmentKeyPath() string {
-	return filepath.Join(getKeysPath(), getEnrollmentKeyFilename())
+func (conf *configuration) getEnrollmentKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentKeyFilename())
 }
 
-func getEnrollmentKeyFilename() string {
+func (conf *configuration) getEnrollmentKeyFilename() string {
 	return "enrollment.key"
 }
 
-func getEnrollmentCertPath() string {
-	return filepath.Join(getKeysPath(), getEnrollmentCertFilename())
+func (conf *configuration) getEnrollmentCertPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentCertFilename())
 }
 
-func getEnrollmentCertFilename() string {
+func (conf *configuration) getEnrollmentCertFilename() string {
 	return "enrollment.cert"
 }
 
-func getEnrollmentIDPath() string {
-	return filepath.Join(getKeysPath(), getEnrollmentIDFilename())
+func (conf *configuration) getEnrollmentIDPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentIDFilename())
 }
 
-func getEnrollmentIDFilename() string {
+func (conf *configuration) getEnrollmentIDFilename() string {
 	return "enrollment.id"
 }
 
-func getTCACertsChainPath() string {
-	return filepath.Join(getKeysPath(), getTCACertsChainFilename())
+func (conf *configuration) getTCACertsChainPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getTCACertsChainFilename())
 }
 
-func getTCACertsChainFilename() string {
+func (conf *configuration) getTCACertsChainFilename() string {
 	return "tca.cert.chain"
 }
 
-func getECACertsChainPath() string {
-	return filepath.Join(getKeysPath(), getECACertsChainFilename())
+func (conf *configuration) getECACertsChainPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getECACertsChainFilename())
 }
 
-func getECACertsChainFilename() string {
+func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }

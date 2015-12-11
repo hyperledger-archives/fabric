@@ -24,18 +24,18 @@ import (
 	"math/big"
 )
 
-func (client *Client) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	log.Info("Signing message %s", utils.EncodeBase64(msg))
+func (client *clientImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
+	client.log.Info("Signing message %s", utils.EncodeBase64(msg))
 	return utils.ECDSASign(signKey, msg)
 }
 
-func (client *Client) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	log.Info("Signing message direct %s", utils.EncodeBase64(msg))
+func (client *clientImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
+	client.log.Info("Signing message direct %s", utils.EncodeBase64(msg))
 	return utils.ECDSASignDirect(client.enrollPrivKey, msg)
 }
 
-func (client *Client) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	log.Info("Verifing signature %s against message %s",
+func (client *clientImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
+	client.log.Info("Verifing signature %s against message %s",
 		utils.EncodeBase64(signature),
 		utils.EncodeBase64(msg),
 	)

@@ -9,7 +9,7 @@ eca:
         # location on file system
         path: .obcca
 
-        pport: 53051
+        pport: 52051
 
     users:
         user1: 9gvZQRwhUq9q
@@ -26,13 +26,13 @@ tca:
         # location on file system
         path: .obcca
 
-        pport: 53551
+        pport: 52551
 
 ports:
-        ecaP: ":53051"
-        ecaA: ":53052"
-        tcaP: ":53551"
-        tcaA: ":53552"
+        ecaP: ":52051"
+        ecaA: ":52052"
+        tcaP: ":52551"
+        tcaA: ":52552"
 
 defaults:
         certSetSize: 32
@@ -53,23 +53,23 @@ client:
         # eca settings
         eca:
 
-            paddr: localhost:53051
+            paddr: localhost:52051
 
         # tca settings
         tca:
 
-            paddr: localhost:53551
+            paddr: localhost:52551
 
         users:
 
-            user4:
+            user2:
 
-                enrollid: user4
+                enrollid: user2
                 enrollpw: 9gvZQRwhUq9q
 
-            user5:
+            user3:
 
-                enrollid: user5
+                enrollid: user3
                 enrollpw: 9gvZQRwhUq9q
 
 
@@ -78,26 +78,26 @@ client:
 #    Validator section
 #
 ###############################################################################
-validator:
+peer:
 
     # Validator's crypto settings
     crypto:
           # where to store data
-          path: .obc-validator
+          path: .obc-peer
 
           # eca settings
           eca:
 
-              paddr: localhost:53051
+              paddr: localhost:52051
 
           # tca settings
           tca:
 
-              paddr: localhost:53551
+              paddr: localhost:52551
 
           # enrollment (id,pw) (only for testing
           users:
 
-              validator:
-                  enrollid: validator
+              peer:
+                  enrollid: peer
                   enrollpw: 9gvZQRwhUq9q

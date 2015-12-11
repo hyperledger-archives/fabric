@@ -29,16 +29,19 @@ var (
 	newHash = sha3.New384
 )
 
+// NewHash returns a new hash function
 func NewHash() hash.Hash {
 	return newHash()
 }
 
+// Hash hashes the msh using the predefined hash function
 func Hash(msg []byte) []byte {
 	hash := NewHash()
 	hash.Write(msg)
 	return hash.Sum(nil)
 }
 
+// HMAC hmacs x using key key
 func HMAC(key, x []byte) []byte {
 	mac := hmac.New(newHash, key)
 	mac.Write(x)
@@ -46,6 +49,7 @@ func HMAC(key, x []byte) []byte {
 	return mac.Sum(nil)
 }
 
+// HMACTruncated hmacs x using key key and truncate to truncation
 func HMACTruncated(key, x []byte, truncation int) []byte {
 	mac := hmac.New(newHash, key)
 	mac.Write(x)
