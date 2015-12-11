@@ -23,10 +23,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-
-	"github.com/golang/protobuf/proto"
-
-	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type mockCPI struct {
@@ -59,7 +55,7 @@ func (mock *mockCPI) Execute(tx []byte) {
 
 type taggedMsg struct {
 	id  int
-	msg *pb.OpenchainMessage
+	msg []byte
 }
 
 type testnet struct {
@@ -73,10 +69,9 @@ type testnet struct {
 type instance struct {
 	address  string
 	id       int
-	cpi      *ObcPbft
 	plugin   *Plugin
 	net      *testnet
-	executed [][]*pb.Transaction
+	executed [][]byte
 }
 
 func (inst *instance) GetReplicaAddress(self bool) (addresses []string, err error) {
@@ -97,25 +92,26 @@ func (inst *instance) GetReplicaID(address string) (id uint64, err error) {
 	return uint64(0), err
 }
 
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
+func (inst *instance) Broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
-	net.msgs = append(net.msgs, taggedMsg{inst.id, msg})
+	net.msgs = append(net.msgs, taggedMsg{inst.id, payload})
 	net.cond.Signal()
 	net.cond.L.Unlock()
-	return nil
 }
 
 func (*instance) Unicast(msgPayload []byte, receiver string) error {
 	panic("not implemented yet")
 }
 
-func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	inst.executed = append(inst.executed, txs)
-	return []byte("hash"), nil
+func (inst *instance) Execute(payload []byte) {
+	inst.executed = append(inst.executed, payload)
 }
 
-func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) (msgs []taggedMsg) {
+func (inst *instance) ViewChange(bool) {
+}
+
+func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, []byte) []byte) (msgs []taggedMsg) {
 	msg := outMsg.msg
 	for _, f := range filterfns {
 		msg = f(true, outMsg.id, msg)
@@ -137,7 +133,7 @@ func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, *pb
 			}
 		}
 
-		if msg == nil || msg.Type != pb.OpenchainMessage_CONSENSUS {
+		if msg == nil {
 			continue
 		}
 
@@ -147,7 +143,7 @@ func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, *pb
 	return msgs
 }
 
-func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) error {
+func (net *testnet) process(filterfns ...func(bool, int, []byte) []byte) error {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
 
@@ -157,13 +153,8 @@ func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *
 
 		for _, taggedMsg := range msgs {
 			for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
-				msgMsg := &Message{}
-				err := proto.Unmarshal(msg.msg.Payload, msgMsg)
-				if err != nil {
-					continue
-				}
 				net.cond.L.Unlock()
-				net.replicas[msg.id].plugin.recvMsgSync(msgMsg)
+				net.replicas[msg.id].plugin.Receive(msg.msg)
 				net.cond.L.Lock()
 			}
 		}
@@ -172,7 +163,7 @@ func (net *testnet) process(filterfns ...func(bool, int, *pb.OpenchainMessage) *
 	return nil
 }
 
-func (net *testnet) processContinually(filterfns ...func(bool, int, *pb.OpenchainMessage) *pb.OpenchainMessage) {
+func (net *testnet) processContinually(filterfns ...func(bool, int, []byte) []byte) {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
 	for {
@@ -189,7 +180,7 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, *pb.Openchai
 			for _, taggedMsg := range msgs {
 				for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
 					net.cond.L.Unlock()
-					net.replicas[msg.id].cpi.RecvMsg(msg.msg)
+					net.replicas[msg.id].plugin.Receive(msg.msg)
 					net.cond.L.Lock()
 				}
 			}
@@ -206,9 +197,9 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 		net.replicas = append(net.replicas, inst)
 		net.addresses = append(net.addresses, inst.address)
 	}
-	for _, inst := range net.replicas {
-		inst.cpi = NewObcPbft(inst)
-		inst.plugin = inst.cpi.pbft
+	config := readConfig()
+	for i, inst := range net.replicas {
+		inst.plugin = NewPbft(uint64(i), config, inst)
 		inst.plugin.replicaCount = replicaCount
 		inst.plugin.f = f
 		for _, fn := range initFn {

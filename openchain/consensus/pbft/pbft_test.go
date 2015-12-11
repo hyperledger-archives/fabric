@@ -117,11 +117,7 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	msg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	err = net.replicas[0].cpi.RecvMsg(msg)
+	err = net.replicas[0].plugin.Request(txPacked)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -138,13 +134,13 @@ func TestNetwork(t *testing.T) {
 			t.Errorf("Instance %d did not execute transaction", inst.id)
 			continue
 		}
-		if len(inst.executed[0]) != 1 {
+		if len(inst.executed) != 1 {
 			t.Errorf("Instance %d executed more than one transaction", inst.id)
 			continue
 		}
-		if !reflect.DeepEqual(inst.executed[0][0], tx) {
+		if !reflect.DeepEqual(inst.executed[0], txPacked) {
 			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
-				inst.id, inst.executed[0], tx)
+				inst.id, inst.executed[0], txPacked)
 		}
 	}
 }
@@ -217,7 +213,7 @@ func TestLostPrePrepare(t *testing.T) {
 	// deliver pre-prepare to subset of replicas
 	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
 		msgReq := &Message{}
-		err := proto.Unmarshal(msg.msg.Payload, msgReq)
+		err := proto.Unmarshal(msg.msg, msgReq)
 		if err != nil {
 			t.Fatal("Could not unmarshal message")
 		}
@@ -420,7 +416,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	replica1Disabled := false
 
-	go net.processContinually(func(out bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
+	go net.processContinually(func(out bool, replica int, msg []byte) []byte {
 		if out && replica == 1 && replica1Disabled {
 			return nil
 		}
@@ -429,7 +425,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.replicas[1].cpi.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
+	net.replicas[1].plugin.Receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
@@ -440,7 +436,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// the replicas that never saw the request (e.g. 0)
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
-	net.replicas[3].cpi.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msgPacked})
+	net.replicas[3].plugin.Receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	net.Close()

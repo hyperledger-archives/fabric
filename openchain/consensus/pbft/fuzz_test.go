@@ -158,14 +158,14 @@ type protoFuzzer struct {
 	r        *rand.Rand
 }
 
-func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter *pb.OpenchainMessage) *pb.OpenchainMessage {
+func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter []byte) []byte {
 	if !outgoing || node != f.fuzzNode {
 		return msgOuter
 	}
 
 	// XXX only with some probability
 	msg := &Message{}
-	if proto.Unmarshal(msgOuter.Payload, msg) != nil {
+	if proto.Unmarshal(msgOuter, msg) != nil {
 		panic("could not unmarshal")
 	}
 
@@ -190,8 +190,8 @@ func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter *pb.Openchain
 		f.fuzzPayload(m)
 	}
 
-	msgOuter.Payload, _ = proto.Marshal(msg)
-	return msgOuter
+	newMsg, _ := proto.Marshal(msg)
+	return newMsg
 }
 
 func (f *protoFuzzer) fuzzPayload(s interface{}) {
