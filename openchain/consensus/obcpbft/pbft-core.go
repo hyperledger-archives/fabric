@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	"encoding/base64"
@@ -25,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/util"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
@@ -39,25 +39,25 @@ import (
 var logger *logging.Logger // package-level logger
 
 func init() {
-	logger = logging.MustGetLogger("consensus/pbft")
+	logger = logging.MustGetLogger("consensus/obcpbft")
 }
 
 // =============================================================================
 // Custom structure definitions go here
 // =============================================================================
 
-type InnerCPI interface {
-	Broadcast(req []byte)
-	Execute(req []byte)
-	ViewChange(nowPrimary bool)
+type innerCPI interface {
+	broadcast(req []byte)
+	execute(req []byte)
+	viewChange(nowPrimary bool)
 }
 
 // Plugin carries fields related to the consensus algorithm implementation.
-type Plugin struct {
+type plugin struct {
 	// internal data
 	lock     sync.Mutex
 	closed   bool
-	consumer InnerCPI
+	consumer innerCPI
 
 	// PBFT data
 	activeView   bool              // view change happening
@@ -117,18 +117,17 @@ type vcidx struct {
 // Constructors go here
 // =============================================================================
 
-// New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
-	instance := &Plugin{}
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *plugin {
+	instance := &plugin{}
 	instance.id = id
 	instance.consumer = consumer
 
-	// In dev/debugging mode you are expected to override the config values
-	// with the environment variable OPENCHAIN_PBFT_X_Y
+	// in dev/debugging mode you are expected to override the config values
+	// with the environment variable OPENCHAIN_OBCPBFT_X_Y
 
 	// read from the config file
-	// you can override the config values with the
-	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
+	// you can override the config values with the environment variable prefix
+	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
 	var err error
 	instance.byzantine = config.GetBool("replica.byzantine")
 	instance.f = config.GetInt("general.f")
@@ -168,21 +167,21 @@ func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
 
 	go instance.timerHander()
 
-	instance.consumer.ViewChange(instance.getPrimary(instance.view) == instance.id)
+	instance.consumer.viewChange(instance.getPrimary(instance.view) == instance.id)
 
 	return instance
 }
 
-// Close tears down resources opened by `New`.
-func (instance *Plugin) Close() {
+// Close tears down resources opened by newPbftCore
+func (instance *plugin) close() {
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
 	instance.closed = true
 	instance.newViewTimer.Reset(0)
 }
 
-// Request handles new consensus requests.
-func (instance *Plugin) Request(payload []byte) error {
+// Request handles new consensus requests
+func (instance *plugin) request(payload []byte) error {
 	msg := &Message{&Message_Request{&Request{Payload: payload}}}
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
@@ -191,9 +190,8 @@ func (instance *Plugin) Request(payload []byte) error {
 	return nil
 }
 
-// Receive handles internal consensus messages.  Consensus messages
-// are serialized via instance.c and msgPump().
-func (instance *Plugin) Receive(payload []byte) error {
+// Receive handles internal consensus messages
+func (instance *plugin) receive(payload []byte) error {
 	msg := &Message{}
 	err := proto.Unmarshal(payload, msg)
 	if err != nil {
@@ -206,9 +204,8 @@ func (instance *Plugin) Receive(payload []byte) error {
 	return nil
 }
 
-// msgPump takes messages queued by `RecvMsg`, and provides a
-// sequential context to process those messages.
-func (instance *Plugin) timerHander() {
+// timerHander allows the view-change protocol to kick-off when the timer expires
+func (instance *plugin) timerHander() {
 	for {
 		select {
 		case <-instance.newViewTimer.C:
@@ -229,23 +226,23 @@ func (instance *Plugin) timerHander() {
 // =============================================================================
 
 // Given a certain view n, what is the expected primary?
-func (instance *Plugin) getPrimary(n uint64) uint64 {
+func (instance *plugin) getPrimary(n uint64) uint64 {
 	return n % uint64(instance.replicaCount)
 }
 
 // Is the sequence number between watermarks?
-func (instance *Plugin) inW(n uint64) bool {
+func (instance *plugin) inW(n uint64) bool {
 	return n-instance.h > 0 && n-instance.h <= instance.L
 }
 
 // Is the view right? And is the sequence number between watermarks?
-func (instance *Plugin) inWV(v uint64, n uint64) bool {
+func (instance *plugin) inWV(v uint64, n uint64) bool {
 	return instance.view == v && instance.inW(n)
 }
 
 // Given a digest/view/seq, is there an entry in the certLog?
 // If so, return it. If not, create it.
-func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
+func (instance *plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
 	cert, ok := instance.certStore[idx]
 	if ok {
@@ -261,7 +258,7 @@ func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 // Preprepare/prepare/commit quorum checks
 // =============================================================================
 
-func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
+func (instance *plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
 	if digest != "" && !mInLog {
@@ -284,7 +281,7 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	return false
 }
 
-func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
+func (instance *plugin) prepared(digest string, v uint64, n uint64) bool {
 	if !instance.prePrepared(digest, v, n) {
 		return false
 	}
@@ -311,7 +308,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f
 }
 
-func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
+func (instance *plugin) committed(digest string, v uint64, n uint64) bool {
 	if !instance.prepared(digest, v, n) {
 		return false
 	}
@@ -339,7 +336,7 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 // =============================================================================
 
 // recvMsgSync processes messages in the synchronous context of msgPump().
-func (instance *Plugin) recvMsgSync(msg *Message) (err error) {
+func (instance *plugin) recvMsgSync(msg *Message) (err error) {
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -362,7 +359,7 @@ func (instance *Plugin) recvMsgSync(msg *Message) (err error) {
 	return err
 }
 
-func (instance *Plugin) recvRequest(req *Request) error {
+func (instance *plugin) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
@@ -407,7 +404,7 @@ func (instance *Plugin) recvRequest(req *Request) error {
 	return nil
 }
 
-func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
+func (instance *plugin) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
@@ -473,7 +470,7 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 	return nil
 }
 
-func (instance *Plugin) recvPrepare(prep *Prepare) error {
+func (instance *plugin) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
@@ -504,7 +501,7 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 	return nil
 }
 
-func (instance *Plugin) recvCommit(commit *Commit) error {
+func (instance *plugin) recvCommit(commit *Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View,
 		commit.SequenceNumber)
@@ -524,7 +521,7 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *Plugin) executeOutstanding() error {
+func (instance *plugin) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -539,7 +536,7 @@ func (instance *Plugin) executeOutstanding() error {
 	return nil
 }
 
-func (instance *Plugin) executeOne(idx msgID) bool {
+func (instance *plugin) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -567,7 +564,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		instance.consumer.Execute(req.Payload)
+		instance.consumer.execute(req.Payload)
 		delete(instance.outstandingReqs, digest)
 	}
 
@@ -597,7 +594,7 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 	return true
 }
 
-func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
+func (instance *plugin) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
@@ -682,12 +679,12 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 // Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
-func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
-	msgPacked, err := proto.Marshal(msg)
+func (instance *plugin) broadcast(msg *Message, toSelf bool) error {
+	msgRaw, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
 	}
-	instance.consumer.Broadcast(msgPacked)
+	instance.consumer.broadcast(msgRaw)
 
 	// We call ourselves synchronously, so that testing can run
 	// synchronous.
@@ -697,12 +694,12 @@ func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
 	return nil
 }
 
-func (instance *Plugin) startTimer(timeout time.Duration) {
+func (instance *plugin) startTimer(timeout time.Duration) {
 	instance.newViewTimer.Reset(timeout)
 	instance.timerActive = true
 }
 
-func (instance *Plugin) stopTimer() {
+func (instance *plugin) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
 	instance.timerActive = false
@@ -720,6 +717,6 @@ loop:
 }
 
 func hashReq(req *Request) (digest string) {
-	packedReq, _ := proto.Marshal(req)
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
+	reqRaw, _ := proto.Marshal(req)
+	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(reqRaw))
 }

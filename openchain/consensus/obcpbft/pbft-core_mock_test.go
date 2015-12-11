@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ type mockCPI struct {
 	executed    [][]byte
 }
 
-func NewMock() *mockCPI {
+func newMock() *mockCPI {
 	mock := &mockCPI{
 		make([][]byte, 0),
 		make([][]byte, 0),
@@ -38,14 +38,14 @@ func NewMock() *mockCPI {
 	return mock
 }
 
-func (mock *mockCPI) ViewChange(nowPrimary bool) {
+func (mock *mockCPI) viewChange(nowPrimary bool) {
 }
 
-func (mock *mockCPI) Broadcast(msg []byte) {
+func (mock *mockCPI) broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
 
-func (mock *mockCPI) Execute(tx []byte) {
+func (mock *mockCPI) execute(tx []byte) {
 	mock.executed = append(mock.executed, tx)
 }
 
@@ -69,7 +69,7 @@ type testnet struct {
 type instance struct {
 	address  string
 	id       int
-	plugin   *Plugin
+	plugin   *plugin
 	net      *testnet
 	executed [][]byte
 }
@@ -92,7 +92,7 @@ func (inst *instance) GetReplicaID(address string) (id uint64, err error) {
 	return uint64(0), err
 }
 
-func (inst *instance) Broadcast(payload []byte) {
+func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
 	net.msgs = append(net.msgs, taggedMsg{inst.id, payload})
@@ -104,11 +104,12 @@ func (*instance) Unicast(msgPayload []byte, receiver string) error {
 	panic("not implemented yet")
 }
 
-func (inst *instance) Execute(payload []byte) {
+func (inst *instance) execute(payload []byte) {
 	inst.executed = append(inst.executed, payload)
 }
 
-func (inst *instance) ViewChange(bool) {
+func (inst *instance) viewChange(bool) {
+	//
 }
 
 func (net *testnet) filterMsg(outMsg taggedMsg, filterfns ...func(bool, int, []byte) []byte) (msgs []taggedMsg) {
@@ -154,7 +155,7 @@ func (net *testnet) process(filterfns ...func(bool, int, []byte) []byte) error {
 		for _, taggedMsg := range msgs {
 			for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
 				net.cond.L.Unlock()
-				net.replicas[msg.id].plugin.Receive(msg.msg)
+				net.replicas[msg.id].plugin.receive(msg.msg)
 				net.cond.L.Lock()
 			}
 		}
@@ -180,7 +181,7 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, []byte) []by
 			for _, taggedMsg := range msgs {
 				for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
 					net.cond.L.Unlock()
-					net.replicas[msg.id].plugin.Receive(msg.msg)
+					net.replicas[msg.id].plugin.receive(msg.msg)
 					net.cond.L.Lock()
 				}
 			}
@@ -188,7 +189,7 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, []byte) []by
 	}
 }
 
-func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
+func makeTestnet(f int, initFn ...func(*plugin)) *testnet {
 	replicaCount := 3*f + 1
 	net := &testnet{}
 	net.cond = sync.NewCond(&sync.Mutex{})
@@ -199,7 +200,7 @@ func makeTestnet(f int, initFn ...func(*Plugin)) *testnet {
 	}
 	config := readConfig()
 	for i, inst := range net.replicas {
-		inst.plugin = NewPbft(uint64(i), config, inst)
+		inst.plugin = newPbftCore(uint64(i), config, inst)
 		inst.plugin.replicaCount = replicaCount
 		inst.plugin.f = f
 		for _, fn := range initFn {
@@ -215,7 +216,7 @@ func (net *testnet) Close() {
 		return
 	}
 	for _, inst := range net.replicas {
-		inst.plugin.Close()
+		inst.plugin.close()
 	}
 	net.cond.L.Lock()
 	net.closed = true

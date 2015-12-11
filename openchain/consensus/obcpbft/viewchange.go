@@ -17,11 +17,11 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import "reflect"
 
-func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
+func (instance *plugin) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
 			logger.Debug("invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
@@ -42,7 +42,7 @@ func (instance *Plugin) correctViewChange(vc *ViewChange) bool {
 	return true
 }
 
-func (instance *Plugin) sendViewChange() error {
+func (instance *plugin) sendViewChange() error {
 	instance.stopTimer()
 
 	delete(instance.newViewStore, instance.view)
@@ -144,7 +144,7 @@ func (instance *Plugin) sendViewChange() error {
 	return instance.broadcast(&Message{&Message_ViewChange{vc}}, true)
 }
 
-func (instance *Plugin) recvViewChange(vc *ViewChange) error {
+func (instance *plugin) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -203,7 +203,7 @@ func (instance *Plugin) recvViewChange(vc *ViewChange) error {
 	return instance.processNewView()
 }
 
-func (instance *Plugin) sendNewView() (err error) {
+func (instance *plugin) sendNewView() (err error) {
 	if _, ok := instance.newViewStore[instance.view]; ok {
 		return
 	}
@@ -238,7 +238,7 @@ func (instance *Plugin) sendNewView() (err error) {
 	return instance.processNewView()
 }
 
-func (instance *Plugin) recvNewView(nv *NewView) error {
+func (instance *plugin) recvNewView(nv *NewView) error {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
@@ -259,7 +259,7 @@ func (instance *Plugin) recvNewView(nv *NewView) error {
 	return instance.processNewView()
 }
 
-func (instance *Plugin) processNewView() error {
+func (instance *plugin) processNewView() error {
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
@@ -364,12 +364,12 @@ func (instance *Plugin) processNewView() error {
 		}
 	}
 
-	instance.consumer.ViewChange(instance.getPrimary(instance.view) == instance.id)
+	instance.consumer.viewChange(instance.getPrimary(instance.view) == instance.id)
 
 	return nil
 }
 
-func (instance *Plugin) getViewChanges() (vset []*ViewChange) {
+func (instance *plugin) getViewChanges() (vset []*ViewChange) {
 	for _, vc := range instance.viewChangeStore {
 		vset = append(vset, vc)
 	}
@@ -377,7 +377,7 @@ func (instance *Plugin) getViewChanges() (vset []*ViewChange) {
 	return
 }
 
-func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
+func (instance *plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
 	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
@@ -421,7 +421,7 @@ func (instance *Plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 	return
 }
 
-func (instance *Plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
+func (instance *plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
 	maxN := h

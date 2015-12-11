@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	"fmt"
@@ -28,60 +28,60 @@ import (
 )
 
 type signable interface {
-	GetSignature() []byte
-	SetSignature(s []byte)
-	GetId() []byte
-	SetId(id []byte)
-	Serialize() ([]byte, error)
+	getSignature() []byte
+	setSignature(s []byte)
+	getID() []byte
+	setID(id []byte)
+	serialize() ([]byte, error)
 }
 
-func (instance *Plugin) sign(s signable) error {
-	s.SetSignature(nil)
-	// s.SetId(instance.cpi.GetId())
+func (instance *plugin) sign(s signable) error {
+	s.setSignature(nil)
+	// s.setId(instance.cpi.GetId())
 	id := []byte("XXX ID")
-	s.SetId(id)
-	raw, err := s.Serialize()
+	s.setID(id)
+	raw, err := s.serialize()
 	if err != nil {
 		return err
 	}
-	// s.SetSignature(instance.cpi.Sign(raw))
-	s.SetSignature(util.ComputeCryptoHash(append(id, raw...)))
+	// s.setSignature(instance.cpi.Sign(raw))
+	s.setSignature(util.ComputeCryptoHash(append(id, raw...)))
 	return nil
 }
 
-func (instance *Plugin) verify(s signable) error {
-	origsig := s.GetSignature()
-	s.SetSignature(nil)
-	raw, err := s.Serialize()
-	s.SetSignature(origsig)
+func (instance *plugin) verify(s signable) error {
+	origSig := s.getSignature()
+	s.setSignature(nil)
+	raw, err := s.serialize()
+	s.setSignature(origSig)
 	if err != nil {
 		return err
 	}
-	id := s.GetId()
+	id := s.getID()
 	// XXX check that s.Id() is a valid replica
-	// instance.cpi.Verify(s.Id(), origsig, raw)
-	if !reflect.DeepEqual(util.ComputeCryptoHash(append(id, raw...)), origsig) {
+	// instance.cpi.Verify(s.Id(), origSig, raw)
+	if !reflect.DeepEqual(util.ComputeCryptoHash(append(id, raw...)), origSig) {
 		return fmt.Errorf("invalid signature")
 	}
 	return nil
 }
 
-func (vc *ViewChange) GetSignature() []byte {
+func (vc *ViewChange) getSignature() []byte {
 	return vc.Signature
 }
 
-func (vc *ViewChange) SetSignature(sig []byte) {
+func (vc *ViewChange) setSignature(sig []byte) {
 	vc.Signature = sig
 }
 
-func (vc *ViewChange) GetId() []byte {
+func (vc *ViewChange) getID() []byte {
 	return []byte("XXX ID")
 }
 
-func (vc *ViewChange) SetId(id []byte) {
+func (vc *ViewChange) setID(id []byte) {
 	// XXX set id
 }
 
-func (vc *ViewChange) Serialize() ([]byte, error) {
+func (vc *ViewChange) serialize() ([]byte, error) {
 	return proto.Marshal(vc)
 }

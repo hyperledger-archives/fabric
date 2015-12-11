@@ -19,33 +19,15 @@ under the License.
 
 package consensus
 
-import (
-	pb "github.com/openblockchain/obc-peer/protos"
+import pb "github.com/openblockchain/obc-peer/protos"
 
-	"github.com/op/go-logging"
-)
-
-// =============================================================================
-// Init
-// =============================================================================
-
-var logger *logging.Logger // package-level logger
-
-func init() {
-	logger = logging.MustGetLogger("consensus")
-}
-
-// =============================================================================
-// Interface definitions go here
-// =============================================================================
-
-// Consenter is implemented by every consensus algorithm implementation (plugin).
+// Consenter is implemented by every consensus plugin package
 type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-// CPI stands for Consensus Programming Interface.
-// It is the set of stack-facing methods available to the plugin.
+// CPI (Consensus Programming Interface) is the set of
+// stack-facing methods available to the consensus plugin
 type CPI interface {
 	GetReplicaAddress(self bool) (addresses []string, err error)
 	GetReplicaID(address string) (id uint64, err error)

@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	gp "google/protobuf"
@@ -34,9 +34,9 @@ import (
 func TestEnvOverride(t *testing.T) {
 	config := readConfig()
 
-	key := "general.name"                    // for a key that exists
-	envName := "OPENCHAIN_PBFT_GENERAL_NAME" // env override name
-	overrideValue := "overide_test"          // value to override default value with
+	key := "general.name"                       // for a key that exists
+	envName := "OPENCHAIN_OBCPBFT_GENERAL_NAME" // env override name
+	overrideValue := "overide_test"             // value to override default value with
 
 	// test key
 	if ok := config.IsSet("general.name"); !ok {
@@ -62,9 +62,9 @@ func TestEnvOverride(t *testing.T) {
 }
 
 func TestMaliciousPrePrepare(t *testing.T) {
-	mock := NewMock()
-	instance := NewPbft(1, readConfig(), mock)
-	defer instance.Close()
+	mock := newMock()
+	instance := newPbftCore(1, readConfig(), mock)
+	defer instance.close()
 	instance.replicaCount = 5
 
 	digest1 := "hi there"
@@ -88,9 +88,9 @@ func TestMaliciousPrePrepare(t *testing.T) {
 }
 
 func TestIncompletePayload(t *testing.T) {
-	mock := NewMock()
-	instance := NewPbft(1, readConfig(), mock)
-	defer instance.Close()
+	mock := newMock()
+	instance := newPbftCore(1, readConfig(), mock)
+	defer instance.close()
 	instance.replicaCount = 5
 
 	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
@@ -117,7 +117,7 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = net.replicas[0].plugin.Request(txPacked)
+	err = net.replicas[0].plugin.request(txPacked)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -146,7 +146,7 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(1, func(inst *Plugin) {
+	net := makeTestnet(1, func(inst *plugin) {
 		inst.K = 2
 	})
 	defer net.Close()
@@ -284,7 +284,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1, func(inst *Plugin) {
+	net := makeTestnet(1, func(inst *plugin) {
 		inst.K = 2
 		inst.L = inst.K * 2
 	})
@@ -401,7 +401,7 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(1, func(inst *Plugin) {
+	net := makeTestnet(1, func(inst *plugin) {
 		inst.newViewTimeout = 100 * time.Millisecond
 		inst.requestTimeout = inst.newViewTimeout
 		inst.lastNewViewTimeout = inst.newViewTimeout
@@ -425,7 +425,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.replicas[1].plugin.Receive(msgPacked)
+	net.replicas[1].plugin.receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
@@ -436,7 +436,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// the replicas that never saw the request (e.g. 0)
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
-	net.replicas[3].plugin.Receive(msgPacked)
+	net.replicas[3].plugin.receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	net.Close()

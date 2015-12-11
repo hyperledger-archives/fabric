@@ -3,7 +3,7 @@
 // DO NOT EDIT!
 
 /*
-Package pbft is a generated protocol buffer package.
+Package obcpbft is a generated protocol buffer package.
 
 It is generated from these files:
 	messages.proto
@@ -18,7 +18,7 @@ It has these top-level messages:
 	ViewChange
 	NewView
 */
-package pbft
+package obcpbft
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
@@ -382,8 +382,8 @@ func (*ViewChange_PQ) ProtoMessage()    {}
 
 type NewView struct {
 	View      uint64            `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
-	Vset      []*ViewChange     `protobuf:"bytes,2,rep,name=Vset" json:"Vset,omitempty"`
-	Xset      map[uint64]string `protobuf:"bytes,3,rep,name=Xset" json:"Xset,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Vset      []*ViewChange     `protobuf:"bytes,2,rep,name=vset" json:"vset,omitempty"`
+	Xset      map[uint64]string `protobuf:"bytes,3,rep,name=xset" json:"xset,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ReplicaId uint64            `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
 }
 

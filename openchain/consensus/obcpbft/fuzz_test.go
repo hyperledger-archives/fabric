@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	gp "google/protobuf"
@@ -30,6 +30,7 @@ import (
 	"github.com/op/go-logging"
 
 	"fmt"
+
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -40,10 +41,10 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	primary := NewPbft(0, readConfig(), NewMock())
-	defer primary.Close()
-	backup := NewPbft(1, readConfig(), NewMock())
-	defer backup.Close()
+	primary := newPbftCore(0, readConfig(), newMock())
+	defer primary.close()
+	backup := newPbftCore(1, readConfig(), newMock())
+	defer backup.close()
 
 	f := fuzz.New()
 

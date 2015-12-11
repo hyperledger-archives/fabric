@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	"fmt"
@@ -29,70 +29,75 @@ import (
 	"github.com/spf13/viper"
 )
 
-type ObcSieve struct {
-	cpi  consensus.CPI // link to the CPI
-	pbft *Plugin
+type obcSieve struct {
+	cpi  consensus.CPI
+	pbft *plugin
 }
 
-func NewObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *ObcSieve {
-	op := &ObcSieve{cpi: cpi}
-	op.pbft = NewPbft(id, config, op)
+func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
+	op := &obcSieve{cpi: cpi}
+	op.pbft = newPbftCore(id, config, op)
 	return op
 }
 
 // Close tears down all resources
-func (op *ObcSieve) Close() {
-	op.pbft.Close()
+func (op *obcSieve) close() {
+	op.pbft.close()
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
-// the stack.  New transaction requests are broadcast to all replicas,
+// the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *ObcSieve) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 		// TODO verify transaction
 		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
 		//   logger.Warning("Invalid request");
 		//   return err
 		// }
-		op.pbft.Request(msgWrapped.Payload)
-		req := &Request{Payload: msgWrapped.Payload}
+
+		op.pbft.request(ocMsg.Payload)
+
+		req := &Request{Payload: ocMsg.Payload}
 		msg := &Message{&Message_Request{req}}
 		msgRaw, _ := proto.Marshal(msg)
-		op.Broadcast(msgRaw)
+		op.broadcast(msgRaw)
+
 		return nil
 	}
-	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
+
+	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
+		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
 	pbftMsg := &Message{}
-	err := proto.Unmarshal(msgWrapped.Payload, pbftMsg)
+	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
 	if err != nil {
 		return err
 	}
 	if req := pbftMsg.GetRequest(); req != nil {
-		op.pbft.Request(req.Payload)
+		op.pbft.request(req.Payload)
 	} else {
-		op.pbft.Receive(msgWrapped.Payload)
+		op.pbft.receive(ocMsg.Payload)
 	}
 	return nil
 }
 
-// ViewChange is called by the inner pbft to signal whether there was
-// a view change, and whether the local replica is now a primary.
-func (op *ObcSieve) ViewChange(nowPrimary bool) {
+// ViewChange is called by pbft-core to signal whether there was
+// a view change, and whether the local replica is now a primary
+func (op *obcSieve) viewChange(nowPrimary bool) {
 }
 
-// Execute is called by the inner pbft to execute an opaque request,
-// which corresponds to a OBC Transaction.
-func (op *ObcSieve) Execute(txRaw []byte) {
+// Execute is called by pbft-core to execute an opaque request,
+// which corresponds to an OBC Transaction
+func (op *obcSieve) execute(txRaw []byte) {
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
 		return
 	}
+
 	// TODO verify transaction
 	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
 	//   logger.Error("Invalid request");
@@ -100,15 +105,15 @@ func (op *ObcSieve) Execute(txRaw []byte) {
 	// ...
 	// }
 	// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
+
 	op.cpi.ExecTXs([]*pb.Transaction{tx})
 }
 
-// Broadcast is called by the inner pbft to multicast a message to all
-// replicas.
-func (op *ObcSieve) Broadcast(msg []byte) {
+// Broadcast is called by pbft-core to multicast a message to all replicas
+func (op *obcSieve) broadcast(payload []byte) {
 	ocMsg := &pb.OpenchainMessage{
 		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msg,
+		Payload: payload,
 	}
 	op.cpi.Broadcast(ocMsg)
 }

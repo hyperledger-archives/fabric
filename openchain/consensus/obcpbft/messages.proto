@@ -21,7 +21,7 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-package pbft;
+package obcpbft;
 
 /*
  * mapping to PBFT paper names
@@ -104,7 +104,7 @@ message view_change {
 
 message new_view {
     uint64 view = 1;
-    repeated view_change Vset = 2;
-    map<uint64, string> Xset = 3;
+    repeated view_change vset = 2;
+    map<uint64, string> xset = 3;
     uint64 replica_id = 4;
 }
