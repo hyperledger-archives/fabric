@@ -364,6 +364,8 @@ func (instance *Plugin) processNewView() error {
 		}
 	}
 
+	instance.consumer.ViewChange(instance.getPrimary(instance.view) == instance.id)
+
 	return nil
 }
 

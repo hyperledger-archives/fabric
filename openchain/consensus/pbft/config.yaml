@@ -12,6 +12,9 @@ general:
     # Algorithm/plugin name goes here. Set it to the package name.
     name: pbft
 
+    # Operational mode: classic or sieve
+    mode: classic
+
     # How many Byzantine nodes can we tolerate?
     f: 1
 

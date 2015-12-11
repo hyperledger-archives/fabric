@@ -21,7 +21,6 @@ package pbft
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -30,75 +29,26 @@ import (
 	"github.com/spf13/viper"
 )
 
-const configPrefix = "OPENCHAIN_PBFT"
-
-type ObcPbft struct {
+type ObcSieve struct {
 	cpi  consensus.CPI // link to the CPI
 	pbft *Plugin
 }
 
-var pluginInstance consensus.Consenter // Singleton service
-
-// GetPlugin returns the handle to the Plugin singleton and updates
-// the CPI if necessary.
-func GetPlugin(c consensus.CPI) consensus.Consenter {
-	if pluginInstance == nil {
-		pluginInstance = New(c)
-	}
-	return pluginInstance
-}
-
-// NewObcPbft creates a new PBFT instance that provides the OBC
-// Consenter interface.  Internally, it uses an opaque `Pbft`
-func New(cpi consensus.CPI) consensus.Consenter {
-	config := readConfig()
-	address, _ := cpi.GetReplicaAddress(true)
-	id, _ := cpi.GetReplicaID(address[0])
-
-	switch config.GetString("general.mode") {
-	case "classic":
-		return NewObcPbft(id, config, cpi)
-	case "sieve":
-		return NewObcSieve(id, config, cpi)
-	default:
-		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("general.mode")))
-	}
-}
-
-func NewObcPbft(id uint64, config *viper.Viper, cpi consensus.CPI) *ObcPbft {
-	op := &ObcPbft{cpi: cpi}
+func NewObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *ObcSieve {
+	op := &ObcSieve{cpi: cpi}
 	op.pbft = NewPbft(id, config, op)
 	return op
 }
 
-func readConfig() (config *viper.Viper) {
-	config = viper.New()
-
-	// for environment variables
-	config.SetEnvPrefix(configPrefix)
-	config.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	config.SetEnvKeyReplacer(replacer)
-
-	config.SetConfigName("config")
-	config.AddConfigPath("./")
-	config.AddConfigPath("./openchain/consensus/pbft/")
-	err := config.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
-	}
-	return
-}
-
 // Close tears down all resources
-func (op *ObcPbft) Close() {
+func (op *ObcSieve) Close() {
 	op.pbft.Close()
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack.  New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *ObcPbft) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
+func (op *ObcSieve) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 		// TODO verify transaction
@@ -132,12 +82,12 @@ func (op *ObcPbft) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 
 // ViewChange is called by the inner pbft to signal whether there was
 // a view change, and whether the local replica is now a primary.
-func (op *ObcPbft) ViewChange(nowPrimary bool) {
+func (op *ObcSieve) ViewChange(nowPrimary bool) {
 }
 
 // Execute is called by the inner pbft to execute an opaque request,
 // which corresponds to a OBC Transaction.
-func (op *ObcPbft) Execute(txRaw []byte) {
+func (op *ObcSieve) Execute(txRaw []byte) {
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
@@ -155,7 +105,7 @@ func (op *ObcPbft) Execute(txRaw []byte) {
 
 // Broadcast is called by the inner pbft to multicast a message to all
 // replicas.
-func (op *ObcPbft) Broadcast(msg []byte) {
+func (op *ObcSieve) Broadcast(msg []byte) {
 	ocMsg := &pb.OpenchainMessage{
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msg,

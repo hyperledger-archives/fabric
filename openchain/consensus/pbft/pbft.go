@@ -22,7 +22,7 @@ package pbft
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -31,12 +31,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const configPrefix = "OPENCHAIN_PBFT"
 
 // =============================================================================
 // Init
@@ -55,13 +49,14 @@ func init() {
 type InnerCPI interface {
 	Broadcast(req []byte)
 	Execute(req []byte)
+	ViewChange(nowPrimary bool)
 }
 
 // Plugin carries fields related to the consensus algorithm implementation.
 type Plugin struct {
 	// internal data
-	config   *viper.Viper  // link to the plugin config file
-	c        chan *Message // serialization of incoming messages
+	lock     sync.Mutex
+	closed   bool
 	consumer InnerCPI
 
 	// PBFT data
@@ -123,27 +118,10 @@ type vcidx struct {
 // =============================================================================
 
 // New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func NewPbft(id uint64, consumer InnerCPI) *Plugin {
+func NewPbft(id uint64, config *viper.Viper, consumer InnerCPI) *Plugin {
 	instance := &Plugin{}
 	instance.id = id
 	instance.consumer = consumer
-
-	// setup the link to the config file
-	instance.config = viper.New()
-
-	// for environment variables
-	instance.config.SetEnvPrefix(configPrefix)
-	instance.config.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	instance.config.SetEnvKeyReplacer(replacer)
-
-	instance.config.SetConfigName("config")
-	instance.config.AddConfigPath("./")
-	instance.config.AddConfigPath("./openchain/consensus/pbft/")
-	err := instance.config.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
-	}
 
 	// In dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_PBFT_X_Y
@@ -151,14 +129,15 @@ func NewPbft(id uint64, consumer InnerCPI) *Plugin {
 	// read from the config file
 	// you can override the config values with the
 	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_BYZANTINE
-	instance.byzantine = instance.config.GetBool("replica.byzantine")
-	instance.f = instance.config.GetInt("general.f")
-	instance.K = uint64(instance.config.GetInt("general.K"))
-	instance.requestTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.request"))
+	var err error
+	instance.byzantine = config.GetBool("replica.byzantine")
+	instance.f = config.GetInt("general.f")
+	instance.K = uint64(config.GetInt("general.K"))
+	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
 	}
-	instance.newViewTimeout, err = time.ParseDuration(instance.config.GetString("general.timeout.viewchange"))
+	instance.newViewTimeout, err = time.ParseDuration(config.GetString("general.timeout.viewchange"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
 	}
@@ -187,22 +166,27 @@ func NewPbft(id uint64, consumer InnerCPI) *Plugin {
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 
-	// to control concurrency in arriving messages
-	instance.c = make(chan *Message, 100)
-	go instance.msgPump()
+	go instance.timerHander()
+
+	instance.consumer.ViewChange(instance.getPrimary(instance.view) == instance.id)
 
 	return instance
 }
 
 // Close tears down resources opened by `New`.
 func (instance *Plugin) Close() {
-	close(instance.c)
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.closed = true
+	instance.newViewTimer.Reset(0)
 }
 
 // Request handles new consensus requests.
 func (instance *Plugin) Request(payload []byte) error {
 	msg := &Message{&Message_Request{&Request{Payload: payload}}}
-	instance.c <- msg
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
 	return nil
 }
@@ -215,24 +199,27 @@ func (instance *Plugin) Receive(payload []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
-	instance.c <- msg
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
 	return nil
 }
 
 // msgPump takes messages queued by `RecvMsg`, and provides a
 // sequential context to process those messages.
-func (instance *Plugin) msgPump() {
+func (instance *Plugin) timerHander() {
 	for {
 		select {
-		case msg, ok := <-instance.c:
-			if !ok {
+		case <-instance.newViewTimer.C:
+			instance.lock.Lock()
+			if instance.closed {
+				instance.lock.Unlock()
 				return
 			}
-			_ = instance.recvMsgSync(msg)
-		case <-instance.newViewTimer.C:
 			logger.Info("Replica %d view change timeout expired", instance.id)
 			instance.sendViewChange()
+			instance.lock.Unlock()
 		}
 	}
 }
@@ -696,15 +683,17 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // Marshals a Message and hands it to the CPI. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsg.
 func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
-	if toSelf {
-		instance.c <- msg
-	}
-
 	msgPacked, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
 	}
 	instance.consumer.Broadcast(msgPacked)
+
+	// We call ourselves synchronously, so that testing can run
+	// synchronous.
+	if toSelf {
+		instance.recvMsgSync(msg)
+	}
 	return nil
 }
 
@@ -717,6 +706,9 @@ func (instance *Plugin) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
 	instance.timerActive = false
+	if instance.closed {
+		return
+	}
 loop:
 	for {
 		select {
