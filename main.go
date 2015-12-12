@@ -406,8 +406,14 @@ func login(args []string) {
 		return
 	}
 
+	localStore := viper.GetString("peer.fileSystemPath")
+	if !strings.HasSuffix(localStore, "/") {
+		localStore = localStore + "/"
+	}
+	localStore = localStore + "cli/"
+
 	// If the user is already logged in, return
-	if _, err := os.Stat(".client/loginToken_" + args[0]); err == nil {
+	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
 		logger.Info("User '%s' is already logged in.\n", args[0])
 		return
 	}
@@ -437,21 +443,21 @@ func login(args []string) {
 		logger.Info("Login successful for user '%s'.\n", args[0])
 
 		// If .client directory does not exist, create it
-		if _, err := os.Stat(".client"); err != nil {
+		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
-				if err := os.Mkdir(".client", 644); err != nil {
-					panic(fmt.Errorf("Fatal error when creating .client directory: %s\n", err))
+				if err := os.Mkdir("localStore", 644); err != nil {
+					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
 				// Unexpected error
-				panic(fmt.Errorf("Fatal error on os.Stat of .client directory: %s\n", err))
+				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
 			}
 		}
 
 		// Store client security context into a file
 		logger.Info("Storing login token for user '%s'.\n", args[0])
-		err = ioutil.WriteFile(".client"+"/"+"loginToken_"+args[0], []byte(args[0]), 0644)
+		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0644)
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
