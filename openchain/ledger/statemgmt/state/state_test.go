@@ -165,3 +165,10 @@ func TestDeleteState(t *testing.T) {
 	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key1", true), []byte("value1"))
 	testutil.AssertEquals(t, stateTestWrapper.get("chaincode1", "key2", true), []byte("value2"))
 }
+
+func TestStateDeltaSizeSetting(t *testing.T) {
+	_, state := createFreshDBAndConstructState(t)
+	if state.historyStateDeltaSize != 500 {
+		t.Fatalf("Error reading historyStateDeltaSize. Expected 500, but got %d", state.historyStateDeltaSize)
+	}
+}
