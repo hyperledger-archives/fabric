@@ -143,6 +143,11 @@
 			"revisionTime": "2015-09-03T16:45:19-07:00"
 		},
 		{
+			"path": "github.com/howeyc/gopass",
+			"revision": "ae71a9cc54fddb61d946abe9191d05a24ac0e21b",
+			"revisionTime": "2015-11-20T18:16:12-06:00"
+		},
+		{
 			"path": "github.com/inconshreveable/mousetrap",
 			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
 			"revisionTime": "2014-10-17T13:07:13-07:00"
