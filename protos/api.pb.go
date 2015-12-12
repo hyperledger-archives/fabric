@@ -18,14 +18,15 @@ It has these top-level messages:
 	BlockCount
 	ChaincodeID
 	ChaincodeInput
-	ChaincodeInvocationSpec
 	ChaincodeSpec
 	ChaincodeDeploymentSpec
+	ChaincodeInvocationSpec
 	ChaincodeIdentifier
 	ChaincodeRequestContext
 	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
+	Secret
 	BuildResult
 	Transaction
 	TransactionBlock

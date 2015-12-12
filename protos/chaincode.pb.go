@@ -128,29 +128,14 @@ func (m *ChaincodeInput) Reset()         { *m = ChaincodeInput{} }
 func (m *ChaincodeInput) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeInput) ProtoMessage()    {}
 
-// Carries the chaincode function and its arguments.
-type ChaincodeInvocationSpec struct {
-	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
-}
-
-func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
-func (m *ChaincodeInvocationSpec) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeInvocationSpec) ProtoMessage()    {}
-
-func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
-	if m != nil {
-		return m.ChaincodeSpec
-	}
-	return nil
-}
-
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
 type ChaincodeSpec struct {
-	Type        ChaincodeSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
-	ChaincodeID *ChaincodeID       `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	CtorMsg     *ChaincodeInput    `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
-	Timeout     int32              `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
+	Type          ChaincodeSpec_Type `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
+	ChaincodeID   *ChaincodeID       `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	CtorMsg       *ChaincodeInput    `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Timeout       int32              `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
+	SecureContext string             `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
 }
 
 func (m *ChaincodeSpec) Reset()         { *m = ChaincodeSpec{} }
@@ -194,6 +179,22 @@ func (m *ChaincodeDeploymentSpec) GetChaincodeSpec() *ChaincodeSpec {
 func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.EffectiveDate
+	}
+	return nil
+}
+
+// Carries the chaincode function and its arguments.
+type ChaincodeInvocationSpec struct {
+	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
+}
+
+func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
+func (m *ChaincodeInvocationSpec) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeInvocationSpec) ProtoMessage()    {}
+
+func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
+	if m != nil {
+		return m.ChaincodeSpec
 	}
 	return nil
 }
