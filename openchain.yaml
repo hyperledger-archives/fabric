@@ -236,3 +236,16 @@ chaincode:
 #             - "4"
 #             - bob
 #             - "10"
+
+###############################################################################
+#
+#    Security section -
+#
+###############################################################################
+security:
+    enabled: false
+    # To enroll with Member Services PKI
+    enrollID: jane
+    enrollSecret: bedtimeatdawn
+    # To enable privacy and confidentiality of transactions (requires security to be enabled)
+    privacy: false
