@@ -257,7 +257,8 @@ ledger:
 ###############################################################################
 security:
     enabled: false
-    # To enroll with Member Services PKI
+    # To enroll NVP or VP with Member Services PKI. These parameters are for
+    # 1 time use. They will not be valid the subsequent times without un-enroll
     enrollID: jane
     enrollSecret: bedtimeatdawn
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
