@@ -21,55 +21,45 @@ package ledger
 
 import (
 	"bytes"
-	"fmt"
-	"os"
-	"reflect"
+	"strconv"
 	"testing"
 
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/protos"
-	"github.com/spf13/viper"
 )
 
-func TestMain(m *testing.M) {
-	setupTestConfig()
-	os.Exit(m.Run())
-}
-
 func TestLedgerCommit(t *testing.T) {
-	ledger := InitTestLedger(t)
-	beginTxBatch(t, 1)
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
 	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
-	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
-	if !reflect.DeepEqual(getStateFromLedger(t, "chaincode1", "key1"), []byte("value1")) {
-		t.Fatalf("state value not same after Tx commit")
-	}
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", false), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
 }
 
 func TestLedgerRollback(t *testing.T) {
-	ledger := InitTestLedger(t)
-	beginTxBatch(t, 1)
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
 	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	ledger.TxFinished("txUuid", true)
-	rollbackTxBatch(t, 1)
-
-	valueAfterRollback := getStateFromLedger(t, "chaincode1", "key1")
-
-	if valueAfterRollback != nil {
-		t.Logf("Value after rollback = [%s]", valueAfterRollback)
-		t.Fatalf("state value not nil after Tx rollback")
-	}
+	ledger.RollbackTxBatch(1)
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode1", "key1", false))
 }
 
 func TestLedgerDifferentID(t *testing.T) {
-	ledger := InitTestLedger(t)
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
 	ledger.BeginTxBatch(1)
 	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
@@ -78,13 +68,12 @@ func TestLedgerDifferentID(t *testing.T) {
 	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
 	err := ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("prrof"))
-	if err == nil {
-		t.Fatalf("ledger should throw error")
-	}
+	testutil.AssertError(t, err, "ledger should throw error for wrong batch ID")
 }
 
 func TestLedgerGetTempStateHashWithTxDeltaStateHashes(t *testing.T) {
-	ledger := InitTestLedger(t)
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
 	ledger.BeginTxBatch(1)
 	ledger.TxBegin("txUuid1")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
@@ -102,16 +91,16 @@ func TestLedgerGetTempStateHashWithTxDeltaStateHashes(t *testing.T) {
 	ledger.TxFinished("txUuid4", false)
 
 	_, txDeltaHashes, _ := ledger.GetTempStateHashWithTxDeltaStateHashes()
-	checkStateDeltaHash(t, "chaincode1key1value1", txDeltaHashes["txUuid1"])
-	checkStateDeltaHash(t, "chaincode2key2value2", txDeltaHashes["txUuid2"])
-	checkStateDeltaHash(t, "", txDeltaHashes["txUuid3"])
+	testutil.AssertEquals(t, testutil.ComputeCryptoHash([]byte("chaincode1key1value1")), txDeltaHashes["txUuid1"])
+	testutil.AssertEquals(t, testutil.ComputeCryptoHash([]byte("chaincode2key2value2")), txDeltaHashes["txUuid2"])
+	testutil.AssertNil(t, txDeltaHashes["txUuid3"])
 	_, ok := txDeltaHashes["txUuid4"]
 	if ok {
 		t.Fatalf("Entry for a failed Tx should not be present in txDeltaHashes map")
 	}
 	ledger.CommitTxBatch(1, []*protos.Transaction{}, []byte("proof"))
 
-	ledger.BeginTxBatch(1)
+	ledger.BeginTxBatch(2)
 	ledger.TxBegin("txUuid1")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.TxFinished("txUuid1", true)
@@ -121,27 +110,27 @@ func TestLedgerGetTempStateHashWithTxDeltaStateHashes(t *testing.T) {
 	}
 }
 
-func TestStateSnapshot(t *testing.T) {
-	ledger := InitTestLedger(t)
-	beginTxBatch(t, 1)
+func TestLedgerStateSnapshot(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
 	ledger.TxBegin("txUuid")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
 	ledger.TxFinished("txUuid", true)
 	transaction, _ := buildTestTx()
-	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("proof"))
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
 
 	snapshot, err := ledger.GetStateSnapshot()
 
 	if err != nil {
 		t.Fatalf("Error fetching snapshot %s", err)
 	}
-
 	defer snapshot.Release()
 
 	// Modify keys to ensure they do not impact the snapshot
-	beginTxBatch(t, 2)
+	ledger.BeginTxBatch(2)
 	ledger.TxBegin("txUuid")
 	ledger.DeleteState("chaincode1", "key1")
 	ledger.SetState("chaincode4", "key4", []byte("value4"))
@@ -149,7 +138,7 @@ func TestStateSnapshot(t *testing.T) {
 	ledger.SetState("chaincode6", "key6", []byte("value6"))
 	ledger.TxFinished("txUuid", true)
 	transaction, _ = buildTestTx()
-	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
 
 	var count = 0
 	for snapshot.Next() {
@@ -167,33 +156,28 @@ func TestStateSnapshot(t *testing.T) {
 
 }
 
-func TestPutRawBlock(t *testing.T) {
-	ledger := InitTestLedger(t)
+func TestLedgerPutRawBlock(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
 	block := new(protos.Block)
 	block.ProposerID = "test"
 	block.PreviousBlockHash = []byte("foo")
 	block.StateHash = []byte("bar")
 	ledger.PutRawBlock(block, 4)
-
-	retrievedBlock, err := ledger.GetBlockByNumber(4)
-	if err != nil {
-		t.Fatalf("Error retrieving block, %s", err)
-	}
-	if !reflect.DeepEqual(block, retrievedBlock) {
-		t.Fatalf("Expected blocks to be equal. Instead got, original block: %s, retrived block: %s", block, retrievedBlock)
-	}
+	testutil.AssertEquals(t, ledgerTestWrapper.GetBlockByNumber(4), block)
 }
 
-func TestSetRawState(t *testing.T) {
-	ledger := InitTestLedger(t)
-	beginTxBatch(t, 1)
-	ledger.TxBegin("txUuid")
+func TestLedgerSetRawState(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
 	ledger.SetState("chaincode1", "key1", []byte("value1"))
 	ledger.SetState("chaincode2", "key2", []byte("value2"))
 	ledger.SetState("chaincode3", "key3", []byte("value3"))
-	ledger.TxFinished("txUuid", true)
+	ledger.TxFinished("txUuid1", true)
 	transaction, _ := buildTestTx()
-	commitTxBatch(t, 1, []*protos.Transaction{transaction}, []byte("prrof"))
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
 
 	// Ensure values are in the DB
 	val, err := ledger.GetState("chaincode1", "key1", true)
@@ -221,14 +205,14 @@ func TestSetRawState(t *testing.T) {
 	defer snapshot.Release()
 
 	// Delete keys
-	beginTxBatch(t, 2)
-	ledger.TxBegin("txUuid")
+	ledger.BeginTxBatch(2)
+	ledger.TxBegin("txUuid2")
 	ledger.DeleteState("chaincode1", "key1")
 	ledger.DeleteState("chaincode2", "key2")
 	ledger.DeleteState("chaincode3", "key3")
-	ledger.TxFinished("txUuid", true)
+	ledger.TxFinished("txUuid2", true)
 	transaction, _ = buildTestTx()
-	commitTxBatch(t, 2, []*protos.Transaction{transaction}, []byte("proof"))
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
 
 	// ensure keys are deleted
 	val, err = ledger.GetState("chaincode1", "key1", true)
@@ -255,14 +239,14 @@ func TestSetRawState(t *testing.T) {
 
 	// put key/values from the snapshot back in the DB
 	//var keys, values [][]byte
-	delta := newStateDelta()
+	delta := statemgmt.NewStateDelta()
 	for i := 0; snapshot.Next(); i++ {
 		k, v := snapshot.GetRawKeyValue()
-		cID, kID := decodeStateDBKey(k)
-		delta.set(cID, kID, v)
+		cID, kID := statemgmt.DecodeCompositeKey(k)
+		delta.Set(cID, kID, v)
 	}
 
-	err = ledger.ApplyRawStateDelta(delta)
+	err = ledger.ApplyStateDelta(delta)
 	if err != nil {
 		t.Fatalf("Error applying raw state delta, %s", err)
 	}
@@ -288,14 +272,134 @@ func TestSetRawState(t *testing.T) {
 	if bytes.Compare(hash1, hash3) != 0 {
 		t.Fatalf("Expected hashes to be equal, but they are %s and %s", hash1, hash3)
 	}
-
 }
 
-func setupTestConfig() {
-	viper.AddConfigPath(".")
-	viper.SetConfigName("ledger_test")
-	err := viper.ReadInConfig()
-	if err != nil { // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+func TestDeleteAllStateKeysAndValues(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx()
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// Confirm values are present in state
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
+
+	// Delete all keys/values
+	err := ledger.DeleteALLStateKeysAndValues()
+	if err != nil {
+		t.Fatalf("Error calling deleting all keys/values from state: %s", err)
 	}
+
+	// Confirm values are deleted
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode1", "key1", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode2", "key2", true))
+	testutil.AssertNil(t, ledgerTestWrapper.GetState("chaincode3", "key3", true))
+
+	// Test that we can now store new stuff in the state
+	ledger.BeginTxBatch(2)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.SetState("chaincode2", "key2", []byte("value2"))
+	ledger.SetState("chaincode3", "key3", []byte("value3"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ = buildTestTx()
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
+
+	// Confirm values are present in state
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3"))
+}
+
+func TestVerifyChain(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Build a big blockchain
+	for i := 0; i < 100; i++ {
+		ledger.BeginTxBatch(i)
+		ledger.TxBegin("txUuid" + strconv.Itoa(i))
+		ledger.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))
+		ledger.TxFinished("txUuid"+strconv.Itoa(i), true)
+		transaction, _ := buildTestTx()
+		ledger.CommitTxBatch(i, []*protos.Transaction{transaction}, []byte("proof"))
+	}
+
+	// Verify the chain
+	for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+	}
+	for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
+	}
+
+	// Add bad blocks and test
+	badBlock := protos.NewBlock("Sheehan", nil)
+	badBlock.PreviousBlockHash = []byte("evil")
+	for i := uint64(0); i < ledger.GetBlockchainSize(); i++ {
+		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)
+		ledger.PutRawBlock(badBlock, i)
+		for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
+			if i >= lowBlock {
+				expected := uint64(i + 1)
+				if i == ledger.GetBlockchainSize()-1 {
+					expected--
+				}
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), expected)
+			} else {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+			}
+		}
+		for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
+			if i <= highBlock {
+				expected := uint64(i + 1)
+				if i == highBlock {
+					expected--
+				}
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), expected)
+			} else {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
+			}
+		}
+		ledgerTestWrapper.PutRawBlock(goodBlock, i)
+	}
+
+	// Test edge cases
+	_, err := ledger.VerifyChain(2, 10)
+	testutil.AssertError(t, err, "Expected error as high block is less than low block")
+	_, err = ledger.VerifyChain(2, 2)
+	testutil.AssertError(t, err, "Expected error as high block is equal to low block")
+	_, err = ledger.VerifyChain(0, 100)
+	testutil.AssertError(t, err, "Expected error as high block is out of bounds")
+}
+
+func TestBlockNumberOutOfBoundsError(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Build a big blockchain
+	for i := 0; i < 10; i++ {
+		ledger.BeginTxBatch(i)
+		ledger.TxBegin("txUuid" + strconv.Itoa(i))
+		ledger.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))
+		ledger.TxFinished("txUuid"+strconv.Itoa(i), true)
+		transaction, _ := buildTestTx()
+		ledger.CommitTxBatch(i, []*protos.Transaction{transaction}, []byte("proof"))
+	}
+
+	ledgerTestWrapper.GetBlockByNumber(9)
+	_, err := ledger.GetBlockByNumber(10)
+	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+
+	ledgerTestWrapper.GetStateDelta(9)
+	_, err = ledger.GetStateDelta(10)
+	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+
 }

@@ -36,7 +36,7 @@ var prefixAddressBlockNumCompositeKey = byte(3)
 
 type blockchainIndexer interface {
 	isSynchronous() bool
-	start() error
+	start(blockchain *blockchain) error
 	createIndexesSync(block *protos.Block, blockNumber uint64, blockHash []byte, writeBatch *gorocksdb.WriteBatch) error
 	createIndexesAsync(block *protos.Block, blockNumber uint64, blockHash []byte) error
 	fetchBlockNumberByBlockHash(blockHash []byte) (uint64, error)
@@ -56,7 +56,7 @@ func (indexer *blockchainIndexerSync) isSynchronous() bool {
 	return true
 }
 
-func (indexer *blockchainIndexerSync) start() error {
+func (indexer *blockchainIndexerSync) start(blockchain *blockchain) error {
 	return nil
 }
 

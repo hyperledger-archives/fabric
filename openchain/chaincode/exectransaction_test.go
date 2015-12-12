@@ -110,7 +110,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 
@@ -261,7 +261,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -389,7 +389,7 @@ func TestExecuteQuery(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -469,7 +469,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -531,7 +531,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -603,7 +603,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
@@ -717,7 +717,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.db.path", "/var/openchain/tmpdb")
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go

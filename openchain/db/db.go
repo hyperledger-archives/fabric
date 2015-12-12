@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -34,17 +35,17 @@ var dbLogger = logging.MustGetLogger("db")
 
 const blockchainCF = "blockchainCF"
 const stateCF = "stateCF"
-const statehashCF = "statehashCF"
+const stateDeltaCF = "stateDeltaCF"
 const indexesCF = "indexesCF"
 
-var columnfamilies = []string{blockchainCF, stateCF, statehashCF, indexesCF}
+var columnfamilies = []string{blockchainCF, stateCF, stateDeltaCF, indexesCF}
 
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
 	DB           *gorocksdb.DB
 	BlockchainCF *gorocksdb.ColumnFamilyHandle
 	StateCF      *gorocksdb.ColumnFamilyHandle
-	StateHashCF  *gorocksdb.ColumnFamilyHandle
+	StateDeltaCF *gorocksdb.ColumnFamilyHandle
 	IndexesCF    *gorocksdb.ColumnFamilyHandle
 }
 
@@ -63,7 +64,11 @@ func CreateDB() error {
 	if !missing {
 		return fmt.Errorf("db dir [%s] already exists", dbPath)
 	}
-	os.MkdirAll(path.Dir(dbPath), 0755)
+	err = os.MkdirAll(path.Dir(dbPath), 0755)
+	if err != nil {
+		dbLogger.Error("Error calling  os.MkdirAll for directory path [%s]: %s", dbPath, err)
+		return fmt.Errorf("Error making directory path [%s]: %s", dbPath, err)
+	}
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(true)
 
@@ -118,9 +123,9 @@ func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
 	return openchainDB.get(openchainDB.StateCF, key)
 }
 
-// GetFromStateHashCF get value for given key from column family - statehashCF
-func (openchainDB *OpenchainDB) GetFromStateHashCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateHashCF, key)
+// GetFromStateDeltaCF get value for given key from column family - stateDeltaCF
+func (openchainDB *OpenchainDB) GetFromStateDeltaCF(key []byte) ([]byte, error) {
+	return openchainDB.get(openchainDB.StateDeltaCF, key)
 }
 
 // GetFromIndexesCF get value for given key from column family - indexCF
@@ -145,9 +150,9 @@ func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator(snapshot *gorocksdb.S
 	return openchainDB.getSnapshotIterator(snapshot, openchainDB.StateCF)
 }
 
-// GetStateHashCFIterator get iterator for column family - statehashCF
-func (openchainDB *OpenchainDB) GetStateHashCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateHashCF)
+// GetStateDeltaCFIterator get iterator for column family - stateDeltaCF
+func (openchainDB *OpenchainDB) GetStateDeltaCFIterator() *gorocksdb.Iterator {
+	return openchainDB.getIterator(openchainDB.StateDeltaCF)
 }
 
 // GetSnapshot returns a point-in-time view of the DB. You MUST call snapshot.Release()
@@ -157,11 +162,14 @@ func (openchainDB *OpenchainDB) GetSnapshot() *gorocksdb.Snapshot {
 }
 
 func getDBPath() string {
-	dbPath := viper.GetString("peer.db.path")
+	dbPath := viper.GetString("peer.fileSystemPath")
 	if dbPath == "" {
-		panic("DB path not specified in configuration file. Please check that property 'peer.db.path' is set")
+		panic("DB path not specified in configuration file. Please check that property 'peer.fileSystemPath' is set")
 	}
-	return dbPath
+	if !strings.HasSuffix(dbPath, "/") {
+		dbPath = dbPath + "/"
+	}
+	return dbPath + "db"
 }
 
 func createDBIfDBPathEmpty() error {
@@ -188,7 +196,7 @@ func openDB() (*OpenchainDB, error) {
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
-		[]string{"default", blockchainCF, stateCF, statehashCF, indexesCF},
+		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
 		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
 
 	if err != nil {
@@ -203,9 +211,37 @@ func openDB() (*OpenchainDB, error) {
 func (openchainDB *OpenchainDB) CloseDB() {
 	openchainDB.BlockchainCF.Destroy()
 	openchainDB.StateCF.Destroy()
-	openchainDB.StateHashCF.Destroy()
+	openchainDB.StateDeltaCF.Destroy()
 	openchainDB.DB.Close()
 	isOpen = false
+}
+
+// DeleteState delets ALL state keys/values from the DB. This is generally
+// only used during state synchronization when creating a new state from
+// a snapshot.
+func (openchainDB *OpenchainDB) DeleteState() error {
+	err := openchainDB.DB.DropColumnFamily(openchainDB.StateCF)
+	if err != nil {
+		dbLogger.Error("Error dropping state CF", err)
+		return err
+	}
+	err = openchainDB.DB.DropColumnFamily(openchainDB.StateDeltaCF)
+	if err != nil {
+		dbLogger.Error("Error dropping state delta CF", err)
+		return err
+	}
+	opts := gorocksdb.NewDefaultOptions()
+	openchainDB.StateCF, err = openchainDB.DB.CreateColumnFamily(opts, stateCF)
+	if err != nil {
+		dbLogger.Error("Error creating state CF", err)
+		return err
+	}
+	openchainDB.StateDeltaCF, err = openchainDB.DB.CreateColumnFamily(opts, stateDeltaCF)
+	if err != nil {
+		dbLogger.Error("Error creating state delta CF", err)
+		return err
+	}
+	return nil
 }
 
 func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {

@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 )
 
+// DirMissingOrEmpty checks is a directory is missin or empty
 func DirMissingOrEmpty(path string) (bool, error) {
 	dirExists, err := DirExists(path)
 	if err != nil {
@@ -46,6 +47,7 @@ func DirMissingOrEmpty(path string) (bool, error) {
 	return false, nil
 }
 
+// DirExists checks if a directory exists
 func DirExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -57,6 +59,7 @@ func DirExists(path string) (bool, error) {
 	return false, err
 }
 
+// DirEmpty checks if a directory is empty
 func DirEmpty(path string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -71,6 +74,7 @@ func DirEmpty(path string) (bool, error) {
 	return false, err
 }
 
+// FileMissing checks if a file is missing
 func FileMissing(path string, name string) (bool, error) {
 	_, err := os.Stat(filepath.Join(path, name))
 	if err != nil {
@@ -87,14 +91,18 @@ func FilePathMissing(path string) (bool, error) {
 	return false, nil
 }
 
+/*
 func DecodeBase64(in string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(in)
 }
+*/
 
+// EncodeBase64 encodes to Base64
 func EncodeBase64(in []byte) string {
 	return base64.StdEncoding.EncodeToString(in)
 }
 
+// IntArrayEquals checks if the arrays of ints are the same
 func IntArrayEquals(a []int, b []int) bool {
 	if len(a) != len(b) {
 		return false
@@ -107,6 +115,7 @@ func IntArrayEquals(a []int, b []int) bool {
 	return true
 }
 
+// IsTCPPortOpen checks the tcp port is open
 func IsTCPPortOpen(laddr string) error {
 	lis, err := net.Listen("tcp", laddr)
 	if err != nil {

@@ -20,11 +20,17 @@ under the License.
 package ledger
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sync"
 
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
+	"github.com/tecbot/gorocksdb"
+
 	"github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
@@ -34,7 +40,7 @@ var ledgerLogger = logging.MustGetLogger("ledger")
 // Ledger - the struct for openchain ledger
 type Ledger struct {
 	blockchain *blockchain
-	state      *state
+	state      *state.State
 	currentID  interface{}
 }
 
@@ -45,15 +51,19 @@ var once sync.Once
 // GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
 	once.Do(func() {
-		blockchain, err := getBlockchain()
-		if err != nil {
-			ledgerError = err
-		} else {
-			state := getState()
-			ledger = &Ledger{blockchain, state, nil}
-		}
+		ledger, ledgerError = newLedger()
 	})
 	return ledger, ledgerError
+}
+
+func newLedger() (*Ledger, error) {
+	blockchain, err := newBlockchain()
+	if err != nil {
+		return nil, err
+	}
+
+	state := state.NewState()
+	return &Ledger{blockchain, state, nil}, nil
 }
 
 /////////////////// Transaction-batch related methods ///////////////////////////////
@@ -77,9 +87,31 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	if err != nil {
 		return err
 	}
-	block := protos.NewBlock("proposerID string", transactions)
-	ledger.blockchain.addBlock(context.TODO(), block)
-	ledger.resetForNextTxGroup()
+
+	success := true
+	defer ledger.resetForNextTxGroup()
+	defer ledger.blockchain.blockPersistenceStatus(success)
+
+	stateHash, err := ledger.state.GetHash()
+	if err != nil {
+		success = false
+		return err
+	}
+
+	writeBatch := gorocksdb.NewWriteBatch()
+	block := protos.NewBlock("proposerID", transactions)
+	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
+	if err != nil {
+		success = false
+		return err
+	}
+	ledger.state.AddChangesForPersistence(newBlockNumber, writeBatch)
+	opt := gorocksdb.NewDefaultWriteOptions()
+	dbErr := db.GetDBHandle().DB.Write(opt, writeBatch)
+	if dbErr != nil {
+		success = false
+		return dbErr
+	}
 	return nil
 }
 
@@ -97,13 +129,13 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 
 // TxBegin - Marks the begin of a new transaction in the ongoing batch
 func (ledger *Ledger) TxBegin(txUUID string) {
-	ledger.state.txBegin(txUUID)
+	ledger.state.TxBegin(txUUID)
 }
 
 // TxFinished - Marks the finish of the on-going transaction.
 // If txSuccessful is false, the state changes made by the transaction are discarded
 func (ledger *Ledger) TxFinished(txUUID string, txSuccessful bool) {
-	ledger.state.txFinish(txUUID, txSuccessful)
+	ledger.state.TxFinish(txUUID, txSuccessful)
 }
 
 /////////////////// world-state related methods /////////////////////////////////////
@@ -112,54 +144,75 @@ func (ledger *Ledger) TxFinished(txUUID string, txSuccessful bool) {
 // GetTempStateHash - Computes state hash by taking into account the state changes that may have taken
 // place during the execution of current transaction-batch
 func (ledger *Ledger) GetTempStateHash() ([]byte, error) {
-	return ledger.state.getHash()
+	return ledger.state.GetHash()
 }
 
 // GetTempStateHashWithTxDeltaStateHashes - In addition to the state hash (as defined in method GetTempStateHash),
 // this method returns a map [txUuid of Tx --> cryptoHash(stateChangesMadeByTx)]
 // Only successful txs appear in this map
 func (ledger *Ledger) GetTempStateHashWithTxDeltaStateHashes() ([]byte, map[string][]byte, error) {
-	stateHash, err := ledger.state.getHash()
-	return stateHash, ledger.state.txStateDeltaHash, err
+	stateHash, err := ledger.state.GetHash()
+	return stateHash, ledger.state.GetTxStateDeltaHash(), err
 }
 
 // GetState get state for chaincodeID and key. If committed is false, this first looks in memory
 // and if missing, pulls from db.  If committed is true, this pulls from the db only.
 func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) ([]byte, error) {
-	return ledger.state.get(chaincodeID, key, committed)
+	return ledger.state.Get(chaincodeID, key, committed)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
-	return ledger.state.set(chaincodeID, key, value)
+	return ledger.state.Set(chaincodeID, key, value)
 }
 
 // DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
-	return ledger.state.delete(chaincodeID, key)
+	return ledger.state.Delete(chaincodeID, key)
 }
 
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
 // should be used when transfering the state from one peer to another peer. You must call
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
-func (ledger *Ledger) GetStateSnapshot() (*stateSnapshot, error) {
-	return ledger.state.getSnapshot()
+func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
+	dbSnapshot := db.GetDBHandle().GetSnapshot()
+	blockNumber, err := fetchBlockchainSizeFromSnapshot(dbSnapshot)
+	if err != nil {
+		dbSnapshot.Release()
+		return nil, err
+	}
+	return ledger.state.GetSnapshot(blockNumber, dbSnapshot)
 }
 
 // GetStateDelta will return the state delta for the specified block if
 // available.
-func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*stateDelta, error) {
-	return fetchStateDeltaFromDB(blockNumber)
+func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	if blockNumber >= ledger.GetBlockchainSize() {
+		return nil, fmt.Errorf("Block number %d is out of range.", blockNumber)
+	}
+	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
 
-// ApplyRawStateDelta applies a raw state delta to the current state.
+// ApplyStateDelta applies a state delta to the current state.
 // This should only be used as part of state synchronization. State deltas
 // can be retrieved from another peer though the Ledger.GetStateDelta function
 // or by creating state deltas with keys retrieved from
 // Ledger.GetStateSnapshot(). For an example, see TestSetRawState in
 // ledger_test.go
-func (ledger *Ledger) ApplyRawStateDelta(delta *stateDelta) error {
-	return ledger.state.applyStateDelta(delta)
+// Note that there is no order checking in this function and it is up to
+// the caller to ensure that deltas are applied in the correct order.
+// For example, if you are currently at block 8 and call this function
+// with a delta retrieved from Ledger.GetStateDelta(10), you would now
+// be in a bad state because you did not apply the delta for block 9.
+func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
+	return ledger.state.ApplyStateDelta(delta)
+}
+
+// DeleteALLStateKeysAndValues deletes all keys and values from the state.
+// This is generally only used during state synchronization when creating a
+// new state from a snapshot.
+func (ledger *Ledger) DeleteALLStateKeysAndValues() error {
+	return ledger.state.DeleteState()
 }
 
 /////////////////// blockchain related methods /////////////////////////////////////
@@ -174,6 +227,9 @@ func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
 // GetBlockByNumber return block given the number of the block on blockchain.
 // Lowest block on chain is block number zero
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
+	if blockNumber >= ledger.GetBlockchainSize() {
+		return nil, fmt.Errorf("Block number %d is out of bounds.", blockNumber)
+	}
 	return ledger.blockchain.getBlock(blockNumber)
 }
 
@@ -190,11 +246,54 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 // PutRawBlock puts a raw block on the chain. This function should only be
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
-	hash, err := block.GetHash()
-	if err != nil {
-		return err
+	return ledger.blockchain.persistRawBlock(block, blockNumber)
+}
+
+// VerifyChain will verify the integrety of the blockchain. This is accomplished
+// by ensuring that the previous block hash stored in each block matches
+// the actual hash of the previous block in the chain. The return value is the
+// block number of the block that contains the non-matching previous block hash.
+// For example, if VerifyChain(0, 99) is called and prevous hash values stored
+// in blocks 8, 32, and 42 do not match the actual hashes of respective previous
+// block 42 would be the return value from this function.
+// highBlock is the high block in the chain to include in verofication. If you
+// wish to verify the entire chain, use ledger.GetBlockchainSize() - 1.
+// lowBlock is the low block in the chain to include in verification. If
+// you wish to verify the entire chain, use 0 for the genesis block.
+func (ledger *Ledger) VerifyChain(highBlock, lowBlock uint64) (uint64, error) {
+	if highBlock >= ledger.GetBlockchainSize() {
+		return highBlock, fmt.Errorf("Out of bounds error. The highBlock %d is greater than the blockchain size.", highBlock)
 	}
-	return ledger.blockchain.persistBlock(block, blockNumber, hash, false)
+	if highBlock <= lowBlock {
+		return lowBlock, fmt.Errorf("highBlock %d must be greater than lowBlock. %d", highBlock, lowBlock)
+	}
+
+	for i := highBlock; i > lowBlock; i-- {
+		currentBlock, err := ledger.GetBlockByNumber(i)
+		if err != nil {
+			return i, fmt.Errorf("Error fetching block %d.", i)
+		}
+		if currentBlock == nil {
+			return i, fmt.Errorf("Block %d is nil.", i)
+		}
+		previousBlock, err := ledger.GetBlockByNumber(i - 1)
+		if err != nil {
+			return i - 1, fmt.Errorf("Error fetching block %d.", i)
+		}
+		if previousBlock == nil {
+			return i - 1, fmt.Errorf("Block %d is nil.", i-1)
+		}
+
+		previousBlockHash, err := previousBlock.GetHash()
+		if err != nil {
+			return i - 1, fmt.Errorf("Error calculating block hash for block %d.", i-1)
+		}
+		if bytes.Compare(previousBlockHash, currentBlock.PreviousBlockHash) != 0 {
+			return i, nil
+		}
+	}
+
+	return 0, nil
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {
@@ -214,5 +313,5 @@ func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
 func (ledger *Ledger) resetForNextTxGroup() {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
-	ledger.state.clearInMemoryChanges()
+	ledger.state.ClearInMemoryChanges()
 }

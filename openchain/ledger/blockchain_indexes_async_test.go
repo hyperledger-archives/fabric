@@ -21,25 +21,26 @@ package ledger
 
 import (
 	"errors"
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-	chain := getTestBlockchain(t)
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	chain := testBlockchainWrapper.blockchain
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
-	asyncIndexer, _ := chain.indexer.(*blockchainIndexerAsync)
 
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	asyncIndexer, _ := chain.indexer.(*blockchainIndexerAsync)
 	t.Log("Setting an error artificially so as to client query gets an error")
 	asyncIndexer.indexerState.setError(errors.New("Error created for testing"))
+	blockHash, _ := blocks[0].GetHash()
 	// index query should throw error
-	_, err := chain.getBlockByHash(getBlockHash(t, blocks[0]))
+	_, err := chain.getBlockByHash(blockHash)
 	if err == nil {
 		t.Fatal("Error expected during execution of client query")
 	}
@@ -47,21 +48,23 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 }
 
 func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
-	initTestBlockChain(t)
-	blocks, _ := buildSimpleChain(t)
-	chain := getTestBlockchain(t)
+	testDBWrapper.CreateFreshDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	chain := testBlockchainWrapper.blockchain
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
+	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
 	t.Log("Increasing size of blockchain by one artificially so as to make client wait")
 	chain.size = chain.size + 1
 	t.Log("Resetting size of blockchain to original and adding one block in a separate go routine so as to wake up the client")
 	go func() {
 		time.Sleep(2 * time.Second)
 		chain.size = chain.size - 1
-		chain.addBlock(context.TODO(), buildTestBlock())
+		testBlockchainWrapper.addNewBlock(buildTestBlock(), []byte("stateHash"))
 	}()
 	t.Log("Executing client query. The client would wait and will be woken up")
-	block := getBlockByHash(t, getBlockHash(t, blocks[0]))
-	compareProtoMessages(t, block, blocks[0])
+	blockHash, _ := blocks[0].GetHash()
+	block := testBlockchainWrapper.getBlockByHash(blockHash)
+	testutil.AssertEquals(t, block, blocks[0])
 }

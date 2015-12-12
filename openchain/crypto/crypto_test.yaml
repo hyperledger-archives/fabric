@@ -1,0 +1,132 @@
+###############################################################################
+#
+#    CAs section
+#
+###############################################################################
+eca:
+    # ECA's settings
+    crypto:
+        # location on file system
+        path: .obcca
+
+        pport: 53051
+
+    users:
+        user1: 9gvZQRwhUq9q
+        user2: 9gvZQRwhUq9q
+        user3: 9gvZQRwhUq9q
+        user4: 9gvZQRwhUq9q
+        user5: 9gvZQRwhUq9q
+        validator: 9gvZQRwhUq9q
+        peer: 9gvZQRwhUq9q
+
+tca:
+    # TCA's settings
+    crypto:
+        # location on file system
+        path: .obcca
+
+        pport: 53551
+
+ports:
+        ecaP: ":53051"
+        ecaA: ":53052"
+        tcaP: ":53551"
+        tcaA: ":53552"
+
+defaults:
+        certSetSize: 32
+
+
+###############################################################################
+#
+#    Client section
+#
+###############################################################################
+client:
+    # Client's settings
+    crypto:
+
+        # location on file system
+        path: .obc-client
+
+        # eca settings
+        eca:
+
+            paddr: localhost:53051
+
+        # tca settings
+        tca:
+
+            paddr: localhost:53551
+
+        users:
+
+            user4:
+
+                enrollid: user4
+                enrollpw: 9gvZQRwhUq9q
+
+            user5:
+
+                enrollid: user5
+                enrollpw: 9gvZQRwhUq9q
+
+
+###############################################################################
+#
+#    Validator section
+#
+###############################################################################
+validator:
+
+    # Validator's crypto settings
+    crypto:
+          # where to store data
+          path: .obc-validator
+
+          # eca settings
+          eca:
+
+              paddr: localhost:53051
+
+          # tca settings
+          tca:
+
+              paddr: localhost:53551
+
+          # enrollment (id,pw) (only for testing
+          users:
+
+              validator:
+                  enrollid: validator
+                  enrollpw: 9gvZQRwhUq9q
+
+###############################################################################
+#
+#    Peer section
+#
+###############################################################################
+peer:
+
+    # Validator's crypto settings
+    crypto:
+          # where to store data
+          path: .obc-peer
+
+          # eca settings
+          eca:
+
+              paddr: localhost:52051
+
+          # tca settings
+          tca:
+
+              paddr: localhost:52551
+
+          # enrollment (id,pw) (only for testing
+          users:
+
+              peer:
+                  enrollid: peer
+                  enrollpw: 9gvZQRwhUq9q
