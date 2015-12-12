@@ -32,6 +32,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -49,6 +50,16 @@ func NewDevopsServer(coord peer.MessageHandlerCoordinator) *Devops {
 // Devops implementation of Devops services
 type Devops struct {
 	coord peer.MessageHandlerCoordinator
+}
+
+// Login establishes the security context with the Devops service
+func (d *Devops) Login(ctx context.Context, secret *pb.Secret) (*pb.Response, error) {
+	if err := crypto.RegisterClient(secret.EnrollId, nil, secret.EnrollId, secret.EnrollSecret); nil != err {
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
+	}
+	return &pb.Response{Status: pb.Response_SUCCESS}, nil
+
+	// TODO: Handle timeout and expiration
 }
 
 // Build builds the supplied chaincode image
@@ -93,13 +104,36 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
 		return nil, uuidErr
 	}
-	transaction, err := pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
-	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+
+	var tx *pb.Transaction
+	var sec crypto.Client
+
+	if viper.GetBool("security.enabled") {
+		devopsLogger.Debug("Creating secure deployment transaction %s using secure context %s", uuid, spec.SecureContext)
+		sec, err = crypto.InitClient(spec.SecureContext, nil)
+		defer crypto.CloseClient(sec)
+
+		// remove the security context since we are no longer need it down stream
+		spec.SecureContext = ""
+
+		if nil != err {
+			return nil, err
+		}
+
+		tx, err = sec.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
+		if nil != err {
+			return nil, err
+		}
+	} else {
+		devopsLogger.Debug("Creating deployment transaction (%s)", uuid)
+		tx, err = pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
+		if err != nil {
+			return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		}
 	}
 
-	devopsLogger.Debug("Sending deploy transaction (%s) to validator", transaction.Uuid)
-	resp := d.coord.ExecuteTransaction(transaction)
+	devopsLogger.Debug("Sending deploy transaction (%s) to validator", tx.Uuid)
+	resp := d.coord.ExecuteTransaction(tx)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
 	}
@@ -117,29 +151,10 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 	var transaction *pb.Transaction
 	var err error
-	if invoke {
-		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_EXECUTE)
-	} else {
-		transaction, err = pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, pb.Transaction_CHAINCODE_QUERY)
-	}
+	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke)
 	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		return nil, err
 	}
-
-	// mode := viper.GetString("chaincode.mode")
-
-	// //in dev mode, we invoke locally (whether user runs chaincode or validator does)
-	// if mode == chaincode.DevModeUserRunsChaincode {
-	// 	if invoke {
-	// 		chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	// 		return &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(transaction.Uuid)}, nil
-	// 	}
-	// 	payload, execErr := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-	// 	if execErr != nil {
-	// 		return &pb.Response{Status: pb.Response_FAILURE}, execErr
-	// 	}
-	// 	return &pb.Response{Status: pb.Response_SUCCESS, Msg: payload}, nil
-	// }
 
 	devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
 	resp := d.coord.ExecuteTransaction(transaction)
@@ -148,6 +163,42 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	return resp, err
+}
+
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool) (*pb.Transaction, error) {
+	var tx *pb.Transaction
+	var err error
+	if invokeTx {
+		if viper.GetBool("security.enabled") {
+			devopsLogger.Debug("Creating secure invocation transaction %s using secure context %s", uuid, spec.ChaincodeSpec.SecureContext)
+			sec, err := crypto.InitClient(spec.ChaincodeSpec.SecureContext, nil)
+			defer crypto.CloseClient(sec)
+
+			// remove the security context since we are no longer need it down stream
+			spec.ChaincodeSpec.SecureContext = ""
+
+			if nil != err {
+				return nil, err
+			}
+			tx, err = sec.NewChaincodeExecute(spec, uuid)
+			if nil != err {
+				return nil, err
+			}
+		} else {
+			devopsLogger.Debug("Creating invocation transaction (%s)", uuid)
+			tx, err = pb.NewChaincodeExecute(spec, uuid, pb.Transaction_CHAINCODE_EXECUTE)
+			if nil != err {
+				return nil, err
+			}
+		}
+	} else {
+		devopsLogger.Debug("Creating query transaction (%s)", uuid)
+		tx, err = pb.NewChaincodeExecute(spec, uuid, pb.Transaction_CHAINCODE_QUERY)
+		if nil != err {
+			return nil, err
+		}
+	}
+	return tx, nil
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
