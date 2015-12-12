@@ -26,10 +26,10 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 )
 
-type trieKeyEncoderInterface interface {
-	encodeTrieKey(originalBytes []byte) trieKeyInterface
+type trieKeyEncoder interface {
+	newTrieKey(originalBytes []byte) trieKeyInterface
 	getMaxTrieWidth() int
-	decodeTrieKey(encodedBytes []byte) trieKeyInterface
+	decodeTrieKeyBytes(encodedBytes []byte) (originalBytes []byte)
 }
 
 type trieKeyInterface interface {
@@ -39,9 +39,10 @@ type trieKeyInterface interface {
 	getEncodedBytes() []byte
 }
 
-var trieKeyEncoderImpl = newByteTrieKeyEncoder()
-var rootTrieKey = []byte{}
-var rootTrieKeyStr = string(rootTrieKey)
+var trieKeyEncoderImpl trieKeyEncoder = newByteTrieKeyEncoder()
+var rootTrieKeyBytes = []byte{}
+var rootTrieKeyStr = string(rootTrieKeyBytes)
+var rootTrieKey = newTrieKeyFromCompositeKey(rootTrieKeyBytes)
 
 type trieKey struct {
 	trieKeyImpl trieKeyInterface
@@ -49,7 +50,15 @@ type trieKey struct {
 
 func newTrieKey(chaincodeID string, key string) *trieKey {
 	compositeKey := statemgmt.ConstructCompositeKey(chaincodeID, key)
-	return &trieKey{trieKeyEncoderImpl.encodeTrieKey(compositeKey)}
+	return newTrieKeyFromCompositeKey(compositeKey)
+}
+
+func newTrieKeyFromCompositeKey(compositeKey []byte) *trieKey {
+	return &trieKey{trieKeyEncoderImpl.newTrieKey(compositeKey)}
+}
+
+func decodeTrieKeyBytes(encodedBytes []byte) []byte {
+	return trieKeyEncoderImpl.decodeTrieKeyBytes(encodedBytes)
 }
 
 func (key *trieKey) getEncodedBytes() []byte {
