@@ -17,6 +17,10 @@ It has these top-level messages:
 	Checkpoint
 	ViewChange
 	NewView
+	SieveMessage
+	Execute
+	Verify
+	Decision
 */
 package obcpbft
 
@@ -401,6 +405,217 @@ func (m *NewView) GetVset() []*ViewChange {
 func (m *NewView) GetXset() map[uint64]string {
 	if m != nil {
 		return m.Xset
+	}
+	return nil
+}
+
+type SieveMessage struct {
+	// Types that are valid to be assigned to Payload:
+	//	*SieveMessage_Request
+	//	*SieveMessage_Execute
+	//	*SieveMessage_Verify
+	//	*SieveMessage_Decision
+	//	*SieveMessage_PbftMessage
+	Payload isSieveMessage_Payload `protobuf_oneof:"payload"`
+}
+
+func (m *SieveMessage) Reset()         { *m = SieveMessage{} }
+func (m *SieveMessage) String() string { return proto.CompactTextString(m) }
+func (*SieveMessage) ProtoMessage()    {}
+
+type isSieveMessage_Payload interface {
+	isSieveMessage_Payload()
+}
+
+type SieveMessage_Request struct {
+	Request []byte `protobuf:"bytes,1,opt,name=request,proto3,oneof"`
+}
+type SieveMessage_Execute struct {
+	Execute *Execute `protobuf:"bytes,2,opt,name=execute,oneof"`
+}
+type SieveMessage_Verify struct {
+	Verify *Verify `protobuf:"bytes,3,opt,name=verify,oneof"`
+}
+type SieveMessage_Decision struct {
+	Decision *Decision `protobuf:"bytes,4,opt,name=decision,oneof"`
+}
+type SieveMessage_PbftMessage struct {
+	PbftMessage []byte `protobuf:"bytes,5,opt,name=pbft_message,proto3,oneof"`
+}
+
+func (*SieveMessage_Request) isSieveMessage_Payload()     {}
+func (*SieveMessage_Execute) isSieveMessage_Payload()     {}
+func (*SieveMessage_Verify) isSieveMessage_Payload()      {}
+func (*SieveMessage_Decision) isSieveMessage_Payload()    {}
+func (*SieveMessage_PbftMessage) isSieveMessage_Payload() {}
+
+func (m *SieveMessage) GetPayload() isSieveMessage_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+func (m *SieveMessage) GetRequest() []byte {
+	if x, ok := m.GetPayload().(*SieveMessage_Request); ok {
+		return x.Request
+	}
+	return nil
+}
+
+func (m *SieveMessage) GetExecute() *Execute {
+	if x, ok := m.GetPayload().(*SieveMessage_Execute); ok {
+		return x.Execute
+	}
+	return nil
+}
+
+func (m *SieveMessage) GetVerify() *Verify {
+	if x, ok := m.GetPayload().(*SieveMessage_Verify); ok {
+		return x.Verify
+	}
+	return nil
+}
+
+func (m *SieveMessage) GetDecision() *Decision {
+	if x, ok := m.GetPayload().(*SieveMessage_Decision); ok {
+		return x.Decision
+	}
+	return nil
+}
+
+func (m *SieveMessage) GetPbftMessage() []byte {
+	if x, ok := m.GetPayload().(*SieveMessage_PbftMessage); ok {
+		return x.PbftMessage
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*SieveMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _SieveMessage_OneofMarshaler, _SieveMessage_OneofUnmarshaler, []interface{}{
+		(*SieveMessage_Request)(nil),
+		(*SieveMessage_Execute)(nil),
+		(*SieveMessage_Verify)(nil),
+		(*SieveMessage_Decision)(nil),
+		(*SieveMessage_PbftMessage)(nil),
+	}
+}
+
+func _SieveMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*SieveMessage)
+	// payload
+	switch x := m.Payload.(type) {
+	case *SieveMessage_Request:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Request)
+	case *SieveMessage_Execute:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Execute); err != nil {
+			return err
+		}
+	case *SieveMessage_Verify:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Verify); err != nil {
+			return err
+		}
+	case *SieveMessage_Decision:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Decision); err != nil {
+			return err
+		}
+	case *SieveMessage_PbftMessage:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.PbftMessage)
+	case nil:
+	default:
+		return fmt.Errorf("SieveMessage.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*SieveMessage)
+	switch tag {
+	case 1: // payload.request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &SieveMessage_Request{x}
+		return true, err
+	case 2: // payload.execute
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Execute)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SieveMessage_Execute{msg}
+		return true, err
+	case 3: // payload.verify
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Verify)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SieveMessage_Verify{msg}
+		return true, err
+	case 4: // payload.decision
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Decision)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SieveMessage_Decision{msg}
+		return true, err
+	case 5: // payload.pbft_message
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &SieveMessage_PbftMessage{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+type Execute struct {
+	View        uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	BlockNumber uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	Request     []byte `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
+	ReplicaId   uint64 `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *Execute) Reset()         { *m = Execute{} }
+func (m *Execute) String() string { return proto.CompactTextString(m) }
+func (*Execute) ProtoMessage()    {}
+
+type Verify struct {
+	BlockNumber   uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	RequestDigest string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
+	ResultDigest  []byte `protobuf:"bytes,4,opt,name=result_digest,proto3" json:"result_digest,omitempty"`
+	ReplicaId     uint64 `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
+	Signature     []byte `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (m *Verify) Reset()         { *m = Verify{} }
+func (m *Verify) String() string { return proto.CompactTextString(m) }
+func (*Verify) ProtoMessage()    {}
+
+type Decision struct {
+	BlockNumber   uint64    `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	RequestDigest string    `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
+	Dset          []*Verify `protobuf:"bytes,4,rep,name=dset" json:"dset,omitempty"`
+}
+
+func (m *Decision) Reset()         { *m = Decision{} }
+func (m *Decision) String() string { return proto.CompactTextString(m) }
+func (*Decision) ProtoMessage()    {}
+
+func (m *Decision) GetDset() []*Verify {
+	if m != nil {
+		return m.Dset
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ package obcpbft;
  * i: replicaId
  */
 
-message Message {
+message message {
     oneof payload {
         request request = 1;
         pre_prepare pre_prepare = 2;
@@ -107,4 +107,37 @@ message new_view {
     repeated view_change vset = 2;
     map<uint64, string> xset = 3;
     uint64 replica_id = 4;
+}
+
+// sieve
+
+message sieve_message {
+    oneof payload {
+        bytes request = 1;
+        execute execute = 2;
+        verify verify = 3;
+        decision decision = 4;
+        bytes pbft_message = 5;
+    }
+}
+
+message execute {
+    uint64 view = 1;
+    uint64 block_number = 2;
+    bytes request = 3;
+    uint64 replica_id = 4;
+}
+
+message verify {
+    uint64 block_number = 2;
+    string request_digest = 3;
+    bytes result_digest = 4;
+    uint64 replica_id = 5;
+    bytes signature = 6;
+}
+
+message decision {
+    uint64 block_number = 2;
+    string request_digest = 3;
+    repeated verify dset = 4;
 }

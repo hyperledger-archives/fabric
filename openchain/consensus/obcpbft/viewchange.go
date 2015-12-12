@@ -21,7 +21,7 @@ package obcpbft
 
 import "reflect"
 
-func (instance *plugin) correctViewChange(vc *ViewChange) bool {
+func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
 			logger.Debug("invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
@@ -42,7 +42,7 @@ func (instance *plugin) correctViewChange(vc *ViewChange) bool {
 	return true
 }
 
-func (instance *plugin) sendViewChange() error {
+func (instance *pbftCore) sendViewChange() error {
 	instance.stopTimer()
 
 	delete(instance.newViewStore, instance.view)
@@ -141,10 +141,10 @@ func (instance *plugin) sendViewChange() error {
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	return instance.broadcast(&Message{&Message_ViewChange{vc}}, true)
+	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}}, true)
 }
 
-func (instance *plugin) recvViewChange(vc *ViewChange) error {
+func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -196,14 +196,14 @@ func (instance *plugin) recvViewChange(vc *ViewChange) error {
 		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 	}
 
-	if instance.getPrimary(instance.view) == instance.id {
+	if instance.primary(instance.view) == instance.id {
 		return instance.sendNewView()
 	}
 
 	return instance.processNewView()
 }
 
-func (instance *plugin) sendNewView() (err error) {
+func (instance *pbftCore) sendNewView() (err error) {
 	if _, ok := instance.newViewStore[instance.view]; ok {
 		return
 	}
@@ -230,7 +230,7 @@ func (instance *plugin) sendNewView() (err error) {
 	logger.Info("New primary %d sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	err = instance.broadcast(&Message{&Message_NewView{nv}}, false)
+	err = instance.innerBroadcast(&Message{&Message_NewView{nv}}, false)
 	if err != nil {
 		return err
 	}
@@ -238,11 +238,11 @@ func (instance *plugin) sendNewView() (err error) {
 	return instance.processNewView()
 }
 
-func (instance *plugin) recvNewView(nv *NewView) error {
+func (instance *pbftCore) recvNewView(nv *NewView) error {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
-	if !(nv.View > 0 && nv.View >= instance.view && instance.getPrimary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
+	if !(nv.View > 0 && nv.View >= instance.view && instance.primary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
 		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
 			instance.id, nv.ReplicaId, nv.View)
 		return nil
@@ -259,7 +259,7 @@ func (instance *plugin) recvNewView(nv *NewView) error {
 	return instance.processNewView()
 }
 
-func (instance *plugin) processNewView() error {
+func (instance *pbftCore) processNewView() error {
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
@@ -336,7 +336,7 @@ func (instance *plugin) processNewView() error {
 		}
 	}
 
-	if instance.getPrimary(instance.view) != instance.id {
+	if instance.primary(instance.view) != instance.id {
 		for n, d := range nv.Xset {
 			prep := &Prepare{
 				View:           instance.view,
@@ -347,7 +347,7 @@ func (instance *plugin) processNewView() error {
 			cert := instance.getCert(instance.view, n)
 			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
-			instance.broadcast(&Message{&Message_Prepare{prep}}, true)
+			instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 		}
 	} else {
 	outer:
@@ -364,12 +364,12 @@ func (instance *plugin) processNewView() error {
 		}
 	}
 
-	instance.consumer.viewChange(instance.getPrimary(instance.view) == instance.id)
+	instance.consumer.viewChange(instance.view)
 
 	return nil
 }
 
-func (instance *plugin) getViewChanges() (vset []*ViewChange) {
+func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 	for _, vc := range instance.viewChangeStore {
 		vset = append(vset, vc)
 	}
@@ -377,7 +377,7 @@ func (instance *plugin) getViewChanges() (vset []*ViewChange) {
 	return
 }
 
-func (instance *plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
+func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
 	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
@@ -421,7 +421,7 @@ func (instance *plugin) selectInitialCheckpoint(vset []*ViewChange) (checkpoint 
 	return
 }
 
-func (instance *plugin) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
+func (instance *pbftCore) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
 	maxN := h

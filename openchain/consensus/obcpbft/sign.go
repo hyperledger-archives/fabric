@@ -35,7 +35,7 @@ type signable interface {
 	serialize() ([]byte, error)
 }
 
-func (instance *plugin) sign(s signable) error {
+func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
 	// s.setId(instance.cpi.GetId())
 	id := []byte("XXX ID")
@@ -49,7 +49,7 @@ func (instance *plugin) sign(s signable) error {
 	return nil
 }
 
-func (instance *plugin) verify(s signable) error {
+func (instance *pbftCore) verify(s signable) error {
 	origSig := s.getSignature()
 	s.setSignature(nil)
 	raw, err := s.serialize()
@@ -83,5 +83,25 @@ func (vc *ViewChange) setID(id []byte) {
 }
 
 func (vc *ViewChange) serialize() ([]byte, error) {
+	return proto.Marshal(vc)
+}
+
+func (vc *Verify) getSignature() []byte {
+	return vc.Signature
+}
+
+func (vc *Verify) setSignature(sig []byte) {
+	vc.Signature = sig
+}
+
+func (vc *Verify) getID() []byte {
+	return []byte("XXX ID")
+}
+
+func (vc *Verify) setID(id []byte) {
+	// XXX set id
+}
+
+func (vc *Verify) serialize() ([]byte, error) {
 	return proto.Marshal(vc)
 }

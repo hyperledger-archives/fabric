@@ -117,7 +117,7 @@ func TestNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = net.replicas[0].plugin.request(txPacked)
+	err = net.replicas[0].pbft.request(txPacked)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -146,7 +146,7 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(1, func(inst *plugin) {
+	net := makeTestnet(1, func(inst *pbftCore) {
 		inst.K = 2
 	})
 	defer net.Close()
@@ -159,7 +159,7 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
-		err = net.replicas[0].plugin.recvMsgSync(msg)
+		err = net.replicas[0].pbft.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -174,18 +174,18 @@ func TestCheckpoint(t *testing.T) {
 	execReq(2)
 
 	for _, inst := range net.replicas {
-		if len(inst.plugin.chkpts) != 1 {
-			t.Errorf("Expected 1 checkpoint, found %d", len(inst.plugin.chkpts))
+		if len(inst.pbft.chkpts) != 1 {
+			t.Errorf("Expected 1 checkpoint, found %d", len(inst.pbft.chkpts))
 			continue
 		}
 
-		if _, ok := inst.plugin.chkpts[2]; !ok {
-			t.Errorf("Expected checkpoint for seqNo 2, got %s", inst.plugin.chkpts)
+		if _, ok := inst.pbft.chkpts[2]; !ok {
+			t.Errorf("Expected checkpoint for seqNo 2, got %s", inst.pbft.chkpts)
 			continue
 		}
 
-		if inst.plugin.h != 2 {
-			t.Errorf("Expected low water mark to be 2, got %d", inst.plugin.h)
+		if inst.pbft.h != 2 {
+			t.Errorf("Expected low water mark to be 2, got %d", inst.pbft.h)
 			continue
 		}
 	}
@@ -204,7 +204,7 @@ func TestLostPrePrepare(t *testing.T) {
 		Payload:   txPacked,
 	}
 
-	_ = net.replicas[0].plugin.recvRequest(req)
+	_ = net.replicas[0].pbft.recvRequest(req)
 
 	// clear all messages sent by primary
 	msg := net.msgs[0]
@@ -217,7 +217,7 @@ func TestLostPrePrepare(t *testing.T) {
 		if err != nil {
 			t.Fatal("Could not unmarshal message")
 		}
-		inst.plugin.recvMsgSync(msgReq)
+		inst.pbft.recvMsgSync(msgReq)
 	}
 
 	err := net.process()
@@ -260,15 +260,15 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.replicas[0].plugin.recvRequest(makePP(1).Request)
+	_ = net.replicas[0].pbft.recvRequest(makePP(1).Request)
 
 	// clear all messages sent by primary
 	net.msgs = net.msgs[:0]
 
 	// replace with fake messages
-	_ = net.replicas[1].plugin.recvPrePrepare(makePP(1))
-	_ = net.replicas[2].plugin.recvPrePrepare(makePP(2))
-	_ = net.replicas[3].plugin.recvPrePrepare(makePP(3))
+	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
+	_ = net.replicas[2].pbft.recvPrePrepare(makePP(2))
+	_ = net.replicas[3].pbft.recvPrePrepare(makePP(3))
 
 	err := net.process()
 	if err != nil {
@@ -284,7 +284,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1, func(inst *plugin) {
+	net := makeTestnet(1, func(inst *pbftCore) {
 		inst.K = 2
 		inst.L = inst.K * 2
 	})
@@ -298,7 +298,7 @@ func TestViewChange(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
-		err = net.replicas[0].plugin.recvMsgSync(msg)
+		err = net.replicas[0].pbft.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -314,7 +314,7 @@ func TestViewChange(t *testing.T) {
 	execReq(3)
 
 	for i := 2; i < len(net.replicas); i++ {
-		net.replicas[i].plugin.sendViewChange()
+		net.replicas[i].pbft.sendViewChange()
 	}
 
 	err := net.process()
@@ -322,17 +322,17 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if net.replicas[1].plugin.view != 1 || net.replicas[0].plugin.view != 1 {
+	if net.replicas[1].pbft.view != 1 || net.replicas[0].pbft.view != 1 {
 		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
 	}
 
-	cp, ok := net.replicas[1].plugin.selectInitialCheckpoint(net.replicas[1].plugin.getViewChanges())
+	cp, ok := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
 	if !ok || cp != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
-			net.replicas[1].plugin.viewChangeStore)
+			net.replicas[1].pbft.viewChangeStore)
 	}
 
-	msgList := net.replicas[1].plugin.assignSequenceNumbers(net.replicas[1].plugin.getViewChanges(), cp)
+	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
@@ -361,15 +361,15 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.replicas[0].plugin.recvRequest(makePP(0).Request)
+	_ = net.replicas[0].pbft.recvRequest(makePP(0).Request)
 
 	// clear all messages sent by primary
 	net.msgs = net.msgs[:0]
 
 	// replace with fake messages
-	_ = net.replicas[1].plugin.recvPrePrepare(makePP(1))
-	_ = net.replicas[2].plugin.recvPrePrepare(makePP(1))
-	_ = net.replicas[3].plugin.recvPrePrepare(makePP(0))
+	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
+	_ = net.replicas[2].pbft.recvPrePrepare(makePP(1))
+	_ = net.replicas[3].pbft.recvPrePrepare(makePP(0))
 
 	err := net.process()
 	if err != nil {
@@ -384,7 +384,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		inst.plugin.sendViewChange()
+		inst.pbft.sendViewChange()
 	}
 
 	err = net.process()
@@ -401,7 +401,7 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(1, func(inst *plugin) {
+	net := makeTestnet(1, func(inst *pbftCore) {
 		inst.newViewTimeout = 100 * time.Millisecond
 		inst.requestTimeout = inst.newViewTimeout
 		inst.lastNewViewTimeout = inst.newViewTimeout
@@ -425,7 +425,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.replicas[1].plugin.receive(msgPacked)
+	net.replicas[1].pbft.receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
@@ -436,12 +436,12 @@ func TestNewViewTimeout(t *testing.T) {
 	// the replicas that never saw the request (e.g. 0)
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
-	net.replicas[3].plugin.receive(msgPacked)
+	net.replicas[3].pbft.receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
 	net.Close()
 	for _, inst := range net.replicas {
-		if inst.plugin.view != 3 {
+		if inst.pbft.view != 3 {
 			t.Fatalf("should have reached view 3")
 		}
 	}

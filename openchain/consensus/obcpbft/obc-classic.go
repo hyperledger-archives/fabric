@@ -31,18 +31,13 @@ import (
 
 type obcClassic struct {
 	cpi  consensus.CPI
-	pbft *plugin
+	pbft *pbftCore
 }
 
 func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
 	op := &obcClassic{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op)
 	return op
-}
-
-// Close tears down all resources
-func (op *obcClassic) close() {
-	op.pbft.close()
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
@@ -85,14 +80,20 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// ViewChange is called by pbft-core to signal whether there was
-// a view change, and whether the local replica is now a primary
-func (op *obcClassic) viewChange(nowPrimary bool) {
-	//
+// =============================================================================
+// innerCPI interface (functions called by pbft-core)
+// =============================================================================
+
+// multicast a message to all replicas
+func (op *obcClassic) broadcast(msgPayload []byte) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	op.cpi.Broadcast(ocMsg)
 }
 
-// Execute is called by pbft-core to execute an opaque request,
-// which corresponds to an OBC Transaction
+// execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
@@ -111,11 +112,7 @@ func (op *obcClassic) execute(txRaw []byte) {
 	op.cpi.ExecTXs([]*pb.Transaction{tx})
 }
 
-// Broadcast is called by pbft-core to multicast a message to all replicas
-func (op *obcClassic) broadcast(payload []byte) {
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: payload,
-	}
-	op.cpi.Broadcast(ocMsg)
+// signal when a view-change happened
+func (op *obcClassic) viewChange(curView uint64) {
+	//
 }

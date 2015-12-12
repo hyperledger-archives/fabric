@@ -120,7 +120,7 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
 		for _, inst := range net.replicas {
-			inst.plugin.recvMsgSync(msg)
+			inst.pbft.recvMsgSync(msg)
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
@@ -144,7 +144,7 @@ func TestMinimalFuzz(t *testing.T) {
 		if noExec > 1 {
 			noExec = 0
 			for _, r := range net.replicas {
-				r.plugin.sendViewChange()
+				r.pbft.sendViewChange()
 			}
 			err = net.process(fuzzer.fuzzPacket)
 			if err != nil {

@@ -33,7 +33,7 @@ import (
 )
 
 // =============================================================================
-// Init
+// init
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
@@ -43,17 +43,16 @@ func init() {
 }
 
 // =============================================================================
-// Custom structure definitions go here
+// custom interfaces and structure definitions
 // =============================================================================
 
 type innerCPI interface {
-	broadcast(req []byte)
-	execute(req []byte)
-	viewChange(nowPrimary bool)
+	broadcast(msgPayload []byte)
+	execute(txRaw []byte)
+	viewChange(curView uint64)
 }
 
-// Plugin carries fields related to the consensus algorithm implementation.
-type plugin struct {
+type pbftCore struct {
 	// internal data
 	lock     sync.Mutex
 	closed   bool
@@ -82,7 +81,7 @@ type plugin struct {
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 
-	// Implementation of PBFT `in`
+	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
@@ -114,11 +113,11 @@ type vcidx struct {
 }
 
 // =============================================================================
-// Constructors go here
+// constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *plugin {
-	instance := &plugin{}
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
+	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
 
@@ -167,45 +166,21 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *plugin {
 
 	go instance.timerHander()
 
-	instance.consumer.viewChange(instance.getPrimary(instance.view) == instance.id)
+	instance.consumer.viewChange(instance.view)
 
 	return instance
 }
 
-// Close tears down resources opened by newPbftCore
-func (instance *plugin) close() {
+// tear down resources opened by newPbftCore
+func (instance *pbftCore) close() {
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
 	instance.closed = true
 	instance.newViewTimer.Reset(0)
 }
 
-// Request handles new consensus requests
-func (instance *plugin) request(payload []byte) error {
-	msg := &Message{&Message_Request{&Request{Payload: payload}}}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
-
-	return nil
-}
-
-// Receive handles internal consensus messages
-func (instance *plugin) receive(payload []byte) error {
-	msg := &Message{}
-	err := proto.Unmarshal(payload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
-
-	return nil
-}
-
-// timerHander allows the view-change protocol to kick-off when the timer expires
-func (instance *plugin) timerHander() {
+// allow the view-change protocol to kick-off when the timer expires
+func (instance *pbftCore) timerHander() {
 	for {
 		select {
 		case <-instance.newViewTimer.C:
@@ -222,27 +197,27 @@ func (instance *plugin) timerHander() {
 }
 
 // =============================================================================
-// Helper functions for PBFT go here
+// helper functions for PBFT
 // =============================================================================
 
 // Given a certain view n, what is the expected primary?
-func (instance *plugin) getPrimary(n uint64) uint64 {
+func (instance *pbftCore) primary(n uint64) uint64 {
 	return n % uint64(instance.replicaCount)
 }
 
 // Is the sequence number between watermarks?
-func (instance *plugin) inW(n uint64) bool {
+func (instance *pbftCore) inW(n uint64) bool {
 	return n-instance.h > 0 && n-instance.h <= instance.L
 }
 
 // Is the view right? And is the sequence number between watermarks?
-func (instance *plugin) inWV(v uint64, n uint64) bool {
+func (instance *pbftCore) inWV(v uint64, n uint64) bool {
 	return instance.view == v && instance.inW(n)
 }
 
 // Given a digest/view/seq, is there an entry in the certLog?
 // If so, return it. If not, create it.
-func (instance *plugin) getCert(v uint64, n uint64) (cert *msgCert) {
+func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
 	cert, ok := instance.certStore[idx]
 	if ok {
@@ -255,10 +230,10 @@ func (instance *plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 }
 
 // =============================================================================
-// Preprepare/prepare/commit quorum checks
+// preprepare/prepare/commit quorum checks
 // =============================================================================
 
-func (instance *plugin) prePrepared(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
 	if digest != "" && !mInLog {
@@ -281,7 +256,7 @@ func (instance *plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	return false
 }
 
-func (instance *plugin) prepared(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 	if !instance.prePrepared(digest, v, n) {
 		return false
 	}
@@ -308,7 +283,7 @@ func (instance *plugin) prepared(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f
 }
 
-func (instance *plugin) committed(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	if !instance.prepared(digest, v, n) {
 		return false
 	}
@@ -332,11 +307,34 @@ func (instance *plugin) committed(digest string, v uint64, n uint64) bool {
 }
 
 // =============================================================================
-// Receive methods go here
+// receive methods
 // =============================================================================
 
-// recvMsgSync processes messages in the synchronous context of msgPump().
-func (instance *plugin) recvMsgSync(msg *Message) (err error) {
+// handle new consensus requests
+func (instance *pbftCore) request(msgPayload []byte) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload}}}
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
+
+	return nil
+}
+
+// handle internal consensus messages
+func (instance *pbftCore) receive(msgPayload []byte) error {
+	msg := &Message{}
+	err := proto.Unmarshal(msgPayload, msg)
+	if err != nil {
+		return fmt.Errorf("Error unpacking payload from message: %s", err)
+	}
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
+
+	return nil
+}
+
+func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -359,7 +357,7 @@ func (instance *plugin) recvMsgSync(msg *Message) (err error) {
 	return err
 }
 
-func (instance *plugin) recvRequest(req *Request) error {
+func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
@@ -371,7 +369,7 @@ func (instance *plugin) recvRequest(req *Request) error {
 
 	n := instance.seqNo + 1
 
-	if instance.getPrimary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
+	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
 		haveOther := false
 		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
@@ -397,14 +395,14 @@ func (instance *plugin) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
-			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			return instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
 		}
 	}
 
 	return nil
 }
 
-func (instance *plugin) recvPrePrepare(preprep *PrePrepare) error {
+func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
@@ -412,13 +410,13 @@ func (instance *plugin) recvPrePrepare(preprep *PrePrepare) error {
 		return nil
 	}
 
-	if instance.getPrimary(instance.view) != preprep.ReplicaId {
-		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.getPrimary(instance.view))
+	if instance.primary(instance.view) != preprep.ReplicaId {
+		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.primary(instance.view))
 		return nil
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.getPrimary(instance.view), preprep.SequenceNumber, instance.h)
+		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		return nil
 	}
 
@@ -446,7 +444,7 @@ func (instance *plugin) recvPrePrepare(preprep *PrePrepare) error {
 		instance.outstandingReqs[digest] = preprep.Request
 	}
 
-	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
+	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
@@ -464,18 +462,18 @@ func (instance *plugin) recvPrePrepare(preprep *PrePrepare) error {
 		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
 
-		return instance.broadcast(&Message{&Message_Prepare{prep}}, false)
+		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, false)
 	}
 
 	return nil
 }
 
-func (instance *plugin) recvPrepare(prep *Prepare) error {
+func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View,
 		prep.SequenceNumber)
 
-	if !(instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
+	if !(instance.primary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
 		logger.Warning("Ignoring invalid prepare")
 		return nil
 	}
@@ -495,13 +493,13 @@ func (instance *plugin) recvPrepare(prep *Prepare) error {
 
 		cert.sentCommit = true
 
-		return instance.broadcast(&Message{&Message_Commit{commit}}, true)
+		return instance.innerBroadcast(&Message{&Message_Commit{commit}}, true)
 	}
 
 	return nil
 }
 
-func (instance *plugin) recvCommit(commit *Commit) error {
+func (instance *pbftCore) recvCommit(commit *Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View,
 		commit.SequenceNumber)
@@ -521,7 +519,7 @@ func (instance *plugin) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *plugin) executeOutstanding() error {
+func (instance *pbftCore) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -536,7 +534,7 @@ func (instance *plugin) executeOutstanding() error {
 	return nil
 }
 
-func (instance *plugin) executeOne(idx msgID) bool {
+func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -588,13 +586,13 @@ func (instance *plugin) executeOne(idx msgID) bool {
 			ReplicaId:      instance.id,
 		}
 		instance.chkpts[instance.lastExec] = stateHash
-		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
 	return true
 }
 
-func (instance *plugin) recvCheckpoint(chkpt *Checkpoint) error {
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
@@ -678,11 +676,11 @@ func (instance *plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // =============================================================================
 
 // Marshals a Message and hands it to the CPI. If toSelf is true,
-// the message is also dispatched to the local instance's RecvMsg.
-func (instance *plugin) broadcast(msg *Message, toSelf bool) error {
+// the message is also dispatched to the local instance's RecvMsgSync.
+func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	msgRaw, err := proto.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
+		return fmt.Errorf("[innerBroadcast] Cannot marshal message: %s", err)
 	}
 	instance.consumer.broadcast(msgRaw)
 
@@ -694,12 +692,12 @@ func (instance *plugin) broadcast(msg *Message, toSelf bool) error {
 	return nil
 }
 
-func (instance *plugin) startTimer(timeout time.Duration) {
+func (instance *pbftCore) startTimer(timeout time.Duration) {
 	instance.newViewTimer.Reset(timeout)
 	instance.timerActive = true
 }
 
-func (instance *plugin) stopTimer() {
+func (instance *pbftCore) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
 	instance.timerActive = false

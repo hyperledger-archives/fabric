@@ -38,7 +38,8 @@ func newMock() *mockCPI {
 	return mock
 }
 
-func (mock *mockCPI) viewChange(nowPrimary bool) {
+func (mock *mockCPI) viewChange(uint64) {
+	//
 }
 
 func (mock *mockCPI) broadcast(msg []byte) {
@@ -69,7 +70,7 @@ type testnet struct {
 type instance struct {
 	address  string
 	id       int
-	plugin   *plugin
+	pbft     *pbftCore
 	net      *testnet
 	executed [][]byte
 }
@@ -108,7 +109,7 @@ func (inst *instance) execute(payload []byte) {
 	inst.executed = append(inst.executed, payload)
 }
 
-func (inst *instance) viewChange(bool) {
+func (inst *instance) viewChange(uint64) {
 	//
 }
 
@@ -155,7 +156,7 @@ func (net *testnet) process(filterfns ...func(bool, int, []byte) []byte) error {
 		for _, taggedMsg := range msgs {
 			for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
 				net.cond.L.Unlock()
-				net.replicas[msg.id].plugin.receive(msg.msg)
+				net.replicas[msg.id].pbft.receive(msg.msg)
 				net.cond.L.Lock()
 			}
 		}
@@ -181,7 +182,7 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, []byte) []by
 			for _, taggedMsg := range msgs {
 				for _, msg := range net.filterMsg(taggedMsg, filterfns...) {
 					net.cond.L.Unlock()
-					net.replicas[msg.id].plugin.receive(msg.msg)
+					net.replicas[msg.id].pbft.receive(msg.msg)
 					net.cond.L.Lock()
 				}
 			}
@@ -189,7 +190,7 @@ func (net *testnet) processContinually(filterfns ...func(bool, int, []byte) []by
 	}
 }
 
-func makeTestnet(f int, initFn ...func(*plugin)) *testnet {
+func makeTestnet(f int, initFn ...func(*pbftCore)) *testnet {
 	replicaCount := 3*f + 1
 	net := &testnet{}
 	net.cond = sync.NewCond(&sync.Mutex{})
@@ -200,11 +201,11 @@ func makeTestnet(f int, initFn ...func(*plugin)) *testnet {
 	}
 	config := readConfig()
 	for i, inst := range net.replicas {
-		inst.plugin = newPbftCore(uint64(i), config, inst)
-		inst.plugin.replicaCount = replicaCount
-		inst.plugin.f = f
+		inst.pbft = newPbftCore(uint64(i), config, inst)
+		inst.pbft.replicaCount = replicaCount
+		inst.pbft.f = f
 		for _, fn := range initFn {
-			fn(inst.plugin)
+			fn(inst.pbft)
 		}
 	}
 
@@ -216,7 +217,7 @@ func (net *testnet) Close() {
 		return
 	}
 	for _, inst := range net.replicas {
-		inst.plugin.close()
+		inst.pbft.close()
 	}
 	net.cond.L.Lock()
 	net.closed = true
