@@ -572,7 +572,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("peer.transaction.security") {
+	if viper.GetBool("security.enabled") {
 		if chaincodeUsr == undefinedParamValue {
 			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
 			cmd.Out().Write([]byte(err))
@@ -641,7 +641,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("peer.transaction.security") {
+	if viper.GetBool("security.enabled") {
 		if chaincodeUsr == undefinedParamValue {
 			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
 			cmd.Out().Write([]byte(err))
