@@ -23,7 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -33,6 +35,7 @@ import (
 
 	google_protobuf "google/protobuf"
 
+	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -89,6 +92,15 @@ var stopCmd = &cobra.Command{
 	},
 }
 
+var loginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Login user on CLI.",
+	Long:  `Login the local user on CLI. Must supply username parameter.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		login(args)
+	},
+}
+
 var vmCmd = &cobra.Command{
 	Use:   "vm",
 	Short: "VM functionality of openchain.",
@@ -111,6 +123,7 @@ var (
 	chaincodePath     string
 	chaincodeVersion  string
 	chaincodeDevMode  bool
+	chaincodeUsr      string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -237,6 +250,7 @@ func main() {
 	mainCmd.AddCommand(peerCmd)
 	mainCmd.AddCommand(statusCmd)
 	mainCmd.AddCommand(stopCmd)
+	mainCmd.AddCommand(loginCmd)
 
 	vmCmd.AddCommand(vmPrimeCmd)
 	mainCmd.AddCommand(vmCmd)
@@ -245,6 +259,7 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
 	chaincodeCmd.AddCommand(chaincodeTestCmd)
@@ -376,6 +391,83 @@ func stop() {
 
 }
 
+// login will login a local user on the CLI and store the user's security
+// context into a file.
+func login(args []string) {
+	// Check for username argument
+	if len(args) == 0 {
+		logger.Error("Error: must supply username.\n")
+		return
+	}
+
+	// Check for other extraneous arguments
+	if len(args) != 1 {
+		logger.Error("Error: must supply username as the 1st and only parameter.\n")
+		return
+	}
+
+	localStore := viper.GetString("peer.fileSystemPath")
+	if !strings.HasSuffix(localStore, "/") {
+		localStore = localStore + "/"
+	}
+	localStore = localStore + "cli/"
+
+	// If the user is already logged in, return
+	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
+		logger.Info("User '%s' is already logged in.\n", args[0])
+		return
+	}
+
+	// User is not logged in, prompt for password
+	fmt.Printf("Enter password for user '%s': ", args[0])
+	pw := gopass.GetPasswd()
+
+	// Log in the user
+	logger.Info("Logging in user '%s'...\n", args[0])
+
+	// Get a devopsClient to perform the login
+	clientConn, err := peer.NewPeerClientConnection()
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		return
+	}
+	devopsClient := pb.NewDevopsClient(clientConn)
+
+	// Build the login spec and login
+	loginSpec := &pb.Secret{EnrollId: args[0], EnrollSecret: string(pw)}
+	loginResult, err := devopsClient.Login(context.Background(), loginSpec)
+
+	// Check if login is successful
+	if loginResult.Status == pb.Response_SUCCESS {
+		// Store the client login token for future use
+		logger.Info("Login successful for user '%s'.\n", args[0])
+
+		// If .client directory does not exist, create it
+		if _, err := os.Stat(localStore); err != nil {
+			if os.IsNotExist(err) {
+				// Directory does not exist, create it
+				if err := os.Mkdir("localStore", 644); err != nil {
+					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
+				}
+			} else {
+				// Unexpected error
+				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
+			}
+		}
+
+		// Store client security context into a file
+		logger.Info("Storing login token for user '%s'.\n", args[0])
+		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0644)
+		if err != nil {
+			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
+		}
+	} else {
+		logger.Error(fmt.Sprintf("Error on client login: %s", string(loginResult.Msg)))
+	}
+
+	return
+}
+
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
 	//get user mode
 	userRunsCC := false
@@ -485,6 +577,38 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
 		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		if chaincodeUsr == undefinedParamValue {
+			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return
+		}
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user is already logged in. Retrieving login token.\n")
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			if err != nil {
+				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.SecureContext = string(token)
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				return
+			}
+			// Unexpected error
+			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
+	}
+
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
@@ -522,7 +646,37 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
 		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
 
-	//msg := &pb.ChaincodeInput{Function: "func1", Args: []string{"arg1", "arg2"}}
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		if chaincodeUsr == undefinedParamValue {
+			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return
+		}
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user is already logged in. Retrieving login token.\n")
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			if err != nil {
+				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.SecureContext = string(token)
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				return
+			}
+			// Unexpected error
+			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
+	}
 
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}

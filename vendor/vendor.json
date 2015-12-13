@@ -143,6 +143,11 @@
 			"revisionTime": "2015-09-03T16:45:19-07:00"
 		},
 		{
+			"path": "github.com/howeyc/gopass",
+			"revision": "ae71a9cc54fddb61d946abe9191d05a24ac0e21b",
+			"revisionTime": "2015-11-20T18:16:12-06:00"
+		},
+		{
 			"path": "github.com/inconshreveable/mousetrap",
 			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
 			"revisionTime": "2014-10-17T13:07:13-07:00"
@@ -226,6 +231,16 @@
 			"path": "golang.org/x/crypto/sha3",
 			"revision": "81bf7719a6b7ce9b665598222362b50122dfc13b",
 			"revisionTime": "2015-07-28T14:18:45-07:00"
+		},
+		{
+			"path": "golang.org/x/crypto/ssh",
+			"revision": "7b85b097bf7527677d54d3220065e966a0e3b613",
+			"revisionTime": "2015-11-30T17:07:01-05:00"
+		},
+		{
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "7b85b097bf7527677d54d3220065e966a0e3b613",
+			"revisionTime": "2015-11-30T17:07:01-05:00"
 		},
 		{
 			"path": "golang.org/x/net/context",
