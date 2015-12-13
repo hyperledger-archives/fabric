@@ -40,93 +40,43 @@ defaults:
 
 ###############################################################################
 #
-#    Client section
-#
-###############################################################################
-client:
-    # Client's settings
-    crypto:
-
-        # location on file system
-        path: .obc-client
-
-        # eca settings
-        eca:
-
-            paddr: localhost:53051
-
-        # tca settings
-        tca:
-
-            paddr: localhost:53551
-
-        users:
-
-            user4:
-
-                enrollid: user4
-                enrollpw: 9gvZQRwhUq9q
-
-            user5:
-
-                enrollid: user5
-                enrollpw: 9gvZQRwhUq9q
-
-
-###############################################################################
-#
-#    Validator section
-#
-###############################################################################
-validator:
-
-    # Validator's crypto settings
-    crypto:
-          # where to store data
-          path: .obc-validator
-
-          # eca settings
-          eca:
-
-              paddr: localhost:53051
-
-          # tca settings
-          tca:
-
-              paddr: localhost:53551
-
-          # enrollment (id,pw) (only for testing
-          users:
-
-              validator:
-                  enrollid: validator
-                  enrollpw: 9gvZQRwhUq9q
-
-###############################################################################
-#
 #    Peer section
 #
 ###############################################################################
 peer:
 
-    # Validator's crypto settings
-    crypto:
-          # where to store data
-          path: .obc-peer
-
-          # eca settings
+    pki:
           eca:
+              paddr: localhost:53051
 
-              paddr: localhost:52051
-
-          # tca settings
           tca:
+              paddr: localhost:53551
 
-              paddr: localhost:52551
+    fileSystemPath: .obc-peer
 
-          # enrollment (id,pw) (only for testing
-          users:
+###############################################################################
+#
+#    Test parameters section
+#
+###############################################################################
+tests:
 
-              peer:
-                  enrollid: peer
-                  enrollpw: 9gvZQRwhUq9q
+    crypto:
+
+        users:
+
+            user4:
+                enrollid: user4
+                enrollpw: 9gvZQRwhUq9q
+
+            user5:
+                enrollid: user5
+                enrollpw: 9gvZQRwhUq9q
+
+            validator:
+                enrollid: validator
+                enrollpw: 9gvZQRwhUq9q
+
+            peer:
+                enrollid: peer
+                enrollpw: 9gvZQRwhUq9q
