@@ -12,7 +12,7 @@ general:
     # Consensus plugin package name goes here
     name: obc-pbft
 
-    # Operational mode: classic or sieve
+    # Operational mode: batch, classic, or sieve
     mode: classic
 
     # How many Byzantine nodes can we tolerate
@@ -20,6 +20,9 @@ general:
 
     # Checkpoint period
     K: 10
+
+    # How many requests should the primary send per pre-prepare when in "batch" mode
+    batchsize: 2
 
     # Timeouts
     timeout:

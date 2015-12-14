@@ -114,5 +114,5 @@ func (op *obcClassic) execute(txRaw []byte) {
 
 // signal when a view-change happened
 func (op *obcClassic) viewChange(curView uint64) {
-	//
+	// TODO
 }

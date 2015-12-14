@@ -64,42 +64,50 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // Stack-facing implementation goes here
 // =============================================================================
 
-// GetReplicaAddress returns the IP:Port for the current replica (self:true) or the whole network (self:false).
-// Will be eventually return crypto IDs.
-func (h *Helper) GetReplicaAddress(self bool) (addresses []string, err error) {
-	if self {
-		pe, err := peer.GetPeerEndpoint()
-		if err != nil {
-			err = fmt.Errorf("Couldn't get own peer endpoint: %s", err)
-			return nil, err
-		}
-		addresses = append(addresses, pe.Address)
-	} else {
-		config := viper.New()
-		config.SetConfigName("openchain")
-		config.AddConfigPath("./")
-		err = config.ReadInConfig()
-		if err != nil {
-			err = fmt.Errorf("Fatal error reading root config: %s", err)
-			return nil, err
-		}
-		addresses = config.GetStringSlice("peer.validator.replicas")
+// GetReplicaHash returns the crypto IDs of the current replica and the whole network
+// func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
+// ATTN: Until the crypto package is integrated, this functions returns
+// the <IP:port>s of the current replica and the whole network instead
+func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
+	// v, _ := h.coordinator.GetValidator()
+	// self = v.GetID()
+	self, _ := peer.GetPeerEndpoint()
+
+	config := viper.New()
+	config.SetConfigName("openchain")
+	config.AddConfigPath("./")
+	err = config.ReadInConfig()
+	if err != nil {
+		err = fmt.Errorf("Fatal error reading root config: %s", err)
+		return self, nil, err
 	}
-	return addresses, nil
+
+	// encodedHashes := config.GetStringSlice("peer.validator.replicas.hashes")
+	/* network = make([][]byte, len(encodedHashes))
+	for i, v := range encodedHashes {
+		network[i], _ = base64.StdEncoding.DecodeString(v)
+	} */
+	network = config.GetStringSlice("peer.validator.replicas.ips")
+
+	return self, network, nil
 }
 
-// GetReplicaID returns the uint handle corresponding to a replica address.
-func (h *Helper) GetReplicaID(address string) (id uint64, err error) {
-	addresses, err := h.GetReplicaAddress(false)
+// GetReplicaID returns the uint handle corresponding to a replica address
+// func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
+func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
+	_, network, err := h.GetReplicaHash()
 	if err != nil {
 		return uint64(0), err
 	}
-	for i, v := range addresses {
-		if v == address {
+	for i, v := range network {
+		// if bytes.Equal(v, hash) {
+		if v == addr {
 			return uint64(i), nil
 		}
 	}
-	err = fmt.Errorf("Couldn't find address in list of VP addresses given in config")
+
+	//err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
+	err = fmt.Errorf("Couldn't find IP:port in list of VP addresses given in config")
 	return uint64(0), err
 }
 

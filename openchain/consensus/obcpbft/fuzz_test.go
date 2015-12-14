@@ -101,7 +101,7 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	net := makeTestnet(1)
-	defer net.Close()
+	defer net.close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 
 	noExec := 0

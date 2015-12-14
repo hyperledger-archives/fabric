@@ -44,12 +44,14 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
 	config := readConfig()
-	address, _ := cpi.GetReplicaAddress(true)
-	id, _ := cpi.GetReplicaID(address[0])
+	addr, _, _ := cpi.GetReplicaHash()
+	id, _ := cpi.GetReplicaID(addr)
 
 	switch config.GetString("general.mode") {
 	case "classic":
 		return newObcClassic(id, config, cpi)
+	case "batch":
+		return newObcBatch(id, config, cpi)
 	case "sieve":
 		return newObcSieve(id, config, cpi)
 	default:

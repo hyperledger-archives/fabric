@@ -108,10 +108,10 @@ func TestIncompletePayload(t *testing.T) {
 
 func TestNetwork(t *testing.T) {
 	net := makeTestnet(2)
-	defer net.Close()
+	defer net.close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
-	txTime := &gp.Timestamp{Seconds: 2001, Nanos: 0}
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
@@ -149,7 +149,7 @@ func TestCheckpoint(t *testing.T) {
 	net := makeTestnet(1, func(inst *pbftCore) {
 		inst.K = 2
 	})
-	defer net.Close()
+	defer net.close()
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -193,7 +193,7 @@ func TestCheckpoint(t *testing.T) {
 
 func TestLostPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
-	defer net.Close()
+	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -239,7 +239,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 func TestInconsistentPrePrepare(t *testing.T) {
 	net := makeTestnet(1)
-	defer net.Close()
+	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -288,7 +288,7 @@ func TestViewChange(t *testing.T) {
 		inst.K = 2
 		inst.L = inst.K * 2
 	})
-	defer net.Close()
+	defer net.close()
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -340,7 +340,7 @@ func TestViewChange(t *testing.T) {
 
 func TestInconsistentDataViewChange(t *testing.T) {
 	net := makeTestnet(1)
-	defer net.Close()
+	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -406,7 +406,7 @@ func TestNewViewTimeout(t *testing.T) {
 		inst.requestTimeout = inst.newViewTimeout
 		inst.lastNewViewTimeout = inst.newViewTimeout
 	})
-	defer net.Close()
+	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -439,7 +439,7 @@ func TestNewViewTimeout(t *testing.T) {
 	net.replicas[3].pbft.receive(msgPacked)
 	time.Sleep(1 * time.Second)
 
-	net.Close()
+	net.close()
 	for _, inst := range net.replicas {
 		if inst.pbft.view != 3 {
 			t.Fatalf("should have reached view 3")

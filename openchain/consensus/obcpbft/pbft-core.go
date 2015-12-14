@@ -367,14 +367,14 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 		instance.startTimer(instance.requestTimeout)
 	}
 
-	n := instance.seqNo + 1
-
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
+		n := instance.seqNo + 1
 		haveOther := false
+
 		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
 				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
-					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
+					logger.Debug("Other pre-prepare found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
 					haveOther = true
 					break
 				}
@@ -455,6 +455,8 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 			ReplicaId:      instance.id,
 		}
 
+		// TODO build this properly
+		// https://github.com/openblockchain/obc-peer/issues/217
 		if instance.byzantine {
 			prep.RequestDigest = "foo"
 		}
@@ -470,8 +472,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 
 func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
-		instance.id, prep.ReplicaId, prep.View,
-		prep.SequenceNumber)
+		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
 
 	if !(instance.primary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
 		logger.Warning("Ignoring invalid prepare")
@@ -501,8 +502,7 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 
 func (instance *pbftCore) recvCommit(commit *Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
-		instance.id, commit.ReplicaId, commit.View,
-		commit.SequenceNumber)
+		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.View, commit.SequenceNumber)
@@ -694,12 +694,14 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
 	instance.newViewTimer.Reset(timeout)
+	logger.Debug("Replica %d started the newView timer", instance.id)
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
+	logger.Debug("Replica %d stopped the newView timer", instance.id)
 	instance.timerActive = false
 	if instance.closed {
 		return

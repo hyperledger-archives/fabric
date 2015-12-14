@@ -51,7 +51,8 @@ message message {
 
 message request {
     google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
-    bytes payload = 2;  // Opaque payload
+    bytes payload = 2;  // opaque payload
+    uint64 replica_id = 3;
 }
 
 message pre_prepare {
