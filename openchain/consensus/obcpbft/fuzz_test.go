@@ -100,7 +100,7 @@ func TestMinimalFuzz(t *testing.T) {
 		t.Skip("Skipping fuzz test")
 	}
 
-	net := makeTestnet(1)
+	net := makeTestnet(1, makeTestnetPbftCore)
 	defer net.close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 

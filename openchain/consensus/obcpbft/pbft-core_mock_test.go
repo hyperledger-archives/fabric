@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -56,12 +57,18 @@ func (mock *mockCPI) viewChange(uint64) {
 // Fake network structures
 // =============================================================================
 
+type closableConsenter interface {
+	consensus.Consenter
+	Close()
+}
+
 type taggedMsg struct {
 	id  int
 	msg []byte
 }
 
 type testnet struct {
+	f         int
 	cond      *sync.Cond
 	closed    bool
 	replicas  []*instance
@@ -70,12 +77,12 @@ type testnet struct {
 }
 
 type instance struct {
-	id       int
-	addr     string
-	pbft     *pbftCore
-	batch    *obcBatch
-	net      *testnet
-	executed [][]byte
+	id        int
+	addr      string
+	pbft      *pbftCore
+	consenter closableConsenter
+	net       *testnet
+	executed  [][]byte
 }
 
 func (inst *instance) broadcast(payload []byte) {
@@ -205,21 +212,20 @@ func (net *testnet) processContinually(filterFns ...func(bool, int, []byte) []by
 	}
 }
 
-func makeTestnet(f int, initFn ...func(*pbftCore)) *testnet {
-	replicaCount := 3*f + 1
-	net := &testnet{}
+func makeTestnet(f int, initFn ...func(*instance)) *testnet {
+	net := &testnet{f: f}
 	net.cond = sync.NewCond(&sync.Mutex{})
-	config := readConfig()
+	replicaCount := 3*f + 1
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{addr: strconv.Itoa(i), id: i, net: net} // XXX ugly hack
-		inst.pbft = newPbftCore(uint64(i), config, inst)
-		inst.pbft.replicaCount = replicaCount
-		inst.pbft.f = f
-		for _, fn := range initFn {
-			fn(inst.pbft)
-		}
 		net.replicas = append(net.replicas, inst)
 		net.addresses = append(net.addresses, inst.addr)
+	}
+
+	for _, inst := range net.replicas {
+		for _, fn := range initFn {
+			fn(inst)
+		}
 	}
 
 	return net
@@ -230,7 +236,12 @@ func (net *testnet) close() {
 		return
 	}
 	for _, inst := range net.replicas {
-		inst.pbft.close()
+		if inst.pbft != nil {
+			inst.pbft.close()
+		}
+		if inst.consenter != nil {
+			inst.consenter.Close()
+		}
 	}
 	net.cond.L.Lock()
 	net.closed = true

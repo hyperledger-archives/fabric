@@ -31,6 +31,13 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+func makeTestnetPbftCore(inst *instance) {
+	config := readConfig()
+	inst.pbft = newPbftCore(uint64(inst.id), config, inst)
+	inst.pbft.replicaCount = len(inst.net.replicas)
+	inst.pbft.f = inst.net.f
+}
+
 func TestEnvOverride(t *testing.T) {
 	config := readConfig()
 
@@ -107,7 +114,7 @@ func TestIncompletePayload(t *testing.T) {
 }
 
 func TestNetwork(t *testing.T) {
-	net := makeTestnet(2)
+	net := makeTestnet(2, makeTestnetPbftCore)
 	defer net.close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -146,8 +153,9 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(1, func(inst *pbftCore) {
-		inst.K = 2
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.K = 2
 	})
 	defer net.close()
 
@@ -192,7 +200,7 @@ func TestCheckpoint(t *testing.T) {
 }
 
 func TestLostPrePrepare(t *testing.T) {
-	net := makeTestnet(1)
+	net := makeTestnet(1, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -238,7 +246,7 @@ func TestLostPrePrepare(t *testing.T) {
 }
 
 func TestInconsistentPrePrepare(t *testing.T) {
-	net := makeTestnet(1)
+	net := makeTestnet(1, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -284,9 +292,10 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1, func(inst *pbftCore) {
-		inst.K = 2
-		inst.L = inst.K * 2
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.K = 2
+		inst.pbft.L = inst.pbft.K * 2
 	})
 	defer net.close()
 
@@ -339,7 +348,7 @@ func TestViewChange(t *testing.T) {
 }
 
 func TestInconsistentDataViewChange(t *testing.T) {
-	net := makeTestnet(1)
+	net := makeTestnet(1, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -401,10 +410,11 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(1, func(inst *pbftCore) {
-		inst.newViewTimeout = 100 * time.Millisecond
-		inst.requestTimeout = inst.newViewTimeout
-		inst.lastNewViewTimeout = inst.newViewTimeout
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.newViewTimeout = 100 * time.Millisecond
+		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
+		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
 	})
 	defer net.close()
 

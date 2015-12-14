@@ -94,6 +94,11 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	return nil
 }
 
+// Close tells us to release resources we are holding
+func (op *obcSieve) Close() {
+	op.pbft.close()
+}
+
 // called by pbft-core to multicast a message to all replicas
 func (op *obcSieve) broadcast(msgPayload []byte) {
 	svMsg := &SieveMessage{&SieveMessage_PbftMessage{msgPayload}}

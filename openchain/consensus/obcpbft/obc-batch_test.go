@@ -21,8 +21,6 @@ package obcpbft
 
 import (
 	gp "google/protobuf"
-	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -30,36 +28,13 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func makeTestnetBatch(f int, batchSize int) *testnet {
-	replicaCount := 3*f + 1
-	net := &testnet{}
-	net.cond = sync.NewCond(&sync.Mutex{})
+func makeTestnetBatch(inst *instance, batchSize int) {
 	config := readConfig()
-	for i := 0; i < replicaCount; i++ {
-		inst := &instance{id: i, addr: strconv.Itoa(i), net: net} // XXX ugly hack
-		inst.batch = newObcBatch(uint64(i), config, inst)
-		inst.batch.batchSize = batchSize
-		inst.batch.pbft.replicaCount = replicaCount
-		inst.batch.pbft.f = f
-		net.replicas = append(net.replicas, inst)
-		net.addresses = append(net.addresses, inst.addr)
-	}
-
-	return net
-}
-
-func (net *testnet) closeBatch() {
-	if net.closed {
-		return
-	}
-	for _, inst := range net.replicas {
-		inst.batch.pbft.close()
-		inst.batch.close()
-	}
-	net.cond.L.Lock()
-	net.closed = true
-	net.cond.Signal()
-	net.cond.L.Unlock()
+	inst.consenter = newObcBatch(uint64(inst.id), config, inst)
+	batch := inst.consenter.(*obcBatch)
+	batch.batchSize = batchSize
+	batch.pbft.replicaCount = len(inst.net.replicas)
+	batch.pbft.f = inst.net.f
 }
 
 func (net *testnet) processBatch(filterFns ...func(bool, int, []byte) []byte) error {
@@ -73,7 +48,7 @@ func (net *testnet) processBatch(filterFns ...func(bool, int, []byte) []byte) er
 		for _, taggedMsg := range msgs {
 			for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
 				net.cond.L.Unlock()
-				net.replicas[msg.id].batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg.msg})
+				net.replicas[msg.id].consenter.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg.msg})
 				net.cond.L.Lock()
 			}
 		}
@@ -95,9 +70,11 @@ func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
 }
 
 func TestNetworkBatch(t *testing.T) {
-	net := makeTestnetBatch(1, 2)
-	defer net.closeBatch()
-	err := net.replicas[1].batch.RecvMsg(createExternalRequest(1))
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetBatch(inst, 2)
+	})
+	defer net.close()
+	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -112,22 +89,22 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if len(net.replicas[0].batch.batchStore) != 1 {
-		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].batch.batchStore))
+	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 1 {
+		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	err = net.replicas[2].batch.RecvMsg(createExternalRequest(2))
+	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2))
 	err = net.processBatch()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if len(net.replicas[0].batch.batchStore) != 0 {
-		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, len(net.replicas[0].batch.batchStore))
+	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 0 {
+		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
 	if len(net.replicas[3].executed) != 2 {
-		t.Fatalf("%d requests executed, expected %d", len(net.replicas[3].executed), net.replicas[3].batch.batchSize)
+		t.Fatalf("%d requests executed, expected %d", len(net.replicas[3].executed), net.replicas[3].consenter.(*obcBatch).batchSize)
 	}
 
 }

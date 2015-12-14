@@ -80,6 +80,11 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	return nil
 }
 
+// Close tells us to release resources we are holding
+func (op *obcClassic) Close() {
+	op.pbft.close()
+}
+
 // =============================================================================
 // innerCPI interface (functions called by pbft-core)
 // =============================================================================
