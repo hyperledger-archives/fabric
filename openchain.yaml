@@ -23,6 +23,7 @@ rest:
 
 
 
+
 ###############################################################################
 #
 #    Peer section
@@ -91,6 +92,13 @@ peer:
 
         # List of validating peers. For MVP, assume list is static.
         replicas: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
+
+        events:
+            # The address that the Event service will be enabled on the validator
+            address: 0.0.0.0:31315
+
+            # total number of events that could be buffered without blocking the validator sends
+            buffersize: 100
 
     # TLS Settings for p2p communications
     tls:

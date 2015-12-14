@@ -1,0 +1,94 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
+syntax = "proto3";
+
+package protos;
+
+//----Event objects----
+
+message InterestedEvent {
+    enum ResponseType {
+        //send objects
+        NATIVE = 0;
+        //marshall into JSON byte array
+        JSON = 1;
+        //don't send events (used to cancel interest)
+        DONTSEND = 2;
+    }
+    string eventType = 1;
+    ResponseType responseType = 2;
+}
+    
+    
+    
+//---------- consumer events ---------
+//RegisterEvent is sent by consumers for registering events
+//string type - "register"
+message RegisterEvent {
+    repeated InterestedEvent events = 1;
+}
+
+//---------- producer events ---------
+//TransactionEvent is sent when a transaction is executed
+//string type - "transaction"
+message TransactionEvent {
+    string UUID = 1;
+    bool success = 2;
+    bytes payload = 3;
+}
+
+//GenericEvent is used for encoding payload as bytes
+//string type - "generic"
+message GenericEvent {
+    enum Encoding {
+        //just bytes - bytesType should be used to convey type information
+        RAW = 0;
+
+        //json encoding - bytesType could be used for additional type information
+        JSON = 1;
+
+        //string encoding- bytesType could be used for additional type information
+        STRING = 2;
+    }
+    Encoding encoding = 1;
+    string bytesType = 2;
+    bytes payload = 3;
+    
+}
+
+//EventHubMessage is used by
+//  - consumers (adapters) to send Register
+//  - producer to advertise supported types and events 
+message EventHubMessage {
+    oneof Event {
+        //consumer events
+        RegisterEvent registerEvent = 2;
+
+        //producer events
+        TransactionEvent transactionEvent = 3;
+        GenericEvent genericEvent = 4;
+    }
+}
+
+// Interface exported by the server.
+service EventHub {
+    // event chatting using EventHubMessage
+    rpc Chat(stream EventHubMessage) returns (stream EventHubMessage) {}
+}

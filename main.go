@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"github.com/openblockchain/obc-peer/eventhub/producer"
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
@@ -47,6 +48,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
+	ehpb "github.com/openblockchain/obc-peer/eventhub/protos"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -257,11 +259,44 @@ func main() {
 
 }
 
+func createEventHubServer() (net.Listener, *grpc.Server, error) {
+	var lis net.Listener
+	var grpcServer *grpc.Server
+	var err error
+	if viper.GetBool("peer.validator.enabled") {
+		lis, err = net.Listen("tcp", viper.GetString("peer.validator.events.address"))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to listen: %v", err)
+		}
+
+		//TODO - do we need different SSL material for eventhub ?
+		var opts []grpc.ServerOption
+		if viper.GetBool("peer.tls.enabled") {
+			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+			if err != nil {
+				return nil, nil, fmt.Errorf("Failed to generate credentials %v", err)
+			}
+			opts = []grpc.ServerOption{grpc.Creds(creds)}
+		}
+
+		grpcServer = grpc.NewServer(opts...)
+		ehServer := producer.NewEventHubServer(uint(viper.GetInt("peer.validator.events.buffersize")))
+		ehpb.RegisterEventHubServer(grpcServer, ehServer)
+	}
+	return lis, grpcServer, err
+}
+
 func serve(args []string) error {
 	lis, err := net.Listen("tcp", viper.GetString("peer.address"))
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
+	
+	ehubLis,ehubGrpcServer,err := createEventHubServer()
+	if err != nil {
+		grpclog.Fatalf("failed to create ehub server: %v", err)
+	}
+
 	if chaincodeDevMode {
 		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
 		viper.Set("peer.validator.enabled", "true")
@@ -341,6 +376,11 @@ func serve(args []string) error {
 	makeGeneisError := genesis.MakeGenesis()
 	if makeGeneisError != nil {
 		return makeGeneisError
+	}
+
+	//start the event hub server
+	if ehubGrpcServer != nil && ehubLis != nil {
+		go ehubGrpcServer.Serve(ehubLis)
 	}
 
 	// Block until grpc server exits
