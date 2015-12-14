@@ -50,14 +50,14 @@ func TestSieveNetwork(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
+	for i, inst := range net.replicas {
 		if len(inst.blocks) != 1 {
-			t.Errorf("replica %d executed %d requests, expected %d",
-				inst.id, len(net.replicas[3].blocks), 1)
+			t.Errorf("Replica %d executed %d requests, expected %d",
+				inst.id, len(net.replicas[i].blocks), 1)
 		}
 
 		if inst.consenter.(*obcSieve).view != 0 {
-			t.Errorf("replica %d in view %d, expected 0",
+			t.Errorf("Replica %d in view %d, expected 0",
 				inst.id, inst.consenter.(*obcSieve).view)
 		}
 	}
