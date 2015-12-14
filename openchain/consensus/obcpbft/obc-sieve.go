@@ -26,7 +26,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/spf13/viper"
@@ -69,7 +68,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
 		svMsgRaw, _ := proto.Marshal(svMsg)
 		op.recvRequest(svMsgRaw)
-		op.broadcast(svMsgRaw)
+		op.broadcastMsg(svMsg)
 		return nil
 	}
 
@@ -80,6 +79,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
 	if err != nil {
+		logger.Error("Could not unmarshal sieve message: %v", ocMsg)
 		return err
 	}
 	if req := svMsg.GetRequest(); req != nil {
@@ -90,6 +90,8 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		op.recvVerify(verify)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
 		op.pbft.receive(pbftMsg)
+	} else {
+		logger.Error("Received invalid sieve message: %v", svMsg)
 	}
 	return nil
 }
@@ -107,8 +109,10 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 
 // called by pbft-core to signal when a view change happened
 func (op *obcSieve) viewChange(curView uint64) {
+	logger.Info("Sieve view change")
 	op.view = curView
 	if op.currentReq != "" {
+		logger.Debug("View change rolling back active request blockNo %d, %s", op.blockNumber, op.currentReq)
 		op.rollback()
 		op.blockNumber--
 		op.currentReq = ""
@@ -126,8 +130,11 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 
 func (op *obcSieve) recvRequest(txRaw []byte) {
 	if op.pbft.primary(op.view) != op.id {
+		logger.Debug("Sieve backup %d ignoring request", op.id)
 		return
 	}
+
+	logger.Debug("Sieve primary %d received request", op.id)
 
 	// tx := &pb.Transaction{}
 	// err := proto.Unmarshal(txRaw, tx)
@@ -151,6 +158,8 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 		Request:     txRaw,
 		ReplicaId:   op.id,
 	}
+	logger.Debug("Sieve primary %d broadcasting execute v=%d, blockNo=%d",
+		op.id, exec.View, exec.BlockNumber)
 	op.recvExecute(exec)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
 }
@@ -172,6 +181,9 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 		return
 	}
 
+	logger.Debug("Sieve replica %d received exec from %d, v=%d, blockNo=%d",
+		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
+
 	op.currentReq = base64.StdEncoding.EncodeToString(exec.Request)
 	op.blockNumber++
 
@@ -186,9 +198,12 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 		BlockNumber:   exec.BlockNumber,
 		RequestDigest: op.currentReq,
 		ResultDigest:  op.currentResult,
-		ReplicaId:     exec.ReplicaId,
+		ReplicaId:     op.id,
 	}
 	op.pbft.sign(verify)
+
+	logger.Debug("Sieve replica %d sending verify blockNo=%d",
+		op.id, verify.BlockNumber)
 	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
 }
@@ -211,6 +226,9 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 		return
 	}
 
+	logger.Debug("Sieve primary %d received verify from %d, blockNo=%d, result %s",
+		op.id, verify.ReplicaId, verify.BlockNumber, verify.ResultDigest)
+
 	for _, v := range op.verifyStore {
 		if v.ReplicaId == verify.ReplicaId {
 			logger.Info("Duplicate verify from %d", op.id)
@@ -219,19 +237,16 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 	}
 	op.verifyStore = append(op.verifyStore, verify)
 
-	if len(op.verifyStore) < 2*op.pbft.f+1 {
-		// still have to wait
-		return
+	if len(op.verifyStore) == 2*op.pbft.f+1 {
+		dSet, _ := op.verifyDset(op.verifyStore)
+		decision := &Decision{
+			BlockNumber:   op.blockNumber,
+			RequestDigest: op.currentReq,
+			Dset:          dSet,
+		}
+		req, _ := proto.Marshal(decision)
+		op.pbft.request(req)
 	}
-
-	dSet, _ := op.verifyDset(op.verifyStore)
-	decision := &Decision{
-		BlockNumber:   op.blockNumber,
-		RequestDigest: op.currentReq,
-		Dset:          dSet,
-	}
-	req, _ := proto.Marshal(decision)
-	op.pbft.request(req)
 }
 
 func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
@@ -270,21 +285,21 @@ func (op *obcSieve) execute(raw []byte) {
 
 	if decision.RequestDigest != op.currentReq {
 		logger.Error("Decision request digest does not match execution")
-		// XXX view change
+		op.pbft.sendViewChange()
 		return
 	}
 
 	if len(decision.Dset) < op.pbft.f+1 {
 		logger.Error("Not enough verifies in decision: need at least %d, got %d",
 			op.pbft.f+1, len(decision.Dset))
-		// XXX view change
+		op.pbft.sendViewChange()
 		return
 	}
 
 	for _, v := range decision.Dset {
 		if err := op.pbft.verify(v); err != nil {
 			logger.Error("Invalid decision/verify message: %s", err)
-			// XXX view change
+			op.pbft.sendViewChange()
 			return
 		}
 	}
@@ -292,7 +307,7 @@ func (op *obcSieve) execute(raw []byte) {
 	dSet, quorum := op.verifyDset(decision.Dset)
 	if !reflect.DeepEqual(dSet, decision.Dset) {
 		logger.Error("Invalid verify message")
-		// XXX view change
+		op.pbft.sendViewChange()
 		return
 	}
 
