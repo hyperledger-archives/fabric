@@ -37,7 +37,9 @@ type signable interface {
 
 func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
-	// s.setId(instance.cpi.GetId())
+	// TODO once the crypto package is integrated
+	// cryptoID, _, _ := instance.cpi.GetReplicaID()
+	// s.setID(cryptoID)
 	id := []byte("XXX ID")
 	s.setID(id)
 	raw, err := s.serialize()
@@ -86,22 +88,22 @@ func (vc *ViewChange) serialize() ([]byte, error) {
 	return proto.Marshal(vc)
 }
 
-func (vc *Verify) getSignature() []byte {
-	return vc.Signature
+func (v *Verify) getSignature() []byte {
+	return v.Signature
 }
 
-func (vc *Verify) setSignature(sig []byte) {
-	vc.Signature = sig
+func (v *Verify) setSignature(sig []byte) {
+	v.Signature = sig
 }
 
-func (vc *Verify) getID() []byte {
+func (v *Verify) getID() []byte {
 	return []byte("XXX ID")
 }
 
-func (vc *Verify) setID(id []byte) {
-	// XXX set id
+func (v *Verify) setID(id []byte) {
+	// XXX set ID
 }
 
-func (vc *Verify) serialize() ([]byte, error) {
-	return proto.Marshal(vc)
+func (v *Verify) serialize() ([]byte, error) {
+	return proto.Marshal(v)
 }
