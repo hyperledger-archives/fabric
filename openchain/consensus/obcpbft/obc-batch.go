@@ -141,6 +141,16 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(ocMsg)
 }
 
+// verify checks whether the request is valid
+func (op *obcBatch) verify(txRaw []byte) error {
+	// TODO verify transaction
+	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
+	//   logger.Warning("Invalid request");
+	//   return err
+	// }
+	return nil
+}
+
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcBatch) execute(tbRaw []byte) {
 	tb := &pb.TransactionBlock{}

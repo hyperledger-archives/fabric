@@ -27,7 +27,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	_ "github.com/mattn/go-sqlite3"
 )
+
 
 func (node *nodeImpl) initKeyStore() error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct

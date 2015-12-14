@@ -46,6 +46,10 @@ func (mock *mockCPI) broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
 
+func (mock *mockCPI) verify(tx []byte) error {
+	return nil
+}
+
 func (mock *mockCPI) execute(tx []byte) {
 	mock.executed = append(mock.executed, tx)
 }
@@ -97,6 +101,10 @@ func (inst *instance) broadcast(payload []byte) {
 	net.msgs = append(net.msgs, taggedMsg{inst.id, payload})
 	net.cond.Signal()
 	net.cond.L.Unlock()
+}
+
+func (inst *instance) verify(payload []byte) error {
+	return nil
 }
 
 func (inst *instance) execute(payload []byte) {
