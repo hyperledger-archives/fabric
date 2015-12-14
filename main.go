@@ -407,7 +407,7 @@ func login(args []string) {
 	}
 
 	localStore := getCliFilePath() // /var/openchain/production/cli/
-	logger.debug("Local store for CLI: %s", localStore)
+	logger.Debug("Local store for CLI: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -417,7 +417,7 @@ func login(args []string) {
 
 	// User is not logged in, prompt for password
 	fmt.Printf("Enter password for user '%s': ", args[0])
-	pw := gopass.GetPasswd()
+	pw := gopass.GetPasswdMasked()
 
 	// Log in the user
 	logger.Info("Logging in user '%s'...\n", args[0])
