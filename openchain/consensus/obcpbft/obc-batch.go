@@ -31,8 +31,10 @@ import (
 )
 
 type obcBatch struct {
-	cpi              consensus.CPI
-	pbft             *pbftCore
+	cpi  consensus.CPI
+	pbft *pbftCore
+
+	id               uint64
 	batchSize        int
 	batchStore       map[string]*Request
 	batchTimer       *time.Timer
@@ -42,7 +44,7 @@ type obcBatch struct {
 
 func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	var err error
-	op := &obcBatch{cpi: cpi}
+	op := &obcBatch{cpi: cpi, id: id}
 	op.pbft = newPbftCore(id, config, op)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
@@ -119,8 +121,9 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 }
 
 // Close tells us to release resources we are holding
-func (op *obcBatch) Close() {
+func (op *obcBatch) close() {
 	op.pbft.close()
+	op.batchTimer.Reset(0)
 }
 
 // =============================================================================
@@ -188,11 +191,6 @@ func (op *obcBatch) viewChange(curView uint64) {
 // =============================================================================
 // functions specific to batch mode
 // =============================================================================
-
-// tear down resources opened by newObcBatch
-func (op *obcBatch) close() {
-	op.batchTimer.Reset(0)
-}
 
 func (op *obcBatch) leaderProcReq(req *Request) error {
 	digest := hashReq(req)
