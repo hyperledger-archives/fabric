@@ -97,7 +97,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 }
 
 // Close tells us to release resources we are holding
-func (op *obcSieve) Close() {
+func (op *obcSieve) close() {
 	op.pbft.close()
 }
 
