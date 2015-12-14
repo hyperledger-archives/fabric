@@ -141,7 +141,7 @@ func (op *obcClassic) execute(txRaw []byte) {
 	} */
 }
 
-// signal when a view-change happened
+// viewChange is called when a view-change happened in the underlying pbft
+// Classic mode pbft does not use this information.
 func (op *obcClassic) viewChange(curView uint64) {
-	// TODO
 }
