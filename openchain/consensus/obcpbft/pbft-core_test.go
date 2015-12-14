@@ -36,6 +36,7 @@ func makeTestnetPbftCore(inst *instance) {
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst)
 	inst.pbft.replicaCount = len(inst.net.replicas)
 	inst.pbft.f = inst.net.f
+	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
 }
 
 func TestEnvOverride(t *testing.T) {

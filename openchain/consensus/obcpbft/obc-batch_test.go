@@ -35,26 +35,9 @@ func makeTestnetBatch(inst *instance, batchSize int) {
 	batch.batchSize = batchSize
 	batch.pbft.replicaCount = len(inst.net.replicas)
 	batch.pbft.f = inst.net.f
-}
-
-func (net *testnet) processBatch(filterFns ...func(bool, int, []byte) []byte) error {
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
-
-	for len(net.msgs) > 0 {
-		msgs := net.msgs
-		net.msgs = nil
-
-		for _, taggedMsg := range msgs {
-			for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
-				net.cond.L.Unlock()
-				net.replicas[msg.id].consenter.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg.msg})
-				net.cond.L.Lock()
-			}
-		}
+	inst.deliver = func(msg []byte) {
+		batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg})
 	}
-
-	return nil
 }
 
 // Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -84,7 +67,7 @@ func TestNetworkBatch(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	err = net.processBatch()
+	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
@@ -94,7 +77,7 @@ func TestNetworkBatch(t *testing.T) {
 	}
 
 	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2))
-	err = net.processBatch()
+	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}

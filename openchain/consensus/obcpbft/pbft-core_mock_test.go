@@ -83,6 +83,8 @@ type instance struct {
 	consenter closableConsenter
 	net       *testnet
 	executed  [][]byte
+
+	deliver func([]byte)
 }
 
 func (inst *instance) broadcast(payload []byte) {
@@ -178,7 +180,7 @@ func (net *testnet) process(filterFns ...func(bool, int, []byte) []byte) error {
 		for _, taggedMsg := range msgs {
 			for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
 				net.cond.L.Unlock()
-				net.replicas[msg.id].pbft.receive(msg.msg)
+				net.replicas[msg.id].deliver(msg.msg)
 				net.cond.L.Lock()
 			}
 		}
@@ -204,7 +206,7 @@ func (net *testnet) processContinually(filterFns ...func(bool, int, []byte) []by
 			for _, taggedMsg := range msgs {
 				for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
 					net.cond.L.Unlock()
-					net.replicas[msg.id].pbft.receive(msg.msg)
+					net.replicas[msg.id].deliver(msg.msg)
 					net.cond.L.Lock()
 				}
 			}
