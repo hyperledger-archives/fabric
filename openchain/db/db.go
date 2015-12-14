@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -63,7 +64,11 @@ func CreateDB() error {
 	if !missing {
 		return fmt.Errorf("db dir [%s] already exists", dbPath)
 	}
-	os.MkdirAll(path.Dir(dbPath), 0755)
+	err = os.MkdirAll(path.Dir(dbPath), 0755)
+	if err != nil {
+		dbLogger.Error("Error calling  os.MkdirAll for directory path [%s]: %s", dbPath, err)
+		return fmt.Errorf("Error making directory path [%s]: %s", dbPath, err)
+	}
 	opts := gorocksdb.NewDefaultOptions()
 	opts.SetCreateIfMissing(true)
 
@@ -157,11 +162,14 @@ func (openchainDB *OpenchainDB) GetSnapshot() *gorocksdb.Snapshot {
 }
 
 func getDBPath() string {
-	dbPath := viper.GetString("peer.db.path")
+	dbPath := viper.GetString("peer.fileSystemPath")
 	if dbPath == "" {
-		panic("DB path not specified in configuration file. Please check that property 'peer.db.path' is set")
+		panic("DB path not specified in configuration file. Please check that property 'peer.fileSystemPath' is set")
 	}
-	return dbPath
+	if !strings.HasSuffix(dbPath, "/") {
+		dbPath = dbPath + "/"
+	}
+	return dbPath + "db"
 }
 
 func createDBIfDBPathEmpty() error {

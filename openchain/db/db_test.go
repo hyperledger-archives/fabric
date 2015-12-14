@@ -53,13 +53,13 @@ func TestOpenDB_DirEmpty(t *testing.T) {
 
 // db helper functions
 func createTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
+	dbPath := viper.GetString("peer.fileSystemPath")
 	os.MkdirAll(dbPath, 0775)
 }
 
 func createNonEmptyTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
-	os.MkdirAll(dbPath+"/tmpFile", 0775)
+	dbPath := viper.GetString("peer.fileSystemPath")
+	os.MkdirAll(dbPath+"/db/tmpFile", 0775)
 }
 
 func createTestDB() error {
@@ -67,7 +67,7 @@ func createTestDB() error {
 }
 
 func deleteTestDBPath() {
-	dbPath := viper.GetString("peer.db.path")
+	dbPath := viper.GetString("peer.fileSystemPath")
 	os.RemoveAll(dbPath)
 }
 
