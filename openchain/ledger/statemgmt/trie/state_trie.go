@@ -90,7 +90,11 @@ func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
 			}
 		}
 	}
-	stateTrie.lastComputedCryptoHash = stateTrie.trieDelta.getTrieRootNode().computeCryptoHash()
+	trieRootNode := stateTrie.trieDelta.getTrieRootNode()
+	if trieRootNode == nil {
+		return stateTrie.lastComputedCryptoHash, nil
+	}
+	stateTrie.lastComputedCryptoHash = trieRootNode.computeCryptoHash()
 	stateTrie.recomputeCryptoHash = false
 	hash := stateTrie.lastComputedCryptoHash
 	stateTrieLogger.Debug("Exit - ComputeCryptoHash()")
