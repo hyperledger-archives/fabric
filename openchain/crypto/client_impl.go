@@ -52,11 +52,12 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 
 	// 1. set confidentiality level and nonce
 	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
-	tx.Nonce, err = utils.GetRandomBytes(32) // TODO: magic number?
+	tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 	if err != nil {
 		client.node.log.Error("Failed creating nonce %s:", err)
 		return nil, err
 	}
+	client.node.log.Info("Transaction nonce %s:", utils.EncodeBase64(tx.Nonce))
 
 	// 2. encrypt and set payload
 	err = client.encryptTx(tx)
@@ -125,7 +126,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 
 	// 1. set confidentiality level and nonce
 	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
-	tx.Nonce, err = utils.GetRandomBytes(32) // TODO: magic number?
+	tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 	if err != nil {
 		client.node.log.Error("Failed creating nonce %s:", err)
 		return nil, err
@@ -167,14 +168,14 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	client.node.log.Info("Signing tx %s", utils.EncodeBase64(rawTx))
 	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
 	if err != nil {
-		log.Error("Failed creating signature %s:", err)
+		client.node.log.Error("Failed creating signature %s:", err)
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	log.Info("Appending signature %s", utils.EncodeBase64(rawSignature))
+	client.node.log.Info("Appending signature %s", utils.EncodeBase64(rawSignature))
 
 	return tx, nil
 }
@@ -185,7 +186,7 @@ func (client *clientImpl) GetName() string {
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		client.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
 		return nil
 	}
@@ -193,11 +194,12 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 	// Register node
 	node := new(nodeImpl)
 	if err := node.register("client", id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s]: %s", enrollID, err)
 		return err
 	}
 
 	client.node = node
-	client.isInitialized = true
+
 	return nil
 }
 
@@ -209,7 +211,12 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	}
 
 	// Register node
-	node := new(nodeImpl)
+	var node *nodeImpl
+	if client.node != nil {
+		node = client.node
+	} else {
+		node = new(nodeImpl)
+	}
 	if err := node.init("client", id, pwd); err != nil {
 		return err
 	}
@@ -229,7 +236,6 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	}
 	client.node.log.Info("Init keystore...done.")
 
-
 	// initialized
 	client.isInitialized = true
 
@@ -239,7 +245,11 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 }
 
 func (client *clientImpl) close() error {
-	return client.node.close()
+	if client.node != nil {
+		return client.node.close()
+	} else {
+		return nil
+	}
 }
 
 // CheckTransaction is used to verify that a transaction

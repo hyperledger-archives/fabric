@@ -149,7 +149,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
-		log.Error("Failed signing request: %s", err)
+		node.log.Error("Failed signing request: %s", err)
 
 		return nil, nil, nil, err
 	}

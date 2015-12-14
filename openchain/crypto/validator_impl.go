@@ -80,7 +80,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		// Decrypt payload
 		err := validator.decryptTx(tx)
 		if err != nil {
-			log.Error("Failed decrypting: %s", err)
+			validator.peer.node.log.Error("Failed decrypting: %s", err)
 
 			return nil, err
 		}
@@ -132,34 +132,36 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transa
 
 	txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
-	aesKey := utils.HMACTruncated(txKey, append([]byte{3}, invokeTx.Nonce...), utils.AESKeyLength)
-	nonceKey := utils.HMAC(txKey, append([]byte{4}, invokeTx.Nonce...))
+	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, invokeTx.Nonce...), utils.AESKeyLength)
+	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, invokeTx.Nonce...))
 
-	ses := stateEncryptionScheme{aesKey: aesKey, nonceKey: nonceKey}
-	err := ses.init()
+	sei := stateEncryptorImpl{}
+	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, invokeTx.Nonce)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ses, nil
+	return &sei, nil
 }
 
 // Private Methods
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		validator.peer.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
 	peer := new(peerImpl)
 	if err := peer.register("validator", id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s]: %s", enrollID, err)
 		return err
 	}
+
 	validator.peer = peer
-	validator.isInitialized = true
+
 	return nil
 }
 
@@ -167,7 +169,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	if validator.isInitialized {
 		validator.peer.node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
@@ -212,5 +214,9 @@ func (validator *validatorImpl) initCryptoEngine() error {
 }
 
 func (validator *validatorImpl) close() error {
-	return validator.peer.close()
+	if validator.peer != nil {
+		return validator.peer.close()
+	} else {
+		return nil
+	}
 }

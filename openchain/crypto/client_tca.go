@@ -72,7 +72,7 @@ func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
 
 	err := ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), utils.AEStoPEM(client.tCertOwnerKDFKey), 0700)
 	if err != nil {
-		log.Error("Failed storing TCertOwnerKDFKey: %s", err)
+		client.node.log.Error("Failed storing TCertOwnerKDFKey: %s", err)
 		return err
 	}
 
@@ -102,31 +102,31 @@ func (client *clientImpl) loadTCACertsChain() error {
 
 func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
 	// Load TCertOwnerKDFKey
-	log.Info("Loading TCertOwnerKDFKey at %s...", client.node.conf.getTCertOwnerKDFKeyPath())
+	client.node.log.Info("Loading TCertOwnerKDFKey at %s...", client.node.conf.getTCertOwnerKDFKeyPath())
 
 	missing, _ := utils.FilePathMissing(client.node.conf.getTCertOwnerKDFKeyPath())
 	if missing {
-		log.Info("Loading TCertOwnerKDFKey at %s...done! File is missing.", client.node.conf.getTCertOwnerKDFKeyPath())
+		client.node.log.Info("Loading TCertOwnerKDFKey at %s...done! File is missing.", client.node.conf.getTCertOwnerKDFKeyPath())
 
 		return nil
 	}
 
 	pem, err := ioutil.ReadFile(client.node.conf.getTCertOwnerKDFKeyPath())
 	if err != nil {
-		log.Error("Failed loading enrollment chain key: %s", err.Error())
+		client.node.log.Error("Failed loading enrollment chain key: %s", err.Error())
 
 		return err
 	}
 
 	tCertOwnerKDFKey, err := utils.PEMtoAES(pem, pwd)
 	if err != nil {
-		log.Error("Failed parsing enrollment chain  key: %s", err.Error())
+		client.node.log.Error("Failed parsing enrollment chain  key: %s", err.Error())
 
 		return err
 	}
 	client.tCertOwnerKDFKey = tCertOwnerKDFKey
 
-	log.Info("Loading TCertOwnerKDFKey at %s...done!", client.node.conf.getTCertOwnerKDFKeyPath())
+	client.node.log.Info("Loading TCertOwnerKDFKey at %s...done!", client.node.conf.getTCertOwnerKDFKeyPath())
 
 	return nil
 }
@@ -188,7 +188,7 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 	client.node.log.Info("getNextTCert:cert %s", utils.EncodeBase64(rawCert))
 	//	client.node.log.Info("getNextTCert:key %s", utils.EncodeBase64(rawKey))
 
-	log.Info("Getting next TCert...done!")
+	client.node.log.Info("Getting next TCert...done!")
 
 	return rawCert, nil
 }
@@ -209,7 +209,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
 	ct, err := utils.GetExtension(tCert, utils.TCertEncTCertIndex)
 	if err != nil {
-		log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
+		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
 
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
 	pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
 	if err != nil {
-		log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
+		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
 
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	TCertIndex := pt
 	//		TCertIndex := []byte(strconv.Itoa(i))
 
-	log.Info("TCertIndex: %s", TCertIndex)
+	client.node.log.Info("TCertIndex: %s", TCertIndex)
 	mac := hmac.New(utils.NewHash, ExpansionKey)
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
@@ -286,7 +286,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
 
 		if err := client.storeTCertOwnerKDFKey(nil); err != nil {
-			log.Debug("Failed storing TCertOwnerKDFKey: %s", err)
+			client.node.log.Debug("Failed storing TCertOwnerKDFKey: %s", err)
 			// TODO: hanlde this situation more carefully
 		}
 	}

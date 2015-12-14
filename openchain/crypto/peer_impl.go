@@ -133,19 +133,20 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 
 func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		peer.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
 	node := new(nodeImpl)
 	if err := node.register(prefix, name, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s]: %s", enrollID, err)
 		return err
 	}
 
 	peer.node = node
-	peer.isInitialized = true
+
 	return nil
 }
 
@@ -153,11 +154,16 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	if peer.isInitialized {
 		peer.node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
-	node := new(nodeImpl)
+	var node *nodeImpl
+	if peer.node != nil {
+		node = peer.node
+	} else {
+		node = new(nodeImpl)
+	}
 	if err := node.init(prefix, id, pwd); err != nil {
 		return err
 	}
@@ -167,10 +173,13 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	peer.isInitialized = true
 
 	peer.node.log.Info("Initialization...done.")
-
 	return nil
 }
 
 func (peer *peerImpl) close() error {
-	return peer.node.close()
+	if peer.node != nil {
+		return peer.node.close()
+	} else {
+		return nil
+	}
 }
