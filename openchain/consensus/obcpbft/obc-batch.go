@@ -149,7 +149,7 @@ func (op *obcBatch) execute(tbRaw []byte) {
 		return
 	}
 
-	// TODO verify eachtransaction
+	// TODO verify each transaction
 	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
 	//   logger.Error("Invalid request");
 	// } else {
