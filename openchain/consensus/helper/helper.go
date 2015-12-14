@@ -66,7 +66,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // =============================================================================
 
 // GetReplicaHash returns the crypto IDs of the current replica and the whole network
-// func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
+// TODO func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
 // ATTN: Until the crypto package is integrated, this functions returns
 // the <IP:port>s of the current replica and the whole network instead
 func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
@@ -98,7 +98,7 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 }
 
 // GetReplicaID returns the uint handle corresponding to a replica address
-// func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
+// TODO func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
 func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
 	_, network, err := h.GetReplicaHash()
 	if err != nil {
@@ -128,13 +128,7 @@ func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 	return nil
 }
 
-// ExecTXs executes all the transactions listed in the txs array one-by-one.
-// If all the executions are successful, it returns the candidate global state hash, and nil error array.
-func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
-}
-
-// BeginTxBatch gets invoked when next round of transaction-batch
+// BeginTxBatch gets invoked when the next round of transaction-batch
 // execution begins.
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
@@ -147,11 +141,18 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
+// ExecTXs executes all the transactions listed in the txs array
+// one-by-one. If all the executions are successful, it returns
+// the candidate global state hash, and nil error array.
+func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+}
+
 // CommitTxBatch gets invoked when the current transaction-batch needs
-// to be committed.  This function returns successfully iff the
+// to be committed. This function returns successfully iff the
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
-// permanent storage
+// permanent storage.
 func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
