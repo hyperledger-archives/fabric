@@ -71,7 +71,11 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 	// v, _ := h.coordinator.GetValidator()
 	// self = v.GetID()
-	self, _ := peer.GetPeerEndpoint()
+	peer, err := peer.GetPeerEndpoint()
+	if err != nil {
+		return "", nil, err
+	}
+	self = peer.Address
 
 	config := viper.New()
 	config.SetConfigName("openchain")
