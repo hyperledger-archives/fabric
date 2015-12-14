@@ -706,12 +706,12 @@ func (instance *pbftCore) stopTimer() {
 	if instance.closed {
 		return
 	}
-loop:
+loopNewView:
 	for {
 		select {
 		case <-instance.newViewTimer.C:
 		default:
-			break loop
+			break loopNewView
 		}
 	}
 }

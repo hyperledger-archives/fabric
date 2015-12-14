@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -30,17 +31,29 @@ import (
 )
 
 type obcBatch struct {
-	cpi        consensus.CPI
-	pbft       *pbftCore
-	batchSize  int
-	batchStore map[string]*Request
+	cpi              consensus.CPI
+	pbft             *pbftCore
+	batchSize        int
+	batchStore       map[string]*Request
+	batchTimer       *time.Timer
+	batchTimerActive bool
+	batchTimeout     time.Duration
 }
 
 func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
+	var err error
 	op := &obcBatch{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
+	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
+	}
+	// create non-running timer XXX ugly
+	op.batchTimer = time.NewTimer(100 * time.Hour)
+	op.batchTimer.Stop()
+	go op.batchTimerHander()
 	return op
 }
 
@@ -137,47 +150,107 @@ func (op *obcBatch) execute(tbRaw []byte) {
 
 // signal when a view-change happened
 func (op *obcBatch) viewChange(curView uint64) {
-	// TODO
+	if op.batchTimerActive {
+		op.stopBatchTimer()
+	}
 }
 
 // =============================================================================
 // functions specific to batch mode
 // =============================================================================
 
+// tear down resources opened by newObcBatch
+func (op *obcBatch) close() {
+	op.batchTimer.Reset(0)
+}
+
 func (op *obcBatch) leaderProcReq(req *Request) error {
 	digest := hashReq(req)
 	op.batchStore[digest] = req
 
+	if !op.batchTimerActive {
+		op.startBatchTimer()
+	}
+
 	if len(op.batchStore) >= op.batchSize {
-		// assemble new Request message
-		txs := make([]*pb.Transaction, len(op.batchStore))
-		var i int
-		for d, req := range op.batchStore {
-			txs[i] = &pb.Transaction{}
-			err := proto.Unmarshal(req.Payload, txs[i])
-			if err != nil {
-				err = fmt.Errorf("Unable to unpack payload of request %d", i)
-				logger.Error("%s", err)
-				return err
-			}
-			i++
-			delete(op.batchStore, d) // clean up
-		}
-		tb := &pb.TransactionBlock{Transactions: txs}
-		tbPacked, err := proto.Marshal(tb)
-		if err != nil {
-			err = fmt.Errorf("Unable to pack transaction block for new batch request")
-			logger.Error("%s", err)
-			return err
-		}
-		// process internally
-		op.pbft.request(tbPacked)
-		// broadcast
-		batchReq := &Request{Payload: tbPacked}
-		msg := &Message{&Message_Request{batchReq}}
-		msgRaw, _ := proto.Marshal(msg)
-		op.broadcast(msgRaw)
+		op.sendBatch()
 	}
 
 	return nil
+}
+
+func (op *obcBatch) sendBatch() error {
+	op.stopBatchTimer()
+	// assemble new Request message
+	txs := make([]*pb.Transaction, len(op.batchStore))
+	var i int
+	for d, req := range op.batchStore {
+		txs[i] = &pb.Transaction{}
+		err := proto.Unmarshal(req.Payload, txs[i])
+		if err != nil {
+			err = fmt.Errorf("Unable to unpack payload of request %d", i)
+			logger.Error("%s", err)
+			return err
+		}
+		i++
+		delete(op.batchStore, d) // clean up
+	}
+	tb := &pb.TransactionBlock{Transactions: txs}
+	tbPacked, err := proto.Marshal(tb)
+	if err != nil {
+		err = fmt.Errorf("Unable to pack transaction block for new batch request")
+		logger.Error("%s", err)
+		return err
+	}
+	// process internally
+	op.pbft.request(tbPacked)
+	// broadcast
+	batchReq := &Request{Payload: tbPacked}
+	msg := &Message{&Message_Request{batchReq}}
+	msgRaw, _ := proto.Marshal(msg)
+	op.broadcast(msgRaw)
+
+	return nil
+}
+
+// allow the primary to send a batch when the timer expires
+func (op *obcBatch) batchTimerHander() {
+	for {
+		select {
+		case <-op.batchTimer.C:
+			op.pbft.lock.Lock()
+			if op.pbft.closed {
+				op.pbft.lock.Unlock()
+				return
+			}
+			logger.Info("Replica %d batch timeout expired", op.pbft.id)
+			if op.pbft.activeView && (len(op.batchStore) > 0) {
+				op.sendBatch()
+			}
+			op.pbft.lock.Unlock()
+		}
+	}
+}
+
+func (op *obcBatch) startBatchTimer() {
+	op.batchTimer.Reset(op.batchTimeout)
+	logger.Debug("Replica %d started the batch timer", op.pbft.id)
+	op.batchTimerActive = true
+}
+
+func (op *obcBatch) stopBatchTimer() {
+	op.batchTimer.Stop()
+	logger.Debug("Replica %d stopped the batch timer", op.pbft.id)
+	op.batchTimerActive = false
+	if op.pbft.closed {
+		return
+	}
+loopBatch:
+	for {
+		select {
+		case <-op.batchTimer.C:
+		default:
+			break loopBatch
+		}
+	}
 }

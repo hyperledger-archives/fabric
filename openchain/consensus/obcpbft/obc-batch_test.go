@@ -48,6 +48,20 @@ func makeTestnetBatch(f int, batchSize int) *testnet {
 	return net
 }
 
+func (net *testnet) closeBatch() {
+	if net.closed {
+		return
+	}
+	for _, inst := range net.replicas {
+		inst.batch.pbft.close()
+		inst.batch.close()
+	}
+	net.cond.L.Lock()
+	net.closed = true
+	net.cond.Signal()
+	net.cond.L.Unlock()
+}
+
 func (net *testnet) processBatch(filterFns ...func(bool, int, []byte) []byte) error {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
@@ -82,7 +96,7 @@ func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
 
 func TestNetworkBatch(t *testing.T) {
 	net := makeTestnetBatch(1, 2)
-
+	defer net.closeBatch()
 	err := net.replicas[1].batch.RecvMsg(createExternalRequest(1))
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)

@@ -440,9 +440,9 @@ func TestNewViewTimeout(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	net.close()
-	for _, inst := range net.replicas {
+	for i, inst := range net.replicas {
 		if inst.pbft.view != 3 {
-			t.Fatalf("should have reached view 3")
+			t.Fatalf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
 		}
 	}
 }
