@@ -86,8 +86,8 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	if len(net.replicas[3].executed) != 2 {
-		t.Fatalf("%d requests executed, expected %d", len(net.replicas[3].executed), net.replicas[3].consenter.(*obcBatch).batchSize)
+	if len(net.replicas[3].curBatch) != 2 {
+		t.Fatalf("%d requests executed, expected %d", len(net.replicas[3].curBatch), net.replicas[3].consenter.(*obcBatch).batchSize)
 	}
 
 }

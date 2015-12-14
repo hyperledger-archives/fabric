@@ -28,6 +28,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -131,4 +132,46 @@ func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 // If all the executions are successful, it returns the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+}
+
+// BeginTxBatch gets invoked when next round of transaction-batch
+// execution begins.
+func (h *Helper) BeginTxBatch(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Fail to get the ledger: %v", err)
+	}
+	if err := ledger.BeginTxBatch(id); err != nil {
+		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+	}
+	return nil
+}
+
+// CommitTxBatch gets invoked when the current transaction-batch needs
+// to be committed.  This function returns successfully iff the
+// transactions details and state changes (that may have happened
+// during execution of this transaction-batch) have been committed to
+// permanent storage
+func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Fail to get the ledger: %v", err)
+	}
+	if err := ledger.CommitTxBatch(id, transactions, proof); err != nil {
+		return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
+	}
+	return nil
+}
+
+// RollbackTxBatch discards all the state changes that may have taken
+// place during the execution of current transaction-batch.
+func (h *Helper) RollbackTxBatch(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Fail to get the ledger: %v", err)
+	}
+	if err := ledger.RollbackTxBatch(id); err != nil {
+		return fmt.Errorf("Fail to rollback transaction with the ledger: %v", err)
+	}
+	return nil
 }

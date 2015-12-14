@@ -21,10 +21,10 @@ package obcpbft
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -84,6 +84,10 @@ type instance struct {
 	net       *testnet
 	executed  [][]byte
 
+	txId     interface{}
+	curBatch []*pb.Transaction
+	blocks   [][]*pb.Transaction
+
 	deliver func([]byte)
 }
 
@@ -130,11 +134,39 @@ func (inst *instance) Unicast(msgPayload []byte, receiver string) error {
 }
 
 func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	for _, tx := range txs {
-		txPacked, _ := proto.Marshal(tx)
-		inst.executed = append(inst.executed, txPacked)
-	}
+	inst.curBatch = append(inst.curBatch, txs...)
 	return nil, nil
+}
+
+func (inst *instance) BeginTxBatch(id interface{}) error {
+	if inst.txId != nil {
+		return fmt.Errorf("tx batch is already active")
+	}
+	inst.txId = id
+	inst.curBatch = nil
+	return nil
+}
+
+func (inst *instance) RollbackTxBatch(id interface{}) error {
+	if !reflect.DeepEqual(inst.txId, id) {
+		return fmt.Errorf("invalid batch id")
+	}
+	inst.curBatch = nil
+	inst.txId = nil
+	return nil
+}
+
+func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
+	if !reflect.DeepEqual(inst.txId, id) {
+		return fmt.Errorf("invalid batch id")
+	}
+	if !reflect.DeepEqual(txs, inst.curBatch) {
+		return fmt.Errorf("tx list does not match executed tx")
+	}
+	inst.txId = nil
+	inst.blocks = append(inst.blocks, inst.curBatch)
+	inst.curBatch = nil
+	return nil
 }
 
 func (net *testnet) filterMsg(outMsg taggedMsg, filterFns ...func(bool, int, []byte) []byte) (msgs []taggedMsg) {

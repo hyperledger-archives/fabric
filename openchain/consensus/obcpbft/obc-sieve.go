@@ -320,36 +320,22 @@ func (op *obcSieve) execute(raw []byte) {
 }
 
 func (op *obcSieve) begin() error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
-	}
-	if err := ledger.BeginTxBatch(op.currentReq); err != nil {
-		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+	if err := op.cpi.BeginTxBatch(op.currentReq); err != nil {
+		return fmt.Errorf("Fail to begin transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) rollback() error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
-	}
-
-	if err := ledger.RollbackTxBatch(op.currentReq); err != nil {
-		return fmt.Errorf("Fail to rollback transaction with the ledger: %v", err)
+	if err := op.cpi.RollbackTxBatch(op.currentReq); err != nil {
+		return fmt.Errorf("Fail to rollback transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) commit() error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
-	}
-
-	if err := ledger.CommitTxBatch(op.currentReq, op.currentTx, nil); err != nil {
-		return fmt.Errorf("Fail to commit transaction with the ledger: %v", err)
+	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil); err != nil {
+		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil
 }

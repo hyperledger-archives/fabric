@@ -34,4 +34,7 @@ type CPI interface {
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msgPayload []byte, receiver string) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+	BeginTxBatch(id interface{}) error
+	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
+	RollbackTxBatch(id interface{}) error
 }
