@@ -27,14 +27,20 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/buckettree"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/trie"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
 var logger = logging.MustGetLogger("state")
+var stateImplFactory = map[string]statemgmt.HashableState{
+	"buckettree": buckettree.NewStateImpl(),
+	"trie":       trie.NewStateTrie(),
+}
 
 // TODO Should be configurable in openchain.yaml
-var stateImpl = buckettree.NewStateImpl()
+var stateImplName = "buckettree"
+var stateImpl statemgmt.HashableState
 
 // State structure for maintaining world state.
 // This encapsulates a particular implementation for managing the state persistence
@@ -51,6 +57,7 @@ type State struct {
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
+	stateImpl = stateImplFactory[stateImplName]
 	err := stateImpl.Initialize()
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))

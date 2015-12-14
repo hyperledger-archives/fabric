@@ -30,11 +30,11 @@ var numBytesAtEachLevel = 1
 type byteTrieKeyEncoder struct {
 }
 
-func newByteTrieKeyEncoder() *byteTrieKeyEncoder {
+func newByteTrieKeyEncoder() trieKeyEncoder {
 	return &byteTrieKeyEncoder{}
 }
 
-func (encoder *byteTrieKeyEncoder) encodeTrieKey(originalBytes []byte) byteTrieKey {
+func (encoder *byteTrieKeyEncoder) newTrieKey(originalBytes []byte) trieKeyInterface {
 	len := len(originalBytes)
 	remainingBytes := len % numBytesAtEachLevel
 	bytesToAppend := 0
@@ -47,8 +47,8 @@ func (encoder *byteTrieKeyEncoder) encodeTrieKey(originalBytes []byte) byteTrieK
 	return byteTrieKey(originalBytes)
 }
 
-func (encoder *byteTrieKeyEncoder) decodeTrieKey(encodedBytes []byte) byteTrieKey {
-	return byteTrieKey(encodedBytes)
+func (encoder *byteTrieKeyEncoder) decodeTrieKeyBytes(encodedBytes []byte) []byte {
+	return encodedBytes
 }
 
 func (encoder *byteTrieKeyEncoder) getMaxTrieWidth() int {

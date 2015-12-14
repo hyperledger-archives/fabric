@@ -37,6 +37,10 @@ type stateTrieTestWrapper struct {
 	t         *testing.T
 }
 
+func newStateTrieTestWrapper(t *testing.T) *stateTrieTestWrapper {
+	return &stateTrieTestWrapper{NewStateTrie(), t}
+}
+
 func (stateTrieTestWrapper *stateTrieTestWrapper) Get(chaincodeID string, key string) []byte {
 	value, err := stateTrieTestWrapper.stateTrie.Get(chaincodeID, key)
 	testutil.AssertNoError(stateTrieTestWrapper.t, err, "Error while getting value")

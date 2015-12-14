@@ -46,16 +46,20 @@ var charIndexMap = map[hexTrieKey]int{
 type hexTrieKeyEncoder struct {
 }
 
-func newHexTrieKeyEncoder() *hexTrieKeyEncoder {
+func newHexTrieKeyEncoder() trieKeyEncoder {
 	return &hexTrieKeyEncoder{}
 }
 
-func (encoder *hexTrieKeyEncoder) encodeTrieKey(originalBytes []byte) hexTrieKey {
-	return encoder.decodeTrieKey([]byte(hex.EncodeToString(originalBytes)))
+func (encoder *hexTrieKeyEncoder) newTrieKey(originalBytes []byte) trieKeyInterface {
+	return hexTrieKey(hex.EncodeToString(originalBytes))
 }
 
-func (encoder *hexTrieKeyEncoder) decodeTrieKey(encodedBytes []byte) hexTrieKey {
-	return hexTrieKey(encodedBytes)
+func (encoder *hexTrieKeyEncoder) decodeTrieKeyBytes(encodedBytes []byte) []byte {
+	originalBytes, err := hex.DecodeString(string(encodedBytes))
+	if err != nil {
+		panic(fmt.Errorf("Invalid input: input bytes=[%x], error:%s", encodedBytes, err))
+	}
+	return originalBytes
 }
 
 func (encoder *hexTrieKeyEncoder) getMaxTrieWidth() int {

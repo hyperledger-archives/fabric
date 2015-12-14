@@ -196,6 +196,15 @@ func unmarshalTrieNode(key *trieKey, serializedContent []byte) (*trieNode, error
 	return trieNode, nil
 }
 
+func unmarshalTrieNodeValue(serializedContent []byte) []byte {
+	buffer := proto.NewBuffer(serializedContent)
+	value, err := buffer.DecodeRawBytes(false)
+	if err != nil {
+		panic(fmt.Errorf("This error is not excpected: %s", err))
+	}
+	return value
+}
+
 func (trieNode *trieNode) String() string {
 	return fmt.Sprintf("trieKey=[%s], value=[%#v], Num children hashes=[%#v]",
 		trieNode.trieKey, trieNode.value, trieNode.getNumChildren())
