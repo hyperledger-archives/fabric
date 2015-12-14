@@ -406,11 +406,8 @@ func login(args []string) {
 		return
 	}
 
-	localStore := viper.GetString("peer.fileSystemPath")
-	if !strings.HasSuffix(localStore, "/") {
-		localStore = localStore + "/"
-	}
-	localStore = localStore + "cli/"
+	localStore := getCliFilePath() // /var/openchain/production/cli/
+	logger.debug("Local store for CLI: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -466,6 +463,15 @@ func login(args []string) {
 	}
 
 	return
+}
+
+func getCliFilePath() string {
+	localStore := viper.GetString("peer.fileSystemPath")
+	if !strings.HasSuffix(localStore, "/") {
+		localStore = localStore + "/"
+	}
+	localStore = localStore + "cli/"
+	return localStore
 }
 
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
@@ -586,12 +592,14 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 			return
 		}
 
+		localStore := getCliFilePath()
+
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
 			logger.Info("Local user is already logged in. Retrieving login token.\n")
 
 			// Read in the login token
-			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
 			}

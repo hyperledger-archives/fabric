@@ -102,6 +102,13 @@ peer:
         # The server name use to verify the hostname returned by TLS handshake
         server-host-override:
 
+    # PKI member services properties
+    pki:
+        eca:
+            paddr: localhost:50051
+        tca:
+            paddr: localhost:50551
+
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 
@@ -257,10 +264,10 @@ ledger:
 #
 ###############################################################################
 security:
-    enabled: false
+    enabled: true
     # To enroll NVP or VP with Member Services PKI. These parameters are for
     # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: jane
-    enrollSecret: bedtimeatdawn
+    enrollID: nepumuk
+    enrollSecret: 9gvZQRwhUq9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false
