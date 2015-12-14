@@ -133,39 +133,40 @@ func (inst *instance) Unicast(msgPayload []byte, receiver string) error {
 	panic("not implemented yet")
 }
 
-func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	inst.curBatch = append(inst.curBatch, txs...)
-	return nil, nil
-}
-
 func (inst *instance) BeginTxBatch(id interface{}) error {
 	if inst.txId != nil {
-		return fmt.Errorf("tx batch is already active")
+		return fmt.Errorf("Tx batch is already active")
 	}
 	inst.txId = id
 	inst.curBatch = nil
 	return nil
 }
 
-func (inst *instance) RollbackTxBatch(id interface{}) error {
-	if !reflect.DeepEqual(inst.txId, id) {
-		return fmt.Errorf("invalid batch id")
-	}
-	inst.curBatch = nil
-	inst.txId = nil
-	return nil
+func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	inst.curBatch = append(inst.curBatch, txs...)
+	errs := make([]error, len(txs)+1)
+	return nil, errs
 }
 
 func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
 	if !reflect.DeepEqual(inst.txId, id) {
-		return fmt.Errorf("invalid batch id")
+		return fmt.Errorf("Invalid batch ID")
 	}
 	if !reflect.DeepEqual(txs, inst.curBatch) {
-		return fmt.Errorf("tx list does not match executed tx")
+		return fmt.Errorf("Tx list does not match executed Tx batch")
 	}
 	inst.txId = nil
 	inst.blocks = append(inst.blocks, inst.curBatch)
 	inst.curBatch = nil
+	return nil
+}
+
+func (inst *instance) RollbackTxBatch(id interface{}) error {
+	if !reflect.DeepEqual(inst.txId, id) {
+		return fmt.Errorf("Invalid batch ID")
+	}
+	inst.curBatch = nil
+	inst.txId = nil
 	return nil
 }
 
