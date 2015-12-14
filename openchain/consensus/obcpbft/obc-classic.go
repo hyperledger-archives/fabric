@@ -48,11 +48,11 @@ func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassi
 func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		// TODO verify transaction
-		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
+
+		if err := op.verify(ocMsg.Payload); err != nil {
+			logger.Warning("Request did not verify: %s", err)
+			return err
+		}
 
 		op.pbft.request(ocMsg.Payload)
 
@@ -112,18 +112,16 @@ func (op *obcClassic) verify(txRaw []byte) error {
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
+	if err := op.verify(txRaw); err != nil {
+		logger.Error("Request in transaction did not verify: %s", err)
+		return
+	}
+
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
 		return
 	}
-
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
 
 	txs := []*pb.Transaction{tx}
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))

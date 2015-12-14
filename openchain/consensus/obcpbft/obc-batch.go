@@ -36,7 +36,6 @@ type obcBatch struct {
 	cpi  consensus.CPI
 	pbft *pbftCore
 
-	id               uint64
 	batchSize        int
 	batchStore       map[string]*Request
 	batchTimer       *time.Timer
@@ -46,7 +45,7 @@ type obcBatch struct {
 
 func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	var err error
-	op := &obcBatch{cpi: cpi, id: id}
+	op := &obcBatch{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
@@ -67,11 +66,11 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		// TODO verify transaction
-		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
+
+		if err := op.verify(ocMsg.Payload); err != nil {
+			logger.Warning("Request did not verify: %s", err)
+			return err
+		}
 
 		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
 
@@ -99,7 +98,11 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	}
 
 	if req := pbftMsg.GetRequest(); req != nil {
-		// TODO verify first, we need to be sure about the sender
+		if err = op.verify(req.Payload); err != nil {
+			logger.Warning("Request did not verify: %s", err)
+			return err
+		}
+
 		switch req.ReplicaId {
 		case op.pbft.primary(op.pbft.view):
 			// a request sent by the primary; primary should ignore this
@@ -159,15 +162,16 @@ func (op *obcBatch) execute(tbRaw []byte) {
 		return
 	}
 
-	// TODO verify each transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
-
 	txs := tb.Transactions
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(tbRaw))
+
+	for i, tx := range txs {
+		txRaw, _ := proto.Marshal(tx)
+		if err = op.verify(txRaw); err != nil {
+			logger.Error("Request in transaction %d from batch %s did not verify: %s", i, txBatchID, err)
+			return
+		}
+	}
 
 	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
 		logger.Error("Failed to begin transaction batch %s: %v", txBatchID, err)
