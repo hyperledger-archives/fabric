@@ -107,9 +107,33 @@ func (op *obcClassic) execute(txRaw []byte) {
 	// } else {
 	// ...
 	// }
-	// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
 
-	op.cpi.ExecTXs([]*pb.Transaction{tx})
+	txs := []*pb.Transaction{tx}
+	_, _ = op.cpi.ExecTXs(txs)
+
+	/* if ledger, err := ledger.GetLedger(); err != nil {
+		panic(fmt.Errorf("Fail to get the ledger: %v", err))
+	}
+
+	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
+
+	if err = ledger.BeginTxBatch(txBatchID); err != nil {
+		panic(fmt.Errorf("Fail to begin transactions with the ledger: %v", err))
+	}
+
+	hash, errs := op.cpi.ExecTXs(txs)
+	// There are n+1 elements of errors in this array. On complete success
+	// they'll all be nil. In particular, the last err will be error in
+	// producing the hash, if any. That's the only error we do want to check
+
+	if errs[len(txs)] != nil {
+		panic(fmt.Errorf("Fail to execute transactions: %v", errs))
+	}
+
+	if err = ledger.CommitTxBatch(txBatchID, txs, nil); err != nil {
+		ledger.RollbackTxBatch(txBatchID)
+		panic(fmt.Errorf("Fail to commit transactions to the ledger: %v", err))
+	} */
 }
 
 // signal when a view-change happened
