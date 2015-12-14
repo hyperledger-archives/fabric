@@ -22,7 +22,6 @@ package obcpbft
 import (
 	gp "google/protobuf"
 	"testing"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -57,6 +56,7 @@ func TestNetworkBatch(t *testing.T) {
 		makeTestnetBatch(inst, 2)
 	})
 	defer net.close()
+
 	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
@@ -64,8 +64,6 @@ func TestNetworkBatch(t *testing.T) {
 	if len(net.msgs) != 1 {
 		t.Fatalf("%d message was expected to be broadcasted, got %d instead", 1, len(net.msgs))
 	}
-
-	time.Sleep(100 * time.Millisecond)
 
 	err = net.process()
 	if err != nil {
@@ -86,8 +84,10 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	if len(net.replicas[3].curBatch) != 2 {
-		t.Fatalf("%d requests executed, expected %d", len(net.replicas[3].curBatch), net.replicas[3].consenter.(*obcBatch).batchSize)
+	for i, inst := range net.replicas {
+		if len(inst.blocks[0]) != net.replicas[i].consenter.(*obcBatch).batchSize {
+			t.Errorf("Replica %d executed %d requests, expected %d",
+				inst.id, len(net.replicas[i].blocks[0]), net.replicas[i].consenter.(*obcBatch).batchSize)
+		}
 	}
-
 }
