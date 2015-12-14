@@ -267,49 +267,67 @@ func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
 	return
 }
 
-// called by pbft-core to execute an opaque request,
-// which is a totally-ordered `Decision`
-func (op *obcSieve) execute(raw []byte) {
+// verify checks whether the request is valid
+func (op *obcSieve) verify(txRaw []byte) error {
 	decision := &Decision{}
-	err := proto.Unmarshal(raw, decision)
+	err := proto.Unmarshal(txRaw, decision)
 	if err != nil {
-		return
+		return err
 	}
 
 	if decision.BlockNumber != op.blockNumber {
-		logger.Info("out of sync")
-		// we're out of sync, or primary is bad
-		// XXX recover
-		return
+		return fmt.Errorf("out of sync")
 	}
 
 	if decision.RequestDigest != op.currentReq {
-		logger.Error("Decision request digest does not match execution")
+		err := fmt.Errorf("Decision request digest does not match execution")
+		logger.Error("%s", err)
 		op.pbft.sendViewChange()
-		return
+		return err
 	}
 
 	if len(decision.Dset) < op.pbft.f+1 {
-		logger.Error("Not enough verifies in decision: need at least %d, got %d",
+		err := fmt.Errorf("Not enough verifies in decision: need at least %d, got %d",
 			op.pbft.f+1, len(decision.Dset))
+		logger.Error("%s", err)
 		op.pbft.sendViewChange()
-		return
+		return err
 	}
 
 	for _, v := range decision.Dset {
 		if err := op.pbft.verify(v); err != nil {
-			logger.Error("Invalid decision/verify message: %s", err)
+			err := fmt.Errorf("Invalid decision/verify message: %s", err)
+			logger.Error("%s", err)
 			op.pbft.sendViewChange()
-			return
+			return err
 		}
 	}
 
-	dSet, quorum := op.verifyDset(decision.Dset)
+	dSet, _ := op.verifyDset(decision.Dset)
 	if !reflect.DeepEqual(dSet, decision.Dset) {
-		logger.Error("Invalid verify message")
+		err := fmt.Errorf("Invalid verify message")
+		logger.Error("%s", err)
 		op.pbft.sendViewChange()
+		return err
+	}
+
+	return nil
+}
+
+// called by pbft-core to execute an opaque request,
+// which is a totally-ordered `Decision`
+func (op *obcSieve) execute(raw []byte) {
+	if err := op.verify(raw); err != nil {
+		if op.pbft.activeView {
+			op.pbft.sendViewChange()
+		}
 		return
 	}
+
+	decision := &Decision{}
+	proto.Unmarshal(raw, decision)
+
+	dSet, quorum := op.verifyDset(decision.Dset)
 
 	if !quorum {
 		logger.Error("Execute decision: not deterministic")

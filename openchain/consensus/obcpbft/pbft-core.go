@@ -48,6 +48,7 @@ func init() {
 
 type innerCPI interface {
 	broadcast(msgPayload []byte)
+	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
 }
@@ -361,6 +362,11 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
+	if err := instance.consumer.verify(req.Payload); err != nil {
+		logger.Warning("Request %s did not verify: %s", digest, err)
+		return err
+	}
+
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
 	if !instance.timerActive {
@@ -435,11 +441,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
-		// TODO verify transaction
-		// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
+		if err := instance.consumer.verify(preprep.Request.Payload); err != nil {
+			logger.Warning("Request %s did not verify: %s", digest, err)
+			return err
+		}
+
 		instance.reqStore[digest] = preprep.Request
 		instance.outstandingReqs[digest] = preprep.Request
 	}
