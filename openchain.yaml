@@ -30,7 +30,7 @@ rest:
 ###############################################################################
 peer:
 
-    # Peeer Version following version semantics as described here http://semver.org/
+    # Peer Version following version semantics as described here http://semver.org/
     # The Peer supplies this version in communications with other Peers
     version:  0.1.0
 
