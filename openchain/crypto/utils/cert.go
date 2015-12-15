@@ -32,13 +32,16 @@ import (
 )
 
 var (
-	TCERT_ENC_TCERTINDEX = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
+	// TCertEncTCertIndex oid for TCertIndex
+	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
 )
 
+// DERToX509Certificate converts der to x509
 func DERToX509Certificate(asn1Data []byte) (*x509.Certificate, error) {
 	return x509.ParseCertificate(asn1Data)
 }
 
+// PEMtoCertificate converts pem to x509
 func PEMtoCertificate(raw []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(raw)
 	if block == nil {
@@ -57,6 +60,7 @@ func PEMtoCertificate(raw []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// PEMtoCertificateAndDER converts pem to x509 and der
 func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 	block, _ := pem.Decode(raw)
 	if block == nil {
@@ -75,6 +79,7 @@ func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 	return cert, block.Bytes, nil
 }
 
+// DERCertToPEM converts der to pem
 func DERCertToPEM(der []byte) []byte {
 	return pem.EncodeToMemory(
 		&pem.Block{
@@ -84,6 +89,7 @@ func DERCertToPEM(der []byte) []byte {
 	)
 }
 
+// GetExtension returns a requested cert extension
 func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
 
 	for _, ext := range cert.Extensions {
@@ -95,6 +101,7 @@ func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, er
 	return nil, errors.New("Failed retrieving extension.")
 }
 
+// NewSelfSignedCert create a self signed certificate
 func NewSelfSignedCert() ([]byte, interface{}, error) {
 	privKey, err := NewECDSAKey()
 	if err != nil {

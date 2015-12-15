@@ -41,6 +41,17 @@ func (x BuildResult_StatusCode) String() string {
 	return proto.EnumName(BuildResult_StatusCode_name, int32(x))
 }
 
+// Secret is a temporary object to establish security with the Devops.
+// A better solution using certificate will be introduced later
+type Secret struct {
+	EnrollId     string `protobuf:"bytes,1,opt,name=enrollId" json:"enrollId,omitempty"`
+	EnrollSecret string `protobuf:"bytes,2,opt,name=enrollSecret" json:"enrollSecret,omitempty"`
+}
+
+func (m *Secret) Reset()         { *m = Secret{} }
+func (m *Secret) String() string { return proto.CompactTextString(m) }
+func (*Secret) ProtoMessage()    {}
+
 type BuildResult struct {
 	Status         BuildResult_StatusCode   `protobuf:"varint,1,opt,name=status,enum=protos.BuildResult_StatusCode" json:"status,omitempty"`
 	Msg            string                   `protobuf:"bytes,2,opt,name=msg" json:"msg,omitempty"`
@@ -69,6 +80,9 @@ var _ grpc.ClientConn
 // Client API for Devops service
 
 type DevopsClient interface {
+	// Log in - passed Secret object and returns Response object, where
+	// msg is the security context to be used in subsequent invocations
+	Login(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*Response, error)
 	// Build the chaincode package.
 	Build(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
@@ -85,6 +99,15 @@ type devopsClient struct {
 
 func NewDevopsClient(cc *grpc.ClientConn) DevopsClient {
 	return &devopsClient{cc}
+}
+
+func (c *devopsClient) Login(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := grpc.Invoke(ctx, "/protos.Devops/Login", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *devopsClient) Build(ctx context.Context, in *ChaincodeSpec, opts ...grpc.CallOption) (*ChaincodeDeploymentSpec, error) {
@@ -126,6 +149,9 @@ func (c *devopsClient) Query(ctx context.Context, in *ChaincodeInvocationSpec, o
 // Server API for Devops service
 
 type DevopsServer interface {
+	// Log in - passed Secret object and returns Response object, where
+	// msg is the security context to be used in subsequent invocations
+	Login(context.Context, *Secret) (*Response, error)
 	// Build the chaincode package.
 	Build(context.Context, *ChaincodeSpec) (*ChaincodeDeploymentSpec, error)
 	// Deploy the chaincode package to the chain.
@@ -138,6 +164,18 @@ type DevopsServer interface {
 
 func RegisterDevopsServer(s *grpc.Server, srv DevopsServer) {
 	s.RegisterService(&_Devops_serviceDesc, srv)
+}
+
+func _Devops_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(DevopsServer).Login(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _Devops_Build_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -192,6 +230,10 @@ var _Devops_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.Devops",
 	HandlerType: (*DevopsServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Login",
+			Handler:    _Devops_Login_Handler,
+		},
 		{
 			MethodName: "Build",
 			Handler:    _Devops_Build_Handler,

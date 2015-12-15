@@ -26,6 +26,9 @@ import "openchain.proto";
 
 // Interface exported by the server.
 service Devops {
+    // Log in - passed Secret object and returns Response object, where
+    // msg is the security context to be used in subsequent invocations
+    rpc Login(Secret) returns (Response) {}
 
     // Build the chaincode package.
     rpc Build(ChaincodeSpec) returns (ChaincodeDeploymentSpec) {}
@@ -39,6 +42,14 @@ service Devops {
     // Invoke chaincode.
     rpc Query(ChaincodeInvocationSpec) returns (Response) {}
 
+}
+
+
+// Secret is a temporary object to establish security with the Devops.
+// A better solution using certificate will be introduced later
+message Secret {
+    string enrollId = 1;
+    string enrollSecret = 2;
 }
 
 message BuildResult {

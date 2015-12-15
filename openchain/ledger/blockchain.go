@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"
@@ -33,52 +34,44 @@ import (
 // Blockchain holds basic information in memory. Operations on Blockchain are not thread-safe
 // TODO synchronize access to in-memory variables
 type blockchain struct {
-	size              uint64
-	previousBlockHash []byte
-	indexer           blockchainIndexer
+	size               uint64
+	previousBlockHash  []byte
+	indexer            blockchainIndexer
+	lastProcessedBlock *lastProcessedBlock
+}
+
+type lastProcessedBlock struct {
+	block       *protos.Block
+	blockNumber uint64
+	blockHash   []byte
 }
 
 var indexBlockDataSynchronously = true
-var blockchainInstance *blockchain
 
-// getBlockchain get handle to block chain singleton
-func getBlockchain() (*blockchain, error) {
-	if blockchainInstance == nil {
-		blockchainInstance = new(blockchain)
-
-		err := blockchainInstance.init()
-		if err != nil {
-			blockchainInstance = nil
-			return nil, err
-		}
-	}
-	return blockchainInstance, nil
-}
-
-func (blockchain *blockchain) init() error {
+func newBlockchain() (*blockchain, error) {
 	size, err := fetchBlockchainSizeFromDB()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	blockchain := &blockchain{0, nil, nil, nil}
 	blockchain.size = size
 	if size > 0 {
 		previousBlock, err := fetchBlockFromDB(size - 1)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		previousBlockHash, err := previousBlock.GetHash()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		blockchain.previousBlockHash = previousBlockHash
 	}
 
-	err = blockchainInstance.startIndexer()
+	err = blockchain.startIndexer()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return nil
+	return blockchain, nil
 }
 
 func (blockchain *blockchain) startIndexer() (err error) {
@@ -87,7 +80,7 @@ func (blockchain *blockchain) startIndexer() (err error) {
 	} else {
 		blockchain.indexer = newBlockchainIndexerAsync()
 	}
-	err = blockchain.indexer.start()
+	err = blockchain.indexer.start(blockchain)
 	return
 }
 
@@ -185,32 +178,103 @@ func (blockchain *blockchain) getBlockchainInfo() (*protos.BlockchainInfo, error
 	return info, nil
 }
 
-// addBlock add a new block to blockchain
-func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block) error {
+func (blockchain *blockchain) addPersistenceChangesForNewBlock(ctx context.Context,
+	block *protos.Block, stateHash []byte, writeBatch *gorocksdb.WriteBatch) (uint64, error) {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
-	state := getState()
-	stateHash, err := state.getHash()
-	if err != nil {
-		return err
-	}
 	block.StateHash = stateHash
-	currentBlockNumber := blockchain.size
-	currentBlockHash, err := block.GetHash()
+	if block.NonHashData == nil {
+		block.NonHashData = &protos.NonHashData{LocalLedgerCommitTimestamp: util.CreateUtcTimestamp()}
+	} else {
+		block.NonHashData.LocalLedgerCommitTimestamp = util.CreateUtcTimestamp()
+	}
+	blockNumber := blockchain.size
+	blockHash, err := block.GetHash()
+	if err != nil {
+		return 0, err
+	}
+	blockBytes, blockBytesErr := block.Bytes()
+	if blockBytesErr != nil {
+		return 0, blockBytesErr
+	}
+	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
+	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, encodeUint64(blockNumber+1))
+	if blockchain.indexer.isSynchronous() {
+		blockchain.indexer.createIndexesSync(block, blockNumber, blockHash, writeBatch)
+	}
+	blockchain.lastProcessedBlock = &lastProcessedBlock{block, blockNumber, blockHash}
+	return blockNumber, nil
+}
+
+func (blockchain *blockchain) blockPersistenceStatus(success bool) {
+	if success {
+		blockchain.size++
+		blockchain.previousBlockHash = blockchain.lastProcessedBlock.blockHash
+		if !blockchain.indexer.isSynchronous() {
+			blockchain.indexer.createIndexesAsync(blockchain.lastProcessedBlock.block,
+				blockchain.lastProcessedBlock.blockNumber, blockchain.lastProcessedBlock.blockHash)
+		}
+	}
+	blockchain.lastProcessedBlock = nil
+}
+
+func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber uint64) error {
+	blockBytes, blockBytesErr := block.Bytes()
+	if blockBytesErr != nil {
+		return blockBytesErr
+	}
+	writeBatch := gorocksdb.NewWriteBatch()
+	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
+
+	// Need to check as we suport out of order blocks in cases such as block/state synchronization. This is
+	// really blockchain height, not size.
+	if blockchain.getSize() < blockNumber+1 {
+		sizeBytes := encodeUint64(blockNumber + 1)
+		writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
+		blockchain.size = blockNumber + 1
+	}
+	blockHash, err := block.GetHash()
 	if err != nil {
 		return err
 	}
-	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash, true)
+
+	if blockchain.indexer.isSynchronous() {
+		blockchain.indexer.createIndexesSync(block, blockNumber, blockHash, writeBatch)
+	}
+
+	opt := gorocksdb.NewDefaultWriteOptions()
+	err = db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		return err
-	}
-	blockchain.size++
-	blockchain.previousBlockHash = currentBlockHash
-	state.clearInMemoryChanges()
-	if !blockchain.indexer.isSynchronous() {
-		blockchain.indexer.createIndexesAsync(block, currentBlockNumber, currentBlockHash)
 	}
 	return nil
 }
+
+// addBlock add a new block to blockchain
+// func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block) error {
+// 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
+// 	state := getState()
+// 	stateHash, err := state.getHash()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	block.StateHash = stateHash
+// 	currentBlockNumber := blockchain.size
+// 	currentBlockHash, err := block.GetHash()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash, true)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	blockchain.size++
+// 	blockchain.previousBlockHash = currentBlockHash
+// 	state.clearInMemoryChanges()
+// 	if !blockchain.indexer.isSynchronous() {
+// 		blockchain.indexer.createIndexesAsync(block, currentBlockNumber, currentBlockHash)
+// 	}
+// 	return nil
+// }
 
 func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 	blockBytes, err := db.GetDBHandle().GetFromBlockchainCF(encodeBlockNumberDBKey(blockNumber))
@@ -242,36 +306,16 @@ func fetchBlockchainSizeFromDB() (uint64, error) {
 	return decodeToUint64(bytes), nil
 }
 
-func (blockchain *blockchain) persistBlock(block *protos.Block, blockNumber uint64, blockHash []byte, persistState bool) error {
-	state := getState()
-	blockBytes, blockBytesErr := block.Bytes()
-	if blockBytesErr != nil {
-		return blockBytesErr
-	}
-	writeBatch := gorocksdb.NewWriteBatch()
-	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
-
-	// Need to check as we suport out of order blocks in cases such as block/state synchronization. This is
-	// really blockchain height, not size.
-	if blockchain.getSize() < blockNumber+1 {
-		sizeBytes := encodeUint64(blockNumber + 1)
-		writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
-	}
-
-	if persistState {
-		state.addChangesForPersistence(blockNumber, writeBatch)
-	}
-
-	if blockchain.indexer.isSynchronous() {
-		blockchain.indexer.createIndexesSync(block, blockNumber, blockHash, writeBatch)
-	}
-
-	opt := gorocksdb.NewDefaultWriteOptions()
-	err := db.GetDBHandle().DB.Write(opt, writeBatch)
+func fetchBlockchainSizeFromSnapshot(snapshot *gorocksdb.Snapshot) (uint64, error) {
+	blockNumberBytes, err := db.GetDBHandle().GetFromBlockchainCFSnapshot(snapshot, blockCountKey)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	var blockNumber uint64
+	if blockNumberBytes != nil {
+		blockNumber = decodeToUint64(blockNumberBytes)
+	}
+	return blockNumber, nil
 }
 
 var blockCountKey = []byte("blockCount")

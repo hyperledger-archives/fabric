@@ -18,18 +18,21 @@ It has these top-level messages:
 	BlockCount
 	ChaincodeID
 	ChaincodeInput
-	ChaincodeInvocationSpec
 	ChaincodeSpec
 	ChaincodeDeploymentSpec
+	ChaincodeInvocationSpec
 	ChaincodeIdentifier
 	ChaincodeRequestContext
 	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
+	Secret
 	BuildResult
 	Transaction
 	TransactionBlock
+	TransactionResult
 	Block
+	NonHashData
 	PeerAddress
 	PeerID
 	PeerEndpoint
@@ -40,6 +43,7 @@ It has these top-level messages:
 	BlockState
 	SyncBlockRange
 	SyncBlocks
+	SyncStateRequest
 	SyncState
 	ServerStatus
 */

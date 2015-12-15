@@ -60,7 +60,7 @@ func MakeGenesis() error {
 		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
 
-		genesis := viper.GetStringMap("ledger.genesis")
+		genesis := viper.GetStringMap("ledger.blockchain.genesisBlock")
 
 		if genesis == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")

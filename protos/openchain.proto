@@ -18,6 +18,7 @@ syntax = "proto3";
 package protos;
 import "chaincode.proto";
 import "google/protobuf/timestamp.proto";
+
 // Transaction defines a function call to a contract.
 // `args` is an array of type string so that the chaincode writer can choose
 // whatever format they wish for the arguments for their chaincode.
@@ -37,25 +38,70 @@ message Transaction {
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
-    bytes cert = 6;
-    bytes signature = 7;
+
+    // Confidentiality fields
+    enum CType {
+        CHAINCODE_PUBLIC = 0;
+        CHAINCODE_CONFIDENTIAL = 1;
+    }
+    CType confidentialityLevel = 6;
+    bytes nonce = 7;
+
+    bytes encryptedChaincodeID = 8;
+    bytes encryptedPayload = 9;
+
+    bytes cert = 10;
+    bytes signature = 11;
 }
+
 // TransactionBlock carries a batch of transactions.
 message TransactionBlock {
     repeated Transaction transactions = 1;
 }
-// TODO: Explain when this message type is used.
-// TODO: Explain fields.
-// TODO: Rename field names according to style guide:
-// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
+
+// TransactionResult contains the return value of a transaction. It does
+// not track potential state changes that were a result of the transaction.
+// uuid - The unique identifier of this transaction.
+// result - The return value of the transaction.
+// error - Any errors that occured as a result of running the transaction.
+message TransactionResult {
+  string uuid = 1;
+  bytes result = 2;
+  string error = 3;
+}
+
+// Block carries The data that describes a block in the blockchain.
+// proposerID - The ID of the peer that proposed the Block.
+// timestamp - The time at which the block or transaction order
+// was proposed. This may not be used by all consensus modules.
+// transactions - The ordered list of transactions in the block.
+// stateHash - The state hash after running transactions in this block.
+// previousBlockHash - The hash of the previous block in the chain.
+// consensusMetadata - Consensus modules may optionaly store any
+// additional metadata in this field.
+// nonHashData - Data stored with the block, but not included in the blocks
+// hash. This allows this data to be different per peer or discarded without
+// impacting the blockchain.
 message Block {
     string proposerID = 1;
-    google.protobuf.Timestamp Timestamp = 2;
+    google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
     bytes previousBlockHash = 5;
     bytes consensusMetadata = 6;
+    NonHashData nonHashData = 7;
 }
+
+// NonHashData is data that is recorded on the block, but not included in
+// the block hash when verifying the blockchain.
+// localLedgerCommitTimestamp - The time at which the block was added
+// to the ledger on the local peer.
+// transactionResults - The results of transactions.
+message NonHashData {
+    google.protobuf.Timestamp localLedgerCommitTimestamp = 1;
+    repeated TransactionResult transactionResults = 2;
+}
+
 // Interface exported by the server.
 service Peer {
     // Accepts a stream of OpenchainMessage during chat session, while receiving
@@ -129,7 +175,10 @@ message BlockState {
     bytes stateDelta = 2;
 }
 // SyncBlockRange is the payload of OpenchainMessage.SYNC_GET_BLOCKS, where
-// start and end indicate the starting and ending blocks inclusively
+// start and end indicate the starting and ending blocks inclusively. The order
+// in which blocks are returned is defined by the start and end values. For
+// example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
+// If start=5 and end=3, the order will be 5, 4, 3.
 message SyncBlockRange {
     uint64 start = 1;
     uint64 end = 2;
@@ -139,6 +188,13 @@ message SyncBlockRange {
 message SyncBlocks {
     SyncBlockRange range = 1;
     repeated Block blocks = 2;
+}
+// SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
+// blockNumber indicates the block number for the delta which is being
+// requested. If no payload is included with SYNC_GET_STATE, it represents
+// a request for a snapshot of the current state.
+message SyncStateRequest {
+  uint64 blockNumber = 1;
 }
 // SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
 // to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the

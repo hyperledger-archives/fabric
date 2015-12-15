@@ -51,6 +51,27 @@ func (x Transaction_Type) String() string {
 	return proto.EnumName(Transaction_Type_name, int32(x))
 }
 
+// Confidentiality fields
+type Transaction_CType int32
+
+const (
+	Transaction_CHAINCODE_PUBLIC       Transaction_CType = 0
+	Transaction_CHAINCODE_CONFIDENTIAL Transaction_CType = 1
+)
+
+var Transaction_CType_name = map[int32]string{
+	0: "CHAINCODE_PUBLIC",
+	1: "CHAINCODE_CONFIDENTIAL",
+}
+var Transaction_CType_value = map[string]int32{
+	"CHAINCODE_PUBLIC":       0,
+	"CHAINCODE_CONFIDENTIAL": 1,
+}
+
+func (x Transaction_CType) String() string {
+	return proto.EnumName(Transaction_CType_name, int32(x))
+}
+
 type PeerEndpoint_Type int32
 
 const (
@@ -168,13 +189,17 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type        Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
-	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
+	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	ConfidentialityLevel Transaction_CType          `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.Transaction_CType" json:"confidentialityLevel,omitempty"`
+	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	EncryptedChaincodeID []byte                     `protobuf:"bytes,8,opt,name=encryptedChaincodeID,proto3" json:"encryptedChaincodeID,omitempty"`
+	EncryptedPayload     []byte                     `protobuf:"bytes,9,opt,name=encryptedPayload,proto3" json:"encryptedPayload,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,10,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,11,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -211,17 +236,41 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 	return nil
 }
 
-// TODO: Explain when this message type is used.
-// TODO: Explain fields.
-// TODO: Rename field names according to style guide:
-// https://developers.google.com/protocol-buffers/docs/style#message-and-field-names
+// TransactionResult contains the return value of a transaction. It does
+// not track potential state changes that were a result of the transaction.
+// uuid - The unique identifier of this transaction.
+// result - The return value of the transaction.
+// error - Any errors that occured as a result of running the transaction.
+type TransactionResult struct {
+	Uuid   string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
+	Result []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
+}
+
+func (m *TransactionResult) Reset()         { *m = TransactionResult{} }
+func (m *TransactionResult) String() string { return proto.CompactTextString(m) }
+func (*TransactionResult) ProtoMessage()    {}
+
+// Block carries The data that describes a block in the blockchain.
+// proposerID - The ID of the peer that proposed the Block.
+// timestamp - The time at which the block or transaction order
+// was proposed. This may not be used by all consensus modules.
+// transactions - The ordered list of transactions in the block.
+// stateHash - The state hash after running transactions in this block.
+// previousBlockHash - The hash of the previous block in the chain.
+// consensusMetadata - Consensus modules may optionaly store any
+// additional metadata in this field.
+// nonHashData - Data stored with the block, but not included in the blocks
+// hash. This allows this data to be different per peer or discarded without
+// impacting the blockchain.
 type Block struct {
 	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
-	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
+	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Transactions      []*Transaction             `protobuf:"bytes,3,rep,name=transactions" json:"transactions,omitempty"`
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`
 	PreviousBlockHash []byte                     `protobuf:"bytes,5,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
 	ConsensusMetadata []byte                     `protobuf:"bytes,6,opt,name=consensusMetadata,proto3" json:"consensusMetadata,omitempty"`
+	NonHashData       *NonHashData               `protobuf:"bytes,7,opt,name=nonHashData" json:"nonHashData,omitempty"`
 }
 
 func (m *Block) Reset()         { *m = Block{} }
@@ -238,6 +287,41 @@ func (m *Block) GetTimestamp() *google_protobuf.Timestamp {
 func (m *Block) GetTransactions() []*Transaction {
 	if m != nil {
 		return m.Transactions
+	}
+	return nil
+}
+
+func (m *Block) GetNonHashData() *NonHashData {
+	if m != nil {
+		return m.NonHashData
+	}
+	return nil
+}
+
+// NonHashData is data that is recorded on the block, but not included in
+// the block hash when verifying the blockchain.
+// localLedgerCommitTimestamp - The time at which the block was added
+// to the ledger on the local peer.
+// transactionResults - The results of transactions.
+type NonHashData struct {
+	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=localLedgerCommitTimestamp" json:"localLedgerCommitTimestamp,omitempty"`
+	TransactionResults         []*TransactionResult       `protobuf:"bytes,2,rep,name=transactionResults" json:"transactionResults,omitempty"`
+}
+
+func (m *NonHashData) Reset()         { *m = NonHashData{} }
+func (m *NonHashData) String() string { return proto.CompactTextString(m) }
+func (*NonHashData) ProtoMessage()    {}
+
+func (m *NonHashData) GetLocalLedgerCommitTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.LocalLedgerCommitTimestamp
+	}
+	return nil
+}
+
+func (m *NonHashData) GetTransactionResults() []*TransactionResult {
+	if m != nil {
+		return m.TransactionResults
 	}
 	return nil
 }
@@ -355,7 +439,10 @@ func (m *BlockState) GetBlock() *Block {
 }
 
 // SyncBlockRange is the payload of OpenchainMessage.SYNC_GET_BLOCKS, where
-// start and end indicate the starting and ending blocks inclusively
+// start and end indicate the starting and ending blocks inclusively. The order
+// in which blocks are returned is defined by the start and end values. For
+// example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
+// If start=5 and end=3, the order will be 5, 4, 3.
 type SyncBlockRange struct {
 	Start uint64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
 	End   uint64 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
@@ -390,6 +477,18 @@ func (m *SyncBlocks) GetBlocks() []*Block {
 	return nil
 }
 
+// SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
+// blockNumber indicates the block number for the delta which is being
+// requested. If no payload is included with SYNC_GET_STATE, it represents
+// a request for a snapshot of the current state.
+type SyncStateRequest struct {
+	BlockNumber uint64 `protobuf:"varint,1,opt,name=blockNumber" json:"blockNumber,omitempty"`
+}
+
+func (m *SyncStateRequest) Reset()         { *m = SyncStateRequest{} }
+func (m *SyncStateRequest) String() string { return proto.CompactTextString(m) }
+func (*SyncStateRequest) ProtoMessage()    {}
+
 // SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
 // to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
 // snapshot on stream, and in which case, the sequence indicate the order
@@ -406,6 +505,7 @@ func (*SyncState) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
+	proto.RegisterEnum("protos.Transaction_CType", Transaction_CType_name, Transaction_CType_value)
 	proto.RegisterEnum("protos.PeerEndpoint_Type", PeerEndpoint_Type_name, PeerEndpoint_Type_value)
 	proto.RegisterEnum("protos.OpenchainMessage_Type", OpenchainMessage_Type_name, OpenchainMessage_Type_value)
 	proto.RegisterEnum("protos.Response_StatusCode", Response_StatusCode_name, Response_StatusCode_value)

@@ -37,6 +37,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -168,6 +169,7 @@ type PeerImpl struct {
 	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
+	secHelper      crypto.Peer
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
@@ -178,6 +180,31 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 	}
 	peer.handlerFactory = handlerFact
 	peer.handlerMap = &handlerMap{m: make(map[string]MessageHandler)}
+
+	// Install security object for peer
+	if viper.GetBool("security.enabled") {
+		enrollID := viper.GetString("security.enrollID")
+		enrollSecret := viper.GetString("security.enrollSecret")
+		var err error
+		if viper.GetBool("peer.validator.enabled") {
+			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
+				return nil, err
+			}
+			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
+			if nil != err {
+				return nil, err
+			}
+		} else {
+			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
+				return nil, err
+			}
+			peer.secHelper, err = crypto.InitPeeer(enrollID, nil)
+			if nil != err {
+				return nil, err
+			}
+		}
+	}
+
 	ledgerPtr, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)

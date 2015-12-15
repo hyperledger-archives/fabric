@@ -21,16 +21,18 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
 )
 
+// PrivateKeyToDER marshals a private key to der
 func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)
 }
 
-func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
+func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
 		raw, err := x509.MarshalECPrivateKey(x)
@@ -41,7 +43,7 @@ func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
 
 		return pem.EncodeToMemory(
 			&pem.Block{
-				Type:  algo + "ECDSA PRIVATE KEY",
+				Type:  "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			},
 		), nil
@@ -50,6 +52,34 @@ func PrivateKeyToPEM(algo string, privateKey interface{}) ([]byte, error) {
 	}
 }
 
+func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
+	switch x := privateKey.(type) {
+	case *ecdsa.PrivateKey:
+		raw, err := x509.MarshalECPrivateKey(x)
+
+		if err != nil {
+			return nil, err
+		}
+
+		block, err := x509.EncryptPEMBlock(
+			rand.Reader,
+			"ECDSA PRIVATE KEY",
+			raw,
+			pwd,
+			x509.PEMCipherAES256)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return pem.EncodeToMemory(block), nil
+
+	default:
+		return nil, nil
+	}
+}
+
+// DERToPrivateKey unmarshals a der to private key
 func DERToPrivateKey(der []byte) (interface{}, error) {
 	// Try RSA and then ECDSA
 	rsakey, err1 := x509.ParsePKCS1PrivateKey(der)
@@ -71,6 +101,7 @@ func DERToPrivateKey(der []byte) (interface{}, error) {
 	return nil, errors.New("Key not recognized.")
 }
 
+// PEMtoPrivateKey unmarshals a pem to private key
 func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	block, _ := pem.Decode(raw)
 
@@ -98,16 +129,56 @@ func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	return cert, err
 }
 
-func PublicKeyToBytes(publicKey interface{}) ([]byte, error) {
+func PEMtoAES(raw []byte, pwd []byte) ([]byte, error) {
+	block, _ := pem.Decode(raw)
+
+	if x509.IsEncryptedPEMBlock(block) {
+		if pwd == nil {
+			return nil, errors.New("Encrypted Key. Need a password!!!")
+		}
+
+		decrypted, err := x509.DecryptPEMBlock(block, pwd)
+		if err != nil {
+			return nil, err
+		}
+		return decrypted, nil
+	}
+
+	return block.Bytes, nil
+}
+
+func AEStoPEM(raw []byte) []byte {
+	return pem.EncodeToMemory(&pem.Block{Type: "AES PRIVATE KEY", Bytes: raw})
+}
+
+func AEStoEncryptedPEM(raw []byte, pwd []byte) ([]byte, error) {
+	block, err := x509.EncryptPEMBlock(
+		rand.Reader,
+		"AES PRIVATE KEY",
+		raw,
+		pwd,
+		x509.PEMCipherAES256)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pem.EncodeToMemory(block), nil
+}
+
+/*
+func PublicKeyToDER(publicKey interface{}) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(publicKey)
 }
 
-func BytesToPublicKey(derBytes []byte) (pub interface{}, err error) {
+func DERToPublicKey(derBytes []byte) (pub interface{}, err error) {
 	key, err := x509.ParsePKIXPublicKey(derBytes)
 
 	return key, err
 }
+*/
 
+// PublicKeyToPEM marshals a public key to the pem forma
 func PublicKeyToPEM(algo string, publicKey interface{}) ([]byte, error) {
 	PubASN1, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
@@ -116,7 +187,7 @@ func PublicKeyToPEM(algo string, publicKey interface{}) ([]byte, error) {
 
 	return pem.EncodeToMemory(
 		&pem.Block{
-			Type:  algo + " PRIVATE KEY",
+			Type:  algo + " PUBLIC KEY",
 			Bytes: PubASN1,
 		},
 	), nil
