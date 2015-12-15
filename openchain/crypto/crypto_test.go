@@ -43,6 +43,7 @@ var (
 	caAlreadyOn bool
 	eca         *obcca.ECA
 	tca         *obcca.TCA
+	tlsca		*obcca.TLSCA
 	caWaitGroup sync.WaitGroup
 )
 
@@ -318,6 +319,10 @@ func initMockCAs() {
 	tca = obcca.NewTCA(eca)
 	defer tca.Close()
 	tca.Start(&caWaitGroup)
+
+	tlsca = obcca.NewTLSCA()
+	defer tlsca.Close()
+	tlsca.Start(&caWaitGroup)
 
 	caWaitGroup.Wait()
 }

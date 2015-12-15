@@ -172,11 +172,11 @@ func (conf *configuration) getECACertsChainFilename() string {
 }
 
 func (conf *configuration) getTLSKeyPath() string {
-	return filepath.Join(getKeysPath(), getTLSKeyFilename())
+	return filepath.Join(conf.getKeysPath(), conf.getTLSKeyFilename())
 }
 
 func (conf *configuration) getTLSCertPath() string {
-	return filepath.Join(getKeysPath(), getTLSCertFilename())
+	return filepath.Join(conf.getKeysPath(), conf.getTLSCertFilename())
 }
 
 func (conf *configuration) getTLSKeyFilename() string {

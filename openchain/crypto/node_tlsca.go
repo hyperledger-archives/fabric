@@ -26,12 +26,12 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"github.com/golang/protobuf/proto"
-	protobuf "google/protobuf"
+	"google/protobuf"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
 	"time"
-		
+	"github.com/openblockchain/obc-peer/openchain/util"
 )
 
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
@@ -45,7 +45,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 		return nil, nil, err
 	}
 	
-	uuid, err := utils.GenerateUUID()
+	uuid, err := util.GenerateUUID()
 	if err != nil {
 		node.log.Error("Failed generating uuid: %s", err)
 
@@ -54,7 +54,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-	
+	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 	
 	req := &obcca.TLSCertCreateReq{
@@ -74,7 +74,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	S, _ := s.MarshalText()
 	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
 
-	pbCert, err := client.callTLSCACreateCertificate(context.Background(), req)
+	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {
 		node.log.Error("Failed requesting tls certificate: %s", err)
 
@@ -93,7 +93,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 }
 
 func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(getTLSCAPAddr(), grpc.WithInsecure())
+	sockP, err := grpc.Dial(node.conf.getTLSCAPAddr(), grpc.WithInsecure())
 	if err != nil {
 		node.log.Error("Failed dialing in: %s", err)
 

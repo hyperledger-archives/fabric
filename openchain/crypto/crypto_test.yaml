@@ -9,8 +9,6 @@ eca:
         # location on file system
         path: .obcca
 
-        pport: 53051
-
     users:
         user1: 9gvZQRwhUq9q
         user2: 9gvZQRwhUq9q
@@ -20,31 +18,14 @@ eca:
         validator: 9gvZQRwhUq9q
         peer: 9gvZQRwhUq9q
 
-tca:
-    # TCA's settings
-    crypto:
-        # location on file system
-        path: .obcca
-
-        pport: 53551
-
 ports:
         ecaP: ":53051"
         ecaA: ":53052"
         tcaP: ":53551"
         tcaA: ":53552"
-        
-tlsca:
-    # TLSCA's settings
-    crypto:
-        # location on file system
-        path: .obcca
+        tlscaP: ":53951"
+        tlscaA: ":53952"
 
-        pport: 53951
-
-ports:
-        tcaP: ":53951"
-        tcaA: ":53952"
 
 defaults:
         certSetSize: 32
