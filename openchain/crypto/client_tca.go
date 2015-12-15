@@ -440,8 +440,6 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 }
 
 func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, error) {
-	//		return mockTcaCreateCertificates(&client.enrollPrivKey.PublicKey, num)
-
 	sockP, err := grpc.Dial(client.node.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
 		client.node.log.Error("Failed tca dial in: %s", err)
