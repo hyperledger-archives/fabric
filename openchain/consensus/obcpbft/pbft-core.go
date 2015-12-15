@@ -167,8 +167,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 
 	go instance.timerHander()
 
-	instance.consumer.viewChange(instance.view)
-
 	return instance
 }
 
