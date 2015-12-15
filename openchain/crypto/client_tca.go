@@ -68,8 +68,6 @@ func (client *clientImpl) retrieveTCACertsChain(userID string) error {
 }
 
 func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
-	// TODO: handle synchronization. Multiple instances of Client could be running.
-
 	err := ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), utils.AEStoPEM(client.tCertOwnerKDFKey), 0700)
 	if err != nil {
 		client.node.log.Error("Failed storing TCertOwnerKDFKey: %s", err)
@@ -215,7 +213,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	}
 
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-	pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
+	decryptedTCertIndex, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
 	if err != nil {
 		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
 
@@ -223,8 +221,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	}
 
 	// Compute ExpansionValue based on TCertIndex
-	TCertIndex := pt
-	//		TCertIndex := []byte(strconv.Itoa(i))
+	TCertIndex := decryptedTCertIndex
 
 	client.node.log.Info("TCertIndex: %s", TCertIndex)
 	mac := hmac.New(utils.NewHash, ExpansionKey)
@@ -285,9 +282,9 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	} else {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
 
+		// TODO: hanlde this situation more carefully
 		if err := client.storeTCertOwnerKDFKey(nil); err != nil {
 			client.node.log.Debug("Failed storing TCertOwnerKDFKey: %s", err)
-			// TODO: hanlde this situation more carefully
 		}
 	}
 
@@ -469,7 +466,7 @@ func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, er
 		return nil, nil, err
 	}
 
-	// 2. Sign rawReq and (TODO) check signature
+	// 2. Sign rawReq
 	client.node.log.Info("Signing req %s", utils.EncodeBase64(rawReq))
 	r, s, err := client.node.ecdsaSignWithEnrollmentKey(rawReq)
 	if err != nil {

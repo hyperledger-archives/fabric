@@ -48,7 +48,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 		return nil, err
 	}
 
-	// TODO: confidentiality
+	// Confidentiality
 
 	// 1. set confidentiality level and nonce
 	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
@@ -67,7 +67,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 	}
 	client.node.log.Info("Encrypted Payload [%s]", utils.EncodeBase64(tx.EncryptedPayload))
 
-	// TODO: Sign the transaction
+	// Sign the transaction
 
 	// Implement like this: getNextTCert returns only a TCert
 	// Then, invoke signWithTCert to sign the signature
@@ -122,7 +122,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 		return nil, err
 	}
 
-	// TODO: confidentiality
+	// Confidentiality
 
 	// 1. set confidentiality level and nonce
 	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
@@ -139,7 +139,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 		return nil, err
 	}
 
-	// TODO: Sign the transaction
+	// Sign the transaction
 
 	// Implement like this: getNextTCert returns only a TCert
 	// Then, invoke signWithTCert to sign the signature

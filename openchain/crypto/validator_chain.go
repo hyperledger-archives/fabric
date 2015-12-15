@@ -64,7 +64,12 @@ func (validator *validatorImpl) decryptTx(tx *obc.Transaction) error {
 	chaincodeID := &obc.ChaincodeID{}
 	if err := proto.Unmarshal(rawChaincodeID, chaincodeID); err != nil {
 		validator.peer.node.log.Error("Failed decrypting chaincodeID %s", err)
-		// TODO: cleanup the decrypted values
+
+		// Cleanup the decrypted values so far
+
+		tx.Payload = nil
+		tx.ChaincodeID = nil
+
 		return err
 	}
 	tx.ChaincodeID = chaincodeID

@@ -25,6 +25,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 "errors"
+	"reflect"
 )
 
 // Public Struct
@@ -120,23 +121,34 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 	return nil
 }
 
-func (validator *validatorImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (StateEncryptor, error) {
-	// Derive root key from the deploy transaction
+func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
+	// Check nonce
 	if deployTx.Nonce == nil || len(deployTx.Nonce) == 0 {
 		return nil, errors.New("Failed getting state ES. Invalid deploy nonce.")
 	}
-	if invokeTx.Nonce == nil || len(invokeTx.Nonce) == 0 {
+	if executeTx.Nonce == nil || len(executeTx.Nonce) == 0 {
 		return nil, errors.New("Failed getting state ES. Invalid invoke nonce.")
 	}
-	// TODO: check that deployTx and invokeTx refers to the same chaincode
+	// Check ChaincodeID
+	if deployTx.ChaincodeID == nil {
+		return nil, errors.New("Invalid deploy chaincodeID.")
+	}
+	if executeTx.ChaincodeID == nil {
+		return nil, errors.New("Invalid execute chaincodeID.")
+	}
+	// Check that deployTx and executeTx refers to the same chaincode
+	if !reflect.DeepEqual(deployTx.ChaincodeID, executeTx.ChaincodeID) {
+		return nil, utils.ErrDirrentChaincodeID
+	}
 
+	// Derive root key from the deploy transaction
 	txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
-	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, invokeTx.Nonce...), utils.AESKeyLength)
-	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, invokeTx.Nonce...))
+	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, executeTx.Nonce...), utils.AESKeyLength)
+	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, executeTx.Nonce...))
 
 	sei := stateEncryptorImpl{}
-	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, invokeTx.Nonce)
+	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, executeTx.Nonce)
 	if err != nil {
 		return nil, err
 	}
