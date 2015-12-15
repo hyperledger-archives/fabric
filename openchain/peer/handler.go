@@ -70,7 +70,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			"before_" + pb.OpenchainMessage_DISC_GET_PEERS.String():   func(e *fsm.Event) { d.beforeGetPeers(e) },
 			"before_" + pb.OpenchainMessage_DISC_PEERS.String():       func(e *fsm.Event) { d.beforePeers(e) },
 			"before_" + pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(): func(e *fsm.Event) { d.beforeBlockAdded(e) },
-			"before_" + pb.OpenchainMessage_SYNC_GET_BLOCKS.String():  func(e *fsm.Event) { d.beforeGetBlocks(e) },
+			"before_" + pb.OpenchainMessage_SYNC_GET_BLOCKS.String():  func(e *fsm.Event) { d.beforeSyncGetBlocks(e) },
 			"before_" + pb.OpenchainMessage_SYNC_BLOCKS.String():      func(e *fsm.Event) { d.beforeSyncBlocks(e) },
 		},
 	)
@@ -307,7 +307,7 @@ func (d *Handler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncB
 	return d.syncBlocks, nil
 }
 
-func (d *Handler) beforeGetBlocks(e *fsm.Event) {
+func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
 	msg, ok := e.Args[0].(*pb.OpenchainMessage)
 	if !ok {
