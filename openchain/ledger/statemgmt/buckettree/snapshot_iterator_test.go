@@ -20,10 +20,11 @@ under the License.
 package buckettree
 
 import (
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
 )
 
 func TestStateSnapshotIterator(t *testing.T) {
@@ -32,12 +33,12 @@ func TestStateSnapshotIterator(t *testing.T) {
 	stateDelta := statemgmt.NewStateDelta()
 
 	// insert keys
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
-	stateDelta.Set("chaincodeID5", "key5", []byte("value5"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID5", "key5", []byte("value5"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6"), nil)
 	stateImplTestWrapper.prepareWorkingSet(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	//check that the key is persisted
@@ -47,12 +48,12 @@ func TestStateSnapshotIterator(t *testing.T) {
 	dbSnapshot := db.GetDBHandle().GetSnapshot()
 
 	// delete keys
-	stateDelta.Delete("chaincodeID1", "key1")
-	stateDelta.Delete("chaincodeID2", "key2")
-	stateDelta.Delete("chaincodeID3", "key3")
-	stateDelta.Delete("chaincodeID4", "key4")
-	stateDelta.Delete("chaincodeID5", "key5")
-	stateDelta.Delete("chaincodeID6", "key6")
+	stateDelta.Delete("chaincodeID1", "key1", nil)
+	stateDelta.Delete("chaincodeID2", "key2", nil)
+	stateDelta.Delete("chaincodeID3", "key3", nil)
+	stateDelta.Delete("chaincodeID4", "key4", nil)
+	stateDelta.Delete("chaincodeID5", "key5", nil)
+	stateDelta.Delete("chaincodeID6", "key6", nil)
 	stateImplTestWrapper.prepareWorkingSet(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	//check that the key is deleted

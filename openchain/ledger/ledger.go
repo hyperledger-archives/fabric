@@ -204,6 +204,11 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // For example, if you are currently at block 8 and call this function
 // with a delta retrieved from Ledger.GetStateDelta(10), you would now
 // be in a bad state because you did not apply the delta for block 9.
+// It's possible to roll the state forwards or backwards using
+// stateDelta.RollBackwards. By default, a delta retrieved for block 3 can
+// be used to roll forwards from state at block 2 to state at block 3. If
+// stateDelta.RollBackwards=false, the delta retrived for block 3 can be
+// used to roll backwards from the state at block 3 to the state at block 2.
 func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 	return ledger.state.ApplyStateDelta(delta)
 }
