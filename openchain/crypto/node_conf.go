@@ -47,19 +47,6 @@ type configuration struct {
 	tlscaPAddressProperty string
 }
 
-//const (
-//	ConfigurationPath = "client.crypto.path"
-//	ECAPAddress       = "client.crypto.eca.paddr"
-//	TCAPAddress       = "client.crypto.tca.paddr"
-//	TLSCAPAddress     = "client.crypto.tlsca.paddr"
-//	
-//	TLSCertFilename	  = "tls.cert"
-//	TLSKeyFilename    = "tls.key"
-//	
-//	Role              = "client.crypto.tlsca.role"
-//	Affiliation       = "client.crypto.tlsca.affiliation"
-//)
-
 func (conf *configuration) loadConfiguration() error {
 	conf.configurationPathProperty = "peer.fileSystemPath"
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"

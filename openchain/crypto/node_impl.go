@@ -99,12 +99,19 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 			return err
 		}
-		
-		if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
+
+		if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
 			node.log.Error("Failed retrieveing enrollment data: %s", err)
 
 			return err
 		}
+
+		//	@Diego, @Dulce: this duplication caused the error. Above is the right call
+//		if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
+//			node.log.Error("Failed retrieveing enrollment data: %s", err)
+//
+//			return err
+//		}
 	}
 
 	node.log.Info("Registering [%s]...done!", enrollID)

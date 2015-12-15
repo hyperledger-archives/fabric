@@ -199,6 +199,6 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string ) error {
 		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
 		return err
 	}
-	
+
 	return nil
 }

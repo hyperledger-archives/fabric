@@ -44,7 +44,7 @@ peer:
 
           tca:
               paddr: localhost:53551
-          
+
           tlsca:
               paddr: localhost:53951
 
