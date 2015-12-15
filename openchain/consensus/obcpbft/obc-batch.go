@@ -126,7 +126,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 }
 
 // Close tells us to release resources we are holding
-func (op *obcBatch) close() {
+func (op *obcBatch) Close() {
 	op.pbft.close()
 	op.batchTimer.Reset(0)
 }
@@ -146,16 +146,16 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 
 // verify checks whether the request is valid
 func (op *obcBatch) verify(txRaw []byte) error {
-	tx := &pb.Transaction{}
+	// TODO verify transaction
+	/* tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
 		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
 	}
-	// TODO verify transaction
-	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-	//   logger.Warning("Invalid request");
-	//   return err
-	// }
+	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
+		logger.Warning("Invalid request");
+		return err
+	} */
 	return nil
 }
 
