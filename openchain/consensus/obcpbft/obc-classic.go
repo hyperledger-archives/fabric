@@ -102,6 +102,11 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 
 // verify checks whether the request is valid
 func (op *obcClassic) verify(txRaw []byte) error {
+	tx := &pb.Transaction{}
+	err := proto.Unmarshal(txRaw, tx)
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
+	}
 	// TODO verify transaction
 	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
 	//   logger.Warning("Invalid request");
@@ -120,6 +125,7 @@ func (op *obcClassic) execute(txRaw []byte) {
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
+		logger.Error("Unable to unmarshal transaction: %v", err)
 		return
 	}
 
