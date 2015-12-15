@@ -260,20 +260,23 @@ func (d *Handler) start() error {
 			if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS}); err != nil {
 				peerLogger.Error(fmt.Sprintf("Error sending %s during handler discovery tick: %s", pb.OpenchainMessage_DISC_GET_PEERS, err))
 			}
-			// TODO: For testing only, remove
-			syncBlocksChannel, _ := d.GetBlocks(&pb.SyncBlockRange{Start: 0, End: 0})
-			go func() {
-				for {
-					syncBlocks, ok := <-syncBlocksChannel
-					if !ok {
-						// Channel was closed
-						peerLogger.Debug("Channel closed for SyncBlocks")
-						break
-					} else {
-						peerLogger.Debug("Received SyncBlocks on channel with Range from %d to %d", syncBlocks.Range.Start, syncBlocks.Range.End)
-					}
-				}
-			}()
+			// // TODO: For testing only, remove
+			// syncBlocksChannel, _ := d.GetBlocks(&pb.SyncBlockRange{Start: 0, End: 0})
+			// go func() {
+			// 	for {
+			// 		// peerLogger.Debug("Sleeping for 1 second...")
+			// 		// time.Sleep(1 * time.Second)
+			// 		// peerLogger.Debug("Waking up and pulling from sync channel")
+			// 		syncBlocks, ok := <-syncBlocksChannel
+			// 		if !ok {
+			// 			// Channel was closed
+			// 			peerLogger.Debug("Channel closed for SyncBlocks")
+			// 			break
+			// 		} else {
+			// 			peerLogger.Debug("Received SyncBlocks on channel with Range from %d to %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+			// 		}
+			// 	}
+			// }()
 			// syncBlock := <-syncBlocksChannel
 			// peerLogger.Debug("Received syncBlock with Range: %s, and block count: %s", syncBlock.Range, len(syncBlock.Blocks))
 		case <-d.doneChan:
@@ -293,7 +296,7 @@ func (d *Handler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncB
 		// close the previous one
 		close(d.syncBlocks)
 	}
-	d.syncBlocks = make(chan *pb.SyncBlocks)
+	d.syncBlocks = make(chan *pb.SyncBlocks, viper.GetInt("peer.sync.blocks.channelSize"))
 
 	// Marshal the SyncBlockRange as the payload
 	syncBlockRangeBytes, err := proto.Marshal(syncBlockRange)
@@ -332,7 +335,7 @@ func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	// Start a separate go FUNC to send the blocks per the SyncBlockRange payload
+	// Forward the received SyncBlocks to the channel
 	syncBlocks := &pb.SyncBlocks{}
 	err := proto.Unmarshal(msg.Payload, syncBlocks)
 	if err != nil {
@@ -340,21 +343,19 @@ func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 		return
 	}
 	peerLogger.Debug("TODO: send received syncBlocks for start = %d and end = %d message to channel", syncBlocks.Range.Start, syncBlocks.Range.End)
+
 	// Send the message onto the channel, allow for the fact that channel may be closed on send attempt.
 	defer func() {
 		if x := recover(); x != nil {
 			peerLogger.Error(fmt.Sprintf("Error sending syncBlocks to channel: %v", x))
 		}
 	}()
-	d.syncBlocks <- syncBlocks
-	// go func() {
-	// 	defer func() {
-	// 		if x := recover(); x != nil {
-	// 			peerLogger.Error(fmt.Sprintf("Error sending syncBlocks to channel: %v", x))
-	// 		}
-	// 	}()
-	// 	d.syncBlocks <- syncBlocks
-	// }()
+	// Use non-blocking send, will WARN if missed message.
+	select {
+	case d.syncBlocks <- syncBlocks:
+	default:
+		peerLogger.Warning("Did NOT send SyncBlocks message to channel for range: %d - %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+	}
 }
 
 // sendBlocks sends the blocks based upon the supplied SyncBlockRange over the stream.
