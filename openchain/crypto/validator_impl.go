@@ -144,11 +144,13 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 	// Derive root key from the deploy transaction
 	txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
-	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, executeTx.Nonce...), utils.AESKeyLength)
-	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, executeTx.Nonce...))
+	txNonce := utils.HMACTruncated(txKey, executeTx.Nonce, utils.NonceSize)
+
+	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, txNonce...))
 
 	sei := stateEncryptorImpl{}
-	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, executeTx.Nonce)
+	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, txNonce)
 	if err != nil {
 		return nil, err
 	}
