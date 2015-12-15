@@ -27,7 +27,7 @@ import (
 func (client *clientImpl) initKeyStore() error {
 	// create tables
 	client.node.ks.log.Debug("Create Table [%s] at [%s]", "TCert", client.node.ks.conf.getKeyStorePath())
-	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
+	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
 		client.node.ks.log.Debug("Failed creating table: %s", err)
 		return err
 	}
@@ -37,15 +37,15 @@ func (client *clientImpl) initKeyStore() error {
 	return nil
 }
 
-func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
+func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) ([]byte, error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
-	cert, key, err := ks.selectNextTCert()
+	cert, err := ks.selectNextTCert()
 	if err != nil {
 		ks.log.Error("Failed selecting next TCert: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 	ks.log.Info("cert %s", utils.EncodeBase64(cert))
 
@@ -54,9 +54,9 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 
 		// 1. Fetch
 		ks.log.Info("Fectch TCerts from TCA...")
-		certs, keys, err := tCertFetcher(10)
+		certs, err := tCertFetcher(10)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// 2. Store
@@ -65,7 +65,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 		if err != nil {
 			ks.log.Error("Failed beginning transaction: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 
 		for i, cert := range certs {
@@ -74,11 +74,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
 			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
 
-			// TODO: once the TCert structure is finalized,
-			// store only the cert from which the corresponding key
-			// can be derived
-
-			_, err := tx.Exec("INSERT INTO TCerts (cert, key) VALUES (?, ?)", cert, keys[i])
+			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
 			if err != nil {
 				ks.log.Error("Failed inserting cert %s", err)
@@ -92,25 +88,25 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte,
 
 			tx.Rollback()
 
-			return nil, nil, err
+			return nil, err
 		}
 
 		ks.log.Info("Fectch TCerts from TCA...done!")
 
-		cert, key, err = ks.selectNextTCert()
+		cert, err = ks.selectNextTCert()
 		if err != nil {
 			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
 
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return cert, key, nil
+	return cert, nil
 	//	return nil, nil, errors.New("No cert obtained")
 	//	return utils.NewSelfSignedCert()
 }
 
-func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
+func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	ks.log.Info("Select next TCert...")
 
 	// Open transaction
@@ -118,28 +114,27 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 	if err != nil {
 		ks.log.Error("Failed beginning transaction: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Get the first row available
 	var id int
-	var cert, key []byte
-	row := ks.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
-	err = row.Scan(&id, &cert, &key)
+	var cert []byte
+	row := ks.sqlDB.QueryRow("SELECT id, cert FROM TCerts")
+	err = row.Scan(&id, &cert)
 
 	if err == sql.ErrNoRows {
-		return nil, nil, nil
+		return nil, nil
 	} else if err != nil {
 		ks.log.Error("Error during select: %s", err)
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	ks.log.Info("id %d", id)
 	ks.log.Info("cert %s", utils.EncodeBase64(cert))
-	//	db.log.Info("key %s", utils.EncodeBase64(key))
 
-	// TODO: instead of removing, move the TCert to a new table
+	// TODO: rather than removing, move the cert to another table
 	// which stores the TCerts used
 
 	// Remove that row
@@ -150,7 +145,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	ks.log.Info("Removing row with id [%d]...done", id)
@@ -161,10 +156,10 @@ func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
 		ks.log.Error("Failed commiting: %s", err)
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	ks.log.Info("Select next TCert...done!")
 
-	return cert, key, nil
+	return cert, nil
 }

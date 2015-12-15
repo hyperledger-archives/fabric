@@ -21,8 +21,11 @@ package obcca
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"sync"
@@ -41,6 +44,7 @@ import (
 //
 type ECA struct {
 	*CA
+	obcKey []byte
 	
 	sockp, socka net.Listener
 	srvp, srva *grpc.Server
@@ -61,8 +65,30 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	eca := &ECA{NewCA("eca"), nil, nil, nil, nil}
+	var cooked string
 
+	eca := &ECA{NewCA("eca"), nil, nil, nil, nil, nil}
+
+	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
+	if err != nil {
+		rand := rand.Reader
+		key := make([]byte, 32) // AES-256
+		rand.Read(key)
+		cooked = base64.StdEncoding.EncodeToString(key)
+
+		err = ioutil.WriteFile(RootPath+"/obc.key", []byte(cooked), 0644)
+		if err != nil {
+			Panic.Panicln(err)
+		}
+	} else {
+		cooked = string(raw)
+	}
+
+	eca.obcKey, err = base64.StdEncoding.DecodeString(cooked)
+	if err != nil {
+		Panic.Panicln(err)
+	}
+	
 	users := viper.GetStringMapString("eca.users")
 	for id, pw := range users {
 		eca.newUser(id, pw)
@@ -131,11 +157,11 @@ func (eca *ECA) startECAA(wg *sync.WaitGroup, opts []grpc.ServerOption) {
 
 // CreateCertificate requests the creation of a new enrollment certificate by the ECA.
 //
-func (eca *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq) (*pb.Cert, error) {
+func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq) (*pb.Creds, error) {
 	Trace.Println("grpc ECAP:CreateCertificate")
 
 	id := req.Id.Id
-	if pw, err := eca.eca.readPassword(id); err != nil || pw != req.Pw.Pw {
+	if pw, err := ecap.eca.readPassword(id); err != nil || pw != req.Pw.Pw {
 		Error.Println("identity or password do not match")
 		return nil, errors.New("identity or password do not match")
 	}
@@ -166,29 +192,29 @@ func (eca *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq) 
 		return nil, errors.New("signature does not verify")
 	}
 
-	raw, err = eca.eca.readCertificate(id)
+	raw, err = ecap.eca.readCertificate(id)
 	if err != nil {
-		if raw, err = eca.eca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
+		if raw, err = ecap.eca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 	}
 
-	return &pb.Cert{raw}, nil
+	return &pb.Creds{&pb.Cert{raw}, ecap.eca.obcKey}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the ECA.
 //
-func (eca *ECAP) ReadCertificate(ctx context.Context, req *pb.ECertReadReq) (*pb.Cert, error) {
+func (ecap *ECAP) ReadCertificate(ctx context.Context, req *pb.ECertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc ECAP:ReadCertificate")
 
 	var raw []byte
 	var err error
 
 	if req.Id.Id != "" {
-		raw, err = eca.eca.readCertificate(req.Id.Id)
+		raw, err = ecap.eca.readCertificate(req.Id.Id)
 	} else {
-		raw, err = eca.eca.readCertificateByHash(req.Hash)
+		raw, err = ecap.eca.readCertificateByHash(req.Hash)
 	}
 	if err != nil {
 		Error.Println(err)
@@ -200,17 +226,18 @@ func (eca *ECAP) ReadCertificate(ctx context.Context, req *pb.ECertReadReq) (*pb
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.
 //
-func (eca *ECAP) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
+func (ecap *ECAP) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
 	Trace.Println("grpc ECAP:RevokeCertificate")
 
 	return nil, errors.New("not yet implemented")
 }
 
 // RegisterUser registers a new user with the ECA.
-func (eca *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Password, error) {
+//
+func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Password, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
-	pw, err := eca.eca.newUser(id.Id)
+	pw, err := ecaa.eca.newUser(id.Id)
 	if err != nil {
 		Error.Println(err)
 	}
@@ -220,7 +247,7 @@ func (eca *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Passwor
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.
 //
-func (eca *ECAA) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
+func (ecaa *ECAA) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
 	Trace.Println("grpc ECAA:RevokeCertificate")
 
 	return nil, errors.New("not yet implemented")
@@ -228,7 +255,7 @@ func (eca *ECAA) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAS
 
 // CreateCRL requests the creation of a certificate revocation list from the ECA.  Not yet implemented.
 //
-func (eca *ECAA) CreateCRL(context.Context, *pb.ECertCRLReq) (*pb.CAStatus, error) {
+func (ecaa *ECAA) CreateCRL(context.Context, *pb.ECertCRLReq) (*pb.CAStatus, error) {
 	Trace.Println("grpc ECAA:CreateCRL")
 
 	return nil, errors.New("not yet implemented")

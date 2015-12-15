@@ -14,6 +14,8 @@ var (
 	ErrInvalidSignature            error = errors.New("Invalid Signature.")
 	ErrInvalidReference            error = errors.New("Invalid reference.")
 	ErrNotImplemented              error = errors.New("Not implemented.")
-
-	ErrKeyStoreAlreadyInitialized error = errors.New("Keystore already Initilized.")
+	ErrKeyStoreAlreadyInitialized  error = errors.New("Keystore already Initilized.")
+	ErrEncrypt                     error = errors.New("Encryption failed.")
+	ErrDecrypt                     error = errors.New("Decryption failed.")
+	ErrDirrentChaincodeID          error = errors.New("ChaincodeIDs are different.")
 )

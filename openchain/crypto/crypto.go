@@ -22,6 +22,10 @@ type Client interface {
 
 	// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
 	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+
+//	Decrypt(deployTx *obc.Transaction, ct []byte) ([]byte, error)
+//	NewChaincodeQuery(uuid, variable string) ([]byte, error)
+
 }
 
 // Peer is an entity able to verify transactions
@@ -53,4 +57,19 @@ type Peer interface {
 	// If the verification succeeded, Verify returns nil meaning no error occurred.
 	// If vkID is nil, then the signature is verified against this validator's verification key.
 	Verify(vkID, signature, message []byte) error
+
+	// GetStateEncryptor returns a StateEncryptor linked to pair defined by
+	// the deploy transaction and the execute transaction. Notice that,
+	// executeTx can also correspond to a deploy transaction.
+	GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
+}
+
+type StateEncryptor interface {
+
+	// Encrypt encrypts message msg
+	Encrypt(msg []byte) ([]byte, error)
+
+	// Decrypt decrypts ciphertext ct obtained
+	// from a call of the Encrypt method.
+	Decrypt(ct []byte) ([]byte, error)
 }

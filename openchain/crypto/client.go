@@ -45,6 +45,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	if clients[name] != nil {
 		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, name)
+
 		return nil
 	}
 
@@ -52,7 +53,9 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, name, err)
 
-		return err
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			return err
+		}
 	}
 	err := client.close()
 	if err != nil {
