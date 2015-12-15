@@ -31,24 +31,25 @@ import (
 
 	"github.com/spf13/viper"
 
-	ehpb "github.com/openblockchain/obc-peer/eventhub/protos"
+	ehpb "github.com/openblockchain/obc-peer/protos"
 )
 
-type OBCEventClient struct {
-	peerAddress  string
-	stream ehpb.EventHub_ChatClient
-	adapter EventAdapter
+//OpenchainEventsClient holds the stream and adapter for consumer to work with
+type OpenchainEventsClient struct {
+	peerAddress string
+	stream      ehpb.OpenchainEvents_ChatClient
+	adapter     EventAdapter
 }
 
 const defaultTimeout = time.Second * 3
 
-// NewEventHubClientConnection Returns a new grpc.ClientConn to the configured local PEER.
-func NewOBCEventHubClient(peerAddress string, adapter EventAdapter) *OBCEventClient {
-	return &OBCEventClient{peerAddress, nil, adapter}
+//NewOpenchainsEventClient Returns a new grpc.ClientConn to the configured local PEER.
+func NewOpenchainEventsClient(peerAddress string, adapter EventAdapter) *OpenchainEventsClient {
+	return &OpenchainEventsClient{peerAddress, nil, adapter}
 }
 
-// NewEventHubClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
-func newEventHubClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn,error) {
+//newOpenchainEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
+func newOpenchainEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
 		var sn string
@@ -74,14 +75,13 @@ func newEventHubClientConnectionWithAddress(peerAddress string) (*grpc.ClientCon
 	return grpc.Dial(peerAddress, opts...)
 }
 
-
-func (ec *OBCEventClient) register(ies []*ehpb.InterestedEvent) error {
-	emsg := &ehpb.EventHubMessage{&ehpb.EventHubMessage_RegisterEvent{&ehpb.RegisterEvent{ies}}}
+func (ec *OpenchainEventsClient) register(ies []*ehpb.Interest) error {
+	emsg := &ehpb.OpenchainEvent{Event: &ehpb.OpenchainEvent_Register{Register: &ehpb.Register{Events: ies}}}
 	var err error
 	if err = ec.stream.Send(emsg); err != nil {
 		fmt.Printf("error on Register send %s\n", err)
 		return err
-	} 
+	}
 
 	regChan := make(chan struct{})
 	go func() {
@@ -92,9 +92,7 @@ func (ec *OBCEventClient) register(ies []*ehpb.InterestedEvent) error {
 			return
 		}
 		switch in.Event.(type) {
-		case *ehpb.EventHubMessage_RegisterEvent:
-		case *ehpb.EventHubMessage_TransactionEvent:
-			err = fmt.Errorf("invalid Transaction object for register")
+		case *ehpb.OpenchainEvent_Register:
 		case nil:
 			err = fmt.Errorf("invalid nil object for register")
 		default:
@@ -103,14 +101,14 @@ func (ec *OBCEventClient) register(ies []*ehpb.InterestedEvent) error {
 		regChan <- struct{}{}
 	}()
 	select {
-	case  <- regChan:
-	case <-time.After(5*time.Second):
+	case <-regChan:
+	case <-time.After(5 * time.Second):
 		err = fmt.Errorf("timeout waiting for registration")
 	}
 	return err
 }
 
-func (ec *OBCEventClient) processEvents () error {
+func (ec *OpenchainEventsClient) processEvents() error {
 	defer ec.stream.CloseSend()
 	for {
 		in, err := ec.stream.Recv()
@@ -134,11 +132,11 @@ func (ec *OBCEventClient) processEvents () error {
 			}
 		}
 	}
-	return nil
 }
 
-func (ec *OBCEventClient) Start() error {
-	conn, err := newEventHubClientConnectionWithAddress(ec.peerAddress)
+//Start establishes connection with Event hub and registers interested events with it
+func (ec *OpenchainEventsClient) Start() error {
+	conn, err := newOpenchainEventsClientConnectionWithAddress(ec.peerAddress)
 	if err != nil {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
 	}
@@ -148,7 +146,7 @@ func (ec *OBCEventClient) Start() error {
 		return fmt.Errorf("no interested events")
 	}
 
-	serverClient := ehpb.NewEventHubClient(conn)
+	serverClient := ehpb.NewOpenchainEventsClient(conn)
 	ec.stream, err = serverClient.Chat(context.Background())
 	if err != nil {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
@@ -163,6 +161,7 @@ func (ec *OBCEventClient) Start() error {
 	return nil
 }
 
-func (ec *OBCEventClient) Stop() error {
+//Stop terminates connection with event hub
+func (ec *OpenchainEventsClient) Stop() error {
 	return ec.stream.CloseSend()
 }

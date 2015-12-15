@@ -17,19 +17,19 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package eventhub
+package events
 
 import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"testing"
 	"time"
-	"sync"
 
-	"github.com/openblockchain/obc-peer/eventhub/producer"
-	"github.com/openblockchain/obc-peer/eventhub/consumer"
-	ehpb "github.com/openblockchain/obc-peer/eventhub/protos"
+	"github.com/openblockchain/obc-peer/events/consumer"
+	"github.com/openblockchain/obc-peer/events/producer"
+	ehpb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -42,30 +42,30 @@ type Adapter struct {
 	count int
 }
 
-var peerAddress string 
+var peerAddress string
 var adapter *Adapter
-var obcEHClient *consumer.OBCEventClient
+var obcEHClient *consumer.OpenchainEventsClient
 
-func (a *Adapter) GetInterestedEvents() ([]*ehpb.InterestedEvent) {
-	return [] *ehpb.InterestedEvent{ &ehpb.InterestedEvent{"transaction", ehpb.InterestedEvent_NATIVE }}
-	//return [] *ehpb.InterestedEvent{ &ehpb.InterestedEvent{"transaction", ehpb.InterestedEvent_JSON }}
+func (a *Adapter) GetInterestedEvents() []*ehpb.Interest {
+	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}
+	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}
 }
 
-func (a *Adapter) Recv(msg *ehpb.EventHubMessage) error {
-//fmt.Printf("Adapter received %v\n", msg.Event)
+func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) error {
+	//fmt.Printf("Adapter received %v\n", msg.Event)
 	switch x := msg.Event.(type) {
-	case *ehpb.EventHubMessage_TransactionEvent:
-	case *ehpb.EventHubMessage_GenericEvent:
+	case *ehpb.OpenchainEvent_Block:
+	case *ehpb.OpenchainEvent_Generic:
 	case nil:
-        	// The field is not set.
-        	fmt.Printf("event not set\n")
-        	return fmt.Errorf("event not set")
+		// The field is not set.
+		fmt.Printf("event not set\n")
+		return fmt.Errorf("event not set")
 	default:
-        	fmt.Printf("unexpected type %T\n", x)
-        	return fmt.Errorf("unexpected type %T", x)
+		fmt.Printf("unexpected type %T\n", x)
+		return fmt.Errorf("unexpected type %T", x)
 	}
 	a.Lock()
-	a.count --
+	a.count--
 	if a.count <= 0 {
 		a.notfy <- struct{}{}
 	}
@@ -79,6 +79,11 @@ func (a *Adapter) Done(err error) {
 	}
 }
 
+func createTestBlock() *ehpb.OpenchainEvent {
+	emsg := consumer.CreateBlockEvent(&ehpb.Block{ProposerID:"proposer", Transactions: []*ehpb.Transaction{}})
+	return emsg
+}
+
 func closeListenerAndSleep(l net.Listener) {
 	l.Close()
 	time.Sleep(2 * time.Second)
@@ -89,15 +94,15 @@ func TestReceiveMessage(t *testing.T) {
 	var err error
 
 	adapter.count = 1
-	emsg := ehpb.CreateTransactionEvent(&ehpb.TransactionEvent{"1111-2222-3333-4444", true, []byte("transaction exec succeeded")})
-        if err = producer.Send(emsg); err != nil {
+	emsg := createTestBlock()
+	if err = producer.Send(emsg); err != nil {
 		t.Fail()
 		t.Logf("Error sending message %s", err)
 	}
 
 	select {
-	case <- adapter.notfy :
-	case <-time.After(5*time.Second):
+	case <-adapter.notfy:
+	case <-time.After(5 * time.Second):
 		t.Fail()
 		t.Logf("timed out on messge")
 	}
@@ -113,8 +118,8 @@ func BenchmarkMessages(b *testing.B) {
 
 	for i := 0; i < numMessages; i++ {
 		go func() {
-			emsg := ehpb.CreateTransactionEvent(&ehpb.TransactionEvent{"1111-2222-3333-4444", true, []byte("transaction exec succeeded")})
-        		if err = producer.Send(emsg); err != nil {
+			emsg := createTestBlock()
+			if err = producer.Send(emsg); err != nil {
 				b.Fail()
 				b.Logf("Error sending message %s", err)
 			}
@@ -122,8 +127,8 @@ func BenchmarkMessages(b *testing.B) {
 	}
 
 	select {
-	case <- adapter.notfy :
-	case <-time.After(5*time.Second):
+	case <-adapter.notfy:
+	case <-time.After(5 * time.Second):
 		b.Fail()
 		b.Logf("timed out on messge")
 	}
@@ -147,25 +152,24 @@ func TestMain(m *testing.M) {
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
-		fmt.Printf("Error starting eventhub listener %s....not doing tests", err)
+		fmt.Printf("Error starting events listener %s....not doing tests", err)
 		return
 	}
 
 	// Register EventHub server
-	ehServer := producer.NewEventHubServer(100)
-	ehpb.RegisterEventHubServer(grpcServer, ehServer)
+	ehServer := producer.NewOpenchainEventsServer(100)
+	ehpb.RegisterOpenchainEventsServer(grpcServer, ehServer)
 
-	
-	fmt.Printf("Starting eventhub server\n")
+	fmt.Printf("Starting events server\n")
 	go grpcServer.Serve(lis)
 
 	done := make(chan struct{})
-	adapter = &Adapter{notfy:done}
-	obcEHClient = consumer.NewOBCEventHubClient(peerAddress, adapter)
-	if err = obcEHClient.Start();  err != nil {
+	adapter = &Adapter{notfy: done}
+	obcEHClient = consumer.NewOpenchainEventsClient(peerAddress, adapter)
+	if err = obcEHClient.Start(); err != nil {
 		fmt.Printf("could not start chat %s\n", err)
 		obcEHClient.Stop()
-		return 
+		return
 	}
 
 	time.Sleep(2 * time.Second)

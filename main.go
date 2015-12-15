@@ -40,7 +40,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/openblockchain/obc-peer/eventhub/producer"
+	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
@@ -48,7 +48,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
-	ehpb "github.com/openblockchain/obc-peer/eventhub/protos"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -269,7 +268,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 			return nil, nil, fmt.Errorf("failed to listen: %v", err)
 		}
 
-		//TODO - do we need different SSL material for eventhub ?
+		//TODO - do we need different SSL material for events ?
 		var opts []grpc.ServerOption
 		if viper.GetBool("peer.tls.enabled") {
 			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
@@ -280,8 +279,8 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 		}
 
 		grpcServer = grpc.NewServer(opts...)
-		ehServer := producer.NewEventHubServer(uint(viper.GetInt("peer.validator.events.buffersize")))
-		ehpb.RegisterEventHubServer(grpcServer, ehServer)
+		ehServer := producer.NewOpenchainEventsServer(uint(viper.GetInt("peer.validator.events.buffersize")))
+		pb.RegisterOpenchainEventsServer(grpcServer, ehServer)
 	}
 	return lis, grpcServer, err
 }

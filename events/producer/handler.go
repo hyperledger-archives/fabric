@@ -22,19 +22,19 @@ package producer
 import (
 	"fmt"
 
-	pb "github.com/openblockchain/obc-peer/eventhub/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 type handler struct {
-	ChatStream      pb.EventHub_ChatServer
-	doneChan        chan bool
-	registered      bool
-	interestedEvents map[string]*pb.InterestedEvent
+	ChatStream       pb.OpenchainEvents_ChatServer
+	doneChan         chan bool
+	registered       bool
+	interestedEvents map[string]*pb.Interest
 }
 
-func newEventHubHandler(stream pb.EventHub_ChatServer) (*handler,error) {
+func newOpenchainEventHandler(stream pb.OpenchainEvents_ChatServer) (*handler, error) {
 	d := &handler{
-		ChatStream:      stream,
+		ChatStream: stream,
 	}
 	d.doneChan = make(chan bool)
 
@@ -49,12 +49,12 @@ func (d *handler) Stop() error {
 	return nil
 }
 
-func (d *handler) register(iEvents []*pb.InterestedEvent) error {
-        //TODO add the handler to the map for the interested events
+func (d *handler) register(iEvents []*pb.Interest) error {
+	//TODO add the handler to the map for the interested events
 	//if successfully done, continue....
-	d.interestedEvents = make(map[string]*pb.InterestedEvent)
-	for _,v := range iEvents {
-		if ie,ok := d.interestedEvents[v.EventType]; ok {
+	d.interestedEvents = make(map[string]*pb.Interest)
+	for _, v := range iEvents {
+		if ie, ok := d.interestedEvents[v.EventType]; ok {
 			producerLogger.Error("event %s already registered", v.EventType)
 			ie.ResponseType = v.ResponseType
 			continue
@@ -63,17 +63,17 @@ func (d *handler) register(iEvents []*pb.InterestedEvent) error {
 			producerLogger.Error("could not register %s", v)
 			continue
 		}
-			
+
 		d.interestedEvents[v.EventType] = v
 	}
 	return nil
 }
 
 func (d *handler) deregister() {
-	for k,v := range d.interestedEvents {
-		var ie *pb.InterestedEvent
+	for k, v := range d.interestedEvents {
+		var ie *pb.Interest
 		var ok bool
-		if ie,ok = d.interestedEvents[k]; !ok {
+		if ie, ok = d.interestedEvents[k]; !ok {
 			continue
 		}
 		if err := deRegisterHandler(v, d); err != nil {
@@ -84,8 +84,8 @@ func (d *handler) deregister() {
 	}
 }
 
-func (d *handler) responseType(eventType string) pb.InterestedEvent_ResponseType {
-	rType := pb.InterestedEvent_DONTSEND
+func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
+	rType := pb.Interest_DONTSEND
 	if d.registered {
 		if ie, _ := d.interestedEvents[eventType]; ie != nil {
 			rType = ie.ResponseType
@@ -95,13 +95,13 @@ func (d *handler) responseType(eventType string) pb.InterestedEvent_ResponseType
 }
 
 // HandleMessage handles the Openchain messages for the Peer.
-func (d *handler) HandleMessage(msg *pb.EventHubMessage) error {
-	producerLogger.Debug("Handling EventHubMessage")
-	eventsObj := msg.GetRegisterEvent()
+func (d *handler) HandleMessage(msg *pb.OpenchainEvent) error {
+	producerLogger.Debug("Handling OpenchainEvent")
+	eventsObj := msg.GetRegister()
 	if eventsObj == nil {
 		return fmt.Errorf("Invalid object from consumer %v", msg.GetEvent())
 	}
-	
+
 	if err := d.register(eventsObj.Events); err != nil {
 		return fmt.Errorf("Could not register events %s", err)
 	}
@@ -113,14 +113,15 @@ func (d *handler) HandleMessage(msg *pb.EventHubMessage) error {
 	//TODO return supported events.. for now just return the received msg
 	if err := d.ChatStream.Send(msg); err != nil {
 		return fmt.Errorf("Error sending response to %v:  %s", msg, err)
-	} else {
-		d.registered = true
 	}
+
+	d.registered = true
+
 	return nil
 }
 
 // SendMessage sends a message to the remote PEER through the stream
-func (d *handler) SendMessage(msg *pb.EventHubMessage) error {
+func (d *handler) SendMessage(msg *pb.OpenchainEvent) error {
 	err := d.ChatStream.Send(msg)
 	if err != nil {
 		return fmt.Errorf("Error Sending message through ChatStream: %s", err)

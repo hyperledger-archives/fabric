@@ -17,9 +17,13 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package protos
+package consumer
 
-//CreateTransactionEvent creates a EventHubMessage from a TransactionEvent
-func CreateTransactionEvent(te *TransactionEvent) *EventHubMessage {
-	return &EventHubMessage{&EventHubMessage_TransactionEvent{te}}
+import (
+	ehpb "github.com/openblockchain/obc-peer/protos"
+)
+
+//CreateBlockEvent creates a OpenchainEvent from a Block
+func CreateBlockEvent(te *ehpb.Block) *ehpb.OpenchainEvent {
+	return &ehpb.OpenchainEvent{&ehpb.OpenchainEvent_Block{te}}
 }

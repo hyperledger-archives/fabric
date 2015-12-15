@@ -26,33 +26,33 @@ import (
 
 	"github.com/op/go-logging"
 
-	pb "github.com/openblockchain/obc-peer/eventhub/protos"
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 const defaultTimeout = time.Second * 3
 
 var producerLogger = logging.MustGetLogger("eventhub_producer")
 
-// EventHubServer implementation of the Peer service
-type EventHubServer struct {
+// OpenchainEventsServer implementation of the Peer service
+type OpenchainEventsServer struct {
 }
 
-//singleton - if we want to create multiple servers, we need to subsume events.gEventConsumers into EventHubServer
-var globalEventHubServer *EventHubServer
+//singleton - if we want to create multiple servers, we need to subsume events.gEventConsumers into OpenchainEventsServer
+var globalOpenchainEventsServer *OpenchainEventsServer
 
-// NewEventHubServer returns a EventHubServer 
-func NewEventHubServer(bufferSize uint) (*EventHubServer) {
-	if globalEventHubServer != nil {
+// NewOpenchainEventsServer returns a OpenchainEventsServer
+func NewOpenchainEventsServer(bufferSize uint) *OpenchainEventsServer {
+	if globalOpenchainEventsServer != nil {
 		panic("Cannot create multiple event hub servers")
 	}
-	globalEventHubServer = new(EventHubServer)
+	globalOpenchainEventsServer = new(OpenchainEventsServer)
 	initializeEvents(bufferSize)
-	return globalEventHubServer
+	return globalOpenchainEventsServer
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
-func (p *EventHubServer) Chat(stream pb.EventHub_ChatServer) error {
-	handler, err := newEventHubHandler(stream)
+func (p *OpenchainEventsServer) Chat(stream pb.OpenchainEvents_ChatServer) error {
+	handler, err := newOpenchainEventHandler(stream)
 	if err != nil {
 		return fmt.Errorf("Error creating handler during handleChat initiation: %s", err)
 	}
