@@ -157,11 +157,11 @@ func (eca *ECA) startECAA(wg *sync.WaitGroup, opts []grpc.ServerOption) {
 
 // CreateCertificate requests the creation of a new enrollment certificate by the ECA.
 //
-func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq) (*pb.Cert, error) {
+func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq) (*pb.Creds, error) {
 	Trace.Println("grpc ECAP:CreateCertificate")
 
 	id := req.Id.Id
-	if pw, err := ecap.eca.readPassword(id); err != nil || pw != req.Pw {
+	if pw, err := ecap.eca.readPassword(id); err != nil || pw != req.Pw.Pw {
 		Error.Println("identity or password do not match")
 		return nil, errors.New("identity or password do not match")
 	}
@@ -200,7 +200,7 @@ func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq)
 		}
 	}
 
-	return &pb.Cert{raw}, nil
+	return &pb.Creds{&pb.Cert{raw}, ecap.eca.obcKey}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the ECA.
@@ -234,7 +234,7 @@ func (ecap *ECAP) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CA
 
 // RegisterUser registers a new user with the ECA.
 //
-func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Creds, error) {
+func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Password, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
 	pw, err := ecaa.eca.newUser(id.Id)
@@ -242,7 +242,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Creds,
 		Error.Println(err)
 	}
 
-	return &pb.Creds{pw, ecaa.eca.obcKey}, err
+	return &pb.Password{pw}, err
 }
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.

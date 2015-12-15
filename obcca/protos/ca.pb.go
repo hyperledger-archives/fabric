@@ -11,7 +11,7 @@ It is generated from these files:
 It has these top-level messages:
 	CAStatus
 	Identity
-	Creds
+	Password
 	PublicKey
 	PrivateKey
 	Signature
@@ -28,6 +28,7 @@ It has these top-level messages:
 	TCertCRLReq
 	Cert
 	CertSet
+	Creds
 */
 package protos
 
@@ -111,14 +112,13 @@ func (m *Identity) Reset()         { *m = Identity{} }
 func (m *Identity) String() string { return proto.CompactTextString(m) }
 func (*Identity) ProtoMessage()    {}
 
-type Creds struct {
-	Pw  string `protobuf:"bytes,1,opt,name=pw" json:"pw,omitempty"`
-	Key []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+type Password struct {
+	Pw string `protobuf:"bytes,1,opt,name=pw" json:"pw,omitempty"`
 }
 
-func (m *Creds) Reset()         { *m = Creds{} }
-func (m *Creds) String() string { return proto.CompactTextString(m) }
-func (*Creds) ProtoMessage()    {}
+func (m *Password) Reset()         { *m = Password{} }
+func (m *Password) String() string { return proto.CompactTextString(m) }
+func (*Password) ProtoMessage()    {}
 
 type PublicKey struct {
 	Type CryptoType `protobuf:"varint,1,opt,name=type,enum=protos.CryptoType" json:"type,omitempty"`
@@ -155,7 +155,7 @@ func (*Signature) ProtoMessage()    {}
 type ECertCreateReq struct {
 	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
 	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Pw  string                     `protobuf:"bytes,3,opt,name=pw" json:"pw,omitempty"`
+	Pw  *Password                  `protobuf:"bytes,3,opt,name=pw" json:"pw,omitempty"`
 	Pub *PublicKey                 `protobuf:"bytes,4,opt,name=pub" json:"pub,omitempty"`
 	Sig *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
@@ -174,6 +174,13 @@ func (m *ECertCreateReq) GetTs() *google_protobuf.Timestamp {
 func (m *ECertCreateReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *ECertCreateReq) GetPw() *Password {
+	if m != nil {
+		return m.Pw
 	}
 	return nil
 }
@@ -500,6 +507,22 @@ func (m *CertSet) Reset()         { *m = CertSet{} }
 func (m *CertSet) String() string { return proto.CompactTextString(m) }
 func (*CertSet) ProtoMessage()    {}
 
+type Creds struct {
+	Cert *Cert  `protobuf:"bytes,1,opt,name=cert" json:"cert,omitempty"`
+	Key  []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (m *Creds) Reset()         { *m = Creds{} }
+func (m *Creds) String() string { return proto.CompactTextString(m) }
+func (*Creds) ProtoMessage()    {}
+
+func (m *Creds) GetCert() *Cert {
+	if m != nil {
+		return m.Cert
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("protos.CryptoType", CryptoType_name, CryptoType_value)
 	proto.RegisterEnum("protos.CAStatus_StatusCode", CAStatus_StatusCode_name, CAStatus_StatusCode_value)
@@ -512,7 +535,7 @@ var _ grpc.ClientConn
 // Client API for ECAP service
 
 type ECAPClient interface {
-	CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Cert, error)
+	CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Creds, error)
 	ReadCertificate(ctx context.Context, in *ECertReadReq, opts ...grpc.CallOption) (*Cert, error)
 	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -525,8 +548,8 @@ func NewECAPClient(cc *grpc.ClientConn) ECAPClient {
 	return &eCAPClient{cc}
 }
 
-func (c *eCAPClient) CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Cert, error) {
-	out := new(Cert)
+func (c *eCAPClient) CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Creds, error) {
+	out := new(Creds)
 	err := grpc.Invoke(ctx, "/protos.ECAP/CreateCertificate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -555,7 +578,7 @@ func (c *eCAPClient) RevokeCertificate(ctx context.Context, in *ECertRevokeReq, 
 // Server API for ECAP service
 
 type ECAPServer interface {
-	CreateCertificate(context.Context, *ECertCreateReq) (*Cert, error)
+	CreateCertificate(context.Context, *ECertCreateReq) (*Creds, error)
 	ReadCertificate(context.Context, *ECertReadReq) (*Cert, error)
 	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
 }
@@ -623,7 +646,7 @@ var _ECAP_serviceDesc = grpc.ServiceDesc{
 // Client API for ECAA service
 
 type ECAAClient interface {
-	RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Creds, error)
+	RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Password, error)
 	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 	CreateCRL(ctx context.Context, in *ECertCRLReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -636,8 +659,8 @@ func NewECAAClient(cc *grpc.ClientConn) ECAAClient {
 	return &eCAAClient{cc}
 }
 
-func (c *eCAAClient) RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Creds, error) {
-	out := new(Creds)
+func (c *eCAAClient) RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Password, error) {
+	out := new(Password)
 	err := grpc.Invoke(ctx, "/protos.ECAA/RegisterUser", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -666,7 +689,7 @@ func (c *eCAAClient) CreateCRL(ctx context.Context, in *ECertCRLReq, opts ...grp
 // Server API for ECAA service
 
 type ECAAServer interface {
-	RegisterUser(context.Context, *Identity) (*Creds, error)
+	RegisterUser(context.Context, *Identity) (*Password, error)
 	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
 	CreateCRL(context.Context, *ECertCRLReq) (*CAStatus, error)
 }

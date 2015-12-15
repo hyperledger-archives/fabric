@@ -27,13 +27,13 @@ import "google/protobuf/timestamp.proto";
 // Enrollment Certificate Authority (ECA).
 //
 service ECAP { // public service
-    rpc CreateCertificate(ECertCreateReq) returns (Cert);
+    rpc CreateCertificate(ECertCreateReq) returns (Creds);
     rpc ReadCertificate(ECertReadReq) returns (Cert);
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
 }
 
 service ECAA { // admin service
-    rpc RegisterUser(Identity) returns (Creds);   
+    rpc RegisterUser(Identity) returns (Password);   
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
     rpc CreateCRL(ECertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
 }
@@ -75,9 +75,8 @@ message Identity {
     string id = 1;
 }
 
-message Creds {
+message Password {
     string pw = 1;
-    bytes key = 2;
 }
 
 
@@ -114,7 +113,7 @@ message Signature {
 message ECertCreateReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2;
-    string pw = 3;
+    Password pw = 3;
     PublicKey pub = 4;
     Signature sig = 5; // sign(priv, ts | id | pw | pub)
 }
@@ -190,4 +189,9 @@ message Cert {
 message CertSet {
     bytes key = 1;
     repeated bytes certs = 2; // DER / ASN.1 encoded
+}
+
+message Creds {
+    Cert cert = 1;
+    bytes key = 2;
 }
