@@ -22,6 +22,7 @@ package crypto
 import (
 	pb "github.com/openblockchain/obc-peer/protos"
 
+	"bytes"
 	"fmt"
 	"github.com/openblockchain/obc-peer/obcca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -31,11 +32,12 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"bytes"
 )
 
 var (
-	validator     Peer
+	validator Peer
+
+	peer Peer
 
 	deployer Client
 	invoker  Client
@@ -47,7 +49,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	setupTestConfig()
+	setup()
 
 	// Init PKI
 	go initPKI()
@@ -58,6 +60,13 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Printf("Failed initializing clients: %s\n", err)
 		panic(fmt.Errorf("Failed initializing clients: %s", err))
+	}
+
+	// Init peer
+	err = initPeers()
+	if err != nil {
+		fmt.Printf("Failed initializing peers: %s\n", err)
+		panic(fmt.Errorf("Failed initializing peers: %s", err))
 	}
 
 	// Init validators
@@ -74,8 +83,163 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
+func TestClientDeployTransaction(t *testing.T) {
+	tx, err := createDeployTransaction()
 
-func TestID(t *testing.T) {
+	if err != nil {
+		t.Fatalf("Failed creating deploy transaction: %s", err)
+	}
+
+	if tx == nil {
+		t.Fatalf("Result must be different from nil")
+	}
+
+	// Check transaction. For test purposes only
+	err = deployer.(*clientImpl).checkTransaction(tx)
+	if err != nil {
+		t.Fatalf("Failed checking transaction: %s", err)
+	}
+}
+
+func TestClientExecuteTransaction(t *testing.T) {
+	tx, err := createExecuteTransaction()
+
+	if err != nil {
+		t.Fatalf("Failed creating deploy transaction: %s", err)
+	}
+
+	if tx == nil {
+		t.Fatalf("Result must be different from nil")
+	}
+
+	// Check transaction. For test purposes only
+	err = invoker.(*clientImpl).checkTransaction(tx)
+	if err != nil {
+		t.Fatalf("Failed checking transaction: %s", err)
+	}
+}
+
+func TestClientMultiExecuteTransaction(t *testing.T) {
+	for i := 0; i < 24; i++ {
+		tx, err := createExecuteTransaction()
+
+		if err != nil {
+			t.Fatalf("Failed creating execute transaction: %s", err)
+		}
+
+		if tx == nil {
+			t.Fatalf("Result must be different from nil")
+		}
+
+		// Check transaction. For test purposes only
+		err = invoker.(*clientImpl).checkTransaction(tx)
+		if err != nil {
+			t.Fatalf("Failed checking transaction: %s", err)
+		}
+	}
+}
+
+func TestPeerID(t *testing.T) {
+	// Verify that any id modification doesn't change
+	id := peer.GetID()
+
+	if id == nil {
+		t.Fatalf("Id is nil.")
+	}
+
+	if len(id) == 0 {
+		t.Fatalf("Id length is zero.")
+	}
+
+	id[0] = id[0] + 1
+	id2 := peer.GetID()
+	if id2[0] == id[0] {
+		t.Fatalf("Invariant not respected.")
+	}
+}
+
+func TestPeerDeployTransaction(t *testing.T) {
+	tx, err := createDeployTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
+
+	res, err := peer.TransactionPreValidation(tx)
+	if err != nil {
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
+	}
+
+	res, err = peer.TransactionPreExecution(tx)
+	if err != utils.ErrNotImplemented {
+		t.Fatalf("Error must be ErrNotImplemented: %s", err)
+	}
+	if res != nil {
+		t.Fatalf("Result must nil")
+	}
+}
+
+func TestPeerExecuteTransaction(t *testing.T) {
+	tx, err := createExecuteTransaction()
+	if err != nil {
+		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+	}
+
+	res, err := peer.TransactionPreValidation(tx)
+	if err != nil {
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
+	}
+
+	res, err = peer.TransactionPreExecution(tx)
+	if err != utils.ErrNotImplemented {
+		t.Fatalf("Error must be ErrNotImplemented: %s", err)
+	}
+	if res != nil {
+		t.Fatalf("Result must nil")
+	}
+}
+
+func TestPeerStateEncryptor(t *testing.T) {
+	deployTx, err := createDeployTransaction()
+	if err != nil {
+		t.Fatalf("Failed creating deploy transaction: %s", err)
+	}
+	invokeTxOne, err := createExecuteTransaction()
+	if err != nil {
+		t.Fatalf("Failed creating invoke transaction: %s", err)
+	}
+
+	res, err := peer.GetStateEncryptor(deployTx, invokeTxOne)
+	if err != utils.ErrNotImplemented {
+		t.Fatalf("Error must be ErrNotImplemented: %s", err)
+	}
+	if res != nil {
+		t.Fatalf("Result must be nil")
+	}
+}
+
+func TestPeerSignVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := peer.Sign(msg)
+	if err != utils.ErrNotImplemented {
+		t.Fatalf("Error must be ErrNotImplemented: %s", err)
+	}
+	if signature != nil {
+		t.Fatalf("Result must be nil")
+	}
+
+	err = peer.Verify(validator.GetID(), signature, msg)
+	if err != utils.ErrNotImplemented {
+		t.Fatalf("Error must be ErrNotImplemented: %s", err)
+	}
+}
+
+func TestValidatorID(t *testing.T) {
 	// Verify that any id modification doesn't change
 	id := validator.GetID()
 
@@ -94,65 +258,86 @@ func TestID(t *testing.T) {
 	}
 }
 
-func TestDeployTransaction(t *testing.T) {
+func TestValidatorDeployTransaction(t *testing.T) {
 	tx, err := createDeployTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+		t.Fatalf("Failed creating deploy transaction: %s", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
-	if res == nil {
-		t.Fatalf("TransactionPreValidation: result must be diffrent from nil: %s", err)
-	}
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
 	}
 
 	res, err = validator.TransactionPreExecution(tx)
-	if res == nil {
-		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
-	}
 	if err != nil {
-		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
 	}
 }
 
-func TestInvokeTransaction(t *testing.T) {
-	tx, err := createInvokeTransaction()
+func TestValidatorExecuteTransaction(t *testing.T) {
+	tx, err := createExecuteTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction: %s", err)
+		t.Fatalf("Failed creating execute transaction: %s", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
-	if res == nil {
-		t.Fatalf("TransactionPreValidation: result must be diffrent from nil")
-	}
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed pre validing transaction: %s", err)
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
 	}
 
 	res, err = validator.TransactionPreExecution(tx)
-	if res == nil {
-		t.Fatalf("TransactionPreExecution: result must be diffrent from nil")
-	}
 	if err != nil {
-		t.Fatalf("TransactionPreExecution: failed pre validing transaction: %s", err)
+		t.Fatalf("Error must be nil: %s", err)
+	}
+	if res == nil {
+		t.Fatalf("Result must be diffrent from nil")
 	}
 }
 
-func TestStateEncryptor(t *testing.T) {
+func TestValidatorStateEncryptor(t *testing.T) {
 	deployTx, err := createDeployTransaction()
 	if err != nil {
 		t.Fatalf("Failed creating deploy transaction: %s", err)
 	}
-	invokeTxOne, err := createInvokeTransaction()
+	invokeTxOne, err := createExecuteTransaction()
 	if err != nil {
 		t.Fatalf("Failed creating invoke transaction: %s", err)
 	}
-	invokeTxTwo, err := createInvokeTransaction()
+	invokeTxTwo, err := createExecuteTransaction()
 	if err != nil {
 		t.Fatalf("Failed creating invoke transaction: %s", err)
 	}
+
+	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
+	if _, err:=validator.TransactionPreValidation(deployTx); err != nil {
+		t.Fatalf("Failed pre-validating deploty transaction: %s", err)
+	}
+	if _, err:=validator.TransactionPreExecution(deployTx); err != nil {
+		t.Fatalf("Failed pre-validating deploty transaction: %s", err)
+	}
+	if _, err:=validator.TransactionPreValidation(invokeTxOne); err != nil {
+		t.Fatalf("Failed pre-validating exec1 transaction: %s", err)
+	}
+	if _, err:=validator.TransactionPreExecution(invokeTxOne); err != nil {
+		t.Fatalf("Failed pre-validating exec1 transaction: %s", err)
+	}
+	if _, err:=validator.TransactionPreValidation(invokeTxTwo); err != nil {
+		t.Fatalf("Failed pre-validating exec2 transaction: %s", err)
+	}
+	if _, err:=validator.TransactionPreExecution(invokeTxTwo); err != nil {
+		t.Fatalf("Failed pre-validating exec2 transaction: %s", err)
+	}
+
 
 	seOne, err := validator.GetStateEncryptor(deployTx, invokeTxOne)
 	if err != nil {
@@ -171,7 +356,6 @@ func TestStateEncryptor(t *testing.T) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
 	}
 
-
 	seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
 	if err != nil {
 		t.Fatalf("Failed creating state encryptor: %s", err)
@@ -186,7 +370,7 @@ func TestStateEncryptor(t *testing.T) {
 
 }
 
-func TestSignVerify(t *testing.T) {
+func TestValidatorSignVerify(t *testing.T) {
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
 	if err != nil {
@@ -199,78 +383,7 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
-func Test_NewChaincodeDeployTransaction(t *testing.T) {
-	tx, err := createDeployTransaction()
-
-	if err != nil {
-		t.Fatalf("Test_NewChaincodeDeployTransaction: failed creating NewChaincodeDeployTransaction: err %s", err)
-	}
-
-	if tx == nil {
-		t.Fatalf("Test_NewChaincodeDeployTransaction: failed creating NewChaincodeDeployTransaction: result is nil")
-	}
-
-	// Check transaction
-	//	err = client.(*node.clientImpl).checkTransaction(tx)
-	//	if err != nil {
-	//		t.Fatalf("Test_NewChaincodeDeployTransaction: failed checking transaction: err %s", err)
-	//	}
-}
-
-func Test_NewChaincodeInvokeTransaction(t *testing.T) {
-	tx, err := createInvokeTransaction()
-
-	if err != nil {
-		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: err %s", err)
-	}
-
-	if tx == nil {
-		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: result is nil")
-	}
-
-	// TODO
-	//	err = client.checkTransaction(tx)
-	//	if err != nil {
-	//		t.Fatalf("Test_NewChaincodeInvokeTransaction: failed checking transaction: err %s", err)
-	//	}
-}
-
-func Test_MultipleNewChaincodeInvokeTransaction(t *testing.T) {
-	for i := 0; i < 24; i++ {
-		uuid, err := util.GenerateUUID()
-		if err != nil {
-			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed generating uuid: err %s", err)
-		}
-		tx, err := deployer.NewChaincodeExecute(
-			&pb.ChaincodeInvocationSpec{
-				ChaincodeSpec: &pb.ChaincodeSpec{
-					Type:        pb.ChaincodeSpec_GOLANG,
-					ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-					CtorMsg:     nil,
-				},
-			},
-			uuid,
-		)
-
-		if err != nil {
-			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: err %s", err)
-		}
-
-		if tx == nil {
-			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed creating NewChaincodeInvokeTransaction: result is nil")
-		}
-
-		//		TODO
-		//		err = client.checkTransaction(tx)
-		//		if err != nil {
-		//			t.Fatalf("Test_MultipleNewChaincodeInvokeTransaction: failed checking transaction: err %s", err)
-		//		}
-
-	}
-}
-
-
-func setupTestConfig() {
+func setup() {
 	viper.SetConfigName("crypto_test") // name of config file (without extension)
 	viper.AddConfigPath(".")           // path to look for the config file in
 	err := viper.ReadInConfig()        // Find and read the config file
@@ -304,7 +417,7 @@ func initPKI() {
 
 func initClients() error {
 	// Deployer
-	deployerConf := utils.NodeConfiguration{Type: "client", Name: "user4"}
+	deployerConf := utils.NodeConfiguration{Type: "client", Name: "user1"}
 	if err := RegisterClient(deployerConf.Name, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
@@ -315,7 +428,7 @@ func initClients() error {
 	}
 
 	// Invoker
-	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user5"}
+	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
 	if err := RegisterClient(invokerConf.Name, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
@@ -325,6 +438,34 @@ func initClients() error {
 	}
 
 	return nil
+}
+
+func initPeers() error {
+	// Register
+	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
+	err := RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		return err
+	}
+
+	// Verify that a second call to Register fails
+	err = RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		return err
+	}
+
+	// Init
+	peer, err = InitPeer(conf.Name, nil)
+	if err != nil {
+		return err
+	}
+
+	err = RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func initValidators() error {
@@ -372,12 +513,11 @@ func createDeployTransaction() (*pb.Transaction, error) {
 			CodePackage:   nil,
 		},
 		uuid,
-
 	)
 	return tx, err
 }
 
-func createInvokeTransaction() (*pb.Transaction, error) {
+func createExecuteTransaction() (*pb.Transaction, error) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		return nil, err

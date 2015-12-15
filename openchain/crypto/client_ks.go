@@ -74,10 +74,6 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
 			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
 
-			// TODO: once the TCert structure is finalized,
-			// store only the cert from which the corresponding key
-			// can be derived
-
 			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
 			if err != nil {
@@ -138,7 +134,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	ks.log.Info("id %d", id)
 	ks.log.Info("cert %s", utils.EncodeBase64(cert))
 
-	// TODO: instead of removing, move the TCert to a new table
+	// TODO: rather than removing, move the cert to another table
 	// which stores the TCerts used
 
 	// Remove that row
