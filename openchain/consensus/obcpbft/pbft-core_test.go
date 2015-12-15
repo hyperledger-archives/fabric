@@ -459,10 +459,12 @@ func TestNewViewTimeout(t *testing.T) {
 }
 
 func TestFallBehind(t *testing.T) {
-	net := makeTestnet(1, func(inst *Plugin) {
-		inst.K = 2
-		inst.L = 2 * inst.K
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.K = 2
+		inst.pbft.L = 2 * inst.pbft.K
 	})
+	defer net.close()
 
 	execReq := func(iter int64, skipThree bool) {
 		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -473,21 +475,16 @@ func TestFallBehind(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 
-		// Send the request for consensus to everone but replica 0
-		//req := &Request{Payload: txPacked}
-		//err = net.replicas[3].plugin.broadcast(&Message{&Message_Request{req}}, false)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
 
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
-		}
-		err = net.replicas[0].plugin.RecvMsg(msg)
+		err = net.replicas[0].pbft.recvMsgSync(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
 
 		if skipThree {
-			err = net.process(func(all bool, replica int, msg *pb.OpenchainMessage) *pb.OpenchainMessage {
+			// Send the request for consensus to everone but replica 0
+			err = net.process(func(all bool, replica int, msg []byte) []byte {
 				if !all && replica == 3 {
 					return nil
 				}
@@ -495,6 +492,7 @@ func TestFallBehind(t *testing.T) {
 				return msg
 			})
 		} else {
+			// Send the request for consensus to everone
 			err = net.process()
 		}
 
@@ -503,7 +501,7 @@ func TestFallBehind(t *testing.T) {
 		}
 	}
 
-	inst := net.replicas[3].plugin
+	inst := net.replicas[3].pbft
 
 	// Send enough requests to get to a checkpoint quorum certificate with sequence number L+K
 	execReq(1, true)

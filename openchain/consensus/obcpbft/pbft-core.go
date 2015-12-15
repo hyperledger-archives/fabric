@@ -675,7 +675,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
 		// we need to check to see if we have fallen behind.
-		if uint(len(instance.hChkpts)) >= instance.f+uint(1) {
+		if len(instance.hChkpts) >= instance.f+1 {
 			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
 			index := 0
 			for replicaId, hChkpt := range instance.hChkpts {
@@ -690,7 +690,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 			// If f+1 nodes have issued checkpoints above our high water mark, then
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
-			if m := chkptSeqNumArray[uint(len(instance.hChkpts))-(instance.f+uint(1))]; m > H {
+			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
 				logger.Warning("Replica is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", chkpt.SequenceNumber, H)
 				instance.outOfDate = true
 				instance.moveWatermarks(m + instance.K)
@@ -710,7 +710,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := uint(0)
+	quorum := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
