@@ -43,7 +43,7 @@ type OpenchainEventsClient struct {
 
 const defaultTimeout = time.Second * 3
 
-//NewOpenchainsEventClient Returns a new grpc.ClientConn to the configured local PEER.
+//NewOpenchainEventsClient Returns a new grpc.ClientConn to the configured local PEER.
 func NewOpenchainEventsClient(peerAddress string, adapter EventAdapter) *OpenchainEventsClient {
 	return &OpenchainEventsClient{peerAddress, nil, adapter}
 }

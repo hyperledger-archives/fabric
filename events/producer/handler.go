@@ -55,12 +55,12 @@ func (d *handler) register(iEvents []*pb.Interest) error {
 	d.interestedEvents = make(map[string]*pb.Interest)
 	for _, v := range iEvents {
 		if ie, ok := d.interestedEvents[v.EventType]; ok {
-			producerLogger.Error("event %s already registered", v.EventType)
+			producerLogger.Error(fmt.Sprintf("event %s already registered", v.EventType))
 			ie.ResponseType = v.ResponseType
 			continue
 		}
 		if err := registerHandler(v, d); err != nil {
-			producerLogger.Error("could not register %s", v)
+			producerLogger.Error(fmt.Sprintf("could not register %s", v))
 			continue
 		}
 
@@ -77,7 +77,7 @@ func (d *handler) deregister() {
 			continue
 		}
 		if err := deRegisterHandler(v, d); err != nil {
-			producerLogger.Error("could not register %s", k)
+			producerLogger.Error(fmt.Sprintf("could not register %s", k))
 			continue
 		}
 		delete(d.interestedEvents, ie.EventType)

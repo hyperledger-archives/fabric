@@ -67,7 +67,7 @@ func (ep *eventProcessor) start() {
 		eType := getMessageType(e)
 		ep.Lock()
 		if hl, _ = ep.eventConsumers[eType]; hl == nil {
-			producerLogger.Error("Event of type %s does not exist", eType)
+			producerLogger.Error(fmt.Sprintf("Event of type %s does not exist", eType))
 			ep.Unlock()
 			continue
 		}
@@ -82,7 +82,7 @@ func (ep *eventProcessor) start() {
 					switch rType {
 					case pb.Interest_JSON:
 						if b, err := json.Marshal(e.Event); err != nil {
-							producerLogger.Error("could not marshall JSON for eObject %v(%s)", e.Event, eType)
+							producerLogger.Error(fmt.Sprintf("could not marshall JSON for eObject %v(%s)", e.Event, eType))
 						} else {
 							e.Event = &pb.OpenchainEvent_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
 						}
@@ -169,6 +169,7 @@ func deRegisterHandler(ie *pb.Interest, h *handler) error {
 }
 
 //------------- producer API's -------------------------------
+
 //Send sends the event to interested consumers
 func Send(e *pb.OpenchainEvent) error {
 	if gEventProcessor == nil {

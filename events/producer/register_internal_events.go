@@ -21,6 +21,7 @@ under the License.
 //Step 1 - add the event type name to the const
 //Step 2 - add a case statement to getMessageType
 //Step 3 - add an AddEventType call to addInternalEventTypes
+
 package producer
 
 import (
@@ -29,8 +30,8 @@ import (
 
 //----Event Types -----
 const (
-	RegisterType    = "register"
-	BlockType = "block"
+	RegisterType = "register"
+	BlockType    = "block"
 )
 
 func getMessageType(e *pb.OpenchainEvent) string {

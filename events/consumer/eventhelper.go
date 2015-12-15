@@ -25,5 +25,5 @@ import (
 
 //CreateBlockEvent creates a OpenchainEvent from a Block
 func CreateBlockEvent(te *ehpb.Block) *ehpb.OpenchainEvent {
-	return &ehpb.OpenchainEvent{&ehpb.OpenchainEvent_Block{te}}
+	return &ehpb.OpenchainEvent{&ehpb.OpenchainEvent_Block{Block: te}}
 }

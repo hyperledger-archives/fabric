@@ -80,7 +80,7 @@ func (a *Adapter) Done(err error) {
 }
 
 func createTestBlock() *ehpb.OpenchainEvent {
-	emsg := consumer.CreateBlockEvent(&ehpb.Block{ProposerID:"proposer", Transactions: []*ehpb.Transaction{}})
+	emsg := consumer.CreateBlockEvent(&ehpb.Block{ProposerID: "proposer", Transactions: []*ehpb.Transaction{}})
 	return emsg
 }
 
