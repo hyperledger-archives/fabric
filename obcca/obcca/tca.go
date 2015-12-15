@@ -30,12 +30,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"strconv"
 	"sync"
-
-	"io/ioutil"
 
 	"golang.org/x/crypto/sha3"
 
@@ -83,6 +82,8 @@ type TCAA struct {
 func NewTCA(eca *ECA) *TCA {
 	var cooked string
 
+	tca := &TCA{NewCA("tca"), eca, nil, rand.Reader, nil, nil, nil, nil}
+	
 	raw, err := ioutil.ReadFile(RootPath + "/tca.hmac")
 	if err != nil {
 		rand := rand.Reader
@@ -98,12 +99,12 @@ func NewTCA(eca *ECA) *TCA {
 		cooked = string(raw)
 	}
 
-	hmacKey, err := base64.StdEncoding.DecodeString(cooked)
+	tca.hmacKey, err = base64.StdEncoding.DecodeString(cooked)
 	if err != nil {
 		Panic.Panicln(err)
 	}
 
-	return &TCA{NewCA("tca"), eca, hmacKey, rand.Reader, nil, nil, nil, nil}
+	return tca
 }
 
 // Start starts the TCA.

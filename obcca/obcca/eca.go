@@ -21,8 +21,11 @@ package obcca
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"sync"
@@ -41,6 +44,7 @@ import (
 //
 type ECA struct {
 	*CA
+	obcKey []byte
 	
 	sockp, socka net.Listener
 	srvp, srva *grpc.Server
@@ -61,8 +65,30 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	eca := &ECA{NewCA("eca"), nil, nil, nil, nil}
+	var cooked string
 
+	eca := &ECA{NewCA("eca"), nil, nil, nil, nil, nil}
+
+	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
+	if err != nil {
+		rand := rand.Reader
+		key := make([]byte, 32) // AES-256
+		rand.Read(key)
+		cooked = base64.StdEncoding.EncodeToString(key)
+
+		err = ioutil.WriteFile(RootPath+"/obc.key", []byte(cooked), 0644)
+		if err != nil {
+			Panic.Panicln(err)
+		}
+	} else {
+		cooked = string(raw)
+	}
+
+	eca.obcKey, err = base64.StdEncoding.DecodeString(cooked)
+	if err != nil {
+		Panic.Panicln(err)
+	}
+	
 	users := viper.GetStringMapString("eca.users")
 	for id, pw := range users {
 		eca.newUser(id, pw)
@@ -135,7 +161,7 @@ func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq)
 	Trace.Println("grpc ECAP:CreateCertificate")
 
 	id := req.Id.Id
-	if pw, err := ecap.eca.readPassword(id); err != nil || pw != req.Pw.Pw {
+	if pw, err := ecap.eca.readPassword(id); err != nil || pw != req.Pw {
 		Error.Println("identity or password do not match")
 		return nil, errors.New("identity or password do not match")
 	}
@@ -207,7 +233,8 @@ func (ecap *ECAP) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CA
 }
 
 // RegisterUser registers a new user with the ECA.
-func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Password, error) {
+//
+func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Creds, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
 	pw, err := ecaa.eca.newUser(id.Id)
@@ -215,7 +242,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Passwo
 		Error.Println(err)
 	}
 
-	return &pb.Password{pw}, err
+	return &pb.Creds{pw, ecaa.eca.obcKey}, err
 }
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.

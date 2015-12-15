@@ -33,7 +33,7 @@ service ECAP { // public service
 }
 
 service ECAA { // admin service
-    rpc RegisterUser(Identity) returns (Password);   
+    rpc RegisterUser(Identity) returns (Creds);   
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
     rpc CreateCRL(ECertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
 }
@@ -75,8 +75,9 @@ message Identity {
     string id = 1;
 }
 
-message Password {
+message Creds {
     string pw = 1;
+    bytes key = 2;
 }
 
 
@@ -113,7 +114,7 @@ message Signature {
 message ECertCreateReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2;
-    Password pw = 3;
+    string pw = 3;
     PublicKey pub = 4;
     Signature sig = 5; // sign(priv, ts | id | pw | pub)
 }
