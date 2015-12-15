@@ -27,9 +27,9 @@ import (
 
 func TestStateDeltaMarshalling(t *testing.T) {
 	stateDelta := NewStateDelta()
-	stateDelta.Set("chaincode1", "key1", []byte("value1"))
-	stateDelta.Set("chaincode2", "key2", []byte("value2"))
-	stateDelta.Delete("chaincode3", "key3")
+	stateDelta.Set("chaincode1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincode2", "key2", []byte("value2"), nil)
+	stateDelta.Delete("chaincode3", "key3", nil)
 
 	by := stateDelta.Marshal()
 	t.Logf("length of marshalled bytes = [%d]", len(by))
@@ -44,12 +44,12 @@ func TestStateDeltaCryptoHash(t *testing.T) {
 
 	testutil.AssertNil(t, stateDelta.ComputeCryptoHash())
 
-	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID2", "key1", []byte("value1"))
+	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID2", "key1", []byte("value1"), nil)
 	testutil.AssertEquals(t, stateDelta.ComputeCryptoHash(), testutil.ComputeCryptoHash([]byte("chaincodeID1key1value1key2value2chaincodeID2key1value1key2value2")))
 
-	stateDelta.Delete("chaincodeID2", "key1")
+	stateDelta.Delete("chaincodeID2", "key1", nil)
 	testutil.AssertEquals(t, stateDelta.ComputeCryptoHash(), testutil.ComputeCryptoHash([]byte("chaincodeID1key1value1key2value2chaincodeID2key1key2value2")))
 }
