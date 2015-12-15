@@ -45,10 +45,14 @@ func main() {
 
 	tca := obcca.NewTCA(eca)
 	defer tca.Close()
+	
+	tlsca := obcca.NewTLSCA()
+	defer tlsca.Close()
 
 	var wg sync.WaitGroup
 	eca.Start(&wg)
 	tca.Start(&wg)
+	tlsca.Start(&wg)
 
 	wg.Wait()
 }

@@ -168,3 +168,37 @@ func (node *nodeImpl) loadEnrollmentID() error {
 
 	return nil
 }
+
+func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string ) error {
+	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
+	if err != nil {
+		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
+
+		return err
+	}
+	node.log.Info("Register:cert %s", utils.EncodeBase64(tlsCertRaw))
+
+	// Store enrollment  key
+	node.log.Info("Storing enrollment key and certificate for user [%s]...", id)
+
+	rawKey, err := utils.PrivateKeyToPEM("", key)
+	if err != nil {
+		node.log.Error("Failed converting tls key to PEM [id=%s]: %s", id, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(node.conf.getTLSKeyPath(), rawKey, 0700)
+	if err != nil {
+		node.log.Error("Failed storing tls key [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls cert
+	err = ioutil.WriteFile(node.conf.getTLSCertPath(), utils.DERCertToPEM(tlsCertRaw), 0700)
+	if err != nil {
+		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+	
+	return nil
+}

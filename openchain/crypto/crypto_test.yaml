@@ -33,6 +33,18 @@ ports:
         ecaA: ":53052"
         tcaP: ":53551"
         tcaA: ":53552"
+        
+tlsca:
+    # TLSCA's settings
+    crypto:
+        # location on file system
+        path: .obcca
+
+        pport: 53951
+
+ports:
+        tcaP: ":53951"
+        tcaA: ":53952"
 
 defaults:
         certSetSize: 32
@@ -51,6 +63,9 @@ peer:
 
           tca:
               paddr: localhost:53551
+          
+          tlsca:
+              paddr: localhost:53951
 
     fileSystemPath: .obc-peer
 

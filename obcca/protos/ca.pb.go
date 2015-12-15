@@ -26,6 +26,9 @@ It has these top-level messages:
 	TCertRevokeReq
 	TCertRevokeSetReq
 	TCertCRLReq
+	TLSCertCreateReq
+	TLSCertReadReq
+	TLSCertRevokeReq
 	Cert
 	CertSet
 */
@@ -481,6 +484,102 @@ func (m *TCertCRLReq) GetId() *Identity {
 }
 
 func (m *TCertCRLReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
+	}
+	return nil
+}
+
+// TLSCA Certificate requests.
+//
+type TLSCertCreateReq struct {
+	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	Id        *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Pw        *Password                  `protobuf:"bytes,3,opt,name=pw" json:"pw,omitempty"`
+	Pub       *PublicKey                 `protobuf:"bytes,4,opt,name=pub" json:"pub,omitempty"`
+	Sig       *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
+}
+
+func (m *TLSCertCreateReq) Reset()         { *m = TLSCertCreateReq{} }
+func (m *TLSCertCreateReq) String() string { return proto.CompactTextString(m) }
+func (*TLSCertCreateReq) ProtoMessage()    {}
+
+func (m *TLSCertCreateReq) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
+func (m *TLSCertCreateReq) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *TLSCertCreateReq) GetPw() *Password {
+	if m != nil {
+		return m.Pw
+	}
+	return nil
+}
+
+func (m *TLSCertCreateReq) GetPub() *PublicKey {
+	if m != nil {
+		return m.Pub
+	}
+	return nil
+}
+
+func (m *TLSCertCreateReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
+	}
+	return nil
+}
+
+type TLSCertReadReq struct {
+	Id   *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Hash []byte    `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
+}
+
+func (m *TLSCertReadReq) Reset()         { *m = TLSCertReadReq{} }
+func (m *TLSCertReadReq) String() string { return proto.CompactTextString(m) }
+func (*TLSCertReadReq) ProtoMessage()    {}
+
+func (m *TLSCertReadReq) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type TLSCertRevokeReq struct {
+	Id   *Identity  `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Cert *Cert      `protobuf:"bytes,2,opt,name=cert" json:"cert,omitempty"`
+	Sig  *Signature `protobuf:"bytes,3,opt,name=sig" json:"sig,omitempty"`
+}
+
+func (m *TLSCertRevokeReq) Reset()         { *m = TLSCertRevokeReq{} }
+func (m *TLSCertRevokeReq) String() string { return proto.CompactTextString(m) }
+func (*TLSCertRevokeReq) ProtoMessage()    {}
+
+func (m *TLSCertRevokeReq) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *TLSCertRevokeReq) GetCert() *Cert {
+	if m != nil {
+		return m.Cert
+	}
+	return nil
+}
+
+func (m *TLSCertRevokeReq) GetSig() *Signature {
 	if m != nil {
 		return m.Sig
 	}
@@ -1035,6 +1134,174 @@ var _TCAA_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateCRL",
 			Handler:    _TCAA_CreateCRL_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
+}
+
+// Client API for TLSCAP service
+
+type TLSCAPClient interface {
+	CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*Cert, error)
+	ReadCertificate(ctx context.Context, in *TLSCertReadReq, opts ...grpc.CallOption) (*Cert, error)
+	RevokeCertificate(ctx context.Context, in *TLSCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
+}
+
+type tLSCAPClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewTLSCAPClient(cc *grpc.ClientConn) TLSCAPClient {
+	return &tLSCAPClient{cc}
+}
+
+func (c *tLSCAPClient) CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*Cert, error) {
+	out := new(Cert)
+	err := grpc.Invoke(ctx, "/protos.TLSCAP/CreateCertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tLSCAPClient) ReadCertificate(ctx context.Context, in *TLSCertReadReq, opts ...grpc.CallOption) (*Cert, error) {
+	out := new(Cert)
+	err := grpc.Invoke(ctx, "/protos.TLSCAP/ReadCertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tLSCAPClient) RevokeCertificate(ctx context.Context, in *TLSCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
+	out := new(CAStatus)
+	err := grpc.Invoke(ctx, "/protos.TLSCAP/RevokeCertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for TLSCAP service
+
+type TLSCAPServer interface {
+	CreateCertificate(context.Context, *TLSCertCreateReq) (*Cert, error)
+	ReadCertificate(context.Context, *TLSCertReadReq) (*Cert, error)
+	RevokeCertificate(context.Context, *TLSCertRevokeReq) (*CAStatus, error)
+}
+
+func RegisterTLSCAPServer(s *grpc.Server, srv TLSCAPServer) {
+	s.RegisterService(&_TLSCAP_serviceDesc, srv)
+}
+
+func _TLSCAP_CreateCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TLSCertCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(TLSCAPServer).CreateCertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _TLSCAP_ReadCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TLSCertReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(TLSCAPServer).ReadCertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _TLSCAP_RevokeCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TLSCertRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(TLSCAPServer).RevokeCertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _TLSCAP_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.TLSCAP",
+	HandlerType: (*TLSCAPServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateCertificate",
+			Handler:    _TLSCAP_CreateCertificate_Handler,
+		},
+		{
+			MethodName: "ReadCertificate",
+			Handler:    _TLSCAP_ReadCertificate_Handler,
+		},
+		{
+			MethodName: "RevokeCertificate",
+			Handler:    _TLSCAP_RevokeCertificate_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
+}
+
+// Client API for TLSCAA service
+
+type TLSCAAClient interface {
+	RevokeCertificate(ctx context.Context, in *TLSCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
+}
+
+type tLSCAAClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewTLSCAAClient(cc *grpc.ClientConn) TLSCAAClient {
+	return &tLSCAAClient{cc}
+}
+
+func (c *tLSCAAClient) RevokeCertificate(ctx context.Context, in *TLSCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
+	out := new(CAStatus)
+	err := grpc.Invoke(ctx, "/protos.TLSCAA/RevokeCertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for TLSCAA service
+
+type TLSCAAServer interface {
+	RevokeCertificate(context.Context, *TLSCertRevokeReq) (*CAStatus, error)
+}
+
+func RegisterTLSCAAServer(s *grpc.Server, srv TLSCAAServer) {
+	s.RegisterService(&_TLSCAA_serviceDesc, srv)
+}
+
+func _TLSCAA_RevokeCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TLSCertRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(TLSCAAServer).RevokeCertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _TLSCAA_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.TLSCAA",
+	HandlerType: (*TLSCAAServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RevokeCertificate",
+			Handler:    _TLSCAA_RevokeCertificate_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

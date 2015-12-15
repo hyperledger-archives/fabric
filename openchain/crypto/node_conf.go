@@ -44,12 +44,27 @@ type configuration struct {
 	configurationPathProperty string
 	ecaPAddressProperty string
 	tcaPAddressProperty string
+	tlscaPAddressProperty string
 }
+
+//const (
+//	ConfigurationPath = "client.crypto.path"
+//	ECAPAddress       = "client.crypto.eca.paddr"
+//	TCAPAddress       = "client.crypto.tca.paddr"
+//	TLSCAPAddress     = "client.crypto.tlsca.paddr"
+//	
+//	TLSCertFilename	  = "tls.cert"
+//	TLSKeyFilename    = "tls.key"
+//	
+//	Role              = "client.crypto.tlsca.role"
+//	Affiliation       = "client.crypto.tlsca.affiliation"
+//)
 
 func (conf *configuration) loadConfiguration() error {
 	conf.configurationPathProperty = "peer.fileSystemPath"
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
 	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
+	conf.tlscaPAddressProperty = "peer.pki.tlsca.paddr"
 
 	// Check mandatory fields
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
@@ -61,6 +76,10 @@ func (conf *configuration) loadConfiguration() error {
 	if err := conf.checkProperty(conf.tcaPAddressProperty); err != nil {
 		return err
 	}
+	if err := conf.checkProperty(conf.tlscaPAddressProperty); err != nil {
+		return err
+	}
+
 
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
@@ -86,6 +105,10 @@ func (conf *configuration) getTCAPAddr() string {
 
 func (conf *configuration) getECAPAddr() string {
 	return viper.GetString(conf.ecaPAddressProperty)
+}
+
+func (conf *configuration) getTLSCAPAddr() string {
+	return viper.GetString(conf.tlscaPAddressProperty)
 }
 
 func (conf *configuration) getConfPath() string {
@@ -147,3 +170,27 @@ func (conf *configuration) getECACertsChainPath() string {
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
+
+func (conf *configuration) getTLSKeyPath() string {
+	return filepath.Join(getKeysPath(), getTLSKeyFilename())
+}
+
+func (conf *configuration) getTLSCertPath() string {
+	return filepath.Join(getKeysPath(), getTLSCertFilename())
+}
+
+func (conf *configuration) getTLSKeyFilename() string {
+	return "tls.key"
+}
+
+func (conf *configuration) getTLSCertFilename() string {
+	return "tls.cert"
+}
+
+//func (conf *configuration) getRole() string {
+//	return viper.GetString(Role)
+//}
+//
+//func (conf *configuration) getAffiliation() string {
+//	return viper.GetString(Affiliation)
+//}
