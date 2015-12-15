@@ -27,35 +27,47 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/buckettree"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/trie"
+	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
 var logger = logging.MustGetLogger("state")
+var stateImplFactory = map[string]statemgmt.HashableState{
+	"buckettree": buckettree.NewStateImpl(),
+	"trie":       trie.NewStateTrie(),
+}
 
-// these be configurable in yaml?
-var historyStateDeltaSize = uint64(500)
-var stateImpl = buckettree.NewStateImpl()
+// TODO Should be configurable in openchain.yaml
+var stateImplName = "buckettree"
+var stateImpl statemgmt.HashableState
 
 // State structure for maintaining world state.
 // This encapsulates a particular implementation for managing the state persistence
 // This is not thread safe
 type State struct {
-	stateImpl           statemgmt.HashableState
-	stateDelta          *statemgmt.StateDelta
-	currentTxStateDelta *statemgmt.StateDelta
-	currentTxUUID       string
-	txStateDeltaHash    map[string][]byte
-	updateStateImpl     bool
+	stateImpl             statemgmt.HashableState
+	stateDelta            *statemgmt.StateDelta
+	currentTxStateDelta   *statemgmt.StateDelta
+	currentTxUUID         string
+	txStateDeltaHash      map[string][]byte
+	updateStateImpl       bool
+	historyStateDeltaSize uint64
 }
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
+	stateImpl = stateImplFactory[stateImplName]
 	err := stateImpl.Initialize()
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))
 	}
-	return &State{stateImpl, statemgmt.NewStateDelta(), statemgmt.NewStateDelta(), "", make(map[string][]byte), false}
-
+	deltaHistorySize := viper.GetInt("ledger.state.deltaHistorySize")
+	if deltaHistorySize < 0 {
+		panic(fmt.Errorf("Delta history size must be greater than or equal to 0. Current value is %d.", deltaHistorySize))
+	}
+	return &State{stateImpl, statemgmt.NewStateDelta(), statemgmt.NewStateDelta(), "", make(map[string][]byte),
+		false, uint64(deltaHistorySize)}
 }
 
 // TxBegin marks begin of a new tx. If a tx is already in progress, this call panics
@@ -194,13 +206,13 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 	cf := db.GetDBHandle().StateDeltaCF
 	logger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)
 	writeBatch.PutCF(cf, encodeStateDeltaKey(blockNumber), serializedStateDelta)
-	if blockNumber >= historyStateDeltaSize {
-		blockNumberToDelete := blockNumber - historyStateDeltaSize
+	if blockNumber >= state.historyStateDeltaSize {
+		blockNumberToDelete := blockNumber - state.historyStateDeltaSize
 		logger.Debug("Deleting state-delta corresponding to block number[%d]", blockNumberToDelete)
 		writeBatch.DeleteCF(cf, encodeStateDeltaKey(blockNumberToDelete))
 	} else {
 		logger.Debug("Not deleting previous state-delta. Block number [%d] is smaller than historyStateDeltaSize [%d]",
-			blockNumber, historyStateDeltaSize)
+			blockNumber, state.historyStateDeltaSize)
 	}
 	logger.Debug("state.addChangesForPersistence()...finished")
 }

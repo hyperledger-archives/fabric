@@ -40,25 +40,35 @@ type configuration struct {
 	name   string
 
 	configurationPath string
-	ecaPAddress       string
-	tcaPAddress       string
+
+	configurationPathProperty string
+	ecaPAddressProperty string
+	tcaPAddressProperty string
 }
 
 func (conf *configuration) loadConfiguration() error {
-	conf.configurationPath = conf.prefix + ".crypto.path"
-	conf.ecaPAddress = conf.prefix + ".crypto.eca.paddr"
-	conf.tcaPAddress = conf.prefix + ".crypto.tca.paddr"
+	conf.configurationPathProperty = "peer.fileSystemPath"
+	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
+	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
 
 	// Check mandatory fields
-	if err := conf.checkProperty(conf.configurationPath); err != nil {
+	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
 		return err
 	}
-	if err := conf.checkProperty(conf.ecaPAddress); err != nil {
+	if err := conf.checkProperty(conf.ecaPAddressProperty); err != nil {
 		return err
 	}
-	if err := conf.checkProperty(conf.tcaPAddress); err != nil {
+	if err := conf.checkProperty(conf.tcaPAddressProperty); err != nil {
 		return err
 	}
+
+	// Set configuration path
+	conf.configurationPath = filepath.Join(
+		viper.GetString(conf.configurationPathProperty),
+		"crypto", conf.prefix, conf.name,
+	)
+
+
 	return nil
 }
 
@@ -71,15 +81,15 @@ func (conf *configuration) checkProperty(property string) error {
 }
 
 func (conf *configuration) getTCAPAddr() string {
-	return viper.GetString(conf.tcaPAddress)
+	return viper.GetString(conf.tcaPAddressProperty)
 }
 
 func (conf *configuration) getECAPAddr() string {
-	return viper.GetString(conf.ecaPAddress)
+	return viper.GetString(conf.ecaPAddressProperty)
 }
 
 func (conf *configuration) getConfPath() string {
-	return filepath.Join(viper.GetString(conf.configurationPath), conf.name)
+	return conf.configurationPath
 }
 
 func (conf *configuration) getKeyStorePath() string {

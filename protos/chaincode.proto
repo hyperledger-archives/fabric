@@ -40,15 +40,6 @@ message ChaincodeInput {
 
 }
 
-// Carries the chaincode function and its arguments.
-message ChaincodeInvocationSpec {
-
-    ChaincodeSpec chaincodeSpec = 1;
-    //ChaincodeInput message = 2;
-
-}
-
-
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
 message ChaincodeSpec {
@@ -62,7 +53,8 @@ message ChaincodeSpec {
     Type type = 1;
     ChaincodeID chaincodeID = 2;
     ChaincodeInput ctorMsg = 3;
-    int32 timeout = 4; 
+    int32 timeout = 4;
+    string secureContext = 5;
 }
 
 // Specify the deployment of a chaincode.
@@ -73,6 +65,14 @@ message ChaincodeDeploymentSpec {
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
+
+}
+
+// Carries the chaincode function and its arguments.
+message ChaincodeInvocationSpec {
+
+    ChaincodeSpec chaincodeSpec = 1;
+    //ChaincodeInput message = 2;
 
 }
 

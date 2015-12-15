@@ -35,10 +35,7 @@ import (
 )
 
 var (
-	conf utils.NodeConfiguration
 	validator     Peer
-
-	peer Peer
 
 	deployer Client
 	invoker  Client
@@ -425,11 +422,8 @@ func killCAs() {
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(viper.GetString("validator.crypto.path")); err != nil {
-		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("validator.crypto.path"), err)
-	}
-	if err := os.RemoveAll(viper.GetString("client.crypto.path")); err != nil {
-		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("validator.crypto.path"), err)
+	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
+		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("peer.fileSystemPath"), err)
 	}
 	if err := os.RemoveAll(viper.GetString("eca.crypto.path")); err != nil {
 		fmt.Printf("Failed removing [%s]: %s\n", viper.GetString("eca.crypto.path"), err)
