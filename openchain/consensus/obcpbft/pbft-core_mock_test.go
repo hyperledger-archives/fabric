@@ -63,7 +63,7 @@ func (mock *mockCPI) viewChange(uint64) {
 
 type closableConsenter interface {
 	consensus.Consenter
-	close()
+	Close()
 }
 
 type taggedMsg struct {
@@ -283,7 +283,7 @@ func (net *testnet) close() {
 			inst.pbft.close()
 		}
 		if inst.consenter != nil {
-			inst.consenter.close()
+			inst.consenter.Close()
 		}
 	}
 	net.cond.L.Lock()
