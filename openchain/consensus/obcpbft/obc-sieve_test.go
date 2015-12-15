@@ -21,6 +21,9 @@ package obcpbft
 
 import (
 	"testing"
+	"time"
+
+	"github.com/golang/protobuf/proto"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -53,11 +56,50 @@ func TestSieveNetwork(t *testing.T) {
 	for _, inst := range net.replicas {
 		if len(inst.blocks) != 1 {
 			t.Errorf("replica %d executed %d requests, expected %d",
-				inst.id, len(net.replicas[3].blocks), 1)
+				inst.id, len(inst.blocks), 1)
 		}
 
 		if inst.consenter.(*obcSieve).view != 0 {
 			t.Errorf("replica %d in view %d, expected 0",
+				inst.id, inst.consenter.(*obcSieve).view)
+		}
+	}
+}
+
+func TestSieveNoDecision(t *testing.T) {
+	net := makeTestnet(1, func(i *instance) {
+		makeTestnetSieve(i)
+		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 100 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 100 * time.Millisecond
+	})
+	defer net.close()
+
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+
+	go net.processContinually(func(out bool, id int, raw []byte) []byte {
+		if out && id == 0 {
+			sieve := &SieveMessage{}
+			proto.Unmarshal(raw, sieve)
+			if sieve.GetPbftMessage() != nil {
+				return nil
+			}
+		}
+		return raw
+	})
+	time.Sleep(1 * time.Second)
+	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
+	time.Sleep(5 * time.Second)
+	net.close()
+
+	for _, inst := range net.replicas {
+		if len(inst.blocks) != 1 {
+			t.Errorf("replica %d executed %d requests, expected %d",
+				inst.id, len(inst.blocks), 1)
+		}
+
+		if inst.consenter.(*obcSieve).view != 1 {
+			t.Errorf("replica %d in view %d, expected 1",
 				inst.id, inst.consenter.(*obcSieve).view)
 		}
 	}

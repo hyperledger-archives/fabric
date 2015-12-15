@@ -116,6 +116,10 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 func (op *obcSieve) viewChange(curView uint64) {
 	logger.Info("Sieve view change")
 	op.view = curView
+	for idx := range op.pbft.outstandingReqs {
+		delete(op.pbft.outstandingReqs, idx)
+	}
+	op.pbft.stopTimer()
 	if op.currentReq != "" {
 		logger.Debug("View change rolling back active request blockNo %d, %s", op.blockNumber, op.currentReq)
 		op.rollback()
@@ -195,6 +199,9 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 	proto.Unmarshal(exec.Request, tx)
 	op.currentTx = []*pb.Transaction{tx}
 	hashes, _ := op.cpi.ExecTXs(op.currentTx)
+
+	// For simplicity's sake, we use the pbft timer
+	op.pbft.startTimer(op.pbft.requestTimeout)
 
 	op.currentResult = hashes
 	verify := &Verify{
