@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pb "obc-peer/obcca/protos"
+	pb "github.com/openblockchain/obc-peer/obcca/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"

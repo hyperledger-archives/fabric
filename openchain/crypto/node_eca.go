@@ -142,10 +142,12 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-	req := &obcca.ECertCreateReq{&protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		&obcca.Identity{Id: id},
-		&obcca.Password{Pw: pw},
-		&obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: pubraw}, nil}
+	req := &obcca.ECertCreateReq{
+		Ts: &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id: &obcca.Identity{Id: id},
+		Pw: pw,
+		Pub: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: pubraw},
+		Sig: nil}
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
