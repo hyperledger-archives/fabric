@@ -573,7 +573,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	instance.stopTimer()
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	if len(instance.outstandingReqs) > 0 {
-		instance.newViewTimer.Reset(instance.requestTimeout)
+		instance.startTimer(instance.requestTimeout)
 	}
 
 	if instance.lastExec%instance.K == 0 {
