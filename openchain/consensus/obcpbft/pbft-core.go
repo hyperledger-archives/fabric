@@ -698,14 +698,15 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
 	instance.newViewTimer.Reset(timeout)
-	logger.Debug("Replica %d started the newView timer", instance.id)
+	logger.Debug("Replica %d starting new view timer for %s",
+		instance.id, timeout)
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
-	logger.Debug("Replica %d stopped the newView timer", instance.id)
+	logger.Debug("Replica %d stopping new view timer", instance.id)
 	instance.timerActive = false
 	if instance.closed {
 		return
