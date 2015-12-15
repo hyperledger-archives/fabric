@@ -76,6 +76,9 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
+
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
 	if err != nil {
@@ -89,7 +92,9 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	} else if verify := svMsg.GetVerify(); verify != nil {
 		op.recvVerify(verify)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
+		op.pbft.lock.Unlock()
 		op.pbft.receive(pbftMsg)
+		op.pbft.lock.Lock()
 	} else {
 		logger.Error("Received invalid sieve message: %v", svMsg)
 	}
@@ -147,8 +152,6 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 	// } else {
 	// ...
 	// }
-
-	// XXX concurrency control
 
 	op.verifyStore = nil
 
@@ -245,7 +248,9 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 			Dset:          dSet,
 		}
 		req, _ := proto.Marshal(decision)
+		op.pbft.lock.Unlock()
 		op.pbft.request(req)
+		op.pbft.lock.Lock()
 	}
 }
 
