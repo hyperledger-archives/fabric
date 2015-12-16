@@ -59,9 +59,9 @@ func TestSieveNetwork(t *testing.T) {
 				inst.id, len(inst.blocks), 1)
 		}
 
-		if inst.consenter.(*obcSieve).view != 0 {
-			t.Errorf("Replica %d in view %d, expected 0",
-				inst.id, inst.consenter.(*obcSieve).view)
+		if inst.consenter.(*obcSieve).epoch != 0 {
+			t.Errorf("Replica %d in epoch %d, expected 0",
+				inst.id, inst.consenter.(*obcSieve).epoch)
 		}
 	}
 }
@@ -89,7 +89,7 @@ func TestSieveNoDecision(t *testing.T) {
 	})
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 	net.close()
 
 	for _, inst := range net.replicas {
@@ -98,9 +98,9 @@ func TestSieveNoDecision(t *testing.T) {
 				inst.id, len(inst.blocks), 1)
 		}
 
-		if inst.consenter.(*obcSieve).view != 1 {
-			t.Errorf("replica %d in view %d, expected 1",
-				inst.id, inst.consenter.(*obcSieve).view)
+		if inst.consenter.(*obcSieve).epoch != 1 {
+			t.Errorf("replica %d in epoch %d, expected 1",
+				inst.id, inst.consenter.(*obcSieve).epoch)
 		}
 	}
 }

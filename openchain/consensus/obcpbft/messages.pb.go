@@ -20,7 +20,9 @@ It has these top-level messages:
 	SieveMessage
 	Execute
 	Verify
-	Decision
+	SievePbftMessage
+	VerifySet
+	Flush
 */
 package obcpbft
 
@@ -415,7 +417,6 @@ type SieveMessage struct {
 	//	*SieveMessage_Request
 	//	*SieveMessage_Execute
 	//	*SieveMessage_Verify
-	//	*SieveMessage_Decision
 	//	*SieveMessage_PbftMessage
 	Payload isSieveMessage_Payload `protobuf_oneof:"payload"`
 }
@@ -437,17 +438,13 @@ type SieveMessage_Execute struct {
 type SieveMessage_Verify struct {
 	Verify *Verify `protobuf:"bytes,3,opt,name=verify,oneof"`
 }
-type SieveMessage_Decision struct {
-	Decision *Decision `protobuf:"bytes,4,opt,name=decision,oneof"`
-}
 type SieveMessage_PbftMessage struct {
-	PbftMessage []byte `protobuf:"bytes,5,opt,name=pbft_message,proto3,oneof"`
+	PbftMessage []byte `protobuf:"bytes,4,opt,name=pbft_message,proto3,oneof"`
 }
 
 func (*SieveMessage_Request) isSieveMessage_Payload()     {}
 func (*SieveMessage_Execute) isSieveMessage_Payload()     {}
 func (*SieveMessage_Verify) isSieveMessage_Payload()      {}
-func (*SieveMessage_Decision) isSieveMessage_Payload()    {}
 func (*SieveMessage_PbftMessage) isSieveMessage_Payload() {}
 
 func (m *SieveMessage) GetPayload() isSieveMessage_Payload {
@@ -478,13 +475,6 @@ func (m *SieveMessage) GetVerify() *Verify {
 	return nil
 }
 
-func (m *SieveMessage) GetDecision() *Decision {
-	if x, ok := m.GetPayload().(*SieveMessage_Decision); ok {
-		return x.Decision
-	}
-	return nil
-}
-
 func (m *SieveMessage) GetPbftMessage() []byte {
 	if x, ok := m.GetPayload().(*SieveMessage_PbftMessage); ok {
 		return x.PbftMessage
@@ -498,7 +488,6 @@ func (*SieveMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) 
 		(*SieveMessage_Request)(nil),
 		(*SieveMessage_Execute)(nil),
 		(*SieveMessage_Verify)(nil),
-		(*SieveMessage_Decision)(nil),
 		(*SieveMessage_PbftMessage)(nil),
 	}
 }
@@ -520,13 +509,8 @@ func _SieveMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		if err := b.EncodeMessage(x.Verify); err != nil {
 			return err
 		}
-	case *SieveMessage_Decision:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Decision); err != nil {
-			return err
-		}
 	case *SieveMessage_PbftMessage:
-		b.EncodeVarint(5<<3 | proto.WireBytes)
+		b.EncodeVarint(4<<3 | proto.WireBytes)
 		b.EncodeRawBytes(x.PbftMessage)
 	case nil:
 	default:
@@ -561,15 +545,7 @@ func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		err := b.DecodeMessage(msg)
 		m.Payload = &SieveMessage_Verify{msg}
 		return true, err
-	case 4: // payload.decision
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Decision)
-		err := b.DecodeMessage(msg)
-		m.Payload = &SieveMessage_Decision{msg}
-		return true, err
-	case 5: // payload.pbft_message
+	case 4: // payload.pbft_message
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -582,7 +558,7 @@ func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 }
 
 type Execute struct {
-	View        uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	Epoch       uint64 `protobuf:"varint,1,opt,name=epoch" json:"epoch,omitempty"`
 	BlockNumber uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
 	Request     []byte `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
 	ReplicaId   uint64 `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
@@ -604,19 +580,126 @@ func (m *Verify) Reset()         { *m = Verify{} }
 func (m *Verify) String() string { return proto.CompactTextString(m) }
 func (*Verify) ProtoMessage()    {}
 
-type Decision struct {
-	BlockNumber   uint64    `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
-	RequestDigest string    `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
-	Dset          []*Verify `protobuf:"bytes,4,rep,name=dset" json:"dset,omitempty"`
+type SievePbftMessage struct {
+	// Types that are valid to be assigned to Payload:
+	//	*SievePbftMessage_VerifySet
+	//	*SievePbftMessage_Flush
+	Payload   isSievePbftMessage_Payload `protobuf_oneof:"payload"`
+	ReplicaId uint64                     `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
+	Signature []byte                     `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (m *Decision) Reset()         { *m = Decision{} }
-func (m *Decision) String() string { return proto.CompactTextString(m) }
-func (*Decision) ProtoMessage()    {}
+func (m *SievePbftMessage) Reset()         { *m = SievePbftMessage{} }
+func (m *SievePbftMessage) String() string { return proto.CompactTextString(m) }
+func (*SievePbftMessage) ProtoMessage()    {}
 
-func (m *Decision) GetDset() []*Verify {
+type isSievePbftMessage_Payload interface {
+	isSievePbftMessage_Payload()
+}
+
+type SievePbftMessage_VerifySet struct {
+	VerifySet *VerifySet `protobuf:"bytes,1,opt,name=verify_set,oneof"`
+}
+type SievePbftMessage_Flush struct {
+	Flush *Flush `protobuf:"bytes,2,opt,name=flush,oneof"`
+}
+
+func (*SievePbftMessage_VerifySet) isSievePbftMessage_Payload() {}
+func (*SievePbftMessage_Flush) isSievePbftMessage_Payload()     {}
+
+func (m *SievePbftMessage) GetPayload() isSievePbftMessage_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+func (m *SievePbftMessage) GetVerifySet() *VerifySet {
+	if x, ok := m.GetPayload().(*SievePbftMessage_VerifySet); ok {
+		return x.VerifySet
+	}
+	return nil
+}
+
+func (m *SievePbftMessage) GetFlush() *Flush {
+	if x, ok := m.GetPayload().(*SievePbftMessage_Flush); ok {
+		return x.Flush
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*SievePbftMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _SievePbftMessage_OneofMarshaler, _SievePbftMessage_OneofUnmarshaler, []interface{}{
+		(*SievePbftMessage_VerifySet)(nil),
+		(*SievePbftMessage_Flush)(nil),
+	}
+}
+
+func _SievePbftMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*SievePbftMessage)
+	// payload
+	switch x := m.Payload.(type) {
+	case *SievePbftMessage_VerifySet:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.VerifySet); err != nil {
+			return err
+		}
+	case *SievePbftMessage_Flush:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Flush); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("SievePbftMessage.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _SievePbftMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*SievePbftMessage)
+	switch tag {
+	case 1: // payload.verify_set
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(VerifySet)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SievePbftMessage_VerifySet{msg}
+		return true, err
+	case 2: // payload.flush
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Flush)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SievePbftMessage_Flush{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+type VerifySet struct {
+	Dset []*Verify `protobuf:"bytes,1,rep,name=dset" json:"dset,omitempty"`
+}
+
+func (m *VerifySet) Reset()         { *m = VerifySet{} }
+func (m *VerifySet) String() string { return proto.CompactTextString(m) }
+func (*VerifySet) ProtoMessage()    {}
+
+func (m *VerifySet) GetDset() []*Verify {
 	if m != nil {
 		return m.Dset
 	}
 	return nil
 }
+
+type Flush struct {
+	Epoch uint64 `protobuf:"varint,1,opt,name=epoch" json:"epoch,omitempty"`
+}
+
+func (m *Flush) Reset()         { *m = Flush{} }
+func (m *Flush) String() string { return proto.CompactTextString(m) }
+func (*Flush) ProtoMessage()    {}

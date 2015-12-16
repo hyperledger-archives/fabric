@@ -107,3 +107,23 @@ func (v *Verify) setID(id []byte) {
 func (v *Verify) serialize() ([]byte, error) {
 	return proto.Marshal(v)
 }
+
+func (msg *SievePbftMessage) getSignature() []byte {
+	return msg.Signature
+}
+
+func (msg *SievePbftMessage) setSignature(sig []byte) {
+	msg.Signature = sig
+}
+
+func (msg *SievePbftMessage) getID() []byte {
+	return []byte("XXX ID")
+}
+
+func (msg *SievePbftMessage) setID(id []byte) {
+	// XXX set ID
+}
+
+func (msg *SievePbftMessage) serialize() ([]byte, error) {
+	return proto.Marshal(msg)
+}
