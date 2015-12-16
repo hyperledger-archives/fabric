@@ -216,7 +216,7 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
-			peer.secHelper, err = crypto.InitPeeer(enrollID, nil)
+			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				return nil, err
 			}
