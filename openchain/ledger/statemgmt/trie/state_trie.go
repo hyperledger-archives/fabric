@@ -20,6 +20,7 @@ under the License.
 package trie
 
 import (
+	"fmt"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -30,8 +31,9 @@ var stateTrieLogger = logging.MustGetLogger("stateTrie")
 var logHashOfEveryNode = false
 
 type StateTrie struct {
-	trieDelta           *trieDelta
-	recomputeCryptoHash bool
+	trieDelta              *trieDelta
+	lastComputedCryptoHash []byte
+	recomputeCryptoHash    bool
 }
 
 func NewStateTrie() *StateTrie {
@@ -39,6 +41,13 @@ func NewStateTrie() *StateTrie {
 }
 
 func (stateTrie *StateTrie) Initialize() error {
+	rootNode, err := fetchTrieNodeFromDB(rootTrieKey)
+	if err != nil {
+		panic(fmt.Errorf("Error in fetching root node from DB while initializing state trie: %s", err))
+	}
+	if rootNode != nil {
+		stateTrie.lastComputedCryptoHash = rootNode.computeCryptoHash()
+	}
 	return nil
 }
 
@@ -46,6 +55,9 @@ func (stateTrie *StateTrie) Get(chaincodeID string, key string) ([]byte, error) 
 	trieNode, err := fetchTrieNodeFromDB(newTrieKey(chaincodeID, key))
 	if err != nil {
 		return nil, err
+	}
+	if trieNode == nil {
+		return nil, nil
 	}
 	return trieNode.value, nil
 }
@@ -65,11 +77,11 @@ func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
 	stateTrieLogger.Debug("Enter - ComputeCryptoHash()")
 	if !stateTrie.recomputeCryptoHash {
 		stateTrieLogger.Debug("No change since last time crypto-hash was computed. Returning result from last computation")
-		return stateTrie.getLastComputedCryptoHash(), nil
+		return stateTrie.lastComputedCryptoHash, nil
 	}
 	lowestLevel := stateTrie.trieDelta.getLowestLevel()
 	stateTrieLogger.Debug("Lowest level in trieDelta = [%d]", lowestLevel)
-	for level := lowestLevel; level >= 0; level-- {
+	for level := lowestLevel; level > 0; level-- {
 		changedNodes := stateTrie.trieDelta.deltaMap[level]
 		for _, changedNode := range changedNodes {
 			err := stateTrie.processChangedNode(changedNode)
@@ -78,8 +90,13 @@ func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
 			}
 		}
 	}
+	trieRootNode := stateTrie.trieDelta.getTrieRootNode()
+	if trieRootNode == nil {
+		return stateTrie.lastComputedCryptoHash, nil
+	}
+	stateTrie.lastComputedCryptoHash = trieRootNode.computeCryptoHash()
 	stateTrie.recomputeCryptoHash = false
-	hash := stateTrie.getLastComputedCryptoHash()
+	hash := stateTrie.lastComputedCryptoHash
 	stateTrieLogger.Debug("Exit - ComputeCryptoHash()")
 	return hash, nil
 }
@@ -95,11 +112,6 @@ func (stateTrie *StateTrie) processChangedNode(changedNode *trieNode) error {
 		changedNode.mergeMissingAttributesFrom(dbNode)
 	}
 	newCryptoHash := changedNode.computeCryptoHash()
-	if changedNode.isRootNode() {
-		changedNode.value = newCryptoHash
-		stateTrieLogger.Debug("Exit - processChangedNode() for root-node [%s]", changedNode.trieKey)
-		return nil
-	}
 	parentNode := stateTrie.trieDelta.getParentOf(changedNode)
 	if parentNode == nil {
 		parentNode = newTrieNode(changedNode.getParentTrieKey(), nil, false)
@@ -112,13 +124,6 @@ func (stateTrie *StateTrie) processChangedNode(changedNode *trieNode) error {
 	}
 	stateTrieLogger.Debug("Exit - processChangedNode() for node [%s]", changedNode)
 	return nil
-}
-
-func (stateTrie *StateTrie) getLastComputedCryptoHash() []byte {
-	if stateTrie.trieDelta == nil || stateTrie.trieDelta.getTrieRootNode() == nil {
-		return nil
-	}
-	return stateTrie.trieDelta.getTrieRootNode().value
 }
 
 func (stateTrie *StateTrie) AddChangesForPersistence(writeBatch *gorocksdb.WriteBatch) error {
@@ -156,4 +161,9 @@ func (stateTrie *StateTrie) AddChangesForPersistence(writeBatch *gorocksdb.Write
 
 func (stateTrie *StateTrie) PerfHintKeyChanged(chaincodeID string, key string) {
 	// nothing for now. Can perform pre-fetching of relevant data from db here.
+}
+
+// GetStateSnapshotIterator - method implementation for interface 'statemgmt.HashableState'
+func (stateTrie *StateTrie) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
+	return newStateSnapshotIterator(snapshot)
 }

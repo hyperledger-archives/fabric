@@ -51,8 +51,19 @@ type Peer interface {
 	NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error)
 }
 
+// BlocksRetriever interface for retrieving blocks .
+type BlocksRetriever interface {
+	GetBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+}
+
+// BlockChainAccessor interface for retreiving blocks by block number
+type BlockChainAccessor interface {
+	GetBlockByNumber(blockNumber uint64) (*pb.Block, error)
+}
+
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
+	BlocksRetriever
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -63,6 +74,7 @@ type MessageHandler interface {
 type MessageHandlerCoordinator interface {
 	Peer
 	SecurityAccessor
+	BlockChainAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
@@ -546,6 +558,13 @@ func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
 	defer p.ledgerWrapper.RUnlock()
 	size := p.ledgerWrapper.ledger.GetBlockchainSize()
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
+}
+
+// GetBlockByNumber return a block by block number
+func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
 }
 
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending

@@ -52,7 +52,9 @@ func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if err := peer.register("peer", id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
 
-		return err
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			return err
+		}
 	}
 	err := peer.close()
 	if err != nil {
@@ -66,14 +68,14 @@ func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 }
 
 // Init initializes a client named name with password pwd
-func InitPeeer(id string, pwd []byte) (Peer, error) {
+func InitPeer(id string, pwd []byte) (Peer, error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
 	log.Info("Initializing [%s]...", id)
 
 	if peers[id] != nil {
-		log.Info("Validator already initiliazied [%s].", id)
+		log.Info("Already initiliazied [%s].", id)
 
 		return peers[id], nil
 	}

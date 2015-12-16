@@ -243,7 +243,7 @@ func TestLedgerSetRawState(t *testing.T) {
 	for i := 0; snapshot.Next(); i++ {
 		k, v := snapshot.GetRawKeyValue()
 		cID, kID := statemgmt.DecodeCompositeKey(k)
-		delta.Set(cID, kID, v)
+		delta.Set(cID, kID, v, nil)
 	}
 
 	err = ledger.ApplyStateDelta(delta)
@@ -402,4 +402,106 @@ func TestBlockNumberOutOfBoundsError(t *testing.T) {
 	_, err = ledger.GetStateDelta(10)
 	testutil.AssertError(t, err, "Expected error as block is out of bounds")
 
+}
+
+func TestRollBackwardsAndForwards(t *testing.T) {
+
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Block 0
+	ledger.BeginTxBatch(0)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1A"))
+	ledger.SetState("chaincode2", "key2", []byte("value2A"))
+	ledger.SetState("chaincode3", "key3", []byte("value3A"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx()
+	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1A"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2A"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3A"))
+
+	// Block 1
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1B"))
+	ledger.SetState("chaincode2", "key2", []byte("value2B"))
+	ledger.SetState("chaincode3", "key3", []byte("value3B"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ = buildTestTx()
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1B"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2B"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3B"))
+
+	// Block 2
+	ledger.BeginTxBatch(2)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1C"))
+	ledger.SetState("chaincode2", "key2", []byte("value2C"))
+	ledger.SetState("chaincode3", "key3", []byte("value3C"))
+	ledger.SetState("chaincode4", "key4", []byte("value4C"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ = buildTestTx()
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode4", "key4", true), []byte("value4C"))
+
+	// Roll backwards once
+	delta2 := ledgerTestWrapper.GetStateDelta(2)
+	delta2.RollBackwards = true
+	err := ledger.ApplyStateDelta(delta2)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1B"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2B"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3B"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode4", "key4", true), nil)
+
+	// Now roll forwards once
+	delta2.RollBackwards = false
+	err = ledger.ApplyStateDelta(delta2)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode4", "key4", true), []byte("value4C"))
+
+	// Now roll backwards twice
+	delta2.RollBackwards = true
+	delta1 := ledgerTestWrapper.GetStateDelta(1)
+	err = ledger.ApplyStateDelta(delta2)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	delta1.RollBackwards = true
+	err = ledger.ApplyStateDelta(delta1)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1A"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2A"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3A"))
+
+	// Now roll forwards twice
+	delta2.RollBackwards = false
+	delta1.RollBackwards = false
+	err = ledger.ApplyStateDelta(delta1)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	err = ledger.ApplyStateDelta(delta2)
+	if err != nil {
+		t.Fatalf("Error applying delta: %s", err)
+	}
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3C"))
+	testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode4", "key4", true), []byte("value4C"))
 }

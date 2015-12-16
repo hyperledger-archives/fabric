@@ -85,25 +85,25 @@ func (node *nodeImpl) loadECACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, []byte, error) {
 	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
 		node.log.Error("Failed dailing in: %s", err)
 
-		return nil, err
+		return nil, nil, err
 	}
 	defer sockP.Close()
 
 	ecaP := obcca.NewECAPClient(sockP)
 
-	cert, err := ecaP.CreateCertificate(context.Background(), in)
+	cred, err := ecaP.CreateCertificate(context.Background(), in)
 	if err != nil {
 		node.log.Error("Failed requesting enrollment certificate: %s", err)
 
-		return nil, err
+		return nil, nil, err
 	}
 
-	return cert, nil
+	return cred.Cert, cred.Key, nil
 }
 
 func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
@@ -127,41 +127,45 @@ func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 	return cert, nil
 }
 
-func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, error) {
+func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
 		node.log.Error("Failed generating key: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-	req := &obcca.ECertCreateReq{&protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		&obcca.Identity{Id: id},
-		&obcca.Password{Pw: pw},
-		&obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: pubraw}, nil}
+	req := &obcca.ECertCreateReq{
+		Ts: &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id: &obcca.Identity{Id: id},
+		Pw: &obcca.Password{Pw: pw},
+		Pub: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: pubraw},
+		Sig: nil}
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
-		panic(err)
+		node.log.Error("Failed signing request: %s", err)
+
+		return nil, nil, nil, err
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
 	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
 
-	pbCert, err := node.callECACreateCertificate(context.Background(), req)
+	pbCert, key, err := node.callECACreateCertificate(context.Background(), req)
 	if err != nil {
 		node.log.Error("Failed requesting enrollment certificate: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	// Verify pbCert.Cert
 	node.log.Info("Enrollment certificate hash: %s", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
 
-	return priv, pbCert.Cert, nil
+	// Verify pbCert.Cert
+	return priv, pbCert.Cert, key, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {

@@ -27,7 +27,7 @@ import "google/protobuf/timestamp.proto";
 // Enrollment Certificate Authority (ECA).
 //
 service ECAP { // public service
-    rpc CreateCertificate(ECertCreateReq) returns (Cert);
+    rpc CreateCertificate(ECertCreateReq) returns (Creds);
     rpc ReadCertificate(ECertReadReq) returns (Cert);
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
 }
@@ -189,4 +189,9 @@ message Cert {
 message CertSet {
     bytes key = 1;
     repeated bytes certs = 2; // DER / ASN.1 encoded
+}
+
+message Creds {
+    Cert cert = 1;
+    bytes key = 2;
 }

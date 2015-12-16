@@ -30,9 +30,13 @@ import (
 )
 
 const (
-	//AESKeyLength is the keys length used for AES
 	AESKeyLength = 32
+	NonceSize    = 24
 )
+
+func GenAESKey() ([]byte, error) {
+	return GetRandomBytes(AESKeyLength)
+}
 
 // PKCS7Padding pads as prescribed by the PKCS7 standard
 func PKCS7Padding(src []byte) []byte {

@@ -21,6 +21,7 @@ package peer
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
@@ -117,4 +118,9 @@ func (i *Noops) Stop() error {
 // To return the PeerEndpoint this Handler is connected to by delegating to the contained PeerHandler.
 func (i *Noops) To() (pb.PeerEndpoint, error) {
 	return i.PeerHandler.To()
+}
+
+// GetBlocks delegates the Peer handler's GetBlocks
+func (i *Noops) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	return i.PeerHandler.GetBlocks(syncBlockRange)
 }

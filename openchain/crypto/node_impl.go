@@ -50,6 +50,9 @@ type nodeImpl struct {
 	enrollID      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey *ecdsa.PrivateKey
+
+	// Enrollment Chain
+	enrollChainKey []byte
 }
 
 func (node *nodeImpl) GetName() string {
@@ -58,14 +61,14 @@ func (node *nodeImpl) GetName() string {
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if node.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Init Conf
 	if err := node.initConfiguration(prefix, name); err != nil {
-		log.Error("Failed ini configuration [%s]: %s", enrollID, err)
+		log.Error("Failed initiliazing configuration [%s]: %s", enrollID, err)
 
 		return err
 	}
@@ -75,6 +78,8 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 	if node.isRegistered() {
 		node.log.Error("Registering [%s]...done! Registration already performed", enrollID)
+
+		return utils.ErrAlreadyRegistered
 	} else {
 		if err := node.createKeyStorage(); err != nil {
 			node.log.Error("Failed creating key storage: %s", err)
@@ -110,7 +115,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	if node.isInitialized {
 		node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Init Conf
@@ -119,6 +124,8 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	}
 
 	if !node.isRegistered() {
+		node.log.Error("Not registered yet.")
+
 		return utils.ErrRegistrationRequired
 	}
 
@@ -144,10 +151,10 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 		return err
 	}
 
-	node.log.Info("Initialization...done.")
-
 	// Initialisation complete
 	node.isInitialized = true
+
+	node.log.Info("Initialization...done.")
 
 	return nil
 }

@@ -159,3 +159,7 @@ func (handler *ConsensusHandler) Stop() error {
 func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }
+
+func (handler *ConsensusHandler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	return handler.peerHandler.GetBlocks(syncBlockRange)
+}

@@ -26,9 +26,9 @@ import (
 
 func (validator *validatorImpl) initKeyStore() error {
 	// create tables
-	log.Debug("Create Table [%s] at [%s]", "Certificates", validator.peer.node.conf.getKeysPath())
+	validator.peer.node.log.Debug("Create Table [%s] at [%s]", "Certificates", validator.peer.node.conf.getKeysPath())
 	if _, err := validator.peer.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		log.Debug("Failed creating table: %s", err)
+		validator.peer.node.log.Debug("Failed creating table: %s", err)
 		return err
 	}
 

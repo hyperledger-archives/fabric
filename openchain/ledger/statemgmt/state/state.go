@@ -27,14 +27,20 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/buckettree"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/trie"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
 var logger = logging.MustGetLogger("state")
+var stateImplFactory = map[string]statemgmt.HashableState{
+	"buckettree": buckettree.NewStateImpl(),
+	"trie":       trie.NewStateTrie(),
+}
 
 // TODO Should be configurable in openchain.yaml
-var stateImpl = buckettree.NewStateImpl()
+var stateImplName = "buckettree"
+var stateImpl statemgmt.HashableState
 
 // State structure for maintaining world state.
 // This encapsulates a particular implementation for managing the state persistence
@@ -51,6 +57,7 @@ type State struct {
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
+	stateImpl = stateImplFactory[stateImplName]
 	err := stateImpl.Initialize()
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))
@@ -118,7 +125,21 @@ func (state *State) Set(chaincodeID string, key string, value []byte) error {
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
-	state.currentTxStateDelta.Set(chaincodeID, key, value)
+
+	// Check if a previous value is already set in the state delta
+	if state.currentTxStateDelta.IsUpdatedValueSet(chaincodeID, key) {
+		// No need to bother looking up the previous value as we will not
+		// set it again. Just pass nil
+		state.currentTxStateDelta.Set(chaincodeID, key, value, nil)
+	} else {
+		// Need to lookup the previous value
+		previousValue, err := state.Get(chaincodeID, key, true)
+		if err != nil {
+			return err
+		}
+		state.currentTxStateDelta.Set(chaincodeID, key, value, previousValue)
+	}
+
 	return nil
 }
 
@@ -128,7 +149,21 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
-	state.currentTxStateDelta.Delete(chaincodeID, key)
+
+	// Check if a previous value is already set in the state delta
+	if state.currentTxStateDelta.IsUpdatedValueSet(chaincodeID, key) {
+		// No need to bother looking up the previous value as we will not
+		// set it again. Just pass nil
+		state.currentTxStateDelta.Delete(chaincodeID, key, nil)
+	} else {
+		// Need to lookup the previous value
+		previousValue, err := state.Get(chaincodeID, key, true)
+		if err != nil {
+			return err
+		}
+		state.currentTxStateDelta.Delete(chaincodeID, key, previousValue)
+	}
+
 	return nil
 }
 
