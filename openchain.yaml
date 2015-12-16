@@ -30,7 +30,7 @@ rest:
 ###############################################################################
 peer:
 
-    # Peeer Version following version semantics as described here http://semver.org/
+    # Peer Version following version semantics as described here http://semver.org/
     # The Peer supplies this version in communications with other Peers
     version:  0.1.0
 
@@ -85,7 +85,7 @@ peer:
     sync:
         blocks:
             # Channel size for readonly SyncBlocks messages channel for receiving blocks from oppositie Peer Endpoints.
-            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.  
+            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
             channelSize: 1
 
     # Validator defines whether this peer is a validating peer or not, and if
@@ -108,6 +108,13 @@ peer:
             file: testdata/server1.key
         # The server name use to verify the hostname returned by TLS handshake
         server-host-override:
+
+    # PKI member services properties
+    pki:
+        eca:
+            paddr: localhost:50051
+        tca:
+            paddr: localhost:50551
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
@@ -267,7 +274,7 @@ security:
     enabled: false
     # To enroll NVP or VP with Member Services PKI. These parameters are for
     # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: jane
-    enrollSecret: bedtimeatdawn
+    enrollID: nepumuk
+    enrollSecret: 9gvZQRwhUq9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false

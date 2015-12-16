@@ -284,24 +284,24 @@ func BuildLocal(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeD
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
-	// First build and get the deployment spec
-	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
-
-	if err != nil {
-		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
-		return nil, err
-	}
-	//devopsLogger.Debug("returning status: %s", status)
-	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
-		return nil, uuidErr
-	}
-	transaction, err := pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
-	if err != nil {
-		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
-	}
-	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
-}
+// func DeployLocal(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
+// 	// First build and get the deployment spec
+// 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
+//
+// 	if err != nil {
+// 		devopsLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
+// 		return nil, err
+// 	}
+// 	//devopsLogger.Debug("returning status: %s", status)
+// 	// Now create the Transactions message and send to Peer.
+// 	uuid, uuidErr := util.GenerateUUID()
+// 	if uuidErr != nil {
+// 		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
+// 		return nil, uuidErr
+// 	}
+// 	transaction, err := pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+// 	}
+// 	return chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+// }
