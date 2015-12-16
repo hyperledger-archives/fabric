@@ -278,11 +278,12 @@ func serve(args []string) error {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
 	if chaincodeDevMode {
-		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
+		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
 		viper.Set("peer.validator.enabled", "true")
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
+	logger.Info("Security enabled status: %t", viper.GetBool("peer.validator.enabled"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -300,10 +301,10 @@ func serve(args []string) error {
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validator - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
-		logger.Debug("Running as peer")
+		logger.Debug("Running as non-validating peer")
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
