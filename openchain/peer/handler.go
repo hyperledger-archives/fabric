@@ -21,6 +21,7 @@ package peer
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -39,6 +40,8 @@ type Handler struct {
 	FSM             *fsm.FSM
 	initiatedStream bool // Was the stream initiated within this Peer
 	registered      bool
+	syncBlocksMutex sync.Mutex
+	syncBlocks      chan *pb.SyncBlocks
 }
 
 // NewPeerHandler returns a new Peer handler
@@ -58,6 +61,8 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			{Name: pb.OpenchainMessage_DISC_GET_PEERS.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_DISC_PEERS.String(), Src: []string{"established"}, Dst: "established"},
 			{Name: pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_SYNC_GET_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.OpenchainMessage_SYNC_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
 			"enter_state":                                             func(e *fsm.Event) { d.enterState(e) },
@@ -65,6 +70,8 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			"before_" + pb.OpenchainMessage_DISC_GET_PEERS.String():   func(e *fsm.Event) { d.beforeGetPeers(e) },
 			"before_" + pb.OpenchainMessage_DISC_PEERS.String():       func(e *fsm.Event) { d.beforePeers(e) },
 			"before_" + pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(): func(e *fsm.Event) { d.beforeBlockAdded(e) },
+			"before_" + pb.OpenchainMessage_SYNC_GET_BLOCKS.String():  func(e *fsm.Event) { d.beforeSyncGetBlocks(e) },
+			"before_" + pb.OpenchainMessage_SYNC_BLOCKS.String():      func(e *fsm.Event) { d.beforeSyncBlocks(e) },
 		},
 	)
 
@@ -253,9 +260,137 @@ func (d *Handler) start() error {
 			if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS}); err != nil {
 				peerLogger.Error(fmt.Sprintf("Error sending %s during handler discovery tick: %s", pb.OpenchainMessage_DISC_GET_PEERS, err))
 			}
+			// // TODO: For testing only, remove
+			// syncBlocksChannel, _ := d.GetBlocks(&pb.SyncBlockRange{Start: 0, End: 0})
+			// go func() {
+			// 	for {
+			// 		// peerLogger.Debug("Sleeping for 1 second...")
+			// 		// time.Sleep(1 * time.Second)
+			// 		// peerLogger.Debug("Waking up and pulling from sync channel")
+			// 		syncBlocks, ok := <-syncBlocksChannel
+			// 		if !ok {
+			// 			// Channel was closed
+			// 			peerLogger.Debug("Channel closed for SyncBlocks")
+			// 			break
+			// 		} else {
+			// 			peerLogger.Debug("Received SyncBlocks on channel with Range from %d to %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+			// 		}
+			// 	}
+			// }()
+			// syncBlock := <-syncBlocksChannel
+			// peerLogger.Debug("Received syncBlock with Range: %s, and block count: %s", syncBlock.Range, len(syncBlock.Blocks))
 		case <-d.doneChan:
 			peerLogger.Debug("Stopping discovery service")
 			return nil
+		}
+	}
+}
+
+// GetBlocks get the blocks from the other PeerEndpoint based upon supplied SyncBlockRange, will provide them through the returned channel.
+// this will also stop writing any received blocks to channels created from Prior calls to GetBlocks(..)
+func (d *Handler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	d.syncBlocksMutex.Lock()
+	defer d.syncBlocksMutex.Unlock()
+
+	if d.syncBlocks != nil {
+		// close the previous one
+		close(d.syncBlocks)
+	}
+	d.syncBlocks = make(chan *pb.SyncBlocks, viper.GetInt("peer.sync.blocks.channelSize"))
+
+	// Marshal the SyncBlockRange as the payload
+	syncBlockRangeBytes, err := proto.Marshal(syncBlockRange)
+	if err != nil {
+		return nil, fmt.Errorf("Error marshaling syncBlockRange during GetBlocks: %s", err)
+	}
+	peerLogger.Debug("Sending %s with Range %s", pb.OpenchainMessage_SYNC_GET_BLOCKS.String(), syncBlockRange)
+	if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
+		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.OpenchainMessage_SYNC_GET_BLOCKS, err)
+	}
+	return d.syncBlocks, nil
+}
+
+func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
+	peerLogger.Debug("Received message: %s", e.Event)
+	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	// Start a separate go FUNC to send the blocks per the SyncBlockRange payload
+	syncBlockRange := &pb.SyncBlockRange{}
+	err := proto.Unmarshal(msg.Payload, syncBlockRange)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error unmarshalling SyncBlockRange in GetBlocks: %s", err))
+		return
+	}
+
+	go d.sendBlocks(syncBlockRange)
+}
+
+func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
+	peerLogger.Debug("Received message: %s", e.Event)
+	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	// Forward the received SyncBlocks to the channel
+	syncBlocks := &pb.SyncBlocks{}
+	err := proto.Unmarshal(msg.Payload, syncBlocks)
+	if err != nil {
+		e.Cancel(fmt.Errorf("Error unmarshalling SyncBlocks in beforeSyncBlocks: %s", err))
+		return
+	}
+	peerLogger.Debug("TODO: send received syncBlocks for start = %d and end = %d message to channel", syncBlocks.Range.Start, syncBlocks.Range.End)
+
+	// Send the message onto the channel, allow for the fact that channel may be closed on send attempt.
+	defer func() {
+		if x := recover(); x != nil {
+			peerLogger.Error(fmt.Sprintf("Error sending syncBlocks to channel: %v", x))
+		}
+	}()
+	// Use non-blocking send, will WARN if missed message.
+	select {
+	case d.syncBlocks <- syncBlocks:
+	default:
+		peerLogger.Warning("Did NOT send SyncBlocks message to channel for range: %d - %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+	}
+}
+
+// sendBlocks sends the blocks based upon the supplied SyncBlockRange over the stream.
+func (d *Handler) sendBlocks(syncBlockRange *pb.SyncBlockRange) {
+	peerLogger.Debug("Sending blocks %d-%d", syncBlockRange.Start, syncBlockRange.End)
+	var blockNums []uint64
+	if syncBlockRange.Start > syncBlockRange.End {
+		// Send in reverse order
+		for i := syncBlockRange.Start; i >= syncBlockRange.End; i-- {
+			blockNums = append(blockNums, i)
+		}
+	} else {
+		//
+		for i := syncBlockRange.Start; i <= syncBlockRange.End; i++ {
+			peerLogger.Debug("Appending to blockNums: %d", i)
+			blockNums = append(blockNums, i)
+		}
+	}
+	for _, currBlockNum := range blockNums {
+		// Get the Block from
+		block, err := d.Coordinator.GetBlockByNumber(currBlockNum)
+		if err != nil {
+			peerLogger.Error(fmt.Sprintf("Error sending blockNum %d: %s", currBlockNum, err))
+			break
+		}
+		// Encode a SyncBlocks into the payload
+		syncBlocks := &pb.SyncBlocks{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum}, Blocks: []*pb.Block{block}}
+		syncBlocksBytes, err := proto.Marshal(syncBlocks)
+		if err != nil {
+			peerLogger.Error(fmt.Sprintf("Error marshalling syncBlocks for BlockNum = %d: %s", currBlockNum, err))
+			break
+		}
+		if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCKS, Payload: syncBlocksBytes}); err != nil {
+			peerLogger.Error(fmt.Sprintf("Error sending blockNum %d: %s", currBlockNum, err))
+			break
 		}
 	}
 }

@@ -21,9 +21,10 @@ package trie
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
 )
 
 func TestStateTrie_ComputeHash_AllInMemory_NoContents(t *testing.T) {
@@ -41,10 +42,10 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	stateDelta := statemgmt.NewStateDelta()
 
 	// Test1 - Add a few keys
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID2", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID2", "key4", []byte("value4"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID2", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 
 	hash1 := computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1"))
@@ -60,7 +61,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 
 	// Test2 - Add one more key
 	fmt.Println("\n-- Add one more key exiting key --- ")
-	stateDelta.Set("chaincodeID3", "key5", []byte("value5"))
+	stateDelta.Set("chaincodeID3", "key5", []byte("value5"), nil)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	hash5 := computeTestHash(newTrieKey("chaincodeID3", "key5").getEncodedBytes(), []byte("value5"))
 	expectedRootHash2 := computeTestHash(hash1_hash2, hash3_hash4, hash5)
@@ -69,7 +70,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 
 	// Test3 - Remove one of the existing keys
 	fmt.Println("\n-- Remove an exiting key --- ")
-	stateDelta.Delete("chaincodeID2", "key4")
+	stateDelta.Delete("chaincodeID2", "key4", nil)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedRootHash3 := computeTestHash(hash1_hash2, hash3, hash5)
 	testutil.AssertEquals(t, rootHash3, expectedRootHash3)
@@ -81,10 +82,10 @@ func TestStateTrie_GetSet_WithDB(t *testing.T) {
 	stateTrie := NewStateTrie()
 	stateTrieTestWrapper := &stateTrieTestWrapper{stateTrie, t}
 	stateDelta := statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID2", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID2", "key4", []byte("value4"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID2", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
 	stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 	testutil.AssertEquals(t, stateTrieTestWrapper.Get("chaincodeID1", "key1"), []byte("value1"))
@@ -97,10 +98,10 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 
 	// Add a few keys and write to DB
 	stateDelta := statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID2", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID2", "key4", []byte("value4"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID2", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
 	stateTrie.PrepareWorkingSet(stateDelta)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 
@@ -108,7 +109,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	// Test1 - Add a non-existing key
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID3", "key5", []byte("value5"))
+	stateDelta.Set("chaincodeID3", "key5", []byte("value5"), nil)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expected_hash1 := computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1"))
 	expected_hash2 := computeTestHash(newTrieKey("chaincodeID1", "key2").getEncodedBytes(), []byte("value2"))
@@ -125,7 +126,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	// Test2 - Change value of an existing key
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID2", "key4", []byte("value4-new"))
+	stateDelta.Set("chaincodeID2", "key4", []byte("value4-new"), nil)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expected_hash4 = computeTestHash(newTrieKey("chaincodeID2", "key4").getEncodedBytes(), []byte("value4-new"))
 	expected_hash3_hash4 = computeTestHash(expected_hash3, expected_hash4)
@@ -137,7 +138,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	// Test3 - Change value of another existing key
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1-new"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1-new"), nil)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expected_hash1 = computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1-new"))
 	expected_hash1_hash2 = computeTestHash(expected_hash1, expected_hash2)
@@ -150,7 +151,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	/////////////////////////////////////////////////////////
 	fmt.Println("\n -- Delete an existing key --- ")
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("chaincodeID3", "key5")
+	stateDelta.Delete("chaincodeID3", "key5", nil)
 	rootHash4 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedRootHash4 := computeTestHash(expected_hash1_hash2, expected_hash3_hash4)
 	testutil.AssertEquals(t, rootHash4, expectedRootHash4)
@@ -162,7 +163,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	// Test5 - Delete another existing existing key
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("chaincodeID2", "key4")
+	stateDelta.Delete("chaincodeID2", "key4", nil)
 	rootHash5 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedRootHash5 := computeTestHash(expected_hash1_hash2, expected_hash3)
 	testutil.AssertEquals(t, rootHash5, expectedRootHash5)
@@ -179,9 +180,9 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	// Test1 - Add a few staggered keys
 	/////////////////////////////////////////////////////////
 	stateDelta := statemgmt.NewStateDelta()
-	stateDelta.Set("ID", "key1", []byte("value_key1"))
-	stateDelta.Set("ID", "key", []byte("value_key"))
-	stateDelta.Set("ID", "k", []byte("value_k"))
+	stateDelta.Set("ID", "key1", []byte("value_key1"), nil)
+	stateDelta.Set("ID", "key", []byte("value_key"), nil)
+	stateDelta.Set("ID", "k", []byte("value_k"), nil)
 	expectedHash_key1 := computeTestHash(newTrieKey("ID", "key1").getEncodedBytes(), []byte("value_key1"))
 	expectedHash_key := computeTestHash(newTrieKey("ID", "key").getEncodedBytes(), []byte("value_key"), expectedHash_key1)
 	expectedHash_k := computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_key)
@@ -194,7 +195,7 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	/////////////////////////////////////////////////////////
 	fmt.Println("- Add a new key in path of existing staggered keys -")
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("ID", "ke", []byte("value_ke"))
+	stateDelta.Set("ID", "ke", []byte("value_ke"), nil)
 	expectedHash_ke := computeTestHash(newTrieKey("ID", "ke").getEncodedBytes(), []byte("value_ke"), expectedHash_key)
 	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
@@ -205,7 +206,7 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	// Test3 - Change value of one of the existing keys
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("ID", "ke", []byte("value_ke_new"))
+	stateDelta.Set("ID", "ke", []byte("value_ke_new"), nil)
 	expectedHash_ke = computeTestHash(newTrieKey("ID", "ke").getEncodedBytes(), []byte("value_ke_new"), expectedHash_key)
 	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
@@ -216,7 +217,7 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	// Test4 - delete one of the existing keys
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("ID", "ke")
+	stateDelta.Delete("ID", "ke", nil)
 	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_key)
 	rootHash4 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash4, expectedHash_k)
@@ -229,7 +230,7 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	// Test4 -  Add one more key as a sibling of an intermediate node
 	//////////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("ID", "kez", []byte("value_kez"))
+	stateDelta.Set("ID", "kez", []byte("value_kez"), nil)
 	expectedHash_kez := computeTestHash(newTrieKey("ID", "kez").getEncodedBytes(), []byte("value_kez"))
 	expectedHash_ke = computeTestHash(expectedHash_key, expectedHash_kez)
 	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)

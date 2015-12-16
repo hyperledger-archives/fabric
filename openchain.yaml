@@ -81,6 +81,13 @@ peer:
     gomaxprocs: 2
     workers: 2
 
+    # Sync related configuration
+    sync:
+        blocks:
+            # Channel size for readonly SyncBlocks messages channel for receiving blocks from oppositie Peer Endpoints.
+            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.  
+            channelSize: 1
+
     # Validator defines whether this peer is a validating peer or not, and if
     # it is enabled, what consensus plugin to load
     validator:
