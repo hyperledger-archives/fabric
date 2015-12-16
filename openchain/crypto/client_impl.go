@@ -23,6 +23,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
+	"crypto/aes"
+	"crypto/cipher"
 )
 
 type clientImpl struct {
@@ -40,6 +42,8 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chainletDeploymentSpec *
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
+
+	// TODO: encrypt also type and other fields
 
 	// Create a new transaction
 	tx, err := obc.NewChaincodeDeployTransaction(chainletDeploymentSpec, uuid)
@@ -179,6 +183,107 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 
 	return tx, nil
 }
+
+func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	/// Create a new transaction
+	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
+	if err != nil {
+		client.node.log.Error("Failed creating new transaction %s:", err)
+		return nil, err
+	}
+
+	// Confidentiality
+
+	// 1. set confidentiality level and nonce
+	tx.ConfidentialityLevel = obc.Transaction_CHAINCODE_CONFIDENTIAL
+	tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+	if err != nil {
+		client.node.log.Error("Failed creating nonce %s:", err)
+		return nil, err
+	}
+
+	// 2. encrypt and set payload
+	err = client.encryptTx(tx)
+	if err != nil {
+		client.node.log.Error("Failed encrypting payload %s:", err)
+		return nil, err
+	}
+
+	// Sign the transaction
+
+	// Implement like this: getNextTCert returns only a TCert
+	// Then, invoke signWithTCert to sign the signature
+
+	// Get next available (not yet used) transaction certificate
+	// with the relative signing key.
+	rawTCert, err := client.getNextTCert()
+	if err != nil {
+		client.node.log.Error("Failed getting next transaction certificate %s:", err)
+		return nil, err
+	}
+
+	// Append the certificate to the transaction
+	client.node.log.Info("Appending certificate %s", utils.EncodeBase64(rawTCert))
+	tx.Cert = rawTCert
+
+	// Sign the transaction and append the signature
+	// 1. Marshall tx to bytes
+	rawTx, err := proto.Marshal(tx)
+	if err != nil {
+		client.node.log.Error("Failed marshaling tx %s:", err)
+		return nil, err
+	}
+
+	// 2. Sign rawTx and check signature
+	client.node.log.Info("Signing tx %s", utils.EncodeBase64(rawTx))
+	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
+	if err != nil {
+		client.node.log.Error("Failed creating signature %s:", err)
+		return nil, err
+	}
+
+	// 3. Append the signature
+	tx.Signature = rawSignature
+
+	client.node.log.Info("Appending signature %s", utils.EncodeBase64(rawSignature))
+
+	return tx, nil
+}
+
+func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error) {
+	queryKey := utils.HMACTruncated(client.node.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
+	client.node.log.Info("QUERY Decrypting with key %s", utils.EncodeBase64(queryKey))
+
+	if len(ct) <= utils.NonceSize {
+		return nil, utils.ErrDecrypt
+	}
+
+	c, err := aes.NewCipher(queryKey)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	copy(nonce, ct)
+
+	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
+	if err != nil {
+		client.node.log.Info("Failed decrypting query result: %s", err)
+		return nil, utils.ErrDecrypt
+	}
+	return out, nil
+}
+
 
 func (client *clientImpl) GetName() string {
 	return client.node.GetName()

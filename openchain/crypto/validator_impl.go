@@ -141,21 +141,42 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 		return nil, utils.ErrDirrentChaincodeID
 	}
 
-	// Derive root key from the deploy transaction
-	txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+	validator.peer.node.log.Info("Parsing transaction. Type [%s].", executeTx.Type)
 
-	txNonce := utils.HMACTruncated(txKey, executeTx.Nonce, utils.NonceSize)
+	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
+		validator.peer.node.log.Info("Parsing Query transaction...")
 
-	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
-	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, txNonce...))
+		// Derive root key from the deploy transaction
+		txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
-	sei := stateEncryptorImpl{}
-	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, txNonce)
-	if err != nil {
-		return nil, err
+		queryKey := utils.HMACTruncated(validator.peer.node.enrollChainKey, append([]byte{6}, executeTx.Nonce...), utils.AESKeyLength)
+
+		se := queryStateEncryptor{}
+		err := se.init(validator.peer.node.log, queryKey, txKey)
+		if err != nil {
+			return nil, err
+		}
+
+		return &se, nil
+	} else {
+		// TODO: shall we differentiate when deployTx and executeTx are the same?
+
+		// Derive root key from the deploy transaction
+		txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+
+		txNonce := utils.HMACTruncated(txKey, executeTx.Nonce, utils.NonceSize)
+
+		stateKey := utils.HMACTruncated(txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+		nonceStateKey := utils.HMAC(txKey, append([]byte{4}, txNonce...))
+
+		se := stateEncryptorImpl{}
+		err := se.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, txNonce)
+		if err != nil {
+			return nil, err
+		}
+
+		return &se, nil
 	}
-
-	return &sei, nil
 }
 
 // Private Methods
