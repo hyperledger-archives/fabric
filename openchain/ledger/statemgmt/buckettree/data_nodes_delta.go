@@ -51,7 +51,11 @@ func newDataNodesDelta(stateDelta *statemgmt.StateDelta) *dataNodesDelta {
 	for _, chaincodeID := range chaincodeIDs {
 		updates := stateDelta.GetUpdates(chaincodeID)
 		for key, updatedValue := range updates {
-			dataNodesDelta.add(chaincodeID, key, updatedValue.GetValue())
+			if stateDelta.RollBackwards {
+				dataNodesDelta.add(chaincodeID, key, updatedValue.GetPreviousValue())
+			} else {
+				dataNodesDelta.add(chaincodeID, key, updatedValue.GetValue())
+			}
 		}
 	}
 	for _, dataNodes := range dataNodesDelta.byBucket {

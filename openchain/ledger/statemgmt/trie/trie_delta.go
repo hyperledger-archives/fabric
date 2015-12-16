@@ -43,7 +43,11 @@ func newTrieDelta(stateDelta *statemgmt.StateDelta) *trieDelta {
 			if updatedvalue.IsDelete() {
 				trieDelta.delete(chaincodeID, key)
 			} else {
-				trieDelta.set(chaincodeID, key, updatedvalue.GetValue())
+				if stateDelta.RollBackwards {
+					trieDelta.set(chaincodeID, key, updatedvalue.GetPreviousValue())
+				} else {
+					trieDelta.set(chaincodeID, key, updatedvalue.GetValue())
+				}
 			}
 		}
 	}

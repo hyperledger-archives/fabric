@@ -44,10 +44,10 @@ func TestDataNodesSort(t *testing.T) {
 func TestDataNodesDelta(t *testing.T) {
 	conf = initConfig(26, 3, fnvHash)
 	stateDelta := statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1_1"))
-	stateDelta.Set("chaincodeID1", "key2", []byte("value1_2"))
-	stateDelta.Set("chaincodeID2", "key1", []byte("value2_1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2_2"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1_1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte("value1_2"), nil)
+	stateDelta.Set("chaincodeID2", "key1", []byte("value2_1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2_2"), nil)
 
 	dataNodesDelta := newDataNodesDelta(stateDelta)
 	affectedBuckets := dataNodesDelta.getAffectedBuckets()
