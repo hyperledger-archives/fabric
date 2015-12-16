@@ -353,9 +353,11 @@ func serve(args []string) error {
 	}()
 
 	// Deploy the geneis block if needed.
-	makeGeneisError := genesis.MakeGenesis()
-	if makeGeneisError != nil {
-		return makeGeneisError
+	if viper.GetBool("peer.validator.enabled") {
+		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		if makeGeneisError != nil {
+			return makeGeneisError
+		}
 	}
 
 	// Block until grpc server exits
