@@ -55,12 +55,12 @@ func TestSieveNetwork(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if len(inst.blocks) != 1 {
-			t.Errorf("replica %d executed %d requests, expected %d",
+			t.Errorf("Replica %d executed %d requests, expected %d",
 				inst.id, len(inst.blocks), 1)
 		}
 
 		if inst.consenter.(*obcSieve).view != 0 {
-			t.Errorf("replica %d in view %d, expected 0",
+			t.Errorf("Replica %d in view %d, expected 0",
 				inst.id, inst.consenter.(*obcSieve).view)
 		}
 	}

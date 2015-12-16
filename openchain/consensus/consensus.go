@@ -31,10 +31,12 @@ type Consenter interface {
 type CPI interface {
 	GetReplicaHash() (self string, network []string, err error)
 	GetReplicaID(addr string) (id uint64, err error)
+
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msgPayload []byte, receiver string) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+
 	BeginTxBatch(id interface{}) error
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
 }

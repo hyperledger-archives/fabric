@@ -20,9 +20,11 @@ under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -46,11 +48,11 @@ func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassi
 func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		// TODO verify transaction
-		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
+
+		if err := op.verify(ocMsg.Payload); err != nil {
+			logger.Warning("Request did not verify: %s", err)
+			return err
+		}
 
 		op.pbft.request(ocMsg.Payload)
 
@@ -101,54 +103,56 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 // verify checks whether the request is valid
 func (op *obcClassic) verify(txRaw []byte) error {
 	// TODO verify transaction
-	// if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-	//   logger.Warning("Invalid request");
-	//   return err
-	// }
+	/* tx := &pb.Transaction{}
+	err := proto.Unmarshal(txRaw, tx)
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
+	}
+	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
+		logger.Warning("Invalid request");
+		return err
+	} */
 	return nil
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
-	tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
+	if err := op.verify(txRaw); err != nil {
+		logger.Error("Request in transaction did not verify: %s", err)
 		return
 	}
 
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
+	tx := &pb.Transaction{}
+	err := proto.Unmarshal(txRaw, tx)
+	if err != nil {
+		logger.Error("Unable to unmarshal transaction: %v", err)
+		return
+	}
 
 	txs := []*pb.Transaction{tx}
-	_, _ = op.cpi.ExecTXs(txs)
-
-	/* if ledger, err := ledger.GetLedger(); err != nil {
-		panic(fmt.Errorf("Fail to get the ledger: %v", err))
-	}
-
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
 
-	if err = ledger.BeginTxBatch(txBatchID); err != nil {
-		panic(fmt.Errorf("Fail to begin transactions with the ledger: %v", err))
+	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
+		logger.Error("Failed to begin transaction %s: %v", txBatchID, err)
+		return
 	}
 
-	hash, errs := op.cpi.ExecTXs(txs)
-	// There are n+1 elements of errors in this array. On complete success
-	// they'll all be nil. In particular, the last err will be error in
-	// producing the hash, if any. That's the only error we do want to check
-
+	_, errs := op.cpi.ExecTXs(txs)
 	if errs[len(txs)] != nil {
-		panic(fmt.Errorf("Fail to execute transactions: %v", errs))
+		logger.Error("Fail to execute transaction %s: %v", txBatchID, errs)
+		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
 	}
 
-	if err = ledger.CommitTxBatch(txBatchID, txs, nil); err != nil {
-		ledger.RollbackTxBatch(txBatchID)
-		panic(fmt.Errorf("Fail to commit transactions to the ledger: %v", err))
-	} */
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil); err != nil {
+		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
+	}
 }
 
 // viewChange is called when a view-change happened in the underlying pbft
