@@ -86,9 +86,9 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 					Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
 			} else {
 				// Verify transaction signature if security is enabled
-				secHelper := handler.coord.GetSecHelper()
+				secHelper := handler.coordinator.GetSecHelper()
 				if nil != secHelper {
-					if txNew, err := secHelper.TransactionPreValidation(tx); nil != err {
+					if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
 						shouldExit = true
 						response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(err.Error())}
 						logger.Debug("Failed to verify transaction %v", err)
@@ -117,9 +117,11 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 			response = &pb.Response{Status: pb.Response_FAILURE,
 				Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
 		} else {
-			b, err := chaincode.Execute(context.Background(), chaincode.GetChain(chaincode.DefaultChain), tx)
+			b, err := chaincode.Execute(context.Background(), chaincode.GetChain(chaincode.DefaultChain),
+				tx, handler.coordinator.GetSecHelper())
 			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error:%s", err))}
+				response = &pb.Response{Status: pb.Response_FAILURE,
+					Msg: []byte(fmt.Sprintf("Error:%s", err))}
 			} else {
 				response = &pb.Response{Status: pb.Response_SUCCESS, Msg: b}
 			}
@@ -160,6 +162,7 @@ func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }
 
+// GetBlocks returns the current sync block
 func (handler *ConsensusHandler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
 	return handler.peerHandler.GetBlocks(syncBlockRange)
 }
