@@ -271,7 +271,7 @@ ledger:
 #
 ###############################################################################
 security:
-    enabled: true
+    enabled: false
     # To enroll NVP or VP with Member Services PKI. These parameters are for
     # 1 time use. They will not be valid the subsequent times without un-enroll
     enrollID: nepumuk
