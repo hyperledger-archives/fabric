@@ -406,8 +406,10 @@ func login(args []string) {
 		return
 	}
 
-	localStore := getCliFilePath() // /var/openchain/production/cli/
-	logger.debug("Local store for CLI: %s", localStore)
+	// Retrieve the CLI data storage path
+	// Returns /var/openchain/production/cli/
+	localStore := getCliFilePath()
+	logger.Info("Peer local data store for CLI: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -417,7 +419,7 @@ func login(args []string) {
 
 	// User is not logged in, prompt for password
 	fmt.Printf("Enter password for user '%s': ", args[0])
-	pw := gopass.GetPasswd()
+	pw := gopass.GetPasswdMasked()
 
 	// Log in the user
 	logger.Info("Logging in user '%s'...\n", args[0])
@@ -439,11 +441,11 @@ func login(args []string) {
 		// Store the client login token for future use
 		logger.Info("Login successful for user '%s'.\n", args[0])
 
-		// If .client directory does not exist, create it
+		// If /var/openchain/production/cli/ directory does not exist, create it
 		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
-				if err := os.Mkdir("localStore", 644); err != nil {
+				if err := os.Mkdir(localStore, 0755); err != nil {
 					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
@@ -454,7 +456,7 @@ func login(args []string) {
 
 		// Store client security context into a file
 		logger.Info("Storing login token for user '%s'.\n", args[0])
-		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0644)
+		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
@@ -592,11 +594,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 			return
 		}
 
+		// Retrieve the CLI data storage path
+		// Returns /var/openchain/production/cli/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user is already logged in. Retrieving login token.\n")
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -663,12 +667,16 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 			return
 		}
 
+		// Retrieve the CLI data storage path
+		// Returns /var/openchain/production/cli/
+		localStore := getCliFilePath()
+
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user is already logged in. Retrieving login token.\n")
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
-			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
 			}
