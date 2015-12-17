@@ -122,13 +122,14 @@ message sieve_message {
 }
 
 message execute {
-    uint64 epoch = 1;
+    uint64 view = 1;
     uint64 block_number = 2;
     bytes request = 3;
     uint64 replica_id = 4;
 }
 
 message verify {
+    uint64 view = 1;
     uint64 block_number = 2;
     string request_digest = 3;
     bytes result_digest = 4;
@@ -141,14 +142,19 @@ message sieve_pbft_message {
         verify_set verify_set = 1;
         flush flush = 2;
     }
-    uint64 replica_id = 3;
-    bytes signature = 4;
 }
 
 message verify_set {
-    repeated verify dset = 1;
+    uint64 view = 1;
+    uint64 block_number = 2;
+    string request_digest = 3;
+    repeated verify dset = 4;
+    uint64 replica_id = 5;
+    bytes signature = 6;
 }
 
 message flush {
-    uint64 epoch = 1;
+    uint64 view = 1;
+    uint64 replica_id = 2;
+    bytes signature = 3;
 }

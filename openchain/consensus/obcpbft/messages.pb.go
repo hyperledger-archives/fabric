@@ -558,7 +558,7 @@ func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 }
 
 type Execute struct {
-	Epoch       uint64 `protobuf:"varint,1,opt,name=epoch" json:"epoch,omitempty"`
+	View        uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	BlockNumber uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
 	Request     []byte `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
 	ReplicaId   uint64 `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
@@ -569,6 +569,7 @@ func (m *Execute) String() string { return proto.CompactTextString(m) }
 func (*Execute) ProtoMessage()    {}
 
 type Verify struct {
+	View          uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
 	BlockNumber   uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
 	RequestDigest string `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
 	ResultDigest  []byte `protobuf:"bytes,4,opt,name=result_digest,proto3" json:"result_digest,omitempty"`
@@ -584,9 +585,7 @@ type SievePbftMessage struct {
 	// Types that are valid to be assigned to Payload:
 	//	*SievePbftMessage_VerifySet
 	//	*SievePbftMessage_Flush
-	Payload   isSievePbftMessage_Payload `protobuf_oneof:"payload"`
-	ReplicaId uint64                     `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
-	Signature []byte                     `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
+	Payload isSievePbftMessage_Payload `protobuf_oneof:"payload"`
 }
 
 func (m *SievePbftMessage) Reset()         { *m = SievePbftMessage{} }
@@ -682,7 +681,12 @@ func _SievePbftMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *pro
 }
 
 type VerifySet struct {
-	Dset []*Verify `protobuf:"bytes,1,rep,name=dset" json:"dset,omitempty"`
+	View          uint64    `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	BlockNumber   uint64    `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	RequestDigest string    `protobuf:"bytes,3,opt,name=request_digest" json:"request_digest,omitempty"`
+	Dset          []*Verify `protobuf:"bytes,4,rep,name=dset" json:"dset,omitempty"`
+	ReplicaId     uint64    `protobuf:"varint,5,opt,name=replica_id" json:"replica_id,omitempty"`
+	Signature     []byte    `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *VerifySet) Reset()         { *m = VerifySet{} }
@@ -697,7 +701,9 @@ func (m *VerifySet) GetDset() []*Verify {
 }
 
 type Flush struct {
-	Epoch uint64 `protobuf:"varint,1,opt,name=epoch" json:"epoch,omitempty"`
+	View      uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	ReplicaId uint64 `protobuf:"varint,2,opt,name=replica_id" json:"replica_id,omitempty"`
+	Signature []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Flush) Reset()         { *m = Flush{} }

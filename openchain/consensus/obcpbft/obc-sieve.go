@@ -37,12 +37,15 @@ type obcSieve struct {
 
 	id            uint64
 	epoch         uint64
+	imminentEpoch uint64
 	blockNumber   uint64
 	currentReq    string
 	currentResult []byte
 
 	currentTx   []*pb.Transaction
 	verifyStore []*Verify
+
+	queuedTx [][]byte
 }
 
 func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
@@ -112,16 +115,21 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 }
 
 // called by pbft-core to signal when a view change happened
-func (op *obcSieve) viewChange(curView uint64) {
-	logger.Info("Replica %d executing sieve epoch change to %d", op.id, curView)
-	op.epoch = curView
+func (op *obcSieve) viewChange(newView uint64) {
+	logger.Info("Replica %d observing pbft view change to %d", op.id, newView)
+	op.queuedTx = nil
+	op.imminentEpoch = newView
+
 	for idx := range op.pbft.outstandingReqs {
 		delete(op.pbft.outstandingReqs, idx)
 	}
 	op.pbft.stopTimer()
 
-	if op.pbft.primary(op.epoch) == op.id {
-		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{&Flush{Epoch: op.epoch}}}
+	if op.pbft.primary(newView) == op.id {
+		flush := &Flush{View: newView}
+		flush.ReplicaId = op.id
+		op.pbft.sign(flush)
+		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{flush}}
 		op.invokePbft(req)
 	}
 }
@@ -136,8 +144,6 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 }
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
-	msg.ReplicaId = op.id
-	op.pbft.sign(msg)
 	raw, _ := proto.Marshal(msg)
 	op.pbft.lock.Unlock()
 	op.pbft.request(raw)
@@ -151,8 +157,8 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 	}
 
 	if op.currentReq != "" {
-		// a request is outstanding
-		// XXX queue request
+		logger.Debug("Sieve primary %d queuing request", op.id)
+		op.queuedTx = append(op.queuedTx, txRaw)
 		return
 	}
 
@@ -173,19 +179,20 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 	op.verifyStore = nil
 
 	exec := &Execute{
-		Epoch:       op.epoch,
+		View:        op.epoch,
 		BlockNumber: op.blockNumber + 1,
 		Request:     txRaw,
 		ReplicaId:   op.id,
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
-		op.id, exec.Epoch, exec.BlockNumber)
+		op.id, exec.View, exec.BlockNumber)
 	op.recvExecute(exec)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
 }
 
 func (op *obcSieve) recvExecute(exec *Execute) {
-	if !(exec.Epoch == op.epoch && op.pbft.primary(op.epoch) == exec.ReplicaId && op.pbft.activeView) {
+	// XXX queue execute if we're behind
+	if !(exec.View == op.epoch && op.pbft.primary(op.epoch) == exec.ReplicaId && op.pbft.activeView) {
 		logger.Debug("Invalid execute from %d", exec.ReplicaId)
 		return
 	}
@@ -197,7 +204,7 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 	}
 
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
-		op.id, exec.ReplicaId, exec.Epoch, exec.BlockNumber)
+		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
 	op.currentReq = base64.StdEncoding.EncodeToString(exec.Request)
 	op.blockNumber++
@@ -221,6 +228,7 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 
 	op.currentResult = hashes
 	verify := &Verify{
+		View:          exec.View,
 		BlockNumber:   exec.BlockNumber,
 		RequestDigest: op.currentReq,
 		ResultDigest:  op.currentResult,
@@ -239,13 +247,27 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 		return
 	}
 
-	if err := op.checkVerify(verify); err != nil {
-		logger.Info("%s", err)
-		return
-	}
-
 	logger.Debug("Sieve primary %d received verify from %d, blockNo=%d, result %s",
 		op.id, verify.ReplicaId, verify.BlockNumber, verify.ResultDigest)
+
+	if err := op.pbft.verify(verify); err != nil {
+		logger.Warning("Invalid verify message: %s", err)
+		return
+	}
+	if verify.View != op.epoch {
+		logger.Debug("Invalid verify view: expected %d, got %d",
+			op.epoch, verify.View)
+		return
+	}
+	if verify.BlockNumber != op.blockNumber {
+		logger.Debug("Invalid verify block number: expected %d, got %d",
+			op.blockNumber, verify.BlockNumber)
+		return
+	}
+	if verify.RequestDigest != op.currentReq {
+		logger.Debug("Invalid verify: invalid request digest")
+		return
+	}
 
 	for _, v := range op.verifyStore {
 		if v.ReplicaId == verify.ReplicaId {
@@ -258,25 +280,16 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 	if len(op.verifyStore) == 2*op.pbft.f+1 {
 		dSet, _ := op.verifyDset(op.verifyStore)
 		verifySet := &VerifySet{
-			Dset: dSet,
+			View:          op.epoch,
+			BlockNumber:   op.blockNumber,
+			RequestDigest: op.currentReq,
+			Dset:          dSet,
 		}
+		verifySet.ReplicaId = op.id
+		op.pbft.sign(verifySet)
 		req := &SievePbftMessage{Payload: &SievePbftMessage_VerifySet{verifySet}}
 		op.invokePbft(req)
 	}
-}
-
-func (op *obcSieve) checkVerify(verify *Verify) error {
-	if err := op.pbft.verify(verify); err != nil {
-		return fmt.Errorf("Invalid verify message: %s", err)
-	}
-	if verify.BlockNumber != op.blockNumber {
-		return fmt.Errorf("Invalid verify block number: expected %d, got %d",
-			op.blockNumber, verify.BlockNumber)
-	}
-	if verify.RequestDigest != op.currentReq {
-		return fmt.Errorf("Invalid request digest")
-	}
-	return nil
 }
 
 func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
@@ -305,13 +318,6 @@ func (op *obcSieve) verify(rawReq []byte) error {
 		return err
 	}
 
-	if err := op.pbft.verify(req); err != nil {
-		return err
-	}
-	if req.ReplicaId != op.pbft.primary(op.epoch) { // XXX epoch check valid?
-		return fmt.Errorf("pbft request from non-primary")
-	}
-
 	if vset := req.GetVerifySet(); vset != nil {
 		return op.validateVerifySet(vset)
 	} else if flush := req.GetFlush(); flush != nil {
@@ -322,27 +328,39 @@ func (op *obcSieve) verify(rawReq []byte) error {
 }
 
 func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
+	if err := op.pbft.verify(vset); err != nil {
+		return err
+	}
+	if vset.ReplicaId != op.pbft.primary(vset.View) {
+		return fmt.Errorf("pbft request from non-primary")
+	}
+
 	dups := make(map[uint64]bool)
 	for _, v := range vset.Dset {
-		if err := op.checkVerify(v); err != nil {
+		if err := op.pbft.verify(v); err != nil {
 			logger.Warning("verify-set invalid: %s", err)
-			op.pbft.sendViewChange()
 			return err
 		}
 		if dups[v.ReplicaId] {
 			err := fmt.Errorf("verify-set invalid: duplicate entry for replica %d", v.ReplicaId)
 			logger.Warning("%s", err)
-			op.pbft.sendViewChange()
 			return err
 		}
 		dups[v.ReplicaId] = true
+	}
+
+	for _, v := range vset.Dset {
+		if v.View != vset.View || v.BlockNumber != vset.BlockNumber || v.RequestDigest != vset.RequestDigest {
+			err := fmt.Errorf("verify-set invalid: inconsistent verify member")
+			logger.Warning("%s", err)
+			return err
+		}
 	}
 
 	if len(vset.Dset) < op.pbft.f+1 {
 		err := fmt.Errorf("verify-set invalid: not enough verifies in vset: need at least %d, got %d",
 			op.pbft.f+1, len(vset.Dset))
 		logger.Error("%s", err)
-		op.pbft.sendViewChange()
 		return err
 	}
 
@@ -350,7 +368,6 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	if !reflect.DeepEqual(dSet, vset.Dset) {
 		err := fmt.Errorf("verify-set invalid: d-set not coherent")
 		logger.Error("%s", err)
-		op.pbft.sendViewChange()
 		return err
 	}
 
@@ -358,8 +375,15 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 }
 
 func (op *obcSieve) validateFlush(flush *Flush) error {
-	if flush.Epoch != op.epoch {
-		return fmt.Errorf("flush for wrong epoch: got %d, expected %d", flush.Epoch, op.epoch)
+	if err := op.pbft.verify(flush); err != nil {
+		return err
+	}
+	if flush.ReplicaId != op.pbft.primary(flush.View) {
+		return fmt.Errorf("pbft request from non-primary")
+	}
+
+	if flush.View < op.imminentEpoch {
+		return fmt.Errorf("flush for wrong epoch: got %d, expected %d", flush.View, op.imminentEpoch)
 	}
 
 	return nil
@@ -384,7 +408,35 @@ func (op *obcSieve) execute(raw []byte) {
 }
 
 func (op *obcSieve) executeVerifySet(vset *VerifySet) {
-	logger.Debug("Replica %d received verify-set from pbft", op.id)
+	logger.Debug("Replica %d received verify-set from pbft, view %d, block %d",
+		op.id, vset.View, vset.BlockNumber)
+
+	if vset.View != op.epoch {
+		logger.Debug("Replica %d ignoring verify-set for wrong epoch: expected %d, got %d",
+			op.id, op.epoch, vset.View)
+		return
+	}
+
+	if op.currentReq == "" {
+		logger.Debug("Replica %d received verify-set without pending execute",
+			op.id)
+		// XXX out of sync
+		return
+	}
+
+	if vset.BlockNumber != op.blockNumber {
+		logger.Debug("Replica %d received verify-set for wrong block: expected %d, got %d",
+			op.id, op.blockNumber, vset.BlockNumber)
+		// XXX out of sync
+		return
+	}
+
+	if vset.RequestDigest != op.currentReq {
+		logger.Debug("Replica %d received verify-set for different execute",
+			op.id)
+		// XXX out of sync
+		return
+	}
 
 	dSet, shouldCommit := op.verifyDset(vset.Dset)
 
@@ -395,12 +447,16 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 		if !reflect.DeepEqual(op.currentResult, dSet[0].ResultDigest) {
 			logger.Warning("Decision successful, but our output does not match")
 			op.rollback()
+			op.blockNumber--
+			op.currentReq = ""
 			// XXX now we're out of sync, fetch result from dSet
 			_ = dSet
 		} else {
 			logger.Debug("Decision successful, committing result")
 			if op.commit() != nil {
 				op.rollback()
+				op.blockNumber--
+				op.currentReq = ""
 				// we're out of sync
 				// XXX fetch result from dSet
 			}
@@ -412,9 +468,18 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 
 func (op *obcSieve) executeFlush(flush *Flush) {
 	logger.Debug("Replica %d received flush from pbft", op.id)
+	if flush.View < op.epoch {
+		logger.Warning("Replica %d ignoring old flush for epoch %d, we are in epoch %d",
+			op.id, flush.View, op.epoch)
+		return
+	}
+	op.epoch = flush.View
+	logger.Info("Replica %d advancing epoch to %d", op.id, op.epoch)
 	if op.currentReq != "" {
 		logger.Info("Replica %d rolling back speculative execution", op.id)
 		op.rollback()
+		op.blockNumber--
+		op.currentReq = ""
 	}
 }
 
@@ -426,14 +491,9 @@ func (op *obcSieve) begin() error {
 }
 
 func (op *obcSieve) rollback() error {
-	if op.currentReq == "" {
-		return nil
-	}
 	if err := op.cpi.RollbackTxBatch(op.currentReq); err != nil {
 		return fmt.Errorf("Fail to rollback transaction: %v", err)
 	}
-	op.currentReq = ""
-	op.blockNumber--
 	return nil
 }
 
