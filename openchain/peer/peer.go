@@ -73,6 +73,7 @@ type MessageHandler interface {
 // MessageHandlerCoordinator responsible for coordinating between the registered MessageHandler's
 type MessageHandlerCoordinator interface {
 	Peer
+	SecurityAccessor
 	BlockChainAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
@@ -86,6 +87,11 @@ type MessageHandlerCoordinator interface {
 type ChatStream interface {
 	Send(*pb.OpenchainMessage) error
 	Recv() (*pb.OpenchainMessage, error)
+}
+
+// SecurityAccessor interface enables a Peer to hand out the crypto object for Peer
+type SecurityAccessor interface {
+	GetSecHelper() crypto.Peer
 }
 
 var peerLogger = logging.MustGetLogger("peer")
@@ -210,7 +216,7 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
-			peer.secHelper, err = crypto.InitPeeer(enrollID, nil)
+			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				return nil, err
 			}
@@ -572,4 +578,9 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
 	}
 	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}, nil
+}
+
+// GetSecHelper returns the crypto.Peer
+func (p *PeerImpl) GetSecHelper() crypto.Peer {
+	return p.secHelper
 }

@@ -27,18 +27,27 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 //Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, secCxt crypto.Peer) ([]byte, error) {
 	var err error
 
 	// get a handle to ledger to mark the begin/finish of a tx
 	ledger, ledgerErr := ledger.GetLedger()
 	if ledgerErr != nil {
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
+	}
+
+	// check security if enabled
+	if nil != secCxt {
+		t, err = secCxt.TransactionPreExecution(t)
+		if nil != err {
+			return nil, err
+		}
 	}
 
 	if t.Type == pb.Transaction_CHAINCODE_NEW {
@@ -125,14 +134,14 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns state hash
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction, secCxt crypto.Peer) ([]byte, []error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
-		_, errs[i] = Execute(ctxt, chain, t)
+		_, errs[i] = Execute(ctxt, chain, t, secCxt)
 	}
 	ledger, hasherr := ledger.GetLedger()
 	var statehash []byte
