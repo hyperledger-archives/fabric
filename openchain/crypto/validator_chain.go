@@ -81,8 +81,8 @@ func (validator *validatorImpl) decryptTx(tx *obc.Transaction) error {
 type stateEncryptorImpl struct {
 	log *logging.Logger
 
-	txKey []byte
-	txNonce []byte
+	deployTxKey []byte
+	invokeTxNonce []byte
 
 	stateKey []byte
 	nonceStateKey []byte
@@ -93,14 +93,14 @@ type stateEncryptorImpl struct {
 	counter uint64
 }
 
-func (se *stateEncryptorImpl) init(logger *logging.Logger, stateKey, nonceStateKey, txKey, txNonce []byte) error {
+func (se *stateEncryptorImpl) init(logger *logging.Logger, stateKey, nonceStateKey, deployTxKey, invokeTxNonce []byte) error {
 	// Initi fields
 	se.counter = 0
 	se.log = logger
 	se.stateKey = stateKey
 	se.nonceStateKey = nonceStateKey
-	se.txKey = txKey
-	se.txNonce = txNonce
+	se.deployTxKey = deployTxKey
+	se.invokeTxNonce = invokeTxNonce
 
 	// Init aes
 	c, err := aes.NewCipher(se.stateKey)
@@ -133,9 +133,9 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	// Seal will append the output to the first argument; the usage
 	// here appends the ciphertext to the nonce. The final parameter
 	// is any additional data to be authenticated.
-	out := se.gcmEnc.Seal(nonce, nonce, msg, se.txNonce)
+	out := se.gcmEnc.Seal(nonce, nonce, msg, se.invokeTxNonce)
 
-	return append(se.txNonce, out...), nil
+	return append(se.invokeTxNonce, out...), nil
 }
 
 func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
@@ -151,7 +151,7 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
-	key := utils.HMACTruncated(se.txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
 //	se.log.Info("Decrypting with key %s", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
@@ -177,18 +177,18 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 type queryStateEncryptor struct {
 	log *logging.Logger
 
-	txKey []byte
+	deployTxKey []byte
 
 	gcmEnc    cipher.AEAD
 	nonceSize int
 }
 
-func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, txKey []byte) error {
+func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKey []byte) error {
 	// Initi fields
 	se.log = logger
-	se.txKey = txKey
+	se.deployTxKey = deployTxKey
 
-		se.log.Info("QUERY Encrypting with key %s", utils.EncodeBase64(queryKey))
+//	se.log.Info("QUERY Encrypting with key %s", utils.EncodeBase64(queryKey))
 
 	// Init aes
 	c, err := aes.NewCipher(queryKey)
@@ -235,7 +235,7 @@ func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
-	key := utils.HMACTruncated(se.txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
 	//	se.log.Info("Decrypting with key %s", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {

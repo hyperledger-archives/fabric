@@ -223,7 +223,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// Compute ExpansionValue based on TCertIndex
 	TCertIndex := decryptedTCertIndex
 
-	client.node.log.Info("TCertIndex: %s", TCertIndex)
+	client.node.log.Info("TCertIndex: %s", utils.EncodeBase64(TCertIndex))
 	mac := hmac.New(utils.NewHash, ExpansionKey)
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
@@ -347,7 +347,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		TCertIndex := pt
 		//		TCertIndex := []byte(strconv.Itoa(i))
 
-		client.node.log.Info("TCertIndex: %s", TCertIndex)
+		client.node.log.Info("TCertIndex: %s", utils.EncodeBase64(TCertIndex))
 		mac := hmac.New(utils.NewHash, ExpansionKey)
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)

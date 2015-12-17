@@ -146,31 +146,36 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
 		validator.peer.node.log.Info("Parsing Query transaction...")
 
-		// Derive root key from the deploy transaction
-		txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
+		// of the chaincode
+		deployTxKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
+		// Compute the key used to encrypt the result of the query
 		queryKey := utils.HMACTruncated(validator.peer.node.enrollChainKey, append([]byte{6}, executeTx.Nonce...), utils.AESKeyLength)
 
+		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err := se.init(validator.peer.node.log, queryKey, txKey)
+		err := se.init(validator.peer.node.log, queryKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
 
 		return &se, nil
 	} else {
-		// TODO: shall we differentiate when deployTx and executeTx are the same?
+		// Compute deployTxKey key from the deploy transaction
+		deployTxKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
-		// Derive root key from the deploy transaction
-		txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+		// Mask executeTx.Nonce
+		executeTxNonce := utils.HMACTruncated(deployTxKey, utils.Hash(executeTx.Nonce), utils.NonceSize)
 
-		txNonce := utils.HMACTruncated(txKey, executeTx.Nonce, utils.NonceSize)
+		// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
+		// allows validators to reach consesus
+		stateKey := utils.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), utils.AESKeyLength)
+		nonceStateKey := utils.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
 
-		stateKey := utils.HMACTruncated(txKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
-		nonceStateKey := utils.HMAC(txKey, append([]byte{4}, txNonce...))
-
+		// Init the state encryptor
 		se := stateEncryptorImpl{}
-		err := se.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, txNonce)
+		err := se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 		if err != nil {
 			return nil, err
 		}
