@@ -58,9 +58,7 @@ peer:
             zlib1g-dev         \
             libbz2-dev
         # Copy GOPATH src and install Peer
-        # Copy GOPATH src and install Peer
-        RUN mkdir -p $GOPATH/src/github.com/openblockchain/obc-peer
-        COPY ./ $GOPATH/src/github.com/openblockchain/obc-peer/
+        COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
         WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
