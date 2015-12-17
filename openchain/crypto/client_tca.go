@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/openblockchain/obc-peer/obcca/protos"
+	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 
 	"bytes"
 	"crypto/ecdsa"
@@ -37,62 +37,11 @@ import (
 	"time"
 )
 
-func (client *clientImpl) retrieveTCACertsChain(userID string) error {
-	// Retrieve TCA certificate and verify it
-	tcaCertRaw, err := client.getTCACertificate()
-	if err != nil {
-		client.node.log.Error("Failed getting TCA certificate %s", err)
-
-		return err
-	}
-	client.node.log.Info("Register:TCAcert %s", utils.EncodeBase64(tcaCertRaw))
-
-	// TODO: Test TCA cert againt root CA
-	_, err = utils.DERToX509Certificate(tcaCertRaw)
-	if err != nil {
-		client.node.log.Error("Failed parsing TCA certificate %s", err)
-
-		return err
-	}
-
-	// Store TCA cert
-	client.node.log.Info("Storing TCA certificate for validator [%s]...", userID)
-
-	err = ioutil.WriteFile(client.node.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
-	if err != nil {
-		client.node.log.Error("Failed storing tca certificate: %s", err)
-		return err
-	}
-
-	return nil
-}
-
 func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
 	err := ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), utils.AEStoPEM(client.tCertOwnerKDFKey), 0700)
 	if err != nil {
-		client.node.log.Error("Failed storing TCertOwnerKDFKey: %s", err)
+		client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 		return err
-	}
-
-	return nil
-}
-
-func (client *clientImpl) loadTCACertsChain() error {
-	// Load TCA certs chain
-	client.node.log.Info("Loading TCA certificates chain at %s...", client.node.conf.getTCACertsChainPath())
-
-	chain, err := ioutil.ReadFile(client.node.conf.getTCACertsChainPath())
-	if err != nil {
-		client.node.log.Error("Failed loading TCA certificates chain : %s", err.Error())
-
-		return err
-	}
-
-	ok := client.node.rootsCertPool.AppendCertsFromPEM(chain)
-	if !ok {
-		client.node.log.Error("Failed appending TCA certificates chain.")
-
-		return errors.New("Failed appending TCA certificates chain.")
 	}
 
 	return nil
@@ -100,75 +49,34 @@ func (client *clientImpl) loadTCACertsChain() error {
 
 func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
 	// Load TCertOwnerKDFKey
-	client.node.log.Info("Loading TCertOwnerKDFKey at %s...", client.node.conf.getTCertOwnerKDFKeyPath())
+	client.node.log.Info("Loading TCertOwnerKDFKey at [%s]...", client.node.conf.getTCertOwnerKDFKeyPath())
 
 	missing, _ := utils.FilePathMissing(client.node.conf.getTCertOwnerKDFKeyPath())
 	if missing {
-		client.node.log.Info("Loading TCertOwnerKDFKey at %s...done! File is missing.", client.node.conf.getTCertOwnerKDFKeyPath())
+		client.node.log.Info("Failed loading TCertOwnerKDFKey. File is missing.")
 
 		return nil
 	}
 
 	pem, err := ioutil.ReadFile(client.node.conf.getTCertOwnerKDFKeyPath())
 	if err != nil {
-		client.node.log.Error("Failed loading enrollment chain key: %s", err.Error())
+		client.node.log.Error("Failed loading TCertOwnerKDFKey [%s].", err.Error())
 
 		return err
 	}
 
 	tCertOwnerKDFKey, err := utils.PEMtoAES(pem, pwd)
 	if err != nil {
-		client.node.log.Error("Failed parsing enrollment chain  key: %s", err.Error())
+		client.node.log.Error("Failed parsing TCertOwnerKDFKey [%s].", err.Error())
 
 		return err
 	}
 	client.tCertOwnerKDFKey = tCertOwnerKDFKey
+	client.node.log.Debug("Loading TCertOwnerKDFKey [%s].", utils.EncodeBase64(tCertOwnerKDFKey))
 
-	client.node.log.Info("Loading TCertOwnerKDFKey at %s...done!", client.node.conf.getTCertOwnerKDFKeyPath())
+	client.node.log.Info("Loading TCertOwnerKDFKey...done!")
 
 	return nil
-}
-
-func (client *clientImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(client.node.conf.getTCAPAddr(), grpc.WithInsecure())
-	if err != nil {
-		client.node.log.Error("Failed tca dial in: %s", err)
-
-		return nil, err
-	}
-	defer sockP.Close()
-
-	tcaP := obcca.NewTCAPClient(sockP)
-
-	cert, err := tcaP.ReadCertificate(context.Background(), in)
-	if err != nil {
-		client.node.log.Error("Failed requesting tca read certificate: %s", err)
-
-		return nil, err
-	}
-
-	return cert, nil
-}
-
-func (client *clientImpl) getTCACertificate() ([]byte, error) {
-	client.node.log.Info("getTCACertificate...")
-
-	// Prepare the request
-	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
-	req := &obcca.TCertReadReq{&timestamp, &obcca.Identity{Id: "tca-root"}, nil}
-	pbCert, err := client.callTCAReadCertificate(context.Background(), req)
-	if err != nil {
-		client.node.log.Error("Failed requesting tca certificate: %s", err)
-
-		return nil, err
-	}
-
-	// TODO Verify pbCert.Cert
-
-	client.node.log.Info("getTCACertificate...done!")
-
-	return pbCert.Cert, nil
 }
 
 // getNextTCert returns the next available (not yet used) transaction certificate
@@ -177,14 +85,14 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 	client.node.log.Info("Getting next TCert...")
 	rawCert, err := client.node.ks.GetNextTCert(client.getTCertsFromTCA)
 	if err != nil {
-		client.node.log.Error("getNextTCert: failed accessing db: %s", err)
+		client.node.log.Error("getNextTCert: failed accessing db [%s].", err.Error())
 
 		return nil, err
 	}
 
 	// rawCert and rawKey are supposed to have been already verified at this point.
-	client.node.log.Info("getNextTCert:cert %s", utils.EncodeBase64(rawCert))
-	//	client.node.log.Info("getNextTCert:key %s", utils.EncodeBase64(rawKey))
+	client.node.log.Info("getNextTCert:cert [%s].", utils.EncodeBase64(rawCert))
+	//	client.node.log.Info("getNextTCert:key  ", utils.EncodeBase64(rawKey))
 
 	client.node.log.Info("Getting next TCert...done!")
 
@@ -194,12 +102,14 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
 	// Extract the signing key from the tCert
 
+	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
+
 	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	tCert, err := utils.DERToX509Certificate(tCertDER)
 	if err != nil {
-		client.node.log.Error("getNextTCert: failed parsing key: %s", err)
+		client.node.log.Error("getNextTCert: failed parsing key [%s].", err.Error())
 
 		return nil, err
 	}
@@ -207,7 +117,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
 	ct, err := utils.GetExtension(tCert, utils.TCertEncTCertIndex)
 	if err != nil {
-		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
+		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
 		return nil, err
 	}
@@ -215,7 +125,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
 	decryptedTCertIndex, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
 	if err != nil {
-		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
+		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
 		return nil, err
 	}
@@ -223,7 +133,7 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 	// Compute ExpansionValue based on TCertIndex
 	TCertIndex := decryptedTCertIndex
 
-	client.node.log.Info("TCertIndex: %s", TCertIndex)
+	client.node.log.Info("TCertIndex [%s].", utils.EncodeBase64(TCertIndex))
 	mac := hmac.New(utils.NewHash, ExpansionKey)
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
@@ -268,11 +178,14 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	// Contact the TCA
 	TCertOwnerKDFKey, derBytes, err := client.tcaCreateCertificateSet(num)
 	if err != nil {
-		client.node.log.Debug("Failed contacting TCA %s", err)
+		client.node.log.Debug("Failed contacting TCA [%s].", err.Error())
 
 		return nil, err
 	}
 
+	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
+
+	// Store TCertOwnerKDFKey and checks that every time it is always the same key
 	if client.tCertOwnerKDFKey != nil {
 		// Check that the keys are the same
 		equal := bytes.Equal(client.tCertOwnerKDFKey, TCertOwnerKDFKey)
@@ -282,13 +195,14 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	} else {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
 
-		// TODO: hanlde this situation more carefully
+		// TODO: handle this situation more carefully
 		if err := client.storeTCertOwnerKDFKey(nil); err != nil {
-			client.node.log.Debug("Failed storing TCertOwnerKDFKey: %s", err)
+			client.node.log.Debug("Failed storing TCertOwnerKDFKey [%s].", err.Error())
+
+			return nil, err
 		}
 	}
 
-	// TODO: Store TCertOwnerKDFKey and checks that every time it is always the same key
 
 	// Validate the Certificates obtained
 	opts := x509.VerifyOptions{
@@ -303,12 +217,11 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 
 	j := 0
 	for i := 0; i < num; i++ {
-		client.node.log.Info("Validating certificate. Index [%d]...", i)
-		client.node.log.Debug("Validating certificate [%s]", utils.EncodeBase64(derBytes[i]))
+		client.node.log.Info("Validating certificate [", i, ",", utils.EncodeBase64(derBytes[i]), "]")
 
 		certificate, err := utils.DERToX509Certificate(derBytes[i])
 		if err != nil {
-			client.node.log.Debug("Failed parsing certificate bytes [%s]", utils.EncodeBase64(derBytes[i]))
+			client.node.log.Debug("Failed parsing certificate: ", utils.EncodeBase64(derBytes[i]), err)
 
 			continue
 		}
@@ -316,7 +229,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// TODO: Verify certificate against root certs
 		_, err = certificate.Verify(opts) // TODO: do something with chain of certificate given in output
 		if err != nil {
-			client.node.log.Error("Failed verifing certificate bytes %s", err)
+			client.node.log.Error("Failed verifing certificate [%s].", err.Error())
 
 			//			continue
 		}
@@ -330,7 +243,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
 		ct, err := utils.GetExtension(certificate, utils.TCertEncTCertIndex)
 		if err != nil {
-			client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX: %s", err)
+			client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 			//
 			continue
 		}
@@ -338,7 +251,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
 		pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
 		if err != nil {
-			client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX: %s", err)
+			client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
 			continue
 		}
@@ -347,7 +260,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		TCertIndex := pt
 		//		TCertIndex := []byte(strconv.Itoa(i))
 
-		client.node.log.Info("TCertIndex: %s", TCertIndex)
+		client.node.log.Info("TCertIndex: [%s].", utils.EncodeBase64(TCertIndex))
 		mac := hmac.New(utils.NewHash, ExpansionKey)
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
@@ -411,7 +324,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// Verify the signing capability of tempSK
 		err = utils.VerifySignCapability(tempSK, certificate.PublicKey)
 		if err != nil {
-			client.node.log.Error("Failed verifing signing capability: %s", err)
+			client.node.log.Error("Failed verifing signing capability [%s].", err.Error())
 
 			continue
 		}
@@ -419,12 +332,12 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// Marshall certificate and secret key to be stored in the database
 		resCert[j] = derBytes[i]
 		if err != nil {
-			client.node.log.Error("Failed marshalling private key: %s", err)
+			client.node.log.Error("Failed marshalling private key [%s].", err.Error())
 
 			continue
 		}
 
-		//		client.node.log.Debug("key %s", utils.EncodeBase64(resKeys[j]))
+		//		client.node.log.Debug("key  ", utils.EncodeBase64(resKeys[j]))
 		client.node.log.Info("Sub index [%d]", j)
 		j++
 		client.node.log.Info("Certificate [%d] validated.", i)
@@ -442,7 +355,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, error) {
 	sockP, err := grpc.Dial(client.node.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		client.node.log.Error("Failed tca dial in: %s", err)
+		client.node.log.Error("Failed tca dial in [%s].", err.Error())
 
 		return nil, nil, err
 	}
@@ -460,15 +373,15 @@ func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, er
 	}
 	rawReq, err := proto.Marshal(req)
 	if err != nil {
-		client.node.log.Error("Failed marshaling request %s:", err)
+		client.node.log.Error("Failed marshaling request [%s] [%s].", err.Error())
 		return nil, nil, err
 	}
 
 	// 2. Sign rawReq
-	client.node.log.Info("Signing req %s", utils.EncodeBase64(rawReq))
+	client.node.log.Info("Signing req  ", utils.EncodeBase64(rawReq))
 	r, s, err := client.node.ecdsaSignWithEnrollmentKey(rawReq)
 	if err != nil {
-		client.node.log.Error("Failed creating signature %s:", err)
+		client.node.log.Error("Failed creating signature [%s] [%s].", err.Error())
 		return nil, nil, err
 	}
 
@@ -481,7 +394,7 @@ func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, er
 	// 4. Send request
 	certSet, err := tcaP.CreateCertificateSet(context.Background(), req)
 	if err != nil {
-		client.node.log.Error("Failed requesting tca create certificate set: %s", err)
+		client.node.log.Error("Failed requesting tca create certificate set [%s].", err.Error())
 
 		return nil, nil, err
 	}
