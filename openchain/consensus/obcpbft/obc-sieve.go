@@ -192,6 +192,13 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 
 func (op *obcSieve) recvExecute(exec *Execute) {
 	// XXX queue execute if we're behind
+	// we're close enough behind, if:
+	//
+	// we are still executing a previous request
+	// AND the new request follows this request (maybe in a new view)
+	//     OR the new request replaces this request in a new view
+	//
+	// unfortunately we don't know which view will be next
 	if !(exec.View == op.epoch && op.pbft.primary(op.epoch) == exec.ReplicaId && op.pbft.activeView) {
 		logger.Debug("Invalid execute from %d", exec.ReplicaId)
 		return
