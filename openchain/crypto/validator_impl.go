@@ -72,22 +72,39 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		return nil, utils.ErrNotInitialized
 	}
 
-	switch tx.ConfidentialityLevel {
-	case obc.Transaction_CHAINCODE_PUBLIC:
-		// TODO: Nothing to do here?
+	validator.peer.node.log.Info("Pre executing [%s].", tx.String())
+	validator.peer.node.log.Info("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
-		break
-	case obc.Transaction_CHAINCODE_CONFIDENTIAL:
-		// Decrypt payload
-		err := validator.decryptTx(tx)
+	switch tx.ConfidentialityLevel {
+	case obc.ConfidentialityLevel_PUBLIC:
+		validator.peer.node.log.Info("Deep cloning.")
+
+		// Nothing to do here. Clone tx.
+		clone, err := validator.deepCloneTransaction(tx)
 		if err != nil {
-			validator.peer.node.log.Error("Failed decrypting: %s", err)
+			validator.peer.node.log.Error("Failed deep cloning [%s].", err.Error())
+			return nil, err
+		}
+
+		return clone, nil
+	case obc.ConfidentialityLevel_CONFIDENTIAL:
+		validator.peer.node.log.Info("Clone and Decrypt.")
+
+		// Clone the transaction and decrypt it
+		newTx, err := validator.decryptTx(tx)
+		if err != nil {
+			validator.peer.node.log.Error("Failed decrypting [%s].", err.Error())
 
 			return nil, err
 		}
+
+		// TODO: Validate confidentiality level. Must be the same on tx and newTx.Spec
+
+		return newTx, nil
+	default:
+		return nil, utils.ErrInvalidConfidentialityLevel
 	}
 
-	return tx, nil
 }
 
 // Sign signs msg with this validator's signing key and outputs
@@ -102,18 +119,18 @@ func (validator *validatorImpl) Sign(msg []byte) ([]byte, error) {
 func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 	cert, err := validator.getEnrollmentCert(vkID)
 	if err != nil {
-		validator.peer.node.log.Error("Failed getting enrollment cert for [%s]: %s", utils.EncodeBase64(vkID), err)
+		validator.peer.node.log.Error("Failed getting enrollment cert ", utils.EncodeBase64(vkID), err)
 	}
 
 	vk := cert.PublicKey.(*ecdsa.PublicKey)
 
 	ok, err := validator.verify(vk, message, signature)
 	if err != nil {
-		validator.peer.node.log.Error("Failed verifying signature for [%s]: %s", utils.EncodeBase64(vkID), err)
+		validator.peer.node.log.Error("Failed verifying signature for ", utils.EncodeBase64(vkID), err)
 	}
 
 	if !ok {
-		validator.peer.node.log.Error("Failed invalid signature for [%s]", utils.EncodeBase64(vkID))
+		validator.peer.node.log.Error("Failed invalid signature for ", utils.EncodeBase64(vkID))
 
 		return utils.ErrInvalidSignature
 	}
@@ -124,10 +141,10 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
 	// Check nonce
 	if deployTx.Nonce == nil || len(deployTx.Nonce) == 0 {
-		return nil, errors.New("Failed getting state ES. Invalid deploy nonce.")
+		return nil, errors.New("Invalid deploy nonce.")
 	}
 	if executeTx.Nonce == nil || len(executeTx.Nonce) == 0 {
-		return nil, errors.New("Failed getting state ES. Invalid invoke nonce.")
+		return nil, errors.New("Invalid invoke nonce.")
 	}
 	// Check ChaincodeID
 	if deployTx.ChaincodeID == nil {
@@ -141,7 +158,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 		return nil, utils.ErrDirrentChaincodeID
 	}
 
-	validator.peer.node.log.Info("Parsing transaction. Type [%s].", executeTx.Type)
+	validator.peer.node.log.Info("Parsing transaction. Type [%s].", executeTx.Type.String())
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
 		validator.peer.node.log.Info("Parsing Query transaction...")
@@ -161,34 +178,34 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 		}
 
 		return &se, nil
-	} else {
-		// Compute deployTxKey key from the deploy transaction
-		deployTxKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
-
-		// Mask executeTx.Nonce
-		executeTxNonce := utils.HMACTruncated(deployTxKey, utils.Hash(executeTx.Nonce), utils.NonceSize)
-
-		// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
-		// allows validators to reach consesus
-		stateKey := utils.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), utils.AESKeyLength)
-		nonceStateKey := utils.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
-
-		// Init the state encryptor
-		se := stateEncryptorImpl{}
-		err := se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
-		if err != nil {
-			return nil, err
-		}
-
-		return &se, nil
 	}
+
+		// Compute deployTxKey key from the deploy transaction
+	deployTxKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+
+	// Mask executeTx.Nonce
+	executeTxNonce := utils.HMACTruncated(deployTxKey, utils.Hash(executeTx.Nonce), utils.NonceSize)
+
+	// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
+	// allows validators to reach consesus
+	stateKey := utils.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), utils.AESKeyLength)
+	nonceStateKey := utils.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
+
+	// Init the state encryptor
+	se := stateEncryptorImpl{}
+	err := se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	if err != nil {
+		return nil, err
+	}
+
+	return &se, nil
 }
 
 // Private Methods
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		validator.peer.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		validator.peer.node.log.Error("Registering...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -196,7 +213,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 	// Register node
 	peer := new(peerImpl)
 	if err := peer.register("validator", id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s]: %s", enrollID, err)
+		log.Error("Failed registering", enrollID, err)
 		return err
 	}
 
@@ -226,7 +243,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			validator.peer.node.log.Error("Keystore already initialized.")
 		} else {
-			validator.peer.node.log.Error("Failed initiliazing keystore %s", err)
+			validator.peer.node.log.Error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
@@ -236,7 +253,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	// Init crypto engine
 	err = validator.initCryptoEngine()
 	if err != nil {
-		validator.peer.node.log.Error("Failed initiliazing crypto engine %s", err)
+		validator.peer.node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
@@ -256,7 +273,7 @@ func (validator *validatorImpl) initCryptoEngine() error {
 func (validator *validatorImpl) close() error {
 	if validator.peer != nil {
 		return validator.peer.close()
-	} else {
-		return nil
 	}
+
+	return nil
 }

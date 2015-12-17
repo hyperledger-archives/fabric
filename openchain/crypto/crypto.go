@@ -18,7 +18,7 @@ type Client interface {
 	Entity
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode.
-	NewChaincodeDeployTransaction(chainletDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
 	// NewChaincodeExecute is used to execute chaincode's functions.
 	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
@@ -49,6 +49,7 @@ type Peer interface {
 	// well formed with the respect to the security layer
 	// prescriptions (i.e. signature verification). If this is the case,
 	// the method prepares the transaction to be executed.
+	// TransactionPreExecution returns a clone of tx.
 	TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error)
 
 	// Sign signs msg with this validator's signing key and outputs
@@ -66,6 +67,7 @@ type Peer interface {
 	GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
 }
 
+// StateEncryptor is used to encrypt chaincode's state
 type StateEncryptor interface {
 
 	// Encrypt encrypts message msg

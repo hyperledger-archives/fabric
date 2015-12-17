@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/openblockchain/obc-peer/obcca/protos"
+	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
@@ -200,7 +200,7 @@ func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq)
 		}
 	}
 
-	return &pb.Creds{&pb.Cert{raw}, ecap.eca.obcKey}, nil
+	return &pb.Creds{&pb.Cert{Cert: raw}, ecap.eca.obcKey}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the ECA.

@@ -32,6 +32,7 @@ import (
 	"os"
 	"time"
 
+	// Needed to use sqlite3
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/sha3"
 )

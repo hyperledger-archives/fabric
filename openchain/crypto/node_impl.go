@@ -68,7 +68,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 	// Init Conf
 	if err := node.initConfiguration(prefix, name); err != nil {
-		log.Error("Failed initiliazing configuration [%s]: %s", enrollID, err)
+		log.Error("Failed initiliazing configuration [%s] [%s].", enrollID, err)
 
 		return err
 	}
@@ -80,30 +80,30 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 		node.log.Error("Registering [%s]...done! Registration already performed", enrollID)
 
 		return utils.ErrAlreadyRegistered
-	} else {
-		if err := node.createKeyStorage(); err != nil {
-			node.log.Error("Failed creating key storage: %s", err)
+	}
+	// TODO: handle the error in a better way
+	if err := node.createKeyStorage(); err != nil {
+		node.log.Error("Failed creating key storage [%s].", err.Error())
 
-			return err
-		}
+		return err
+	}
 
-		if err := node.retrieveECACertsChain(enrollID); err != nil {
-			node.log.Error("Failed retrieveing ECA certs chain: %s", err)
+	if err := node.retrieveECACertsChain(enrollID); err != nil {
+		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
-			return err
-		}
+		return err
+	}
 
-		if err := node.retrieveTCACertsChain(enrollID); err != nil {
-			node.log.Error("Failed retrieveing ECA certs chain: %s", err)
+	if err := node.retrieveTCACertsChain(enrollID); err != nil {
+		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
-			return err
-		}
+		return err
+	}
 
-		if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-			node.log.Error("Failed retrieveing enrollment data: %s", err)
+	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
+		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
 
-			return err
-		}
+		return err
 	}
 
 	node.log.Info("Registering [%s]...done!", enrollID)
@@ -137,7 +137,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			node.log.Error("Keystore already initialized.")
 		} else {
-			node.log.Error("Failed initiliazing keystore %s", err)
+			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
@@ -147,7 +147,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	// Init crypto engine
 	err = node.initCryptoEngine()
 	if err != nil {
-		node.log.Error("Failed initiliazing crypto engine %s", err)
+		node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 

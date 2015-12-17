@@ -27,70 +27,90 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
-"github.com/op/go-logging"
+	"github.com/op/go-logging"
 )
 
-func (validator *validatorImpl) decryptTx(tx *obc.Transaction) error {
+func (validator *validatorImpl) decryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
+	if tx.Nonce == nil || len(tx.Nonce) == 0 {
+		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
+	}
+
+	// clone tx
+	clone, err := validator.deepCloneTransaction(tx)
+	if err != nil {
+		validator.peer.node.log.Error("Failed deep cloning [%s].", err.Error())
+		return nil, err
+	}
 
 	// Derive root key
-	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return errors.New("Failed decrypting payload. Invalid nonce.")
-	}
-	key := utils.HMAC(validator.peer.node.enrollChainKey, tx.Nonce)
+	key := utils.HMAC(validator.peer.node.enrollChainKey, clone.Nonce)
 
-	validator.peer.node.log.Info("Deriving from %s", utils.EncodeBase64(validator.peer.node.enrollChainKey))
-	validator.peer.node.log.Info("Nonce %s", utils.EncodeBase64(tx.Nonce))
-	validator.peer.node.log.Info("Derived key %s", utils.EncodeBase64(key))
-	validator.peer.node.log.Info("Encrypted Payload %s", utils.EncodeBase64(tx.EncryptedPayload))
-	validator.peer.node.log.Info("Encrypted ChaincodeID %s", utils.EncodeBase64(tx.EncryptedChaincodeID))
+	//	validator.peer.node.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
+	//	validator.peer.node.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
+	//	validator.peer.node.log.Info("Derived key  ", utils.EncodeBase64(key))
+	//	validator.peer.node.log.Info("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
+	//	validator.peer.node.log.Info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
 
 	// Decrypt using the derived key
 
 	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
-	encryptedPayload := make([]byte, len(tx.EncryptedPayload))
-	copy(encryptedPayload, tx.EncryptedPayload)
+	encryptedPayload := make([]byte, len(clone.EncryptedPayload))
+	copy(encryptedPayload, clone.EncryptedPayload)
 	payload, err := utils.CBCPKCS7Decrypt(payloadKey, encryptedPayload)
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting payload %s", err)
-		return err
+		validator.peer.node.log.Error("Failed decrypting payload [%s].", err.Error())
+		return nil, err
 	}
-	tx.Payload = payload
+	clone.Payload = payload
 
-	chaincodeIdKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
-	encryptedChaincodeID := make([]byte, len(tx.EncryptedChaincodeID))
-	copy(encryptedChaincodeID, tx.EncryptedChaincodeID)
-	rawChaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIdKey, encryptedChaincodeID)
+	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
+	encryptedChaincodeID := make([]byte, len(clone.EncryptedChaincodeID))
+	copy(encryptedChaincodeID, clone.EncryptedChaincodeID)
+	rawChaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, encryptedChaincodeID)
 
 	chaincodeID := &obc.ChaincodeID{}
 	if err := proto.Unmarshal(rawChaincodeID, chaincodeID); err != nil {
-		validator.peer.node.log.Error("Failed decrypting chaincodeID %s", err)
+		validator.peer.node.log.Error("Failed decrypting chaincodeID [%s].", err.Error())
 
-		// Cleanup the decrypted values so far
-
-		tx.Payload = nil
-		tx.ChaincodeID = nil
-
-		return err
+		return nil, err
 	}
-	tx.ChaincodeID = chaincodeID
+	clone.ChaincodeID = chaincodeID
 
-	return nil
+	return clone, nil
 }
 
+func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.Transaction, error) {
+	raw, err := proto.Marshal(tx)
+	if err != nil {
+		validator.peer.node.log.Error("Failed cloning transaction [%s].", err.Error())
+
+		return nil, err
+	}
+
+	clone := &obc.Transaction{}
+	err = proto.Unmarshal(raw, clone)
+	if err != nil {
+		validator.peer.node.log.Error("Failed cloning transaction [%s].", err.Error())
+
+		return nil, err
+	}
+
+	return clone, nil
+}
 
 type stateEncryptorImpl struct {
-	log *logging.Logger
+	log           *logging.Logger
 
-	deployTxKey []byte
+	deployTxKey   []byte
 	invokeTxNonce []byte
 
-	stateKey []byte
+	stateKey      []byte
 	nonceStateKey []byte
 
-	gcmEnc    cipher.AEAD
-	nonceSize int
+	gcmEnc        cipher.AEAD
+	nonceSize     int
 
-	counter uint64
+	counter       uint64
 }
 
 func (se *stateEncryptorImpl) init(logger *logging.Logger, stateKey, nonceStateKey, deployTxKey, invokeTxNonce []byte) error {
@@ -123,8 +143,8 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, se.counter)
 	// TODO: log from validator
-	se.log.Info("Encrypting with counter %s", utils.EncodeBase64(b))
-//	se.log.Info("Encrypting with txNonce %s", utils.EncodeBase64(se.txNonce))
+	se.log.Info("Encrypting with counter [%s].", utils.EncodeBase64(b))
+	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := utils.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
 
@@ -145,14 +165,14 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:utils.NonceSize]
-//	se.log.Info("Decrypting with txNonce %s", utils.EncodeBase64(txNonce))
+	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[utils.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
-//	se.log.Info("Decrypting with key %s", utils.EncodeBase64(key))
+	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -173,14 +193,13 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 }
 
 
-
 type queryStateEncryptor struct {
-	log *logging.Logger
+	log         *logging.Logger
 
 	deployTxKey []byte
 
-	gcmEnc    cipher.AEAD
-	nonceSize int
+	gcmEnc      cipher.AEAD
+	nonceSize   int
 }
 
 func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKey []byte) error {
@@ -188,7 +207,7 @@ func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKe
 	se.log = logger
 	se.deployTxKey = deployTxKey
 
-//	se.log.Info("QUERY Encrypting with key %s", utils.EncodeBase64(queryKey))
+	//	se.log.Info("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
 
 	// Init aes
 	c, err := aes.NewCipher(queryKey)
@@ -210,7 +229,7 @@ func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKe
 func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
 	nonce, err := utils.GetRandomBytes(se.nonceSize)
 	if err != nil {
-		se.log.Error("Failed getting randomness: %s", err)
+		se.log.Error("Failed getting randomness [%s].", err.Error())
 		return nil, err
 	}
 
@@ -229,14 +248,14 @@ func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:utils.NonceSize]
-	//	se.log.Info("Decrypting with txNonce %s", utils.EncodeBase64(txNonce))
+	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[utils.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
-	//	se.log.Info("Decrypting with key %s", utils.EncodeBase64(key))
+	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

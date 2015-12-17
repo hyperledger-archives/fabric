@@ -17,38 +17,15 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package main
+package crypto
 
-import (
-	"io/ioutil"
-	"os"
-	"sync"
-
-	"github.com/openblockchain/obc-peer/obcca/obcca"
-	"github.com/spf13/viper"
-)
-
-func main() {
-	viper.AutomaticEnv()
-	viper.SetConfigName("obcca")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./")
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
+func (client *clientImpl) initCryptoEngine() error {
+	// Load TCertOwnerKDFKey
+	if err := client.loadTCertOwnerKDFKey(nil); err != nil {
+		return err
 	}
 
-	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
-	eca := obcca.NewECA()
-	defer eca.Close()
-
-	tca := obcca.NewTCA(eca)
-	defer tca.Close()
-
-	var wg sync.WaitGroup
-	eca.Start(&wg)
-	tca.Start(&wg)
-
-	wg.Wait()
+	return nil
 }
+
+

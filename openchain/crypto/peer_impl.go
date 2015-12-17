@@ -66,7 +66,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed unmarshalling cert %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
 			return tx, err
 		}
 		// TODO: verify cert
@@ -76,7 +76,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 		tx.Signature = signature
@@ -84,7 +84,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 2. Verify signature
 		ok, err := peer.node.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 
@@ -141,7 +141,7 @@ func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	// Register node
 	node := new(nodeImpl)
 	if err := node.register(prefix, name, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s]: %s", enrollID, err)
+		log.Error("Failed registering [%s]: ", enrollID, err)
 		return err
 	}
 
@@ -179,7 +179,6 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 func (peer *peerImpl) close() error {
 	if peer.node != nil {
 		return peer.node.close()
-	} else {
-		return nil
 	}
+	return nil
 }

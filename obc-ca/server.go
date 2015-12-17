@@ -17,28 +17,38 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package crypto
+package main
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"math/big"
+	"io/ioutil"
+	"os"
+	"sync"
+
+	"github.com/openblockchain/obc-peer/obc-ca/obcca"
+	"github.com/spf13/viper"
 )
 
-func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	node.log.Info("Signing message [%s].", utils.EncodeBase64(msg))
-	return utils.ECDSASign(signKey, msg)
-}
+func main() {
+	viper.AutomaticEnv()
+	viper.SetConfigName("obcca")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
 
-func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	node.log.Info("Signing message direct [%s].", utils.EncodeBase64(msg))
-	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
-}
+	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	node.log.Info("Verifing signature [%s] against message [%s].",
-		utils.EncodeBase64(signature),
-		utils.EncodeBase64(msg),
-	)
+	eca := obcca.NewECA()
+	defer eca.Close()
 
-	return utils.ECDSAVerify(verKey, msg, signature)
+	tca := obcca.NewTCA(eca)
+	defer tca.Close()
+
+	var wg sync.WaitGroup
+	eca.Start(&wg)
+	tca.Start(&wg)
+
+	wg.Wait()
 }
