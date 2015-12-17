@@ -325,6 +325,7 @@ type Checkpoint struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	StateDigest    string `protobuf:"bytes,2,opt,name=state_digest" json:"state_digest,omitempty"`
 	ReplicaId      uint64 `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
+	BlockNumber    uint64 `protobuf:"varint,4,opt,name=block_number" json:"block_number,omitempty"`
 }
 
 func (m *Checkpoint) Reset()         { *m = Checkpoint{} }

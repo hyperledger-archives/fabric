@@ -22,11 +22,11 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -59,6 +59,7 @@ type pbftCore struct {
 	lock     sync.Mutex
 	closed   bool
 	consumer innerCPI
+	stLedger ledger
 
 	// PBFT data
 	activeView   bool              // view change happening
@@ -76,7 +77,7 @@ type pbftCore struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 	hChkpts      map[uint64]uint64 // highest checkpoint sequence number observed for each node
-	outOfDate    bool              // we have fallen behind, and are currently recovering, participate in PBFT, but no request execution
+	stState      stState           // Data structure which handles state transfer
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -145,7 +146,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
 	var err error
 	instance.byzantine = config.GetBool("replica.byzantine")
-	instance.outOfDate = false // TODO This should be set via HELLO processing
 	instance.f = config.GetInt("general.f")
 	instance.K = uint64(config.GetInt("general.K"))
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
@@ -183,6 +183,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.outstandingReqs = make(map[string]*Request)
 
 	go instance.timerHander()
+	go instance.stWatchdog()
 
 	instance.consumer.viewChange(instance.view)
 
@@ -543,6 +544,11 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 }
 
 func (instance *pbftCore) executeOutstanding() error {
+	// Do not attempt to execute requests while we know we are in a bad state
+	if instance.stState.outOfDate {
+		return nil
+	}
+
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -607,6 +613,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 			SequenceNumber: instance.lastExec,
 			StateDigest:    stateHash,
 			ReplicaId:      instance.id,
+			BlockNumber:    instance.lastExec, // TODO, replace this with the block number from the commit (currently valid with no null requests)
 		}
 		instance.chkpts[instance.lastExec] = stateHash
 		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
@@ -662,43 +669,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	H := instance.h + instance.L
-
-	// Track the last observed checkpoint sequence number if it exceeds our high watermark, keyed by replica to prevent unbounded growth
-	if chkpt.SequenceNumber < H {
-		// For non-byzantine nodes, the checkpoint sequence number increases monotonically
-		// We do not track the highest one, as a byzantine node could pick an arbitrarilly high sequence number
-		// and even if it recovered to be non-byzantine, we would still believe it to be far ahead
-		delete(instance.hChkpts, chkpt.ReplicaId)
-	} else {
-		instance.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
-
-		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
-		// we need to check to see if we have fallen behind.
-		if len(instance.hChkpts) >= instance.f+1 {
-			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
-			index := 0
-			for replicaId, hChkpt := range instance.hChkpts {
-				chkptSeqNumArray[index] = hChkpt
-				index++
-				if hChkpt < H {
-					delete(instance.hChkpts, replicaId)
-				}
-			}
-			sort.Sort(sortableUint64Array(chkptSeqNumArray))
-
-			// If f+1 nodes have issued checkpoints above our high water mark, then
-			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
-			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
-			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
-				logger.Warning("Replica is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", chkpt.SequenceNumber, H)
-				instance.outOfDate = true
-				instance.moveWatermarks(m + instance.K)
-			}
-
-			return nil
-		}
-	}
+	stRevcCheckpoint(chkpt) // State transfer tracking
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
@@ -710,14 +681,20 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := 0
+	matching := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
-			quorum++
+			matching++
 		}
 	}
 
-	if quorum <= instance.f*2 {
+	if instance.stState.outOfDate && matching >= instance.f+1 {
+		// We do have a weak cert
+		stCheckpointWeakCert(matching, chkpt)
+	}
+
+	if matching <= instance.f*2 {
+		// We do not have a quorum yet
 		return nil
 	}
 

@@ -81,6 +81,7 @@ message checkpoint {
     uint64 sequence_number = 1;
     string state_digest = 2;
     uint64 replica_id = 3;
+    uint64 block_number = 4;
 }
 
 message view_change {
