@@ -24,8 +24,8 @@ import (
 	"os"
 	"sync"
 
-	"obc-peer/obcca/obcca"
 	"github.com/spf13/viper"
+	"github.com/openblockchain/obc-peer/obcca/obcca"
 )
 
 func main() {
