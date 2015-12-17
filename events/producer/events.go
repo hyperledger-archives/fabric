@@ -22,6 +22,7 @@ package producer
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"sync"
 )
@@ -51,6 +52,12 @@ type eventProcessor struct {
 
 	//we could generalize this with mutiple channels each with its own size
 	eventChannel chan *pb.OpenchainEvent
+
+	//milliseconds timeout for producer to send an event. 
+	//if < 0, if buffer full, unblocks immediately and not send
+	//if 0, if buffer full, will block and guarantee the event will be sent out
+	//if > 0, if buffer full, blocks till timeout
+	timeout int
 }
 
 //global eventProcessor singleton created by initializeEvents. Openchain producers
@@ -99,12 +106,12 @@ func (ep *eventProcessor) start() {
 }
 
 //initialize and start
-func initializeEvents(bufferSize uint) {
+func initializeEvents(bufferSize uint, tout int) {
 	if gEventProcessor != nil {
 		panic("should not be called twice")
 	}
 
-	gEventProcessor = &eventProcessor{eventConsumers: make(map[string]*handlerList), eventChannel: make(chan *pb.OpenchainEvent, bufferSize)}
+	gEventProcessor = &eventProcessor{eventConsumers: make(map[string]*handlerList), eventChannel: make(chan *pb.OpenchainEvent, bufferSize), timeout: tout}
 
 	addInternalEventTypes()
 
@@ -172,16 +179,30 @@ func deRegisterHandler(ie *pb.Interest, h *handler) error {
 
 //Send sends the event to interested consumers
 func Send(e *pb.OpenchainEvent) error {
-	if gEventProcessor == nil {
-		return nil
-	}
-
 	if e.Event == nil {
 		producerLogger.Error("event not set")
 		return fmt.Errorf("event not set")
 	}
 
-	gEventProcessor.eventChannel <- e
+	if gEventProcessor == nil {
+		return nil
+	}
+
+	if gEventProcessor.timeout < 0 {
+		select {
+		case gEventProcessor.eventChannel <- e:
+		default:
+	     	return fmt.Errorf("could not send the blocking event")
+		}
+	} else if gEventProcessor.timeout == 0 {
+		gEventProcessor.eventChannel <- e
+	} else {
+		select {
+		case gEventProcessor.eventChannel <- e:
+		case <-time.After(time.Duration(gEventProcessor.timeout)*time.Millisecond):
+	     	return fmt.Errorf("could not send the blocking event")
+		}
+	}
 
 	return nil
 }

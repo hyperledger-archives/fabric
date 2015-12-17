@@ -98,7 +98,6 @@ func (ec *OpenchainEventsClient) register(ies []*ehpb.Interest) error {
 		default:
 			err = fmt.Errorf("invalid registration object")
 		}
-		regChan <- struct{}{}
 	}()
 	select {
 	case <-regChan:
@@ -115,19 +114,19 @@ func (ec *OpenchainEventsClient) processEvents() error {
 		if err == io.EOF {
 			// read done.
 			if ec.adapter != nil {
-				ec.adapter.Done(nil)
+				ec.adapter.Disconnected(nil)
 			}
 			return nil
 		}
 		if err != nil {
 			if ec.adapter != nil {
-				ec.adapter.Done(err)
+				ec.adapter.Disconnected(err)
 			}
 			return err
 		}
 		if ec.adapter != nil {
-			err = ec.adapter.Recv(in)
-			if err != nil {
+			cont,err := ec.adapter.Recv(in)
+			if !cont {
 				return err
 			}
 		}
@@ -141,9 +140,13 @@ func (ec *OpenchainEventsClient) Start() error {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
 	}
 
-	ies := ec.adapter.GetInterestedEvents()
-	if ies == nil {
-		return fmt.Errorf("no interested events")
+	ies,err := ec.adapter.GetInterestedEvents()
+	if err != nil {
+		return fmt.Errorf("error getting interested events:%s", err)
+	}
+
+	if len(ies) == 0 {
+		return fmt.Errorf("must supply interested events")
 	}
 
 	serverClient := ehpb.NewOpenchainEventsClient(conn)

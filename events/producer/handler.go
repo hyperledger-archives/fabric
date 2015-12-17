@@ -106,10 +106,6 @@ func (d *handler) HandleMessage(msg *pb.OpenchainEvent) error {
 		return fmt.Errorf("Could not register events %s", err)
 	}
 
-	//Send can unblock and make client start sending. We have to register before
-	//we send on the chat stream
-	d.registered = true
-
 	//TODO return supported events.. for now just return the received msg
 	if err := d.ChatStream.Send(msg); err != nil {
 		return fmt.Errorf("Error sending response to %v:  %s", msg, err)

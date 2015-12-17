@@ -46,12 +46,12 @@ var peerAddress string
 var adapter *Adapter
 var obcEHClient *consumer.OpenchainEventsClient
 
-func (a *Adapter) GetInterestedEvents() []*ehpb.Interest {
-	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}
-	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}
+func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest,error) {
+	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}, nil
+	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
 }
 
-func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) error {
+func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) (bool, error) {
 	//fmt.Printf("Adapter received %v\n", msg.Event)
 	switch x := msg.Event.(type) {
 	case *ehpb.OpenchainEvent_Block:
@@ -59,10 +59,10 @@ func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) error {
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
-		return fmt.Errorf("event not set")
+		return false,fmt.Errorf("event not set")
 	default:
 		fmt.Printf("unexpected type %T\n", x)
-		return fmt.Errorf("unexpected type %T", x)
+		return false,fmt.Errorf("unexpected type %T", x)
 	}
 	a.Lock()
 	a.count--
@@ -70,10 +70,10 @@ func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) error {
 		a.notfy <- struct{}{}
 	}
 	a.Unlock()
-	return nil
+	return true, nil
 }
 
-func (a *Adapter) Done(err error) {
+func (a *Adapter) Disconnected(err error) {
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 	}
@@ -157,7 +157,8 @@ func TestMain(m *testing.M) {
 	}
 
 	// Register EventHub server
-	ehServer := producer.NewOpenchainEventsServer(100)
+	// use a buffer of 100 and blocking timeout
+	ehServer := producer.NewOpenchainEventsServer(100, 0)
 	ehpb.RegisterOpenchainEventsServer(grpcServer, ehServer)
 
 	fmt.Printf("Starting events server\n")

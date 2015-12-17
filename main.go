@@ -279,7 +279,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 		}
 
 		grpcServer = grpc.NewServer(opts...)
-		ehServer := producer.NewOpenchainEventsServer(uint(viper.GetInt("peer.validator.events.buffersize")))
+		ehServer := producer.NewOpenchainEventsServer(uint(viper.GetInt("peer.validator.events.buffersize")), viper.GetInt("peer.validator.events.timeout"))
 		pb.RegisterOpenchainEventsServer(grpcServer, ehServer)
 	}
 	return lis, grpcServer, err

@@ -41,12 +41,12 @@ type OpenchainEventsServer struct {
 var globalOpenchainEventsServer *OpenchainEventsServer
 
 // NewOpenchainEventsServer returns a OpenchainEventsServer
-func NewOpenchainEventsServer(bufferSize uint) *OpenchainEventsServer {
+func NewOpenchainEventsServer(bufferSize uint, timeout int) *OpenchainEventsServer {
 	if globalOpenchainEventsServer != nil {
 		panic("Cannot create multiple event hub servers")
 	}
 	globalOpenchainEventsServer = new(OpenchainEventsServer)
-	initializeEvents(bufferSize)
+	initializeEvents(bufferSize, timeout)
 	return globalOpenchainEventsServer
 }
 
