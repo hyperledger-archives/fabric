@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package consumer
+package producer
 
 import (
 	ehpb "github.com/openblockchain/obc-peer/protos"

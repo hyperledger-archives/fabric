@@ -46,7 +46,7 @@ var peerAddress string
 var adapter *Adapter
 var obcEHClient *consumer.OpenchainEventsClient
 
-func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest,error) {
+func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}, nil
 	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
 }
@@ -59,10 +59,10 @@ func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) (bool, error) {
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
-		return false,fmt.Errorf("event not set")
+		return false, fmt.Errorf("event not set")
 	default:
 		fmt.Printf("unexpected type %T\n", x)
-		return false,fmt.Errorf("unexpected type %T", x)
+		return false, fmt.Errorf("unexpected type %T", x)
 	}
 	a.Lock()
 	a.count--
@@ -80,7 +80,7 @@ func (a *Adapter) Disconnected(err error) {
 }
 
 func createTestBlock() *ehpb.OpenchainEvent {
-	emsg := consumer.CreateBlockEvent(&ehpb.Block{ProposerID: "proposer", Transactions: []*ehpb.Transaction{}})
+	emsg := producer.CreateBlockEvent(&ehpb.Block{ProposerID: "proposer", Transactions: []*ehpb.Transaction{}})
 	return emsg
 }
 

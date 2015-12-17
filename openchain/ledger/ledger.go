@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
@@ -112,6 +113,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		success = false
 		return dbErr
 	}
+	producer.CreateBlockEvent(block)
 	return nil
 }
 
@@ -251,7 +253,12 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 // PutRawBlock puts a raw block on the chain. This function should only be
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
-	return ledger.blockchain.persistRawBlock(block, blockNumber)
+	err := ledger.blockchain.persistRawBlock(block, blockNumber)
+	if err != nil {
+		return err
+	}
+	producer.CreateBlockEvent(block)
+	return nil
 }
 
 // VerifyChain will verify the integrety of the blockchain. This is accomplished
