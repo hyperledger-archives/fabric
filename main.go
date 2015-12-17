@@ -278,11 +278,12 @@ func serve(args []string) error {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
 	if chaincodeDevMode {
-		logger.Debug("In chaincode development mode [consensus - noops, chaincode run by - user, peer mode - validator]")
+		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
 		viper.Set("peer.validator.enabled", "true")
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
+	logger.Info("Security enabled status: %t", viper.GetBool("peer.validator.enabled"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -300,10 +301,10 @@ func serve(args []string) error {
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validator - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
-		logger.Debug("Running as peer")
+		logger.Debug("Running as non-validating peer")
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
@@ -353,9 +354,11 @@ func serve(args []string) error {
 	}()
 
 	// Deploy the geneis block if needed.
-	makeGeneisError := genesis.MakeGenesis()
-	if makeGeneisError != nil {
-		return makeGeneisError
+	if viper.GetBool("peer.validator.enabled") {
+		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		if makeGeneisError != nil {
+			return makeGeneisError
+		}
 	}
 
 	// Block until grpc server exits
@@ -406,11 +409,10 @@ func login(args []string) {
 		return
 	}
 
-	localStore := viper.GetString("peer.fileSystemPath")
-	if !strings.HasSuffix(localStore, "/") {
-		localStore = localStore + "/"
-	}
-	localStore = localStore + "cli/"
+	// Retrieve the CLI data storage path
+	// Returns /var/openchain/production/cli/
+	localStore := getCliFilePath()
+	logger.Info("Peer local data store for CLI: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -420,7 +422,7 @@ func login(args []string) {
 
 	// User is not logged in, prompt for password
 	fmt.Printf("Enter password for user '%s': ", args[0])
-	pw := gopass.GetPasswd()
+	pw := gopass.GetPasswdMasked()
 
 	// Log in the user
 	logger.Info("Logging in user '%s'...\n", args[0])
@@ -442,11 +444,11 @@ func login(args []string) {
 		// Store the client login token for future use
 		logger.Info("Login successful for user '%s'.\n", args[0])
 
-		// If .client directory does not exist, create it
+		// If /var/openchain/production/cli/ directory does not exist, create it
 		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
-				if err := os.Mkdir("localStore", 644); err != nil {
+				if err := os.Mkdir(localStore, 0755); err != nil {
 					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
@@ -457,7 +459,7 @@ func login(args []string) {
 
 		// Store client security context into a file
 		logger.Info("Storing login token for user '%s'.\n", args[0])
-		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0644)
+		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
@@ -466,6 +468,15 @@ func login(args []string) {
 	}
 
 	return
+}
+
+func getCliFilePath() string {
+	localStore := viper.GetString("peer.fileSystemPath")
+	if !strings.HasSuffix(localStore, "/") {
+		localStore = localStore + "/"
+	}
+	localStore = localStore + "cli/"
+	return localStore
 }
 
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
@@ -586,12 +597,16 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 			return
 		}
 
+		// Retrieve the CLI data storage path
+		// Returns /var/openchain/production/cli/
+		localStore := getCliFilePath()
+
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user is already logged in. Retrieving login token.\n")
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
-			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
 			}
@@ -655,12 +670,16 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 			return
 		}
 
+		// Retrieve the CLI data storage path
+		// Returns /var/openchain/production/cli/
+		localStore := getCliFilePath()
+
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(".client/loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user is already logged in. Retrieving login token.\n")
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
-			token, err := ioutil.ReadFile(".client/loginToken_" + chaincodeUsr)
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
 			}

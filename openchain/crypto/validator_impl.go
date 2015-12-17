@@ -24,6 +24,8 @@ import (
 	"crypto/x509"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
+"errors"
+	"reflect"
 )
 
 // Public Struct
@@ -70,6 +72,21 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		return nil, utils.ErrNotInitialized
 	}
 
+	switch tx.ConfidentialityLevel {
+	case obc.Transaction_CHAINCODE_PUBLIC:
+		// TODO: Nothing to do here?
+
+		break
+	case obc.Transaction_CHAINCODE_CONFIDENTIAL:
+		// Decrypt payload
+		err := validator.decryptTx(tx)
+		if err != nil {
+			validator.peer.node.log.Error("Failed decrypting: %s", err)
+
+			return nil, err
+		}
+	}
+
 	return tx, nil
 }
 
@@ -104,22 +121,59 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 	return nil
 }
 
+func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
+	// Check nonce
+	if deployTx.Nonce == nil || len(deployTx.Nonce) == 0 {
+		return nil, errors.New("Failed getting state ES. Invalid deploy nonce.")
+	}
+	if executeTx.Nonce == nil || len(executeTx.Nonce) == 0 {
+		return nil, errors.New("Failed getting state ES. Invalid invoke nonce.")
+	}
+	// Check ChaincodeID
+	if deployTx.ChaincodeID == nil {
+		return nil, errors.New("Invalid deploy chaincodeID.")
+	}
+	if executeTx.ChaincodeID == nil {
+		return nil, errors.New("Invalid execute chaincodeID.")
+	}
+	// Check that deployTx and executeTx refers to the same chaincode
+	if !reflect.DeepEqual(deployTx.ChaincodeID, executeTx.ChaincodeID) {
+		return nil, utils.ErrDirrentChaincodeID
+	}
+
+	// Derive root key from the deploy transaction
+	txKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
+
+	stateKey := utils.HMACTruncated(txKey, append([]byte{3}, executeTx.Nonce...), utils.AESKeyLength)
+	nonceStateKey := utils.HMAC(txKey, append([]byte{4}, executeTx.Nonce...))
+
+	sei := stateEncryptorImpl{}
+	err := sei.init(validator.peer.node.log, stateKey, nonceStateKey, txKey, executeTx.Nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sei, nil
+}
+
 // Private Methods
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		validator.peer.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
 	peer := new(peerImpl)
 	if err := peer.register("validator", id, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s]: %s", enrollID, err)
 		return err
 	}
+
 	validator.peer = peer
-	validator.isInitialized = true
+
 	return nil
 }
 
@@ -127,7 +181,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	if validator.isInitialized {
 		validator.peer.node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
@@ -172,5 +226,9 @@ func (validator *validatorImpl) initCryptoEngine() error {
 }
 
 func (validator *validatorImpl) close() error {
-	return validator.peer.close()
+	if validator.peer != nil {
+		return validator.peer.close()
+	} else {
+		return nil
+	}
 }

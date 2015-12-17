@@ -52,7 +52,9 @@ func RegisterValidator(id string, pwd []byte, enrollID, enrollPWD string) error 
 	if err := validator.register(id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
 
-		return err
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			return err
+		}
 	}
 	err := validator.close()
 	if err != nil {

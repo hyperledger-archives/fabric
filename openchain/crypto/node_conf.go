@@ -147,3 +147,20 @@ func (conf *configuration) getECACertsChainPath() string {
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
+
+func (conf *configuration) getEnrollmentChainKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentChainKeyFilename())
+}
+
+func (conf *configuration) getEnrollmentChainKeyFilename() string {
+	return "chain.key"
+}
+
+func (conf *configuration) getTCertOwnerKDFKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getTCertOwnerKDFKeyFilename())
+}
+
+func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
+	return "tca.kdf.key"
+}
+

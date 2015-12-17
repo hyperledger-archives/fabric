@@ -33,6 +33,11 @@ func (node *nodeImpl) initCryptoEngine() error {
 		return err
 	}
 
+	// Load enrollment chain key
+	if err := node.loadEnrollmentChainKey(nil); err != nil {
+		return err
+	}
+
 	node.log.Info("Initialing Crypto Engine...done!")
 
 	return nil

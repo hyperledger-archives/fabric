@@ -22,7 +22,6 @@ package helper
 import (
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
@@ -32,16 +31,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-// =============================================================================
-// Init
-// =============================================================================
-
-var logger *logging.Logger // package-level logger
-
-func init() {
-	logger = logging.MustGetLogger("consensus/helper")
-}
 
 // =============================================================================
 // Structure definitions go here
@@ -145,7 +134,7 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 // one-by-one. If all the executions are successful, it returns
 // the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs, h.coordinator.GetSecHelper())
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs

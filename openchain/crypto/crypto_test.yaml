@@ -9,24 +9,11 @@ eca:
         # location on file system
         path: .obcca
 
-        pport: 53051
-
     users:
         user1: 9gvZQRwhUq9q
         user2: 9gvZQRwhUq9q
-        user3: 9gvZQRwhUq9q
-        user4: 9gvZQRwhUq9q
-        user5: 9gvZQRwhUq9q
         validator: 9gvZQRwhUq9q
         peer: 9gvZQRwhUq9q
-
-tca:
-    # TCA's settings
-    crypto:
-        # location on file system
-        path: .obcca
-
-        pport: 53551
 
 ports:
         ecaP: ":53051"
@@ -65,12 +52,12 @@ tests:
 
         users:
 
-            user4:
-                enrollid: user4
+            user1:
+                enrollid: user1
                 enrollpw: 9gvZQRwhUq9q
 
-            user5:
-                enrollid: user5
+            user2:
+                enrollid: user2
                 enrollpw: 9gvZQRwhUq9q
 
             validator:

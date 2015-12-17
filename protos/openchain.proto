@@ -38,8 +38,20 @@ message Transaction {
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
-    bytes cert = 6;
-    bytes signature = 7;
+
+    // Confidentiality fields
+    enum CType {
+        CHAINCODE_PUBLIC = 0;
+        CHAINCODE_CONFIDENTIAL = 1;
+    }
+    CType confidentialityLevel = 6;
+    bytes nonce = 7;
+
+    bytes encryptedChaincodeID = 8;
+    bytes encryptedPayload = 9;
+
+    bytes cert = 10;
+    bytes signature = 11;
 }
 
 // TransactionBlock carries a batch of transactions.
