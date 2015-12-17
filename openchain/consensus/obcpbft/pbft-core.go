@@ -711,6 +711,9 @@ func (instance *pbftCore) stopTimer() {
 	if instance.closed {
 		return
 	}
+	// XXX draining here does not help completely, because the
+	// timer handler goroutine may already have consumed the
+	// timeout and now is blocked on Lock()
 loopNewView:
 	for {
 		select {
