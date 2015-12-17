@@ -21,7 +21,7 @@ package crypto
 
 import (
 	"crypto/x509"
-	obcca "github.com/openblockchain/obc-peer/obcca/protos"
+	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 )
@@ -36,12 +36,12 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 	// Retrieve from the DB or from the ECA in case
 	rawCert, err := validator.peer.node.ks.GetEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
-		validator.peer.node.log.Error("Failed getting enrollment certificate for [%s]: %s", sid, err)
+		validator.peer.node.log.Error("Failed getting enrollment certificate for ", sid, err)
 	}
 
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
-		validator.peer.node.log.Error("Failed parsing enrollment certificate for [%s]: %s", sid, utils.EncodeBase64(rawCert))
+		validator.peer.node.log.Error("Failed parsing enrollment certificate for ", sid, utils.EncodeBase64(rawCert))
 	}
 
 	validator.enrollCerts[sid] = cert
@@ -53,10 +53,10 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 	// Prepare the request
 	validator.peer.node.log.Info("Reading certificate for hash " + utils.EncodeBase64(id))
 
-	req := &obcca.ECertReadReq{&obcca.Identity{Id: ""}, id}
+	req := &obcca.ECertReadReq{Id: &obcca.Identity{Id: ""}, Hash: id}
 	pbCert, err := validator.peer.node.callECAReadCertificate(context.Background(), req)
 	if err != nil {
-		validator.peer.node.log.Error("Failed requesting enrollment certificate: %s", err)
+		validator.peer.node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, err
 	}

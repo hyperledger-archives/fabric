@@ -32,6 +32,7 @@ func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)
 }
 
+// PrivateKeyToPEM converts a private key to PEM
 func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -43,7 +44,7 @@ func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 
 		return pem.EncodeToMemory(
 			&pem.Block{
-				Type:  "ECDSA PRIVATE KEY",
+				Type: "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			},
 		), nil
@@ -52,6 +53,7 @@ func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 	}
 }
 
+// PrivateKeyToEncryptedPEM converts a private key to an encrypted PEM
 func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -129,6 +131,7 @@ func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	return cert, err
 }
 
+// PEMtoAES extracts from the PEM an AES key
 func PEMtoAES(raw []byte, pwd []byte) ([]byte, error) {
 	block, _ := pem.Decode(raw)
 
@@ -147,10 +150,12 @@ func PEMtoAES(raw []byte, pwd []byte) ([]byte, error) {
 	return block.Bytes, nil
 }
 
+// AEStoPEM encapsulates an AES key in the PEM format
 func AEStoPEM(raw []byte) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "AES PRIVATE KEY", Bytes: raw})
 }
 
+// AEStoEncryptedPEM encapsulates an AES key in the encrypted PEM format
 func AEStoEncryptedPEM(raw []byte, pwd []byte) ([]byte, error) {
 	block, err := x509.EncryptPEMBlock(
 		rand.Reader,

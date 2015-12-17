@@ -26,13 +26,11 @@ import (
 
 func (client *clientImpl) initKeyStore() error {
 	// create tables
-	client.node.ks.log.Debug("Create Table [%s] at [%s]", "TCert", client.node.ks.conf.getKeyStorePath())
+	client.node.ks.log.Debug("Create Table if not exists [TCert] at [%s].", client.node.ks.conf.getKeyStorePath())
 	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.ks.log.Debug("Failed creating table: %s", err)
+		client.node.ks.log.Debug("Failed creating table [%s].", err.Error())
 		return err
 	}
-
-	client.node.ks.log.Debug("keystore created at [%s]", client.node.ks.conf.getKeyStorePath())
 
 	return nil
 }
@@ -43,11 +41,11 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 
 	cert, err := ks.selectNextTCert()
 	if err != nil {
-		ks.log.Error("Failed selecting next TCert: %s", err)
+		ks.log.Error("Failed selecting next TCert [%s].", err.Error())
 
 		return nil, err
 	}
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
+	ks.log.Info("cert [%s].", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No TCert is available, fetch new ones, store them and return the first available.
@@ -63,28 +61,28 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 		ks.log.Info("Store them...")
 		tx, err := ks.sqlDB.Begin()
 		if err != nil {
-			ks.log.Error("Failed beginning transaction: %s", err)
+			ks.log.Error("Failed beginning transaction [%s].", err.Error())
 
 			return nil, err
 		}
 
 		for i, cert := range certs {
-			ks.log.Info("Insert index %d", i)
+			ks.log.Info("Insert index [%d]", i)
 
-			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
-			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
+			//			db.log.Info("Insert key  ", utils.EncodeBase64(keys[i]))
+			ks.log.Info("Insert cert [%s].", utils.EncodeBase64(cert))
 
 			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
 			if err != nil {
-				ks.log.Error("Failed inserting cert %s", err)
+				ks.log.Error("Failed inserting cert [%s].", err.Error())
 				continue
 			}
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			ks.log.Error("Failed committing transaction: %s", err)
+			ks.log.Error("Failed committing transaction [%s].", err.Error())
 
 			tx.Rollback()
 
@@ -95,7 +93,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 
 		cert, err = ks.selectNextTCert()
 		if err != nil {
-			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
+			ks.log.Error("Failed selecting next TCert after fetching [%s].", err.Error())
 
 			return nil, err
 		}
@@ -112,7 +110,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
 	if err != nil {
-		ks.log.Error("Failed beginning transaction: %s", err)
+		ks.log.Error("Failed beginning transaction [%s].", err.Error())
 
 		return nil, err
 	}
@@ -126,13 +124,13 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
-		ks.log.Error("Error during select: %s", err)
+		ks.log.Error("Error during select [%s].", err.Error())
 
 		return nil, err
 	}
 
-	ks.log.Info("id %d", id)
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
+	ks.log.Info("id [%d]", id)
+	ks.log.Info("cert [%s].", utils.EncodeBase64(cert))
 
 	// TODO: rather than removing, move the cert to another table
 	// which stores the TCerts used
@@ -141,7 +139,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	ks.log.Info("Removing row with id [%d]...", id)
 
 	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		ks.log.Error("Failed removing row [%d]: %s", id, err)
+		ks.log.Error("Failed removing row [%d] [%s].", id, err.Error())
 
 		tx.Rollback()
 
@@ -153,7 +151,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	// Finalize
 	err = tx.Commit()
 	if err != nil {
-		ks.log.Error("Failed commiting: %s", err)
+		ks.log.Error("Failed commiting [%s].", err.Error())
 		tx.Rollback()
 
 		return nil, err

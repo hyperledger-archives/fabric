@@ -30,10 +30,14 @@ import (
 )
 
 const (
+	// AESKeyLength is the default AES key length
 	AESKeyLength = 32
+
+	// NonceSize is the default NonceSize
 	NonceSize    = 24
 )
 
+// GenAESKey returns a random AES key of length AESKeyLength
 func GenAESKey() ([]byte, error) {
 	return GetRandomBytes(AESKeyLength)
 }
