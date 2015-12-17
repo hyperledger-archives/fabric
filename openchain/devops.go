@@ -164,8 +164,9 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	if err != nil {
 		return nil, err
 	}
-
-	devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
+	if devopsLogger.IsEnabledFor(logging.DEBUG) {
+		devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
+	}
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
@@ -196,8 +197,7 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 		if invokeTx {
 			tx, err = sec.NewChaincodeExecute(spec, uuid)
 		} else {
-			// TODO: this function not available yet
-			//tx, err = sec.NewChaincodeQuery(spec, uuid)
+			tx, err = sec.NewChaincodeQuery(spec, uuid)
 		}
 		if nil != err {
 			return nil, err
