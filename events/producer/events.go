@@ -22,9 +22,10 @@ package producer
 import (
 	"encoding/json"
 	"fmt"
-	"time"
-	pb "github.com/openblockchain/obc-peer/protos"
 	"sync"
+	"time"
+
+	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 //---- event hub framework ----
@@ -53,7 +54,7 @@ type eventProcessor struct {
 	//we could generalize this with mutiple channels each with its own size
 	eventChannel chan *pb.OpenchainEvent
 
-	//milliseconds timeout for producer to send an event. 
+	//milliseconds timeout for producer to send an event.
 	//if < 0, if buffer full, unblocks immediately and not send
 	//if 0, if buffer full, will block and guarantee the event will be sent out
 	//if > 0, if buffer full, blocks till timeout
@@ -65,7 +66,7 @@ type eventProcessor struct {
 var gEventProcessor *eventProcessor
 
 func (ep *eventProcessor) start() {
-	producerLogger.Error("event processor started")
+	producerLogger.Info("event processor started")
 	for {
 		//wait for event
 		e := <-ep.eventChannel
@@ -192,15 +193,15 @@ func Send(e *pb.OpenchainEvent) error {
 		select {
 		case gEventProcessor.eventChannel <- e:
 		default:
-	     	return fmt.Errorf("could not send the blocking event")
+			return fmt.Errorf("could not send the blocking event")
 		}
 	} else if gEventProcessor.timeout == 0 {
 		gEventProcessor.eventChannel <- e
 	} else {
 		select {
 		case gEventProcessor.eventChannel <- e:
-		case <-time.After(time.Duration(gEventProcessor.timeout)*time.Millisecond):
-	     	return fmt.Errorf("could not send the blocking event")
+		case <-time.After(time.Duration(gEventProcessor.timeout) * time.Millisecond):
+			return fmt.Errorf("could not send the blocking event")
 		}
 	}
 
