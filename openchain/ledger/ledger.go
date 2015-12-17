@@ -113,7 +113,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		success = false
 		return dbErr
 	}
-	producer.CreateBlockEvent(block)
+	producer.Send(producer.CreateBlockEvent(block))
 	return nil
 }
 
@@ -257,7 +257,7 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 	if err != nil {
 		return err
 	}
-	producer.CreateBlockEvent(block)
+	producer.Send(producer.CreateBlockEvent(block))
 	return nil
 }
 
