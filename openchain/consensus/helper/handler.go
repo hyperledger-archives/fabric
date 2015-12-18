@@ -109,7 +109,8 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 		}
 	}
 	// Send response back to the requester
-	if nil != response {
+	// response will not be nil on error
+	if nil == response {
 		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
 	}
 	payload, err := proto.Marshal(response)
@@ -143,7 +144,8 @@ func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
 				logger.Debug("Failed to verify transaction %v", err)
 			}
 		}
-		if nil != response {
+		// execute if response nil (ie, no error)
+		if nil == response {
 			result, err := chaincode.Execute(context.Background(),
 				chaincode.GetChain(chaincode.DefaultChain), tx, secHelper)
 			if err != nil {
