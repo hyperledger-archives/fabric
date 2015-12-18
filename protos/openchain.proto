@@ -19,6 +19,7 @@ package protos;
 import "chaincode.proto";
 import "google/protobuf/timestamp.proto";
 
+
 // Transaction defines a function call to a contract.
 // `args` is an array of type string so that the chaincode writer can choose
 // whatever format they wish for the arguments for their chaincode.
@@ -38,8 +39,15 @@ message Transaction {
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
-    bytes cert = 6;
-    bytes signature = 7;
+
+    ConfidentialityLevel confidentialityLevel = 6;
+    bytes nonce = 7;
+
+    bytes encryptedChaincodeID = 8;
+    bytes encryptedPayload = 9;
+
+    bytes cert = 10;
+    bytes signature = 11;
 }
 
 // TransactionBlock carries a batch of transactions.

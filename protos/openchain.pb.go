@@ -168,13 +168,17 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type        Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
-	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
+	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	ConfidentialityLevel ConfidentialityLevel       `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
+	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	EncryptedChaincodeID []byte                     `protobuf:"bytes,8,opt,name=encryptedChaincodeID,proto3" json:"encryptedChaincodeID,omitempty"`
+	EncryptedPayload     []byte                     `protobuf:"bytes,9,opt,name=encryptedPayload,proto3" json:"encryptedPayload,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,10,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,11,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }

@@ -31,6 +31,7 @@ It has these top-level messages:
 	TLSCertRevokeReq
 	Cert
 	CertSet
+	Creds
 */
 package protos
 
@@ -605,6 +606,22 @@ func (m *CertSet) Reset()         { *m = CertSet{} }
 func (m *CertSet) String() string { return proto.CompactTextString(m) }
 func (*CertSet) ProtoMessage()    {}
 
+type Creds struct {
+	Cert *Cert  `protobuf:"bytes,1,opt,name=cert" json:"cert,omitempty"`
+	Key  []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (m *Creds) Reset()         { *m = Creds{} }
+func (m *Creds) String() string { return proto.CompactTextString(m) }
+func (*Creds) ProtoMessage()    {}
+
+func (m *Creds) GetCert() *Cert {
+	if m != nil {
+		return m.Cert
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("protos.CryptoType", CryptoType_name, CryptoType_value)
 	proto.RegisterEnum("protos.CAStatus_StatusCode", CAStatus_StatusCode_name, CAStatus_StatusCode_value)
@@ -617,7 +634,7 @@ var _ grpc.ClientConn
 // Client API for ECAP service
 
 type ECAPClient interface {
-	CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Cert, error)
+	CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Creds, error)
 	ReadCertificate(ctx context.Context, in *ECertReadReq, opts ...grpc.CallOption) (*Cert, error)
 	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -630,8 +647,8 @@ func NewECAPClient(cc *grpc.ClientConn) ECAPClient {
 	return &eCAPClient{cc}
 }
 
-func (c *eCAPClient) CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Cert, error) {
-	out := new(Cert)
+func (c *eCAPClient) CreateCertificate(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*Creds, error) {
+	out := new(Creds)
 	err := grpc.Invoke(ctx, "/protos.ECAP/CreateCertificate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -660,7 +677,7 @@ func (c *eCAPClient) RevokeCertificate(ctx context.Context, in *ECertRevokeReq, 
 // Server API for ECAP service
 
 type ECAPServer interface {
-	CreateCertificate(context.Context, *ECertCreateReq) (*Cert, error)
+	CreateCertificate(context.Context, *ECertCreateReq) (*Creds, error)
 	ReadCertificate(context.Context, *ECertReadReq) (*Cert, error)
 	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
 }

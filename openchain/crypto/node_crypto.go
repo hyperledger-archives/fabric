@@ -3,7 +3,7 @@ package crypto
 import "crypto/x509"
 
 func (node *nodeImpl) initCryptoEngine() error {
-	node.log.Info("Initialing Crypto Engine...")
+	node.log.Info("Initializing node crypto engine...")
 
 	node.rootsCertPool = x509.NewCertPool()
 
@@ -33,7 +33,12 @@ func (node *nodeImpl) initCryptoEngine() error {
 		return err
 	}
 
-	node.log.Info("Initialing Crypto Engine...done!")
+	// Load enrollment chain key
+	if err := node.loadEnrollmentChainKey(nil); err != nil {
+		return err
+	}
+
+	node.log.Info("Initializing node crypto engine...done!")
 
 	return nil
 }

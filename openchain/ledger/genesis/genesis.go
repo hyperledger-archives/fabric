@@ -29,8 +29,8 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 )
@@ -42,7 +42,7 @@ var once sync.Once
 
 // MakeGenesis creates the genesis block based on configuration in openchain.yaml
 // and adds it to the blockchain.
-func MakeGenesis() error {
+func MakeGenesis(secCxt crypto.Peer) error {
 	once.Do(func() {
 		ledger, err := ledger.GetLedger()
 		if err != nil {
@@ -158,7 +158,7 @@ func MakeGenesis() error {
 				spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
 			}
 
-			transaction, _, deployErr := DeployLocal(context.Background(), &spec)
+			transaction, _, deployErr := DeployLocal(context.Background(), &spec, secCxt)
 			if deployErr != nil {
 				genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
 				makeGenesisError = deployErr
@@ -204,7 +204,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Transaction, []byte, error) {
+func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, secCxt crypto.Peer) (*protos.Transaction, []byte, error) {
 	// First build and get the deployment spec
 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
@@ -212,18 +212,15 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Trans
 		genesisLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
 		return nil, nil, err
 	}
-	//devopsLogger.Debug("returning status: %s", status)
+
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		genesisLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
-		return nil, nil, uuidErr
-	}
+	// The UUID must not be random so it will match on all peers.
+	uuid := "genesis_" + spec.GetChaincodeID().Url + "_" + spec.GetChaincodeID().Version
 	transaction, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
-	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction, secCxt)
 	return transaction, result, err
 }

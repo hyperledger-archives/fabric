@@ -23,6 +23,7 @@ rest:
 
 
 
+
 ###############################################################################
 #
 #    Peer section
@@ -30,7 +31,7 @@ rest:
 ###############################################################################
 peer:
 
-    # Peeer Version following version semantics as described here http://semver.org/
+    # Peer Version following version semantics as described here http://semver.org/
     # The Peer supplies this version in communications with other Peers
     version:  0.1.0
 
@@ -81,6 +82,13 @@ peer:
     gomaxprocs: 2
     workers: 2
 
+    # Sync related configuration
+    sync:
+        blocks:
+            # Channel size for readonly SyncBlocks messages channel for receiving blocks from oppositie Peer Endpoints.
+            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+            channelSize: 1
+
     # Validator defines whether this peer is a validating peer or not, and if
     # it is enabled, what consensus plugin to load
     validator:
@@ -92,6 +100,19 @@ peer:
         # List of validating peers. For MVP, assume list is static.
         replicas: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
 
+        events:
+            # The address that the Event service will be enabled on the validator
+            address: 0.0.0.0:31315
+
+            # total number of events that could be buffered without blocking the validator sends
+            buffersize: 100
+
+            # milliseconds timeout for producer to send an event. 
+            # if < 0, if buffer full, unblocks immediately and not send
+            # if 0, if buffer full, will block and guarantee the event will be sent out
+            # if > 0, if buffer full, blocks till timeout
+            timeout: 10
+
     # TLS Settings for p2p communications
     tls:
         enabled:  false
@@ -101,6 +122,13 @@ peer:
             file: testdata/server1.key
         # The server name use to verify the hostname returned by TLS handshake
         server-host-override:
+
+    # PKI member services properties
+    pki:
+        eca:
+            paddr: localhost:50051
+        tca:
+            paddr: localhost:50551
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
@@ -260,7 +288,7 @@ security:
     enabled: false
     # To enroll NVP or VP with Member Services PKI. These parameters are for
     # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: jane
-    enrollSecret: bedtimeatdawn
+    enrollID: nepumuk
+    enrollSecret: 9gvZQRwhUq9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false

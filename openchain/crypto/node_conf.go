@@ -181,3 +181,19 @@ func (conf *configuration) getTLSCertFilename() string {
 //func (conf *configuration) getAffiliation() string {
 //	return viper.GetString(Affiliation)
 //}
+
+func (conf *configuration) getEnrollmentChainKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentChainKeyFilename())
+}
+
+func (conf *configuration) getEnrollmentChainKeyFilename() string {
+	return "chain.key"
+}
+
+func (conf *configuration) getTCertOwnerKDFKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getTCertOwnerKDFKeyFilename())
+}
+
+func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
+	return "tca.kdf.key"
+}

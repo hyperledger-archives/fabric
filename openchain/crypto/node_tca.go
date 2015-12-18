@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/openblockchain/obc-peer/obcca/protos"
+	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 
 	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -35,26 +35,26 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	// Retrieve TCA certificate and verify it
 	tcaCertRaw, err := node.getTCACertificate()
 	if err != nil {
-		node.log.Error("Failed getting TCA certificate %s", err)
+		node.log.Error("Failed getting TCA certificate [%s].", err.Error())
 
 		return err
 	}
-	node.log.Info("Register:TCAcert %s", utils.EncodeBase64(tcaCertRaw))
+	node.log.Debug("TCA certificate [%s]", utils.EncodeBase64(tcaCertRaw))
 
 	// TODO: Test TCA cert againt root CA
 	_, err = utils.DERToX509Certificate(tcaCertRaw)
 	if err != nil {
-		node.log.Error("Failed parsing TCA certificate %s", err)
+		node.log.Error("Failed parsing TCA certificate [%s].", err.Error())
 
 		return err
 	}
 
 	// Store TCA cert
-	node.log.Info("Storing TCA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing TCA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {
-		node.log.Error("Failed storing tca certificate: %s", err)
+		node.log.Error("Failed storing tca certificate [%s].", err.Error())
 		return err
 	}
 
@@ -63,11 +63,11 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 
 func (node *nodeImpl) loadTCACertsChain() error {
 	// Load TCA certs chain
-	node.log.Info("Loading TCA certificates chain at %s...", node.conf.getTCACertsChainPath())
+	node.log.Debug("Loading TCA certificates chain at [%s]...", node.conf.getTCACertsChainPath())
 
 	chain, err := ioutil.ReadFile(node.conf.getTCACertsChainPath())
 	if err != nil {
-		node.log.Error("Failed loading TCA certificates chain : %s", err.Error())
+		node.log.Error("Failed loading TCA certificates chain [%s].", err.Error())
 
 		return err
 	}
@@ -85,7 +85,7 @@ func (node *nodeImpl) loadTCACertsChain() error {
 func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	sockP, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		node.log.Error("Failed tca dial in: %s", err)
+		node.log.Error("Failed tca dial in [%s].", err.Error())
 
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCer
 
 	cert, err := tcaP.ReadCertificate(context.Background(), in)
 	if err != nil {
-		node.log.Error("Failed requesting tca read certificate: %s", err)
+		node.log.Error("Failed requesting tca read certificate [%s].", err.Error())
 
 		return nil, err
 	}
@@ -104,22 +104,18 @@ func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCer
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	node.log.Info("getTCACertificate...")
-
 	// Prepare the request
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
-	req := &obcca.TCertReadReq{&timestamp, &obcca.Identity{Id: "tca-root"}, nil}
+	req := &obcca.TCertReadReq{Ts: &timestamp, Id: &obcca.Identity{Id: "tca-root"}, Sig: nil}
 	pbCert, err := node.callTCAReadCertificate(context.Background(), req)
 	if err != nil {
-		node.log.Error("Failed requesting tca certificate: %s", err)
+		node.log.Error("Failed requesting tca certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
 	// TODO Verify pbCert.Cert
-
-	node.log.Info("getTCACertificate...done!")
 
 	return pbCert.Cert, nil
 }

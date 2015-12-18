@@ -41,10 +41,10 @@ func TestStateImpl_ComputeHash_AllInMemory_1(t *testing.T) {
 	testHasher.populate("chaincodeID3", "key3", 0)
 	testHasher.populate("chaincodeID4", "key4", 3)
 
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
 
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 
@@ -72,12 +72,12 @@ func TestStateImpl_ComputeHash_AllInMemory_2(t *testing.T) {
 	testHasher.populate("chaincodeID5", "key5", 24)
 	testHasher.populate("chaincodeID6", "key6", 25)
 
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
-	stateDelta.Set("chaincodeID5", "key5", []byte("value5"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID5", "key5", []byte("value5"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6"), nil)
 
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 
@@ -112,10 +112,10 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	testHasher.populate("chaincodeID6", "key6", 3)
 	testHasher.populate("chaincodeID7", "key7", 3)
 
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID5", "key5", []byte("value5"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6"))
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID5", "key5", []byte("value5"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6"), nil)
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 
@@ -127,9 +127,9 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 
 	// modify boundary keys and a middle key
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2_new"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3_new"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6_new"))
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2_new"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3_new"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6_new"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	expectedHash2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
@@ -143,9 +143,9 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 
 	// insert keys at boundary and in the middle
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
-	stateDelta.Set("chaincodeID7", "key7", []byte("value7"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID7", "key7", []byte("value7"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	expectedHash3 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
@@ -162,9 +162,9 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 
 	// delete keys at a boundary and in the middle
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("chaincodeID1", "key1")
-	stateDelta.Delete("chaincodeID4", "key4")
-	stateDelta.Delete("chaincodeID7", "key7")
+	stateDelta.Delete("chaincodeID1", "key1", nil)
+	stateDelta.Delete("chaincodeID4", "key4", nil)
+	stateDelta.Delete("chaincodeID7", "key7", nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	testutil.AssertEquals(t, rootHash, expectedHash2)
@@ -183,12 +183,12 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	testHasher.populate("chaincodeID5", "key5", 24)
 	testHasher.populate("chaincodeID6", "key6", 25)
 
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
-	stateDelta.Set("chaincodeID5", "key5", []byte("value5"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID5", "key5", []byte("value5"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6"), nil)
 	stateImplTestWrapper.prepareWorkingSet(stateDelta)
 	// Populate DB
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
@@ -225,10 +225,10 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	testHasher.populate("chaincodeID9", "key9", 9)
 	testHasher.populate("chaincodeID10", "key10", 20)
 
-	stateDelta.Set("chaincodeID7", "key7", []byte("value7"))
-	stateDelta.Set("chaincodeID8", "key8", []byte("value8"))
-	stateDelta.Set("chaincodeID9", "key9", []byte("value9"))
-	stateDelta.Set("chaincodeID10", "key10", []byte("value10"))
+	stateDelta.Set("chaincodeID7", "key7", []byte("value7"), nil)
+	stateDelta.Set("chaincodeID8", "key8", []byte("value8"), nil)
+	stateDelta.Set("chaincodeID9", "key9", []byte("value9"), nil)
+	stateDelta.Set("chaincodeID10", "key10", []byte("value10"), nil)
 
 	/*************************** bucket-tree-structure after adding keys ***************
 	1		1		1	1	1	1
@@ -259,7 +259,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 
 	//////////////	Test - overwrite an existing key /////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Set("chaincodeID7", "key7", []byte("value7_new"))
+	stateDelta.Set("chaincodeID7", "key7", []byte("value7_new"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedHashBucket5_2 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
 		statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7_new"))
@@ -273,7 +273,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 
 	//////////////	Test - delete an existing key /////////////////////
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("chaincodeID2", "key2")
+	stateDelta.Delete("chaincodeID2", "key2", nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedHashBucket5_2 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7_new"))
 	expectedHashBucket4_1 = testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
@@ -292,17 +292,17 @@ func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl
 	stateDelta := statemgmt.NewStateDelta()
-	stateDelta.Set("chaincode1", "key1", []byte("value1"))
-	stateDelta.Set("chaincode2", "key2", []byte("value2"))
-	stateDelta.Set("chaincode3", "key3", []byte("value3"))
+	stateDelta.Set("chaincode1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincode2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincode3", "key3", []byte("value3"), nil)
 	stateImpl.PrepareWorkingSet(stateDelta)
 	hash1 := stateImplTestWrapper.computeCryptoHash()
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 
 	stateDelta = statemgmt.NewStateDelta()
-	stateDelta.Delete("chaincode1", "key1")
-	stateDelta.Delete("chaincode2", "key2")
-	stateDelta.Delete("chaincode3", "key3")
+	stateDelta.Delete("chaincode1", "key1", nil)
+	stateDelta.Delete("chaincode2", "key2", nil)
+	stateDelta.Delete("chaincode3", "key3", nil)
 	stateImpl.PrepareWorkingSet(stateDelta)
 	hash2 := stateImplTestWrapper.computeCryptoHash()
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
@@ -322,10 +322,10 @@ func TestStateImpl_DB_Changes(t *testing.T) {
 	testHasher.populate("chaincodeID10", "key10", 24)
 
 	// prepare stateDelta
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID1", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID2", "key1", []byte("value3"))
-	stateDelta.Set("chaincodeID2", "key3", []byte("value4"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID2", "key1", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID2", "key3", []byte("value4"), nil)
 
 	stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()

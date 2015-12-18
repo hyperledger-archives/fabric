@@ -74,7 +74,7 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	return Execute(ctx, GetChain(DefaultChain), transaction)
+	return Execute(ctx, GetChain(DefaultChain), transaction, nil)
 }
 
 // Invoke or query a chaincode.
@@ -90,7 +90,7 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 	if err != nil {
 		return uuid, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
-	retval, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	retval, err := Execute(ctx, GetChain(DefaultChain), transaction, nil)
 	return uuid, retval, err
 }
 

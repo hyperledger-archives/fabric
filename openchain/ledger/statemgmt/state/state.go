@@ -125,7 +125,21 @@ func (state *State) Set(chaincodeID string, key string, value []byte) error {
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
-	state.currentTxStateDelta.Set(chaincodeID, key, value)
+
+	// Check if a previous value is already set in the state delta
+	if state.currentTxStateDelta.IsUpdatedValueSet(chaincodeID, key) {
+		// No need to bother looking up the previous value as we will not
+		// set it again. Just pass nil
+		state.currentTxStateDelta.Set(chaincodeID, key, value, nil)
+	} else {
+		// Need to lookup the previous value
+		previousValue, err := state.Get(chaincodeID, key, true)
+		if err != nil {
+			return err
+		}
+		state.currentTxStateDelta.Set(chaincodeID, key, value, previousValue)
+	}
+
 	return nil
 }
 
@@ -135,7 +149,21 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
-	state.currentTxStateDelta.Delete(chaincodeID, key)
+
+	// Check if a previous value is already set in the state delta
+	if state.currentTxStateDelta.IsUpdatedValueSet(chaincodeID, key) {
+		// No need to bother looking up the previous value as we will not
+		// set it again. Just pass nil
+		state.currentTxStateDelta.Delete(chaincodeID, key, nil)
+	} else {
+		// Need to lookup the previous value
+		previousValue, err := state.Get(chaincodeID, key, true)
+		if err != nil {
+			return err
+		}
+		state.currentTxStateDelta.Delete(chaincodeID, key, previousValue)
+	}
+
 	return nil
 }
 
