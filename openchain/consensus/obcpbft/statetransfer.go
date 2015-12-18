@@ -20,6 +20,7 @@ under the License.
 package obcpbft
 
 import (
+	"rand"
 	"sort"
 	"sync"
 )
@@ -36,9 +37,8 @@ type stLedger interface {
 	getCurrentStateHash() string
 }
 
-type stWeakChkptCert struct {
+type stSync struct {
 	blockNumber uint64
-	blockHash   string
 	replicaIds  []int
 }
 
@@ -47,43 +47,255 @@ type stWeakChkptReq struct {
 	certChan    <-chan *stWeakChkptCert
 }
 
-type stSync struct {
+type stWeakChkptCert struct {
+	stSync
+	blockHash string
+}
+
+type stBlockSyncReq struct {
+	stSync
+	reportOnBlock  uint64
+	replyChan      <-chan *stBlockSyncReply
+	firstBlockHash string
+}
+
+type stBlockSyncReply struct {
 	blockNumber uint64
-	replicaIds  []int
+	stateHash   string
+	err         error
 }
 
 type stState struct {
-	outOfDate        bool                   // To be used by the main consensus thread
-	initiateSync     <-chan *stSync         // Used to ensure only one state transfer at a time occurs
-	chkptWeakCertReq <-chan *stWeakChkptReq // Used to wait for a relevant checkpoint weak certificate
+	outOfDate         bool                   // To be used by the main consensus thread, not atomic, so do not use by other threads
+	initiateStateSync <-chan *stSync         // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
+	chkptWeakCertReq  <-chan *stWeakChkptReq // Used to wait for a relevant checkpoint weak certificate, write only from the state thread
+	blockSyncReq      <-chan *stSync         // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 }
 
 func (st stState) New(ledger stLedger) {
 	st.outOfDate = false
-	initiateSync = make(chan *stSync)
-	chkptWeakCertReq = make(chan *stWeakChkptReq)
 
-	go instance.stThread()
+	initiateStateSync = make(chan *stSync)
+	chkptWeakCertReq = make(chan *stWeakChkptReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
+
+	blockSyncReq = make(chan *stSync)
+
+	go instance.stStateThread()
+	go instance.stBlockThread()
+}
+
+// Executes a func trying each replica included in replicaIds until successful
+// Attempts to execute over all replicas if replicaIds is nil
+func () stTryOverReplicas(replicaIds []int, do func(replicaId int) bool) bool {
+	startIndex := rand.Int() % instance.replicaCount
+	if nil == replicaIds {
+		for i := 0; i < instance.replicaCount; i++ {
+			if do(i) {
+				return true
+			}
+		}
+	} else {
+		numReplicas := len(replicaIds)
+
+		for i := 0; i < numReplicas; i++ {
+			if do((replicaIds[i] + startIndex) % numReplicas) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// Attempts to complete a blockSyncReq using the supplied replicas
+// Will return the last block attempted to sync and success/failure
+func () stSyncBlocks(blockSyncReq stBlockSyncReq, endBlock uint64) (uint64, bool) {
+	validBlockHash := blockSyncReq.firstBlockHash
+	blockCursor := blockSyncReq.blockNumber
+
+	if !stTryOverReplicas(blockSyncReq.replicaIds, func(replicaId int) bool {
+		blockChan, err := instance.ledger.getRemoteBlocks(replicaId, blockCursor, endBlock)
+		if nil != err {
+			logger.Warning("Replica %d failed to get blocks from %d to %d from replica %d: %s",
+				instance.id, blockCursor, endBlock, replicaId, err)
+			return false
+		}
+		for {
+			select {
+			case syncBlockMessage, ok := <-blockChan:
+				if !ok {
+					break
+				}
+				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
+					continue
+				}
+
+				for i, block := range syncBlockMessage.Blocks {
+					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
+					if syncBlockMessage.Range.Start-i != blockCursor {
+						continue
+					}
+					testHash, err := block.GetHash()
+					if nil != err {
+						logger.Warning("Replica %d got a block %d which could not hash from replica %d: %s",
+							instance.id, blockCursor, replicaId, err)
+						return false
+					}
+					if testHash != validBlockHash {
+						logger.Warning("Replica %d got a block %d which did not hash correctly from replica %d",
+							instance.id, blockCursor, replicaId)
+						return false
+					}
+
+					instance.ledger.putBlock(block)
+
+					if nil != blockSyncReq.replyChan && blockCursor == blockSyncReq.reportOnBlock {
+						blockSyncReq.replyChan <- &stBlockSyncReply{
+							blockNumber: blockCursor,
+							stateHash:   block.StateHash,
+							err:         nil,
+						}
+					}
+
+					blockCursor--
+				}
+			}
+		}
+	}) {
+		if nil != blockSyncReq.replyChan && blockCursor >= blockSyncReq.reportOnBlock {
+			blockSyncReq.replyChan <- &stBlockSyncReply{
+				blockNumber: blockCursor,
+				stateHash:   nil,
+				err:         error.fmt("Failed to retrieve blocks to reportOnBlock %d", blockSyncReq.reportOnBlock),
+			}
+		}
+		return blockCursor, false
+	}
+
+	return blockCursor, true
 }
 
 func (instance *pbftCore) stBlockThread() {
-	select {
-	case chkptBlock := <-blockSyncQueue:
-		instance.ledger
+	blockVerifyChunkSize := uint64(20) // TODO make this configurable
+	lowPriorityBlockSyncReply := make(chan *stBlockSyncReply)
+	lowPriorityBlockSyncRequest := make(chan *stBlockSyncReq, 1)
+	lowestValidBlock := instance.ledger.getBlockchainSize()
+
+	syncBlockchainToCheckpoint := func(blockSyncReq stBlockSyncReq) {
+
+		blockchainSize := instance.ledger.getBlockchainSize()
+
+		if blockSyncReq.blockNumber < blockchainSize {
+			// TODO this is a troubling scenario, we think we're out of date, but we just got asked to sync to a block that's older than our current chain
+			// this could be malicious behavior from byzantine nodes attempting to slow the network down, but we should still catch up
+			// XXX For now, unimplemented because we have no way to delete blocks
+			panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
+		} else {
+			if blockNumber, ok := stSyncBlocks(blockSyncReq, blockchainSize); ok {
+				if blockNumber > 0 {
+					// The sync succeeded, chain added up to old head+1
+					lastBlock, ok := instance.ledger.getBlock(blockNumber)
+
+					if !ok {
+						logger.Warning("Replica %d just recovered block %d but cannot find it", instance.id, blockNumber)
+						lowestValidBlock = instance.ledger.getBlockchainSize()
+						return
+					}
+
+					// Make sure the old blockchain head ties into the new blockchain we just received, if not, mark lowestValidBlock
+					// to the just recovered blocks so that the rest of the chain will be recovered
+					oldHeadBlock, ok := instance.ledger.getBlock(blockNumber - 1)
+
+					if !ok {
+						lowestValidBlock := blockNumber
+						return
+					}
+
+					oldHeadBlockHash, ok := oldHeadBlock.GetHash()
+
+					if !ok || lastBlock.PreviousBlockHash != oldHeadBlockHash {
+						lowestValidBlock := blockNumber
+						return
+					}
+				} else {
+					lowestValidBlock = 0
+				}
+			} else {
+				// The sync failed after recovering up to blockNumber + 1
+				lowestValidBlock = blockNumber + 1
+			}
+		}
+	}
+
+	for {
+
+		select {
+		case blockSyncReq := <-instance.stState.blockSyncReq:
+			syncBlockchainToCheckpoint(blockSyncReq)
+		default:
+			// If there is no checkpoint to sync to, make sure the rest of the chain is valid
+		}
+
+		if lowestValidBlock > 0 {
+			verifyToBlock := uint64(0)
+			if tmp := lowestValidBlock - blockVerifyChunkSize; tmp > 0 {
+				verifyToBlock = tmp
+			}
+			badSource, err := instance.ledger.verifyBlockChain(lowestValidBlock, verifyToBlock)
+
+			if nil == err && badSource == 0 {
+				lowestValidBlock := verifyToBlock
+				continue
+
+			}
+
+			if badSource == 0 {
+				panic("The blockchain cannot claim the genesis block's previous block hash does not match.")
+			}
+
+			if nil != err {
+				logger.Warning("Replica %d encountered an error at block %d while verifying its blockchain, attempting to sync", instance.id, badSource)
+			}
+
+			goodBlock, ok := instance.ledger.getBlock(badSource)
+
+			if !ok {
+				panic("The blockchain just informed us that the previous block hash from block %d did not match, but claims the block does not exist")
+			}
+
+			if lastBlock, ok := stSyncBlocks(&stBlockSyncRequest{
+				replicaIds:     nil, // Use all replicas
+				blockNumber:    badSource - 1,
+				reportOnBlock:  0,   // Unused because no replyChan
+				replyChan:      nil, // We will wait synchronously
+				firstBlockHash: goodBlock.PreviousBlockHash,
+			}, verifyToBlock); ok {
+				lowestValidBlock := lastBlock
+			} else {
+				lowestValidBlock := lastBlock + 1
+			}
+
+			continue
+		}
+
+		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
+		select {
+		case blockSyncReq := <-instance.stState.blockSyncReq:
+			syncBlockchainToCheckpoint(blockSyncReq)
+		}
 	}
 }
 
 // A thread to process state transfer
-func (instance *pbftCore) stThread() {
+func (instance *pbftCore) stStateThread() {
 	for {
 		// Wait for state sync to become necessary
+		stSync := <-instance.stState.initiateStateSync
 
-		select {
-		case stSync := <-instance.stState.initiateSync:
-			logger.Debug("Replica %d is initiating state transfer", instance.id)
-		}
+		logger.Debug("Replica %d is initiating state transfer", instance.id)
 
 		for {
+
 			// If we are here, our state is currently bad, so get a new one
 			instance.stState.currentStateBlockNumber, ok = instance.stSyncStateSnapshot(stSync.blockNumber, stSync.replicas)
 
@@ -103,75 +315,75 @@ func (instance *pbftCore) stThread() {
 				certChan:    certChan,
 			}
 
-			select {
-			case weakCert := <-certChan:
-				stSync = &StSync{ // We now know of a more recent state which f+1 nodes have achieved, if we fail, try from this set
-					blockNumber: weakCert.blockNumber,
-					replicaIds:  weakCert.replicaIds,
-				}
+			weakCert := <-certChan
 
-				if !instance.stState.stSyncBlockRange(weakCert.blockNumber, currentStateBlockNumber, weakCert.blockHash, weakCert.replicaIds) {
-					// This is very bad, we had f+1 replicas unable to reply with blocks for a weak certificate they presented, this should never happen
-					logger.Error("Replica %d could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", instance.id, stSync.blockNumber)
-					continue
-				}
-
-				currentStateBlock, err := instance.ledger.getBlock(currentStateBlockNumber)
-				if err || nil == currentStateBlock {
-					logger.Error("Replica %d just recovered blocks including %d, but cannot find it", instance.id, currentStateBlockNumber)
-					continue
-				}
-
-				// XXX this is a stupidly wrong place holder, we need to compute the current state block hash
-				if instance.ledger.getCurrentStateHash != currentStateBlock.previousBlockHash {
-					logger.Warning("Replica %d recovered to an incorrect state at block number %d, retrying", instance.id, currentStateBlockNumber)
-					continue
-				}
-
-				if !instance.stState.stPlayStateUpToCheckpoint(currentStateBlock, weakCert.blockNumber, weakCert.replicaIds) {
-					// This is unlikely, in the future, we may wish to play transactions forward rather than retry
-					logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", instance.id, currentStateBlockNumber, weakCert.blockNumber)
-					continue
-				}
+			stSync = &StSync{ // We now know of a more recent state which f+1 nodes have achieved, if we fail, try from this set
+				blockNumber: weakCert.blockNumber,
+				replicaIds:  weakCert.replicaIds,
 			}
 
+			blockReplyChannel := make(chan *stBlockSyncReply)
+
+			instance.stState.blockSyncReq <- &stBlockSyncReq{
+				stSync,
+				reportOnBlock:  currentStateBlockNumber,
+				replyChan:      blockReplyChannel,
+				firstBlockHash: weakCert.blockHash,
+			}
+
+			stBlockSyncReply := <-blockReplyChannel
+
+			if stBlockSyncReply.err != nil {
+				// This is very bad, we had f+1 replicas unable to reply with blocks for a weak certificate they presented, this should never happen
+				// Maybe we should panic here, but we can always try again
+				logger.Error("Replica %d could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", instance.id, stSync.blockNumber)
+				continue
+			}
+
+			if instance.ledger.getCurrentStateHash() != stBlockSyncReply.stateHash {
+				logger.Warning("Replica %d recovered to an incorrect state at block number %d, retrying", instance.id, currentStateBlockNumber)
+				continue
+			}
+
+			if !instance.stState.stPlayStateUpToCheckpoint(currentStateBlock, weakCert.blockNumber, weakCert.replicaIds) {
+				// This is unlikely, in the future, we may wish to play transactions forward rather than retry
+				logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", instance.id, currentStateBlockNumber, weakCert.blockNumber)
+				continue
+			}
 		}
 
 	}
 }
 
 // This function will retrieve the current state from a replica.
-func (instance *pbftCore) stSyncStateSnapshot(minBlockNumber uint64, replicas []int) {
+// Note that no state verification can occur yet, we must wait for the next checkpoint, so it is important
+// not to consider this state as valid
+func (instance *pbftCore) stSyncStateSnapshot(minBlockNumber uint64, replicaIds []int) (uint64, bool) {
 	logger.Debug("Replica %d is initiating state recovery from from replica %d", instance.id, replicaId)
 
-	if true { // XXX Without a ledger implementation none of this works, yet
-		return
-	}
+	currentStateBlock := uint64(0)
 
-	instance.ledger.emptyState()
-
-	stateChan, err := instance.ledger.getRemoteCurrentState(replicaId)
-
-	if err != nil {
+	ok := stTryOverReplicas(replicaIds, func(replicaId int) bool {
 		instance.ledger.emptyState()
-		// TODO, this should trigger recovery from another replica
-		return
-	}
 
-	for piece := range stateChan {
-		instance.ledger.applyStateDelta(piece)
-	}
+		stateChan, err := instance.ledger.getRemoteCurrentState(replicaId)
 
-	// Note that no state verification can occur yet, we must wait for the next checkpoint, so it is important
-	// not to consider this state as valid
-}
+		if err != nil {
+			instance.ledger.emptyState()
+			return false
+		}
 
-func (instance *pbftCore) stSyncBlockRange(startBlockNumber, endBlockNumber uint64, blockHash string, replicaIds []int) bool {
-	return true
-}
+		// TODO add timeout mechanism
+		for piece := range stateChan {
+			instance.ledger.applyStateDelta(piece.delta)
+			currentStateBlock = piece.BlockNumber
+		}
 
-func (instance *pbftCore) stPlayStateUpToCheckpoint(startBlockNumber, endBlockNumber uint64, blockHash string, replicaIds []int) bool {
-	return true
+		return true
+
+	})
+
+	return currentStateBlock, ok
 }
 
 func (instance *pbftCore) stRecvCheckpoint(chkpt *Checkpoint) {
@@ -213,13 +425,18 @@ func (instance *pbftCore) stRecvCheckpoint(chkpt *Checkpoint) {
 				instance.stState.outOfDate = true
 				instance.moveWatermarks(m + instance.K)
 
-				// Pick some replica whose last checkpoint was above the f+1th highest checkpoint
-				// but still within a checkpoint.  Guaranteed to be at least one such because
-				// the f+1th highest is exactly m
+				furthestReplicaIds := make([]int, instance.f+1)
+				i := 0
 				for replicaId, hChkpt := range instance.hChkpts {
-					if hChkpt >= m && hChkpt < m+k {
-						go stRecoverState(replicaId)
+					if hChkpt >= m {
+						aheadReplicaIds[i] = replicaId
+						i++
 					}
+				}
+
+				initiateStateSync <- &stSync{
+					blockNumber: m,
+					replicaIds:  furthestReplicaIds,
 				}
 			}
 
@@ -244,7 +461,8 @@ func (instance *pbftCore) stCheckpointWeakCert(matching int, chkpt *Checkpoint) 
 		i := 0
 		for testChkpt := range instance.checkpointStore {
 			if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
-				checkpointMembers = i
+				checkpointMembers[i] = testChkpt.ReplicaId
+				i++
 			}
 		}
 
@@ -256,116 +474,3 @@ func (instance *pbftCore) stCheckpointWeakCert(matching int, chkpt *Checkpoint) 
 	}
 
 }
-
-// A thread to process state validation and manipulation
-func (instance *pbftCore) isOutOfDate() {
-
-}
-
-// A thread to process state validation and manipulation
-func (instance *pbftCore) stStateThread() {
-
-}
-
-/*
-// This function will retrieve blocks up to the checkpoint sequence number
-// then verify that the the blockchain is correct, verify that the state is
-// correct for its current block, and finally attempt to play the state forward
-// via state deltas, or via blocks if that fails.  On successful execution,
-// the instance.outOfDate will be set to false
-func (instance *pbftCore) stVerifyAndPlayStateUpToDate(chkpt *Checkpoint, replicaIds []int) {
-	logger.Debug("Replica %d is attempting to verify recovered state and come up to date", instance.id)
-
-	if true { // XXX Without a ledger implementation none of this works, yet
-		return
-	}
-
-	currentStateBlock, ok := instance.ledger.getCurrentStateBlockNumber()
-	if !ok {
-		logger.Warning("Replica %d current state is bad, initiating state transfer", replicaId)
-		// TODO, handle picking another replica to try to get the state from again
-		return
-	}
-
-	if currentStateBlock < chkpt.BlockNumber-instance.K {
-		logger.Warning("Replica %d current state is at block number %d but just observed checkpoint quorum for block %d, state is too far behind, initiating transfer",
-			replicaId, chkpt.blockNumber, currentStateBlock)
-		// TODO, handle picking another replica to try to get the state from again
-		return
-	}
-
-	if currentStateBlock > chkpt.BlockNumber+instance.L {
-		// We know only that the currentStateBlock should be ahead of the witnessed checkpoint
-		// Still, we have a problem if a byzantine replica gives us state for a block that is supposedly very far
-
-
-// This function will retrieve blocks up to the checkpoint sequence number
-// then verify that the the blockchain is correct, verify that the state is
-// correct for its current block, and finally attempt to play the state forward
-// via state deltas, or via blocks if that fails.  On successful execution,
-// the instance.outOfDate will be set to false
-func (instance *pbftCore) stVerifyAndPlayStateUpToDate(chkpt *Checkpoint, replicaIds []int) {
-	logger.Debug("Replica %d is attempting to verify recovered state and come up to date", instance.id)
-
-	if true { // XXX Without a ledger implementation none of this works, yet
-		return
-	}
-
-	currentStateBlock, ok := instance.ledger.getCurrentStateBlockNumber()
-	if !ok {
-		logger.Warning("Replica %d current state is bad, initiating state transfer", replicaId)
-		// TODO, handle picking another replica to try to get the state from again
-		return
-	}
-
-	if currentStateBlock < chkpt.BlockNumber-instance.K {
-		logger.Warning("Replica %d current state is at block number %d but just observed checkpoint quorum for block %d, state is too far behind, initiating transfer",
-			replicaId, chkpt.blockNumber, currentStateBlock)
-		// TODO, handle picking another replica to try to get the state from again
-		return
-	}
-
-	if currentStateBlock > chkpt.BlockNumber+instance.L {
-		// We know only that the currentStateBlock should be ahead of the witnessed checkpoint
-		// Still, we have a problem if a byzantine replica gives us state for a block that is supposedly very far
-		// in the future.  We assume that we can retrieve the current state within L new blocks, but
-		// if this is not the case, we may never be able to catch up
-		logger.Warning("Replica %d current state is at block number %d but just observed checkpoint quorum for block %d, state is too far ahead, initiating transfer",
-			replicaId, chkpt.blockNumber, currentStateBlock)
-		// TODO, handle picking another replica to try to get the state from again
-		return
-	}
-
-	oldLatestBlock := instance.ledger.getBlockchainSize() - 1
-
-	if currentStateBlock > chckpt.BlockNumber {
-		// Our state is ahead of the checkpoint, but not too far ahead, we will wait for the checkpoints to catch up
-		// But in the meantime, we'll catch our blockchain up and verify it
-		go instance.recoverBlockRange(replicaIds, chkpt.BlockNumber, oldLatestBlock, chkpt.StateDigest)
-		return
-	}
-
-	// At this point, we are guaranteed that the current state is older than, but within k of the checkpoint block
-	// So blocking to synchronizing blocks should be okay
-	instance.recoverBlockRange(replicaIds, chkpt.BlockNumber, currentStateBlock, chkpt.StateDigest)
-
-	if currentStateBlock > oldLatestBlock {
-		// Recover the chain through our previously known block
-		// this could be quite large, so necessary to do asynchronously
-		go instance.recoverBlockRange(replicaIds, currentStateBlock, oldLatestBlock, chkpt.StateDigest)
-	}
-
-	stateHash := instance.ledger.getCurrentStateHash()
-
-	if stateHash != instance.ledger.getBlock(currentStateBlock).StateHash {
-		// Our blocks are up to date, but we were given a bad state
-		// TODO, pick another replica and get the state again
-		return
-	}
-
-	playStateUpToDate(replicaIds) // This should not be possible to fail
-
-	instance.outOfDate = false
-	instance.executeOutstanding()
-}
-*/
