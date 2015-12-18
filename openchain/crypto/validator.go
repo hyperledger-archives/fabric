@@ -36,21 +36,21 @@ var (
 
 // Public Methods
 
-// Register registers a client to the PKI infrastructure
+// RegisterValidator registers a client to the PKI infrastructure
 func RegisterValidator(id string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+	log.Info("Registering [", enrollID, "] with id [", id, "]...")
 
 	if validators[id] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+		log.Info("Registering [", enrollID, "] with id [", id, "]...done. Already initialized.")
 		return nil
 	}
 
 	validator := new(validatorImpl)
 	if err := validator.register(id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
+		log.Error("Failed registering [", enrollID, "] with id [", id, "] [%s].", err.Error())
 
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
 			return err
@@ -59,15 +59,15 @@ func RegisterValidator(id string, pwd []byte, enrollID, enrollPWD string) error 
 	err := validator.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+		log.Error("Registering [", enrollID, "] with id [", id, "]. Failed closing [%s].", err.Error())
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
+	log.Info("Registering [", enrollID, "] with id [", id, "]...done!")
 
 	return nil
 }
 
-// Init initializes a client named name with password pwd
+// InitValidator initializes a client named name with password pwd
 func InitValidator(id string, pwd []byte) (Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -82,7 +82,7 @@ func InitValidator(id string, pwd []byte) (Peer, error) {
 
 	validator := new(validatorImpl)
 	if err := validator.init(id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", id, err)
+		log.Error("Failed initialization [%s]: ", id, err)
 
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func InitValidator(id string, pwd []byte) (Peer, error) {
 	return validator, nil
 }
 
-// Close releases all the resources allocated by clients
+// CloseValidator releases all the resources allocated by the validator
 func CloseValidator(peer Peer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -101,7 +101,7 @@ func CloseValidator(peer Peer) error {
 	return closeValidatorInternal(peer)
 }
 
-// CloseAll closes all the clients initialized so far
+// CloseAllValidators closes all the validators initialized so far
 func CloseAllValidators() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -132,7 +132,7 @@ func closeValidatorInternal(peer Peer) error {
 
 	err := validators[id].(*validatorImpl).close()
 
-	log.Info("Closing validator [%s]...done! [%s]", id, err)
+	log.Info("Closing validator [%s]...done! [%s].", id, err)
 
 	return err
 }

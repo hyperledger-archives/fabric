@@ -205,17 +205,21 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 		enrollSecret := viper.GetString("security.enrollSecret")
 		var err error
 		if viper.GetBool("peer.validator.enabled") {
+			peerLogger.Debug("Registering validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
+			peerLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
 			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
 			if nil != err {
 				return nil, err
 			}
 		} else {
+			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
+			peerLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
 			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				return nil, err

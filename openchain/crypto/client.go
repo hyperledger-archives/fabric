@@ -36,7 +36,7 @@ var (
 
 // Public Methods
 
-// Register registers a client to the PKI infrastructure
+// RegisterClient registers a client to the PKI infrastructure
 func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -51,16 +51,16 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	client := new(clientImpl)
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, name, err)
-
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			log.Error("Failed registering [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
 		}
+		log.Info("Registering [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := client.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, name, err)
+		log.Error("Registering [%s] with id [%s], failed closing [%s].", enrollID, name, err)
 	}
 
 	log.Info("Registering [%s] with id [%s]...done!", enrollID, name)
@@ -68,7 +68,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
-// Init initializes a client named name with password pwd
+// InitClient initializes a client named name with password pwd
 func InitClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -83,7 +83,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 
 	client := new(clientImpl)
 	if err := client.init(name, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", name, err)
+		log.Error("Failed initialization [%s] [%s].", name, err)
 
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 	return client, nil
 }
 
-// Close releases all the resources allocated by clients
+// CloseClient releases all the resources allocated by clients
 func CloseClient(client Client) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -102,7 +102,7 @@ func CloseClient(client Client) error {
 	return closeClientInternal(client)
 }
 
-// CloseAll closes all the clients initialized so far
+// CloseAllClients closes all the clients initialized so far
 func CloseAllClients() (bool, []error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -133,7 +133,7 @@ func closeClientInternal(client Client) error {
 
 	err := clients[id].(*clientImpl).close()
 
-	log.Info("Closing client [%s]...done! [%s]", id, err)
+	log.Info("Closing client [%s]...done! [%s].", id, err)
 
 	return err
 }

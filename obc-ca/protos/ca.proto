@@ -1,0 +1,197 @@
+/* 
+Licensed to the Apache Software Foundation (ASF) under one 
+or more contributor license agreements.  See the NOTICE file 
+distributed with this work for additional information 
+regarding copyright ownership.  The ASF licenses this file 
+to you under the Apache License, Version 2.0 (the 
+"License"); you may not use this file except in compliance 
+with the License.  You may obtain a copy of the License at 
+
+  http://www.apache.org/licenses/LICENSE-2.0 
+
+Unless required by applicable law or agreed to in writing, 
+software distributed under the License is distributed on an 
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
+KIND, either express or implied.  See the License for the 
+specific language governing permissions and limitations 
+under the License. 
+*/ 
+
+syntax = "proto3";
+
+package protos;
+
+import "google/protobuf/timestamp.proto";
+
+
+// Enrollment Certificate Authority (ECA).
+//
+service ECAP { // public service
+    rpc CreateCertificate(ECertCreateReq) returns (Creds);
+    rpc ReadCertificate(ECertReadReq) returns (Cert);
+    rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
+}
+
+service ECAA { // admin service
+    rpc RegisterUser(Identity) returns (Password);   
+    rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
+    rpc CreateCRL(ECertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
+}
+
+
+// Transaction Certificate Authority (TCA).
+//
+service TCAP { // public service
+    rpc CreateCertificate(TCertCreateReq) returns (Cert);
+    rpc CreateCertificateSet(TCertCreateSetReq) returns (CertSet);
+    rpc ReadCertificate(TCertReadReq) returns (Cert);
+    rpc ReadCertificateSet(TCertReadSetReq) returns (CertSet);
+    rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
+    rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // a user can revoke only his/her certs
+}
+
+service TCAA { // admin service
+    rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
+    rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // an admin can revoke any cert
+    rpc CreateCRL(TCertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
+}
+
+
+// Status codes shared by both CAs.
+//
+message CAStatus {
+    enum StatusCode {
+    	OK = 0;
+    	UNKNOWN_ERROR = 1;
+    }
+    
+    StatusCode status = 1;
+}
+
+
+// Uniquely identifies a user towards either CA.
+//
+message Identity {
+    string id = 1;
+}
+
+message Password {
+    string pw = 1;
+}
+
+
+// Public/private keys.
+//
+enum CryptoType {
+    ECDSA = 0;
+    RSA = 1;
+    DSA = 2;
+}
+
+message PublicKey {
+    CryptoType type = 1;
+    bytes key = 2; // DER / ASN.1
+}
+
+message PrivateKey {
+    CryptoType type = 1;
+    bytes key = 2; // DER / ASN.1
+}
+
+
+// Signature.
+//
+message Signature {
+    CryptoType type = 1;
+    bytes r = 2;
+    bytes s = 3;
+}
+
+
+// Certificate requests.
+//
+message ECertCreateReq {
+    google.protobuf.Timestamp ts = 1;
+    Identity id = 2;
+    Password pw = 3;
+    PublicKey pub = 4;
+    Signature sig = 5; // sign(priv, ts | id | pw | pub)
+}
+
+message ECertReadReq {
+    Identity id = 1;
+    bytes hash = 2;
+}
+
+message ECertRevokeReq {
+    Identity id = 1; // user or admin whereby users can only revoke their own cert
+    Cert cert = 2; // cert to revoke
+    Signature sig = 3; // sign(priv, id | cert)
+}
+
+message ECertCRLReq {
+    Identity id = 1; // admin
+    Signature sig = 2; // sign(priv, id)
+}
+
+
+message TCertCreateReq {
+    google.protobuf.Timestamp ts = 1;
+    Identity id = 2; // corresponding ECert retrieved from ECA
+    PublicKey pub = 3;
+    Signature sig = 4; // sign(priv, ts | id | pub)
+}
+
+message TCertCreateSetReq {
+    google.protobuf.Timestamp ts = 1;
+    Identity id = 2; // corresponding ECert retrieved from ECA
+    uint32 num = 3; // number of certs to create
+    Signature sig = 4; // sign(priv, ts | id | params | num)
+}
+
+message TCertReadReq {
+    google.protobuf.Timestamp ts = 1; // timestamp of cert to read
+    Identity id = 2; // corresponding Ecert retrieved from ECA
+    Signature sig = 3; // sign(priv, id)
+}
+
+message TCertReadSetReq {
+    google.protobuf.Timestamp ts = 1; // timestamp of cert set to read
+    Identity id = 2; // corresponding Ecert retrieved from ECA
+    uint32 num = 3; // number of certs to read (0 == all)
+    Signature sig = 4; // sign(priv, id, ts)
+}
+
+message TCertRevokeReq {
+    Identity id = 1; // user or admin whereby users can only revoke their own certs
+    Cert cert = 2; // cert to revoke
+    Signature sig = 3; // sign(priv, id | cert)
+}
+
+message TCertRevokeSetReq {
+    Identity id = 1; // user or admin whereby users can only revoke their own certs
+    google.protobuf.Timestamp ts = 2; // timestamp of cert set to revoke (0 == latest set)
+    Signature sig = 3; // sign(priv, id | cert)
+}
+
+message TCertCRLReq {
+    Identity id = 1; // admin
+    Signature sig = 2; // sign(priv, id)
+}
+
+
+// Certificate issued by either the ECA or TCA.
+//
+message Cert {
+    bytes cert = 1; // DER / ASN.1 encoded
+}
+
+message CertSet {
+    bytes key = 1;
+    repeated bytes certs = 2; // DER / ASN.1 encoded
+}
+
+message Creds {
+    Cert cert = 1;
+    bytes key = 2;
+}

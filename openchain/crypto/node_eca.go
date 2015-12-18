@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	obcca "github.com/openblockchain/obc-peer/obcca/protos"
+	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 	protobuf "google/protobuf"
 	"time"
 
@@ -39,16 +39,16 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := node.getECACertificate()
 	if err != nil {
-		node.log.Error("Failed getting ECA certificate %s", err)
+		node.log.Error("Failed getting ECA certificate [%s].", err.Error())
 
 		return err
 	}
-	node.log.Info("Register:ECAcert %s", utils.EncodeBase64(ecaCertRaw))
+	node.log.Info("Register:ECAcert  ", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
 	_, err = utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
-		node.log.Error("Failed parsing ECA certificate %s", err)
+		node.log.Error("Failed parsing ECA certificate [%s].", err.Error())
 
 		return err
 	}
@@ -58,7 +58,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 
 	err = ioutil.WriteFile(node.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {
-		node.log.Error("Failed storing eca certificate: %s", err)
+		node.log.Error("Failed storing eca certificate [%s].", err.Error())
 		return err
 	}
 
@@ -66,11 +66,11 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) loadECACertsChain() error {
-	node.log.Info("Loading ECA certificates chain at %s...", node.conf.getECACertsChainPath())
+	node.log.Info("Loading ECA certificates chain at [%s]...", node.conf.getECACertsChainPath())
 
 	chain, err := ioutil.ReadFile(node.conf.getECACertsChainPath())
 	if err != nil {
-		node.log.Error("Failed loading ECA certificates chain : %s", err.Error())
+		node.log.Error("Failed loading ECA certificates chain [%s].", err.Error())
 
 		return err
 	}
@@ -88,7 +88,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.ECertCreateReq, opts ...grpc.CallOption) (*obcca.Cert, []byte, error) {
 	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		node.log.Error("Failed dailing in: %s", err)
+		node.log.Error("Failed dailing in [%s].", err.Error())
 
 		return nil, nil, err
 	}
@@ -98,7 +98,7 @@ func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.EC
 
 	cred, err := ecaP.CreateCertificate(context.Background(), in)
 	if err != nil {
-		node.log.Error("Failed requesting enrollment certificate: %s", err)
+		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, nil, err
 	}
@@ -109,7 +109,7 @@ func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.EC
 func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		node.log.Error("Failed eca dialing in : %s", err)
+		node.log.Error("Failed eca dialing in [%s].", err.Error())
 
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 
 	cert, err := ecaP.ReadCertificate(context.Background(), in)
 	if err != nil {
-		node.log.Error("Failed requesting read certificate: %s", err)
+		node.log.Error("Failed requesting read certificate [%s].", err.Error())
 
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
-		node.log.Error("Failed generating key: %s", err)
+		node.log.Error("Failed generating key [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
@@ -147,7 +147,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
-		node.log.Error("Failed signing request: %s", err)
+		node.log.Error("Failed signing request [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
@@ -157,12 +157,12 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 	pbCert, key, err := node.callECACreateCertificate(context.Background(), req)
 	if err != nil {
-		node.log.Error("Failed requesting enrollment certificate: %s", err)
+		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
 
-	node.log.Info("Enrollment certificate hash: %s", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
+	node.log.Info("Enrollment certificate hash [%s].", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
 
 	// Verify pbCert.Cert
 	return priv, pbCert.Cert, key, nil
@@ -173,7 +173,7 @@ func (node *nodeImpl) getECACertificate() ([]byte, error) {
 	req := &obcca.ECertReadReq{&obcca.Identity{Id: "eca-root"}, nil}
 	pbCert, err := node.callECAReadCertificate(context.Background(), req)
 	if err != nil {
-		node.log.Error("Failed requesting enrollment certificate: %s", err)
+		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, err
 	}

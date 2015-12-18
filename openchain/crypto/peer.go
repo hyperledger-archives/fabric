@@ -36,7 +36,7 @@ var (
 
 // Public Methods
 
-// Register registers a client to the PKI infrastructure
+// RegisterPeer registers a peer to the PKI infrastructure
 func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
@@ -50,7 +50,7 @@ func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 
 	peer := new(peerImpl)
 	if err := peer.register("peer", id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
+		log.Error("Failed registering [%s] with id [%s]: ", enrollID, id, err)
 
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
 			return err
@@ -59,7 +59,7 @@ func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 	err := peer.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+		log.Error("Registering [%s] with id [%s], failed closing: ", enrollID, id, err)
 	}
 
 	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
@@ -67,7 +67,7 @@ func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
-// Init initializes a client named name with password pwd
+// InitPeer initializes a peer named name with password pwd
 func InitPeer(id string, pwd []byte) (Peer, error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
@@ -82,7 +82,7 @@ func InitPeer(id string, pwd []byte) (Peer, error) {
 
 	peer := new(peerImpl)
 	if err := peer.init("peer", id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", id, err)
+		log.Error("Failed initialization [%s]: ", id, err)
 
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func InitPeer(id string, pwd []byte) (Peer, error) {
 	return peer, nil
 }
 
-// Close releases all the resources allocated by clients
+// ClosePeer releases all the resources allocated by peers
 func ClosePeer(peer Peer) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
@@ -101,7 +101,7 @@ func ClosePeer(peer Peer) error {
 	return closePeerInternal(peer)
 }
 
-// CloseAll closes all the clients initialized so far
+// CloseAllPeers closes all the peers initialized so far
 func CloseAllPeers() (bool, []error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
@@ -132,7 +132,7 @@ func closePeerInternal(peer Peer) error {
 
 	err := peers[id].(*peerImpl).close()
 
-	log.Info("Closing peer [%s]...done! [%s]", id, err)
+	log.Info("Closing peer [%s]...done! [%s].", id, err)
 
 	return err
 }
