@@ -36,7 +36,7 @@ import (
 	
 	"golang.org/x/crypto/sha3"
 	
-	pb "github.com/openblockchain/obc-peer/obcca/protos"
+	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"crypto/ecdsa"
@@ -45,27 +45,37 @@ import (
 var logger = logging.MustGetLogger("tls_ca_pserver")
 
 
+// TLSCA is the tls certificate authority.
+//
 type TLSCA struct {
 	*CA
 	sockp, socka net.Listener
 	srvp, srva *grpc.Server
 }
 
+// TLSCAP serves the public GRPC interface of the TLSCA.
+//
 type TLSCAP struct {
 	tlsca *TLSCA
 }
 
+// TLSCAA serves the administrator GRPC interface of the TLS.
+//
 type TLSCAA struct {
 	tlsca *TLSCA
 }
 
+// NewTLSCA sets up a new TLSCA.
+//
 func NewTLSCA() *TLSCA {
 	tlsca := &TLSCA{NewCA("tlsca"), nil, nil, nil, nil}
 	
 	return tlsca
 }
 
-func (self *TLSCA) Start(wg *sync.WaitGroup) {
+// Start starts the TLSCA.
+//
+func (tlsca *TLSCA) Start(wg *sync.WaitGroup) {
 	var opts []grpc.ServerOption
 	if viper.GetString("tlsca.tls.certfile") != "" {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("tlsca.tls.certfile"), viper.GetString("tlsca.tls.keyfile"))
@@ -76,49 +86,53 @@ func (self *TLSCA) Start(wg *sync.WaitGroup) {
 	}
 
 	wg.Add(2)
-	go self.startTLSCAP(opts)
-	go self.startTLSCAA(opts)
+	go tlsca.startTLSCAP(opts)
+	go tlsca.startTLSCAA(opts)
 
 	Info.Println("TLSCA started.")
 }
 
-func (self *TLSCA) Stop(wg *sync.WaitGroup) {
-	self.srvp.Stop()
-	_ = self.sockp.Close()
+// Stop stops the TLSCA.
+//
+func (tlsca *TLSCA) Stop(wg *sync.WaitGroup) {
+	tlsca.srvp.Stop()
+	_ = tlsca.sockp.Close()
 	wg.Done()
-	
-	self.srva.Stop()
-	_ = self.socka.Close()
+
+	tlsca.srva.Stop()
+	_ = tlsca.socka.Close()
 	wg.Done()
 }
 
-func (self *TLSCA) startTLSCAP(opts []grpc.ServerOption) {
+func (tlsca *TLSCA) startTLSCAP(opts []grpc.ServerOption) {
 	var err error
-	
-	self.sockp, err = net.Listen("tcp", viper.GetString("ports.tlscaP"))
+
+	tlsca.sockp, err = net.Listen("tcp", viper.GetString("ports.tlscaP"))
 	if err != nil {
 		Panic.Panicln(err)
 	}
 
-	self.srvp = grpc.NewServer(opts...)
-	pb.RegisterTLSCAPServer(self.srvp, &TLSCAP{self})
-	self.srvp.Serve(self.sockp)
+	tlsca.srvp = grpc.NewServer(opts...)
+	pb.RegisterTLSCAPServer(tlsca.srvp, &TLSCAP{tlsca})
+	tlsca.srvp.Serve(tlsca.sockp)
 }
 
-func (self *TLSCA) startTLSCAA(opts []grpc.ServerOption) {
+func (tlsca *TLSCA) startTLSCAA(opts []grpc.ServerOption) {
 	var err error
-	
-	self.socka, err = net.Listen("tcp", viper.GetString("ports.tlscaA"))
+
+	tlsca.socka, err = net.Listen("tcp", viper.GetString("ports.tlscaA"))
 	if err != nil {
 		Panic.Panicln(err)
 	}
 
-	self.srva = grpc.NewServer(opts...)
-	pb.RegisterTLSCAAServer(self.srva, &TLSCAA{self})
-	self.srva.Serve(self.socka)
+	tlsca.srva = grpc.NewServer(opts...)
+	pb.RegisterTLSCAAServer(tlsca.srva, &TLSCAA{tlsca})
+	tlsca.srva.Serve(tlsca.socka)
 }
 
-func (self *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreateReq) (*pb.Cert, error) {
+// CreateCertificate requests the creation of a new enrollment certificate by the TLSCA.
+//
+func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreateReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCA_P:CreateCertificate")
 
 	id := req.Id.Id
@@ -149,7 +163,7 @@ func (self *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreate
 		return nil, errors.New("signature does not verify")
 	}
 	
-	if raw, err = self.tlsca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
+	if raw, err = tlscap.tlsca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
@@ -157,16 +171,18 @@ func (self *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreate
 	return &pb.Cert{raw}, nil
 }
 
-func (self *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadReq) (*pb.Cert, error) {
+// ReadCertificate reads an enrollment certificate from the TLSCA.
+//
+func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
 	var raw []byte
 	var err error
 
 	if req.Id.Id != "" {
-		raw, err = self.tlsca.readCertificate(req.Id.Id)
+		raw, err = tlscap.tlsca.readCertificate(req.Id.Id)
 	} else {
-		raw, err = self.tlsca.readCertificateByHash(req.Hash)
+		raw, err = tlscap.tlsca.readCertificateByHash(req.Hash)
 	}
 	if err != nil {
 		Error.Println(err)
@@ -176,12 +192,16 @@ func (self *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadReq)
 	return &pb.Cert{raw}, nil
 }
 
-func (self *TLSCAP) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
+// RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.
+//
+func (tlscap *TLSCAP) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
 	// TODO: We are not going to provide revocation support for now
 	return nil, nil
 }
 
-func (self *TLSCAA) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
+// RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.
+//
+func (tlscaa *TLSCAA) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
 	// TODO: We are not going to provide revocation support for now
 	return nil, nil
 }

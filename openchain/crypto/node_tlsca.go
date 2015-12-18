@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/openblockchain/obc-peer/obcca/protos"
+	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 	
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
