@@ -45,6 +45,8 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 	// check security if enabled
 	if nil != secCxt {
 		t, err = secCxt.TransactionPreExecution(t)
+		// If confidential, t is now decrypted and should not be stored
+
 		if nil != err {
 			return nil, err
 		}

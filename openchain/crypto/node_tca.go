@@ -39,7 +39,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 
 		return err
 	}
-	node.log.Info("TCA certificate [%s]", utils.EncodeBase64(tcaCertRaw))
+	node.log.Debug("TCA certificate [%s]", utils.EncodeBase64(tcaCertRaw))
 
 	// TODO: Test TCA cert againt root CA
 	_, err = utils.DERToX509Certificate(tcaCertRaw)
@@ -50,7 +50,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	}
 
 	// Store TCA cert
-	node.log.Info("Storing TCA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing TCA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {
@@ -63,7 +63,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 
 func (node *nodeImpl) loadTCACertsChain() error {
 	// Load TCA certs chain
-	node.log.Info("Loading TCA certificates chain at [%s]...", node.conf.getTCACertsChainPath())
+	node.log.Debug("Loading TCA certificates chain at [%s]...", node.conf.getTCACertsChainPath())
 
 	chain, err := ioutil.ReadFile(node.conf.getTCACertsChainPath())
 	if err != nil {
@@ -104,8 +104,6 @@ func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCer
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	node.log.Info("getTCACertificate...")
-
 	// Prepare the request
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
@@ -118,8 +116,6 @@ func (node *nodeImpl) getTCACertificate() ([]byte, error) {
 	}
 
 	// TODO Verify pbCert.Cert
-
-	node.log.Info("getTCACertificate...done!")
 
 	return pbCert.Cert, nil
 }

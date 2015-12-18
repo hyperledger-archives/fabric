@@ -40,8 +40,8 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 	}
 	tx.ChaincodeID = nil
 
-	client.node.log.Info("Encrypted Payload [%s].", utils.EncodeBase64(tx.EncryptedPayload))
-	client.node.log.Info("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.EncryptedChaincodeID))
+	client.node.log.Debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.EncryptedPayload))
+	client.node.log.Debug("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.EncryptedChaincodeID))
 
 	return nil
 }

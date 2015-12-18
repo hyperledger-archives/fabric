@@ -20,6 +20,9 @@ ports:
         ecaA: ":53052"
         tcaP: ":53551"
         tcaA: ":53552"
+        tlscaP: ":53951"
+        tlscaA: ":53952"
+
 
 defaults:
         certSetSize: 32
@@ -38,6 +41,9 @@ peer:
 
           tca:
               paddr: localhost:53551
+
+          tlsca:
+              paddr: localhost:53951
 
     fileSystemPath: .obc-peer
 
