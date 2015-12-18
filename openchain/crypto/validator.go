@@ -133,7 +133,7 @@ func closeValidatorInternal(peer Peer) error {
 
 	err := validators[name].(*validatorImpl).close()
 
-	log.Info("Closing validator [%s]...done! [%s].", name, err)
+	log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
 
 	return err
 }

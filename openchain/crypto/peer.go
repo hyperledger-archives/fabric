@@ -133,7 +133,7 @@ func closePeerInternal(peer Peer) error {
 
 	err := peers[id].(*peerImpl).close()
 
-	log.Info("Closing peer [%s]...done! [%s].", id, err)
+	log.Info("Closing peer [%s]...done! [%s].", id, utils.ErrToString(err))
 
 	return err
 }

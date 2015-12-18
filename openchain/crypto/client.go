@@ -133,7 +133,7 @@ func closeClientInternal(client Client) error {
 
 	err := clients[name].(*clientImpl).close()
 
-	log.Info("Closing client [%s]...done! [%s].", name, err)
+	log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))
 
 	return err
 }

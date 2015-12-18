@@ -101,14 +101,14 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
 	// Extract the signing key from the tCert
 
-	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
+//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
 
 	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	tCert, err := utils.DERToX509Certificate(tCertDER)
 	if err != nil {
-		client.node.log.Error("getNextTCert: failed parsing key [%s].", err.Error())
+		client.node.log.Error("Failed parsing key [%s].", err.Error())
 
 		return nil, err
 	}
