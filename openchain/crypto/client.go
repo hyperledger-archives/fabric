@@ -41,10 +41,10 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, name)
+	log.Info("Registering client [%s] with name [%s]...", enrollID, name)
 
 	if clients[name] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, name)
+		log.Info("Registering client [%s] with name [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
 	}
@@ -52,18 +52,18 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	client := new(clientImpl)
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
-			log.Error("Failed registering [%s] with id [%s] [%s].", enrollID, name, err)
+			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Info("Registering [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Info("Registering client [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := client.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing [%s].", enrollID, name, err)
+		log.Warning("Registering client [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, name)
+	log.Info("Registering client [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
@@ -73,7 +73,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Initializing [%s]...", name)
+	log.Info("Initializing client [%s]...", name)
 
 	if clients[name] != nil {
 		log.Info("Client already initiliazied [%s].", name)
@@ -83,13 +83,13 @@ func InitClient(name string, pwd []byte) (Client, error) {
 
 	client := new(clientImpl)
 	if err := client.init(name, pwd); err != nil {
-		log.Error("Failed initialization [%s] [%s].", name, err)
+		log.Error("Failed client initialization [%s]: [%s].", name, err)
 
 		return nil, err
 	}
 
 	clients[name] = client
-	log.Info("Initializing [%s]...done!", name)
+	log.Info("Initializing client [%s]...done!", name)
 
 	return client, nil
 }
@@ -124,16 +124,16 @@ func CloseAllClients() (bool, []error) {
 // Private Methods
 
 func closeClientInternal(client Client) error {
-	id := client.GetName()
-	log.Info("Closing client [%s]...", id)
-	if _, ok := clients[id]; !ok {
+	name := client.GetName()
+	log.Info("Closing client [%s]...", name)
+	if _, ok := clients[name]; !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(clients, id)
+	defer delete(clients, name)
 
-	err := clients[id].(*clientImpl).close()
+	err := clients[name].(*clientImpl).close()
 
-	log.Info("Closing client [%s]...done! [%s].", id, err)
+	log.Info("Closing client [%s]...done! [%s].", name, err)
 
 	return err
 }
