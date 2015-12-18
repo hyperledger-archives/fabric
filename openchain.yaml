@@ -54,10 +54,7 @@ peer:
         WORKDIR /opt/rocksdb
         RUN make shared_lib
         ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
-        RUN apt-get update && apt-get install -y \
-            libsnappy-dev      \
-            zlib1g-dev         \
-            libbz2-dev
+        RUN apt-get update && apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
