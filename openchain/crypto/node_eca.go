@@ -43,7 +43,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 
 		return err
 	}
-	node.log.Info("Register:ECAcert  ", utils.EncodeBase64(ecaCertRaw))
+	node.log.Debug("ECA certificate [%s].", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
 	_, err = utils.DERToX509Certificate(ecaCertRaw)
@@ -54,7 +54,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	}
 
 	// Store ECA cert
-	node.log.Info("Storing ECA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing ECA certificate for validator [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {
@@ -66,7 +66,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) loadECACertsChain() error {
-	node.log.Info("Loading ECA certificates chain at [%s]...", node.conf.getECACertsChainPath())
+	node.log.Debug("Loading ECA certificates chain at [%s]...", node.conf.getECACertsChainPath())
 
 	chain, err := ioutil.ReadFile(node.conf.getECACertsChainPath())
 	if err != nil {
@@ -162,7 +162,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	node.log.Info("Enrollment certificate hash [%s].", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
+	node.log.Debug("Enrollment certificate hash [%s].", utils.EncodeBase64(utils.Hash(pbCert.Cert)))
 
 	// Verify pbCert.Cert
 	return priv, pbCert.Cert, key, nil

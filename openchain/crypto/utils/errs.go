@@ -51,3 +51,12 @@ var (
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidConfidentialityLevel = errors.New("Invalid confidentiality level")
 )
+
+
+func ErrToString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+
+	return "<clean>"
+}

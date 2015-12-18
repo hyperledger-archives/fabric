@@ -59,9 +59,10 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		return nil, utils.ErrNotInitialized
 	}
 
-	if tx.Cert != nil && tx.Signature != nil {
-		peer.node.log.Info("TransactionPreValidation: executing...")
+	peer.node.log.Debug("Pre validating [%s].", tx.String())
+	peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
+	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)

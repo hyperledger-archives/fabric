@@ -47,20 +47,20 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 
 		return nil, err
 	}
-	ks.log.Info("Cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No cert is available, fetch from ECA
 
 		// 1. Fetch
-		ks.log.Info("Fectch Enrollment Certificate from ECA...")
+		ks.log.Debug("Fectch Enrollment Certificate from ECA...")
 		cert, err = certFetcher(id)
 		if err != nil {
 			return nil, err
 		}
 
 		// 2. Store
-		ks.log.Info("Store certificate...")
+		ks.log.Debug("Store certificate...")
 		tx, err := ks.sqlDB.Begin()
 		if err != nil {
 			ks.log.Error("Failed beginning transaction [%s].", err.Error())
@@ -68,8 +68,8 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 			return nil, err
 		}
 
-		ks.log.Info("Insert id [%s].", sid)
-		ks.log.Info("Insert cert [%s].", utils.EncodeBase64(cert))
+		ks.log.Debug("Insert id [%s].", sid)
+		ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(cert))
 
 		_, err = tx.Exec("INSERT INTO Certificates (id, cert) VALUES (?, ?)", sid, cert)
 
@@ -90,7 +90,7 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 			return nil, err
 		}
 
-		ks.log.Info("Fectch Enrollment Certificate from ECA...done!")
+		ks.log.Debug("Fectch Enrollment Certificate from ECA...done!")
 
 		cert, err = ks.selectEnrollmentCert(sid)
 		if err != nil {
@@ -104,7 +104,7 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 }
 
 func (ks *keyStore) selectEnrollmentCert(id string) ([]byte, error) {
-	ks.log.Info("Select Enrollment TCert...")
+	ks.log.Debug("Select Enrollment TCert...")
 
 	// Get the first row available
 	var cert []byte
@@ -119,9 +119,9 @@ func (ks *keyStore) selectEnrollmentCert(id string) ([]byte, error) {
 		return nil, err
 	}
 
-	ks.log.Info("Cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
-	ks.log.Info("Select Enrollment Cert...done!")
+	ks.log.Debug("Select Enrollment Cert...done!")
 
 	return cert, nil
 }

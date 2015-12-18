@@ -26,7 +26,7 @@ import (
 func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 	sigma, err := utils.ECDSASign(signKey, msg)
 
-	validator.peer.node.log.Info("Signing message [%s], sigma [%s].", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
+	validator.peer.node.log.Debug("Signing message [%s], sigma [%s].", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
 
 	return sigma, err
 }
@@ -34,13 +34,13 @@ func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, e
 func (validator *validatorImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
 	sigma, err := utils.ECDSASign(validator.peer.node.enrollPrivKey, msg)
 
-	validator.peer.node.log.Info("Signing message [%s], sigma [%s].", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
+	validator.peer.node.log.Debug("Signing message [%s], sigma [%s].", utils.EncodeBase64(msg), utils.EncodeBase64(sigma))
 
 	return sigma, err
 }
 
 func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	validator.peer.node.log.Info("Verifing signature [%s] against message [%s].",
+	validator.peer.node.log.Debug("Verifing signature [%s] against message [%s].",
 		utils.EncodeBase64(signature),
 		utils.EncodeBase64(msg),
 	)

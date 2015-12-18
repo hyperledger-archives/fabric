@@ -102,12 +102,12 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 	// Check directory
 	ksPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
-	ks.log.Info("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, err)
+	ks.log.Debug("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
 
 	if !missing {
 		// Check file
 		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		ks.log.Info("Keystore file [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, err)
+		ks.log.Debug("Keystore file [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
