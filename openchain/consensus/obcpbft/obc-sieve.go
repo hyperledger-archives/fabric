@@ -203,19 +203,27 @@ func (op *obcSieve) processRequest() {
 }
 
 func (op *obcSieve) recvExecute(exec *Execute) {
-	// XXX queue execute if we're behind
-	// we're close enough behind, if:
-	//
-	// we are still executing a previous request
-	// AND the new request follows this request (maybe in a new view)
-	//     OR the new request replaces this request in a new view
-	//
-	// unfortunately we don't know which view will be next
+	if !(exec.View >= op.epoch && exec.BlockNumber > op.blockNumber && op.pbft.primary(exec.View) == exec.ReplicaId) {
+		logger.Debug("Invalid execute from %d", exec.ReplicaId)
+		return
+	}
 
+	if _, ok := op.queuedExec[exec.ReplicaId]; !ok {
+		op.queuedExec[exec.ReplicaId] = exec
+		op.processExecute()
+	}
+}
+
+func (op *obcSieve) processExecute() {
 	if op.currentReq != "" {
-		if _, ok := op.queuedExec[exec.ReplicaId]; !ok {
-			op.queuedExec[exec.ReplicaId] = exec
-		}
+		return
+	}
+
+	primary := op.pbft.primary(op.epoch)
+	exec := op.queuedExec[primary]
+	delete(op.queuedExec, primary)
+
+	if exec == nil {
 		return
 	}
 
@@ -495,7 +503,10 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	if len(op.queuedTx) > 0 {
 		op.processRequest()
 	}
-	// XXX if backup, process next queued execute
+
+	if op.pbft.primary(op.epoch) != op.id {
+		op.processExecute()
+	}
 }
 
 func (op *obcSieve) executeFlush(flush *Flush) {

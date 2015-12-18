@@ -110,6 +110,27 @@ func TestSieveReqBackToBack(t *testing.T) {
 	net := makeTestnet(1, makeTestnetSieve)
 	defer net.close()
 
+	var delayPkt []taggedMsg
+	gotExec := 0
+	net.filterFn = func(src int, dst int, payload []byte) []byte {
+		if dst == 3 {
+			sieve := &SieveMessage{}
+			proto.Unmarshal(payload, sieve)
+			if gotExec < 2 && sieve.GetPbftMessage() != nil {
+				delayPkt = append(delayPkt, taggedMsg{src, dst, payload})
+				return nil
+			}
+			if sieve.GetExecute() != nil {
+				gotExec++
+				if gotExec == 2 {
+					net.msgs = append(net.msgs, delayPkt...)
+					delayPkt = nil
+				}
+			}
+		}
+		return payload
+	}
+
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
 
