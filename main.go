@@ -317,7 +317,7 @@ func serve(args []string) error {
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
-	logger.Info("Security enabled status: %t", viper.GetBool("peer.validator.enabled"))
+	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
