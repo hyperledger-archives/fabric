@@ -74,11 +74,8 @@ func TestSieveNoDecision(t *testing.T) {
 		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 100 * time.Millisecond
 	})
 	defer net.close()
-
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
-
-	go net.processContinually(func(out bool, id int, raw []byte) []byte {
-		if out && id == 0 {
+	net.filterFn = func(src int, dst int, raw []byte) []byte {
+		if dst == -1 && src == 0 {
 			sieve := &SieveMessage{}
 			proto.Unmarshal(raw, sieve)
 			if sieve.GetPbftMessage() != nil {
@@ -86,7 +83,11 @@ func TestSieveNoDecision(t *testing.T) {
 			}
 		}
 		return raw
-	})
+	}
+
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+
+	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
 	time.Sleep(1 * time.Second)

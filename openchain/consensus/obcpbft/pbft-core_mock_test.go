@@ -67,7 +67,8 @@ type closableConsenter interface {
 }
 
 type taggedMsg struct {
-	id  int
+	src int
+	dst int
 	msg []byte
 }
 
@@ -78,6 +79,7 @@ type testnet struct {
 	replicas  []*instance
 	msgs      []taggedMsg
 	addresses []string
+	filterFn  func(int, int, []byte) []byte
 }
 
 type instance struct {
@@ -98,7 +100,7 @@ type instance struct {
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
-	net.msgs = append(net.msgs, taggedMsg{inst.id, payload})
+	net.broadcastFilter(inst, payload)
 	net.cond.Signal()
 	net.cond.L.Unlock()
 }
@@ -131,7 +133,7 @@ func (inst *instance) GetReplicaID(addr string) (id uint64, err error) {
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	net := inst.net
 	net.cond.L.Lock()
-	net.msgs = append(net.msgs, taggedMsg{inst.id, msg.Payload})
+	net.broadcastFilter(inst, msg.Payload)
 	net.cond.Signal()
 	net.cond.L.Unlock()
 	return nil
@@ -178,59 +180,37 @@ func (inst *instance) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-func (net *testnet) filterMsg(outMsg taggedMsg, filterFns ...func(bool, int, []byte) []byte) (msgs []taggedMsg) {
-	msg := outMsg.msg
-	for _, f := range filterFns {
-		msg = f(true, outMsg.id, msg)
-		if msg == nil {
-			break
+func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
+	if net.filterFn != nil {
+		payload = net.filterFn(inst.id, -1, payload)
+	}
+	for destId := range net.replicas {
+		destPayload := payload
+		if net.filterFn != nil {
+			destPayload = net.filterFn(inst.id, destId, payload)
+		}
+		if destPayload != nil {
+			net.msgs = append(net.msgs, taggedMsg{inst.id, destId, destPayload})
 		}
 	}
-
-	for i := range net.replicas {
-		if i == outMsg.id {
-			continue
-		}
-
-		msg := msg
-		for _, f := range filterFns {
-			msg = f(false, i, msg)
-			if msg == nil {
-				break
-			}
-		}
-
-		if msg == nil {
-			continue
-		}
-
-		msgs = append(msgs, taggedMsg{i, msg})
-	}
-
-	return msgs
 }
 
-func (net *testnet) process(filterFns ...func(bool, int, []byte) []byte) error {
+func (net *testnet) process() error {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
 
 	for len(net.msgs) > 0 {
-		msgs := net.msgs
-		net.msgs = nil
-
-		for _, taggedMsg := range msgs {
-			for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
-				net.cond.L.Unlock()
-				net.replicas[msg.id].deliver(msg.msg)
-				net.cond.L.Lock()
-			}
-		}
+		msg := net.msgs[0]
+		net.msgs = net.msgs[1:]
+		net.cond.L.Unlock()
+		net.replicas[msg.dst].deliver(msg.msg)
+		net.cond.L.Lock()
 	}
 
 	return nil
 }
 
-func (net *testnet) processContinually(filterFns ...func(bool, int, []byte) []byte) {
+func (net *testnet) processContinually() {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
 	for {
@@ -240,18 +220,9 @@ func (net *testnet) processContinually(filterFns ...func(bool, int, []byte) []by
 		if len(net.msgs) == 0 {
 			net.cond.Wait()
 		}
-		for len(net.msgs) > 0 {
-			msgs := net.msgs
-			net.msgs = nil
-
-			for _, taggedMsg := range msgs {
-				for _, msg := range net.filterMsg(taggedMsg, filterFns...) {
-					net.cond.L.Unlock()
-					net.replicas[msg.id].deliver(msg.msg)
-					net.cond.L.Lock()
-				}
-			}
-		}
+		net.cond.L.Unlock()
+		net.process()
+		net.cond.L.Lock()
 	}
 }
 
