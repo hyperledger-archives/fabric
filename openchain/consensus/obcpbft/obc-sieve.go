@@ -167,9 +167,7 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 }
 
 func (op *obcSieve) processRequest() {
-	// XXX wait if we didn't receive our own FLUSH yet
-
-	if len(op.queuedTx) == 0 {
+	if len(op.queuedTx) == 0 || op.currentReq != "" {
 		return
 	}
 
@@ -525,7 +523,6 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 		op.blockNumber--
 		op.currentReq = ""
 	}
-	// XXX trigger processRequest if primary
 }
 
 func (op *obcSieve) begin() error {
