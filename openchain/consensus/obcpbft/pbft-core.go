@@ -465,10 +465,8 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 			prep.RequestDigest = "foo"
 		}
 
-		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
-
-		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, false)
+		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 	}
 
 	return nil
@@ -484,6 +482,13 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	}
 
 	cert := instance.getCert(prep.View, prep.SequenceNumber)
+
+	for _, prevPrep := range cert.prepare {
+		if prevPrep.ReplicaId == prep.ReplicaId {
+			logger.Warning("Ignoring duplicate prepare from %d", prep.ReplicaId)
+			return nil
+		}
+	}
 	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
@@ -510,6 +515,12 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.View, commit.SequenceNumber)
+		for _, prevCommit := range cert.commit {
+			if prevCommit.ReplicaId == commit.ReplicaId {
+				logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
+				return nil
+			}
+		}
 		cert.commit = append(cert.commit, commit)
 
 		// note that we can reach this point without
