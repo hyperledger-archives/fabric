@@ -104,3 +104,25 @@ func TestSieveNoDecision(t *testing.T) {
 		}
 	}
 }
+
+func TestSieveReqBackToBack(t *testing.T) {
+	net := makeTestnet(1, makeTestnetSieve)
+	defer net.close()
+
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
+
+	net.process()
+
+	for _, inst := range net.replicas {
+		if len(inst.blocks) != 2 {
+			t.Errorf("Replica %d executed %d requests, expected %d",
+				inst.id, len(inst.blocks), 2)
+		}
+
+		if inst.consenter.(*obcSieve).epoch != 0 {
+			t.Errorf("Replica %d in epoch %d, expected 0",
+				inst.id, inst.consenter.(*obcSieve).epoch)
+		}
+	}
+}

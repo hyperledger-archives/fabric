@@ -45,11 +45,13 @@ type obcSieve struct {
 	currentTx   []*pb.Transaction
 	verifyStore []*Verify
 
-	queuedTx [][]byte
+	queuedExec map[uint64]*Execute
+	queuedTx   [][]byte
 }
 
 func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	op := &obcSieve{cpi: cpi, id: id}
+	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op)
 
 	return op
@@ -156,13 +158,23 @@ func (op *obcSieve) recvRequest(txRaw []byte) {
 		return
 	}
 
-	if op.currentReq != "" {
-		logger.Debug("Sieve primary %d queuing request", op.id)
-		op.queuedTx = append(op.queuedTx, txRaw)
+	logger.Debug("Sieve primary %d received request", op.id)
+	op.queuedTx = append(op.queuedTx, txRaw)
+
+	if op.currentReq == "" {
+		op.processRequest()
+	}
+}
+
+func (op *obcSieve) processRequest() {
+	// XXX wait if we didn't receive our own FLUSH yet
+
+	if len(op.queuedTx) == 0 {
 		return
 	}
 
-	logger.Debug("Sieve primary %d received request", op.id)
+	txRaw := op.queuedTx[0]
+	op.queuedTx = op.queuedTx[1:]
 
 	// tx := &pb.Transaction{}
 	// err := proto.Unmarshal(txRaw, tx)
@@ -199,6 +211,14 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 	//     OR the new request replaces this request in a new view
 	//
 	// unfortunately we don't know which view will be next
+
+	if op.currentReq != "" {
+		if _, ok := op.queuedExec[exec.ReplicaId]; !ok {
+			op.queuedExec[exec.ReplicaId] = exec
+		}
+		return
+	}
+
 	if !(exec.View == op.epoch && op.pbft.primary(op.epoch) == exec.ReplicaId && op.pbft.activeView) {
 		logger.Debug("Invalid execute from %d", exec.ReplicaId)
 		return
@@ -471,6 +491,11 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	}
 
 	op.currentReq = ""
+
+	if len(op.queuedTx) > 0 {
+		op.processRequest()
+	}
+	// XXX if backup, process next queued execute
 }
 
 func (op *obcSieve) executeFlush(flush *Flush) {
@@ -482,12 +507,14 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 	}
 	op.epoch = flush.View
 	logger.Info("Replica %d advancing epoch to %d", op.id, op.epoch)
+	op.queuedTx = nil
 	if op.currentReq != "" {
 		logger.Info("Replica %d rolling back speculative execution", op.id)
 		op.rollback()
 		op.blockNumber--
 		op.currentReq = ""
 	}
+	// XXX trigger processRequest if primary
 }
 
 func (op *obcSieve) begin() error {
