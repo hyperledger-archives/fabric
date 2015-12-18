@@ -130,6 +130,10 @@ func (inst *instance) GetReplicaID(addr string) (id uint64, err error) {
 	return uint64(0), err
 }
 
+// Broadcast delivers to all replicas.  In contrast to the stack
+// Broadcast, this will also deliver back to the replica.  We keep
+// this behavior, because it exposes subtle bugs in the
+// implementation.
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	net := inst.net
 	net.cond.L.Lock()
@@ -184,14 +188,24 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 	if net.filterFn != nil {
 		payload = net.filterFn(inst.id, -1, payload)
 	}
-	for destId := range net.replicas {
-		destPayload := payload
-		if net.filterFn != nil {
-			destPayload = net.filterFn(inst.id, destId, payload)
+	if payload != nil {
+		net.msgs = append(net.msgs, taggedMsg{inst.id, -1, payload})
+	}
+}
+
+func (net *testnet) deliverFilter(msg taggedMsg) {
+	if msg.dst == -1 {
+		for id, inst := range net.replicas {
+			payload := msg.msg
+			if net.filterFn != nil {
+				payload = net.filterFn(msg.src, id, payload)
+			}
+			if payload != nil {
+				inst.deliver(msg.msg)
+			}
 		}
-		if destPayload != nil {
-			net.msgs = append(net.msgs, taggedMsg{inst.id, destId, destPayload})
-		}
+	} else {
+		net.replicas[msg.dst].deliver(msg.msg)
 	}
 }
 
@@ -203,7 +217,7 @@ func (net *testnet) process() error {
 		msg := net.msgs[0]
 		net.msgs = net.msgs[1:]
 		net.cond.L.Unlock()
-		net.replicas[msg.dst].deliver(msg.msg)
+		net.deliverFilter(msg)
 		net.cond.L.Lock()
 	}
 
