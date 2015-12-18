@@ -44,12 +44,14 @@ type configuration struct {
 	configurationPathProperty string
 	ecaPAddressProperty string
 	tcaPAddressProperty string
+	tlscaPAddressProperty string
 }
 
 func (conf *configuration) loadConfiguration() error {
 	conf.configurationPathProperty = "peer.fileSystemPath"
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
 	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
+	conf.tlscaPAddressProperty = "peer.pki.tlsca.paddr"
 
 	// Check mandatory fields
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
@@ -61,6 +63,10 @@ func (conf *configuration) loadConfiguration() error {
 	if err := conf.checkProperty(conf.tcaPAddressProperty); err != nil {
 		return err
 	}
+	if err := conf.checkProperty(conf.tlscaPAddressProperty); err != nil {
+		return err
+	}
+
 
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
@@ -86,6 +92,10 @@ func (conf *configuration) getTCAPAddr() string {
 
 func (conf *configuration) getECAPAddr() string {
 	return viper.GetString(conf.ecaPAddressProperty)
+}
+
+func (conf *configuration) getTLSCAPAddr() string {
+	return viper.GetString(conf.tlscaPAddressProperty)
 }
 
 func (conf *configuration) getConfPath() string {
@@ -148,6 +158,30 @@ func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
 
+func (conf *configuration) getTLSKeyPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getTLSKeyFilename())
+}
+
+func (conf *configuration) getTLSCertPath() string {
+	return filepath.Join(conf.getKeysPath(), conf.getTLSCertFilename())
+}
+
+func (conf *configuration) getTLSKeyFilename() string {
+	return "tls.key"
+}
+
+func (conf *configuration) getTLSCertFilename() string {
+	return "tls.cert"
+}
+
+//func (conf *configuration) getRole() string {
+//	return viper.GetString(Role)
+//}
+//
+//func (conf *configuration) getAffiliation() string {
+//	return viper.GetString(Affiliation)
+//}
+
 func (conf *configuration) getEnrollmentChainKeyPath() string {
 	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentChainKeyFilename())
 }
@@ -163,4 +197,3 @@ func (conf *configuration) getTCertOwnerKDFKeyPath() string {
 func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 	return "tca.kdf.key"
 }
-
