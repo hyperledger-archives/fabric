@@ -29,7 +29,13 @@ ParseConfigForDockerfile() {
 		# If we are looking at Dockerfile inside peer, print it out
 		if [[ $tag == 'Dockerfile' ]]
 		then
-			echo $line
+			if [[ $line == *"COPY src $GOPATH/src"* ]]
+			then
+				echo "RUN mkdir -p $GOPATH/src/github.com/openblockchain/obc-peer"
+				echo "COPY ./ $GOPATH/src/github.com/openblockchain/obc-peer/"
+			else
+				echo $line
+			fi
 		fi
 
 		# If we number of spaces/tabs are less & we were looking at Dockerfile already,
@@ -54,6 +60,14 @@ ParseConfigForDockerfile() {
 		fi
 
 	done < $1
+}
+
+PrepareFiles() {
+	mkdir -p docker_companion
+#	echo -e $COMPANION_HOST
+	echo -e $COMPANION_KEY > docker_companion/key.pem
+	echo -e $COMPANION_CA_CERT > docker_companion/ca.pem
+	echo -e $COMPANION_CERT > docker_companion/cert.pem
 }
 
 PrepareDocker() {
@@ -85,14 +99,14 @@ BuildDockerImage() {
 RestartAsRoot() { 
 	./docker -H $1 stop -t 0 $2 || true
 	./docker -H $1 rm $2 || true
-	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=http://$3:4243 -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303 openchain-peer obc-peer peer
+	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $5:5000 -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=$COMPANION_HOST -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303 -e OPENCHAIN_VM_DOCKER_TLS_ENABLED=true -e OPENCHAIN_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e OPENCHAIN_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  OPENCHAIN_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
 }
 
 # Params - Docker host, PeerID, Host, Port, Root Node
 RestartAsPeer() {
 	./docker -H $1 stop -t 0 $2 || true
 	./docker -H $1 rm $2 || true
-	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=http://$3:4243 -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_DISCOVERY_ROOTNODE=$5 -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303 openchain-peer obc-peer peer
+	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $6:5000 -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=$COMPANION_HOST -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_DISCOVERY_ROOTNODE=$5 -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303  -e OPENCHAIN_VM_DOCKER_TLS_ENABLED=true -e OPENCHAIN_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e OPENCHAIN_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  OPENCHAIN_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
 }
 
 Run() {
@@ -101,21 +115,22 @@ Run() {
 	if [ ! "" == "$max_peer_id" ] && [ $max_peer_id -gt 2 ]
 	then
 		echo "--> Redeploying the first peer"
-		RestartAsPeer $DOCKER_HOST vp1 $HOST 30301 $HOST:3030$max_peer_id
+		RestartAsPeer $DOCKER_HOST vp1 $HOST 30301 $HOST:3030$max_peer_id 5001
 	else
 		echo "--> Less than 2 peers active, redeploying the first peer as root"
-		RestartAsRoot $DOCKER_HOST vp1 $HOST 30301
+		RestartAsRoot $DOCKER_HOST vp1 $HOST 30301 5001
 	fi
 
 	iter=2
 	while [ $iter -lt `expr $NUM_VAL_PEERS + 1` ]
 	do
 		echo "--> Deploying peer $iter/$NUM_VAL_PEERS"
-		RestartAsPeer $DOCKER_HOST vp$iter $HOST 3030$iter $HOST:30301
+		RestartAsPeer $DOCKER_HOST vp$iter $HOST 3030$iter $HOST:30301 500$iter
 		iter=`expr $iter + 1`;
 	done
 }
 
+PrepareFiles
 ParseConfigForDockerfile openchain.yaml > Dockerfile
 PrepareDocker
 BuildDockerImage
