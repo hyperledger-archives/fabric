@@ -57,7 +57,7 @@ func (mock *mockCPI) execute(tx []byte) {
 func (mock *mockCPI) viewChange(uint64) {
 }
 
-func (mock *mockCPI) getBlockHash(uint64) (blockHash []byte, err error) {
+func (mock *mockCPI) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
 	return []byte("nil"), nil
 }
 
@@ -120,7 +120,7 @@ func (inst *instance) execute(payload []byte) {
 func (inst *instance) viewChange(uint64) {
 }
 
-func (inst *instance) getBlockHash(uint64) (blockHash []byte, err error) {
+func (inst *instance) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
 	return []byte("nil"), nil
 }
 
@@ -194,6 +194,10 @@ func (inst *instance) RollbackTxBatch(id interface{}) error {
 
 func (inst *instance) GetBlock(id uint64) (*pb.Block, error) {
 	return &pb.Block{StateHash: []byte("TODO")}, nil
+}
+
+func (inst *instance) GetCurrentStateHash() (stateHash []byte, err error) {
+	return []byte("nil"), nil
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {

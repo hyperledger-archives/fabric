@@ -51,7 +51,8 @@ type innerCPI interface {
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
-	getBlockHash(blockNumber uint64) (blockHash []byte, err error)
+
+	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
 
 type pbftCore struct {
@@ -157,11 +158,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.newViewStore = make(map[uint64]*NewView)
 
 	// load genesis checkpoint
-	blockHash, err := instance.consumer.getBlockHash(0)
+	stateHash, err := instance.consumer.getStateHash(0)
 	if err != nil {
 		panic(fmt.Errorf("Cannot load genesis block: %s", err))
 	}
-	instance.chkpts[0] = base64.StdEncoding.EncodeToString(blockHash)
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(stateHash)
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -592,8 +593,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		// XXX replace with instance.cpi.GetStateHash()
-		stateHashBytes := []byte("XXX get current state hash")
+		stateHashBytes, _ := instance.consumer.getStateHash()
 		stateHash := base64.StdEncoding.EncodeToString(stateHashBytes)
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",

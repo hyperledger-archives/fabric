@@ -40,5 +40,6 @@ type CPI interface {
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
 
-	GetBlock(id uint64) (*pb.Block, error)
+	GetBlock(id uint64) (block *pb.Block, err error)
+	GetCurrentStateHash() (stateHash []byte, err error)
 }

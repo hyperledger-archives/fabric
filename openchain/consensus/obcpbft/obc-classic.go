@@ -155,20 +155,25 @@ func (op *obcClassic) execute(txRaw []byte) {
 	}
 }
 
-// viewChange is called when a view-change happened in the underlying PBFT.
-// Classic mode pbft does not use this information.
+// called when a view-change happened in the underlying PBFT
+// classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
 }
 
-// getBlockHash returns the hash of a particular block in the chain
-func (op *obcClassic) getBlockHash(blockNumber uint64) (blockHash []byte, err error) {
-	block, err := op.cpi.GetBlock(blockNumber)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber, err)
+// returns the state hash that corresponds to a specific block in the chain
+// if called with no arguments, it returns the latest/temp state hash
+func (op *obcClassic) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
+	if len(blockNumber) == 0 {
+		return op.cpi.GetCurrentStateHash()
 	}
-	blockHash, err = block.GetHash()
+
+	block, err := op.cpi.GetBlock(blockNumber[0])
 	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber, err)
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
+	}
+	stateHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
 	}
 	return
 }

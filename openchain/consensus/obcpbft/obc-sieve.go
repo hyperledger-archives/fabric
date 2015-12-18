@@ -136,15 +136,20 @@ func (op *obcSieve) viewChange(newView uint64) {
 	}
 }
 
-// called by pbft-core to get the hash of a particular block in the chain
-func (op *obcSieve) getBlockHash(blockNumber uint64) (blockHash []byte, err error) {
-	block, err := op.cpi.GetBlock(blockNumber)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber, err)
+// returns the state hash that corresponds to a specific block in the chain
+// if called with no arguments, it returns the latest/temp state hash
+func (op *obcSieve) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
+	if len(blockNumber) == 0 {
+		return op.cpi.GetCurrentStateHash()
 	}
-	blockHash, err = block.GetHash()
+
+	block, err := op.cpi.GetBlock(blockNumber[0])
 	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber, err)
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
+	}
+	stateHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
 	}
 	return
 }

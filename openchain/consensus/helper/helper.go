@@ -166,10 +166,18 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-func (h *Helper) GetBlock(blockNumber uint64) (*pb.Block, error) {
+func (h *Helper) GetBlock(blockNumber uint64) (block *pb.Block, err error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
 	}
 	return ledger.GetBlockByNumber(blockNumber)
+}
+
+func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.TempStateHash()
 }
