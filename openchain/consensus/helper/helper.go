@@ -122,10 +122,10 @@ func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.BeginTxBatch(id); err != nil {
-		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
 	return nil
 }
@@ -145,10 +145,10 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.CommitTxBatch(id, transactions, proof); err != nil {
-		return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
+		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil
 }
@@ -158,10 +158,18 @@ func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, p
 func (h *Helper) RollbackTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.RollbackTxBatch(id); err != nil {
-		return fmt.Errorf("Fail to rollback transaction with the ledger: %v", err)
+		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
 	return nil
+}
+
+func (h *Helper) GetBlock(blockNumber uint64) (*pb.Block, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.GetBlockByNumber(blockNumber)
 }

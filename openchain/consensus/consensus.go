@@ -39,4 +39,6 @@ type CPI interface {
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
+
+	GetBlock(id uint64) (*pb.Block, error)
 }

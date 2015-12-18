@@ -57,6 +57,10 @@ func (mock *mockCPI) execute(tx []byte) {
 func (mock *mockCPI) viewChange(uint64) {
 }
 
+func (mock *mockCPI) getBlockHash(uint64) (blockHash []byte, err error) {
+	return []byte("nil"), nil
+}
+
 // =============================================================================
 // Fake network structures
 // =============================================================================
@@ -90,7 +94,7 @@ type instance struct {
 	net       *testnet
 	executed  [][]byte
 
-	txId     interface{}
+	txID     interface{}
 	curBatch []*pb.Transaction
 	blocks   [][]*pb.Transaction
 
@@ -114,6 +118,10 @@ func (inst *instance) execute(payload []byte) {
 }
 
 func (inst *instance) viewChange(uint64) {
+}
+
+func (inst *instance) getBlockHash(uint64) (blockHash []byte, err error) {
+	return []byte("nil"), nil
 }
 
 func (inst *instance) GetReplicaHash() (self string, network []string, err error) {
@@ -148,10 +156,10 @@ func (inst *instance) Unicast(msgPayload []byte, receiver string) error {
 }
 
 func (inst *instance) BeginTxBatch(id interface{}) error {
-	if inst.txId != nil {
+	if inst.txID != nil {
 		return fmt.Errorf("Tx batch is already active")
 	}
-	inst.txId = id
+	inst.txID = id
 	inst.curBatch = nil
 	return nil
 }
@@ -163,25 +171,29 @@ func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 }
 
 func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
-	if !reflect.DeepEqual(inst.txId, id) {
+	if !reflect.DeepEqual(inst.txID, id) {
 		return fmt.Errorf("Invalid batch ID")
 	}
 	if !reflect.DeepEqual(txs, inst.curBatch) {
 		return fmt.Errorf("Tx list does not match executed Tx batch")
 	}
-	inst.txId = nil
+	inst.txID = nil
 	inst.blocks = append(inst.blocks, inst.curBatch)
 	inst.curBatch = nil
 	return nil
 }
 
 func (inst *instance) RollbackTxBatch(id interface{}) error {
-	if !reflect.DeepEqual(inst.txId, id) {
+	if !reflect.DeepEqual(inst.txID, id) {
 		return fmt.Errorf("Invalid batch ID")
 	}
 	inst.curBatch = nil
-	inst.txId = nil
+	inst.txID = nil
 	return nil
+}
+
+func (inst *instance) GetBlock(id uint64) (*pb.Block, error) {
+	return &pb.Block{StateHash: []byte("TODO")}, nil
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {

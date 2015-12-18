@@ -155,7 +155,20 @@ func (op *obcClassic) execute(txRaw []byte) {
 	}
 }
 
-// viewChange is called when a view-change happened in the underlying pbft
+// viewChange is called when a view-change happened in the underlying PBFT.
 // Classic mode pbft does not use this information.
 func (op *obcClassic) viewChange(curView uint64) {
+}
+
+// getBlockHash returns the hash of a particular block in the chain
+func (op *obcClassic) getBlockHash(blockNumber uint64) (blockHash []byte, err error) {
+	block, err := op.cpi.GetBlock(blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber, err)
+	}
+	blockHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber, err)
+	}
+	return
 }

@@ -208,6 +208,19 @@ func (op *obcBatch) viewChange(curView uint64) {
 	}
 }
 
+// get the hash of a particular block in the chain
+func (op *obcBatch) getBlockHash(blockNumber uint64) (blockHash []byte, err error) {
+	block, err := op.cpi.GetBlock(blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber, err)
+	}
+	blockHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber, err)
+	}
+	return
+}
+
 // =============================================================================
 // functions specific to batch mode
 // =============================================================================

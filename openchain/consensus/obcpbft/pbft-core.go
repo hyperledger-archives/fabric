@@ -51,6 +51,7 @@ type innerCPI interface {
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
+	getBlockHash(blockNumber uint64) (blockHash []byte, err error)
 }
 
 type pbftCore struct {
@@ -155,9 +156,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
 
-	// initialize genesis checkpoint
-	// TODO load state from disk
-	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
+	// load genesis checkpoint
+	blockHash, err := instance.consumer.getBlockHash(0)
+	if err != nil {
+		panic(fmt.Errorf("Cannot load genesis block: %s", err))
+	}
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(blockHash)
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)

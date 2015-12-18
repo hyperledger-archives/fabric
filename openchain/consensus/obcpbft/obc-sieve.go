@@ -136,6 +136,19 @@ func (op *obcSieve) viewChange(newView uint64) {
 	}
 }
 
+// called by pbft-core to get the hash of a particular block in the chain
+func (op *obcSieve) getBlockHash(blockNumber uint64) (blockHash []byte, err error) {
+	block, err := op.cpi.GetBlock(blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber, err)
+	}
+	blockHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber, err)
+	}
+	return
+}
+
 func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 	msgPayload, _ := proto.Marshal(svMsg)
 	ocMsg := &pb.OpenchainMessage{
