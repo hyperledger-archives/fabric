@@ -51,7 +51,7 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 
 func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, error) {
 	// Prepare the request
-	validator.peer.node.log.Info("Reading certificate for hash " + utils.EncodeBase64(id))
+	validator.peer.node.log.Debug("Reading certificate for hash " + utils.EncodeBase64(id))
 
 	req := &obcca.ECertReadReq{Id: &obcca.Identity{Id: ""}, Hash: id}
 	pbCert, err := validator.peer.node.callECAReadCertificate(context.Background(), req)

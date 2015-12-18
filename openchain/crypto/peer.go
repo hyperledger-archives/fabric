@@ -37,58 +37,59 @@ var (
 // Public Methods
 
 // RegisterPeer registers a peer to the PKI infrastructure
-func RegisterPeer(id string, pwd []byte, enrollID, enrollPWD string) error {
+func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+	log.Info("Registering peer [%s] with id [%s]...", enrollID, name)
 
-	if peers[id] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+	if peers[name] != nil {
+		log.Info("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
+
 		return nil
 	}
 
 	peer := new(peerImpl)
-	if err := peer.register("peer", id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: ", enrollID, id, err)
-
+	if err := peer.register("peer", name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
 		}
+		log.Info("Registering peer [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := peer.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: ", enrollID, id, err)
+		log.Warning("Registering peer [%s] with id [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
+	log.Info("Registering peer [%s] with id [%s]...done!", enrollID, name)
 
 	return nil
 }
 
 // InitPeer initializes a peer named name with password pwd
-func InitPeer(id string, pwd []byte) (Peer, error) {
+func InitPeer(name string, pwd []byte) (Peer, error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Initializing [%s]...", id)
+	log.Info("Initializing peer [%s]...", name)
 
-	if peers[id] != nil {
-		log.Info("Already initiliazied [%s].", id)
+	if peers[name] != nil {
+		log.Info("Peer already initiliazied [%s].", name)
 
-		return peers[id], nil
+		return peers[name], nil
 	}
 
 	peer := new(peerImpl)
-	if err := peer.init("peer", id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: ", id, err)
+	if err := peer.init("peer", name, pwd); err != nil {
+		log.Error("Failed peer initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
-	peers[id] = peer
-	log.Info("Initializing [%s]...done!", id)
+	peers[name] = peer
+	log.Info("Initializing peer [%s]...done!", name)
 
 	return peer, nil
 }
@@ -132,7 +133,7 @@ func closePeerInternal(peer Peer) error {
 
 	err := peers[id].(*peerImpl).close()
 
-	log.Info("Closing peer [%s]...done! [%s].", id, err)
+	log.Info("Closing peer [%s]...done! [%s].", id, utils.ErrToString(err))
 
 	return err
 }

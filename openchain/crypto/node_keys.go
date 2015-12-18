@@ -44,11 +44,11 @@ func (node *nodeImpl) retrieveEnrollmentData(userID, pwd string) error {
 
 		return err
 	}
-	node.log.Info("Enrollment certificate [%s].", utils.EncodeBase64(enrollCertRaw))
+	node.log.Debug("Enrollment certificate [%s].", utils.EncodeBase64(enrollCertRaw))
 	//	validatorLogger.Info("Register:key  ", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	node.log.Info("Storing enrollment data for user [%s]...", userID)
+	node.log.Debug("Storing enrollment data for user [%s]...", userID)
 
 	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {
@@ -87,7 +87,7 @@ func (node *nodeImpl) retrieveEnrollmentData(userID, pwd string) error {
 }
 
 func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
-	node.log.Info("Loading enrollment key at [%s]...", node.conf.getEnrollmentKeyPath())
+	node.log.Debug("Loading enrollment key at [%s]...", node.conf.getEnrollmentKeyPath())
 
 	rawEnrollPrivKey, err := ioutil.ReadFile(node.conf.getEnrollmentKeyPath())
 	if err != nil {
@@ -108,7 +108,7 @@ func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
 }
 
 func (node *nodeImpl) loadEnrollmentCertificate() error {
-	node.log.Info("Loading enrollment certificate at [%s]...", node.conf.getEnrollmentCertPath())
+	node.log.Debug("Loading enrollment certificate at [%s]...", node.conf.getEnrollmentCertPath())
 
 	pemEnrollCert, err := ioutil.ReadFile(node.conf.getEnrollmentCertPath())
 	if err != nil {
@@ -135,13 +135,13 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 
 	// Set node ID
 	node.id = utils.Hash(rawEnrollCert)
-	node.log.Info("Setting id to [%s].", utils.EncodeBase64(node.id))
+	node.log.Debug("Setting id to [%s].", utils.EncodeBase64(node.id))
 
 	return nil
 }
 
 func (node *nodeImpl) loadEnrollmentID() error {
-	node.log.Info("Loading enrollment id at [%s]...", node.conf.getEnrollmentIDPath())
+	node.log.Debug("Loading enrollment id at [%s]...", node.conf.getEnrollmentIDPath())
 
 	enrollID, err := ioutil.ReadFile(node.conf.getEnrollmentIDPath())
 	if err != nil {
@@ -152,13 +152,13 @@ func (node *nodeImpl) loadEnrollmentID() error {
 
 	// Set enrollment ID
 	node.enrollID = string(enrollID)
-	node.log.Info("Setting enrollment id to [%s].", node.enrollID)
+	node.log.Debug("Setting enrollment id to [%s].", node.enrollID)
 
 	return nil
 }
 
 func (node *nodeImpl) loadEnrollmentChainKey(pwd []byte) error {
-	node.log.Info("Loading enrollment chain key at [%s]...", node.conf.getEnrollmentChainKeyPath())
+	node.log.Debug("Loading enrollment chain key at [%s]...", node.conf.getEnrollmentChainKeyPath())
 
 	pem, err := ioutil.ReadFile(node.conf.getEnrollmentChainKeyPath())
 	if err != nil {

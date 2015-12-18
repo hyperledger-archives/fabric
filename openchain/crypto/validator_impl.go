@@ -72,12 +72,12 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		return nil, utils.ErrNotInitialized
 	}
 
-	validator.peer.node.log.Info("Pre executing [%s].", tx.String())
-	validator.peer.node.log.Info("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
+	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	switch tx.ConfidentialityLevel {
 	case obc.ConfidentialityLevel_PUBLIC:
-		validator.peer.node.log.Info("Deep cloning.")
+		validator.peer.node.log.Debug("Deep cloning.")
 
 		// Nothing to do here. Clone tx.
 		clone, err := validator.deepCloneTransaction(tx)
@@ -88,7 +88,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 		return clone, nil
 	case obc.ConfidentialityLevel_CONFIDENTIAL:
-		validator.peer.node.log.Info("Clone and Decrypt.")
+		validator.peer.node.log.Debug("Clone and Decrypt.")
 
 		// Clone the transaction and decrypt it
 		newTx, err := validator.decryptTx(tx)
@@ -158,10 +158,10 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 		return nil, utils.ErrDirrentChaincodeID
 	}
 
-	validator.peer.node.log.Info("Parsing transaction. Type [%s].", executeTx.Type.String())
+	validator.peer.node.log.Debug("Parsing transaction. Type [%s].", executeTx.Type.String())
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.peer.node.log.Info("Parsing Query transaction...")
+		validator.peer.node.log.Debug("Parsing Query transaction...")
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode

@@ -45,20 +45,20 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 
 		return nil, err
 	}
-	ks.log.Info("cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No TCert is available, fetch new ones, store them and return the first available.
 
 		// 1. Fetch
-		ks.log.Info("Fectch TCerts from TCA...")
+		ks.log.Debug("Fectch TCerts from TCA...")
 		certs, err := tCertFetcher(10)
 		if err != nil {
 			return nil, err
 		}
 
 		// 2. Store
-		ks.log.Info("Store them...")
+		ks.log.Debug("Store them...")
 		tx, err := ks.sqlDB.Begin()
 		if err != nil {
 			ks.log.Error("Failed beginning transaction [%s].", err.Error())
@@ -67,10 +67,10 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 		}
 
 		for i, cert := range certs {
-			ks.log.Info("Insert index [%d]", i)
+			ks.log.Debug("Insert index [%d]", i)
 
 			//			db.log.Info("Insert key  ", utils.EncodeBase64(keys[i]))
-			ks.log.Info("Insert cert [%s].", utils.EncodeBase64(cert))
+			ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(cert))
 
 			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
@@ -89,7 +89,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 			return nil, err
 		}
 
-		ks.log.Info("Fectch TCerts from TCA...done!")
+		ks.log.Debug("Fectch TCerts from TCA...done!")
 
 		cert, err = ks.selectNextTCert()
 		if err != nil {
@@ -105,7 +105,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 }
 
 func (ks *keyStore) selectNextTCert() ([]byte, error) {
-	ks.log.Info("Select next TCert...")
+	ks.log.Debug("Select next TCert...")
 
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
@@ -129,14 +129,14 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 		return nil, err
 	}
 
-	ks.log.Info("id [%d]", id)
-	ks.log.Info("cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("id [%d]", id)
+	ks.log.Debug("cert [%s].", utils.EncodeBase64(cert))
 
 	// TODO: rather than removing, move the cert to another table
 	// which stores the TCerts used
 
 	// Remove that row
-	ks.log.Info("Removing row with id [%d]...", id)
+	ks.log.Debug("Removing row with id [%d]...", id)
 
 	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
 		ks.log.Error("Failed removing row [%d] [%s].", id, err.Error())
@@ -146,7 +146,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 		return nil, err
 	}
 
-	ks.log.Info("Removing row with id [%d]...done", id)
+	ks.log.Debug("Removing row with id [%d]...done", id)
 
 	// Finalize
 	err = tx.Commit()
@@ -157,7 +157,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 		return nil, err
 	}
 
-	ks.log.Info("Select next TCert...done!")
+	ks.log.Debug("Select next TCert...done!")
 
 	return cert, nil
 }
