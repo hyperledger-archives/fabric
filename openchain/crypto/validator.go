@@ -37,58 +37,59 @@ var (
 // Public Methods
 
 // RegisterValidator registers a client to the PKI infrastructure
-func RegisterValidator(id string, pwd []byte, enrollID, enrollPWD string) error {
+func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering [", enrollID, "] with id [", id, "]...")
+	log.Info("Registering validator [%s] with name [%s]...", enrollID, name)
 
-	if validators[id] != nil {
-		log.Info("Registering [", enrollID, "] with id [", id, "]...done. Already initialized.")
+	if validators[name] != nil {
+		log.Info("Registering validator [%s] with name [%s]...done. Already initialized.", enrollID, name)
+
 		return nil
 	}
 
 	validator := new(validatorImpl)
-	if err := validator.register(id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [", enrollID, "] with id [", id, "] [%s].", err.Error())
-
+	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
+		log.Info("Registering vlidator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := validator.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [", enrollID, "] with id [", id, "]. Failed closing [%s].", err.Error())
+		log.Warning("Registering validator [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering [", enrollID, "] with id [", id, "]...done!")
+	log.Info("Registering validator [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
 
 // InitValidator initializes a client named name with password pwd
-func InitValidator(id string, pwd []byte) (Peer, error) {
+func InitValidator(name string, pwd []byte) (Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Initializing [%s]...", id)
+	log.Info("Initializing validator [%s]...", name)
 
-	if validators[id] != nil {
-		log.Info("Validator already initiliazied [%s].", id)
+	if validators[name] != nil {
+		log.Info("Validator already initiliazied [%s].", name)
 
-		return validators[id], nil
+		return validators[name], nil
 	}
 
 	validator := new(validatorImpl)
-	if err := validator.init(id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: ", id, err)
+	if err := validator.init(name, pwd); err != nil {
+		log.Error("Failed validator initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
-	validators[id] = validator
-	log.Info("Initializing [%s]...done!", id)
+	validators[name] = validator
+	log.Info("Initializing validator [%s]...done!", name)
 
 	return validator, nil
 }
@@ -123,16 +124,16 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func closeValidatorInternal(peer Peer) error {
-	id := peer.GetName()
-	log.Info("Closing validator [%s]...", id)
-	if _, ok := validators[id]; !ok {
+	name := peer.GetName()
+	log.Info("Closing validator [%s]...", name)
+	if _, ok := validators[name]; !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(validators, id)
+	defer delete(validators, name)
 
-	err := validators[id].(*validatorImpl).close()
+	err := validators[name].(*validatorImpl).close()
 
-	log.Info("Closing validator [%s]...done! [%s].", id, err)
+	log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
 
 	return err
 }
