@@ -142,7 +142,7 @@ func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	// Register node
 	node := new(nodeImpl)
 	if err := node.register(prefix, name, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s]: ", enrollID, err)
+		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
 
