@@ -309,18 +309,18 @@ func serve(args []string) error {
 	}
 
 	listenAddr := viper.GetString("peer.listenaddress")
-	
+
 	if "" == listenAddr {
 		logger.Debug("Listen address not specified, using peer endpoint address")
 		listenAddr = peerEndpoint.Address
 	}
-	
+
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
-	
-	ehubLis,ehubGrpcServer,err := createEventHubServer()
+
+	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
 		grpclog.Fatalf("failed to create ehub server: %v", err)
 	}
@@ -384,11 +384,6 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
-
-
-
-
-
 
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
@@ -529,7 +524,7 @@ func getCliFilePath() string {
 	if !strings.HasSuffix(localStore, "/") {
 		localStore = localStore + "/"
 	}
-	localStore = localStore + "cli/"
+	localStore = localStore + "client/"
 	return localStore
 }
 
