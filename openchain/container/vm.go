@@ -223,6 +223,12 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 	//tw := tar.NewWriter(inputbuf)
 
 	walkFn := func(path string, info os.FileInfo, err error) error {
+
+		// If path includes .git, ignore
+		if strings.Contains(path, ".git") {
+			return nil
+		}
+
 		if info.Mode().IsDir() {
 			return nil
 		}
@@ -230,11 +236,6 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 		newPath := fmt.Sprintf("src%s", path[len(rootDirectory):])
 		//newPath := path[len(rootDirectory):]
 		if len(newPath) == 0 {
-			return nil
-		}
-
-		// If path includes .git, ignore
-		if strings.Contains(path, ".git") {
 			return nil
 		}
 

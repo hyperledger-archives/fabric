@@ -39,6 +39,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -61,6 +62,11 @@ type BlockChainAccessor interface {
 	GetBlockByNumber(blockNumber uint64) (*pb.Block, error)
 }
 
+// StateAccessor interface for retreiving blocks by block number
+type StateAccessor interface {
+	GetStateSnapshot() (*state.StateSnapshot, error)
+}
+
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
 	BlocksRetriever
@@ -75,6 +81,7 @@ type MessageHandlerCoordinator interface {
 	Peer
 	SecurityAccessor
 	BlockChainAccessor
+	StateAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
@@ -569,6 +576,12 @@ func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
+}
+
+func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetStateSnapshot()
 }
 
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending

@@ -25,14 +25,14 @@ import (
 	"io"
 	"time"
 
-	"golang.org/x/crypto/sha3"
+	"crypto/sha512"
 	gp "google/protobuf"
 )
 
 // ComputeCryptoHash should be used in openchain code so that we can change the actual algo used for crypto-hash at one place
 func ComputeCryptoHash(data []byte) (hash []byte) {
-	hash = make([]byte, 64)
-	sha3.ShakeSum256(hash, data)
+	byte64array := sha512.Sum512(data)
+	hash = byte64array[:]
 	return
 }
 

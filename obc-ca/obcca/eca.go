@@ -34,7 +34,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
-	"golang.org/x/crypto/sha3"
+	"crypto/sha512"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -184,7 +184,7 @@ func (ecap *ECAP) CreateCertificate(ctx context.Context, req *pb.ECertCreateReq)
 		return nil, err
 	}
 
-	hash := sha3.New384()
+	hash := sha512.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
