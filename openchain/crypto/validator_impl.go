@@ -22,9 +22,9 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
-"errors"
 	"reflect"
 )
 
@@ -180,7 +180,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 		return &se, nil
 	}
 
-		// Compute deployTxKey key from the deploy transaction
+	// Compute deployTxKey key from the deploy transaction
 	deployTxKey := utils.HMAC(validator.peer.node.enrollChainKey, deployTx.Nonce)
 
 	// Mask executeTx.Nonce
@@ -213,7 +213,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 	// Register node
 	peer := new(peerImpl)
 	if err := peer.register("validator", id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering", enrollID, err)
+		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
 

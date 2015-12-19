@@ -133,6 +133,8 @@ peer:
             paddr: localhost:50051
         tca:
             paddr: localhost:50551
+        tlsca:
+            paddr: localhost:50951
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
