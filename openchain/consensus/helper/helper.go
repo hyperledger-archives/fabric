@@ -166,6 +166,7 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
+// GetBlock returns a block from the chain
 func (h *Helper) GetBlock(blockNumber uint64) (block *pb.Block, err error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -174,10 +175,11 @@ func (h *Helper) GetBlock(blockNumber uint64) (block *pb.Block, err error) {
 	return ledger.GetBlockByNumber(blockNumber)
 }
 
+// GetCurrentStateHash returns the current/temporary state hash
 func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
 	}
-	return ledger.TempStateHash()
+	return ledger.GetTempStateHash()
 }
