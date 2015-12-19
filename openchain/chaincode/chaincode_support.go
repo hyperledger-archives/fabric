@@ -113,7 +113,7 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 
 	s.userRunsCC = userrunsCC
 
-	s.ccStartupTimeout = ccstartuptimeout
+	s.ccStartupTimeout = ccstartuptimeout*time.Milliseconds
 
 	//TODO I'm not sure if this needs to be on a per chain basis... too lowel and just needs to be a global default ?
 	s.chaincodeInstallPath = chaincodeInstallPathDefault
