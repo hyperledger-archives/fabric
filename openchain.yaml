@@ -237,8 +237,8 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
-    #timeout in millisecs for starting up a container and waiting for Register to come through
-    startuptimeout: 100
+    #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests 
+    startuptimeout: 1000
 
     #mode - options are "dev", "net"
     #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
