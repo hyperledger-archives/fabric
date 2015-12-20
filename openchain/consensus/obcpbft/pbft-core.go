@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -59,7 +58,6 @@ type pbftCore struct {
 	lock     sync.Mutex
 	closed   bool
 	consumer innerCPI
-	stLedger ledger
 
 	// PBFT data
 	activeView   bool              // view change happening
@@ -76,8 +74,7 @@ type pbftCore struct {
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
-	hChkpts      map[uint64]uint64 // highest checkpoint sequence number observed for each node
-	stState      stState           // Data structure which handles state transfer
+	stState      *stState // Data structure which handles state transfer
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -170,7 +167,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
-	instance.hChkpts = make(map[uint64]uint64)
 
 	// initialize genesis checkpoint
 	// TODO load state from disk
@@ -182,8 +178,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 
+	// initialize state transfer
+	instance.stState = newStState(instance, nil)
+
 	go instance.timerHander()
-	go instance.stWatchdog()
 
 	instance.consumer.viewChange(instance.view)
 
@@ -545,7 +543,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() error {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.stState.outOfDate {
+	if instance.stState.OutOfDate {
 		return nil
 	}
 
@@ -669,11 +667,11 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
-	stRevcCheckpoint(chkpt) // State transfer tracking
+	instance.stState.WitnessCheckpoint(chkpt) // State transfer tracking
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.outOfDate {
+		if !instance.stState.OutOfDate {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -688,9 +686,9 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	if instance.stState.outOfDate && matching >= instance.f+1 {
+	if instance.stState.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
-		stCheckpointWeakCert(matching, chkpt)
+		instance.stState.WitnessCheckpointWeakCert(matching, chkpt)
 	}
 
 	if matching <= instance.f*2 {
