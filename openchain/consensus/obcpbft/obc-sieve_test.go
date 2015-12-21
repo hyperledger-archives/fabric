@@ -20,6 +20,8 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -146,5 +148,35 @@ func TestSieveReqBackToBack(t *testing.T) {
 			t.Errorf("Replica %d in epoch %d, expected 0",
 				inst.id, inst.consenter.(*obcSieve).epoch)
 		}
+	}
+}
+
+func TestSieveNonDeterministic(t *testing.T) {
+	var instResults []int
+
+	net := makeTestnet(1, func(inst *instance) {
+		makeTestnetSieve(inst)
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
+			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
+			logger.Debug("State hash for %d: %s", inst.id, res)
+			return []byte(res), nil
+		}
+	})
+	defer net.close()
+
+	instResults = []int{1, 2, 3, 4}
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	net.process()
+
+	instResults = []int{5, 5, 6, 6}
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
+	net.process()
+
+	results := make([]int, len(net.replicas))
+	for _, inst := range net.replicas {
+		results[inst.id] = len(inst.blocks)
+	}
+	if !reflect.DeepEqual(results, []int{0, 0, 1, 1}) && !reflect.DeepEqual(results, []int{1, 1, 0, 0}) {
+		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
 	}
 }

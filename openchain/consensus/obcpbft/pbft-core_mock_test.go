@@ -98,7 +98,8 @@ type instance struct {
 	curBatch []*pb.Transaction
 	blocks   [][]*pb.Transaction
 
-	deliver func([]byte)
+	deliver      func([]byte)
+	execTxResult func([]*pb.Transaction) ([]byte, []error)
 }
 
 func (inst *instance) broadcast(payload []byte) {
@@ -167,6 +168,9 @@ func (inst *instance) BeginTxBatch(id interface{}) error {
 func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	inst.curBatch = append(inst.curBatch, txs...)
 	errs := make([]error, len(txs)+1)
+	if inst.execTxResult != nil {
+		return inst.execTxResult(txs)
+	}
 	return nil, errs
 }
 
