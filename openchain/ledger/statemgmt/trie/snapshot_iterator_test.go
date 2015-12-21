@@ -20,10 +20,11 @@ under the License.
 package trie
 
 import (
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"testing"
 )
 
 func TestStateSnapshotIterator(t *testing.T) {
@@ -33,12 +34,12 @@ func TestStateSnapshotIterator(t *testing.T) {
 	stateDelta := statemgmt.NewStateDelta()
 
 	// insert keys
-	stateDelta.Set("chaincodeID1", "key1", []byte("value1"))
-	stateDelta.Set("chaincodeID2", "key2", []byte("value2"))
-	stateDelta.Set("chaincodeID3", "key3", []byte("value3"))
-	stateDelta.Set("chaincodeID4", "key4", []byte("value4"))
-	stateDelta.Set("chaincodeID5", "key5", []byte("value5"))
-	stateDelta.Set("chaincodeID6", "key6", []byte("value6"))
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID2", "key2", []byte("value2"), nil)
+	stateDelta.Set("chaincodeID3", "key3", []byte("value3"), nil)
+	stateDelta.Set("chaincodeID4", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID5", "key5", []byte("value5"), nil)
+	stateDelta.Set("chaincodeID6", "key6", []byte("value6"), nil)
 	stateTrie.PrepareWorkingSet(stateDelta)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 	//check that the key is persisted
@@ -54,14 +55,14 @@ func TestStateSnapshotIterator(t *testing.T) {
 
 	stateDelta1 := statemgmt.NewStateDelta()
 	// delete a few keys
-	stateDelta1.Delete("chaincodeID1", "key1")
-	stateDelta1.Delete("chaincodeID3", "key3")
-	stateDelta1.Delete("chaincodeID4", "key4")
-	stateDelta1.Delete("chaincodeID6", "key6")
+	stateDelta1.Delete("chaincodeID1", "key1", nil)
+	stateDelta1.Delete("chaincodeID3", "key3", nil)
+	stateDelta1.Delete("chaincodeID4", "key4", nil)
+	stateDelta1.Delete("chaincodeID6", "key6", nil)
 
 	// update remaining keys
-	stateDelta1.Set("chaincodeID2", "key2", []byte("value2_new"))
-	stateDelta1.Set("chaincodeID5", "key5", []byte("value5_new"))
+	stateDelta1.Set("chaincodeID2", "key2", []byte("value2_new"), nil)
+	stateDelta1.Set("chaincodeID5", "key5", []byte("value5_new"), nil)
 
 	stateTrie.PrepareWorkingSet(stateDelta1)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
@@ -81,7 +82,7 @@ func TestStateSnapshotIterator(t *testing.T) {
 		keyBytes, valueBytes := itr.GetRawKeyValue()
 		t.Logf("key=[%s], value=[%s]", string(keyBytes), string(valueBytes))
 		chaincodeID, key := statemgmt.DecodeCompositeKey(keyBytes)
-		stateDeltaFromSnapshot.Set(chaincodeID, key, valueBytes)
+		stateDeltaFromSnapshot.Set(chaincodeID, key, valueBytes, nil)
 	}
 	testutil.AssertEquals(t, stateDelta, stateDeltaFromSnapshot)
 }

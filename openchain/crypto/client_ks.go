@@ -26,145 +26,138 @@ import (
 
 func (client *clientImpl) initKeyStore() error {
 	// create tables
-	client.node.ks.log.Debug("Create Table [%s] at [%s]", "TCert", client.node.ks.conf.getKeyStorePath())
-	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, key BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.ks.log.Debug("Failed creating table: %s", err)
+	client.node.ks.log.Debug("Create Table if not exists [TCert] at [%s].", client.node.ks.conf.getKeyStorePath())
+	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+		client.node.ks.log.Debug("Failed creating table [%s].", err.Error())
 		return err
 	}
-
-	client.node.ks.log.Debug("keystore created at [%s]", client.node.ks.conf.getKeyStorePath())
 
 	return nil
 }
 
-func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, [][]byte, error)) ([]byte, []byte, error) {
+func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) ([]byte, error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
-	cert, key, err := ks.selectNextTCert()
+	cert, err := ks.selectNextTCert()
 	if err != nil {
-		ks.log.Error("Failed selecting next TCert: %s", err)
+		ks.log.Error("Failed selecting next TCert [%s].", err.Error())
 
-		return nil, nil, err
+		return nil, err
 	}
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
+	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No TCert is available, fetch new ones, store them and return the first available.
 
 		// 1. Fetch
-		ks.log.Info("Fectch TCerts from TCA...")
-		certs, keys, err := tCertFetcher(10)
+		ks.log.Debug("Fectch TCerts from TCA...")
+		certs, err := tCertFetcher(10)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// 2. Store
-		ks.log.Info("Store them...")
+		ks.log.Debug("Store them...")
 		tx, err := ks.sqlDB.Begin()
 		if err != nil {
-			ks.log.Error("Failed beginning transaction: %s", err)
+			ks.log.Error("Failed beginning transaction [%s].", err.Error())
 
-			return nil, nil, err
+			return nil, err
 		}
 
 		for i, cert := range certs {
-			ks.log.Info("Insert index %d", i)
+			ks.log.Debug("Insert index [%d]", i)
 
-			//			db.log.Info("Insert key %s", utils.EncodeBase64(keys[i]))
-			ks.log.Info("Insert cert %s", utils.EncodeBase64(cert))
+			//			db.log.Info("Insert key  ", utils.EncodeBase64(keys[i]))
+			ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(cert))
 
-			// TODO: once the TCert structure is finalized,
-			// store only the cert from which the corresponding key
-			// can be derived
-
-			_, err := tx.Exec("INSERT INTO TCerts (cert, key) VALUES (?, ?)", cert, keys[i])
+			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
 			if err != nil {
-				ks.log.Error("Failed inserting cert %s", err)
+				ks.log.Error("Failed inserting cert [%s].", err.Error())
 				continue
 			}
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			ks.log.Error("Failed committing transaction: %s", err)
+			ks.log.Error("Failed committing transaction [%s].", err.Error())
 
 			tx.Rollback()
 
-			return nil, nil, err
+			return nil, err
 		}
 
-		ks.log.Info("Fectch TCerts from TCA...done!")
+		ks.log.Debug("Fectch TCerts from TCA...done!")
 
-		cert, key, err = ks.selectNextTCert()
+		cert, err = ks.selectNextTCert()
 		if err != nil {
-			ks.log.Error("Failed selecting next TCert after fetching: %s", err)
+			ks.log.Error("Failed selecting next TCert after fetching [%s].", err.Error())
 
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return cert, key, nil
+	return cert, nil
 	//	return nil, nil, errors.New("No cert obtained")
 	//	return utils.NewSelfSignedCert()
 }
 
-func (ks *keyStore) selectNextTCert() ([]byte, []byte, error) {
-	ks.log.Info("Select next TCert...")
+func (ks *keyStore) selectNextTCert() ([]byte, error) {
+	ks.log.Debug("Select next TCert...")
 
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
 	if err != nil {
-		ks.log.Error("Failed beginning transaction: %s", err)
+		ks.log.Error("Failed beginning transaction [%s].", err.Error())
 
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Get the first row available
 	var id int
-	var cert, key []byte
-	row := ks.sqlDB.QueryRow("SELECT id, cert, key FROM TCerts")
-	err = row.Scan(&id, &cert, &key)
+	var cert []byte
+	row := ks.sqlDB.QueryRow("SELECT id, cert FROM TCerts")
+	err = row.Scan(&id, &cert)
 
 	if err == sql.ErrNoRows {
-		return nil, nil, nil
+		return nil, nil
 	} else if err != nil {
-		ks.log.Error("Error during select: %s", err)
+		ks.log.Error("Error during select [%s].", err.Error())
 
-		return nil, nil, err
+		return nil, err
 	}
 
-	ks.log.Info("id %d", id)
-	ks.log.Info("cert %s", utils.EncodeBase64(cert))
-	//	db.log.Info("key %s", utils.EncodeBase64(key))
+	ks.log.Debug("id [%d]", id)
+	ks.log.Debug("cert [%s].", utils.EncodeBase64(cert))
 
-	// TODO: instead of removing, move the TCert to a new table
+	// TODO: rather than removing, move the cert to another table
 	// which stores the TCerts used
 
 	// Remove that row
-	ks.log.Info("Removing row with id [%d]...", id)
+	ks.log.Debug("Removing row with id [%d]...", id)
 
 	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		ks.log.Error("Failed removing row [%d]: %s", id, err)
+		ks.log.Error("Failed removing row [%d] [%s].", id, err.Error())
 
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
-	ks.log.Info("Removing row with id [%d]...done", id)
+	ks.log.Debug("Removing row with id [%d]...done", id)
 
 	// Finalize
 	err = tx.Commit()
 	if err != nil {
-		ks.log.Error("Failed commiting: %s", err)
+		ks.log.Error("Failed commiting [%s].", err.Error())
 		tx.Rollback()
 
-		return nil, nil, err
+		return nil, err
 	}
 
-	ks.log.Info("Select next TCert...done!")
+	ks.log.Debug("Select next TCert...done!")
 
-	return cert, key, nil
+	return cert, nil
 }

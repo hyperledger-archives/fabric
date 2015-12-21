@@ -39,6 +39,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -51,8 +52,24 @@ type Peer interface {
 	NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error)
 }
 
+// BlocksRetriever interface for retrieving blocks .
+type BlocksRetriever interface {
+	GetBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+}
+
+// BlockChainAccessor interface for retreiving blocks by block number
+type BlockChainAccessor interface {
+	GetBlockByNumber(blockNumber uint64) (*pb.Block, error)
+}
+
+// StateAccessor interface for retreiving blocks by block number
+type StateAccessor interface {
+	GetStateSnapshot() (*state.StateSnapshot, error)
+}
+
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
+	BlocksRetriever
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -62,6 +79,9 @@ type MessageHandler interface {
 // MessageHandlerCoordinator responsible for coordinating between the registered MessageHandler's
 type MessageHandlerCoordinator interface {
 	Peer
+	SecurityAccessor
+	BlockChainAccessor
+	StateAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
@@ -74,6 +94,11 @@ type MessageHandlerCoordinator interface {
 type ChatStream interface {
 	Send(*pb.OpenchainMessage) error
 	Recv() (*pb.OpenchainMessage, error)
+}
+
+// SecurityAccessor interface enables a Peer to hand out the crypto object for Peer
+type SecurityAccessor interface {
+	GetSecHelper() crypto.Peer
 }
 
 var peerLogger = logging.MustGetLogger("peer")
@@ -187,18 +212,22 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 		enrollSecret := viper.GetString("security.enrollSecret")
 		var err error
 		if viper.GetBool("peer.validator.enabled") {
+			peerLogger.Debug("Registering validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
+			peerLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
 			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
 			if nil != err {
 				return nil, err
 			}
 		} else {
+			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				return nil, err
 			}
-			peer.secHelper, err = crypto.InitPeeer(enrollID, nil)
+			peerLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				return nil, err
 			}
@@ -542,6 +571,19 @@ func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
 }
 
+// GetBlockByNumber return a block by block number
+func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
+}
+
+func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetStateSnapshot()
+}
+
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending
 func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 	helloMessage, err := p.newHelloMessage()
@@ -553,4 +595,9 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
 	}
 	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}, nil
+}
+
+// GetSecHelper returns the crypto.Peer
+func (p *PeerImpl) GetSecHelper() crypto.Peer {
+	return p.secHelper
 }

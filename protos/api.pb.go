@@ -43,8 +43,10 @@ It has these top-level messages:
 	BlockState
 	SyncBlockRange
 	SyncBlocks
-	SyncStateRequest
-	SyncState
+	SyncStateSnapshotRequest
+	SyncStateSnapshot
+	SyncStateDeltasRequest
+	SyncStateDeltas
 	ServerStatus
 */
 package protos

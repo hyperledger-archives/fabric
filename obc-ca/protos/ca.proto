@@ -27,7 +27,7 @@ import "google/protobuf/timestamp.proto";
 // Enrollment Certificate Authority (ECA).
 //
 service ECAP { // public service
-    rpc CreateCertificate(ECertCreateReq) returns (Cert);
+    rpc CreateCertificate(ECertCreateReq) returns (Creds);
     rpc ReadCertificate(ECertReadReq) returns (Cert);
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
 }
@@ -56,6 +56,16 @@ service TCAA { // admin service
     rpc CreateCRL(TCertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
 }
 
+// TLS Certificate Authority (TLSCA)
+service TLSCAP { // public service
+    rpc CreateCertificate(TLSCertCreateReq) returns (Cert);
+    rpc ReadCertificate(TLSCertReadReq) returns (Cert);
+    rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
+}
+
+service TLSCAA { // admin service
+    rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
+}
 
 // Status codes shared by both CAs.
 //
@@ -179,6 +189,26 @@ message TCertCRLReq {
     Signature sig = 2; // sign(priv, id)
 }
 
+// TLSCA Certificate requests.
+//
+message TLSCertCreateReq {
+    google.protobuf.Timestamp timestamp = 1;
+    Identity id = 2;
+    Password pw = 3;
+    PublicKey pub = 4;
+    Signature sig = 5; // sign(priv, timestamp | id | pub)
+}
+
+message TLSCertReadReq {
+    Identity id = 1;
+    bytes hash = 2;
+}
+
+message TLSCertRevokeReq {
+    Identity id = 1; // user or admin whereby users can only revoke their own cert
+    Cert cert = 2; // cert to revoke
+    Signature sig = 3; // sign(priv, id | cert)
+}
 
 // Certificate issued by either the ECA or TCA.
 //
@@ -189,4 +219,9 @@ message Cert {
 message CertSet {
     bytes key = 1;
     repeated bytes certs = 2; // DER / ASN.1 encoded
+}
+
+message Creds {
+    Cert cert = 1;
+    bytes key = 2;
 }

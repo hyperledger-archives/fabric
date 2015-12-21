@@ -36,41 +36,44 @@ var (
 
 // Public Methods
 
-// Register registers a client to the PKI infrastructure
+// RegisterClient registers a client to the PKI infrastructure
 func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, name)
+	log.Info("Registering client [%s] with name [%s]...", enrollID, name)
 
 	if clients[name] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, name)
+		log.Info("Registering client [%s] with name [%s]...done. Already initialized.", enrollID, name)
+
 		return nil
 	}
 
 	client := new(clientImpl)
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, name, err)
-
-		return err
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
+			return err
+		}
+		log.Info("Registering client [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := client.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, name, err)
+		log.Warning("Registering client [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, name)
+	log.Info("Registering client [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
 
-// Init initializes a client named name with password pwd
+// InitClient initializes a client named name with password pwd
 func InitClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Initializing [%s]...", name)
+	log.Info("Initializing client [%s]...", name)
 
 	if clients[name] != nil {
 		log.Info("Client already initiliazied [%s].", name)
@@ -80,18 +83,18 @@ func InitClient(name string, pwd []byte) (Client, error) {
 
 	client := new(clientImpl)
 	if err := client.init(name, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", name, err)
+		log.Error("Failed client initialization [%s]: [%s].", name, err)
 
 		return nil, err
 	}
 
 	clients[name] = client
-	log.Info("Initializing [%s]...done!", name)
+	log.Info("Initializing client [%s]...done!", name)
 
 	return client, nil
 }
 
-// Close releases all the resources allocated by clients
+// CloseClient releases all the resources allocated by clients
 func CloseClient(client Client) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -99,7 +102,7 @@ func CloseClient(client Client) error {
 	return closeClientInternal(client)
 }
 
-// CloseAll closes all the clients initialized so far
+// CloseAllClients closes all the clients initialized so far
 func CloseAllClients() (bool, []error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -121,16 +124,16 @@ func CloseAllClients() (bool, []error) {
 // Private Methods
 
 func closeClientInternal(client Client) error {
-	id := client.GetName()
-	log.Info("Closing client [%s]...", id)
-	if _, ok := clients[id]; !ok {
+	name := client.GetName()
+	log.Info("Closing client [%s]...", name)
+	if _, ok := clients[name]; !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(clients, id)
+	defer delete(clients, name)
 
-	err := clients[id].(*clientImpl).close()
+	err := clients[name].(*clientImpl).close()
 
-	log.Info("Closing client [%s]...done! [%s]", id, err)
+	log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))
 
 	return err
 }

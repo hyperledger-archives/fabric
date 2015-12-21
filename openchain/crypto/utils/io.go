@@ -83,11 +83,19 @@ func FileMissing(path string, name string) (bool, error) {
 	return false, nil
 }
 
-/*
+// FilePathMissing returns true if the path is missing, false otherwise.
+func FilePathMissing(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		return true, err
+	}
+	return false, nil
+}
+
+// DecodeBase64 decodes from Base64
 func DecodeBase64(in string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(in)
 }
-*/
 
 // EncodeBase64 encodes to Base64
 func EncodeBase64(in []byte) string {
