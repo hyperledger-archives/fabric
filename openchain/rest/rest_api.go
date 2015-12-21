@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"google/protobuf"
 	"io"
-	"log"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -33,15 +34,19 @@ import (
 
 	"github.com/gocraft/web"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	oc "github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// serverOpenchain is a variable that will be holding the pointer to the
-// underlying ServerOpenchain object. serverDevops is a variable that will be
-// holding the pointer to the underlying Devops object. This is necessary due to
+var logger = logging.MustGetLogger("rest")
+
+// serverOpenchain is a variable that holds the pointer to the
+// underlying ServerOpenchain object. serverDevops is a variable that holds
+// the pointer to the underlying Devops object. This is necessary due to
 // how the gocraft/web package implements context initialization.
 var serverOpenchain *oc.ServerOpenchain
 var serverDevops *oc.Devops
@@ -74,6 +79,144 @@ func (s *ServerOpenchainREST) SetResponseType(rw web.ResponseWriter, req *web.Re
 	rw.Header().Set("Access-Control-Allow-Headers", "accept, content-type")
 
 	next(rw, req)
+}
+
+// getRESTFilePath is a helper function to retrieve the local storage directory
+// of client login tokens.
+func getRESTFilePath() string {
+	localStore := viper.GetString("peer.fileSystemPath")
+	if !strings.HasSuffix(localStore, "/") {
+		localStore = localStore + "/"
+	}
+	localStore = localStore + "client/"
+	return localStore
+}
+
+// Register confirms the enrollmentID and secret password of the client with the
+// CA and stores the enrollement certificate and key in the Devops server.
+func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
+	logger.Info("REST client login...")
+
+	// Decode the incoming JSON payload
+	var loginSpec pb.Secret
+	err := jsonpb.Unmarshal(req.Body, &loginSpec)
+
+	// Check for proper JSON syntax
+	if err != nil {
+		// Unmarshall returns a " character around unrecognized fields in the case
+		// of a schema validation failure. These must be replaced with a ' character.
+		// Otherwise, the returned JSON is invalid.
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+		// Client must supply payload
+		if err == io.EOF {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
+			logger.Error("{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
+		} else {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+			logger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
+		}
+
+		return
+	}
+
+	// Check that the enrollId and enrollSecret are not left blank.
+	if (loginSpec.EnrollId == "") || (loginSpec.EnrollSecret == "") {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
+		logger.Error("{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
+
+		return
+	}
+
+	// Retrieve the REST data storage path
+	// Returns /var/openchain/production/client/
+	localStore := getRESTFilePath()
+	logger.Info("Local data store for client loginToken: %s", localStore)
+
+	// If the user is already logged in, return
+	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"Status\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
+		logger.Info("User '%s' is already logged in.\n", loginSpec.EnrollId)
+
+		return
+	}
+
+	// User is not logged in, proceed with login
+	logger.Info("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
+
+	// Get a devopsClient to perform the login
+	clientConn, err := peer.NewPeerClientConnection()
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, "{\"Error\": \"Error trying to connect to local peer: %s\"}", err)
+		logger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+
+		return
+	}
+	devopsClient := pb.NewDevopsClient(clientConn)
+
+	// Perform the login
+	loginResult, err := devopsClient.Login(context.Background(), &loginSpec)
+
+	// Check if login is successful
+	if loginResult.Status == pb.Response_SUCCESS {
+		// If /var/openchain/production/client/ directory does not exist, create it
+		if _, err := os.Stat(localStore); err != nil {
+			if os.IsNotExist(err) {
+				// Directory does not exist, create it
+				if err := os.Mkdir(localStore, 0755); err != nil {
+					rw.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
+				}
+			} else {
+				// Unexpected error
+				rw.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
+			}
+		}
+
+		// Store client security context into a file
+		logger.Info("Storing login token for user '%s'.\n", loginSpec.EnrollId)
+		err = ioutil.WriteFile(localStore+"loginToken_"+loginSpec.EnrollId, []byte(loginSpec.EnrollId), 0755)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"Status\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
+		logger.Info("Login successful for user '%s'.\n", loginSpec.EnrollId)
+	} else {
+		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
+
+		rw.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", loginErr)
+		logger.Error(fmt.Sprintf("Error on client login: %s", loginErr))
+	}
+
+	return
+}
+
+// GetEnrollmentID checks whether a given user has already registered with the
+// Devops server.
+func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Request) {
+	rw.WriteHeader(http.StatusOK)
+	fmt.Fprintf(rw, "{\"OK\": \"GetEnrollmentID\"}")
+}
+
+// DeleteEnrollmentID removes the login token of the specified user from the
+// Devops server. Once the loging token is removed, the specified user will no
+// longer be able to transact or register a second time.
+func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web.Request) {
+	rw.WriteHeader(http.StatusOK)
+	fmt.Fprintf(rw, "{\"OK\": \"DeleteEnrollmentID\"}")
 }
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
@@ -356,6 +499,7 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 // middleware and routes.
 func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	// Initialize the REST service object
+	logger.Info("Initializing the REST service...")
 	router := web.New(ServerOpenchainREST{})
 
 	// Record the pointer to the underlying ServerOpenchain and Devops objects.
@@ -367,6 +511,10 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Middleware((*ServerOpenchainREST).SetResponseType)
 
 	// Add routes
+	router.Post("/registrar", (*ServerOpenchainREST).Register)
+	router.Get("/registrar/:id", (*ServerOpenchainREST).GetEnrollmentID)
+	router.Delete("/registrar/:id", (*ServerOpenchainREST).DeleteEnrollmentID)
+
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
@@ -383,6 +531,6 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	// Start server
 	err := http.ListenAndServe(viper.GetString("rest.address"), router)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		logger.Error(fmt.Sprintf("ListenAndServe: %s", err))
 	}
 }
