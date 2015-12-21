@@ -69,7 +69,7 @@ type blockSyncReply struct {
 	err         error
 }
 
-type stState struct {
+type stateTransferState struct {
 	pbft   *pbftCore
 	ledger stLedger
 
@@ -82,32 +82,32 @@ type stState struct {
 	blockSyncReq      chan *blockSyncReq    // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 }
 
-func newStState(pbft *pbftCore, ledger stLedger) *stState {
-	stState := &stState{}
+func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
+	sts := &stateTransferState{}
 
-	stState.pbft = pbft
-	stState.ledger = ledger
+	sts.pbft = pbft
+	sts.ledger = ledger
 
-	stState.OutOfDate = false
+	sts.OutOfDate = false
 
-	stState.hChkpts = make(map[uint64]uint64)
+	sts.hChkpts = make(map[uint64]uint64)
 
-	stState.initiateStateSync = make(chan *syncMark)
-	stState.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
-	stState.blockSyncReq = make(chan *blockSyncReq)
+	sts.initiateStateSync = make(chan *syncMark)
+	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
+	sts.blockSyncReq = make(chan *blockSyncReq)
 
-	go stState.stateThread()
-	go stState.blockThread()
+	go sts.stateThread()
+	go sts.blockThread()
 
-	return stState
+	return sts
 }
 
 // Executes a func trying each replica included in replicaIds until successful
 // Attempts to execute over all replicas if replicaIds is nil
-func (stState *stState) tryOverReplicas(replicaIds []uint64, do func(replicaId uint64) bool) bool {
-	startIndex := uint64(rand.Int() % stState.pbft.replicaCount)
+func (sts *stateTransferState) tryOverReplicas(replicaIds []uint64, do func(replicaId uint64) bool) bool {
+	startIndex := uint64(rand.Int() % sts.pbft.replicaCount)
 	if nil == replicaIds {
-		for i := 0; i < stState.pbft.replicaCount; i++ {
+		for i := 0; i < sts.pbft.replicaCount; i++ {
 			// TODO, this is broken, need some way to get a list of all replicaIds, cannot assume they are sequential from 0
 			if do(uint64(0)) {
 				return true
@@ -128,15 +128,15 @@ func (stState *stState) tryOverReplicas(replicaIds []uint64, do func(replicaId u
 
 // Attempts to complete a blockSyncReq using the supplied replicas
 // Will return the last block attempted to sync and success/failure
-func (stState *stState) syncBlocks(blockSyncReq *blockSyncReq, endBlock uint64) (uint64, bool) {
+func (sts *stateTransferState) syncBlocks(blockSyncReq *blockSyncReq, endBlock uint64) (uint64, bool) {
 	validBlockHash := blockSyncReq.firstBlockHash
 	blockCursor := blockSyncReq.blockNumber
 
-	if !stState.tryOverReplicas(blockSyncReq.replicaIds, func(replicaId uint64) bool {
-		blockChan, err := stState.ledger.getRemoteBlocks(replicaId, blockCursor, endBlock)
+	if !sts.tryOverReplicas(blockSyncReq.replicaIds, func(replicaId uint64) bool {
+		blockChan, err := sts.ledger.getRemoteBlocks(replicaId, blockCursor, endBlock)
 		if nil != err {
 			logger.Warning("Replica %d failed to get blocks from %d to %d from replica %d: %s",
-				stState.pbft.id, blockCursor, endBlock, replicaId, err)
+				sts.pbft.id, blockCursor, endBlock, replicaId, err)
 			return false
 		}
 		for {
@@ -159,17 +159,17 @@ func (stState *stState) syncBlocks(blockSyncReq *blockSyncReq, endBlock uint64) 
 					testHash, err := block.GetHash()
 					if nil != err {
 						logger.Warning("Replica %d got a block %d which could not hash from replica %d: %s",
-							stState.pbft.id, blockCursor, replicaId, err)
+							sts.pbft.id, blockCursor, replicaId, err)
 						return false
 					}
 
 					if !bytes.Equal(testHash, validBlockHash) {
 						logger.Warning("Replica %d got a block %d which did not hash correctly from replica %d",
-							stState.pbft.id, blockCursor, replicaId)
+							sts.pbft.id, blockCursor, replicaId)
 						return false
 					}
 
-					stState.ledger.putBlock(block)
+					sts.ledger.putBlock(block)
 
 					if nil != blockSyncReq.replyChan && blockCursor == blockSyncReq.reportOnBlock {
 						blockSyncReq.replyChan <- &blockSyncReply{
@@ -197,13 +197,13 @@ func (stState *stState) syncBlocks(blockSyncReq *blockSyncReq, endBlock uint64) 
 	return blockCursor, true
 }
 
-func (stState *stState) blockThread() {
+func (sts *stateTransferState) blockThread() {
 	blockVerifyChunkSize := uint64(20) // TODO make this configurable
-	lowestValidBlock := stState.ledger.getBlockchainSize()
+	lowestValidBlock := sts.ledger.getBlockchainSize()
 
 	syncBlockchainToCheckpoint := func(blockSyncReq *blockSyncReq) {
 
-		blockchainSize := stState.ledger.getBlockchainSize()
+		blockchainSize := sts.ledger.getBlockchainSize()
 
 		if blockSyncReq.blockNumber < blockchainSize {
 			// TODO this is a troubling scenario, we think we're out of date, but we just got asked to sync to a block that's older than our current chain
@@ -211,20 +211,20 @@ func (stState *stState) blockThread() {
 			// XXX For now, unimplemented because we have no way to delete blocks
 			panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
 		} else {
-			if blockNumber, ok := stState.syncBlocks(blockSyncReq, blockchainSize); ok {
+			if blockNumber, ok := sts.syncBlocks(blockSyncReq, blockchainSize); ok {
 				if blockNumber > 0 {
 					// The sync succeeded, chain added up to old head+1
-					lastBlock, err := stState.ledger.getBlock(blockNumber)
+					lastBlock, err := sts.ledger.getBlock(blockNumber)
 
 					if nil != err {
-						logger.Warning("Replica %d just recovered block %d but cannot find it: %s", stState.pbft.id, blockNumber, err)
-						lowestValidBlock = stState.ledger.getBlockchainSize()
+						logger.Warning("Replica %d just recovered block %d but cannot find it: %s", sts.pbft.id, blockNumber, err)
+						lowestValidBlock = sts.ledger.getBlockchainSize()
 						return
 					}
 
 					// Make sure the old blockchain head ties into the new blockchain we just received, if not, mark lowestValidBlock
 					// to the just recovered blocks so that the rest of the chain will be recovered
-					oldHeadBlock, err := stState.ledger.getBlock(blockNumber - 1)
+					oldHeadBlock, err := sts.ledger.getBlock(blockNumber - 1)
 
 					if nil != err {
 						lowestValidBlock = blockNumber
@@ -250,7 +250,7 @@ func (stState *stState) blockThread() {
 	for {
 
 		select {
-		case blockSyncReq := <-stState.blockSyncReq:
+		case blockSyncReq := <-sts.blockSyncReq:
 			syncBlockchainToCheckpoint(blockSyncReq)
 		default:
 			// If there is no checkpoint to sync to, make sure the rest of the chain is valid
@@ -261,7 +261,7 @@ func (stState *stState) blockThread() {
 			if tmp := lowestValidBlock - blockVerifyChunkSize; tmp > 0 {
 				verifyToBlock = tmp
 			}
-			badSource, err := stState.ledger.verifyBlockChain(lowestValidBlock, verifyToBlock)
+			badSource, err := sts.ledger.verifyBlockChain(lowestValidBlock, verifyToBlock)
 
 			if nil == err && badSource == 0 {
 				lowestValidBlock = verifyToBlock
@@ -274,16 +274,16 @@ func (stState *stState) blockThread() {
 			}
 
 			if nil != err {
-				logger.Warning("Replica %d encountered an error at block %d while verifying its blockchain, attempting to sync", stState.pbft.id, badSource)
+				logger.Warning("Replica %d encountered an error at block %d while verifying its blockchain, attempting to sync", sts.pbft.id, badSource)
 			}
 
-			goodBlock, err := stState.ledger.getBlock(badSource)
+			goodBlock, err := sts.ledger.getBlock(badSource)
 
 			if nil != err {
 				panic(fmt.Sprintf("The blockchain just informed us that the previous block hash from block %d did not match, but claims the block does not exist: %s", badSource, err))
 			}
 
-			if lastBlock, ok := stState.syncBlocks(&blockSyncReq{
+			if lastBlock, ok := sts.syncBlocks(&blockSyncReq{
 				syncMark: syncMark{
 					replicaIds:  nil, // Use all replicas
 					blockNumber: badSource - 1,
@@ -302,28 +302,28 @@ func (stState *stState) blockThread() {
 
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
 		select {
-		case blockSyncReq := <-stState.blockSyncReq:
+		case blockSyncReq := <-sts.blockSyncReq:
 			syncBlockchainToCheckpoint(blockSyncReq)
 		}
 	}
 }
 
 // A thread to process state transfer
-func (stState *stState) stateThread() {
+func (sts *stateTransferState) stateThread() {
 	for {
 		// Wait for state sync to become necessary
-		mark := <-stState.initiateStateSync
+		mark := <-sts.initiateStateSync
 
-		logger.Debug("Replica %d is initiating state transfer", stState.pbft.id)
+		logger.Debug("Replica %d is initiating state transfer", sts.pbft.id)
 
 		for {
 
 			// If we are here, our state is currently bad, so get a new one
-			currentStateBlockNumber, ok := stState.syncStateSnapshot(mark.blockNumber, mark.replicaIds)
+			currentStateBlockNumber, ok := sts.syncStateSnapshot(mark.blockNumber, mark.replicaIds)
 
 			if !ok {
 				// This is very bad, we had f+1 replicas unable to reply with a state above a block number they advertised in a checkpoint, should never happen
-				logger.Error("Replica %d could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", stState.pbft.id, mark.blockNumber)
+				logger.Error("Replica %d could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", sts.pbft.id, mark.blockNumber)
 				mark = &syncMark{ // Let's try to just sync state from anyone, for any sequence number
 					blockNumber: 0,
 					replicaIds:  nil,
@@ -332,7 +332,7 @@ func (stState *stState) stateThread() {
 			}
 
 			certChan := make(chan *chkptWeakCert)
-			stState.chkptWeakCertReq <- &ckptWeakCertReq{
+			sts.chkptWeakCertReq <- &ckptWeakCertReq{
 				blockNumber: currentStateBlockNumber,
 				certChan:    certChan,
 			}
@@ -346,7 +346,7 @@ func (stState *stState) stateThread() {
 
 			blockReplyChannel := make(chan *blockSyncReply)
 
-			stState.blockSyncReq <- &blockSyncReq{
+			sts.blockSyncReq <- &blockSyncReq{
 				syncMark:       *mark,
 				reportOnBlock:  currentStateBlockNumber,
 				replyChan:      blockReplyChannel,
@@ -358,18 +358,18 @@ func (stState *stState) stateThread() {
 			if blockSyncReply.err != nil {
 				// This is very bad, we had f+1 replicas unable to reply with blocks for a weak certificate they presented, this should never happen
 				// Maybe we should panic here, but we can always try again
-				logger.Error("Replica %d could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", stState.pbft.id, mark.blockNumber)
+				logger.Error("Replica %d could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", sts.pbft.id, mark.blockNumber)
 				continue
 			}
 
-			if !bytes.Equal(stState.ledger.getCurrentStateHash(), blockSyncReply.stateHash) {
-				logger.Warning("Replica %d recovered to an incorrect state at block number %d, retrying", stState.pbft.id, currentStateBlockNumber)
+			if !bytes.Equal(sts.ledger.getCurrentStateHash(), blockSyncReply.stateHash) {
+				logger.Warning("Replica %d recovered to an incorrect state at block number %d, retrying", sts.pbft.id, currentStateBlockNumber)
 				continue
 			}
 
-			if !stState.playStateUpToCheckpoint(currentStateBlockNumber, weakCert.blockNumber, weakCert.replicaIds) {
+			if !sts.playStateUpToCheckpoint(currentStateBlockNumber, weakCert.blockNumber, weakCert.replicaIds) {
 				// This is unlikely, in the future, we may wish to play transactions forward rather than retry
-				logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", stState.pbft.id, currentStateBlockNumber, weakCert.blockNumber)
+				logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", sts.pbft.id, currentStateBlockNumber, weakCert.blockNumber)
 				continue
 			}
 		}
@@ -377,32 +377,32 @@ func (stState *stState) stateThread() {
 	}
 }
 
-func (stState *stState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, replicaIds []uint64) bool {
+func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, replicaIds []uint64) bool {
 	return false
 }
 
 // This function will retrieve the current state from a replica.
 // Note that no state verification can occur yet, we must wait for the next checkpoint, so it is important
 // not to consider this state as valid
-func (stState *stState) syncStateSnapshot(minBlockNumber uint64, replicaIds []uint64) (uint64, bool) {
+func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaIds []uint64) (uint64, bool) {
 
 	currentStateBlock := uint64(0)
 
-	ok := stState.tryOverReplicas(replicaIds, func(replicaId uint64) bool {
-		logger.Debug("Replica %d is initiating state recovery from from replica %d", stState.pbft.id, replicaId)
+	ok := sts.tryOverReplicas(replicaIds, func(replicaId uint64) bool {
+		logger.Debug("Replica %d is initiating state recovery from from replica %d", sts.pbft.id, replicaId)
 
-		stState.ledger.emptyState()
+		sts.ledger.emptyState()
 
-		stateChan, err := stState.ledger.getRemoteStateSnapshot(replicaId)
+		stateChan, err := sts.ledger.getRemoteStateSnapshot(replicaId)
 
 		if err != nil {
-			stState.ledger.emptyState()
+			sts.ledger.emptyState()
 			return false
 		}
 
 		// TODO add timeout mechanism
 		for piece := range stateChan {
-			stState.ledger.applyStateDelta(piece.Delta)
+			sts.ledger.applyStateDelta(piece.Delta)
 			currentStateBlock = piece.BlockNumber
 		}
 
@@ -413,33 +413,33 @@ func (stState *stState) syncStateSnapshot(minBlockNumber uint64, replicaIds []ui
 	return currentStateBlock, ok
 }
 
-func (stState *stState) WitnessCheckpoint(chkpt *Checkpoint) {
-	if stState.OutOfDate {
+func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
+	if sts.OutOfDate {
 		// State transfer is already going on, no need to track this
 		return
 	}
 
-	H := stState.pbft.h + stState.pbft.L
+	H := sts.pbft.h + sts.pbft.L
 
 	// Track the last observed checkpoint sequence number if it exceeds our high watermark, keyed by replica to prevent unbounded growth
 	if chkpt.SequenceNumber < H {
 		// For non-byzantine nodes, the checkpoint sequence number increases monotonically
-		delete(stState.hChkpts, chkpt.ReplicaId)
+		delete(sts.hChkpts, chkpt.ReplicaId)
 	} else {
 		// We do not track the highest one, as a byzantine node could pick an arbitrarilly high sequence number
 		// and even if it recovered to be non-byzantine, we would still believe it to be far ahead
-		stState.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
+		sts.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
 
 		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
 		// we need to check to see if we have fallen behind.
-		if len(stState.hChkpts) >= stState.pbft.f+1 {
-			chkptSeqNumArray := make([]uint64, len(stState.hChkpts))
+		if len(sts.hChkpts) >= sts.pbft.f+1 {
+			chkptSeqNumArray := make([]uint64, len(sts.hChkpts))
 			index := 0
-			for replicaId, hChkpt := range stState.hChkpts {
+			for replicaId, hChkpt := range sts.hChkpts {
 				chkptSeqNumArray[index] = hChkpt
 				index++
 				if hChkpt < H {
-					delete(stState.hChkpts, replicaId)
+					delete(sts.hChkpts, replicaId)
 				}
 			}
 			sort.Sort(sortableUint64Array(chkptSeqNumArray))
@@ -447,21 +447,21 @@ func (stState *stState) WitnessCheckpoint(chkpt *Checkpoint) {
 			// If f+1 nodes have issued checkpoints above our high water mark, then
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
-			if m := chkptSeqNumArray[len(stState.hChkpts)-(stState.pbft.f+1)]; m > H {
+			if m := chkptSeqNumArray[len(sts.hChkpts)-(sts.pbft.f+1)]; m > H {
 				logger.Warning("Replica is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", chkpt.SequenceNumber, H)
-				stState.OutOfDate = true
-				stState.pbft.moveWatermarks(m + stState.pbft.K)
+				sts.OutOfDate = true
+				sts.pbft.moveWatermarks(m + sts.pbft.K)
 
-				furthestReplicaIds := make([]uint64, stState.pbft.f+1)
+				furthestReplicaIds := make([]uint64, sts.pbft.f+1)
 				i := 0
-				for replicaId, hChkpt := range stState.hChkpts {
+				for replicaId, hChkpt := range sts.hChkpts {
 					if hChkpt >= m {
 						furthestReplicaIds[i] = replicaId
 						i++
 					}
 				}
 
-				stState.initiateStateSync <- &syncMark{
+				sts.initiateStateSync <- &syncMark{
 					blockNumber: m,
 					replicaIds:  furthestReplicaIds,
 				}
@@ -473,20 +473,20 @@ func (stState *stState) WitnessCheckpoint(chkpt *Checkpoint) {
 
 }
 
-func (stState *stState) WitnessCheckpointWeakCert(matching int, chkpt *Checkpoint) {
+func (sts *stateTransferState) WitnessCheckpointWeakCert(matching int, chkpt *Checkpoint) {
 	select {
 	default:
 		return
-	case certReq := <-stState.chkptWeakCertReq:
+	case certReq := <-sts.chkptWeakCertReq:
 		if certReq.blockNumber > chkpt.BlockNumber {
 			// There's a pending request, but this call didn't satisfy it, so put it back
-			stState.chkptWeakCertReq <- certReq
+			sts.chkptWeakCertReq <- certReq
 			return
 		}
 
 		checkpointMembers := make([]uint64, matching)
 		i := 0
-		for testChkpt := range stState.pbft.checkpointStore {
+		for testChkpt := range sts.pbft.checkpointStore {
 			if testChkpt.SequenceNumber == chkpt.SequenceNumber && bytes.Equal(testChkpt.BlockHash, chkpt.BlockHash) {
 				checkpointMembers[i] = testChkpt.ReplicaId
 				i++

@@ -75,7 +75,7 @@ type pbftCore struct {
 	chkpts       map[uint64][]byte // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
-	stState      *stState // Data structure which handles state transfer
+	sts          *stateTransferState // Data structure which handles state transfer
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -180,7 +180,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.outstandingReqs = make(map[string]*Request)
 
 	// initialize state transfer
-	instance.stState = newStState(instance, nil)
+	instance.sts = newStateTransferState(instance, nil)
 
 	go instance.timerHander()
 
@@ -544,7 +544,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() error {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.stState.OutOfDate {
+	if instance.sts.OutOfDate {
 		return nil
 	}
 
@@ -667,11 +667,11 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, base64.StdEncoding.EncodeToString(chkpt.BlockHash))
 
-	instance.stState.WitnessCheckpoint(chkpt) // State transfer tracking
+	instance.sts.WitnessCheckpoint(chkpt) // State transfer tracking
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.stState.OutOfDate {
+		if !instance.sts.OutOfDate {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -686,9 +686,9 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		}
 	}
 
-	if instance.stState.OutOfDate && matching >= instance.f+1 {
+	if instance.sts.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
-		instance.stState.WitnessCheckpointWeakCert(matching, chkpt)
+		instance.sts.WitnessCheckpointWeakCert(matching, chkpt)
 	}
 
 	if matching <= instance.f*2 {
