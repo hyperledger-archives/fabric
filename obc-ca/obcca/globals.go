@@ -21,11 +21,16 @@ package obcca
 
 import (
 	"crypto/elliptic"
+	"time"
 )
 
 const (
 	// RootPath is where the CA keeps its state
 	RootPath = ".obcca"
+	
+	systemChaincodeTimeout = time.Second * 3
+	drjTime time.Duration = 37
+	devopsAddress = "0.0.0.0:30303"
 )
 
 var curve = elliptic.P384()

@@ -35,11 +35,15 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
+	"fmt"
+	
 
 	"crypto/sha512"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
+	obc "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -122,6 +126,7 @@ func (tca *TCA) Start(wg *sync.WaitGroup) {
 	wg.Add(2)
 	go tca.startTCAP(wg, opts)
 	go tca.startTCAA(wg, opts)
+	go tca.updateValidityPeriod()
 
 	Info.Println("TCA started.")
 }
@@ -387,4 +392,90 @@ func (tcaa *TCAA) CreateCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, err
 	Trace.Println("grpc TCAA:CreateCRL")
 
 	return nil, errors.New("not yet implemented")
+}
+
+func (tca *TCA) updateValidityPeriod() {
+	//TODO: this should be the login token for the TCA. The TCA needs to be registered in the system to be able to invoke chaincode
+	token := "tca"
+	
+	for{
+		chainFuncName := "invoke"
+		chaincodeInv := createChaincodeInvocation(strconv.FormatInt(time.Now().Unix(), 10), token)
+		invokeChaincode(chainFuncName, chaincodeInv)
+		time.Sleep(time.Second * drjTime)
+	}
+}
+
+func getDevopsClient(peerAddress string) (obc.DevopsClient, error) {
+	var opts []grpc.DialOption
+//	if viper.GetBool("peer.tls.enabled") {
+//		var sn string
+//		if viper.GetString("peer.tls.server-host-override") != "" {
+//			sn = viper.GetString("peer.tls.server-host-override")
+//		}
+//		var creds credentials.TransportAuthenticator
+//		if viper.GetString("peer.tls.cert.file") != "" {
+//			var err error
+//			creds, err = credentials.NewClientTLSFromFile(viper.GetString("peer.tls.cert.file"), sn)
+//			if err != nil {
+//				grpclog.Fatalf("Failed to create TLS credentials %v", err)
+//			}
+//		} else {
+//			creds = credentials.NewClientTLSFromCert(nil, sn)
+//		}
+//		opts = append(opts, grpc.WithTransportCredentials(creds))
+//	}
+	opts = append(opts, grpc.WithTimeout(systemChaincodeTimeout))
+	opts = append(opts, grpc.WithBlock())
+	opts = append(opts, grpc.WithInsecure())
+	conn, err := grpc.Dial(peerAddress, opts...)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error trying to connect to local peer: %s", err)
+	}
+	
+	devopsClient := obc.NewDevopsClient(conn)
+	return devopsClient, nil
+}
+
+func invokeChaincode(chainFuncName string, chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
+
+	devopsClient, err := getDevopsClient(devopsAddress)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error retrieving devops client: %s", err))
+		return err
+	}
+
+	resp, err := devopsClient.Invoke(context.Background(), chaincodeInvSpec)
+
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error invoking %s: %s", chainFuncName, err))
+		return err
+	}
+	
+	logger.Info("Successfully invoked transaction: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	
+	return nil
+}
+
+func createChaincodeInvocation(validityPeriod string, token string) *obc.ChaincodeInvocationSpec {
+	//TODO: this values could be configurable through a configuration file for system chaincode 
+	chaincodePath := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
+	chaincodeVersion := "0.0.1"
+	function := "invoke"
+
+	spec := &obc.ChaincodeSpec{Type: obc.ChaincodeSpec_GOLANG, 
+		ChaincodeID: &obc.ChaincodeID{Url: chaincodePath, 
+			Version: chaincodeVersion,
+		}, 
+		CtorMsg: &obc.ChaincodeInput{Function: function, 
+			Args: []string{validityPeriod},
+		},
+	}
+	
+	spec.SecureContext = string(token)
+	
+	invocationSpec := &obc.ChaincodeInvocationSpec{ChaincodeSpec: spec}
+	
+	return invocationSpec
 }

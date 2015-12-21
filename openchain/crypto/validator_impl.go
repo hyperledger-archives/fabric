@@ -26,6 +26,10 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 	"reflect"
+	
+	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"strconv"
+	"time"
 )
 
 // Public Struct
@@ -74,6 +78,12 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
 	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	
+	tx, err := verifyValidityPeriod(tx)
+	if(err != nil){
+		validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
+		return tx, err
+	}
 
 	switch tx.ConfidentialityLevel {
 	case obc.ConfidentialityLevel_PUBLIC:
@@ -104,7 +114,64 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 	default:
 		return nil, utils.ErrInvalidConfidentialityLevel
 	}
+}
 
+func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {
+	if tx.Cert != nil && tx.Signature != nil {
+
+		// Unmarshal cert
+		cert, err := utils.DERToX509Certificate(tx.Cert)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			return tx, err
+		}
+		
+		//TODO: this values could be configurable through a configuration file for system chaincode 
+		chaincodeID := &obc.ChaincodeID{Url: "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", 
+			Version: "0.0.1",
+		}
+		
+		cid, _ := getChaincodeID(chaincodeID)
+		
+		ledger, err := ledger.GetLedger()
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			return tx, err
+		}
+		
+		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			return tx, err
+		}
+		
+		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			return tx, err
+		}
+		
+		vp := time.Unix(i, 0)
+		
+		var errMsg string = ""
+		
+		// Verify the validity period of the TCert
+		switch {
+			case cert.NotAfter.Before(cert.NotBefore):
+				errMsg = "verifyValidityPeriod: certificate validity period is invalid"
+			case vp.Before(cert.NotBefore):
+				errMsg = "verifyValidityPeriod: certificate validity period is in the future"
+			case vp.After(cert.NotAfter):
+				errMsg = "verifyValidityPeriod: certificate validity period is in the past"
+		}
+		
+		if errMsg != "" {
+			validator.peer.node.log.Error(errMsg)
+			return tx, errors.New(errMsg)
+		}
+	}
+	
+	return tx, nil
 }
 
 // Sign signs msg with this validator's signing key and outputs
@@ -276,4 +343,20 @@ func (validator *validatorImpl) close() error {
 	}
 
 	return nil
+}
+
+// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
+func getChaincodeID(cID *obc.ChaincodeID) (string, error) {
+	if cID == nil {
+		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
+	}
+	var urlLocation string
+	if strings.HasPrefix(cID.Url, "http://") {
+		urlLocation = cID.Url[7:]
+	} else if strings.HasPrefix(cID.Url, "https://") {
+		urlLocation = cID.Url[8:]
+	} else {
+		urlLocation = cID.Url
+	}
+	return urlLocation + ":" + cID.Version, nil
 }
