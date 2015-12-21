@@ -79,7 +79,7 @@ message commit {
 
 message checkpoint {
     uint64 sequence_number = 1;
-    string state_digest = 2;
+    bytes block_hash = 2;
     uint64 replica_id = 3;
     uint64 block_number = 4;
 }
@@ -87,7 +87,7 @@ message checkpoint {
 message view_change {
     message C {
         uint64 sequence_number = 1;
-        string digest = 2;
+        bytes digest = 2;
     }
     message PQ {
         uint64 sequence_number = 1;

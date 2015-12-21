@@ -378,10 +378,10 @@ func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 }
 
 func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
-	checkpoints := make(map[ViewChange_C][]*ViewChange)
+	checkpoints := make(map[*ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
-			checkpoints[*c] = append(checkpoints[*c], vc)
+			checkpoints[c] = append(checkpoints[c], vc)
 		}
 	}
 
