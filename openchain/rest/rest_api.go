@@ -229,11 +229,60 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 }
 
 // DeleteEnrollmentID removes the login token of the specified user from the
-// Devops server. Once the loging token is removed, the specified user will no
-// longer be able to transact or register a second time.
+// Devops server. Once the login token is removed, the specified user will no
+// longer be able to transact without logging in again. On the REST interface,
+// this method may be used as a means of logging out an active client.
 func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web.Request) {
+	// Parse out the user enrollment ID
+	enrollmentID := req.PathParams["id"]
+
+	// Retrieve the REST data storage path
+	// Returns /var/openchain/production/client/
+	localStore := getRESTFilePath()
+
+	// Construct the path to the login token and to the directory containing the
+	// cert and key.
+	// /var/openchain/production/client/loginToken_username
+	loginTok := localStore + "loginToken_" + enrollmentID
+	// /var/openchain/production/crypto/client/username
+	cryptoDir := viper.GetString("peer.fileSystemPath") + "/crypto/client/" + enrollmentID
+
+	// Stat both paths to determine if the user is currently logged in
+	_, err1 := os.Stat(loginTok)
+	_, err2 := os.Stat(cryptoDir)
+
+	// If the user is not logged in, nothing to delete. Return OK.
+	if os.IsNotExist(err1) && os.IsNotExist(err2) {
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"OK\": \"User %s is not logged in.\"}", enrollmentID)
+		logger.Info("User '%s' is not logged in.\n", enrollmentID)
+
+		return
+	}
+
+	// The user is logged in, delete the user's login token
+	if err := os.RemoveAll(loginTok); err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err))
+
+		return
+	}
+
+	// The user is logged in, delete the user's cert and key directory
+	if err := os.RemoveAll(cryptoDir); err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err))
+
+		return
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"DeleteEnrollmentID\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Deleted login token and directory for user %s.\"}", enrollmentID)
+	logger.Info("Deleted login token and directory for user %s.\n", enrollmentID)
+
+	return
 }
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
