@@ -93,7 +93,7 @@ func getRESTFilePath() string {
 }
 
 // Register confirms the enrollmentID and secret password of the client with the
-// CA and stores the enrollement certificate and key in the Devops server.
+// CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
 	logger.Info("REST client login...")
 
@@ -139,7 +139,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"Status\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
+		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
 		logger.Info("User '%s' is already logged in.\n", loginSpec.EnrollId)
 
 		return
@@ -191,7 +191,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		}
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"Status\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
+		fmt.Fprintf(rw, "{\"OK\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
 		logger.Info("Login successful for user '%s'.\n", loginSpec.EnrollId)
 	} else {
 		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
@@ -207,8 +207,25 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 // GetEnrollmentID checks whether a given user has already registered with the
 // Devops server.
 func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Request) {
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"GetEnrollmentID\"}")
+	// Parse out the user enrollment ID
+	enrollmentID := req.PathParams["id"]
+
+	// Retrieve the REST data storage path
+	// Returns /var/openchain/production/client/
+	localStore := getRESTFilePath()
+
+	// If the user is already logged in, return OK. Otherwise return error.
+	if _, err := os.Stat(localStore + "loginToken_" + enrollmentID); err == nil {
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", enrollmentID)
+		logger.Info("User '%s' is already logged in.\n", enrollmentID)
+	} else {
+		rw.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(rw, "{\"Error\": \"User %s must log in.\"}", enrollmentID)
+		logger.Info("User '%s' must log in.\n", enrollmentID)
+	}
+
+	return
 }
 
 // DeleteEnrollmentID removes the login token of the specified user from the

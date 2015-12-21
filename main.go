@@ -444,7 +444,7 @@ func stop() {
 }
 
 // login confirms the enrollmentID and secret password of the client with the
-// CA and stores the enrollement certificate and key in the Devops server.
+// CA and stores the enrollment certificate and key in the Devops server.
 func login(args []string) {
 	logger.Info("CLI client login...")
 
