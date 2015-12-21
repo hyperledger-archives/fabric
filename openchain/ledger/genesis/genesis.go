@@ -60,114 +60,142 @@ func MakeGenesis(secCxt crypto.Peer) error {
 		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
 
+		vpChaincodePath := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
+		vpChaincodeVersion := "0.0.1"
+		vpFunction := "init"
+		vpToken := "tca" //TODO It should be configurable, not hardcoded
+		var vpCtorArgsStringArray []string
+
+		validityPeriodSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
+			ChaincodeID: &protos.ChaincodeID{Url: vpChaincodePath,
+				Version: vpChaincodeVersion,
+			},
+			CtorMsg: &protos.ChaincodeInput{Function: vpFunction,
+				Args: vpCtorArgsStringArray,
+			},
+		}
+
+		validityPeriodSpec.SecureContext = string(vpToken)
+
+		vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec, secCxt)
+
+		if deployErr != nil {
+			genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)
+			makeGenesisError = deployErr
+			genesisLogger.Info("RAULLLLLLLLLLL ERRRRRRRRRRRRRRRRROOOOOOOOOOOOOOOOOOOR NO DEPLOYOOOO")
+			return
+		}
+
+		genesisLogger.Info("RAULLLLLLLL SIIIIIIIIIIIIIIIIIIIIIIIIII DEPLOYOOOOooo")
+
+		genesisTransactions = append(genesisTransactions, vpTransaction)
+
 		genesis := viper.GetStringMap("ledger.blockchain.genesisBlock")
 
 		if genesis == nil {
-			genesisLogger.Info("No genesis block chaincodes defined.")
-			ledger.CommitTxBatch(0, genesisTransactions, nil)
-			return
-		}
-
-		chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
-		if !chaincodesOK {
-			genesisLogger.Info("No genesis block chaincodes defined.")
-			ledger.CommitTxBatch(0, genesisTransactions, nil)
-			return
-		}
-
-		genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
-
-		ledger.BeginTxBatch(0)
-		for i := 0; i < len(chaincodes); i++ {
-			genesisLogger.Debug("Chaincode %d is %s", i, chaincodes[i])
-
-			chaincodeMap, chaincodeMapOK := chaincodes[i].(map[interface{}]interface{})
-			if !chaincodeMapOK {
-				genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincodes[i])
-				makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincodes[i])
+			genesisLogger.Info("No genesis block chaincodes defined except for the validity period system chaincode.")
+		} else {
+			chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
+			if !chaincodesOK {
+				genesisLogger.Info("No genesis block chaincodes defined. Validity period update system chaincode was deployed")
+				ledger.CommitTxBatch(0, genesisTransactions, nil)
 				return
 			}
 
-			chaincodeIDMap, chaincodIDOK := chaincodeMap["id"].(map[interface{}]interface{})
-			if !chaincodIDOK {
-				genesisLogger.Error("Invalid chaincode ID defined in genesis configuration:", chaincodeMap["id"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode ID defined in genesis configuration: %s", chaincodeMap["id"])
-				return
-			}
+			genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
 
-			url, urlOK := chaincodeIDMap["url"].(string)
-			if !urlOK {
-				genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeIDMap["url"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeIDMap["url"])
-				return
-			}
+			//ledger.BeginTxBatch(0)
+			for i := 0; i < len(chaincodes); i++ {
+				genesisLogger.Debug("Chaincode %d is %s", i, chaincodes[i])
 
-			version, versionOK := chaincodeIDMap["version"].(string)
-			if !versionOK {
-				genesisLogger.Error("Invalid chaincode version defined in genesis configuration:", chaincodeIDMap["version"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode version defined in genesis configuration: %s", chaincodeIDMap["version"])
-				return
-			}
-
-			chaincodeType, chaincodeTypeOK := chaincodeMap["type"].(string)
-			if !chaincodeTypeOK {
-				genesisLogger.Error("Invalid chaincode type defined in genesis configuration:", chaincodeMap["type"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode type defined in genesis configuration: %s", chaincodeMap["type"])
-				return
-			}
-
-			chaincodeID := &protos.ChaincodeID{Url: url, Version: version}
-
-			genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
-			genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)
-
-			constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
-			if !constructorMapOK {
-				genesisLogger.Error("Invalid chaincode constructor defined in genesis configuration:", chaincodeMap["constructor"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode constructor defined in genesis configuration: %s", chaincodeMap["constructor"])
-				return
-			}
-
-			var spec protos.ChaincodeSpec
-			if constructorMap == nil {
-				genesisLogger.Debug("Genesis chaincode has no constructor.")
-				spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID}
-			} else {
-
-				ctorFunc, ctorFuncOK := constructorMap["func"].(string)
-				if !ctorFuncOK {
-					genesisLogger.Error("Invalid chaincode constructor function defined in genesis configuration:", constructorMap["func"])
-					makeGenesisError = fmt.Errorf("Invalid chaincode constructor function args defined in genesis configuration: %s", constructorMap["func"])
+				chaincodeMap, chaincodeMapOK := chaincodes[i].(map[interface{}]interface{})
+				if !chaincodeMapOK {
+					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincodes[i])
+					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincodes[i])
 					return
 				}
 
-				ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
-				if !ctorArgsOK {
-					genesisLogger.Error("Invalid chaincode constructor args defined in genesis configuration:", constructorMap["args"])
-					makeGenesisError = fmt.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
+				chaincodeIDMap, chaincodIDOK := chaincodeMap["id"].(map[interface{}]interface{})
+				if !chaincodIDOK {
+					genesisLogger.Error("Invalid chaincode ID defined in genesis configuration:", chaincodeMap["id"])
+					makeGenesisError = fmt.Errorf("Invalid chaincode ID defined in genesis configuration: %s", chaincodeMap["id"])
 					return
 				}
 
-				genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
-				genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
-				var ctorArgsStringArray []string
-				for j := 0; j < len(ctorArgs); j++ {
-					ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
+				url, urlOK := chaincodeIDMap["url"].(string)
+				if !urlOK {
+					genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeIDMap["url"])
+					makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeIDMap["url"])
+					return
 				}
 
-				spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
-			}
+				version, versionOK := chaincodeIDMap["version"].(string)
+				if !versionOK {
+					genesisLogger.Error("Invalid chaincode version defined in genesis configuration:", chaincodeIDMap["version"])
+					makeGenesisError = fmt.Errorf("Invalid chaincode version defined in genesis configuration: %s", chaincodeIDMap["version"])
+					return
+				}
 
-			transaction, _, deployErr := DeployLocal(context.Background(), &spec, secCxt)
-			if deployErr != nil {
-				genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
-				makeGenesisError = deployErr
-				return
-			}
+				chaincodeType, chaincodeTypeOK := chaincodeMap["type"].(string)
+				if !chaincodeTypeOK {
+					genesisLogger.Error("Invalid chaincode type defined in genesis configuration:", chaincodeMap["type"])
+					makeGenesisError = fmt.Errorf("Invalid chaincode type defined in genesis configuration: %s", chaincodeMap["type"])
+					return
+				}
 
-			genesisTransactions = append(genesisTransactions, transaction)
+				chaincodeID := &protos.ChaincodeID{Url: url, Version: version}
 
-		}
+				genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
+				genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)
+
+				constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
+				if !constructorMapOK {
+					genesisLogger.Error("Invalid chaincode constructor defined in genesis configuration:", chaincodeMap["constructor"])
+					makeGenesisError = fmt.Errorf("Invalid chaincode constructor defined in genesis configuration: %s", chaincodeMap["constructor"])
+					return
+				}
+
+				var spec protos.ChaincodeSpec
+				if constructorMap == nil {
+					genesisLogger.Debug("Genesis chaincode has no constructor.")
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID}
+				} else {
+
+					ctorFunc, ctorFuncOK := constructorMap["func"].(string)
+					if !ctorFuncOK {
+						genesisLogger.Error("Invalid chaincode constructor function defined in genesis configuration:", constructorMap["func"])
+						makeGenesisError = fmt.Errorf("Invalid chaincode constructor function args defined in genesis configuration: %s", constructorMap["func"])
+						return
+					}
+
+					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
+					if !ctorArgsOK {
+						genesisLogger.Error("Invalid chaincode constructor args defined in genesis configuration:", constructorMap["args"])
+						makeGenesisError = fmt.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
+						return
+					}
+
+					genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
+					genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
+					var ctorArgsStringArray []string
+					for j := 0; j < len(ctorArgs); j++ {
+						ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
+					}
+
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
+				}
+
+				transaction, _, deployErr := DeployLocal(context.Background(), &spec, secCxt)
+				if deployErr != nil {
+					genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
+					makeGenesisError = deployErr
+					return
+				}
+
+				genesisTransactions = append(genesisTransactions, transaction)
+
+			} //for
+		} //if
 
 		genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
 		ledger.CommitTxBatch(0, genesisTransactions, nil)
