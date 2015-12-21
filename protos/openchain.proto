@@ -19,6 +19,7 @@ package protos;
 import "chaincode.proto";
 import "google/protobuf/timestamp.proto";
 
+
 // Transaction defines a function call to a contract.
 // `args` is an array of type string so that the chaincode writer can choose
 // whatever format they wish for the arguments for their chaincode.
@@ -38,8 +39,15 @@ message Transaction {
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
-    bytes cert = 6;
-    bytes signature = 7;
+
+    ConfidentialityLevel confidentialityLevel = 6;
+    bytes nonce = 7;
+
+    bytes encryptedChaincodeID = 8;
+    bytes encryptedPayload = 9;
+
+    bytes cert = 10;
+    bytes signature = 11;
 }
 
 // TransactionBlock carries a batch of transactions.
@@ -123,20 +131,27 @@ message HelloMessage {
 message OpenchainMessage {
     enum Type {
         UNDEFINED = 0;
+        
         DISC_HELLO = 1;
         DISC_DISCONNECT = 2;
         DISC_GET_PEERS = 3;
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
+        
         CHAIN_STATUS = 6;
         CHAIN_TRANSACTION = 7;
         CHAIN_GET_TRANSACTIONS = 8;
         CHAIN_QUERY = 9;
+        
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;
         SYNC_BLOCK_ADDED = 13;
-        SYNC_GET_STATE = 14;
-        SYNC_STATE = 15;
+
+        SYNC_STATE_GET_SNAPSHOT = 14;
+        SYNC_STATE_SNAPSHOT = 15;
+        SYNC_STATE_GET_DELTAS = 16;
+        SYNC_STATE_DELTAS = 17;
+        
         RESPONSE = 20;
         CONSENSUS = 21;
     }
@@ -177,19 +192,35 @@ message SyncBlocks {
     SyncBlockRange range = 1;
     repeated Block blocks = 2;
 }
+
+// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message. 
+message SyncStateSnapshotRequest {
+  uint64 correlationId = 1;
+}
+
+// SyncState is the payload of OpenchainMessage.SYNC_SNAPSHOT, which is a response
+// to penchainMessage.SYNC_GET_SNAPSHOT. It contains the snapshot or a chunk of the
+// snapshot on stream, and in which case, the sequence indicate the order
+// starting at 0.  The terminating message will have len(delta) == 0.
+message SyncStateSnapshot {
+    bytes delta = 1;
+    uint64 sequence = 2;
+    uint64 blockNumber = 3;
+    SyncStateSnapshotRequest request = 4;
+}
+
 // SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
 // blockNumber indicates the block number for the delta which is being
 // requested. If no payload is included with SYNC_GET_STATE, it represents
 // a request for a snapshot of the current state.
-message SyncStateRequest {
-  uint64 blockNumber = 1;
+message SyncStateDeltasRequest {
+    SyncBlockRange range = 1;
 }
-// SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
-// to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
-// snapshot on stream, and in which case, the sequence indicate the order
-// starting at 1, and 0 indicates the last chunk.
-message SyncState {
-    bytes snapshot = 1;
-    uint32 sequence = 2;
-    uint64 blockNumber = 3;
+
+// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to 
+// the OpenchainMessage.SYNC_GET_STATE message.
+message SyncStateDeltas {
+    SyncBlockRange range = 1;
+    repeated bytes deltas = 2;
 }
+

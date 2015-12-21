@@ -96,14 +96,14 @@ func VerifySignCapability(tempSK interface{}, certPK interface{}) error {
 
 	sigma, err := ECDSASign(tempSK, msg)
 	if err != nil {
-		//		log.Error("Error signing: %s", err)
+		//		log.Error("Error signing [%s].", err.Error())
 
 		return err
 	}
 
 	ok, err := ECDSAVerify(certPK, msg, sigma)
 	if err != nil {
-		//		log.Error("Error verifying: %s", err)
+		//		log.Error("Error verifying [%s].", err.Error())
 
 		return err
 	}

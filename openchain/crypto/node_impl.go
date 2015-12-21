@@ -50,6 +50,9 @@ type nodeImpl struct {
 	enrollID      string
 	enrollCert    *x509.Certificate
 	enrollPrivKey *ecdsa.PrivateKey
+
+	// Enrollment Chain
+	enrollChainKey []byte
 }
 
 func (node *nodeImpl) GetName() string {
@@ -58,14 +61,14 @@ func (node *nodeImpl) GetName() string {
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if node.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Init Conf
 	if err := node.initConfiguration(prefix, name); err != nil {
-		log.Error("Failed ini configuration [%s]: %s", enrollID, err)
+		log.Error("Failed initiliazing configuration [%s] [%s].", enrollID, err)
 
 		return err
 	}
@@ -75,30 +78,38 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 	if node.isRegistered() {
 		node.log.Error("Registering [%s]...done! Registration already performed", enrollID)
-	} else {
-		if err := node.createKeyStorage(); err != nil {
-			node.log.Error("Failed creating key storage: %s", err)
 
-			return err
-		}
+		return utils.ErrAlreadyRegistered
+	}
+	// TODO: handle the error in a better way
+	if err := node.createKeyStorage(); err != nil {
+		node.log.Error("Failed creating key storage [%s].", err.Error())
 
-		if err := node.retrieveECACertsChain(enrollID); err != nil {
-			node.log.Error("Failed retrieveing ECA certs chain: %s", err)
+		return err
+	}
 
-			return err
-		}
+	if err := node.retrieveECACertsChain(enrollID); err != nil {
+		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
-		if err := node.retrieveTCACertsChain(enrollID); err != nil {
-			node.log.Error("Failed retrieveing ECA certs chain: %s", err)
+		return err
+	}
 
-			return err
-		}
+	if err := node.retrieveTCACertsChain(enrollID); err != nil {
+		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
-		if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-			node.log.Error("Failed retrieveing enrollment data: %s", err)
+		return err
+	}
 
-			return err
-		}
+	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
+		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
+
+		return err
+	}
+
+	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
+		node.log.Error("Failed retrieveing enrollment data: %s", err)
+
+		return err
 	}
 
 	node.log.Info("Registering [%s]...done!", enrollID)
@@ -110,7 +121,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	if node.isInitialized {
 		node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Init Conf
@@ -119,6 +130,8 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	}
 
 	if !node.isRegistered() {
+		node.log.Error("Not registered yet.")
+
 		return utils.ErrRegistrationRequired
 	}
 
@@ -130,7 +143,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			node.log.Error("Keystore already initialized.")
 		} else {
-			node.log.Error("Failed initiliazing keystore %s", err)
+			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
@@ -140,14 +153,14 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	// Init crypto engine
 	err = node.initCryptoEngine()
 	if err != nil {
-		node.log.Error("Failed initiliazing crypto engine %s", err)
+		node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
-	node.log.Info("Initialization...done.")
-
 	// Initialisation complete
 	node.isInitialized = true
+
+	node.log.Info("Initialization...done.")
 
 	return nil
 }

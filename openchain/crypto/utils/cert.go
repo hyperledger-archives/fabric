@@ -83,7 +83,7 @@ func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 func DERCertToPEM(der []byte) []byte {
 	return pem.EncodeToMemory(
 		&pem.Block{
-			Type:  "CERTIFICATE",
+			Type: "CERTIFICATE",
 			Bytes: der,
 		},
 	)

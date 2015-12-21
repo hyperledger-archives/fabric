@@ -21,12 +21,13 @@ package crypto
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"path/filepath"
 	"sync"
+
+	// Required to succefully initialized the driver
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -88,7 +89,7 @@ func (ks *keyStore) close() error {
 	err := ks.sqlDB.Close()
 
 	if err != nil {
-		ks.log.Error("Failed closing keystore: %s", err)
+		ks.log.Error("Failed closing keystore [%s].", err.Error())
 	} else {
 		ks.log.Info("Closing keystore...done!")
 	}
@@ -101,24 +102,18 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 	// Check directory
 	ksPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
-	if err != nil {
-		ks.log.Error("Failed checking directory %s: %s", ksPath, err)
-	}
-	ks.log.Debug("Keystore path [%s] missing [%t]", ksPath, missing)
+	ks.log.Debug("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
 
 	if !missing {
 		// Check file
 		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		if err != nil {
-			ks.log.Error("Failed checking file %s: %s", ks.conf.getKeyStoreFilePath(), err)
-		}
-		ks.log.Debug("Keystore file [%s] missing [%t]", ks.conf.getKeyStoreFilePath(), missing)
+		ks.log.Debug("Keystore file [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			ks.log.Debug("Failed creating db At [%s]: %s", ks.conf.getKeyStoreFilePath(), err.Error())
+			ks.log.Debug("Failed creating db At [%s]: ", ks.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}
@@ -128,22 +123,23 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 
 func (ks *keyStore) createKeyStore() error {
 	dbPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating Keystore at [%s]", dbPath)
+	ks.log.Debug("Creating Keystore at [%s].", dbPath)
 
 	missing, err := utils.FileMissing(dbPath, ks.conf.getKeyStoreFilename())
 	if !missing {
-		return fmt.Errorf("Keystore dir [%s] already exists", dbPath)
+		ks.log.Debug("Creating Keystore at [%s]. Keystore already there", dbPath)
+		return nil
 	}
 
 	os.MkdirAll(dbPath, 0755)
 
-	ks.log.Debug("Open Keystore at [%s]", dbPath)
+	ks.log.Debug("Open Keystore at [%s].", dbPath)
 	db, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
 	if err != nil {
 		return err
 	}
 
-	ks.log.Debug("Ping Keystore at [%s]", dbPath)
+	ks.log.Debug("Ping Keystore at [%s].", dbPath)
 	err = db.Ping()
 	if err != nil {
 		ks.log.Fatal(err)
@@ -152,18 +148,18 @@ func (ks *keyStore) createKeyStore() error {
 	defer db.Close()
 
 	// create tables
-	log.Debug("Create Table [%s] at [%s]", "Certificates", dbPath)
+	log.Debug("Create Table if not exists [%s] at [%s].", "Certificates", dbPath)
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		log.Debug("Failed creating table: %s", err)
+		log.Debug("Failed creating table [%s].", err.Error())
 		return err
 	}
 
-	ks.log.Debug("Keystore created at [%s]", dbPath)
+	ks.log.Debug("Keystore created at [%s].", dbPath)
 	return nil
 }
 
 func (ks *keyStore) deleteKeyStore() error {
-	ks.log.Debug("Removing KeyStore at [%s]", ks.conf.getKeyStorePath())
+	ks.log.Debug("Removing KeyStore at [%s].", ks.conf.getKeyStorePath())
 
 	return os.RemoveAll(ks.conf.getKeyStorePath())
 }
@@ -177,7 +173,7 @@ func (ks *keyStore) openKeyStore() error {
 	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
 
 	if err != nil {
-		ks.log.Error("Error opening keystore", err)
+		ks.log.Error("Error opening keystore%s", err.Error())
 		return err
 	}
 	ks.isOpen = true

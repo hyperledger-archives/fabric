@@ -5,10 +5,13 @@ ports:
         ecaA: ":50052"
         tcaP: ":50551"
         tcaA: ":50552"
+        tlscaP: ":50951"
+        tlscaA: ":50952"
 
 hosts:
         eca: localhost
         tca: localhost
+        tlsca: localhost
         
 eca:
 #        tls:
@@ -20,6 +23,11 @@ eca:
                 jim: AwbeJH2kw9qK
                 lukas: NPKYL39uKbkj
 tca:
+#         tls:
+#                certfile:
+#                keyfile:
+
+tlsca:
 #         tls:
 #                certfile:
 #                keyfile:

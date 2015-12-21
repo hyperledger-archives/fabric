@@ -36,62 +36,65 @@ var (
 
 // Public Methods
 
-// Register registers a client to the PKI infrastructure
-func RegisterValidator(id string, pwd []byte, enrollID, enrollPWD string) error {
+// RegisterValidator registers a client to the PKI infrastructure
+func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering [%s] with id [%s]...", enrollID, id)
+	log.Info("Registering validator [%s] with name [%s]...", enrollID, name)
 
-	if validators[id] != nil {
-		log.Info("Registering [%s] with id [%s]...done. Already initialized.", enrollID, id)
+	if validators[name] != nil {
+		log.Info("Registering validator [%s] with name [%s]...done. Already initialized.", enrollID, name)
+
 		return nil
 	}
 
 	validator := new(validatorImpl)
-	if err := validator.register(id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] with id [%s]: %s", enrollID, id, err)
-
-		return err
+	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
+			return err
+		}
+		log.Info("Registering vlidator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := validator.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Error("Registering [%s] with id [%s], failed closing: %s", enrollID, id, err)
+		log.Warning("Registering validator [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering [%s] with id [%s]...done!", enrollID, id)
+	log.Info("Registering validator [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
 
-// Init initializes a client named name with password pwd
-func InitValidator(id string, pwd []byte) (Peer, error) {
+// InitValidator initializes a client named name with password pwd
+func InitValidator(name string, pwd []byte) (Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Initializing [%s]...", id)
+	log.Info("Initializing validator [%s]...", name)
 
-	if validators[id] != nil {
-		log.Info("Validator already initiliazied [%s].", id)
+	if validators[name] != nil {
+		log.Info("Validator already initiliazied [%s].", name)
 
-		return validators[id], nil
+		return validators[name], nil
 	}
 
 	validator := new(validatorImpl)
-	if err := validator.init(id, pwd); err != nil {
-		log.Error("Failed initialization [%s]: %s", id, err)
+	if err := validator.init(name, pwd); err != nil {
+		log.Error("Failed validator initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
-	validators[id] = validator
-	log.Info("Initializing [%s]...done!", id)
+	validators[name] = validator
+	log.Info("Initializing validator [%s]...done!", name)
 
 	return validator, nil
 }
 
-// Close releases all the resources allocated by clients
+// CloseValidator releases all the resources allocated by the validator
 func CloseValidator(peer Peer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -99,7 +102,7 @@ func CloseValidator(peer Peer) error {
 	return closeValidatorInternal(peer)
 }
 
-// CloseAll closes all the clients initialized so far
+// CloseAllValidators closes all the validators initialized so far
 func CloseAllValidators() (bool, []error) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -121,16 +124,16 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func closeValidatorInternal(peer Peer) error {
-	id := peer.GetName()
-	log.Info("Closing validator [%s]...", id)
-	if _, ok := validators[id]; !ok {
+	name := peer.GetName()
+	log.Info("Closing validator [%s]...", name)
+	if _, ok := validators[name]; !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(validators, id)
+	defer delete(validators, name)
 
-	err := validators[id].(*validatorImpl).close()
+	err := validators[name].(*validatorImpl).close()
 
-	log.Info("Closing validator [%s]...done! [%s]", id, err)
+	log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
 
 	return err
 }

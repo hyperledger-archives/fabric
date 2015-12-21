@@ -30,9 +30,17 @@ import (
 )
 
 const (
-	//AESKeyLength is the keys length used for AES
+	// AESKeyLength is the default AES key length
 	AESKeyLength = 32
+
+	// NonceSize is the default NonceSize
+	NonceSize    = 24
 )
+
+// GenAESKey returns a random AES key of length AESKeyLength
+func GenAESKey() ([]byte, error) {
+	return GetRandomBytes(AESKeyLength)
+}
 
 // PKCS7Padding pads as prescribed by the PKCS7 standard
 func PKCS7Padding(src []byte) []byte {

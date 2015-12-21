@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
@@ -112,6 +113,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		success = false
 		return dbErr
 	}
+	producer.Send(producer.CreateBlockEvent(block))
 	return nil
 }
 
@@ -204,6 +206,11 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // For example, if you are currently at block 8 and call this function
 // with a delta retrieved from Ledger.GetStateDelta(10), you would now
 // be in a bad state because you did not apply the delta for block 9.
+// It's possible to roll the state forwards or backwards using
+// stateDelta.RollBackwards. By default, a delta retrieved for block 3 can
+// be used to roll forwards from state at block 2 to state at block 3. If
+// stateDelta.RollBackwards=false, the delta retrived for block 3 can be
+// used to roll backwards from the state at block 3 to the state at block 2.
 func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 	return ledger.state.ApplyStateDelta(delta)
 }
@@ -246,7 +253,12 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 // PutRawBlock puts a raw block on the chain. This function should only be
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {
-	return ledger.blockchain.persistRawBlock(block, blockNumber)
+	err := ledger.blockchain.persistRawBlock(block, blockNumber)
+	if err != nil {
+		return err
+	}
+	producer.Send(producer.CreateBlockEvent(block))
+	return nil
 }
 
 // VerifyChain will verify the integrety of the blockchain. This is accomplished

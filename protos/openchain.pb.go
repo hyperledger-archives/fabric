@@ -77,23 +77,25 @@ func (x PeerEndpoint_Type) String() string {
 type OpenchainMessage_Type int32
 
 const (
-	OpenchainMessage_UNDEFINED              OpenchainMessage_Type = 0
-	OpenchainMessage_DISC_HELLO             OpenchainMessage_Type = 1
-	OpenchainMessage_DISC_DISCONNECT        OpenchainMessage_Type = 2
-	OpenchainMessage_DISC_GET_PEERS         OpenchainMessage_Type = 3
-	OpenchainMessage_DISC_PEERS             OpenchainMessage_Type = 4
-	OpenchainMessage_DISC_NEWMSG            OpenchainMessage_Type = 5
-	OpenchainMessage_CHAIN_STATUS           OpenchainMessage_Type = 6
-	OpenchainMessage_CHAIN_TRANSACTION      OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_QUERY            OpenchainMessage_Type = 9
-	OpenchainMessage_SYNC_GET_BLOCKS        OpenchainMessage_Type = 11
-	OpenchainMessage_SYNC_BLOCKS            OpenchainMessage_Type = 12
-	OpenchainMessage_SYNC_BLOCK_ADDED       OpenchainMessage_Type = 13
-	OpenchainMessage_SYNC_GET_STATE         OpenchainMessage_Type = 14
-	OpenchainMessage_SYNC_STATE             OpenchainMessage_Type = 15
-	OpenchainMessage_RESPONSE               OpenchainMessage_Type = 20
-	OpenchainMessage_CONSENSUS              OpenchainMessage_Type = 21
+	OpenchainMessage_UNDEFINED               OpenchainMessage_Type = 0
+	OpenchainMessage_DISC_HELLO              OpenchainMessage_Type = 1
+	OpenchainMessage_DISC_DISCONNECT         OpenchainMessage_Type = 2
+	OpenchainMessage_DISC_GET_PEERS          OpenchainMessage_Type = 3
+	OpenchainMessage_DISC_PEERS              OpenchainMessage_Type = 4
+	OpenchainMessage_DISC_NEWMSG             OpenchainMessage_Type = 5
+	OpenchainMessage_CHAIN_STATUS            OpenchainMessage_Type = 6
+	OpenchainMessage_CHAIN_TRANSACTION       OpenchainMessage_Type = 7
+	OpenchainMessage_CHAIN_GET_TRANSACTIONS  OpenchainMessage_Type = 8
+	OpenchainMessage_CHAIN_QUERY             OpenchainMessage_Type = 9
+	OpenchainMessage_SYNC_GET_BLOCKS         OpenchainMessage_Type = 11
+	OpenchainMessage_SYNC_BLOCKS             OpenchainMessage_Type = 12
+	OpenchainMessage_SYNC_BLOCK_ADDED        OpenchainMessage_Type = 13
+	OpenchainMessage_SYNC_STATE_GET_SNAPSHOT OpenchainMessage_Type = 14
+	OpenchainMessage_SYNC_STATE_SNAPSHOT     OpenchainMessage_Type = 15
+	OpenchainMessage_SYNC_STATE_GET_DELTAS   OpenchainMessage_Type = 16
+	OpenchainMessage_SYNC_STATE_DELTAS       OpenchainMessage_Type = 17
+	OpenchainMessage_RESPONSE                OpenchainMessage_Type = 20
+	OpenchainMessage_CONSENSUS               OpenchainMessage_Type = 21
 )
 
 var OpenchainMessage_Type_name = map[int32]string{
@@ -110,29 +112,33 @@ var OpenchainMessage_Type_name = map[int32]string{
 	11: "SYNC_GET_BLOCKS",
 	12: "SYNC_BLOCKS",
 	13: "SYNC_BLOCK_ADDED",
-	14: "SYNC_GET_STATE",
-	15: "SYNC_STATE",
+	14: "SYNC_STATE_GET_SNAPSHOT",
+	15: "SYNC_STATE_SNAPSHOT",
+	16: "SYNC_STATE_GET_DELTAS",
+	17: "SYNC_STATE_DELTAS",
 	20: "RESPONSE",
 	21: "CONSENSUS",
 }
 var OpenchainMessage_Type_value = map[string]int32{
-	"UNDEFINED":              0,
-	"DISC_HELLO":             1,
-	"DISC_DISCONNECT":        2,
-	"DISC_GET_PEERS":         3,
-	"DISC_PEERS":             4,
-	"DISC_NEWMSG":            5,
-	"CHAIN_STATUS":           6,
-	"CHAIN_TRANSACTION":      7,
-	"CHAIN_GET_TRANSACTIONS": 8,
-	"CHAIN_QUERY":            9,
-	"SYNC_GET_BLOCKS":        11,
-	"SYNC_BLOCKS":            12,
-	"SYNC_BLOCK_ADDED":       13,
-	"SYNC_GET_STATE":         14,
-	"SYNC_STATE":             15,
-	"RESPONSE":               20,
-	"CONSENSUS":              21,
+	"UNDEFINED":               0,
+	"DISC_HELLO":              1,
+	"DISC_DISCONNECT":         2,
+	"DISC_GET_PEERS":          3,
+	"DISC_PEERS":              4,
+	"DISC_NEWMSG":             5,
+	"CHAIN_STATUS":            6,
+	"CHAIN_TRANSACTION":       7,
+	"CHAIN_GET_TRANSACTIONS":  8,
+	"CHAIN_QUERY":             9,
+	"SYNC_GET_BLOCKS":         11,
+	"SYNC_BLOCKS":             12,
+	"SYNC_BLOCK_ADDED":        13,
+	"SYNC_STATE_GET_SNAPSHOT": 14,
+	"SYNC_STATE_SNAPSHOT":     15,
+	"SYNC_STATE_GET_DELTAS":   16,
+	"SYNC_STATE_DELTAS":       17,
+	"RESPONSE":                20,
+	"CONSENSUS":               21,
 }
 
 func (x OpenchainMessage_Type) String() string {
@@ -168,13 +174,17 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type        Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	Payload     []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid        string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
-	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
-	Cert        []byte                     `protobuf:"bytes,6,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature   []byte                     `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
+	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+	ConfidentialityLevel ConfidentialityLevel       `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
+	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	EncryptedChaincodeID []byte                     `protobuf:"bytes,8,opt,name=encryptedChaincodeID,proto3" json:"encryptedChaincodeID,omitempty"`
+	EncryptedPayload     []byte                     `protobuf:"bytes,9,opt,name=encryptedPayload,proto3" json:"encryptedPayload,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,10,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,11,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -452,31 +462,73 @@ func (m *SyncBlocks) GetBlocks() []*Block {
 	return nil
 }
 
+// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message.
+type SyncStateSnapshotRequest struct {
+	CorrelationId uint64 `protobuf:"varint,1,opt,name=correlationId" json:"correlationId,omitempty"`
+}
+
+func (m *SyncStateSnapshotRequest) Reset()         { *m = SyncStateSnapshotRequest{} }
+func (m *SyncStateSnapshotRequest) String() string { return proto.CompactTextString(m) }
+func (*SyncStateSnapshotRequest) ProtoMessage()    {}
+
+// SyncState is the payload of OpenchainMessage.SYNC_SNAPSHOT, which is a response
+// to penchainMessage.SYNC_GET_SNAPSHOT. It contains the snapshot or a chunk of the
+// snapshot on stream, and in which case, the sequence indicate the order
+// starting at 0.  The terminating message will have len(delta) == 0.
+type SyncStateSnapshot struct {
+	Delta       []byte                    `protobuf:"bytes,1,opt,name=delta,proto3" json:"delta,omitempty"`
+	Sequence    uint64                    `protobuf:"varint,2,opt,name=sequence" json:"sequence,omitempty"`
+	BlockNumber uint64                    `protobuf:"varint,3,opt,name=blockNumber" json:"blockNumber,omitempty"`
+	Request     *SyncStateSnapshotRequest `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
+}
+
+func (m *SyncStateSnapshot) Reset()         { *m = SyncStateSnapshot{} }
+func (m *SyncStateSnapshot) String() string { return proto.CompactTextString(m) }
+func (*SyncStateSnapshot) ProtoMessage()    {}
+
+func (m *SyncStateSnapshot) GetRequest() *SyncStateSnapshotRequest {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
+
 // SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
 // blockNumber indicates the block number for the delta which is being
 // requested. If no payload is included with SYNC_GET_STATE, it represents
 // a request for a snapshot of the current state.
-type SyncStateRequest struct {
-	BlockNumber uint64 `protobuf:"varint,1,opt,name=blockNumber" json:"blockNumber,omitempty"`
+type SyncStateDeltasRequest struct {
+	Range *SyncBlockRange `protobuf:"bytes,1,opt,name=range" json:"range,omitempty"`
 }
 
-func (m *SyncStateRequest) Reset()         { *m = SyncStateRequest{} }
-func (m *SyncStateRequest) String() string { return proto.CompactTextString(m) }
-func (*SyncStateRequest) ProtoMessage()    {}
+func (m *SyncStateDeltasRequest) Reset()         { *m = SyncStateDeltasRequest{} }
+func (m *SyncStateDeltasRequest) String() string { return proto.CompactTextString(m) }
+func (*SyncStateDeltasRequest) ProtoMessage()    {}
 
-// SyncState is the payload of OpenchainMessage.SYNC_STATE, which is a response
-// to penchainMessage.SYNC_GET_STATE. It contains the snapshot or a chunk of the
-// snapshot on stream, and in which case, the sequence indicate the order
-// starting at 1, and 0 indicates the last chunk.
-type SyncState struct {
-	Snapshot    []byte `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	Sequence    uint32 `protobuf:"varint,2,opt,name=sequence" json:"sequence,omitempty"`
-	BlockNumber uint64 `protobuf:"varint,3,opt,name=blockNumber" json:"blockNumber,omitempty"`
+func (m *SyncStateDeltasRequest) GetRange() *SyncBlockRange {
+	if m != nil {
+		return m.Range
+	}
+	return nil
 }
 
-func (m *SyncState) Reset()         { *m = SyncState{} }
-func (m *SyncState) String() string { return proto.CompactTextString(m) }
-func (*SyncState) ProtoMessage()    {}
+// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to
+// the OpenchainMessage.SYNC_GET_STATE message.
+type SyncStateDeltas struct {
+	Range  *SyncBlockRange `protobuf:"bytes,1,opt,name=range" json:"range,omitempty"`
+	Deltas [][]byte        `protobuf:"bytes,2,rep,name=deltas,proto3" json:"deltas,omitempty"`
+}
+
+func (m *SyncStateDeltas) Reset()         { *m = SyncStateDeltas{} }
+func (m *SyncStateDeltas) String() string { return proto.CompactTextString(m) }
+func (*SyncStateDeltas) ProtoMessage()    {}
+
+func (m *SyncStateDeltas) GetRange() *SyncBlockRange {
+	if m != nil {
+		return m.Range
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)

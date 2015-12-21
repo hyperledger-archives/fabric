@@ -23,6 +23,14 @@ package protos;
 
 import "google/protobuf/timestamp.proto";
 
+
+// Confidentiality Levels
+enum ConfidentialityLevel {
+    PUBLIC = 0;
+    CONFIDENTIAL = 1;
+}
+
+
 // Carries the URL where the chaincode resides and the chaincode version.
 // TODO: Merge with ChaincodeIDentifier.
 message ChaincodeID {
@@ -55,6 +63,7 @@ message ChaincodeSpec {
     ChaincodeInput ctorMsg = 3;
     int32 timeout = 4;
     string secureContext = 5;
+    ConfidentialityLevel confidentialityLevel = 6;
 }
 
 // Specify the deployment of a chaincode.

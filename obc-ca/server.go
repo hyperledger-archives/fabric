@@ -15,7 +15,7 @@ software distributed under the License is distributed on an
 KIND, either express or implied.  See the License for the 
 specific language governing permissions and limitations 
 under the License. 
-*/ 
+*/
 
 package main
 
@@ -24,7 +24,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/openblockchain/obc-peer/obcca/obcca"
+	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/spf13/viper"
 )
 
@@ -46,9 +46,13 @@ func main() {
 	tca := obcca.NewTCA(eca)
 	defer tca.Close()
 
+	tlsca := obcca.NewTLSCA()
+	defer tlsca.Close()
+
 	var wg sync.WaitGroup
 	eca.Start(&wg)
 	tca.Start(&wg)
+	tlsca.Start(&wg)
 
 	wg.Wait()
 }

@@ -59,14 +59,15 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		return nil, utils.ErrNotInitialized
 	}
 
-	if tx.Cert != nil && tx.Signature != nil {
-		peer.node.log.Info("TransactionPreValidation: executing...")
+	peer.node.log.Debug("Pre validating [%s].", tx.String())
+	peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
+	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed unmarshalling cert %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
 			return tx, err
 		}
 		// TODO: verify cert
@@ -76,7 +77,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 		tx.Signature = signature
@@ -84,7 +85,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 2. Verify signature
 		ok, err := peer.node.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			peer.node.log.Error("TransactionPreExecution: failed marshaling tx %s:", err)
+			peer.node.log.Error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 
@@ -125,23 +126,28 @@ func (peer *peerImpl) Verify(vkID, signature, message []byte) error {
 	return utils.ErrNotImplemented
 }
 
+func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (StateEncryptor, error) {
+	return nil, utils.ErrNotImplemented
+}
+
 // Private methods
 
 func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
-		log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		peer.node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
 	node := new(nodeImpl)
 	if err := node.register(prefix, name, pwd, enrollID, enrollPWD); err != nil {
+		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
 
 	peer.node = node
-	peer.isInitialized = true
+
 	return nil
 }
 
@@ -149,11 +155,16 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	if peer.isInitialized {
 		peer.node.log.Error("Already initializaed.")
 
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
-	node := new(nodeImpl)
+	var node *nodeImpl
+	if peer.node != nil {
+		node = peer.node
+	} else {
+		node = new(nodeImpl)
+	}
 	if err := node.init(prefix, id, pwd); err != nil {
 		return err
 	}
@@ -163,10 +174,12 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	peer.isInitialized = true
 
 	peer.node.log.Info("Initialization...done.")
-
 	return nil
 }
 
 func (peer *peerImpl) close() error {
-	return peer.node.close()
+	if peer.node != nil {
+		return peer.node.close()
+	}
+	return nil
 }

@@ -38,60 +38,48 @@ func (node *nodeImpl) isRegistered() bool {
 }
 
 func (node *nodeImpl) retrieveEnrollmentData(userID, pwd string) error {
-	key, enrollCertRaw, err := node.getEnrollmentCertificateFromECA(userID, pwd)
+	key, enrollCertRaw, enrollChainKey, err := node.getEnrollmentCertificateFromECA(userID, pwd)
 	if err != nil {
-		node.log.Error("Failed getting enrollment certificate %s", err)
+		node.log.Error("Failed getting enrollment certificate [id=%s]  ", userID, err)
 
 		return err
 	}
-	node.log.Info("Register:cert %s", utils.EncodeBase64(enrollCertRaw))
-	//	nodeLogger.Info("Register:key %s", utils.EncodeBase64(key))
-
-	// Verify
-
-	cert, err := utils.DERToX509Certificate(enrollCertRaw)
-	if err != nil {
-		node.log.Error("Failed parsing enrollment certificate: %s", err.Error())
-
-		return err
-	}
-
-	pk := cert.PublicKey.(*ecdsa.PublicKey)
-	err = utils.VerifySignCapability(key, pk)
-	if err != nil {
-		node.log.Error("Failed checking enrollment certificate against enrollment key: %s", err.Error())
-
-		return err
-	}
-
-	// TODO: store it in an encrypted form
+	node.log.Debug("Enrollment certificate [%s].", utils.EncodeBase64(enrollCertRaw))
+	//	validatorLogger.Info("Register:key  ", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	node.log.Info("Storing enrollment key and certificate for user [%s]...", userID)
+	node.log.Debug("Storing enrollment data for user [%s]...", userID)
 
-	rawKey, err := utils.PrivateKeyToPEM("", key)
+	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {
-		node.log.Error("Failed converting enrollment key to PEM: %s", err)
+		node.log.Error("Failed converting enrollment key to PEM [id=%s]: ", userID, err)
 		return err
 	}
 
 	err = ioutil.WriteFile(node.conf.getEnrollmentKeyPath(), rawKey, 0700)
 	if err != nil {
-		node.log.Error("Failed storing enrollment key: %s", err)
+		node.log.Error("Failed storing enrollment key [id=%s]: ", userID, err)
 		return err
 	}
 
 	// Store enrollment cert
 	err = ioutil.WriteFile(node.conf.getEnrollmentCertPath(), utils.DERCertToPEM(enrollCertRaw), 0700)
 	if err != nil {
-		node.log.Error("Failed storing enrollment certificate: %s", err)
+		node.log.Error("Failed storing enrollment certificate [id=%s]: ", userID, err)
 		return err
 	}
 
 	// Store enrollment id
 	err = ioutil.WriteFile(node.conf.getEnrollmentIDPath(), []byte(userID), 0700)
 	if err != nil {
-		node.log.Error("Failed storing enrollment certificate: %s", err)
+		node.log.Error("Failed storing enrollment certificate [id=%s]: ", userID, err)
+		return err
+	}
+
+	// Store enrollment chain key
+	err = ioutil.WriteFile(node.conf.getEnrollmentChainKeyPath(), utils.AEStoPEM(enrollChainKey), 0700)
+	if err != nil {
+		node.log.Error("Failed storing enrollment chain key [id=%s]: ", userID, err)
 		return err
 	}
 
@@ -99,18 +87,18 @@ func (node *nodeImpl) retrieveEnrollmentData(userID, pwd string) error {
 }
 
 func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
-	node.log.Info("Loading enrollment key at %s...", node.conf.getEnrollmentKeyPath())
+	node.log.Debug("Loading enrollment key at [%s]...", node.conf.getEnrollmentKeyPath())
 
 	rawEnrollPrivKey, err := ioutil.ReadFile(node.conf.getEnrollmentKeyPath())
 	if err != nil {
-		node.log.Error("Failed loading enrollment private key: %s", err.Error())
+		node.log.Error("Failed loading enrollment private key [%s].", err.Error())
 
 		return err
 	}
 
 	enrollPrivKey, err := utils.PEMtoPrivateKey(rawEnrollPrivKey, pwd)
 	if err != nil {
-		node.log.Error("Failed parsing enrollment private key: %s", err.Error())
+		node.log.Error("Failed parsing enrollment private key [%s].", err.Error())
 
 		return err
 	}
@@ -120,18 +108,18 @@ func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
 }
 
 func (node *nodeImpl) loadEnrollmentCertificate() error {
-	node.log.Info("Loading enrollment certificate at %s...", node.conf.getEnrollmentCertPath())
+	node.log.Debug("Loading enrollment certificate at [%s]...", node.conf.getEnrollmentCertPath())
 
 	pemEnrollCert, err := ioutil.ReadFile(node.conf.getEnrollmentCertPath())
 	if err != nil {
-		node.log.Error("Failed loading enrollment certificate: %s", err.Error())
+		node.log.Error("Failed loading enrollment certificate [%s].", err.Error())
 
 		return err
 	}
 
 	enrollCert, rawEnrollCert, err := utils.PEMtoCertificateAndDER(pemEnrollCert)
 	if err != nil {
-		node.log.Error("Failed parsing enrollment certificate: %s", err.Error())
+		node.log.Error("Failed parsing enrollment certificate [%s].", err.Error())
 
 		return err
 	}
@@ -140,31 +128,86 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 	pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
 	err = utils.VerifySignCapability(node.enrollPrivKey, pk)
 	if err != nil {
-		node.log.Error("Failed checking enrollment certificate against enrollment key: %s", err.Error())
+		node.log.Error("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
 
 		return err
 	}
 
 	// Set node ID
 	node.id = utils.Hash(rawEnrollCert)
-	node.log.Info("Setting id to [%s]", utils.EncodeBase64(node.id))
+	node.log.Debug("Setting id to [%s].", utils.EncodeBase64(node.id))
 
 	return nil
 }
 
 func (node *nodeImpl) loadEnrollmentID() error {
-	node.log.Info("Loading enrollment id at %s...", node.conf.getEnrollmentIDPath())
+	node.log.Debug("Loading enrollment id at [%s]...", node.conf.getEnrollmentIDPath())
 
 	enrollID, err := ioutil.ReadFile(node.conf.getEnrollmentIDPath())
 	if err != nil {
-		node.log.Error("Failed loading enrollment id: %s", err.Error())
+		node.log.Error("Failed loading enrollment id [%s].", err.Error())
 
 		return err
 	}
 
 	// Set enrollment ID
 	node.enrollID = string(enrollID)
-	node.log.Info("Setting enrollment id to [%s]", node.enrollID)
+	node.log.Debug("Setting enrollment id to [%s].", node.enrollID)
+
+	return nil
+}
+
+func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string ) error {
+	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
+	if err != nil {
+		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
+
+		return err
+	}
+	node.log.Info("Register:cert %s", utils.EncodeBase64(tlsCertRaw))
+
+	// Store enrollment  key
+	node.log.Info("Storing enrollment key and certificate for user [%s]...", id)
+
+	rawKey, err := utils.PrivateKeyToPEM(key)
+	if err != nil {
+		node.log.Error("Failed converting tls key to PEM [id=%s]: %s", id, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(node.conf.getTLSKeyPath(), rawKey, 0700)
+	if err != nil {
+		node.log.Error("Failed storing tls key [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls cert
+	err = ioutil.WriteFile(node.conf.getTLSCertPath(), utils.DERCertToPEM(tlsCertRaw), 0700)
+	if err != nil {
+		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+
+	return nil
+}
+
+func (node *nodeImpl) loadEnrollmentChainKey(pwd []byte) error {
+	node.log.Debug("Loading enrollment chain key at [%s]...", node.conf.getEnrollmentChainKeyPath())
+
+	pem, err := ioutil.ReadFile(node.conf.getEnrollmentChainKeyPath())
+	if err != nil {
+		node.log.Error("Failed loading enrollment chain key [%s].", err.Error())
+
+		return err
+	}
+
+	enrollChainKey, err := utils.PEMtoAES(pem, pwd)
+	if err != nil {
+		node.log.Error("Failed parsing enrollment chain  key [%s].", err.Error())
+
+		return err
+	}
+	node.enrollChainKey = enrollChainKey
 
 	return nil
 }
