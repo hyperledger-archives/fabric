@@ -21,12 +21,12 @@ package utils
 
 import (
 	"crypto/hmac"
-	"crypto/sha512"
+	"golang.org/x/crypto/sha3"
 	"hash"
 )
 
 var (
-	newHash = sha512.New384
+	newHash = sha3.New384
 )
 
 // NewHash returns a new hash function
