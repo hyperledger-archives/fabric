@@ -82,11 +82,8 @@ func MakeGenesis(secCxt crypto.Peer) error {
 		if deployErr != nil {
 			genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)
 			makeGenesisError = deployErr
-			genesisLogger.Info("RAULLLLLLLLLLL ERRRRRRRRRRRRRRRRROOOOOOOOOOOOOOOOOOOR NO DEPLOYOOOO")
 			return
 		}
-
-		genesisLogger.Info("RAULLLLLLLL SIIIIIIIIIIIIIIIIIIIIIIIIII DEPLOYOOOOooo")
 
 		genesisTransactions = append(genesisTransactions, vpTransaction)
 

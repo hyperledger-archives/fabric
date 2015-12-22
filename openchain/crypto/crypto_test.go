@@ -33,7 +33,10 @@ import (
 	"sync"
 	"testing"
 	"reflect"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
+
 
 var (
 	validator Peer
@@ -48,6 +51,8 @@ var (
 	tca         *obcca.TCA
 	tlsca		*obcca.TLSCA
 	caWaitGroup sync.WaitGroup
+	
+	l	 		*ledger.Ledger
 )
 
 func TestMain(m *testing.M) {
@@ -83,6 +88,11 @@ func TestMain(m *testing.M) {
 	cleanup()
 
 	os.Exit(ret)
+}
+
+func TestInitLedger(t *testing.T) {
+	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
+	l = ledger.InitTestLedger(t)
 }
 
 func TestClientDeployTransaction(t *testing.T) {
