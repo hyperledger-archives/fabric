@@ -126,8 +126,11 @@ func (tca *TCA) Start(wg *sync.WaitGroup) {
 	wg.Add(2)
 	go tca.startTCAP(wg, opts)
 	go tca.startTCAA(wg, opts)
-	go tca.updateValidityPeriod()
-
+	
+	if(updateOfValidityPeriodEnabled){
+		go tca.updateValidityPeriod()
+	}
+	
 	Info.Println("TCA started.")
 }
 
@@ -401,7 +404,10 @@ func (tca *TCA) updateValidityPeriod() {
 	for{
 		chainFuncName := "invoke"
 		chaincodeInv := createChaincodeInvocation(strconv.FormatInt(time.Now().Unix(), 10), token)
-		invokeChaincode(chainFuncName, chaincodeInv)
+		err := invokeChaincode(chainFuncName, chaincodeInv)
+		if(err != nil){
+			Error.Printf("Error while updating validity period. Error was: %s", err)
+		}
 		time.Sleep(time.Second * drjTime)
 	}
 }

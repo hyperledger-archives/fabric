@@ -81,10 +81,12 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
 	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 	
-	tx, err := validator.verifyValidityPeriod(tx)
-	if(err != nil){
-		validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
-		return tx, err
+	if(validityPeriodVerificationEnabled)
+		tx, err := validator.verifyValidityPeriod(tx)
+		if(err != nil){
+			validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
+			return tx, err
+		}
 	}
 
 	switch tx.ConfidentialityLevel {

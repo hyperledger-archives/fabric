@@ -97,6 +97,9 @@ func TestMain(m *testing.M) {
 func initLedger() error {
 
 	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
+	viper.Set("pki.updateValidityPeriod", "false")
+	viper.Set("pki.verifyValidityPeriod", "false")
+	
 	//l = ledger.InitTestLedger(t)
 	
 	ledger, err := ledger.GetLedger()
