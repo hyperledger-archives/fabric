@@ -37,7 +37,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
 
-
 var (
 	validator Peer
 
@@ -53,7 +52,12 @@ var (
 	caWaitGroup sync.WaitGroup
 	
 	l	 		*ledger.Ledger
+	g			Genesis
 )
+
+func SetGenesis(genesis Genesis) {
+	g = genesis
+}
 
 func TestMain(m *testing.M) {
 	setup()
@@ -93,6 +97,7 @@ func TestMain(m *testing.M) {
 func TestInitLedger(t *testing.T) {
 	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
 	l = ledger.InitTestLedger(t)
+	g.MakeGenesis()
 }
 
 func TestClientDeployTransaction(t *testing.T) {
