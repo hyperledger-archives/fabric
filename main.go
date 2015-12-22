@@ -650,7 +650,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -723,7 +723,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction

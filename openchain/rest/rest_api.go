@@ -407,9 +407,11 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully built chainCode.\"}")
 }
 
-// Deploy first builds the docker container that holds the Chaincode
-// and then deploys that container to the blockchain.
+// Deploy first builds the chaincode package and subsequently deploys it to the
+// blockchain.
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
+	logger.Info("REST deploying chaincode...")
+
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
@@ -417,29 +419,85 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	// Check for proper JSON syntax
 	if err != nil {
 		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character
-		// as otherwise the returned JSON is invalid.
+		// of a schema validation failure. These must be replaced with a ' character.
+		// Otherwise, the returned JSON is invalid.
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
-		rw.WriteHeader(http.StatusBadRequest)
 
 		// Client must supply payload
 		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeSpec.\"}")
+			logger.Error("{\"Error\": \"Payload must contain a ChaincodeSpec.\"}")
 		} else {
+			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+			logger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
 		}
+
 		return
 	}
 
-	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Url == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
+	// Check that the ChaincodeID is not left blank.
+	if spec.ChaincodeID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeID.\"}")
+		logger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
+
 		return
 	}
-	if spec.ChaincodeID.Version == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
+
+	// Check that the Chaincode URL path and version are not left blank.
+	if (spec.ChaincodeID.Url == "") || (spec.ChaincodeID.Version == "") {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+
 		return
+	}
+
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		chaincodeUsr := spec.SecureContext
+		if chaincodeUsr == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+			logger.Error("{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+
+			return
+		}
+
+		// Retrieve the REST data storage path
+		// Returns /var/openchain/production/client/
+		localStore := getRESTFilePath()
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
+			if err != nil {
+				rw.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.SecureContext = string(token)
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				rw.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(rw, "{\"Error\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+				logger.Error("{\"Error\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+
+				return
+			}
+			// Unexpected error
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
 	}
 
 	// Deploy the ChaincodeSpec
@@ -447,11 +505,14 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Deploying Chaincode -- %s\"}", err))
+
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
+	logger.Info("Successfuly deployed chainCode.\n")
 }
 
 // Invoke executes a specified function within a target Chaincode.
