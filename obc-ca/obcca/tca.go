@@ -127,7 +127,8 @@ func (tca *TCA) Start(wg *sync.WaitGroup) {
 	go tca.startTCAP(wg, opts)
 	go tca.startTCAA(wg, opts)
 	
-	if(updateOfValidityPeriodEnabled){
+	updateOfValidityPeriodEnabled := false
+	if updateOfValidityPeriodEnabled {
 		go tca.updateValidityPeriod()
 	}
 	

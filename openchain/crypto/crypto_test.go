@@ -33,9 +33,6 @@ import (
 	"sync"
 	"testing"
 	"reflect"
-	"errors"
-
-	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
 
 var (
@@ -81,7 +78,9 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("Failed initializing validators [%s].", err.Error()))
 	}
 	
-	err = initLedger()
+	viper.Set("pki.updateValidityPeriod", "false")
+	viper.Set("pki.verifyValidityPeriod", "false")
+	
 	if err != nil {
 		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
 		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
@@ -92,26 +91,6 @@ func TestMain(m *testing.M) {
 	cleanup()
 
 	os.Exit(ret)
-}
-
-func initLedger() error {
-
-	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
-	viper.Set("pki.updateValidityPeriod", "false")
-	viper.Set("pki.verifyValidityPeriod", "false")
-	
-	//l = ledger.InitTestLedger(t)
-	
-	ledger, err := ledger.GetLedger()
-	if(err != nil){
-		return err
-	}
-	
-	if ledger.GetBlockchainSize() > 0 {
-		errors.New("Genesis block already exists.")
-	}
-	
-	return nil
 }
 
 func TestClientDeployTransaction(t *testing.T) {
@@ -914,6 +893,9 @@ func killCAs() {
 
 		tca.Stop()
 		tca.Close()
+		
+		tlsca.Stop()
+		tlsca.Close()
 	}
 }
 

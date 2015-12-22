@@ -96,14 +96,9 @@ func (tlsca *TLSCA) Start(wg *sync.WaitGroup) {
 
 // Stop stops the TLSCA.
 //
-func (tlsca *TLSCA) Stop(wg *sync.WaitGroup) {
+func (tlsca *TLSCA) Stop() {
 	tlsca.srvp.Stop()
-	_ = tlsca.sockp.Close()
-	wg.Done()
-
 	tlsca.srva.Stop()
-	_ = tlsca.socka.Close()
-	wg.Done()
 }
 
 func (tlsca *TLSCA) startTLSCAP(opts []grpc.ServerOption) {
