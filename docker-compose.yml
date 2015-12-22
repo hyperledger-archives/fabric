@@ -1,0 +1,36 @@
+vp1:
+  extends:
+    file: compose-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_PEER_ID=vp1
+
+vp2:
+  extends:
+    file: compose-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_PEER_ID=vp2
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp1:30303
+  links:
+    - vp1
+
+vp3:
+  extends:
+    file: compose-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_PEER_ID=vp3
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp1:30303
+  links:
+    - vp1
+
+vp4:
+  extends:
+    file: compose-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_PEER_ID=vp4
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp1:30303
+  links:
+    - vp1
