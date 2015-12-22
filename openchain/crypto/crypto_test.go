@@ -33,6 +33,7 @@ import (
 	"sync"
 	"testing"
 	"reflect"
+	"errors"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
@@ -50,14 +51,7 @@ var (
 	tca         *obcca.TCA
 	tlsca		*obcca.TLSCA
 	caWaitGroup sync.WaitGroup
-	
-	l	 		*ledger.Ledger
-	g			Genesis
 )
-
-func SetGenesis(genesis Genesis) {
-	g = genesis
-}
 
 func TestMain(m *testing.M) {
 	setup()
@@ -86,6 +80,12 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed initializing validators [%s]\n", err.Error())
 		panic(fmt.Errorf("Failed initializing validators [%s].", err.Error()))
 	}
+	
+	err = initLedger()
+	if err != nil {
+		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
+		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
+	}
 
 	ret := m.Run()
 
@@ -94,10 +94,21 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
-func TestInitLedger(t *testing.T) {
+func initLedger() error {
+
 	viper.Set("peer.fileSystemPath", "/var/openchain/test/tmpdb")
-	l = ledger.InitTestLedger(t)
-	g.MakeGenesis()
+	//l = ledger.InitTestLedger(t)
+	
+	ledger, err := ledger.GetLedger()
+	if(err != nil){
+		return err
+	}
+	
+	if ledger.GetBlockchainSize() > 0 {
+		errors.New("Genesis block already exists.")
+	}
+	
+	return nil
 }
 
 func TestClientDeployTransaction(t *testing.T) {
