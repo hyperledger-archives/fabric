@@ -186,7 +186,6 @@ var chaincodeQueryCmd = &cobra.Command{
 }
 
 func main() {
-
 	runtime.GOMAXPROCS(2)
 
 	// For environment variables.
@@ -270,7 +269,6 @@ func main() {
 
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
-
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
@@ -301,7 +299,6 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
-
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
@@ -309,18 +306,18 @@ func serve(args []string) error {
 	}
 
 	listenAddr := viper.GetString("peer.listenaddress")
-	
+
 	if "" == listenAddr {
 		logger.Debug("Listen address not specified, using peer endpoint address")
 		listenAddr = peerEndpoint.Address
 	}
-	
+
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
-	
-	ehubLis,ehubGrpcServer,err := createEventHubServer()
+
+	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
 		grpclog.Fatalf("failed to create ehub server: %v", err)
 	}
@@ -384,11 +381,6 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
-
-
-
-
-
 
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
