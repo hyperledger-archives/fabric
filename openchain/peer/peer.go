@@ -136,7 +136,7 @@ func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 			return nil, fmt.Errorf("Error auto detecting Peer's address: %s", err)
 		}
 		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		peerLogger.Warning("AutoDetected Peer address: %s", peerAddress)
+		peerLogger.Info("Auto detected peer address: %s", peerAddress)
 	} else {
 		peerAddress = viper.GetString("peer.address")
 	}
