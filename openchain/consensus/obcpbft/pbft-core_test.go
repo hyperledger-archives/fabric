@@ -509,7 +509,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.outOfDate {
+	if !inst.sts.OutOfDate {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 

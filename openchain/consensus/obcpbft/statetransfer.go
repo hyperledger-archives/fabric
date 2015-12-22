@@ -34,11 +34,16 @@ type stLedger interface {
 	getRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error)
 	getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error)
 	getRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error)
-	putBlock(block *protos.Block)
+	hashBlock(block *protos.Block) ([]byte, error)
+	putBlock(blockNumber uint64, block *protos.Block)
 	applyStateDelta(delta []byte)
 	emptyState()
 	getCurrentStateHash() []byte
 	verifyBlockChain(start, finish uint64) (uint64, error)
+}
+
+type stBlock interface {
+	getHash() ([]byte, error)
 }
 
 type syncMark struct {
@@ -156,7 +161,7 @@ func (sts *stateTransferState) syncBlocks(blockSyncReq *blockSyncReq, endBlock u
 						continue
 					}
 
-					testHash, err := block.GetHash()
+					testHash, err := sts.ledger.hashBlock(block)
 					if nil != err {
 						logger.Warning("Replica %d got a block %d which could not hash from replica %d: %s",
 							sts.pbft.id, blockCursor, replicaId, err)
@@ -169,7 +174,7 @@ func (sts *stateTransferState) syncBlocks(blockSyncReq *blockSyncReq, endBlock u
 						return false
 					}
 
-					sts.ledger.putBlock(block)
+					sts.ledger.putBlock(blockCursor, block)
 
 					if nil != blockSyncReq.replyChan && blockCursor == blockSyncReq.reportOnBlock {
 						blockSyncReq.replyChan <- &blockSyncReply{
@@ -231,7 +236,7 @@ func (sts *stateTransferState) blockThread() {
 						return
 					}
 
-					oldHeadBlockHash, err := oldHeadBlock.GetHash()
+					oldHeadBlockHash, err := sts.ledger.hashBlock(oldHeadBlock)
 
 					if nil != err || !bytes.Equal(lastBlock.PreviousBlockHash, oldHeadBlockHash) {
 						lowestValidBlock = blockNumber
