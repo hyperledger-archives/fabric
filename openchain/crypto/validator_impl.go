@@ -178,7 +178,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 // Sign signs msg with this validator's signing key and outputs
 // the signature if no error occurred.
 func (validator *validatorImpl) Sign(msg []byte) ([]byte, error) {
-	return validator.signWithEnrollmentKey(msg)
+	return validator.peer.node.signWithEnrollmentKey(msg)
 }
 
 // Verify checks that signature if a valid signature of message under vkID's verification key.

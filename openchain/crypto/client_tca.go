@@ -37,7 +37,15 @@ import (
 )
 
 func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
-	err := ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), utils.AEStoPEM(client.tCertOwnerKDFKey), 0700)
+	// TODO: client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyPath(), client.tCertOwnerKDFKey)
+
+	pem, err := utils.AEStoEncryptedPEM(client.tCertOwnerKDFKey, client.node.ks.pwd)
+	if err != nil {
+		client.node.log.Error("Failed converting TCertOwnerKDFKey [%s].", err.Error())
+		return err
+	}
+
+	err = ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), pem, 0700)
 	if err != nil {
 		client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 		return err

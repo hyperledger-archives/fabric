@@ -101,14 +101,14 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 		return err
 	}
 
-	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
+	if err := node.retrieveEnrollmentData(enrollID, enrollPWD, pwd); err != nil {
 		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
 
 		return err
 	}
 
-	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing tls certificate data: %s", err)
+	if err := node.retrieveTLSCertificate(enrollID, enrollPWD, pwd); err != nil {
+		node.log.Error("Failed retrieveing enrollment data: %s", err)
 
 		return err
 	}
@@ -139,7 +139,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	// Initialize keystore
 	node.log.Info("Init keystore...")
 	// TODO: password support
-	err := node.initKeyStore()
+	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			node.log.Error("Keystore already initialized.")
@@ -152,7 +152,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	node.log.Info("Init keystore...done.")
 
 	// Init crypto engine
-	err = node.initCryptoEngine()
+	err = node.initCryptoEngine(pwd)
 	if err != nil {
 		node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err

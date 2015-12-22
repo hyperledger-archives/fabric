@@ -31,12 +31,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func (node *nodeImpl) initKeyStore() error {
+func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
 
 	ks := keyStore{}
 	ks.log = node.log
 	ks.conf = node.conf
+	ks.pwd = pwd // TODO: clone password
 	if err := ks.init(); err != nil {
 		return err
 	}
@@ -48,6 +49,8 @@ func (node *nodeImpl) initKeyStore() error {
 
 type keyStore struct {
 	isOpen bool
+
+	pwd []byte
 
 	// backend
 	sqlDB *sql.DB

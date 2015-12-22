@@ -56,6 +56,8 @@ var (
 	deployTxCreators  []createTxFunc
 	executeTxCreators []createTxFunc
 	queryTxCreators   []createTxFunc
+
+	ksPwd = []byte("This is a very very very very pw")
 )
 
 func TestMain(m *testing.M) {
@@ -811,21 +813,21 @@ func initPKI() {
 func initClients() error {
 	// Deployer
 	deployerConf := utils.NodeConfiguration{Type: "client", Name: "user1"}
-	if err := RegisterClient(deployerConf.Name, nil, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
+	if err := RegisterClient(deployerConf.Name, ksPwd, deployerConf.GetEnrollmentID(), deployerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	var err error
-	deployer, err = InitClient(deployerConf.Name, nil)
+	deployer, err = InitClient(deployerConf.Name, ksPwd)
 	if err != nil {
 		return err
 	}
 
 	// Invoker
 	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
-	if err := RegisterClient(invokerConf.Name, nil, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	if err := RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
-	invoker, err = InitClient(invokerConf.Name, nil)
+	invoker, err = InitClient(invokerConf.Name, ksPwd)
 	if err != nil {
 		return err
 	}
@@ -836,24 +838,24 @@ func initClients() error {
 func initPeers() error {
 	// Register
 	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
-	err := RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err := RegisterPeer(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
 
 	// Verify that a second call to Register fails
-	err = RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err = RegisterPeer(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
 
 	// Init
-	peer, err = InitPeer(conf.Name, nil)
+	peer, err = InitPeer(conf.Name, ksPwd)
 	if err != nil {
 		return err
 	}
 
-	err = RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err = RegisterPeer(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
@@ -864,24 +866,24 @@ func initPeers() error {
 func initValidators() error {
 	// Register
 	conf := utils.NodeConfiguration{Type: "validator", Name: "validator"}
-	err := RegisterValidator(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err := RegisterValidator(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
 
 	// Verify that a second call to Register fails
-	err = RegisterValidator(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err = RegisterValidator(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
 
 	// Init
-	validator, err = InitValidator(conf.Name, nil)
+	validator, err = InitValidator(conf.Name, ksPwd)
 	if err != nil {
 		return err
 	}
 
-	err = RegisterValidator(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	err = RegisterValidator(conf.Name, ksPwd, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 	if err != nil {
 		return err
 	}
