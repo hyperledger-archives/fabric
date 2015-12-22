@@ -45,13 +45,13 @@ func newMockLedger() *mockLedger {
 }
 
 func (mock *mockLedger) getBlockchainSize() uint64 {
-	max := uint64(0)
+	max := ^uint64(0) // Count on the overflow
 	for blockNumber := range mock.blocks {
-		if max < blockNumber {
+		if max+1 <= blockNumber {
 			max = blockNumber
 		}
 	}
-	return max
+	return max + 1
 }
 
 func (mock *mockLedger) getBlock(id uint64) (*protos.Block, error) {
@@ -114,9 +114,18 @@ func simpleGetStateHash(blockNumber uint64) []byte {
 	ml.forceRemoteStateBlock(blockNumber)
 	syncStateMessages, _ := ml.getRemoteStateSnapshot(uint64(0)) // Note in this implementation of the interface, this call never returns err
 	for syncStateMessage := range syncStateMessages {
-		ml.applyStateDelta(syncStateMessage.Delta)
+		ml.applyStateDelta(syncStateMessage.Delta, false)
 	}
 	return ml.getCurrentStateHash()
+}
+
+func simpleGetBlockHash(blockNumber uint64) []byte {
+	ml := &mockLedger{}
+	block := &protos.Block{
+		PreviousBlockHash: []byte(strconv.FormatUint(blockNumber-uint64(1), 10)),
+	}
+	res, _ := ml.hashBlock(block) // In this implementation, this call will never return err
+	return res
 }
 
 func (mock *mockLedger) getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error) {
@@ -178,8 +187,12 @@ func (mock *mockLedger) putBlock(blockNumber uint64, block *protos.Block) {
 	mock.blocks[blockNumber] = block
 }
 
-func (mock *mockLedger) applyStateDelta(delta []byte) {
-	mock.state = append(mock.state, delta)
+func (mock *mockLedger) applyStateDelta(delta []byte, unapply bool) {
+	if !unapply {
+		mock.state = append(mock.state, delta)
+	} else {
+		mock.state = mock.state[:len(mock.state)-1]
+	}
 }
 
 func (mock *mockLedger) emptyState() {
@@ -202,14 +215,14 @@ func (mock *mockLedger) getCurrentStateHash() []byte {
 func (mock *mockLedger) verifyBlockChain(start, finish uint64) (uint64, error) {
 	current := start
 	for {
+		if current == finish {
+			return 0, nil
+		}
+
 		cb, err := mock.getBlock(current)
 
 		if nil != err {
 			return current, err
-		}
-
-		if current == finish {
-			return 0, nil
 		}
 
 		next := current
@@ -296,7 +309,7 @@ func TestMockLedger(t *testing.T) {
 
 	ml.emptyState()
 	for syncStateMessage := range syncStateMessages {
-		ml.applyStateDelta(syncStateMessage.Delta)
+		ml.applyStateDelta(syncStateMessage.Delta, false)
 	}
 
 	block7, err := ml.getBlock(7)

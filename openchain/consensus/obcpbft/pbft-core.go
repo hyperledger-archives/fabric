@@ -688,7 +688,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if instance.sts.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
-		instance.sts.WitnessCheckpointWeakCert(matching, chkpt)
+		instance.sts.WitnessCheckpointWeakCert(chkpt)
 	}
 
 	if matching <= instance.f*2 {

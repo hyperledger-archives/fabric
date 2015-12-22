@@ -36,7 +36,7 @@ type stLedger interface {
 	getRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error)
 	hashBlock(block *protos.Block) ([]byte, error)
 	putBlock(blockNumber uint64, block *protos.Block)
-	applyStateDelta(delta []byte)
+	applyStateDelta(delta []byte, unapply bool)
 	emptyState()
 	getCurrentStateHash() []byte
 	verifyBlockChain(start, finish uint64) (uint64, error)
@@ -85,6 +85,7 @@ type stateTransferState struct {
 	initiateStateSync chan *syncMark        // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
 	chkptWeakCertReq  chan *ckptWeakCertReq // Used to wait for a relevant checkpoint weak certificate, write only from the state thread
 	blockSyncReq      chan *blockSyncReq    // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
+	completeStateSync chan uint64           // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 }
 
 func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
@@ -100,6 +101,7 @@ func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState 
 	sts.initiateStateSync = make(chan *syncMark)
 	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
 	sts.blockSyncReq = make(chan *blockSyncReq)
+	sts.completeStateSync = make(chan uint64)
 
 	go sts.stateThread()
 	go sts.blockThread()
@@ -145,49 +147,59 @@ func (sts *stateTransferState) syncBlocks(blockSyncReq *blockSyncReq, endBlock u
 			return false
 		}
 		for {
-			select {
-			case syncBlockMessage, ok := <-blockChan:
-				if !ok {
-					break
-				}
-				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
+			syncBlockMessage, ok := <-blockChan
+
+			if !ok {
+				return false
+			}
+
+			if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
+				continue
+			}
+
+			for i, block := range syncBlockMessage.Blocks {
+				// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
+				if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
 					continue
 				}
 
-				for i, block := range syncBlockMessage.Blocks {
-
-					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
-					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
-						continue
-					}
-
-					testHash, err := sts.ledger.hashBlock(block)
-					if nil != err {
-						logger.Warning("Replica %d got a block %d which could not hash from replica %d: %s",
-							sts.pbft.id, blockCursor, replicaId, err)
-						return false
-					}
-
-					if !bytes.Equal(testHash, validBlockHash) {
-						logger.Warning("Replica %d got a block %d which did not hash correctly from replica %d",
-							sts.pbft.id, blockCursor, replicaId)
-						return false
-					}
-
-					sts.ledger.putBlock(blockCursor, block)
-
-					if nil != blockSyncReq.replyChan && blockCursor == blockSyncReq.reportOnBlock {
-						blockSyncReq.replyChan <- &blockSyncReply{
-							blockNumber: blockCursor,
-							stateHash:   block.StateHash,
-							err:         nil,
-						}
-					}
-
-					blockCursor--
+				testHash, err := sts.ledger.hashBlock(block)
+				if nil != err {
+					logger.Warning("Replica %d got a block %d which could not hash from replica %d: %s",
+						sts.pbft.id, blockCursor, replicaId, err)
+					return false
 				}
+
+				if !bytes.Equal(testHash, validBlockHash) {
+					logger.Warning("Replica %d got a block %d which did not hash correctly (%x != %x) from replica %d",
+						sts.pbft.id, blockCursor, testHash, validBlockHash, replicaId)
+					return false
+				}
+
+				validBlockHash = block.PreviousBlockHash
+
+				sts.ledger.putBlock(blockCursor, block)
+
+				if nil != blockSyncReq.replyChan && blockCursor == blockSyncReq.reportOnBlock {
+					blockSyncReq.replyChan <- &blockSyncReply{
+						blockNumber: blockCursor,
+						stateHash:   block.StateHash,
+						err:         nil,
+					}
+				}
+
+				if blockCursor == endBlock {
+					return true
+				}
+				blockCursor--
+				logger.Debug("Replica %d successfully synced from block %d to block %d", sts.pbft.id, blockSyncReq.blockNumber, endBlock)
+
 			}
+
+			return false
+
 		}
+
 	}) {
 		if nil != blockSyncReq.replyChan && blockCursor >= blockSyncReq.reportOnBlock {
 			blockSyncReq.replyChan <- &blockSyncReply{
@@ -207,6 +219,8 @@ func (sts *stateTransferState) blockThread() {
 	lowestValidBlock := sts.ledger.getBlockchainSize()
 
 	syncBlockchainToCheckpoint := func(blockSyncReq *blockSyncReq) {
+
+		logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.pbft.id, blockSyncReq.blockNumber)
 
 		blockchainSize := sts.ledger.getBlockchainSize()
 
@@ -263,8 +277,8 @@ func (sts *stateTransferState) blockThread() {
 
 		if lowestValidBlock > 0 {
 			verifyToBlock := uint64(0)
-			if tmp := lowestValidBlock - blockVerifyChunkSize; tmp > 0 {
-				verifyToBlock = tmp
+			if lowestValidBlock > blockVerifyChunkSize {
+				verifyToBlock = lowestValidBlock - blockVerifyChunkSize
 			}
 			badSource, err := sts.ledger.verifyBlockChain(lowestValidBlock, verifyToBlock)
 
@@ -273,6 +287,8 @@ func (sts *stateTransferState) blockThread() {
 				continue
 
 			}
+
+			logger.Warning("Replica %d has found a block whose PreviousBlockHash does not match the previous block's hash at %d", sts.pbft.id, badSource)
 
 			if badSource == 0 {
 				panic("The blockchain cannot claim the genesis block's previous block hash does not match.")
@@ -336,6 +352,8 @@ func (sts *stateTransferState) stateThread() {
 				continue
 			}
 
+			logger.Debug("Replica %d completed state transfer to block %d", sts.pbft.id, currentStateBlockNumber)
+
 			certChan := make(chan *chkptWeakCert)
 			sts.chkptWeakCertReq <- &ckptWeakCertReq{
 				blockNumber: currentStateBlockNumber,
@@ -372,18 +390,66 @@ func (sts *stateTransferState) stateThread() {
 				continue
 			}
 
-			if !sts.playStateUpToCheckpoint(currentStateBlockNumber, weakCert.blockNumber, weakCert.replicaIds) {
-				// This is unlikely, in the future, we may wish to play transactions forward rather than retry
-				logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", sts.pbft.id, currentStateBlockNumber, weakCert.blockNumber)
-				continue
+			if currentStateBlockNumber < weakCert.blockNumber {
+				currentStateBlockNumber, ok = sts.playStateUpToCheckpoint(currentStateBlockNumber+uint64(1), weakCert.blockNumber, weakCert.replicaIds)
+				if !ok {
+					// This is unlikely, in the future, we may wish to play transactions forward rather than retry
+					logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying", sts.pbft.id, currentStateBlockNumber, weakCert.blockNumber)
+					continue
+				}
 			}
+
+			sts.completeStateSync <- weakCert.blockNumber
+			break
 		}
 
 	}
 }
 
-func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, replicaIds []uint64) bool {
-	return false
+func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, replicaIds []uint64) (uint64, bool) {
+	currentBlock := fromBlockNumber
+	ok := sts.tryOverReplicas(replicaIds, func(replicaId uint64) bool {
+		deltaMessages, err := sts.ledger.getRemoteStateDeltas(replicaId, currentBlock, toBlockNumber)
+		if err != nil {
+			logger.Warning("Replica %d received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.pbft.id, fromBlockNumber, toBlockNumber, replicaId)
+			return false
+		}
+
+		for deltaMessage := range deltaMessages {
+			if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
+				continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
+			}
+
+			for _, delta := range deltaMessage.Deltas {
+				sts.ledger.applyStateDelta(delta, false)
+			}
+
+			success := false
+
+			testBlock, err := sts.ledger.getBlock(deltaMessage.Range.End)
+
+			if nil != err {
+				logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.pbft.id, deltaMessage.Range.End)
+			} else {
+				if bytes.Equal(testBlock.StateHash, sts.ledger.getCurrentStateHash()) {
+					success = true
+				} else {
+					logger.Warning("Replica %d played state forward according to replica %d, but the state hash did not match", sts.pbft.id, replicaId)
+				}
+			}
+
+			if !success {
+				for _, delta := range deltaMessage.Deltas {
+					sts.ledger.applyStateDelta(delta, true)
+				}
+
+				return false
+			}
+		}
+
+		return currentBlock == toBlockNumber
+	})
+	return currentBlock, ok
 }
 
 // This function will retrieve the current state from a replica.
@@ -407,7 +473,7 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 
 		// TODO add timeout mechanism
 		for piece := range stateChan {
-			sts.ledger.applyStateDelta(piece.Delta)
+			sts.ledger.applyStateDelta(piece.Delta, false)
 			currentStateBlock = piece.BlockNumber
 		}
 
@@ -478,18 +544,19 @@ func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
 
 }
 
-func (sts *stateTransferState) WitnessCheckpointWeakCert(matching int, chkpt *Checkpoint) {
+func (sts *stateTransferState) WitnessCheckpointWeakCert(chkpt *Checkpoint) {
 	select {
 	default:
 		return
 	case certReq := <-sts.chkptWeakCertReq:
+		logger.Debug("Replica %d detects a weak cert for checkpoint %d, and has a certificate request for checkpoint over %d", sts.pbft.id, chkpt.BlockNumber, certReq.blockNumber)
 		if certReq.blockNumber > chkpt.BlockNumber {
 			// There's a pending request, but this call didn't satisfy it, so put it back
 			sts.chkptWeakCertReq <- certReq
 			return
 		}
 
-		checkpointMembers := make([]uint64, matching)
+		checkpointMembers := make([]uint64, sts.pbft.replicaCount)
 		i := 0
 		for testChkpt := range sts.pbft.checkpointStore {
 			if testChkpt.SequenceNumber == chkpt.SequenceNumber && bytes.Equal(testChkpt.BlockHash, chkpt.BlockHash) {
@@ -498,13 +565,23 @@ func (sts *stateTransferState) WitnessCheckpointWeakCert(matching int, chkpt *Ch
 			}
 		}
 
+		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%x)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
 		certReq.certChan <- &chkptWeakCert{
 			syncMark: syncMark{
 				blockNumber: chkpt.BlockNumber,
-				replicaIds:  checkpointMembers,
+				replicaIds:  checkpointMembers[0 : i-1],
 			},
 			blockHash: chkpt.BlockHash,
 		}
 	}
 
+}
+
+func (sts *stateTransferState) RecoveryJustCompleted() (uint64, bool) {
+	select {
+	case blockNumber := <-sts.completeStateSync:
+		return blockNumber, true
+	default:
+		return uint64(0), false
+	}
 }
