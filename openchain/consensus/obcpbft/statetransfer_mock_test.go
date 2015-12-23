@@ -128,6 +128,16 @@ func simpleGetBlockHash(blockNumber uint64) []byte {
 	return res
 }
 
+func simpleGetBlock(blockNumber uint64) *protos.Block {
+	ml := &mockLedger{}
+	blockMessages, _ := ml.getRemoteBlocks(0, blockNumber, blockNumber) // In this implementation, this call will never return err
+
+	for blockMessage := range blockMessages {
+		return blockMessage.Blocks[0]
+	}
+	return nil // unreachable
+}
+
 func (mock *mockLedger) getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error) {
 	res := make(chan *protos.SyncStateSnapshot)
 	rds, err := mock.getRemoteStateDeltas(uint64(0), 0, mock.remoteStateBlock)

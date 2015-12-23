@@ -27,6 +27,8 @@ import (
 
 func TestSimpleCatchup(t *testing.T) {
 	ml := newMockLedger()
+	ml.putBlock(uint64(0), simpleGetBlock(1))
+
 	sts := newStateTransferState(
 		&pbftCore{
 			replicaCount:    4,
@@ -76,7 +78,7 @@ func TestSimpleCatchup(t *testing.T) {
 	sts.WitnessCheckpointWeakCert(chkpt)
 
 	select {
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 2):
 		t.Fatalf("Timed out waiting for state to catch up, error in state transfer")
 	case <-sts.completeStateSync:
 		// Do nothing, continue the test
@@ -95,5 +97,46 @@ func TestSimpleCatchup(t *testing.T) {
 	if !bytes.Equal(sts.ledger.getCurrentStateHash(), block.StateHash) {
 		t.Fatalf("Current state does not validate against the latest block")
 	}
+}
 
+func TestFixChains(t *testing.T) {
+	testChain := func(length uint64, description string) {
+		ml := newMockLedger()
+		ml.putBlock(length, simpleGetBlock(length))
+		sts := threadlessNewStateTransferState(
+			&pbftCore{
+				replicaCount:    4,
+				id:              uint64(0),
+				h:               uint64(0),
+				K:               uint64(2),
+				L:               uint64(4),
+				f:               int(1),
+				checkpointStore: make(map[*Checkpoint]bool),
+			},
+			ml,
+		)
+
+		w := make(chan struct{})
+
+		go func() {
+			for !sts.verifyAndRecoverBlockchain() {
+			}
+			w <- struct{}{}
+		}()
+
+		select {
+		case <-time.After(time.Second * 5):
+			t.Fatalf("Timed out waiting for blocks to replicate for %s blockchain", description)
+		case <-w:
+			// Do nothing, continue the test
+		}
+
+		if n, err := ml.verifyBlockChain(7, 0); 0 != n || nil != err {
+			t.Fatalf("%s blockchain claims to be up to date, but does not verify", description)
+		}
+	}
+
+	testChain(7, "Short")
+
+	testChain(700, "Long")
 }

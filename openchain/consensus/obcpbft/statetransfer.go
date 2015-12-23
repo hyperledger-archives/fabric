@@ -42,10 +42,6 @@ type stLedger interface {
 	verifyBlockChain(start, finish uint64) (uint64, error)
 }
 
-type stBlock interface {
-	getHash() ([]byte, error)
-}
-
 type syncMark struct {
 	blockNumber uint64
 	replicaIds  []uint64
@@ -74,6 +70,47 @@ type blockSyncReply struct {
 	err         error
 }
 
+type blockRange struct {
+	highBlock   uint64
+	lowBlock    uint64
+	lowNextHash []byte
+}
+
+type blockRangeSlice []*blockRange
+
+func (a blockRangeSlice) Len() int {
+	return len(a)
+}
+func (a blockRangeSlice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a blockRangeSlice) Less(i, j int) bool {
+	if a[i].highBlock == a[j].highBlock {
+		// If the highs match, the bigger range comes first
+		return a[i].lowBlock > a[j].lowBlock
+	}
+	return a[i].highBlock < a[j].highBlock
+}
+
+func (a blockRangeSlice) Delete(i int) {
+	for j := i; j < len(a)-1; j++ {
+		a[j] = a[j+1]
+	}
+	a = a[:len(a)-1]
+}
+
+type sortableUint64Slice []uint64
+
+func (a sortableUint64Slice) Len() int {
+	return len(a)
+}
+func (a sortableUint64Slice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a sortableUint64Slice) Less(i, j int) bool {
+	return a[i] < a[j]
+}
+
 type stateTransferState struct {
 	pbft   *pbftCore
 	ledger stLedger
@@ -82,13 +119,16 @@ type stateTransferState struct {
 
 	hChkpts map[uint64]uint64 // highest checkpoint sequence number observed for each replica
 
+	blockVerifyChunkSize uint64        // The max block length to attempt to sync at once, this prevents state transfer from being delayed while the blockchain is validated
+	validBlockRanges     []*blockRange // Used by the block thread to track which pieces of the blockchain have already been hashed
+
 	initiateStateSync chan *syncMark        // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
 	chkptWeakCertReq  chan *ckptWeakCertReq // Used to wait for a relevant checkpoint weak certificate, write only from the state thread
 	blockSyncReq      chan *blockSyncReq    // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 	completeStateSync chan uint64           // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 }
 
-func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
+func threadlessNewStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
 	sts := &stateTransferState{}
 
 	sts.pbft = pbft
@@ -98,10 +138,19 @@ func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState 
 
 	sts.hChkpts = make(map[uint64]uint64)
 
+	sts.validBlockRanges = make([]*blockRange, 0)
+	sts.blockVerifyChunkSize = 20 // TODO, make this configurable
+
 	sts.initiateStateSync = make(chan *syncMark)
 	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
 	sts.blockSyncReq = make(chan *blockSyncReq)
 	sts.completeStateSync = make(chan uint64)
+
+	return sts
+}
+
+func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
+	sts := threadlessNewStateTransferState(pbft, ledger)
 
 	go sts.stateThread()
 	go sts.blockThread()
@@ -141,7 +190,8 @@ func (sts *stateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 }
 
 // Attempts to complete a blockSyncReq using the supplied replicas
-// Will return the last block attempted to sync and success/failure
+// Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
+// This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, replicaIds []uint64) (uint64, *protos.Block, error) {
 	validBlockHash := highHash
 	blockCursor := highBlock
@@ -179,10 +229,11 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 				}
 
 				if !bytes.Equal(testHash, validBlockHash) {
-					return fmt.Errorf("Replica %d got a block %d which did not hash correctly (%x != %x) from replica %d",
-						sts.pbft.id, blockCursor, testHash, validBlockHash, replicaId)
+					return fmt.Errorf("Replica %d got block %d from replica %d with hash %x, was expecting hash %x",
+						sts.pbft.id, blockCursor, replicaId, testHash, validBlockHash)
 				}
 
+				logger.Debug("Replica %d putting block %d to with PreviousBlockHash %x and StateHash %x", sts.pbft.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 				sts.ledger.putBlock(blockCursor, block)
 
 				validBlockHash = block.PreviousBlockHash
@@ -203,126 +254,168 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 }
 
-func (sts *stateTransferState) blockThread() {
-	blockVerifyChunkSize := uint64(20) // TODO make this configurable
-	lowestValidBlock := sts.ledger.getBlockchainSize()
+func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyncReq) {
 
-	syncBlockchainToCheckpoint := func(blockSyncReq *blockSyncReq) {
+	logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.pbft.id, blockSyncReq.blockNumber)
 
-		logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.pbft.id, blockSyncReq.blockNumber)
+	blockchainSize := sts.ledger.getBlockchainSize()
 
-		blockchainSize := sts.ledger.getBlockchainSize()
+	if blockSyncReq.blockNumber < blockchainSize {
+		// TODO this is a troubling scenario, we think we're out of date, but we just got asked to sync to a block that's older than our current chain
+		// this could be malicious behavior from byzantine nodes attempting to slow the network down, but we should still catch up
+		// XXX For now, unimplemented because we have no way to delete blocks
+		panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
+	} else {
 
-		if blockSyncReq.blockNumber < blockchainSize {
-			// TODO this is a troubling scenario, we think we're out of date, but we just got asked to sync to a block that's older than our current chain
-			// this could be malicious behavior from byzantine nodes attempting to slow the network down, but we should still catch up
-			// XXX For now, unimplemented because we have no way to delete blocks
-			panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
+		blockNumber, block, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.replicaIds)
+
+		goodRange := &blockRange{
+			highBlock: blockSyncReq.blockNumber,
+		}
+
+		if err == nil {
+			if nil != blockSyncReq.replyChan {
+				blockSyncReq.replyChan <- &blockSyncReply{
+					blockNumber: blockNumber,
+					stateHash:   block.StateHash,
+					err:         nil,
+				}
+				goodRange.lowBlock = blockNumber
+			}
 		} else {
-			if blockNumber, block, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.replicaIds); err == nil {
-				if nil != blockSyncReq.replyChan {
-					blockSyncReq.replyChan <- &blockSyncReply{
-						blockNumber: blockNumber,
-						stateHash:   block.StateHash,
-						err:         nil,
-					}
+			if nil != blockSyncReq.replyChan {
+				blockSyncReq.replyChan <- &blockSyncReply{
+					blockNumber: blockNumber,
+					stateHash:   nil,
+					err:         err,
 				}
-
-				if blockNumber > 0 {
-					// The sync succeeded, chain added up to old head+1
-					lastBlock, err := sts.ledger.getBlock(blockNumber)
-
-					if nil != err {
-						logger.Warning("Replica %d just recovered block %d but cannot find it: %s", sts.pbft.id, blockNumber, err)
-						lowestValidBlock = sts.ledger.getBlockchainSize()
-						return
-					}
-
-					// Make sure the old blockchain head ties into the new blockchain we just received, if not, mark lowestValidBlock
-					// to the just recovered blocks so that the rest of the chain will be recovered
-					oldHeadBlock, err := sts.ledger.getBlock(blockNumber - 1)
-
-					if nil != err {
-						lowestValidBlock = blockNumber
-						return
-					}
-
-					oldHeadBlockHash, err := sts.ledger.hashBlock(oldHeadBlock)
-
-					if nil != err || !bytes.Equal(lastBlock.PreviousBlockHash, oldHeadBlockHash) {
-						lowestValidBlock = blockNumber
-						return
-					}
-				} else {
-					lowestValidBlock = 0
-				}
-			} else {
-				// The sync failed after recovering up to blockNumber + 1
-				lowestValidBlock = blockNumber + 1
-
-				if nil != blockSyncReq.replyChan {
-					blockSyncReq.replyChan <- &blockSyncReply{
-						blockNumber: blockNumber,
-						stateHash:   nil,
-						err:         err,
-					}
-				}
+				goodRange.lowBlock = blockNumber
 			}
 		}
+
+		goodRange.lowNextHash = block.PreviousBlockHash
+		sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
 	}
+}
+
+func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
+
+	if 0 == len(sts.validBlockRanges) {
+		size := sts.ledger.getBlockchainSize()
+		if 0 == size {
+			logger.Warning("Replica %d has no blocks in its blockchain, including the genesis block", sts.pbft.id)
+			return false
+		}
+
+		block, err := sts.ledger.getBlock(size - 1)
+		if nil != err {
+			logger.Warning("Replica %d could not retrieve its head block %d: %s", sts.pbft.id, size, err)
+			return false
+		}
+
+		sts.validBlockRanges = append(sts.validBlockRanges, &blockRange{
+			highBlock:   size - 1,
+			lowBlock:    size - 1,
+			lowNextHash: block.PreviousBlockHash,
+		})
+
+	}
+
+	sort.Sort(blockRangeSlice(sts.validBlockRanges))
+
+	lowBlock := sts.validBlockRanges[0].lowBlock
+
+	if 1 == len(sts.validBlockRanges) {
+		if 0 == lowBlock {
+			// We have exactly one valid block range, and it is from 0 to at least the block height at startup, consider the chain valid
+			return true
+		}
+	}
+
+	lowNextHash := sts.validBlockRanges[0].lowNextHash
+	targetBlock := uint64(0)
+
+	if 1 < len(sts.validBlockRanges) {
+		if sts.validBlockRanges[1].highBlock+1 >= lowBlock {
+			// Ranges are not distinct (or are adjacent), we will collapse them or discard the lower if it does not chain
+			if sts.validBlockRanges[1].lowBlock < lowBlock {
+				// Range overlaps or is adjacent
+				block, err := sts.ledger.getBlock(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
+				if nil != err {
+					logger.Warning("Replica %d could not retrieve block %d which it believed to be valid: %s", sts.pbft.id, lowBlock-1, err)
+				} else {
+					if blockHash, err := sts.ledger.hashBlock(block); nil != err {
+						if bytes.Equal(blockHash, lowNextHash) {
+							// The chains connect, no need to validate all the way down
+							sts.validBlockRanges[0].lowBlock = sts.validBlockRanges[1].lowBlock
+							sts.validBlockRanges[0].lowNextHash = sts.validBlockRanges[1].lowNextHash
+						} else {
+							logger.Warning("Replica %d detected that a block range starting at %d previously believed to be valid did not hash correctly", sts.pbft.id, lowBlock-1)
+						}
+					} else {
+						logger.Warning("Replica %d could not hash block %d which it believed to be valid: %s", sts.pbft.id, lowBlock-1, err)
+					}
+				}
+			} else {
+				// Range is a subset, we will simply delete
+			}
+
+			// If there was an error validating or retrieving, delete, if it was successful, delete
+			blockRangeSlice(sts.validBlockRanges).Delete(1)
+			return false
+		}
+
+		// Ranges are distinct and not adjacent
+		targetBlock = sts.validBlockRanges[1].highBlock
+	}
+
+	if targetBlock+sts.blockVerifyChunkSize > lowBlock {
+		// The sync range is small enough
+	} else {
+		// targetBlock > 0 --> lowBlock - blockVerifyChunkSize >= 0
+		targetBlock = lowBlock - sts.blockVerifyChunkSize
+	}
+
+	blockNumber, block, err1 := sts.syncBlocks(lowBlock-1, targetBlock, lowNextHash, nil)
+
+	if blockHash, err2 := sts.ledger.hashBlock(block); nil == err2 {
+		if nil == err1 {
+			sts.validBlockRanges[0].lowBlock = blockNumber
+			sts.validBlockRanges[0].lowNextHash = blockHash
+		} else {
+			sts.validBlockRanges[0].lowBlock = blockNumber + 1
+			sts.validBlockRanges[0].lowNextHash = blockHash
+		}
+	} else {
+		if nil == err1 {
+			logger.Warning("Replica %d just recovered block %d but cannot compute its hash: %s", sts.pbft.id, blockNumber, err2)
+		} else {
+			logger.Warning("Replica %d just recovered block %d but cannot compute its hash: %s", sts.pbft.id, blockNumber+1, err2)
+		}
+	}
+
+	return false
+}
+
+func (sts *stateTransferState) blockThread() {
 
 	for {
 
 		select {
 		case blockSyncReq := <-sts.blockSyncReq:
-			syncBlockchainToCheckpoint(blockSyncReq)
+			sts.syncBlockchainToCheckpoint(blockSyncReq)
 		default:
 			// If there is no checkpoint to sync to, make sure the rest of the chain is valid
-		}
-
-		if lowestValidBlock > 0 && false {
-			verifyToBlock := uint64(0)
-			if lowestValidBlock > blockVerifyChunkSize {
-				verifyToBlock = lowestValidBlock - blockVerifyChunkSize
-			}
-			badSource, err := sts.ledger.verifyBlockChain(lowestValidBlock, verifyToBlock)
-
-			if nil == err && badSource == 0 {
-				lowestValidBlock = verifyToBlock
+			if !sts.verifyAndRecoverBlockchain() {
+				// There is more verification to be done, so loop
 				continue
-
 			}
-
-			logger.Warning("Replica %d has found a block whose PreviousBlockHash does not match the previous block's hash at %d", sts.pbft.id, badSource)
-
-			if badSource == 0 {
-				panic("The blockchain cannot claim the genesis block's previous block hash does not match.")
-			}
-
-			if nil != err {
-				logger.Warning("Replica %d encountered an error at block %d while verifying its blockchain, attempting to sync", sts.pbft.id, badSource)
-			}
-
-			goodBlock, err := sts.ledger.getBlock(badSource)
-
-			if nil != err {
-				panic(fmt.Sprintf("The blockchain just informed us that the previous block hash from block %d did not match, but claims the block does not exist: %s", badSource, err))
-			}
-
-			blockNumber, _, err := sts.syncBlocks(badSource, 0, goodBlock.PreviousBlockHash, nil)
-			if nil != err {
-				lowestValidBlock = blockNumber + 1
-			} else {
-				lowestValidBlock = blockNumber
-			}
-
-			continue
 		}
 
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
 		select {
 		case blockSyncReq := <-sts.blockSyncReq:
-			syncBlockchainToCheckpoint(blockSyncReq)
+			sts.syncBlockchainToCheckpoint(blockSyncReq)
 		}
 	}
 }
@@ -407,6 +500,7 @@ func (sts *stateTransferState) stateThread() {
 func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, replicaIds []uint64) (uint64, error) {
 	currentBlock := fromBlockNumber
 	err := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
+
 		deltaMessages, err := sts.ledger.getRemoteStateDeltas(replicaId, currentBlock, toBlockNumber)
 		if err != nil {
 			return fmt.Errorf("Replica %d received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.pbft.id, fromBlockNumber, toBlockNumber, replicaId)
@@ -428,7 +522,7 @@ func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 			if nil != err {
 				logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.pbft.id, deltaMessage.Range.End)
 			} else {
-				logger.Debug("Replica %d is played state forward from replica %d to (%x), the corresponding block has StateHash (%x)", sts.pbft.id, replicaId, sts.ledger.getCurrentStateHash, testBlock.StateHash)
+				logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)", sts.pbft.id, replicaId, deltaMessage.Range.End, sts.ledger.getCurrentStateHash(), testBlock.StateHash)
 
 				if bytes.Equal(testBlock.StateHash, sts.ledger.getCurrentStateHash()) {
 					success = true
@@ -442,14 +536,14 @@ func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 
 				// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
 				return fmt.Errorf("Replica %d played state forward according to replica %d, but the state hash did not match", sts.pbft.id, replicaId)
+			} else {
+				currentBlock++
 			}
+
 		}
 
-		if currentBlock == toBlockNumber {
-			return nil
-		}
+		return nil
 
-		return fmt.Errorf("Replica %d did not recover state from %d all the way to %d the current block, stopped at %d", sts.pbft.id, replicaId, toBlockNumber, currentBlock)
 	})
 	return currentBlock, err
 }
@@ -515,7 +609,7 @@ func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
 					delete(sts.hChkpts, replicaId)
 				}
 			}
-			sort.Sort(sortableUint64Array(chkptSeqNumArray))
+			sort.Sort(sortableUint64Slice(chkptSeqNumArray))
 
 			// If f+1 nodes have issued checkpoints above our high water mark, then
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
