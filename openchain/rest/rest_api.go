@@ -503,9 +503,12 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	// Deploy the ChaincodeSpec
 	_, err = s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
+		// Replace " characters with '
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		logger.Error(fmt.Sprintf("{\"Error\": \"Deploying Chaincode -- %s\"}", err))
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Deploying Chaincode -- %s\"}", errVal))
 
 		return
 	}
@@ -628,9 +631,12 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	// Invoke the chainCode
 	_, err = s.devops.Invoke(context.Background(), &spec)
 	if err != nil {
+		// Replace " characters with '
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		logger.Error(fmt.Sprintf("{\"Error\": \"Invoking Chaincode -- %s\"}", err))
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Invoking Chaincode -- %s\"}", errVal))
 
 		return
 	}
@@ -640,8 +646,10 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	logger.Info("Successfuly invoked chainCode.\n")
 }
 
-// Query performs the supplied query on the target Chaincode.
+// Query performs the requested query on the target Chaincode.
 func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
+	logger.Info("REST querying chaincode...")
+
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeInvocationSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
@@ -653,41 +661,120 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		// Otherwise, the returned JSON is invalid.
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
 
-		rw.WriteHeader(http.StatusBadRequest)
-
 		// Client must supply payload
 		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeInvocationSpec.\"}")
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeInvocationSpec.\"}")
+			logger.Error("{\"Error\": \"Payload must contain a ChaincodeInvocationSpec.\"}")
 		} else {
+			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+			logger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
 		}
+
 		return
 	}
 
-	// Check for incomplete ChaincodeInvocationSpec
-	if spec.ChaincodeSpec.ChaincodeID.Url == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
+	// Check that the ChaincodeSpec is not left blank.
+	if spec.ChaincodeSpec == nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeSpec.\"}")
+		logger.Error("{\"Error\": \"Payload must contain a ChaincodeSpec.\"}")
+
 		return
 	}
-	if spec.ChaincodeSpec.ChaincodeID.Version == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
+
+	// Check that the ChaincodeID is not left blank.
+	if spec.ChaincodeSpec.ChaincodeID == nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeID.\"}")
+		logger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
+
 		return
 	}
-	if (spec.ChaincodeSpec.CtorMsg.Function == "") || (len(spec.ChaincodeSpec.CtorMsg.Args) == 0) {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode function and arguments.\"}")
+
+	// Check that the Chaincode URL path and version are not left blank.
+	if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+
 		return
+	}
+
+	// Check that the CtorMsg is not left blank.
+	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		logger.Error("{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+
+		return
+	}
+
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		chaincodeUsr := spec.ChaincodeSpec.SecureContext
+		if chaincodeUsr == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+			logger.Error("{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+
+			return
+		}
+
+		// Retrieve the REST data storage path
+		// Returns /var/openchain/production/client/
+		localStore := getRESTFilePath()
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
+			if err != nil {
+				rw.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				panic(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.ChaincodeSpec.SecureContext = string(token)
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				rw.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(rw, "{\"Error\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+				logger.Error("{\"Error\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+
+				return
+			}
+			// Unexpected error
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
 	}
 
 	// Query the chainCode
 	resp, err := s.devops.Query(context.Background(), &spec)
 	if err != nil {
+		// Replace " characters with '
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Querying Chaincode -- %s\"}", errVal))
+
 		return
 	}
 
+	// Replace " characters with '
+	respVal := strings.Replace(string(resp.Msg), "\"", "'", -1)
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": %s}", string(resp.Msg))
+	fmt.Fprintf(rw, "{\"OK\": %s}", respVal)
+	logger.Info("Successfuly invoked chainCode.\n")
 }
 
 // NotFound returns a custom landing page when a given openchain end point
