@@ -127,8 +127,7 @@ func (tca *TCA) Start(wg *sync.WaitGroup) {
 	go tca.startTCAP(wg, opts)
 	go tca.startTCAA(wg, opts)
 	
-	updateOfValidityPeriodEnabled := false
-	if updateOfValidityPeriodEnabled {
+	if validityPeriodUpdateEnabled() {
 		go tca.updateValidityPeriod()
 	}
 	
@@ -485,4 +484,14 @@ func createChaincodeInvocation(validityPeriod string, token string) *obc.Chainco
 	invocationSpec := &obc.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 	
 	return invocationSpec
+}
+
+func validityPeriodUpdateEnabled() bool {
+	// If the update of the validity period is enabled in the configuration file return the configured value
+	if viper.IsSet("pki.validityperiod.update") {
+		return viper.GetBool("pki.validityperiod.update")
+	}
+	
+	// Validity period update is enabled by default if no configuration was specified.
+	return true
 }

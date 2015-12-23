@@ -32,3 +32,6 @@ tlsca:
 #                certfile:
 #                keyfile:
          
+pki:
+          validityperiod:
+                 update: true         

@@ -23,15 +23,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
 	"reflect"
-	
-	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"strconv"
 	"time"
 	"fmt"
 	"strings"
+	"github.com/spf13/viper"
+	
+	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
 
 // Public Struct
@@ -81,8 +82,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
 	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 	
-	validityPeriodVerificationEnabled := false
-	if validityPeriodVerificationEnabled {
+	if validityPeriodVerificationEnabled() {
 		tx, err := validator.verifyValidityPeriod(tx)
 		if(err != nil){
 			validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
@@ -119,6 +119,17 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 	default:
 		return nil, utils.ErrInvalidConfidentialityLevel
 	}
+}
+
+
+func validityPeriodVerificationEnabled() bool {
+	// If the verification of the validity period is enabled in the configuration file return the configured value
+	if viper.IsSet("validator.validityperiod.verification") {
+		return viper.GetBool("validator.validityperiod.verification")
+	}
+	
+	// Validity period verification is enabled by default if no configuration was specified.
+	return true
 }
 
 func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {

@@ -205,6 +205,9 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
+    validityperiod:
+        verification: true
+
 ###############################################################################
 #
 #    VM section
