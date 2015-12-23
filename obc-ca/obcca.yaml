@@ -22,6 +22,7 @@ eca:
                 nepumuk: 9gvZQRwhUq9q
                 jim: AwbeJH2kw9qK
                 lukas: NPKYL39uKbkj
+                system_chaincode_invoker: DRJ20pEql15a
 tca:
 #         tls:
 #                certfile:

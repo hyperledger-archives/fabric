@@ -253,7 +253,7 @@ func deployUpdateValidityPeriodChaincode(secCxt crypto.Peer) (*protos.Transactio
 	
 	//TODO: this should be the login token for the component in charge of the validity period update.
 	//This component needs to be registered in the system to be able to invoke the update validity period system chaincode.
-	vpToken := "tca"
+	vpToken := "system_chaincode_invoker"
 	
 	var vpCtorArgsStringArray []string
 

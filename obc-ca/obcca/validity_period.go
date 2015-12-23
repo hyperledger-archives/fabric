@@ -50,7 +50,7 @@ func initialize() {
 	if !initialized {
 		//TODO: this should be the login token for the component in charge of the validity period update.
 		//This component needs to be registered in the system to be able to invoke the update validity period system chaincode.
-		token := "tca"
+		token := "system_chaincode_invoker"
 		
 		chaincodeInvocation = createChaincodeInvocation(strconv.FormatInt(time.Now().Unix(), 10), token)
 		initialized = true
