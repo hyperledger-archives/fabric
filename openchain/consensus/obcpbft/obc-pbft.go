@@ -70,7 +70,7 @@ func readConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("./openchain/consensus/obc-pbft/")
+	config.AddConfigPath("./openchain/consensus/obcpbft/")
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
