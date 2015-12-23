@@ -34,7 +34,7 @@ import (
 
 	// Needed to use sqlite3
 	_ "github.com/mattn/go-sqlite3"
-	"crypto/sha512"
+	"golang.org/x/crypto/sha3"
 )
 
 // CA is the base certificate authority.
@@ -185,7 +185,7 @@ func (ca *CA) newCertificate(id string, pub *ecdsa.PublicKey, timestamp int64, o
 		Panic.Panicln(err)
 	}
 
-	hash := sha512.New384()
+	hash := sha3.New384()
 	hash.Write(raw)
 	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, cert, hash) VALUES (?, ?, ?, ?)", id, timestamp, raw, hash.Sum(nil)); err != nil {
 		if isCA {
