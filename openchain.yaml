@@ -205,7 +205,7 @@ validator:
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
 
-    validityperiod:
+    validity-period: 
         verification: true
 
 ###############################################################################
@@ -252,7 +252,7 @@ chaincode:
     mode: net
 
     installpath: /go/bin/
-
+    
 ###############################################################################
 #
 #    Ledger section - ledger configuration encompases both the blockchain
@@ -280,14 +280,14 @@ ledger:
       #         - bob
       #         - "10"
 
-  state:
+    state:
 
-    # Control the number state deltas that are maintained. This takes additional
-    # disk space, but allow the state to be rolled backwards and forwards
-    # without the need to replay transactions.
-    deltaHistorySize: 500
+      # Control the number state deltas that are maintained. This takes additional
+      # disk space, but allow the state to be rolled backwards and forwards
+      # without the need to replay transactions.
+      deltaHistorySize: 500
 
-
+    deploy-system-chaincode: true
 ###############################################################################
 #
 #    Security section -

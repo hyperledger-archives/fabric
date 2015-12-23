@@ -78,8 +78,8 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("Failed initializing validators [%s].", err.Error()))
 	}
 	
-	viper.Set("pki.validityperiod.update", "false")
-	viper.Set("validator.validityperiod.verification", "false")
+	viper.Set("pki.validity-period.update", "false")
+	viper.Set("validator.validity-period.verification", "false")
 	
 	if err != nil {
 		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())

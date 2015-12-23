@@ -33,5 +33,15 @@ tlsca:
 #                keyfile:
          
 pki:
-          validityperiod:
-                 update: true         
+          validity-period:
+                 update: true
+                 # TLS Settings for communications to update the validity period 
+                 tls:
+                         enabled: false 
+                         cert: 
+                                file: testdata/server1.pem
+                         key:
+                                file: testdata/server1.key
+                         # The server name use to verify the hostname returned by TLS handshake
+                         server-host-override:
+                 devops-address: 0.0.0.0:30303              
