@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"time"
 
 	"github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
 )
 
 type stLedger interface {
@@ -121,14 +123,20 @@ type stateTransferState struct {
 
 	blockVerifyChunkSize uint64        // The max block length to attempt to sync at once, this prevents state transfer from being delayed while the blockchain is validated
 	validBlockRanges     []*blockRange // Used by the block thread to track which pieces of the blockchain have already been hashed
+	recoverDamage        bool          // Whether state transfer should ever modify or delete existing blocks if they are determined to be corrupted
 
 	initiateStateSync chan *syncMark        // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
 	chkptWeakCertReq  chan *ckptWeakCertReq // Used to wait for a relevant checkpoint weak certificate, write only from the state thread
 	blockSyncReq      chan *blockSyncReq    // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 	completeStateSync chan uint64           // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
+
+	blockRequestTimeout      time.Duration // How long to wait for a replica to respond to a block request
+	stateDeltaRequestTimeout time.Duration // How long to wait for a replica to respond to a block request
+	stateSyncRequestTimeout  time.Duration // How long to wait for a replica to respond to a block request
+
 }
 
-func threadlessNewStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
+func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger stLedger) *stateTransferState {
 	sts := &stateTransferState{}
 
 	sts.pbft = pbft
@@ -136,21 +144,38 @@ func threadlessNewStateTransferState(pbft *pbftCore, ledger stLedger) *stateTran
 
 	sts.OutOfDate = false
 
+	sts.recoverDamage = config.GetBool("stateTransfer.recoverDamage")
+
 	sts.hChkpts = make(map[uint64]uint64)
 
 	sts.validBlockRanges = make([]*blockRange, 0)
-	sts.blockVerifyChunkSize = 20 // TODO, make this configurable
+	sts.blockVerifyChunkSize = uint64(config.GetInt("stateTransfer.blocksPerRequest"))
 
 	sts.initiateStateSync = make(chan *syncMark)
-	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread queue a request, so buffer of 1 is required to prevent deadlock
+	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread re-queue a request, so buffer of 1 is required to prevent deadlock
 	sts.blockSyncReq = make(chan *blockSyncReq)
 	sts.completeStateSync = make(chan uint64)
+
+	var err error
+
+	sts.blockRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.singleblock"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singleblock timeout: %s", err))
+	}
+	sts.stateDeltaRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.singlestatedelta"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singlestatedelta timeout: %s", err))
+	}
+	sts.stateSyncRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.fullstate"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse statetransfer.timeout.fullstate timeout: %s", err))
+	}
 
 	return sts
 }
 
-func newStateTransferState(pbft *pbftCore, ledger stLedger) *stateTransferState {
-	sts := threadlessNewStateTransferState(pbft, ledger)
+func newStateTransferState(pbft *pbftCore, config *viper.Viper, ledger stLedger) *stateTransferState {
+	sts := threadlessNewStateTransferState(pbft, config, ledger)
 
 	go sts.stateThread()
 	go sts.blockThread()
@@ -205,50 +230,54 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 			return err
 		}
 		for {
-			syncBlockMessage, ok := <-blockChan // TODO, add timeout
+			select {
+			case syncBlockMessage, ok := <-blockChan:
 
-			if !ok {
-				return fmt.Errorf("Channel closed before we could finish reading")
-			}
+				if !ok {
+					return fmt.Errorf("Channel closed before we could finish reading")
+				}
 
-			if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
-				continue
-			}
-
-			var i int
-			for i, block = range syncBlockMessage.Blocks {
-				// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
-				if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
+				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
 					continue
 				}
 
-				testHash, err := sts.ledger.hashBlock(block)
-				if nil != err {
-					return fmt.Errorf("Replica %d got a block %d which could not hash from replica %d: %s",
-						sts.pbft.id, blockCursor, replicaId, err)
+				var i int
+				for i, block = range syncBlockMessage.Blocks {
+					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
+					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
+						continue
+					}
+
+					testHash, err := sts.ledger.hashBlock(block)
+					if nil != err {
+						return fmt.Errorf("Replica %d got a block %d which could not hash from replica %d: %s",
+							sts.pbft.id, blockCursor, replicaId, err)
+					}
+
+					if !bytes.Equal(testHash, validBlockHash) {
+						return fmt.Errorf("Replica %d got block %d from replica %d with hash %x, was expecting hash %x",
+							sts.pbft.id, blockCursor, replicaId, testHash, validBlockHash)
+					}
+
+					logger.Debug("Replica %d putting block %d to with PreviousBlockHash %x and StateHash %x", sts.pbft.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+					sts.ledger.putBlock(blockCursor, block)
+
+					validBlockHash = block.PreviousBlockHash
+
+					if blockCursor == lowBlock {
+						logger.Debug("Replica %d successfully synced from block %d to block %d", sts.pbft.id, highBlock, lowBlock)
+						return nil
+					}
+					blockCursor--
+
 				}
-
-				if !bytes.Equal(testHash, validBlockHash) {
-					return fmt.Errorf("Replica %d got block %d from replica %d with hash %x, was expecting hash %x",
-						sts.pbft.id, blockCursor, replicaId, testHash, validBlockHash)
-				}
-
-				logger.Debug("Replica %d putting block %d to with PreviousBlockHash %x and StateHash %x", sts.pbft.id, blockCursor, block.PreviousBlockHash, block.StateHash)
-				sts.ledger.putBlock(blockCursor, block)
-
-				validBlockHash = block.PreviousBlockHash
-
-				if blockCursor == lowBlock {
-					logger.Debug("Replica %d successfully synced from block %d to block %d", sts.pbft.id, highBlock, lowBlock)
-					return nil
-				}
-				blockCursor--
-
+			case <-time.After(sts.blockRequestTimeout):
+				return fmt.Errorf("Replica %d had request to %d time out", sts.pbft.id, replicaId)
 			}
 		}
 	})
 
-	logger.Debug("Replica %d return from sync with block %d and hash %x", sts.pbft.id, blockCursor, block.StateHash)
+	logger.Debug("Replica %d returned from sync with block %d and hash %x", sts.pbft.id, blockCursor, block.StateHash)
 
 	return blockCursor, block, err
 
@@ -506,40 +535,52 @@ func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 			return fmt.Errorf("Replica %d received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.pbft.id, fromBlockNumber, toBlockNumber, replicaId)
 		}
 
-		for deltaMessage := range deltaMessages {
-			if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
-				continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
-			}
-
-			for _, delta := range deltaMessage.Deltas {
-				sts.ledger.applyStateDelta(delta, false)
-			}
-
-			success := false
-
-			testBlock, err := sts.ledger.getBlock(deltaMessage.Range.End)
-
-			if nil != err {
-				logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.pbft.id, deltaMessage.Range.End)
-			} else {
-				logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)", sts.pbft.id, replicaId, deltaMessage.Range.End, sts.ledger.getCurrentStateHash(), testBlock.StateHash)
-
-				if bytes.Equal(testBlock.StateHash, sts.ledger.getCurrentStateHash()) {
-					success = true
+		for {
+			select {
+			case deltaMessage, ok := <-deltaMessages:
+				if !ok {
+					if currentBlock == toBlockNumber+1 {
+						return nil
+					}
+					return fmt.Errorf("Replica %d was only able to recover to block number %d when desired to recover to %d", sts.pbft.id, currentBlock, toBlockNumber)
 				}
-			}
 
-			if !success {
+				if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
+					continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
+				}
 				for _, delta := range deltaMessage.Deltas {
-					sts.ledger.applyStateDelta(delta, true)
+					sts.ledger.applyStateDelta(delta, false)
 				}
 
-				// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
-				return fmt.Errorf("Replica %d played state forward according to replica %d, but the state hash did not match", sts.pbft.id, replicaId)
-			} else {
-				currentBlock++
-			}
+				success := false
 
+				testBlock, err := sts.ledger.getBlock(deltaMessage.Range.End)
+
+				if nil != err {
+					logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.pbft.id, deltaMessage.Range.End)
+				} else {
+					logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)", sts.pbft.id, replicaId, deltaMessage.Range.End, sts.ledger.getCurrentStateHash(), testBlock.StateHash)
+
+					if bytes.Equal(testBlock.StateHash, sts.ledger.getCurrentStateHash()) {
+						success = true
+					}
+				}
+
+				if !success {
+					for _, delta := range deltaMessage.Deltas {
+						sts.ledger.applyStateDelta(delta, true)
+					}
+
+					// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
+					return fmt.Errorf("Replica %d played state forward according to replica %d, but the state hash did not match", sts.pbft.id, replicaId)
+				} else {
+					currentBlock++
+				}
+			case <-time.After(sts.stateDeltaRequestTimeout):
+				logger.Warning("Replica %d timed out during state delta recovery from from replica %d", sts.pbft.id, replicaId)
+				return fmt.Errorf("Replica %d timed out during state delta recovery from from replica %d", sts.pbft.id, replicaId)
+
+			}
 		}
 
 		return nil
@@ -567,13 +608,21 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 			return err
 		}
 
-		// TODO add timeout mechanism
-		for piece := range stateChan {
-			sts.ledger.applyStateDelta(piece.Delta, false)
-			currentStateBlock = piece.BlockNumber
-		}
+		timer := time.NewTimer(sts.stateSyncRequestTimeout)
 
-		return nil
+		for {
+			select {
+			case piece, ok := <-stateChan:
+				if !ok {
+					return nil
+				}
+				sts.ledger.applyStateDelta(piece.Delta, false)
+				currentStateBlock = piece.BlockNumber
+			case <-timer.C:
+				logger.Warning("Replica %d timed out during state recovery from from replica %d", sts.pbft.id, replicaId)
+				return fmt.Errorf("Replica %d timed out during state recovery from from replica %d", sts.pbft.id, replicaId)
+			}
+		}
 
 	})
 

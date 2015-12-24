@@ -26,77 +26,84 @@ import (
 )
 
 func TestSimpleCatchup(t *testing.T) {
-	ml := newMockLedger()
-	ml.putBlock(uint64(0), simpleGetBlock(1))
+	testHelper := func(blockheight, blockNumber, sequenceNumber uint64) {
+		ml := newMockLedger()
+		ml.putBlock(blockheight-1, simpleGetBlock(1))
 
-	sts := newStateTransferState(
-		&pbftCore{
-			replicaCount:    4,
-			id:              uint64(0),
-			h:               uint64(0),
-			K:               uint64(2),
-			L:               uint64(4),
-			f:               int(1),
-			checkpointStore: make(map[*Checkpoint]bool),
-		},
-		ml,
-	)
+		sts := newStateTransferState(
+			&pbftCore{
+				replicaCount:    4,
+				id:              uint64(0),
+				h:               uint64(0),
+				K:               uint64(2),
+				L:               uint64(4),
+				f:               int(1),
+				checkpointStore: make(map[*Checkpoint]bool),
+			},
+			readConfig(),
+			ml,
+		)
 
-	blockNumber := uint64(7)
-	sequenceNumber := uint64(10)
-	var chkpt *Checkpoint
+		var chkpt *Checkpoint
 
-	ml.forceRemoteStateBlock(blockNumber - 2)
+		ml.forceRemoteStateBlock(blockNumber - 2)
 
-	for i := uint64(1); i <= 4; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber - i,
-			BlockHash:      simpleGetBlockHash(blockNumber - i),
-			ReplicaId:      i,
-			BlockNumber:    blockNumber - i,
+		for i := uint64(1); i <= 4; i++ {
+			chkpt = &Checkpoint{
+				SequenceNumber: sequenceNumber - i,
+				BlockHash:      simpleGetBlockHash(blockNumber - i),
+				ReplicaId:      i,
+				BlockNumber:    blockNumber - i,
+			}
+			sts.WitnessCheckpoint(chkpt)
 		}
-		sts.WitnessCheckpoint(chkpt)
-	}
 
-	if !sts.OutOfDate {
-		t.Fatalf("Replica did not detect itself falling behind to initiate the state transfer")
-	}
-
-	for i := uint64(1); i <= 4; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber,
-			BlockHash:      simpleGetBlockHash(blockNumber),
-			ReplicaId:      i,
-			BlockNumber:    blockNumber,
+		if !sts.OutOfDate {
+			t.Fatalf("Replica did not detect itself falling behind to initiate the state transfer (blockheight %d)", blockheight)
 		}
-		sts.pbft.checkpointStore[chkpt] = true
+
+		for i := uint64(1); i <= 4; i++ {
+			chkpt = &Checkpoint{
+				SequenceNumber: sequenceNumber,
+				BlockHash:      simpleGetBlockHash(blockNumber),
+				ReplicaId:      i,
+				BlockNumber:    blockNumber,
+			}
+			sts.pbft.checkpointStore[chkpt] = true
+		}
+
+		// This sleep is okay, because in normal operation, if we missed the weakcert, there would be another with a later sequence number shortly which we could sync to
+		time.Sleep(time.Second * 1)
+
+		sts.WitnessCheckpointWeakCert(chkpt)
+
+		select {
+		case <-time.After(time.Second * 2):
+			t.Fatalf("Timed out waiting for state to catch up, error in state transfer (blockheight %d)", blockheight)
+		case <-sts.completeStateSync:
+			// Do nothing, continue the test
+		}
+
+		if sts.ledger.getBlockchainSize() != blockNumber+1 {
+			t.Fatalf("Blockchain should be caught up to block %d, but is only %d tall (initial blockheight %d)", blockNumber, sts.ledger.getBlockchainSize(), blockheight)
+		}
+
+		block, err := sts.ledger.getBlock(blockNumber)
+
+		if nil != err {
+			t.Fatalf("Error retrieving last block in the mock chain. (initial blockheight)", blockheight)
+		}
+
+		if !bytes.Equal(sts.ledger.getCurrentStateHash(), block.StateHash) {
+			t.Fatalf("Current state does not validate against the latest block. (Initial blockheight)", blockheight)
+		}
 	}
 
-	// This sleep is okay, because in normal operation, if we missed the weakcert, there would be another with a later sequence number shortly which we could sync to
-	time.Sleep(time.Second * 1)
+	// Test from blockheight of 1
+	testHelper(1, 7, 10)
 
-	sts.WitnessCheckpointWeakCert(chkpt)
-
-	select {
-	case <-time.After(time.Second * 2):
-		t.Fatalf("Timed out waiting for state to catch up, error in state transfer")
-	case <-sts.completeStateSync:
-		// Do nothing, continue the test
-	}
-
-	if sts.ledger.getBlockchainSize() != blockNumber+1 {
-		t.Fatalf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, sts.ledger.getBlockchainSize())
-	}
-
-	block, err := sts.ledger.getBlock(blockNumber)
-
-	if nil != err {
-		t.Fatalf("Error retrieving last block in the mock chain.")
-	}
-
-	if !bytes.Equal(sts.ledger.getCurrentStateHash(), block.StateHash) {
-		t.Fatalf("Current state does not validate against the latest block")
-	}
+	// Test from blockheight of 5 (with missing blocks 0-3
+	testHelper(5, 7, 10)
 }
 
 func TestFixChains(t *testing.T) {
@@ -113,6 +120,7 @@ func TestFixChains(t *testing.T) {
 				f:               int(1),
 				checkpointStore: make(map[*Checkpoint]bool),
 			},
+			readConfig(),
 			ml,
 		)
 

@@ -180,7 +180,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.outstandingReqs = make(map[string]*Request)
 
 	// initialize state transfer
-	instance.sts = newStateTransferState(instance, nil)
+	instance.sts = newStateTransferState(instance, config, nil)
 
 	go instance.timerHander()
 

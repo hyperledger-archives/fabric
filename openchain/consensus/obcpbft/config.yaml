@@ -36,8 +36,41 @@ general:
 
         # How long may a view change take
         viewchange: 2s
+################################################################################
+#
+#   SECTION: STATETRANSFER
+#
+#   - This applies to recovery behavior when the replica has detected
+#     a state transfer is required
+#
+#   - This might happen:
+#     - During a view change in response to a faulty primary
+#     - After a network outage which has isolated the replica
+#     - If the current blockchain/state is determined to be corrupt
+#
+################################################################################
+statetransfer:
 
+    # Should a replica attempt to fix damaged blocks?
+    # In general, this should be set to true, setting to false will cause
+    # the replica to panic, and require a human's intervention to intervene
+    # and fix the corruption
+    recoverdamage: true
 
+    # The number of blocks to retrieve per sync request
+    blocksPerRequest: 20
+
+    # Timeouts
+    timeout:
+
+        # How long may returning a single block take
+        singleblock: 2s
+
+        # How long may returning a single state delta take
+        singlestatedelta: 2s
+
+        # How long may transferring the complete state take
+        fullstate: 60s
 ################################################################################
 #
 #   SECTION: REPLICA
