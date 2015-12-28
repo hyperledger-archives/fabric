@@ -58,7 +58,7 @@ statetransfer:
     recoverdamage: true
 
     # The number of blocks to retrieve per sync request
-    blocksPerRequest: 20
+    blocksperrequest: 20
 
     # Timeouts
     timeout:

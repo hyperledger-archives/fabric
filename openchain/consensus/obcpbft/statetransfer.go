@@ -149,7 +149,10 @@ func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger
 	sts.hChkpts = make(map[uint64]uint64)
 
 	sts.validBlockRanges = make([]*blockRange, 0)
-	sts.blockVerifyChunkSize = uint64(config.GetInt("stateTransfer.blocksPerRequest"))
+	sts.blockVerifyChunkSize = uint64(config.GetInt("statetransfer.blocksperrequest"))
+	if sts.blockVerifyChunkSize == 0 {
+		panic(fmt.Errorf("Must set statetransfer.blocksperrequest to be nonzero"))
+	}
 
 	sts.initiateStateSync = make(chan *syncMark)
 	sts.chkptWeakCertReq = make(chan *ckptWeakCertReq, 1) // May have the reading thread re-queue a request, so buffer of 1 is required to prevent deadlock
@@ -201,11 +204,13 @@ func (sts *stateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 		numReplicas := uint64(len(replicaIds))
 
 		for i := uint64(0); i < uint64(numReplicas); i++ {
-			err = do((replicaIds[i] + startIndex) % numReplicas)
+			index := (i + startIndex) % numReplicas
+			// logger.Debug("Replica %d Tryloop picking index %d and replica %d to do work", sts.pbft.id, index, replicaIds[index])
+			err = do(replicaIds[index])
 			if err == nil {
 				break
 			} else {
-				logger.Warning("%s", err)
+				logger.Warning("Replica %d in tryOverReplicas loop : %s", sts.pbft.id, err)
 			}
 		}
 	}
@@ -218,6 +223,7 @@ func (sts *stateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, replicaIds []uint64) (uint64, *protos.Block, error) {
+	logger.Debug("Replica %d syncing blocks from %d to %d", sts.pbft.id, highBlock, lowBlock)
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
@@ -238,6 +244,7 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 				}
 
 				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
+					// If the message is not replying with blocks backwards, we did not ask for it
 					continue
 				}
 
@@ -272,7 +279,7 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 				}
 			case <-time.After(sts.blockRequestTimeout):
-				return fmt.Errorf("Replica %d had request to %d time out", sts.pbft.id, replicaId)
+				return fmt.Errorf("Replica %d had block sync request to %d time out", sts.pbft.id, replicaId)
 			}
 		}
 	})
@@ -401,7 +408,7 @@ func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
 	if targetBlock+sts.blockVerifyChunkSize > lowBlock {
 		// The sync range is small enough
 	} else {
-		// targetBlock > 0 --> lowBlock - blockVerifyChunkSize >= 0
+		// targetBlock >=0, targetBlock+blockVeriyChunkSize <= lowBlock --> lowBlock - blockVerifyChunkSize >= 0
 		targetBlock = lowBlock - sts.blockVerifyChunkSize
 	}
 
@@ -441,11 +448,11 @@ func (sts *stateTransferState) blockThread() {
 			}
 		}
 
+		logger.Debug("Replica %d has validated its blockchain to the genesis block", sts.pbft.id)
+
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
-		select {
-		case blockSyncReq := <-sts.blockSyncReq:
-			sts.syncBlockchainToCheckpoint(blockSyncReq)
-		}
+		blockSyncReq := <-sts.blockSyncReq
+		sts.syncBlockchainToCheckpoint(blockSyncReq)
 	}
 }
 
@@ -480,6 +487,7 @@ func (sts *stateTransferState) stateThread() {
 				certChan:    certChan,
 			}
 
+			logger.Debug("Replica %d state transfer thread waiting for a new checkpoint weak certificate", sts.pbft.id)
 			weakCert := <-certChan
 
 			mark = &syncMark{ // We now know of a more recent state which f+1 nodes have achieved, if we fail, try from this set
@@ -496,6 +504,7 @@ func (sts *stateTransferState) stateThread() {
 				firstBlockHash: weakCert.blockHash,
 			}
 
+			logger.Debug("Replica %d state transfer thread waiting for block sync to complete", sts.pbft.id)
 			blockSyncReply := <-blockReplyChannel
 
 			if blockSyncReply.err != nil {
@@ -619,8 +628,8 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 				sts.ledger.applyStateDelta(piece.Delta, false)
 				currentStateBlock = piece.BlockNumber
 			case <-timer.C:
-				logger.Warning("Replica %d timed out during state recovery from from replica %d", sts.pbft.id, replicaId)
-				return fmt.Errorf("Replica %d timed out during state recovery from from replica %d", sts.pbft.id, replicaId)
+				logger.Warning("Replica %d timed out during state recovery from replica %d", sts.pbft.id, replicaId)
+				return fmt.Errorf("Replica %d timed out during state recovery from replica %d", sts.pbft.id, replicaId)
 			}
 		}
 
@@ -664,7 +673,7 @@ func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
 			if m := chkptSeqNumArray[len(sts.hChkpts)-(sts.pbft.f+1)]; m > H {
-				logger.Warning("Replica is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", chkpt.SequenceNumber, H)
+				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", sts.pbft.id, chkpt.SequenceNumber, H)
 				sts.OutOfDate = true
 				sts.pbft.moveWatermarks(m + sts.pbft.K)
 

@@ -33,14 +33,20 @@ type mockLedger struct {
 	state               [][]byte
 	remoteStateBlock    uint64
 	stateDeltasPerBlock uint64
+	timeoutReplicas     map[uint64]bool
 }
 
-func newMockLedger() *mockLedger {
+func newMockLedger(timeoutReplicas map[uint64]bool) *mockLedger {
 	mock := &mockLedger{}
 	mock.blocks = make(map[uint64]*protos.Block)
 	mock.state = make([][]byte, 0)
 	mock.remoteStateBlock = uint64(0)
 	mock.stateDeltasPerBlock = uint64(3)
+	if nil == timeoutReplicas {
+		mock.timeoutReplicas = make(map[uint64]bool)
+	} else {
+		mock.timeoutReplicas = timeoutReplicas
+	}
 	return mock
 }
 
@@ -74,34 +80,37 @@ func (mock *mockLedger) hashBlock(block *protos.Block) ([]byte, error) {
 
 func (mock *mockLedger) getRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
 	res := make(chan *protos.SyncBlocks)
-	go func() {
-		current := start
-		for {
-			res <- &protos.SyncBlocks{
-				Range: &protos.SyncBlockRange{
-					Start: current,
-					End:   current,
-				},
-				Blocks: []*protos.Block{
-					&protos.Block{
-						PreviousBlockHash: []byte(strconv.FormatUint(current-uint64(1), 10)),
-						StateHash:         simpleGetStateHash(current),
+
+	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
+		go func() {
+			current := start
+			for {
+				res <- &protos.SyncBlocks{
+					Range: &protos.SyncBlockRange{
+						Start: current,
+						End:   current,
 					},
-				},
-			}
+					Blocks: []*protos.Block{
+						&protos.Block{
+							PreviousBlockHash: []byte(strconv.FormatUint(current-uint64(1), 10)),
+							StateHash:         simpleGetStateHash(current),
+						},
+					},
+				}
 
-			if current == finish {
-				break
-			}
+				if current == finish {
+					break
+				}
 
-			if start < finish {
-				current++
-			} else {
-				current--
+				if start < finish {
+					current++
+				} else {
+					current--
+				}
 			}
-		}
-		close(res)
-	}()
+			close(res)
+		}()
+	}
 	return res, nil
 }
 
@@ -110,7 +119,7 @@ func (mock *mockLedger) forceRemoteStateBlock(blockNumber uint64) {
 }
 
 func simpleGetStateHash(blockNumber uint64) []byte {
-	ml := newMockLedger()
+	ml := newMockLedger(nil)
 	ml.forceRemoteStateBlock(blockNumber)
 	syncStateMessages, _ := ml.getRemoteStateSnapshot(uint64(0)) // Note in this implementation of the interface, this call never returns err
 	for syncStateMessage := range syncStateMessages {
@@ -140,56 +149,60 @@ func simpleGetBlock(blockNumber uint64) *protos.Block {
 
 func (mock *mockLedger) getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error) {
 	res := make(chan *protos.SyncStateSnapshot)
-	rds, err := mock.getRemoteStateDeltas(uint64(0), 0, mock.remoteStateBlock)
-	if nil != err {
-		return nil, err
-	}
-	go func() {
-		i := uint64(0)
-		for deltas := range rds {
-			for _, delta := range deltas.Deltas {
-				res <- &protos.SyncStateSnapshot{
-					Delta:       delta,
-					Sequence:    i,
-					BlockNumber: mock.remoteStateBlock,
-					Request:     nil,
-				}
-				i++
-			}
+	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
+		rds, err := mock.getRemoteStateDeltas(uint64(0), 0, mock.remoteStateBlock)
+		if nil != err {
+			return nil, err
 		}
-		close(res)
-	}()
+		go func() {
+			i := uint64(0)
+			for deltas := range rds {
+				for _, delta := range deltas.Deltas {
+					res <- &protos.SyncStateSnapshot{
+						Delta:       delta,
+						Sequence:    i,
+						BlockNumber: mock.remoteStateBlock,
+						Request:     nil,
+					}
+					i++
+				}
+			}
+			close(res)
+		}()
+	}
 	return res, nil
 }
 
 func (mock *mockLedger) getRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
 	res := make(chan *protos.SyncStateDeltas)
-	go func() {
-		current := start
-		for {
-			ires := make([][]byte, mock.stateDeltasPerBlock)
-			for i := uint64(0); i < mock.stateDeltasPerBlock; i++ {
-				ires = append(ires, []byte(string(current)))
-			}
-			res <- &protos.SyncStateDeltas{
-				Range: &protos.SyncBlockRange{
-					Start: current,
-					End:   current,
-				},
-				Deltas: ires,
-			}
-			if current == finish {
-				break
-			}
+	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
+		go func() {
+			current := start
+			for {
+				ires := make([][]byte, mock.stateDeltasPerBlock)
+				for i := uint64(0); i < mock.stateDeltasPerBlock; i++ {
+					ires = append(ires, []byte(string(current)))
+				}
+				res <- &protos.SyncStateDeltas{
+					Range: &protos.SyncBlockRange{
+						Start: current,
+						End:   current,
+					},
+					Deltas: ires,
+				}
+				if current == finish {
+					break
+				}
 
-			if start < finish {
-				current++
-			} else {
-				current--
+				if start < finish {
+					current++
+				} else {
+					current--
+				}
 			}
-		}
-		close(res)
-	}()
+			close(res)
+		}()
+	}
 	return res, nil
 }
 
@@ -264,7 +277,7 @@ func (mock *mockLedger) verifyBlockChain(start, finish uint64) (uint64, error) {
 }
 
 func TestMockLedger(t *testing.T) {
-	ml := newMockLedger()
+	ml := newMockLedger(nil)
 	ml.getCurrentStateHash()
 
 	blockMessages, err := ml.getRemoteBlocks(uint64(0), uint64(10), uint64(0))
