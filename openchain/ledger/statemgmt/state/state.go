@@ -245,18 +245,25 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 	logger.Debug("state.addChangesForPersistence()...finished")
 }
 
-// ApplyStateDelta applies already prepared stateDelta to the existing state
-// This method is to be used in state transfer
-func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) error {
-	state.stateImpl.PrepareWorkingSet(delta)
+// ApplyStateDelta applies already prepared stateDelta to the existing state.
+// This is an in memory change only. state.CommitStateDelta must be used to
+// commit the state to the DB. This method is to be used in state transfer.
+func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) {
+	state.stateDelta = delta
+	state.updateStateImpl = true
+}
+
+// CommitStateDelta commits the changes from state.ApplyStateDelta to the
+// DB.
+func (state *State) CommitStateDelta() error {
+	if state.updateStateImpl {
+		state.stateImpl.PrepareWorkingSet(state.stateDelta)
+		state.updateStateImpl = false
+	}
 	writeBatch := gorocksdb.NewWriteBatch()
 	state.stateImpl.AddChangesForPersistence(writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
-	err := db.GetDBHandle().DB.Write(opt, writeBatch)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.GetDBHandle().DB.Write(opt, writeBatch)
 }
 
 // DeleteState deletes ALL state keys/values from the DB. This is generally
