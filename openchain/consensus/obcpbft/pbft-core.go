@@ -571,8 +571,9 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	// we have a commit certificate for this request
-
 	instance.lastExec = idx.n
+	instance.stopTimer()
+	instance.lastNewViewTimeout = instance.newViewTimeout
 
 	// null request
 	if digest == "" {
@@ -586,8 +587,6 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		delete(instance.outstandingReqs, digest)
 	}
 
-	instance.stopTimer()
-	instance.lastNewViewTimeout = instance.newViewTimeout
 	if len(instance.outstandingReqs) > 0 {
 		instance.startTimer(instance.requestTimeout)
 	}

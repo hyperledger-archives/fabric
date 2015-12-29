@@ -356,7 +356,7 @@ func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
 			return
 		}
 	}
-	dSet = op.verifyStore
+	dSet = inDset
 	ok = false
 	return
 }
@@ -417,7 +417,8 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 
 	dSet, _ := op.verifyDset(vset.Dset)
 	if !reflect.DeepEqual(dSet, vset.Dset) {
-		err := fmt.Errorf("verify-set invalid: d-set not coherent")
+		err := fmt.Errorf("verify-set invalid: d-set not coherent: received %v, calculated %v",
+			vset.Dset, dSet)
 		logger.Error("%s", err)
 		return err
 	}

@@ -186,7 +186,6 @@ var chaincodeQueryCmd = &cobra.Command{
 }
 
 func main() {
-
 	runtime.GOMAXPROCS(2)
 
 	// For environment variables.
@@ -270,7 +269,6 @@ func main() {
 
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
-
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
@@ -301,7 +299,6 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
-
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
