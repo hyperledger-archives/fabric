@@ -20,39 +20,37 @@ under the License.
 package obcca
 
 import (
-	"crypto/sha512"
 	"crypto/x509"
-
 	"github.com/op/go-logging"
 
 	"math/big"
 	"net"
-	"sync"
 	"time"
-
 	"github.com/spf13/viper"
-
+	"sync"
+	
 	"google.golang.org/grpc"
 
 	"errors"
-
 	"github.com/golang/protobuf/proto"
-
-	"crypto/ecdsa"
-
+	
+	"golang.org/x/crypto/sha3"
+	
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
+	"crypto/ecdsa"
 )
 
 var logger = logging.MustGetLogger("tls_ca_pserver")
+
 
 // TLSCA is the tls certificate authority.
 //
 type TLSCA struct {
 	*CA
 	sockp, socka net.Listener
-	srvp, srva   *grpc.Server
+	srvp, srva *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -71,7 +69,7 @@ type TLSCAA struct {
 //
 func NewTLSCA() *TLSCA {
 	tlsca := &TLSCA{NewCA("tlsca"), nil, nil, nil, nil}
-
+	
 	return tlsca
 }
 
@@ -138,14 +136,14 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 	Trace.Println("grpc TLSCA_P:CreateCertificate")
 
 	id := req.Id.Id
-
+	
 	sig := req.Sig
 	req.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
-
+	
 	raw := req.Pub.Key
 	if req.Pub.Type != pb.CryptoType_ECDSA {
 		Error.Println("unsupported key type")
@@ -157,19 +155,19 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 		return nil, err
 	}
 
-	hash := sha512.New384()
+	hash := sha3.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
 		Error.Println("signature does not verify")
 		return nil, errors.New("signature does not verify")
 	}
-
+	
 	if raw, err = tlscap.tlsca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
-
+	
 	return &pb.Cert{raw}, nil
 }
 

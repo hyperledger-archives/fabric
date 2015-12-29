@@ -45,7 +45,6 @@ func NewOpenchainServer() (*ServerOpenchain, error) {
 	}
 	s := &ServerOpenchain{ledger: ledger}
 
-	log.Info("\nCreating new OpenchainServer...\n")
 	/*
 		num := ledger.GetBlockchainSize()
 		for i := uint64(0); i < num; i++ {
