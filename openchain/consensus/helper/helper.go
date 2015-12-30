@@ -20,6 +20,7 @@ under the License.
 package helper
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/spf13/viper"
@@ -55,17 +56,8 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // =============================================================================
 
 // GetReplicaHash returns the crypto IDs of the current replica and the whole network
-// TODO func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
-// ATTN: Until the crypto package is integrated, this functions returns
-// the <IP:port>s of the current replica and the whole network instead
 func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
-	// v, _ := h.coordinator.GetValidator()
-	// self = v.GetID()
-	peer, err := peer.GetPeerEndpoint()
-	if err != nil {
-		return "", nil, err
-	}
-	self = peer.Address
+	self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
 
 	config := viper.New()
 	config.SetConfigName("openchain")
@@ -75,33 +67,24 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 		err = fmt.Errorf("Fatal error reading root config: %s", err)
 		return self, nil, err
 	}
-
-	// encodedHashes := config.GetStringSlice("peer.validator.replicas.hashes")
-	/* network = make([][]byte, len(encodedHashes))
-	for i, v := range encodedHashes {
-		network[i], _ = base64.StdEncoding.DecodeString(v)
-	} */
-	network = config.GetStringSlice("peer.validator.replicas.ips")
+	network = config.GetStringSlice("peer.validator.replicas.hashes")
 
 	return self, network, nil
 }
 
 // GetReplicaID returns the uint handle corresponding to a replica address
-// TODO func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
 func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
 	_, network, err := h.GetReplicaHash()
 	if err != nil {
 		return uint64(0), err
 	}
 	for i, v := range network {
-		// if bytes.Equal(v, hash) {
 		if v == addr {
 			return uint64(i), nil
 		}
 	}
 
-	//err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
-	err = fmt.Errorf("Couldn't find IP:port in list of VP addresses given in config")
+	err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
 	return uint64(0), err
 }
 
