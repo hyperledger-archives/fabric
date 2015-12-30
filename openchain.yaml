@@ -216,7 +216,15 @@ vm:
     # unix:///var/run/docker.sock
     # http://localhost:4243
     endpoint: unix:///var/run/docker.sock
-
+    docker:
+        tls:
+            enabled: true
+            cert:
+                file: /companion_certs/cert.pem
+            ca:
+                file: /companion_certs/ca.pem
+            key:
+                file: /companion_certs/key.pem
 
 ###############################################################################
 #

@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -50,11 +51,48 @@ type dockerVM struct {
 func (vm *dockerVM) newClient() (*docker.Client, error) {
 	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
 	endpoint := viper.GetString("vm.endpoint")
-	client, err := docker.NewClient(endpoint)
-	if err != nil {
-		return nil, err
+	
+	tls := viper.GetBool("vm.docker.tls.enabled")
+	
+	if tls == true {
+		vmLogger.Debug("Docker TLS is enabled")
+		certFile := viper.GetString("vm.docker.tls.cert.file")
+		keyFile := viper.GetString("vm.docker.tls.key.file")
+		
+		var ca []byte
+		if viper.IsSet("vm.docker.tls.ca.file") {
+			caFile := viper.GetString("vm.docker.tls.ca.file")
+			ca1, err := ioutil.ReadFile(caFile)
+			if err != nil {
+				return nil, fmt.Errorf("Error reading Docker CA Cert File: %s", err)
+			}
+			ca = ca1
+		}
+		
+		cert, err1 := ioutil.ReadFile(certFile)
+		if err1 != nil {
+			return nil, fmt.Errorf("Error reading Docker Cert File: %s", err1)
+		}
+		
+		key, err2 := ioutil.ReadFile(keyFile)
+		if err2 != nil {
+			return nil, fmt.Errorf("Error reading Dcoker Key File: %s", err2)
+		}
+		
+		client, err3 := docker.NewTLSClientFromBytes(endpoint, cert, key, ca)
+		if err3 != nil {
+			return nil, fmt.Errorf("Error creating Docker TLS Client: %s", err3)
+		}
+		
+		return client, nil
+	} else {		
+		vmLogger.Debug("Docker TLS is disabled")
+		client, err := docker.NewClient(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
 	}
-	return client, nil
 }
 
 //for docker inputbuf is tar reader ready for use by docker.Client
