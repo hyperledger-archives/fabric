@@ -5,11 +5,15 @@ echo "--> Setting up Environment variables..."
 export DOCKER_TLS_VERIFY=1
 # Define the following
 #export DOCKER_CERT_PATH=$PWD/dockercfg
-#HOST=""
-#NUM_VAL_PEERS=3
-#CA_CERT=""
-#KEY=""
-#CERT=""
+#HOST="" #Docker host to deploy the OBC-PEER
+#CA_CERT="" #CA CERT for Docker Host for OBC-PEER
+#KEY="" #KEY for Docker Host for OBC-PEER
+#CERT="" #CERT for Docker Host for OBC-PEER
+#COMPANION_HOST="" #Docker Host where OBC-PEER will host the CHAINCODE
+#COMPANION_KEY="" #KEY for Docker host for Chaincode
+#COMPANION_CA_CERT="" #CA CERT for Docker host for Chaincode
+#COMPANION_CERT="" #CERT for Docker host for Chaincode
+#NUM_VAL_PEERS="3" #Number of peers to be hosted on the Docker host
 
 # Make Dockerfile from yaml file
 # Reads the file line-by-line,
@@ -29,10 +33,11 @@ ParseConfigForDockerfile() {
 		# If we are looking at Dockerfile inside peer, print it out
 		if [[ $tag == 'Dockerfile' ]]
 		then
-			if [[ $line == *"COPY src $GOPATH/src"* ]]
+			if [[ $line == *'COPY src $GOPATH/src'* ]]
 			then
-				echo "RUN mkdir -p $GOPATH/src/github.com/openblockchain/obc-peer"
-				echo "COPY ./ $GOPATH/src/github.com/openblockchain/obc-peer/"
+				echo 'RUN mkdir -p $GOPATH/src/github.com/openblockchain/obc-peer'
+				echo 'COPY ./ $GOPATH/src/github.com/openblockchain/obc-peer/'
+                echo 'COPY docker_companion/* /companion_certs/'
 			else
 				echo $line
 			fi
@@ -72,6 +77,8 @@ PrepareFiles() {
 
 PrepareDocker() {
 	echo "--> Preparing certs";
+	: ${DOCKER_CERT_PATH=$PWD/dockercfg}
+	export DOCKER_CERT_PATH
 	mkdir -p $DOCKER_CERT_PATH;
 	echo -e $KEY > $DOCKER_CERT_PATH/key.pem
 	echo -e $CA_CERT > $DOCKER_CERT_PATH/ca.pem
