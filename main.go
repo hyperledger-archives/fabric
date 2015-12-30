@@ -299,7 +299,18 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
-	peerEndpoint, err := peer.GetPeerEndpoint()
+	// Create the Peer server
+	var peerServer *peer.PeerImpl
+
+	if viper.GetBool("peer.validator.enabled") {
+		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
+	} else {
+		logger.Debug("Running as non-validating peer")
+		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
+	}
+
+	peerEndpoint, err := peerServer.GetPeerEndpoint()
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
 		return err
@@ -343,15 +354,6 @@ func serve(args []string) error {
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	var peerServer *peer.PeerImpl
-
-	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
-	} else {
-		logger.Debug("Running as non-validating peer")
-		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
-	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -394,11 +396,11 @@ func serve(args []string) error {
 		serve <- true
 	}()
 
-	// Deploy the geneis block if needed.
+	// Deploy the genesis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
-		if makeGeneisError != nil {
-			return makeGeneisError
+		makeGenesisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		if makeGenesisError != nil {
+			return makeGenesisError
 		}
 	}
 
