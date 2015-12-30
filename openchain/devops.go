@@ -258,7 +258,7 @@ func checkGolangSpec(spec *pb.ChaincodeSpec) error {
 		return fmt.Errorf("Error validating chaincode path: %s", err)
 	}
 	if !exists {
-		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Url)
+//		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Url)
 	}
 	return nil
 }
