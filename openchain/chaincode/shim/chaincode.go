@@ -149,7 +149,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
-	chaincodeID := &pb.ChaincodeID{Url: viper.GetString("chaincode.id.url"), Version: viper.GetString("chaincode.id.version")}
+	chaincodeID := &pb.ChaincodeID{Name:viper.GetString("chaincode.id.name")}
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
@@ -199,11 +199,11 @@ func (stub *ChaincodeStub) DelState(key string) error {
 }
 
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
-func (stub *ChaincodeStub) InvokeChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeURL, chaincodeVersion, function, args, stub.UUID)
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
 }
 
 // QueryChaincode function can be invoked by a chaincode to query another chaincode.
-func (stub *ChaincodeStub) QueryChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string) ([]byte, error) {
-	return handler.handleQueryChaincode(chaincodeURL, chaincodeVersion, function, args, stub.UUID)
+func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }

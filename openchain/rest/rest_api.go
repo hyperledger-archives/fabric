@@ -386,11 +386,11 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Url == "" {
+	if spec.ChaincodeID.Path.Url == "" {
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
 		return
 	}
-	if spec.ChaincodeID.Version == "" {
+	if spec.ChaincodeID.Path.Version == "" {
 		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
 		return
 	}
@@ -438,7 +438,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Check that the ChaincodeID is not left blank.
-	if spec.ChaincodeID == nil {
+	if spec.ChaincodeID.Path == nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeID.\"}")
 		logger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
@@ -447,7 +447,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeID.Url == "") || (spec.ChaincodeID.Version == "") {
+	if (spec.ChaincodeID.Path.Url == "") || (spec.ChaincodeID.Path.Version == "") {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
@@ -565,8 +565,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+	// NOTE - Old approach. Invoke transaction should now specify Name returned on the Deploy Transaction
+	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+
+	// Check that the Chaincode Name is not blank.
+	if (spec.ChaincodeSpec.ChaincodeID.Name == "") {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
@@ -693,8 +696,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+	// NOTE - Old approach. Invoke transaction should now specify Name returned on the Deploy Transaction
+	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+
+	// Check that the Chaincode Name is not blank.
+	if (spec.ChaincodeSpec.ChaincodeID.Name == "") {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")

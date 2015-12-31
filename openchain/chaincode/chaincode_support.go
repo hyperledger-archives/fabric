@@ -150,28 +150,9 @@ func newDuplicateChaincodeHandlerError(chaincodeHandler *Handler) error {
 	return &DuplicateChaincodeHandlerError{ChaincodeID: chaincodeHandler.ChaincodeID}
 }
 
-// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
-func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
-	if cID == nil {
-		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
-	}
-	var urlLocation string
-	if strings.HasPrefix(cID.Url, "http://") {
-		urlLocation = cID.Url[7:]
-	} else if strings.HasPrefix(cID.Url, "https://") {
-		urlLocation = cID.Url[8:]
-	} else {
-		urlLocation = cID.Url
-	}
-	return urlLocation + ":" + cID.Version, nil
-}
-
 func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Handler) error {
-	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
+	key := chaincodehandler.ChaincodeID.Name
 
-	if err != nil {
-		return fmt.Errorf("Error registering handler: %s", err)
-	}
 	chaincodeSupport.handlerMap.Lock()
 	defer chaincodeSupport.handlerMap.Unlock()
 
@@ -203,10 +184,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 }
 
 func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Handler) error {
-	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
-	if err != nil {
-		return fmt.Errorf("Error deregistering handler: %s", err)
-	}
+	key := chaincodehandler.ChaincodeID.Name
 	chaincodeLogger.Debug("Deregister handler: %s", key)
 	chaincodeSupport.handlerMap.Lock()
 	defer chaincodeSupport.handlerMap.Unlock()
@@ -264,13 +242,9 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 // launchAndWaitForRegister will launch container if not already running
 func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cID *pb.ChaincodeID, uuid string) (bool, error) {
-	vmname, err := container.GetVMName(cID)
-	if err != nil {
-		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting vm name: %s", err)
-	}
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting chaincode: %s", err)
+	chaincode := cID.Name
+	if chaincode == ""  {
+		return false, fmt.Errorf("chaincode name not set")
 	}
 
 	chaincodeSupport.handlerMap.Lock()
@@ -287,7 +261,8 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 
 	//launch the chaincode
 	//creat a StartImageReq obj and send it to VMCProcess
-	chaincodeLog.Debug("start container: %s", chaincode)
+ 	vmname := container.GetVMFromName(chaincode)
+	chaincodeLog.Debug("start container: %s", vmname)
 	sir := container.StartImageReq{ID: vmname, Detach: true}
 	resp, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
@@ -321,20 +296,17 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 }
 
 func (chaincodeSupport *ChaincodeSupport) stopChaincode(context context.Context, cID *pb.ChaincodeID) error {
-	vmname, err := container.GetVMName(cID)
-	if err != nil {
-		return fmt.Errorf("[stopChaincode]Error getting vm name: %s", err)
+	chaincode := cID.Name
+	if chaincode == ""  {
+		return fmt.Errorf("chaincode name not set")
 	}
 
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return fmt.Errorf("[stopChaincode]Error getting chaincode: %s", err)
-	}
-
+ 	vmname := container.GetVMFromName(chaincode)
+ 
 	//stop the chaincode
 	sir := container.StopImageReq{ID: vmname, Timeout: 0}
 
-	_, err = container.VMCProcess(context, "Docker", sir)
+	_, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil {
 		err = fmt.Errorf("Error stopping container: %s", err)
 		//but proceed to cleanup
@@ -383,14 +355,11 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		chaincodeSupport.handlerMap.Unlock()
 		return nil, nil, fmt.Errorf("invalid transaction type: %d", t.Type)
 	}
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return cID, cMsg, err
-	}
-
+	chaincode := cID.Name
 	chaincodeSupport.handlerMap.Lock()
 	var handler *Handler
 	var ok bool
+	var err error
 	//if its in the map, there must be a connected stream...nothing to do
 	if handler, ok = chaincodeSupport.chaincodeHasBeenLaunched(chaincode); ok {
 		if !handler.registered {
@@ -450,7 +419,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 		return nil, err
 	}
 	cID := cds.ChaincodeSpec.ChaincodeID
-	chaincode, err := getChaincodeID(cID)
+	chaincode := cID.Name
 	if err != nil {
 		return cds, err
 	}
@@ -463,33 +432,27 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	}
 	chaincodeSupport.handlerMap.Unlock()
 
-	//create build request ...
-	vmname, err := container.GetVMName(cds.ChaincodeSpec.ChaincodeID)
-
 	//openchain.yaml in the container likely will not have the right url:version. We know the right
 	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINCODE_ID_URL=" + cID.Url, "OPENCHAIN_CHAINCODE_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
-	toks := strings.Split(vmname, ":")
+	envs := []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + chaincode, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
+	toks := strings.Split(cID.Path.Url, "/")
 	if toks == nil {
-		return cds, fmt.Errorf("cannot get version from %s", vmname)
-	}
-
-	toks = strings.Split(toks[0], ".")
-	if toks == nil {
-		return cds, fmt.Errorf("cannot get path components from %s", vmname)
+		return cds, fmt.Errorf("cannot get path components from %s", chaincode)
 	}
 
 	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
 	//       need to revisit executable name assignment
-	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
 	//     exec is "chaincode_example01"
 	exec := []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
 	chaincodeLog.Debug("Executable is %s", exec[0])
 
+ 	vmname := container.GetVMFromName(chaincode)
+
 	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
 
-	chaincodeLog.Debug("deploying vmname %s", vmname)
+	chaincodeLog.Debug("deploying chaincode %s", vmname)
 	//create image and create container
 	_, err = container.VMCProcess(context, "Docker", cir)
 	if err != nil {
