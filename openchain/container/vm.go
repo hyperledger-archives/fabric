@@ -78,15 +78,15 @@ func (vm *VM) ListImages(context context.Context) error {
 
 // BuildChaincodeContainer builds the container for the supplied chaincode specification
 func (vm *VM) BuildChaincodeContainer(spec *pb.ChaincodeSpec) ([]byte, error) {
-        chaincodePkgBytes, err := GetChaincodePackageBytes(spec)
-        if err != nil {
-                return nil, fmt.Errorf("Error getting chaincode package bytes: %s", err)
-        }
-        err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, chaincodePkgBytes)
-        if err != nil {
-                return nil, fmt.Errorf("Error building Chaincode container: %s", err)
-        }
-        return chaincodePkgBytes, nil
+	chaincodePkgBytes, err := GetChaincodePackageBytes(spec)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting chaincode package bytes: %s", err)
+	}
+	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, chaincodePkgBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
+	}
+	return chaincodePkgBytes, nil
 }
 
 // GetChaincodePackageBytes creates bytes for docker container generation using the supplied chaincode specification
@@ -98,30 +98,30 @@ func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 		return nil, fmt.Errorf("chaincode name exists")
 	}
 
-        inputbuf := bytes.NewBuffer(nil)
-        gw := gzip.NewWriter(inputbuf)
-        tw := tar.NewWriter(gw)
+	inputbuf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(inputbuf)
+	tw := tar.NewWriter(gw)
 
 	var err error
-	spec.ChaincodeID.Name,err = generateHashcode(spec, tw)
+	spec.ChaincodeID.Name, err = generateHashcode(spec, tw)
 	if err != nil {
-        	tw.Close()
-        	gw.Close()
+		tw.Close()
+		gw.Close()
 		return nil, fmt.Errorf("Error generating hashcode: %s", err)
 	}
 	err = writeChaincodePackage(spec, tw)
 	if err != nil {
-        	tw.Close()
-        	gw.Close()
+		tw.Close()
+		gw.Close()
 		return nil, fmt.Errorf("Error writing chaincode package: %s", err)
 	}
-	
-       	tw.Close()
-       	gw.Close()
+
+	tw.Close()
+	gw.Close()
 
 	chaincodePkgBytes := inputbuf.Bytes()
 
-        return chaincodePkgBytes, nil
+	return chaincodePkgBytes, nil
 }
 
 // Builds the Chaincode image using the supplied Dockerfile package contents
@@ -239,7 +239,7 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 
 func writeGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
-	if strings.LastIndex(gopath,"/") == len(gopath)-1 {
+	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
 		gopath = gopath[:len(gopath)]
 	}
 	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")

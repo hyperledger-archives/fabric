@@ -116,7 +116,7 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				return
 			}
 
-			chaincodeID := &protos.ChaincodeID{ Path: &protos.ChaincodePath{Url: url, Version: version}, Name:""}
+			chaincodeID := &protos.ChaincodeID{Path: &protos.ChaincodePath{Url: url, Version: version}, Name: ""}
 
 			genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
 			genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)

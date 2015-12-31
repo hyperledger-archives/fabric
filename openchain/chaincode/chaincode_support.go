@@ -243,7 +243,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 // launchAndWaitForRegister will launch container if not already running
 func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cID *pb.ChaincodeID, uuid string) (bool, error) {
 	chaincode := cID.Name
-	if chaincode == ""  {
+	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
 	}
 
@@ -261,7 +261,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 
 	//launch the chaincode
 	//creat a StartImageReq obj and send it to VMCProcess
- 	vmname := container.GetVMFromName(chaincode)
+	vmname := container.GetVMFromName(chaincode)
 	chaincodeLog.Debug("start container: %s", vmname)
 	sir := container.StartImageReq{ID: vmname, Detach: true}
 	resp, err := container.VMCProcess(context, "Docker", sir)
@@ -297,12 +297,12 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 
 func (chaincodeSupport *ChaincodeSupport) stopChaincode(context context.Context, cID *pb.ChaincodeID) error {
 	chaincode := cID.Name
-	if chaincode == ""  {
+	if chaincode == "" {
 		return fmt.Errorf("chaincode name not set")
 	}
 
- 	vmname := container.GetVMFromName(chaincode)
- 
+	vmname := container.GetVMFromName(chaincode)
+
 	//stop the chaincode
 	sir := container.StopImageReq{ID: vmname, Timeout: 0}
 
@@ -448,7 +448,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	exec := []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
 	chaincodeLog.Debug("Executable is %s", exec[0])
 
- 	vmname := container.GetVMFromName(chaincode)
+	vmname := container.GetVMFromName(chaincode)
 
 	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
 

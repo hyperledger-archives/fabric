@@ -136,7 +136,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	version := "0.0.0"
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
-	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{ Path: &pb.ChaincodePath{Url: url, Version: version}}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
 	if err != nil {
@@ -313,7 +313,7 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 			f := "invoke"
 			args := []string{"a", "b", "10"}
 
-			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name:chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
 			fmt.Printf("Going to invoke TRANSACTION num %d\n", qnum)
 		} else {
@@ -759,7 +759,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example05"
 	version2 := "0.0.0"
 
-	cID2 := &pb.ChaincodeID{Path:&pb.ChaincodePath{Url: url2, Version: version2}}
+	cID2 := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url2, Version: version2}}
 	f = "init"
 	args = []string{"sum", "0"}
 

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	HASHLEN = 16
+	hashlen = 16
 )
 
 func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error {
@@ -43,16 +43,16 @@ func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error
 }
 
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
-//Directory entries are traversed recursively. In the end a single 
+//Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
-func hashFilesInDir(rootDir string, dir string, hash [HASHLEN]byte, tw *tar.Writer) ([HASHLEN]byte, error) {
+func hashFilesInDir(rootDir string, dir string, hash [hashlen]byte, tw *tar.Writer) ([hashlen]byte, error) {
 	//ReadDir returns sorted list of files in dir
-	fis,err := ioutil.ReadDir(rootDir+"/"+dir)
+	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
 	if err != nil {
 		return hash, fmt.Errorf("ReadDir failed %s\n", err)
 	}
-	for _,fi := range fis {
-		name := fmt.Sprintf("%s/%s", dir,fi.Name())
+	for _, fi := range fis {
+		name := fmt.Sprintf("%s/%s", dir, fi.Name())
 		if fi.IsDir() {
 			var err error
 			hash, err = hashFilesInDir(rootDir, name, hash, tw)
@@ -61,14 +61,14 @@ func hashFilesInDir(rootDir string, dir string, hash [HASHLEN]byte, tw *tar.Writ
 			}
 			continue
 		}
-		buf,err := ioutil.ReadFile(rootDir+"/"+name)
+		buf, err := ioutil.ReadFile(rootDir + "/" + name)
 		if err != nil {
 			fmt.Printf("Error reading %s\n", err)
 			return hash, err
 		}
 
 		newSlice := make([]byte, len(hash)+len(buf))
-		copy(newSlice[len(buf):],hash[:])
+		copy(newSlice[len(buf):], hash[:])
 		hash = md5.Sum(newSlice)
 		//sha3.ShakeSum256(hash[:], newSlice)
 
@@ -78,16 +78,16 @@ func hashFilesInDir(rootDir string, dir string, hash [HASHLEN]byte, tw *tar.Writ
 			}
 		}
 	}
-	return hash,nil
+	return hash, nil
 }
 
 func isCodeExist(tmppath string) error {
-	file,err := os.Open(tmppath)
+	file, err := os.Open(tmppath)
 	if err != nil {
 		return fmt.Errorf("Download failer %s", err)
 	}
 
-	fi,err := file.Stat()
+	fi, err := file.Stat()
 	if err != nil {
 		return fmt.Errorf("could not stat file %s", err)
 	}
@@ -107,11 +107,11 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	var newgopath string
 	var origgopath string
 	var gopathenvIndex int
-	for i,v:=range env {
+	for i, v := range env {
 		if strings.Index(v, "GOPATH=") == 0 {
-			p := strings.SplitAfter(v,"GOPATH=")
+			p := strings.SplitAfter(v, "GOPATH=")
 			origgopath = p[1]
-			newgopath = origgopath+"/_usercode_"
+			newgopath = origgopath + "/_usercode_"
 			gopathenvIndex = i
 			break
 		}
@@ -121,16 +121,16 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		err = fmt.Errorf("GOPATH not defined")
 		return
 	}
-	
+
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
 	os.Mkdir(newgopath, 0755)
-	
+
 	if codegopath, err = ioutil.TempDir(newgopath, ""); err != nil {
 		err = fmt.Errorf("could not create tmp dir under %s(%s)", newgopath, err)
-		return 
+		return
 	}
-	
-	env[gopathenvIndex] = "GOPATH="+codegopath
+
+	env[gopathenvIndex] = "GOPATH=" + codegopath
 
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
@@ -147,9 +147,9 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 func getCodeFromFS(path string) (codegopath string, err error) {
 	env := os.Environ()
 	var gopath string
-	for _,v:=range env {
+	for _, v := range env {
 		if strings.Index(v, "GOPATH=") == 0 {
-			p := strings.SplitAfter(v,"GOPATH=")
+			p := strings.SplitAfter(v, "GOPATH=")
 			gopath = p[1]
 			break
 		}
@@ -160,19 +160,19 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 	}
 
 	codegopath = gopath
-	
+
 	return
 }
 
 //name could be ChaincodeID.Name or ChaincodeID.Path
-func generateHashFromSignature(path string, version string, ctor string, args []string ) [HASHLEN]byte {
+func generateHashFromSignature(path string, version string, ctor string, args []string) [hashlen]byte {
 	fargs := ctor
 	if args != nil {
-		for _,str := range args {
+		for _, str := range args {
 			fargs = fargs + str
 		}
 	}
-	cbytes := []byte(path+version+fargs)
+	cbytes := []byte(path + version + fargs)
 
 	b := make([]byte, len(cbytes))
 	copy(b, cbytes)
@@ -184,7 +184,7 @@ func generateHashFromSignature(path string, version string, ctor string, args []
 //NOTE: for dev mode, user builds and runs chaincode manually. The name provided
 //by the user is equivalent to the Url+Version. This method will treat the name
 //as codebytes and compute the hash from it. ie, user cannot run the chaincode
-//with the same (name, ctor, args) 
+//with the same (name, ctor, args)
 func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if spec == nil {
 		return "", fmt.Errorf("Cannot generate hashcode from nil spec")
@@ -194,30 +194,30 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if chaincodeID == nil || chaincodeID.Path == nil || chaincodeID.Path.Url == "" || chaincodeID.Path.Version == "" {
 		return "", fmt.Errorf("Cannot generate hashcode from empty chaincode path")
 	}
-	
+
 	ctor := spec.CtorMsg
 	if ctor == nil || ctor.Function == "" {
 		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
 	}
-	
+
 	version, err := semver.Make(chaincodeID.Path.Version)
 	if err != nil {
 		return "", fmt.Errorf("Error building version for VM name: %s", err)
 	}
 
 	//code root will point to the directory where the code exists
-	//in the case of http it will be a temporary dir that 
+	//in the case of http it will be a temporary dir that
 	//will have to be deleted
 	var codegopath string
 
 	var ishttp bool
-	defer func () {
+	defer func() {
 		if ishttp && codegopath != "" {
 			os.RemoveAll(codegopath)
 		}
 	}()
 
-	var hash [HASHLEN]byte
+	var hash [hashlen]byte
 
 	path := chaincodeID.Path.Url
 
@@ -225,28 +225,28 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if strings.HasPrefix(path, "http://") {
 		ishttp = true
 		actualcodepath = path[7:]
-		codegopath,err = getCodeFromHTTP(actualcodepath)
+		codegopath, err = getCodeFromHTTP(actualcodepath)
 	} else if strings.HasPrefix(path, "https://") {
 		ishttp = true
 		actualcodepath = path[8:]
-		codegopath,err = getCodeFromHTTP(actualcodepath)
+		codegopath, err = getCodeFromHTTP(actualcodepath)
 	} else {
 		actualcodepath = path
-		codegopath,err = getCodeFromFS(path)
+		codegopath, err = getCodeFromFS(path)
 	}
 
 	if err != nil {
 		return "", fmt.Errorf("Error getting code %s", err)
 	}
 
-	tmppath := codegopath+"/src/"+actualcodepath
+	tmppath := codegopath + "/src/" + actualcodepath
 	if err = isCodeExist(tmppath); err != nil {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
 	hash = generateHashFromSignature(actualcodepath, version.String(), ctor.Function, ctor.Args)
 
-	hash,err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
+	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {
 		return "", fmt.Errorf("Could not get hashcode for %s - %s\n", path, err)
 	}

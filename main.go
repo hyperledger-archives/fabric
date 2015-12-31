@@ -560,7 +560,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) error {
 			cmd.Usage()
 			return errors.New(err)
 		}
-	
+
 		if chaincodePath == undefinedParamValue {
 			err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
 			cmd.Out().Write([]byte(err))
@@ -605,7 +605,7 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 	}
 	// Build the spec
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{ Path: &pb.ChaincodePath{Url: chaincodePath, Version: chaincodeVersion}, Name: chaincodeName}}
+		ChaincodeID: &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: chaincodePath, Version: chaincodeVersion}, Name: chaincodeName}}
 
 	chaincodeDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
@@ -642,7 +642,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{ Path: &pb.ChaincodePath {Url: chaincodePath, Version: chaincodeVersion}, Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: chaincodePath, Version: chaincodeVersion}, Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {

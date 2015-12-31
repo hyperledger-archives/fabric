@@ -149,7 +149,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
-	chaincodeID := &pb.ChaincodeID{Name:viper.GetString("chaincode.id.name")}
+	chaincodeID := &pb.ChaincodeID{Name: viper.GetString("chaincode.id.name")}
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)

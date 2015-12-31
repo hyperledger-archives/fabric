@@ -569,7 +569,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
 
 	// Check that the Chaincode Name is not blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Name == "") {
+	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
@@ -700,7 +700,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
 
 	// Check that the Chaincode Name is not blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Name == "") {
+	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")

@@ -345,6 +345,8 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	}
 }
 
+//GetVMFromName generates the docker image from peer information given the hashcode. This is needed to
+//keep image name's unique in a single host, multi-peer environment (such as a development environment)
 func GetVMFromName(name string) string {
 	vmName := fmt.Sprintf("%s-%s-%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), name)
 	return vmName
