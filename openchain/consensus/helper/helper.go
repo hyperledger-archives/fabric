@@ -23,6 +23,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -72,6 +74,7 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 				network = append(network, endpoint.ID.Name)
 			}
 		}
+		network = append(network, self)
 		sort.Strings(network)
 	}
 	return self, network, nil
@@ -79,6 +82,13 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 
 // GetReplicaID returns the uint handle corresponding to a replica address
 func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
+	// if the name starts with "vp*", short-circuit the function
+	// consider this our debugging mode; allows us to assign the proper ID
+	// when instantiating the Consenter and we don't have a fixed VP list
+	if startsWith := strings.HasPrefix(addr, "vp"); startsWith {
+		return strconv.ParseUint(addr[2:], 10, 64)
+	}
+
 	_, network, err := h.GetReplicaHash()
 	if err != nil {
 		return uint64(0), err
