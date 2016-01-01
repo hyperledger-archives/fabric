@@ -22,6 +22,7 @@ package helper
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -57,8 +58,22 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 
 // GetReplicaHash returns the crypto IDs of the current replica and the whole network
 func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
-	self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
-	network = viper.GetStringSlice("peer.validator.replicas.hashes")
+	if viper.GetBool("security.enabled") {
+		self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
+		network = viper.GetStringSlice("peer.validator.replicas.hashes")
+	} else { // a hack for testing, when we don't want to run this with security.enabled=true
+		ep := h.coordinator.GetPeerEndpoint()
+		self = ep.ID.Name
+
+		hMap := h.coordinator.handlerMap
+		hMap.Lock()
+		defer hMap.Unlock()
+
+		for id := range hMap {
+			network = append(network, id)
+		}
+		sort.Strings(network)
+	}
 	return self, network, nil
 }
 
