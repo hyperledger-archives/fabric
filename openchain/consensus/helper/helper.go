@@ -58,17 +58,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // GetReplicaHash returns the crypto IDs of the current replica and the whole network
 func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 	self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
-
-	config := viper.New()
-	config.SetConfigName("openchain")
-	config.AddConfigPath("./")
-	err = config.ReadInConfig()
-	if err != nil {
-		err = fmt.Errorf("Fatal error reading root config: %s", err)
-		return self, nil, err
-	}
-	network = config.GetStringSlice("peer.validator.replicas.hashes")
-
+	network = viper.GetStringSlice("peer.validator.replicas.hashes")
 	return self, network, nil
 }
 
