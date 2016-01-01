@@ -152,8 +152,17 @@ func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (inst *instance) Unicast(msgPayload []byte, receiver string) error {
-	panic("not implemented yet")
+func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+	net := inst.net
+	net.cond.L.Lock()
+	receiverID, err := inst.GetReplicaID(receiver)
+	if err != nil {
+		return fmt.Errorf("Couldn't unicast message to %s: %v", receiver, err)
+	}
+	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), msg.Payload})
+	net.cond.Signal()
+	net.cond.L.Unlock()
+	return nil
 }
 
 func (inst *instance) BeginTxBatch(id interface{}) error {

@@ -86,6 +86,7 @@ type MessageHandlerCoordinator interface {
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
+	Unicast(*pb.OpenchainMessage, string) error
 	GetPeers() (*pb.PeersMessage, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
@@ -366,6 +367,19 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 		}
 	}
 	return errorsFromHandlers
+}
+
+// Unicast sends a message to a specific peer (PeerEndpoint).
+func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	msgHandler := p.handlerMap.m[receiver]
+	err := msgHandler.SendMessage(msg)
+	if err != nil {
+		toPeerEndpoint, _ := msgHandler.To()
+		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+	}
+	return nil
 }
 
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.

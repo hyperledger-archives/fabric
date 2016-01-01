@@ -33,7 +33,7 @@ type CPI interface {
 	GetReplicaID(addr string) (id uint64, err error)
 
 	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msgPayload []byte, receiver string) error
+	Unicast(msg *pb.OpenchainMessage, receiver string) error
 
 	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)

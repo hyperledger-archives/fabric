@@ -62,15 +62,15 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 		self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
 		network = viper.GetStringSlice("peer.validator.replicas.hashes")
 	} else { // a hack for testing, when we don't want to run this with security.enabled=true
-		ep := h.coordinator.GetPeerEndpoint()
+		ep, _ := h.coordinator.GetPeerEndpoint()
 		self = ep.ID.Name
 
-		hMap := h.coordinator.handlerMap
-		hMap.Lock()
-		defer hMap.Unlock()
-
-		for id := range hMap {
-			network = append(network, id)
+		peersMsg, _ := h.coordinator.GetPeers()
+		peers := peersMsg.GetPeers()
+		for _, endpoint := range peers {
+			if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
+				network = append(network, endpoint.ID.Name)
+			}
 		}
 		sort.Strings(network)
 	}
@@ -95,14 +95,16 @@ func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
 
 // Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-	_ = h.coordinator.Broadcast(msg) // TODO process the errors
+	errors := h.coordinator.Broadcast(msg)
+	if len(errors) > 0 {
+		return fmt.Errorf("Couldn't broadcast successfully")
+	}
 	return nil
 }
 
 // Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
-	// TODO Call a function in the comms layer; wait for Jeff's implementation.
-	return nil
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+	return h.coordinator.Unicast(msg, receiver)
 }
 
 // BeginTxBatch gets invoked when the next round of transaction-batch
