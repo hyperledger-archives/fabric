@@ -58,16 +58,21 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // Stack-facing implementation goes here
 // =============================================================================
 
-// GetReplicaHash returns the crypto IDs of the current replica and the whole network
-func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
+// GetNetworkHandles returns the handles (MVP: hashed raw enrollment certificates) of the current replica and the whole network of VPs
+func (h *Helper) GetNetworkHandles() (self string, network []string, err error) {
 	if viper.GetBool("security.enabled") {
 		self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
-		network = viper.GetStringSlice("peer.validator.replicas.hashes")
-	} else { // a hack for testing, when we don't want to run this with security.enabled=true
-		ep, _ := h.coordinator.GetPeerEndpoint()
+		network = viper.GetStringSlice("peer.validator.replicas.handles")
+	} else { // when we don't have a fixed list in the config file
+		ep, err := h.coordinator.GetPeerEndpoint()
+		if err != nil {
+			return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
+		}
 		self = ep.ID.Name
-
-		peersMsg, _ := h.coordinator.GetPeers()
+		peersMsg, err := h.coordinator.GetPeers()
+		if err != nil {
+			return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+		}
 		peers := peersMsg.GetPeers()
 		for _, endpoint := range peers {
 			if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
@@ -80,27 +85,42 @@ func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
 	return self, network, nil
 }
 
-// GetReplicaID returns the uint handle corresponding to a replica address
-func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
-	// if the name starts with "vp*", short-circuit the function
-	// consider this our debugging mode; allows us to assign the proper ID
-	// when instantiating the Consenter and we don't have a fixed VP list
-	if startsWith := strings.HasPrefix(addr, "vp"); startsWith {
-		return strconv.ParseUint(addr[2:], 10, 64)
+// GetReplicaHandle returns the handle that corresponds to a replica ID (uin64 assigned to it for PBFT)
+func (h *Helper) GetReplicaHandle(id uint64) (handle string, err error) {
+	_, network, err := h.GetNetworkHandles()
+	if err != nil {
+		return
+	}
+	if int(id) > (len(network) - 1) {
+		return handle, fmt.Errorf("Replica ID is out of bounds")
+	}
+	return network[int(id)], nil
+}
+
+// GetReplicaID returns the uint handle corresponding to a replica handle
+func (h *Helper) GetReplicaID(handle string) (id uint64, err error) {
+	// if the handle starts with "vp*", short-circuit the function
+	// consider this our debugging mode for when we don't have a fixed VP list
+	// and want to instantiate the Consenter with the proper ID
+	if startsWith := strings.HasPrefix(handle, "vp"); startsWith {
+		id, err = strconv.ParseUint(handle[2:], 10, 64)
+		if err != nil {
+			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle, err)
+		}
+		return
 	}
 
-	_, network, err := h.GetReplicaHash()
+	_, network, err := h.GetNetworkHandles()
 	if err != nil {
-		return uint64(0), err
+		return
 	}
 	for i, v := range network {
-		if v == addr {
+		if v == handle {
 			return uint64(i), nil
 		}
 	}
-
-	err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
-	return uint64(0), err
+	err = fmt.Errorf("Couldn't find handle in list of VP handles")
+	return
 }
 
 // Broadcast sends a message to all validating peers.
@@ -113,8 +133,8 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 }
 
 // Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiver string) error {
-	return h.coordinator.Unicast(msg, receiver)
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle string) error {
+	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
 // BeginTxBatch gets invoked when the next round of transaction-batch
