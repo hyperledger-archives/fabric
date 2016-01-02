@@ -46,6 +46,8 @@ message message {
         checkpoint checkpoint = 5;
         view_change view_change = 6;
         new_view new_view = 7;
+        fetch_request fetch_request = 8;
+        request return_request = 9;
     }
 }
 
@@ -108,6 +110,11 @@ message new_view {
     repeated view_change vset = 2;
     map<uint64, string> xset = 3;
     uint64 replica_id = 4;
+}
+
+message fetch_request {
+    string request_digest = 1;
+    uint64 replica_id = 2;
 }
 
 // sieve
