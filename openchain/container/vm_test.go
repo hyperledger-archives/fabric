@@ -93,6 +93,7 @@ func TestVM_BuildImage_ChaincodeLocal(t *testing.T) {
 }
 
 func TestVM_BuildImage_ChaincodeRemote(t *testing.T) {
+	t.Skip("Works but needs user credentials. Not suitable for automated unit tests as is")
 	vm, err := NewVM()
 	if err != nil {
 		t.Fail()

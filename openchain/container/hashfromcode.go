@@ -3,7 +3,6 @@ package container
 import (
 	"archive/tar"
 	"bytes"
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -13,12 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/blang/semver"
 	pb "github.com/openblockchain/obc-peer/protos"
-)
-
-const (
-	hashlen = 16
 )
 
 func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error {
@@ -45,7 +41,7 @@ func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
-func hashFilesInDir(rootDir string, dir string, hash [hashlen]byte, tw *tar.Writer) ([hashlen]byte, error) {
+func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
 	//ReadDir returns sorted list of files in dir
 	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
 	if err != nil {
@@ -69,8 +65,8 @@ func hashFilesInDir(rootDir string, dir string, hash [hashlen]byte, tw *tar.Writ
 
 		newSlice := make([]byte, len(hash)+len(buf))
 		copy(newSlice[len(buf):], hash[:])
-		hash = md5.Sum(newSlice)
-		//sha3.ShakeSum256(hash[:], newSlice)
+		//hash = md5.Sum(newSlice)
+		hash = util.ComputeCryptoHash(newSlice)
 
 		if tw != nil {
 			if err = addFile(tw, "src/"+name, fi, buf); err != nil {
@@ -165,7 +161,7 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 }
 
 //name could be ChaincodeID.Name or ChaincodeID.Path
-func generateHashFromSignature(path string, version string, ctor string, args []string) [hashlen]byte {
+func generateHashFromSignature(path string, version string, ctor string, args []string) []byte {
 	fargs := ctor
 	if args != nil {
 		for _, str := range args {
@@ -176,7 +172,8 @@ func generateHashFromSignature(path string, version string, ctor string, args []
 
 	b := make([]byte, len(cbytes))
 	copy(b, cbytes)
-	return md5.Sum(b)
+	hash := util.ComputeCryptoHash(b)
+	return hash
 }
 
 //generateHashcode gets hashcode of the code under path. If path is a HTTP(s) url
@@ -217,8 +214,6 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		}
 	}()
 
-	var hash [hashlen]byte
-
 	path := chaincodeID.Path.Url
 
 	var actualcodepath string
@@ -244,7 +239,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
-	hash = generateHashFromSignature(actualcodepath, version.String(), ctor.Function, ctor.Args)
+	hash := generateHashFromSignature(actualcodepath, version.String(), ctor.Function, ctor.Args)
 
 	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {
