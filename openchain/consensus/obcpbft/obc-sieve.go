@@ -116,6 +116,19 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 	op.broadcastMsg(svMsg)
 }
 
+// send a message to a specific replica
+func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := op.cpi.GetReplicaHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
 // called by pbft-core to signal when a view change happened
 func (op *obcSieve) viewChange(newView uint64) {
 	logger.Info("Replica %d observing pbft view change to %d", op.id, newView)
@@ -134,6 +147,17 @@ func (op *obcSieve) viewChange(newView uint64) {
 		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{flush}}
 		op.invokePbft(req)
 	}
+}
+
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (op *obcSieve) fetchRequest(digest string) error {
+	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
+	}
+	op.broadcast(msgPacked)
+	return nil
 }
 
 // returns the state hash that corresponds to a specific block in the chain

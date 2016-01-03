@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -46,6 +47,10 @@ func (mock *mockCPI) broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
 
+func (mock *mockCPI) unicast(msg []byte, receiverID uint64) (err error) {
+	panic("not implemented")
+}
+
 func (mock *mockCPI) verify(tx []byte) error {
 	return nil
 }
@@ -55,6 +60,10 @@ func (mock *mockCPI) execute(tx []byte) {
 }
 
 func (mock *mockCPI) viewChange(uint64) {
+}
+
+func (mock *mockCPI) fetchRequest(digest string) (err error) {
+	panic("not implemented")
 }
 
 func (mock *mockCPI) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
@@ -77,18 +86,18 @@ type taggedMsg struct {
 }
 
 type testnet struct {
-	f         int
-	cond      *sync.Cond
-	closed    bool
-	replicas  []*instance
-	msgs      []taggedMsg
-	addresses []string
-	filterFn  func(int, int, []byte) []byte
+	f        int
+	cond     *sync.Cond
+	closed   bool
+	replicas []*instance
+	msgs     []taggedMsg
+	handles  []string
+	filterFn func(int, int, []byte) []byte
 }
 
 type instance struct {
 	id        int
-	addr      string
+	handle    string
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
@@ -105,9 +114,31 @@ type instance struct {
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
+	msg := &Message{}
+	_ = proto.Unmarshal(payload, msg)
+	if fr := msg.GetFetchRequest(); fr != nil {
+		fmt.Printf("Debug: replica %v broadcast fetch-request\n", inst.id)
+	}
 	net.broadcastFilter(inst, payload)
 	net.cond.Signal()
 	net.cond.L.Unlock()
+}
+
+func (inst *instance) unicast(payload []byte, receiverID uint64) error {
+	net := inst.net
+	msg := &Message{}
+	_ = proto.Unmarshal(payload, msg)
+	if rr := msg.GetReturnRequest(); rr != nil {
+		fmt.Printf("Debug: replica %v unicast return-request to %v\n", inst.id, receiverID)
+		net.replicas[int(receiverID)].deliver(payload)
+	} else {
+		fmt.Printf("Debug: replica %v unicast (non return-request) to %v\n", inst.id, receiverID)
+		net.cond.L.Lock()
+		net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), payload})
+		net.cond.Signal()
+		net.cond.L.Unlock()
+	}
+	return nil
 }
 
 func (inst *instance) verify(payload []byte) error {
@@ -121,22 +152,42 @@ func (inst *instance) execute(payload []byte) {
 func (inst *instance) viewChange(uint64) {
 }
 
+func (inst *instance) fetchRequest(digest string) error {
+	fmt.Printf("Debug: replica %v fetchRequest\n", inst.id)
+	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: uint64(inst.id)}}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
+	}
+	inst.broadcast(msgPacked)
+	return nil
+}
+
 func (inst *instance) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
 	return []byte("nil"), nil
 }
 
-func (inst *instance) GetReplicaHash() (self string, network []string, err error) {
-	return inst.addr, inst.net.addresses, nil
+func (inst *instance) GetNetworkHandles() (self string, network []string, err error) {
+	return inst.handle, inst.net.handles, nil
 }
 
-func (inst *instance) GetReplicaID(addr string) (id uint64, err error) {
-	for i, v := range inst.net.addresses {
-		if v == addr {
+func (inst *instance) GetReplicaHandle(id uint64) (handle string, err error) {
+	_, network, _ := inst.GetNetworkHandles()
+	if int(id) > (len(network) - 1) {
+		return handle, fmt.Errorf("Replica ID is out of bounds")
+	}
+	return network[int(id)], nil
+}
+
+func (inst *instance) GetReplicaID(handle string) (id uint64, err error) {
+	_, network, _ := inst.GetNetworkHandles()
+	for i, v := range network {
+		if v == handle {
 			return uint64(i), nil
 		}
 	}
-	err = fmt.Errorf("Couldn't find address in list of addresses in testnet")
-	return uint64(0), err
+	err = fmt.Errorf("Couldn't find handle in list of handles in testnet")
+	return
 }
 
 // Broadcast delivers to all replicas.  In contrast to the stack
@@ -218,7 +269,15 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 		payload = net.filterFn(inst.id, -1, payload)
 	}
 	if payload != nil {
-		net.msgs = append(net.msgs, taggedMsg{inst.id, -1, payload})
+		msg := &Message{}
+		_ = proto.Unmarshal(payload, msg)
+		if fr := msg.GetFetchRequest(); fr != nil {
+			// treat fetch-request as a high-priority message that needs to be processed ASAP
+			fmt.Printf("Debug: replica %v broadcastFilter for fetch-request\n", inst.id)
+			net.deliverFilter(taggedMsg{inst.id, -1, payload})
+		} else {
+			net.msgs = append(net.msgs, taggedMsg{inst.id, -1, payload})
+		}
 	}
 }
 
@@ -244,6 +303,7 @@ func (net *testnet) process() error {
 
 	for len(net.msgs) > 0 {
 		msg := net.msgs[0]
+		fmt.Printf("Debug: process iteration (%d messages to go, delivering now to destination %v)\n", len(net.msgs), msg.dst)
 		net.msgs = net.msgs[1:]
 		net.cond.L.Unlock()
 		net.deliverFilter(msg)
@@ -274,9 +334,9 @@ func makeTestnet(f int, initFn ...func(*instance)) *testnet {
 	net.cond = sync.NewCond(&sync.Mutex{})
 	replicaCount := 3*f + 1
 	for i := 0; i < replicaCount; i++ {
-		inst := &instance{addr: strconv.Itoa(i), id: i, net: net} // XXX ugly hack
+		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
 		net.replicas = append(net.replicas, inst)
-		net.addresses = append(net.addresses, inst.addr)
+		net.handles = append(net.handles, inst.handle)
 	}
 
 	for _, inst := range net.replicas {

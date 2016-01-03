@@ -100,6 +100,19 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(ocMsg)
 }
 
+// send a message to a specific replica
+func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := op.cpi.GetReplicaHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
 // verify checks whether the request is valid
 func (op *obcClassic) verify(txRaw []byte) error {
 	// TODO verify transaction
@@ -158,6 +171,17 @@ func (op *obcClassic) execute(txRaw []byte) {
 // called when a view-change happened in the underlying PBFT
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
+}
+
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (op *obcClassic) fetchRequest(digest string) error {
+	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
+	}
+	op.broadcast(msgPacked)
+	return nil
 }
 
 // returns the state hash that corresponds to a specific block in the chain

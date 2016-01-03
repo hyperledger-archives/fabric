@@ -19,7 +19,10 @@ under the License.
 
 package obcpbft
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
@@ -260,6 +263,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 }
 
 func (instance *pbftCore) processNewView() error {
+	fmt.Printf("Debug: processNewView (ID: %v)\n", instance.id)
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
@@ -311,10 +315,24 @@ func (instance *pbftCore) processNewView() error {
 			if _, ok := instance.reqStore[d]; !ok {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
-				// XXX fetch request
-				return nil
+				instance.missingReqs[d] = true
+				go instance.consumer.fetchRequest(d)
 			}
 		}
+	}
+
+	once := true
+	for len(instance.missingReqs) > 0 {
+		if once {
+			fmt.Printf("Debug: replica %v missing %d requests....\n", instance.id, len(instance.missingReqs))
+			once = false
+		}
+		// wait until all the missing requests have been received
+		// XXX ugly; switch to a condition variable
+		// TODO what happens if we're never able to get out of here?
+	}
+	if !once {
+		fmt.Printf("Debug: replica %v is no longer missing any requests\n", instance.id)
 	}
 
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)

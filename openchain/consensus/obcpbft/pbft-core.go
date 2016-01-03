@@ -48,9 +48,11 @@ func init() {
 
 type innerCPI interface {
 	broadcast(msgPayload []byte)
+	unicast(msgPayload []byte, receiverID uint64) (err error)
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
+	fetchRequest(digest string) (err error)
 
 	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
@@ -83,6 +85,8 @@ type pbftCore struct {
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+
+	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
 	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
@@ -169,6 +173,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.newViewTimer.Stop()
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
+	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
 
@@ -331,9 +336,21 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+
+	// we're adding these receive functions here (instead of inside recvMsgSync)
+	// because we want to be able to sync even when the lock is held by recvNewView
+	if fr := msg.GetFetchRequest(); fr != nil {
+		fmt.Printf("Debug: replica %v receive fetch-request\n", instance.id)
+		err = instance.recvFetchRequest(fr)
+	} else if req := msg.GetReturnRequest(); req != nil {
+		fmt.Printf("Debug: replica %v receive return-request\n", instance.id)
+		err = instance.recvReturnRequest(req)
+	} else {
+		instance.lock.Lock()
+		defer instance.lock.Unlock()
+		fmt.Printf("Debug: replica %v receive msgSync\n", instance.id)
+		instance.recvMsgSync(msg)
+	}
 
 	return nil
 }
@@ -358,7 +375,7 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 		logger.Error("%s", err)
 	}
 
-	return err
+	return
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {
@@ -687,6 +704,38 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		instance.id, instance.h)
 
 	return instance.processNewView()
+}
+
+func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
+	fmt.Printf("Debug: replica %v recvFetchRequest\n", instance.id)
+	digest := fr.RequestDigest
+	if _, ok := instance.reqStore[digest]; !ok {
+		return nil // we don't have it either
+	}
+
+	req := instance.reqStore[digest]
+	msg := &Message{&Message_ReturnRequest{ReturnRequest: req}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshalling return-request message: %v", err)
+	}
+
+	receiver := fr.ReplicaId
+	err = instance.consumer.unicast(msgPacked, receiver)
+
+	return
+}
+
+func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
+	digest := hashReq(req)
+	fmt.Printf("Debug: replica %v recvReturnRequest (missing %d requests, receiving digest %v)\n", instance.id, len(instance.missingReqs), digest)
+	if _, ok := instance.missingReqs[digest]; !ok {
+		return nil // either the wrong digest, or we got it already from someone else
+	}
+
+	instance.reqStore[digest] = req
+	delete(instance.missingReqs, digest)
+	return nil
 }
 
 // =============================================================================
