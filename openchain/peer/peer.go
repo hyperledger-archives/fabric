@@ -189,16 +189,18 @@ type handlerMap struct {
 	m map[string]MessageHandler
 }
 
+type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+
 // PeerImpl implementation of the Peer service
 type PeerImpl struct {
-	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+	handlerFactory HandlerFactory
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)) (*PeerImpl, error) {
+func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")

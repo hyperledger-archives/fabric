@@ -68,7 +68,7 @@ type handlerMap struct {
 	chaincodeMap map[string]*Handler
 }
 
-// GetChain returns the name of the chain to which this chaincode support belongs
+// GetChain returns the chaincode support for a given chain
 func GetChain(name ChainName) *ChaincodeSupport {
 	return chains[name]
 }
@@ -91,11 +91,10 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
 func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
-	//we need to pass chainname when we do multiple chains...till then use DefaultChain
 	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
 	//initialize global chain
-	chains[DefaultChain] = s
+	chains[chainname] = s
 
 	peerEndpoint, err := getPeerEndpoint()
 	if err != nil {
@@ -106,7 +105,6 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 	}
 	chaincodeLog.Info("Chaincode support using peerAddress: %s\n", s.peerAddress)
 	//peerAddress = viper.GetString("peer.address")
-	// peerAddress = viper.GetString("peer.address")
 	if s.peerAddress == "" {
 		s.peerAddress = peerAddressDefault
 	}

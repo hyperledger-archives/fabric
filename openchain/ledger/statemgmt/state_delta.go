@@ -47,10 +47,7 @@ func (stateDelta *StateDelta) Get(chaincodeID string, key string) *UpdatedValue 
 	// TODO Cache?
 	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
 	if ok {
-		updatedValue := chaincodeStateDelta.get(key)
-		if updatedValue != nil {
-			return updatedValue
-		}
+		return chaincodeStateDelta.get(key)
 	}
 	return nil
 }
