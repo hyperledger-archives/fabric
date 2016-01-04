@@ -309,18 +309,18 @@ func serve(args []string) error {
 	}
 
 	listenAddr := viper.GetString("peer.listenaddress")
-	
+
 	if "" == listenAddr {
 		logger.Debug("Listen address not specified, using peer endpoint address")
 		listenAddr = peerEndpoint.Address
 	}
-	
+
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
-	
-	ehubLis,ehubGrpcServer,err := createEventHubServer()
+
+	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
 		grpclog.Fatalf("failed to create ehub server: %v", err)
 	}
@@ -385,11 +385,6 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
 
-
-
-
-
-
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
@@ -448,9 +443,11 @@ func stop() {
 
 }
 
-// login will login a local user on the CLI and store the user's security
-// context into a file.
+// login confirms the enrollmentID and secret password of the client with the
+// CA and stores the enrollment certificate and key in the Devops server.
 func login(args []string) {
+	logger.Info("CLI client login...")
+
 	// Check for username argument
 	if len(args) == 0 {
 		logger.Error("Error: must supply username.\n")
@@ -464,9 +461,9 @@ func login(args []string) {
 	}
 
 	// Retrieve the CLI data storage path
-	// Returns /var/openchain/production/cli/
+	// Returns /var/openchain/production/client/
 	localStore := getCliFilePath()
-	logger.Info("Peer local data store for CLI: %s", localStore)
+	logger.Info("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -479,7 +476,7 @@ func login(args []string) {
 	pw := gopass.GetPasswdMasked()
 
 	// Log in the user
-	logger.Info("Logging in user '%s'...\n", args[0])
+	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
 
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
@@ -495,10 +492,7 @@ func login(args []string) {
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {
-		// Store the client login token for future use
-		logger.Info("Login successful for user '%s'.\n", args[0])
-
-		// If /var/openchain/production/cli/ directory does not exist, create it
+		// If /var/openchain/production/client/ directory does not exist, create it
 		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
@@ -517,6 +511,8 @@ func login(args []string) {
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
+
+		logger.Info("Login successful for user '%s'.\n", args[0])
 	} else {
 		logger.Error(fmt.Sprintf("Error on client login: %s", string(loginResult.Msg)))
 	}
@@ -524,12 +520,14 @@ func login(args []string) {
 	return
 }
 
+// getCliFilePath is a helper function to retrieve the local storage directory
+// of client login tokens.
 func getCliFilePath() string {
 	localStore := viper.GetString("peer.fileSystemPath")
 	if !strings.HasSuffix(localStore, "/") {
 		localStore = localStore + "/"
 	}
-	localStore = localStore + "cli/"
+	localStore = localStore + "client/"
 	return localStore
 }
 
@@ -652,7 +650,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -725,7 +723,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction

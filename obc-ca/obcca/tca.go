@@ -36,15 +36,15 @@ import (
 	"sync"
 	"strconv"
 
-	"crypto/sha512"
+	"golang.org/x/crypto/sha3"
+
+	"github.com/golang/protobuf/proto"
+	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
+
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
-	
-	"github.com/golang/protobuf/proto"
-	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-
 )
 
 var (
@@ -203,7 +203,7 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, req *pb.TCertCreateReq)
 		return nil, err
 	}
 
-	hash := sha512.New384()
+	hash := sha3.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -242,7 +242,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha512.New384()
+	hash := sha3.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(pub, hash.Sum(nil), r, s) == false {
@@ -254,7 +254,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 	tcap.tca.rand.Read(nonce[:8])
 	binary.LittleEndian.PutUint64(nonce[8:], uint64(req.Ts.Seconds))
 	
-	mac := hmac.New(sha512.New384, tcap.tca.hmacKey)
+	mac := hmac.New(sha3.New384, tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
@@ -269,13 +269,13 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 		tidx := []byte(strconv.Itoa(i))
 		tidx = append(tidx[:], nonce[:]...)
 
-		mac = hmac.New(sha512.New384, kdfKey)
+		mac = hmac.New(sha3.New384, kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
 
-		mac = hmac.New(sha512.New384, kdfKey)
+		mac = hmac.New(sha3.New384, kdfKey)
 		mac.Write([]byte{2})
-		mac = hmac.New(sha512.New384, mac.Sum(nil))
+		mac = hmac.New(sha3.New384, mac.Sum(nil))
 		mac.Write(tidx)
 
 		one := new(big.Int).SetInt64(1)
@@ -329,7 +329,7 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, req *pb.TCertReadReq) (*p
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha512.New384()
+	hash := sha3.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
