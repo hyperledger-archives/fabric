@@ -23,14 +23,17 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
-	"os"
+	"sync"
 	"testing"
 	"time"
 )
 
-func createStateTransferEnvironment(blockNumber, sequenceNumber uint64, ml *mockLedger) error {
+func newTestStateTransfer(ml *mockLedger) *stateTransferState {
+	// The implementation of the state transfer depends on randomness
+	// Seed it here so that independent test executions are consistent
+	rand.Seed(0)
 
-	sts := newStateTransferState(
+	return newStateTransferState(
 		&pbftCore{
 			replicaCount:    4,
 			id:              uint64(0),
@@ -43,6 +46,9 @@ func createStateTransferEnvironment(blockNumber, sequenceNumber uint64, ml *mock
 		readConfig(),
 		ml,
 	)
+}
+
+func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, sequenceNumber uint64) error {
 
 	var chkpt *Checkpoint
 
@@ -104,62 +110,116 @@ func createStateTransferEnvironment(blockNumber, sequenceNumber uint64, ml *mock
 	return nil
 }
 
+type filterResult struct {
+	triggered bool
+	replica   uint64
+	mutex     *sync.Mutex
+}
+
+func (res filterResult) wasTriggered() bool {
+	res.mutex.Lock()
+	defer res.mutex.Unlock()
+	return res.triggered
+}
+
+func makeSimpleFilter(failureTrigger mockRequest, failureType mockResponse) (func(mockRequest, uint64) mockResponse, *filterResult) {
+	res := &filterResult{triggered: false, mutex: &sync.Mutex{}}
+	return func(request mockRequest, replicaId uint64) mockResponse {
+		fmt.Println("Received a request", request, "for replicaId", replicaId)
+		if request != failureTrigger {
+			return Normal
+		}
+
+		res.mutex.Lock()
+		defer res.mutex.Unlock()
+
+		if !res.triggered {
+			res.triggered = true
+			res.replica = replicaId
+		}
+
+		if replicaId == res.replica {
+			fmt.Println("Failing it with", failureType)
+			return failureType
+		}
+		return Normal
+	}, res
+
+}
+
 func TestCatchupSimple(t *testing.T) {
 
 	// Test from blockheight of 1, with valid genesis block
-	rand.Seed(0)
 	ml := newMockLedger(nil)
 	ml.putBlock(0, simpleGetBlock(0))
-	if err := createStateTransferEnvironment(7, 10, ml); nil != err {
+	sts := newTestStateTransfer(ml)
+	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
 
 }
 
+func TestCatchupSyncBlocksTimeout(t *testing.T) {
+	// Test from blockheight of 1 with valid genesis block
+	// Timeouts of 1 second
+	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
+	ml := newMockLedger(filter)
+
+	ml.putBlock(0, simpleGetBlock(0))
+	sts := newTestStateTransfer(ml)
+	sts.blockRequestTimeout = 1 * time.Second
+	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
+		t.Fatalf("SyncSnapshotTimeout case: %s", err)
+	}
+	if !result.wasTriggered() {
+		t.Fatalf("SyncSnapshotTimeout case never simulated a timeout")
+	}
+}
+
 func TestCatchupMissingEarlyChain(t *testing.T) {
-	// Test from blockheight of 5 (with missing blocks 0-3
-	rand.Seed(1)
+	// Test from blockheight of 5 (with missing blocks 0-3)
 	ml := newMockLedger(nil)
 	ml.putBlock(4, simpleGetBlock(4))
-	if err := createStateTransferEnvironment(7, 10, ml); nil != err {
+	sts := newTestStateTransfer(ml)
+	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
 	}
 }
 
-func TestCatchupStateSyncTimeout(t *testing.T) {
-	// Test from blockheight of 5 (with missing blocks 0-3
-	rand.Seed(1)
-	timeouts := make(map[uint64]bool)
-	timeouts[2] = true
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_FULLSTATE", "1s")        //
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_SINGLESTATEDELTA", "1s") // TODO Probably better to set this directly rather than rely on config
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_SINGLEBLOCK", "1s")      //
-	ml := newMockLedger(timeouts)
+func TestCatchupSyncSnapshotTimeout(t *testing.T) {
+	// Test from blockheight of 5 (with missing blocks 0-3)
+	// Timeouts of 1 second
+	filter, result := makeSimpleFilter(SyncSnapshot, Timeout)
+	ml := newMockLedger(filter)
 	ml.putBlock(4, simpleGetBlock(4))
-	if err := createStateTransferEnvironment(7, 10, ml); nil != err {
-		t.Fatalf("StateSyncTimeout case: %s", err)
+	sts := newTestStateTransfer(ml)
+	sts.stateSyncRequestTimeout = 1 * time.Second
+	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
+		t.Fatalf("SyncSnapshotTimeout case: %s", err)
+	}
+	if !result.wasTriggered() {
+		t.Fatalf("SyncSnapshotTimeout case never simulated a timeout")
 	}
 }
 
-func TestCatchupStateDeltaTimeout(t *testing.T) {
-	// Test from blockheight of 5 (with missing blocks 0-3
-	rand.Seed(4)
-	timeouts := make(map[uint64]bool)
-	timeouts[1] = true
-	timeouts[3] = true
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_FULLSTATE", "1s")        //
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_SINGLESTATEDELTA", "1s") // TODO Probably better to set this directly rather than rely on config
-	os.Setenv("OPENCHAIN_OBCPBFT_STATETRANSFER_TIMEOUT_SINGLEBLOCK", "1s")      //
-	ml := newMockLedger(timeouts)
+func TestCatchupSyncDeltasTimeout(t *testing.T) {
+	// Test from blockheight of 5 (with missing blocks 0-3)
+	// Timeouts of 1 second
+	filter, result := makeSimpleFilter(SyncDeltas, Timeout)
+	ml := newMockLedger(filter)
 	ml.putBlock(4, simpleGetBlock(4))
-	if err := createStateTransferEnvironment(7, 10, ml); nil != err {
-		t.Fatalf("StateDeltaTimeout case: %s", err)
+	sts := newTestStateTransfer(ml)
+	sts.stateDeltaRequestTimeout = 1 * time.Second
+	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
+		t.Fatalf("SyncDeltasTimeout case: %s", err)
+	}
+	if !result.wasTriggered() {
+		t.Fatalf("SyncDeltasTimeout case never simulated a timeout")
 	}
 }
 
 func TestFixChains(t *testing.T) {
-	testChain := func(length uint64, description string) {
-		ml := newMockLedger(nil)
+	testChain := func(ml *mockLedger, length uint64, description string) {
 		ml.putBlock(length, simpleGetBlock(length))
 		sts := threadlessNewStateTransferState(
 			&pbftCore{
@@ -195,7 +255,14 @@ func TestFixChains(t *testing.T) {
 		}
 	}
 
-	testChain(7, "Short")
+	testChain(newMockLedger(nil), 7, "Short")
 
-	testChain(700, "Long")
+	testChain(newMockLedger(nil), 700, "Long")
+
+	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
+	testChain(newMockLedger(filter), 7, "Short Timeout")
+	if !result.wasTriggered() {
+		t.Fatalf("TestFixChains case never simulated a timeout")
+	}
+
 }

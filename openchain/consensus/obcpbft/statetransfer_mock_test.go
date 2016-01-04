@@ -28,24 +28,43 @@ import (
 	"github.com/openblockchain/obc-peer/protos"
 )
 
+type mockRequest int
+
+const (
+	SyncDeltas mockRequest = iota
+	SyncBlocks
+	SyncSnapshot
+)
+
+type mockResponse int
+
+const (
+	Normal  mockResponse = iota
+	Corrupt              // TODO implement
+	Timeout
+)
+
 type mockLedger struct {
+	cleanML             *mockLedger
 	blocks              map[uint64]*protos.Block
 	state               [][]byte
 	remoteStateBlock    uint64
 	stateDeltasPerBlock uint64
-	timeoutReplicas     map[uint64]bool
+	filter              func(request mockRequest, replicaId uint64) mockResponse
 }
 
-func newMockLedger(timeoutReplicas map[uint64]bool) *mockLedger {
+func newMockLedger(filter func(request mockRequest, replicaId uint64) mockResponse) *mockLedger {
 	mock := &mockLedger{}
 	mock.blocks = make(map[uint64]*protos.Block)
 	mock.state = make([][]byte, 0)
 	mock.remoteStateBlock = uint64(0)
 	mock.stateDeltasPerBlock = uint64(3)
-	if nil == timeoutReplicas {
-		mock.timeoutReplicas = make(map[uint64]bool)
+	if nil == filter {
+		mock.filter = func(request mockRequest, replicaId uint64) mockResponse {
+			return Normal
+		}
 	} else {
-		mock.timeoutReplicas = timeoutReplicas
+		mock.filter = filter
 	}
 	return mock
 }
@@ -78,10 +97,42 @@ func (mock *mockLedger) hashBlock(block *protos.Block) ([]byte, error) {
 	return []byte(strconv.FormatUint(previousBlockAsUint64+uint64(1), 10)), nil
 }
 
+func (mock *mockLedger) forceRemoteStateBlock(blockNumber uint64) {
+	mock.remoteStateBlock = blockNumber
+}
+
+func simpleGetStateHash(blockNumber uint64) []byte {
+	ml := newMockLedger(nil)
+	ml.forceRemoteStateBlock(blockNumber)
+	syncStateMessages, _ := ml.getRemoteStateSnapshot(uint64(0)) // Note in this implementation of the interface, this call never returns err
+	for syncStateMessage := range syncStateMessages {
+		ml.applyStateDelta(syncStateMessage.Delta, false)
+	}
+	return ml.getCurrentStateHash()
+}
+
+func simpleGetBlockHash(blockNumber uint64) []byte {
+	block := &protos.Block{
+		PreviousBlockHash: []byte(strconv.FormatUint(blockNumber-uint64(1), 10)),
+	}
+	res, _ := newMockLedger(nil).hashBlock(block) // In this implementation, this call will never return err
+	return res
+}
+
+func simpleGetBlock(blockNumber uint64) *protos.Block {
+	blockMessages, _ := newMockLedger(nil).getRemoteBlocks(0, blockNumber, blockNumber) // In this implementation, this call will never return err
+
+	for blockMessage := range blockMessages {
+		return blockMessage.Blocks[0]
+	}
+	return nil // unreachable
+}
+
 func (mock *mockLedger) getRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
 	res := make(chan *protos.SyncBlocks)
-
-	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
+	ft := mock.filter(SyncBlocks, replicaId)
+	switch ft {
+	case Normal:
 		go func() {
 			current := start
 			for {
@@ -110,47 +161,20 @@ func (mock *mockLedger) getRemoteBlocks(replicaId uint64, start, finish uint64) 
 			}
 			close(res)
 		}()
+	case Timeout:
+	default:
+		return nil, fmt.Errorf("Unsupported filter result %d", ft)
 	}
+
 	return res, nil
-}
-
-func (mock *mockLedger) forceRemoteStateBlock(blockNumber uint64) {
-	mock.remoteStateBlock = blockNumber
-}
-
-func simpleGetStateHash(blockNumber uint64) []byte {
-	ml := newMockLedger(nil)
-	ml.forceRemoteStateBlock(blockNumber)
-	syncStateMessages, _ := ml.getRemoteStateSnapshot(uint64(0)) // Note in this implementation of the interface, this call never returns err
-	for syncStateMessage := range syncStateMessages {
-		ml.applyStateDelta(syncStateMessage.Delta, false)
-	}
-	return ml.getCurrentStateHash()
-}
-
-func simpleGetBlockHash(blockNumber uint64) []byte {
-	ml := &mockLedger{}
-	block := &protos.Block{
-		PreviousBlockHash: []byte(strconv.FormatUint(blockNumber-uint64(1), 10)),
-	}
-	res, _ := ml.hashBlock(block) // In this implementation, this call will never return err
-	return res
-}
-
-func simpleGetBlock(blockNumber uint64) *protos.Block {
-	ml := &mockLedger{}
-	blockMessages, _ := ml.getRemoteBlocks(0, blockNumber, blockNumber) // In this implementation, this call will never return err
-
-	for blockMessage := range blockMessages {
-		return blockMessage.Blocks[0]
-	}
-	return nil // unreachable
 }
 
 func (mock *mockLedger) getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error) {
 	res := make(chan *protos.SyncStateSnapshot)
-	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
-		rds, err := mock.getRemoteStateDeltas(uint64(0), 0, mock.remoteStateBlock)
+	ft := mock.filter(SyncSnapshot, replicaId)
+	switch ft {
+	case Normal:
+		rds, err := (newMockLedger(nil)).getRemoteStateDeltas(uint64(0), 0, mock.remoteStateBlock)
 		if nil != err {
 			return nil, err
 		}
@@ -169,13 +193,18 @@ func (mock *mockLedger) getRemoteStateSnapshot(replicaId uint64) (<-chan *protos
 			}
 			close(res)
 		}()
+	case Timeout:
+	default:
+		return nil, fmt.Errorf("Unsupported filter result %d", ft)
 	}
 	return res, nil
 }
 
 func (mock *mockLedger) getRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
 	res := make(chan *protos.SyncStateDeltas)
-	if _, ok := mock.timeoutReplicas[replicaId]; !ok {
+	ft := mock.filter(SyncDeltas, replicaId)
+	switch ft {
+	case Normal:
 		go func() {
 			current := start
 			for {
@@ -202,6 +231,9 @@ func (mock *mockLedger) getRemoteStateDeltas(replicaId uint64, start, finish uin
 			}
 			close(res)
 		}()
+	case Timeout:
+	default:
+		return nil, fmt.Errorf("Unsupported filter result %d", ft)
 	}
 	return res, nil
 }

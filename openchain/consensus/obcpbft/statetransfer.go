@@ -192,8 +192,9 @@ func (sts *stateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 	startIndex := uint64(rand.Int() % sts.pbft.replicaCount)
 	if nil == replicaIds {
 		for i := 0; i < sts.pbft.replicaCount; i++ {
+			index := (uint64(i) + startIndex) % uint64(sts.pbft.replicaCount)
 			// TODO, this is broken, need some way to get a list of all replicaIds, cannot assume they are sequential from 0
-			err = do(uint64(0))
+			err = do(index)
 			if err == nil {
 				break
 			} else {
