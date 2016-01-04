@@ -130,9 +130,9 @@ type stateTransferState struct {
 	blockSyncReq      chan *blockSyncReq    // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 	completeStateSync chan uint64           // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 
-	blockRequestTimeout      time.Duration // How long to wait for a replica to respond to a block request
-	stateDeltaRequestTimeout time.Duration // How long to wait for a replica to respond to a block request
-	stateSyncRequestTimeout  time.Duration // How long to wait for a replica to respond to a block request
+	blockRequestTimeout         time.Duration // How long to wait for a replica to respond to a block request
+	stateDeltaRequestTimeout    time.Duration // How long to wait for a replica to respond to a state delta request
+	stateSnapshotRequestTimeout time.Duration // How long to wait for a replica to respond to a state snapshot request
 
 }
 
@@ -144,7 +144,7 @@ func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger
 
 	sts.OutOfDate = false
 
-	sts.recoverDamage = config.GetBool("stateTransfer.recoverDamage")
+	sts.recoverDamage = config.GetBool("stateTransfer.recoverdamage")
 
 	sts.hChkpts = make(map[uint64]uint64)
 
@@ -169,7 +169,7 @@ func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singlestatedelta timeout: %s", err))
 	}
-	sts.stateSyncRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.fullstate"))
+	sts.stateSnapshotRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.fullstate"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.fullstate timeout: %s", err))
 	}
@@ -268,6 +268,14 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 					}
 
 					logger.Debug("Replica %d putting block %d to with PreviousBlockHash %x and StateHash %x", sts.pbft.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+
+					if !sts.recoverDamage {
+						// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
+						if oldBlock, err := sts.ledger.getBlock(blockCursor); err == nil && oldBlock != nil {
+							panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
+						}
+					}
+
 					sts.ledger.putBlock(blockCursor, block)
 
 					validBlockHash = block.PreviousBlockHash
@@ -285,7 +293,11 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 		}
 	})
 
-	logger.Debug("Replica %d returned from sync with block %d and hash %x", sts.pbft.id, blockCursor, block.StateHash)
+	if nil != block {
+		logger.Debug("Replica %d returned from sync with block %d and hash %x", sts.pbft.id, blockCursor, block.StateHash)
+	} else {
+		logger.Debug("Replica %d returned from sync with no new blocks", sts.pbft.id)
+	}
 
 	return blockCursor, block, err
 
@@ -298,10 +310,12 @@ func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 	blockchainSize := sts.ledger.getBlockchainSize()
 
 	if blockSyncReq.blockNumber < blockchainSize {
-		// TODO this is a troubling scenario, we think we're out of date, but we just got asked to sync to a block that's older than our current chain
-		// this could be malicious behavior from byzantine nodes attempting to slow the network down, but we should still catch up
-		// XXX For now, unimplemented because we have no way to delete blocks
-		panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
+		if !sts.recoverDamage {
+			panic("The blockchain height is higher than advertised by consensus, the configuration has specified that bad blocks should not be deleted/overridden, so we cannot proceed")
+		} else {
+			// TODO For now, unimplemented because we have no way to delete blocks
+			panic("Our blockchain is already higher than a sync target, this is unlikely, but unimplemented")
+		}
 	} else {
 
 		blockNumber, block, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.replicaIds)
@@ -618,7 +632,7 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 			return err
 		}
 
-		timer := time.NewTimer(sts.stateSyncRequestTimeout)
+		timer := time.NewTimer(sts.stateSnapshotRequestTimeout)
 
 		for {
 			select {

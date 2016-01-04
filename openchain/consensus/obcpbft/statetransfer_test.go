@@ -87,7 +87,7 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 	}()
 
 	select {
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 2):
 		return fmt.Errorf("Timed out waiting for state to catch up, error in state transfer")
 	case <-sts.completeStateSync:
 		// Do nothing, continue the test
@@ -167,7 +167,7 @@ func TestCatchupSyncBlocksTimeout(t *testing.T) {
 
 	ml.putBlock(0, simpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
-	sts.blockRequestTimeout = 1 * time.Second
+	sts.blockRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncSnapshotTimeout case: %s", err)
 	}
@@ -193,7 +193,7 @@ func TestCatchupSyncSnapshotTimeout(t *testing.T) {
 	ml := newMockLedger(filter)
 	ml.putBlock(4, simpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
-	sts.stateSyncRequestTimeout = 1 * time.Second
+	sts.stateSnapshotRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncSnapshotTimeout case: %s", err)
 	}
@@ -209,7 +209,7 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	ml := newMockLedger(filter)
 	ml.putBlock(4, simpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
-	sts.stateDeltaRequestTimeout = 1 * time.Second
+	sts.stateDeltaRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncDeltasTimeout case: %s", err)
 	}
@@ -218,51 +218,129 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	}
 }
 
-func TestFixChains(t *testing.T) {
-	testChain := func(ml *mockLedger, length uint64, description string) {
-		ml.putBlock(length, simpleGetBlock(length))
-		sts := threadlessNewStateTransferState(
-			&pbftCore{
-				replicaCount:    4,
-				id:              uint64(0),
-				h:               uint64(0),
-				K:               uint64(2),
-				L:               uint64(4),
-				f:               int(1),
-				checkpointStore: make(map[*Checkpoint]bool),
-			},
-			readConfig(),
-			ml,
-		)
+func executeBlockRecovery(ml *mockLedger, millisTimeout int) error {
+	sts := threadlessNewStateTransferState(
+		&pbftCore{
+			replicaCount:    4,
+			id:              uint64(0),
+			h:               uint64(0),
+			K:               uint64(2),
+			L:               uint64(4),
+			f:               int(1),
+			checkpointStore: make(map[*Checkpoint]bool),
+		},
+		readConfig(),
+		ml,
+	)
+	sts.blockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
+	sts.recoverDamage = true
 
-		w := make(chan struct{})
+	w := make(chan struct{})
 
-		go func() {
-			for !sts.verifyAndRecoverBlockchain() {
-			}
-			w <- struct{}{}
-		}()
-
-		select {
-		case <-time.After(time.Second * 5):
-			t.Fatalf("Timed out waiting for blocks to replicate for %s blockchain", description)
-		case <-w:
-			// Do nothing, continue the test
+	go func() {
+		for !sts.verifyAndRecoverBlockchain() {
 		}
+		w <- struct{}{}
+	}()
 
-		if n, err := ml.verifyBlockChain(7, 0); 0 != n || nil != err {
-			t.Fatalf("%s blockchain claims to be up to date, but does not verify", description)
+	select {
+	case <-time.After(time.Second * 2):
+		fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
+	case <-w:
+		// Do nothing, continue the test
+	}
+
+	if n, err := ml.verifyBlockChain(7, 0); 0 != n || nil != err {
+		fmt.Errorf("Blockchain claims to be up to date, but does not verify")
+	}
+
+	return nil
+}
+
+func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
+	sts := threadlessNewStateTransferState(
+		&pbftCore{
+			replicaCount:    4,
+			id:              uint64(0),
+			h:               uint64(0),
+			K:               uint64(2),
+			L:               uint64(4),
+			f:               int(1),
+			checkpointStore: make(map[*Checkpoint]bool),
+		},
+		readConfig(),
+		ml,
+	)
+	sts.blockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
+	sts.recoverDamage = false
+
+	w := make(chan bool)
+
+	go func() {
+		defer func() {
+			recover()
+			w <- true
+		}()
+		for !sts.verifyAndRecoverBlockchain() {
+		}
+		w <- false
+	}()
+
+	select {
+	case <-time.After(time.Second * 2):
+		fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
+	case didPanic := <-w:
+		// Do nothing, continue the test
+		if !didPanic {
+			fmt.Errorf("Blockchain was supposed to panic on modification, but did not")
 		}
 	}
 
-	testChain(newMockLedger(nil), 7, "Short")
+	return nil
+}
 
-	testChain(newMockLedger(nil), 700, "Long")
+func TestCatchupLaggingChains(t *testing.T) {
+	ml := newMockLedger(nil)
+	ml.putBlock(7, simpleGetBlock(7))
+	if err := executeBlockRecovery(ml, 10); nil != err {
+		t.Fatalf("TestCatchupLaggingChains short chain failure: %s", err)
+	}
+
+	ml = newMockLedger(nil)
+	ml.putBlock(700, simpleGetBlock(700))
+	// Use a large timeout here because the mock ledger is slow for large blocks
+	if err := executeBlockRecovery(ml, 1000); nil != err {
+		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
+	}
 
 	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
-	testChain(newMockLedger(filter), 7, "Short Timeout")
+	ml = newMockLedger(filter)
+	ml.putBlock(7, simpleGetBlock(7))
+	if err := executeBlockRecovery(ml, 10); nil != err {
+		t.Fatalf("TestCatchupLaggingChains short chain with timeout failure: %s", err)
+	}
 	if !result.wasTriggered() {
-		t.Fatalf("TestFixChains case never simulated a timeout")
+		t.Fatalf("TestCatchupLaggingChains short chain with timeout never simulated a timeout")
+	}
+}
+
+func TestCatchupCorruptChains(t *testing.T) {
+	ml := newMockLedger(nil)
+	ml.putBlock(7, simpleGetBlock(7))
+	ml.putBlock(3, simpleGetBlock(2))
+	if err := executeBlockRecovery(ml, 10); nil != err {
+		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
 	}
 
+	ml = newMockLedger(nil)
+	ml.putBlock(7, simpleGetBlock(7))
+	ml.putBlock(3, simpleGetBlock(2))
+	defer func() {
+		fmt.Println("Executing defer")
+		// We expect a panic, this is great
+		recover()
+	}()
+	if err := executeBlockRecoveryWithPanic(ml, 10); nil != err {
+		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
+	}
 }
