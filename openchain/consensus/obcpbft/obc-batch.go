@@ -144,6 +144,19 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(ocMsg)
 }
 
+// send a message to a specific replica
+func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := op.cpi.GetReplicaHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
 // verify checks whether the request is valid
 func (op *obcBatch) verify(txRaw []byte) error {
 	// TODO verify transaction
@@ -206,6 +219,35 @@ func (op *obcBatch) viewChange(curView uint64) {
 	if op.batchTimerActive {
 		op.stopBatchTimer()
 	}
+}
+
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (op *obcBatch) fetchRequest(digest string) error {
+	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
+	}
+	op.broadcast(msgPacked)
+	return nil
+}
+
+// returns the state hash that corresponds to a specific block in the chain
+// if called with no arguments, it returns the latest/temp state hash
+func (op *obcBatch) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
+	if len(blockNumber) == 0 {
+		return op.cpi.GetCurrentStateHash()
+	}
+
+	block, err := op.cpi.GetBlock(blockNumber[0])
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
+	}
+	stateHash, err = block.GetHash()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
+	}
+	return
 }
 
 // =============================================================================

@@ -44,8 +44,8 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
 	config := readConfig()
-	addr, _, _ := cpi.GetReplicaHash()
-	id, _ := cpi.GetReplicaID(addr)
+	handle, _, _ := cpi.GetNetworkHandles()
+	id, _ := cpi.GetReplicaID(handle)
 
 	switch config.GetString("general.mode") {
 	case "classic":
@@ -70,7 +70,7 @@ func readConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("./openchain/consensus/obc-pbft/")
+	config.AddConfigPath("./openchain/consensus/obcpbft/")
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))

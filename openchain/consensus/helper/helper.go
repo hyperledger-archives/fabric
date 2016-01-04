@@ -20,7 +20,11 @@ under the License.
 package helper
 
 import (
+	"encoding/base64"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -54,67 +58,83 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 // Stack-facing implementation goes here
 // =============================================================================
 
-// GetReplicaHash returns the crypto IDs of the current replica and the whole network
-// TODO func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
-// ATTN: Until the crypto package is integrated, this functions returns
-// the <IP:port>s of the current replica and the whole network instead
-func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
-	// v, _ := h.coordinator.GetValidator()
-	// self = v.GetID()
-	peer, err := peer.GetPeerEndpoint()
-	if err != nil {
-		return "", nil, err
+// GetNetworkHandles returns the handles (MVP: hashed raw enrollment certificates) of the current replica and the whole network of VPs
+func (h *Helper) GetNetworkHandles() (self string, network []string, err error) {
+	if viper.GetBool("security.enabled") {
+		self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
+		network = viper.GetStringSlice("peer.validator.replicas.handles")
+	} else { // when we don't have a fixed list in the config file
+		ep, err := h.coordinator.GetPeerEndpoint()
+		if err != nil {
+			return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
+		}
+		self = ep.ID.Name
+		peersMsg, err := h.coordinator.GetPeers()
+		if err != nil {
+			return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+		}
+		peers := peersMsg.GetPeers()
+		for _, endpoint := range peers {
+			if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
+				network = append(network, endpoint.ID.Name)
+			}
+		}
+		network = append(network, self)
+		sort.Strings(network)
 	}
-	self = peer.Address
-
-	config := viper.New()
-	config.SetConfigName("openchain")
-	config.AddConfigPath("./")
-	err = config.ReadInConfig()
-	if err != nil {
-		err = fmt.Errorf("Fatal error reading root config: %s", err)
-		return self, nil, err
-	}
-
-	// encodedHashes := config.GetStringSlice("peer.validator.replicas.hashes")
-	/* network = make([][]byte, len(encodedHashes))
-	for i, v := range encodedHashes {
-		network[i], _ = base64.StdEncoding.DecodeString(v)
-	} */
-	network = config.GetStringSlice("peer.validator.replicas.ips")
-
 	return self, network, nil
 }
 
-// GetReplicaID returns the uint handle corresponding to a replica address
-// TODO func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
-func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
-	_, network, err := h.GetReplicaHash()
+// GetReplicaHandle returns the handle that corresponds to a replica ID (uin64 assigned to it for PBFT)
+func (h *Helper) GetReplicaHandle(id uint64) (handle string, err error) {
+	_, network, err := h.GetNetworkHandles()
 	if err != nil {
-		return uint64(0), err
+		return
+	}
+	if int(id) > (len(network) - 1) {
+		return handle, fmt.Errorf("Replica ID is out of bounds")
+	}
+	return network[int(id)], nil
+}
+
+// GetReplicaID returns the uint handle corresponding to a replica handle
+func (h *Helper) GetReplicaID(handle string) (id uint64, err error) {
+	// if the handle starts with "vp*", short-circuit the function
+	// consider this our debugging mode for when we don't have a fixed VP list
+	// and want to instantiate the Consenter with the proper ID
+	if startsWith := strings.HasPrefix(handle, "vp"); startsWith {
+		id, err = strconv.ParseUint(handle[2:], 10, 64)
+		if err != nil {
+			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle, err)
+		}
+		return
+	}
+
+	_, network, err := h.GetNetworkHandles()
+	if err != nil {
+		return
 	}
 	for i, v := range network {
-		// if bytes.Equal(v, hash) {
-		if v == addr {
+		if v == handle {
 			return uint64(i), nil
 		}
 	}
-
-	//err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
-	err = fmt.Errorf("Couldn't find IP:port in list of VP addresses given in config")
-	return uint64(0), err
+	err = fmt.Errorf("Couldn't find handle in list of VP handles")
+	return
 }
 
 // Broadcast sends a message to all validating peers.
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-	_ = h.coordinator.Broadcast(msg) // TODO process the errors
+	errors := h.coordinator.Broadcast(msg)
+	if len(errors) > 0 {
+		return fmt.Errorf("Couldn't broadcast successfully")
+	}
 	return nil
 }
 
 // Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
-	// TODO Call a function in the comms layer; wait for Jeff's implementation.
-	return nil
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle string) error {
+	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
 // BeginTxBatch gets invoked when the next round of transaction-batch
@@ -122,10 +142,10 @@ func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.BeginTxBatch(id); err != nil {
-		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
 	return nil
 }
@@ -145,10 +165,10 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.CommitTxBatch(id, transactions, proof); err != nil {
-		return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
+		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil
 }
@@ -158,10 +178,28 @@ func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, p
 func (h *Helper) RollbackTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	if err := ledger.RollbackTxBatch(id); err != nil {
-		return fmt.Errorf("Fail to rollback transaction with the ledger: %v", err)
+		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
 	return nil
+}
+
+// GetBlock returns a block from the chain
+func (h *Helper) GetBlock(blockNumber uint64) (block *pb.Block, err error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.GetBlockByNumber(blockNumber)
+}
+
+// GetCurrentStateHash returns the current/temporary state hash
+func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.GetTempStateHash()
 }

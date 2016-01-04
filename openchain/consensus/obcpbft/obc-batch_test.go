@@ -61,9 +61,6 @@ func TestNetworkBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
-	if len(net.msgs) != 1 {
-		t.Fatalf("%d message was expected to be broadcasted, got %d instead", 1, len(net.msgs))
-	}
 
 	err = net.process()
 	if err != nil {

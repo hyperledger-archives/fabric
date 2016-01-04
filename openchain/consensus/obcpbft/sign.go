@@ -107,3 +107,43 @@ func (v *Verify) setID(id []byte) {
 func (v *Verify) serialize() ([]byte, error) {
 	return proto.Marshal(v)
 }
+
+func (msg *VerifySet) getSignature() []byte {
+	return msg.Signature
+}
+
+func (msg *VerifySet) setSignature(sig []byte) {
+	msg.Signature = sig
+}
+
+func (msg *VerifySet) getID() []byte {
+	return []byte("XXX ID")
+}
+
+func (msg *VerifySet) setID(id []byte) {
+	// XXX set ID
+}
+
+func (msg *VerifySet) serialize() ([]byte, error) {
+	return proto.Marshal(msg)
+}
+
+func (msg *Flush) getSignature() []byte {
+	return msg.Signature
+}
+
+func (msg *Flush) setSignature(sig []byte) {
+	msg.Signature = sig
+}
+
+func (msg *Flush) getID() []byte {
+	return []byte("XXX ID")
+}
+
+func (msg *Flush) setID(id []byte) {
+	// XXX set ID
+}
+
+func (msg *Flush) serialize() ([]byte, error) {
+	return proto.Marshal(msg)
+}

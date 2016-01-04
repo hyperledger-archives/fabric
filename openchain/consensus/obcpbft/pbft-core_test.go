@@ -419,20 +419,21 @@ func TestNewViewTimeout(t *testing.T) {
 	})
 	defer net.close()
 
+	replica1Disabled := false
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if dst == -1 && src == 1 && replica1Disabled {
+			return nil
+		}
+		return msg
+	}
+
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
 	msgPacked, _ := proto.Marshal(msg)
 
-	replica1Disabled := false
-
-	go net.processContinually(func(out bool, replica int, msg []byte) []byte {
-		if out && replica == 1 && replica1Disabled {
-			return nil
-		}
-		return msg
-	})
+	go net.processContinually()
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself

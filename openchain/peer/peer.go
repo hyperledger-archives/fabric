@@ -20,6 +20,7 @@ under the License.
 package peer
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -85,6 +86,7 @@ type MessageHandlerCoordinator interface {
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
+	Unicast(*pb.OpenchainMessage, string) error
 	GetPeers() (*pb.PeersMessage, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
@@ -125,28 +127,42 @@ func GetLocalIP() string {
 	return ""
 }
 
-// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
-func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	var peerAddress string
-	var peerType pb.PeerEndpoint_Type
+// GetLocalAddress returns the address:port the local peer is operating on.  Affected by env:peer.addressAutoDetect
+func GetLocalAddress() (peerAddress string, err error) {
 	if viper.GetBool("peer.addressAutoDetect") {
 		// Need to get the port from the peer.address setting, and append to the determined host IP
 		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
 		if err != nil {
-			return nil, fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			err = fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			return "", err
 		}
 		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		peerLogger.Warning("AutoDetected Peer address: %s", peerAddress)
+		peerLogger.Info("Auto detected peer address: %s", peerAddress)
 	} else {
 		peerAddress = viper.GetString("peer.address")
+	}
+	return
+}
+
+// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
+func GetPeerEndpoint(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	var peerAddress, peerID string
+	var peerType pb.PeerEndpoint_Type
+	peerAddress, err := GetLocalAddress()
+	if err != nil {
+		return nil, err
+	}
+	if viper.GetBool("security.enabled") && len(opts) > 0 {
+		peerID = base64.StdEncoding.EncodeToString(opts[0].(crypto.Peer).GetID())
+	} else {
+		peerID = viper.GetString("peer.id")
 	}
 	if viper.GetBool("peer.validator.enabled") {
 		peerType = pb.PeerEndpoint_VALIDATOR
 	} else {
 		peerType = pb.PeerEndpoint_NON_VALIDATOR
 	}
-	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
-
+	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: peerID}, Address: peerAddress, Type: peerType}, nil
 }
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -221,6 +237,7 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 			if nil != err {
 				return nil, err
 			}
+			peerLogger.Debug("Validator's crypto-ID is: %s", base64.StdEncoding.EncodeToString(peer.secHelper.GetID()))
 		} else {
 			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
@@ -266,9 +283,15 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 
 // PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
 func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
+	var thisPeersEndpoint *pb.PeerEndpoint
+	var err error
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
-	thisPeersEndpoint, err := GetPeerEndpoint()
+	if viper.GetBool("security.enabled") {
+		thisPeersEndpoint, err = GetPeerEndpoint(p.secHelper)
+	} else {
+		thisPeersEndpoint, err = GetPeerEndpoint()
+	}
 	if err != nil {
 		return fmt.Errorf("Error in processing PeersDiscovered: %s", err)
 	}
@@ -335,7 +358,8 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	var errorsFromHandlers []error
-	for _, msgHandler := range p.handlerMap.m {
+	for key, msgHandler := range p.handlerMap.m {
+		peerLogger.Debug("Key: %s", key)
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()
@@ -343,6 +367,19 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 		}
 	}
 	return errorsFromHandlers
+}
+
+// Unicast sends a message to a specific peer (PeerEndpoint).
+func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	msgHandler := p.handlerMap.m[receiver]
+	err := msgHandler.SendMessage(msg)
+	if err != nil {
+		toPeerEndpoint, _ := msgHandler.To()
+		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+	}
+	return nil
 }
 
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
@@ -483,23 +520,27 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
 	}
-	peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
-	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
-	if err != nil {
-		e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
-		peerLogger.Error(e.Error())
-		return e
+	for {
+		time.Sleep(1 * time.Second)
+		peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
+		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+		if err != nil {
+			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error(e.Error())
+			continue
+		}
+		serverClient := pb.NewPeerClient(conn)
+		ctx := context.Background()
+		stream, err := serverClient.Chat(ctx)
+		if err != nil {
+			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error("%s", e.Error())
+			continue
+		}
+		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
+		p.handleChat(ctx, stream, true)
+		stream.CloseSend()
 	}
-	serverClient := pb.NewPeerClient(conn)
-	ctx := context.Background()
-	stream, err := serverClient.Chat(ctx)
-	if err != nil {
-		return fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-	}
-	defer stream.CloseSend()
-	peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
-	p.handleChat(ctx, stream, true)
-	return nil
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
@@ -532,7 +573,7 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //The address to stream requests to
 func getValidatorStreamAddress() string {
-	var localaddr = viper.GetString("peer.address")
+	localaddr, _ := GetLocalAddress()
 	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
 		return localaddr
 	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
@@ -557,11 +598,20 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response 
 
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
+	if viper.GetBool("security.enabled") {
+		return GetPeerEndpoint(p.GetSecHelper())
+	}
 	return GetPeerEndpoint()
 }
 
 func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
-	endpoint, err := GetPeerEndpoint()
+	var endpoint *pb.PeerEndpoint
+	var err error
+	if viper.GetBool("security.enabled") {
+		endpoint, err = GetPeerEndpoint(p.GetSecHelper())
+	} else {
+		endpoint, err = GetPeerEndpoint()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Error creating hello message: %s", err)
 	}
@@ -578,6 +628,7 @@ func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
 	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
 }
 
+// GetStateSnapshot ...
 func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()

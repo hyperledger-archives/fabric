@@ -49,9 +49,13 @@ func init() {
 
 type innerCPI interface {
 	broadcast(msgPayload []byte)
+	unicast(msgPayload []byte, receiverID uint64) (err error)
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
+	fetchRequest(digest string) (err error)
+
+	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
 
 type pbftCore struct {
@@ -84,6 +88,8 @@ type pbftCore struct {
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 
+	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
+
 	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
@@ -113,18 +119,6 @@ type msgCert struct {
 type vcidx struct {
 	v  uint64
 	id uint64
-}
-
-type sortableUint64Array []uint64
-
-func (a sortableUint64Array) Len() int {
-	return len(a)
-}
-func (a sortableUint64Array) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a sortableUint64Array) Less(i, j int) bool {
-	return a[i] < a[j]
 }
 
 // =============================================================================
@@ -169,22 +163,24 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
 
-	// initialize genesis checkpoint
-	// TODO load state from disk
-	instance.chkpts[0] = []byte("TODO GENESIS STATE FROM STACK")
+	// load genesis checkpoint
+	genesisBlock, err := instance.sts.getBlock(0)
+	if err != nil {
+		panic(fmt.Errorf("Cannot load genesis block: %s", err))
+	}
+	instance.chkpts[0] = genesisBlock.StateHash
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
+	instance.missingReqs = make(map[string]bool)
 
 	// initialize state transfer
 	instance.sts = newStateTransferState(instance, config, nil)
 
 	go instance.timerHander()
-
-	instance.consumer.viewChange(instance.view)
 
 	return instance
 }
@@ -345,9 +341,21 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+
+	// we're adding these receive functions here (instead of inside recvMsgSync)
+	// because we want to be able to sync even when the lock is held by recvNewView
+	if fr := msg.GetFetchRequest(); fr != nil {
+		fmt.Printf("Debug: replica %v receive fetch-request\n", instance.id)
+		err = instance.recvFetchRequest(fr)
+	} else if req := msg.GetReturnRequest(); req != nil {
+		fmt.Printf("Debug: replica %v receive return-request\n", instance.id)
+		err = instance.recvReturnRequest(req)
+	} else {
+		instance.lock.Lock()
+		defer instance.lock.Unlock()
+		fmt.Printf("Debug: replica %v receive msgSync\n", instance.id)
+		instance.recvMsgSync(msg)
+	}
 
 	return nil
 }
@@ -372,7 +380,7 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 		logger.Error("%s", err)
 	}
 
-	return err
+	return
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {
@@ -484,10 +492,8 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 			prep.RequestDigest = "foo"
 		}
 
-		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
-
-		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, false)
+		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 	}
 
 	return nil
@@ -503,6 +509,13 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	}
 
 	cert := instance.getCert(prep.View, prep.SequenceNumber)
+
+	for _, prevPrep := range cert.prepare {
+		if prevPrep.ReplicaId == prep.ReplicaId {
+			logger.Warning("Ignoring duplicate prepare from %d", prep.ReplicaId)
+			return nil
+		}
+	}
 	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
@@ -529,6 +542,12 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.View, commit.SequenceNumber)
+		for _, prevCommit := range cert.commit {
+			if prevCommit.ReplicaId == commit.ReplicaId {
+				logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
+				return nil
+			}
+		}
 		cert.commit = append(cert.commit, commit)
 
 		// note that we can reach this point without
@@ -579,8 +598,9 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	// we have a commit certificate for this request
-
 	instance.lastExec = idx.n
+	instance.stopTimer()
+	instance.lastNewViewTimeout = instance.newViewTimeout
 
 	// null request
 	if digest == "" {
@@ -594,15 +614,12 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		delete(instance.outstandingReqs, digest)
 	}
 
-	instance.stopTimer()
-	instance.lastNewViewTimeout = instance.newViewTimeout
 	if len(instance.outstandingReqs) > 0 {
-		instance.newViewTimer.Reset(instance.requestTimeout)
+		instance.startTimer(instance.requestTimeout)
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		// XXX replace with instance.cpi.GetStateHash()
-		blockHashBytes := []byte("XXX get current state hash")
+		blockHashBytes := sts.ledger.getCurrentStateHash()
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 			instance.id, instance.view, instance.lastExec, base64.StdEncoding.EncodeToString(blockHashBytes))
@@ -718,6 +735,38 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	return instance.processNewView()
 }
 
+func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
+	fmt.Printf("Debug: replica %v recvFetchRequest\n", instance.id)
+	digest := fr.RequestDigest
+	if _, ok := instance.reqStore[digest]; !ok {
+		return nil // we don't have it either
+	}
+
+	req := instance.reqStore[digest]
+	msg := &Message{&Message_ReturnRequest{ReturnRequest: req}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshalling return-request message: %v", err)
+	}
+
+	receiver := fr.ReplicaId
+	err = instance.consumer.unicast(msgPacked, receiver)
+
+	return
+}
+
+func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
+	digest := hashReq(req)
+	fmt.Printf("Debug: replica %v recvReturnRequest (missing %d requests, receiving digest %v)\n", instance.id, len(instance.missingReqs), digest)
+	if _, ok := instance.missingReqs[digest]; !ok {
+		return nil // either the wrong digest, or we got it already from someone else
+	}
+
+	instance.reqStore[digest] = req
+	delete(instance.missingReqs, digest)
+	return nil
+}
+
 // =============================================================================
 // Misc. methods go here
 // =============================================================================
@@ -741,18 +790,22 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
 	instance.newViewTimer.Reset(timeout)
-	logger.Debug("Replica %d started the newView timer", instance.id)
+	logger.Debug("Replica %d starting new view timer for %s",
+		instance.id, timeout)
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
 	// remove timeouts that may have raced, to prevent additional view change
 	instance.newViewTimer.Stop()
-	logger.Debug("Replica %d stopped the newView timer", instance.id)
+	logger.Debug("Replica %d stopping new view timer", instance.id)
 	instance.timerActive = false
 	if instance.closed {
 		return
 	}
+	// XXX draining here does not help completely, because the
+	// timer handler goroutine may already have consumed the
+	// timeout and now is blocked on Lock()
 loopNewView:
 	for {
 		select {

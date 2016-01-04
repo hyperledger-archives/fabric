@@ -90,7 +90,7 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
+func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func(opts ...interface{}) (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
 	//we need to pass chainname when we do multiple chains...till then use DefaultChain
 	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
 
@@ -113,7 +113,7 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 
 	s.userRunsCC = userrunsCC
 
-	s.ccStartupTimeout = ccstartuptimeout
+	s.ccStartupTimeout = ccstartuptimeout * time.Millisecond
 
 	//TODO I'm not sure if this needs to be on a per chain basis... too lowel and just needs to be a global default ?
 	s.chaincodeInstallPath = chaincodeInstallPathDefault

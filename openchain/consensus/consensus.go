@@ -29,14 +29,18 @@ type Consenter interface {
 // CPI (Consensus Programming Interface) is the set of
 // stack-facing methods available to the consensus plugin
 type CPI interface {
-	GetReplicaHash() (self string, network []string, err error)
-	GetReplicaID(addr string) (id uint64, err error)
+	GetNetworkHandles() (self string, network []string, err error)
+	GetReplicaHandle(id uint64) (handle string, err error)
+	GetReplicaID(handle string) (id uint64, err error)
 
 	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msgPayload []byte, receiver string) error
+	Unicast(msg *pb.OpenchainMessage, receiverHandle string) error
 
 	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
+
+	GetBlock(id uint64) (block *pb.Block, err error)
+	GetCurrentStateHash() (stateHash []byte, err error)
 }
