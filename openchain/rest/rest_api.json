@@ -377,24 +377,6 @@
                 }
             }
         },
-        "ChaincodeDeploymentSpec": {
-            "type": "object",
-            "properties": {
-                "chaincodeSpec": {
-                    "$ref": "#/definitions/ChaincodeSpec",
-                    "description": "Chaincode specification message."
-                },
-                "effectiveDate": {
-                    "type": "string",
-                    "description": "Time of Chaincode creation/activation."
-                },
-                "codePackage": {
-                    "type": "string",
-                    "format": "bytes",
-                    "description": "Compiled Chaincode package."
-                }
-            }
-        },
         "ChaincodeInvocationSpec": {
             "type": "object",
             "properties": {
