@@ -500,6 +500,11 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	// Deploy the ChaincodeSpec
 	_, err = s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
@@ -628,6 +633,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	// Invoke the chainCode
 	_, err = s.devops.Invoke(context.Background(), &spec)
 	if err != nil {
@@ -754,6 +764,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	}
+
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Query the chainCode
