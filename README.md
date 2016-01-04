@@ -93,7 +93,7 @@ The available log levels in order of increasing verbosity are: *CRITICAL | ERROR
 ## Generating grpc code
 If you modify ant .proto files, run the following command to generate new .pb.go files.
 ```
-/obc-dev-env/compile_protos.sh
+/openchain/obc-dev-env/compile_protos.sh
 ```
 
 ## Adding or updating a Go packages
