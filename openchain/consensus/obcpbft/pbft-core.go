@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/util"
 
 	"github.com/golang/protobuf/proto"
@@ -54,8 +55,6 @@ type innerCPI interface {
 	execute(txRaw []byte)
 	viewChange(curView uint64)
 	fetchRequest(digest string) (err error)
-
-	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
 
 type pbftCore struct {
@@ -125,7 +124,7 @@ type vcidx struct {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.Ledger) *pbftCore {
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
@@ -163,8 +162,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
 
+	// initialize state transfer
+	instance.sts = newStateTransferState(instance, config, ledger)
+
 	// load genesis checkpoint
-	genesisBlock, err := instance.sts.getBlock(0)
+	genesisBlock, err := instance.sts.ledger.GetBlock(0)
 	if err != nil {
 		panic(fmt.Errorf("Cannot load genesis block: %s", err))
 	}
@@ -176,9 +178,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
-
-	// initialize state transfer
-	instance.sts = newStateTransferState(instance, config, nil)
 
 	go instance.timerHander()
 
@@ -619,7 +618,12 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		blockHashBytes := sts.ledger.getCurrentStateHash()
+		blockHashBytes, err := instance.sts.ledger.GetCurrentStateHash()
+
+		if nil != err {
+			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
+			panic(fmt.Errorf("Replica %d could not compute its own state hash, this indicates an irrecoverable situation: %s", instance.id, err))
+		}
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 			instance.id, instance.view, instance.lastExec, base64.StdEncoding.EncodeToString(blockHashBytes))

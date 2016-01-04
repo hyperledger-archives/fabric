@@ -93,17 +93,17 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 		// Do nothing, continue the test
 	}
 
-	if sts.ledger.getBlockchainSize() != blockNumber+1 {
-		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, sts.ledger.getBlockchainSize())
+	if sts.ledger.GetBlockchainSize() != blockNumber+1 {
+		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, sts.ledger.GetBlockchainSize())
 	}
 
-	block, err := sts.ledger.getBlock(blockNumber)
+	block, err := sts.ledger.GetBlock(blockNumber)
 
 	if nil != err {
 		return fmt.Errorf("Error retrieving last block in the mock chain.")
 	}
 
-	if !bytes.Equal(sts.ledger.getCurrentStateHash(), block.StateHash) {
+	if stateHash, _ := sts.ledger.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
 		return fmt.Errorf("Current state does not validate against the latest block.")
 	}
 
@@ -125,7 +125,7 @@ func (res filterResult) wasTriggered() bool {
 func makeSimpleFilter(failureTrigger mockRequest, failureType mockResponse) (func(mockRequest, uint64) mockResponse, *filterResult) {
 	res := &filterResult{triggered: false, mutex: &sync.Mutex{}}
 	return func(request mockRequest, replicaId uint64) mockResponse {
-		fmt.Println("Received a request", request, "for replicaId", replicaId)
+		//fmt.Println("Received a request", request, "for replicaId", replicaId)
 		if request != failureTrigger {
 			return Normal
 		}
@@ -139,7 +139,7 @@ func makeSimpleFilter(failureTrigger mockRequest, failureType mockResponse) (fun
 		}
 
 		if replicaId == res.replica {
-			fmt.Println("Failing it with", failureType)
+			//fmt.Println("Failing it with", failureType)
 			return failureType
 		}
 		return Normal
@@ -151,7 +151,7 @@ func TestCatchupSimple(t *testing.T) {
 
 	// Test from blockheight of 1, with valid genesis block
 	ml := newMockLedger(nil)
-	ml.putBlock(0, simpleGetBlock(0))
+	ml.PutBlock(0, simpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("Simplest case: %s", err)
@@ -165,7 +165,7 @@ func TestCatchupSyncBlocksTimeout(t *testing.T) {
 	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
 	ml := newMockLedger(filter)
 
-	ml.putBlock(0, simpleGetBlock(0))
+	ml.PutBlock(0, simpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
 	sts.blockRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
@@ -179,7 +179,7 @@ func TestCatchupSyncBlocksTimeout(t *testing.T) {
 func TestCatchupMissingEarlyChain(t *testing.T) {
 	// Test from blockheight of 5 (with missing blocks 0-3)
 	ml := newMockLedger(nil)
-	ml.putBlock(4, simpleGetBlock(4))
+	ml.PutBlock(4, simpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
@@ -191,7 +191,7 @@ func TestCatchupSyncSnapshotTimeout(t *testing.T) {
 	// Timeouts of 1 second
 	filter, result := makeSimpleFilter(SyncSnapshot, Timeout)
 	ml := newMockLedger(filter)
-	ml.putBlock(4, simpleGetBlock(4))
+	ml.PutBlock(4, simpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
 	sts.stateSnapshotRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
@@ -207,7 +207,7 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	// Timeouts of 1 second
 	filter, result := makeSimpleFilter(SyncDeltas, Timeout)
 	ml := newMockLedger(filter)
-	ml.putBlock(4, simpleGetBlock(4))
+	ml.PutBlock(4, simpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
 	sts.stateDeltaRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
@@ -250,7 +250,7 @@ func executeBlockRecovery(ml *mockLedger, millisTimeout int) error {
 		// Do nothing, continue the test
 	}
 
-	if n, err := ml.verifyBlockChain(7, 0); 0 != n || nil != err {
+	if n, err := ml.VerifyBlockchain(7, 0); 0 != n || nil != err {
 		fmt.Errorf("Blockchain claims to be up to date, but does not verify")
 	}
 
@@ -301,13 +301,13 @@ func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
 
 func TestCatchupLaggingChains(t *testing.T) {
 	ml := newMockLedger(nil)
-	ml.putBlock(7, simpleGetBlock(7))
+	ml.PutBlock(7, simpleGetBlock(7))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupLaggingChains short chain failure: %s", err)
 	}
 
 	ml = newMockLedger(nil)
-	ml.putBlock(700, simpleGetBlock(700))
+	ml.PutBlock(700, simpleGetBlock(700))
 	// Use a large timeout here because the mock ledger is slow for large blocks
 	if err := executeBlockRecovery(ml, 1000); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
@@ -315,7 +315,7 @@ func TestCatchupLaggingChains(t *testing.T) {
 
 	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
 	ml = newMockLedger(filter)
-	ml.putBlock(7, simpleGetBlock(7))
+	ml.PutBlock(7, simpleGetBlock(7))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupLaggingChains short chain with timeout failure: %s", err)
 	}
@@ -326,17 +326,17 @@ func TestCatchupLaggingChains(t *testing.T) {
 
 func TestCatchupCorruptChains(t *testing.T) {
 	ml := newMockLedger(nil)
-	ml.putBlock(7, simpleGetBlock(7))
-	ml.putBlock(3, simpleGetBlock(2))
+	ml.PutBlock(7, simpleGetBlock(7))
+	ml.PutBlock(3, simpleGetBlock(2))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
 	}
 
 	ml = newMockLedger(nil)
-	ml.putBlock(7, simpleGetBlock(7))
-	ml.putBlock(3, simpleGetBlock(2))
+	ml.PutBlock(7, simpleGetBlock(7))
+	ml.PutBlock(3, simpleGetBlock(2))
 	defer func() {
-		fmt.Println("Executing defer")
+		//fmt.Println("Executing defer")
 		// We expect a panic, this is great
 		recover()
 	}()

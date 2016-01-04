@@ -46,7 +46,7 @@ type obcBatch struct {
 func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	var err error
 	op := &obcBatch{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = newPbftCore(id, config, op, cpi)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
@@ -230,24 +230,6 @@ func (op *obcBatch) fetchRequest(digest string) error {
 	}
 	op.broadcast(msgPacked)
 	return nil
-}
-
-// returns the state hash that corresponds to a specific block in the chain
-// if called with no arguments, it returns the latest/temp state hash
-func (op *obcBatch) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	if len(blockNumber) == 0 {
-		return op.cpi.GetCurrentStateHash()
-	}
-
-	block, err := op.cpi.GetBlock(blockNumber[0])
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
-	}
-	stateHash, err = block.GetHash()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
-	}
-	return
 }
 
 // =============================================================================

@@ -26,23 +26,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 )
-
-type stLedger interface {
-	getBlockchainSize() uint64
-	getBlock(id uint64) (*protos.Block, error)
-	getRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error)
-	getRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error)
-	getRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error)
-	hashBlock(block *protos.Block) ([]byte, error)
-	putBlock(blockNumber uint64, block *protos.Block)
-	applyStateDelta(delta []byte, unapply bool)
-	emptyState()
-	getCurrentStateHash() []byte
-	verifyBlockChain(start, finish uint64) (uint64, error)
-}
 
 type syncMark struct {
 	blockNumber uint64
@@ -115,7 +102,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 
 type stateTransferState struct {
 	pbft   *pbftCore
-	ledger stLedger
+	ledger consensus.Ledger
 
 	OutOfDate bool // To be used by the main consensus thread, not atomic, so do not use by other threads
 
@@ -136,7 +123,7 @@ type stateTransferState struct {
 
 }
 
-func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger stLedger) *stateTransferState {
+func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger consensus.Ledger) *stateTransferState {
 	sts := &stateTransferState{}
 
 	sts.pbft = pbft
@@ -177,7 +164,7 @@ func threadlessNewStateTransferState(pbft *pbftCore, config *viper.Viper, ledger
 	return sts
 }
 
-func newStateTransferState(pbft *pbftCore, config *viper.Viper, ledger stLedger) *stateTransferState {
+func newStateTransferState(pbft *pbftCore, config *viper.Viper, ledger consensus.Ledger) *stateTransferState {
 	sts := threadlessNewStateTransferState(pbft, config, ledger)
 
 	go sts.stateThread()
@@ -230,7 +217,7 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	var block *protos.Block
 
 	err := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
-		blockChan, err := sts.ledger.getRemoteBlocks(replicaId, blockCursor, lowBlock)
+		blockChan, err := sts.ledger.GetRemoteBlocks(replicaId, blockCursor, lowBlock)
 		if nil != err {
 			logger.Warning("Replica %d failed to get blocks from %d to %d from replica %d: %s",
 				sts.pbft.id, blockCursor, lowBlock, replicaId, err)
@@ -256,7 +243,7 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 						continue
 					}
 
-					testHash, err := sts.ledger.hashBlock(block)
+					testHash, err := sts.ledger.HashBlock(block)
 					if nil != err {
 						return fmt.Errorf("Replica %d got a block %d which could not hash from replica %d: %s",
 							sts.pbft.id, blockCursor, replicaId, err)
@@ -271,12 +258,12 @@ func (sts *stateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 					if !sts.recoverDamage {
 						// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
-						if oldBlock, err := sts.ledger.getBlock(blockCursor); err == nil && oldBlock != nil {
+						if oldBlock, err := sts.ledger.GetBlock(blockCursor); err == nil && oldBlock != nil {
 							panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
 						}
 					}
 
-					sts.ledger.putBlock(blockCursor, block)
+					sts.ledger.PutBlock(blockCursor, block)
 
 					validBlockHash = block.PreviousBlockHash
 
@@ -307,7 +294,7 @@ func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 
 	logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.pbft.id, blockSyncReq.blockNumber)
 
-	blockchainSize := sts.ledger.getBlockchainSize()
+	blockchainSize := sts.ledger.GetBlockchainSize()
 
 	if blockSyncReq.blockNumber < blockchainSize {
 		if !sts.recoverDamage {
@@ -352,13 +339,13 @@ func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
 
 	if 0 == len(sts.validBlockRanges) {
-		size := sts.ledger.getBlockchainSize()
+		size := sts.ledger.GetBlockchainSize()
 		if 0 == size {
 			logger.Warning("Replica %d has no blocks in its blockchain, including the genesis block", sts.pbft.id)
 			return false
 		}
 
-		block, err := sts.ledger.getBlock(size - 1)
+		block, err := sts.ledger.GetBlock(size - 1)
 		if nil != err {
 			logger.Warning("Replica %d could not retrieve its head block %d: %s", sts.pbft.id, size, err)
 			return false
@@ -391,11 +378,11 @@ func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
 			// Ranges are not distinct (or are adjacent), we will collapse them or discard the lower if it does not chain
 			if sts.validBlockRanges[1].lowBlock < lowBlock {
 				// Range overlaps or is adjacent
-				block, err := sts.ledger.getBlock(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
+				block, err := sts.ledger.GetBlock(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
 				if nil != err {
 					logger.Warning("Replica %d could not retrieve block %d which it believed to be valid: %s", sts.pbft.id, lowBlock-1, err)
 				} else {
-					if blockHash, err := sts.ledger.hashBlock(block); nil != err {
+					if blockHash, err := sts.ledger.HashBlock(block); nil != err {
 						if bytes.Equal(blockHash, lowNextHash) {
 							// The chains connect, no need to validate all the way down
 							sts.validBlockRanges[0].lowBlock = sts.validBlockRanges[1].lowBlock
@@ -429,7 +416,7 @@ func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
 
 	blockNumber, block, err1 := sts.syncBlocks(lowBlock-1, targetBlock, lowNextHash, nil)
 
-	if blockHash, err2 := sts.ledger.hashBlock(block); nil == err2 {
+	if blockHash, err2 := sts.ledger.HashBlock(block); nil == err2 {
 		if nil == err1 {
 			sts.validBlockRanges[0].lowBlock = blockNumber
 			sts.validBlockRanges[0].lowNextHash = blockHash
@@ -529,8 +516,15 @@ func (sts *stateTransferState) stateThread() {
 				continue
 			}
 
-			if !bytes.Equal(sts.ledger.getCurrentStateHash(), blockSyncReply.stateHash) {
-				logger.Warning("Replica %d recovered to an incorrect state at block number %d, (%x %x) retrying", sts.pbft.id, currentStateBlockNumber, sts.ledger.getCurrentStateHash(), blockSyncReply.stateHash)
+			stateHash, err := sts.ledger.GetCurrentStateHash()
+			if nil != err {
+				logger.Warning("Replica %d could not compute its current state hash: %s", sts.pbft.id, err)
+				continue
+
+			}
+
+			if !bytes.Equal(stateHash, blockSyncReply.stateHash) {
+				logger.Warning("Replica %d recovered to an incorrect state at block number %d, (%x %x) retrying", sts.pbft.id, currentStateBlockNumber, stateHash, blockSyncReply.stateHash)
 				continue
 			}
 
@@ -554,7 +548,7 @@ func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 	currentBlock := fromBlockNumber
 	err := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
 
-		deltaMessages, err := sts.ledger.getRemoteStateDeltas(replicaId, currentBlock, toBlockNumber)
+		deltaMessages, err := sts.ledger.GetRemoteStateDeltas(replicaId, currentBlock, toBlockNumber)
 		if err != nil {
 			return fmt.Errorf("Replica %d received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.pbft.id, fromBlockNumber, toBlockNumber, replicaId)
 		}
@@ -573,26 +567,32 @@ func (sts *stateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 					continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
 				}
 				for _, delta := range deltaMessage.Deltas {
-					sts.ledger.applyStateDelta(delta, false)
+					sts.ledger.ApplyStateDelta(delta, false)
 				}
 
 				success := false
 
-				testBlock, err := sts.ledger.getBlock(deltaMessage.Range.End)
+				testBlock, err := sts.ledger.GetBlock(deltaMessage.Range.End)
 
 				if nil != err {
 					logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.pbft.id, deltaMessage.Range.End)
 				} else {
-					logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)", sts.pbft.id, replicaId, deltaMessage.Range.End, sts.ledger.getCurrentStateHash(), testBlock.StateHash)
 
-					if bytes.Equal(testBlock.StateHash, sts.ledger.getCurrentStateHash()) {
+					stateHash, err := sts.ledger.GetCurrentStateHash()
+					if nil != err {
+						logger.Warning("Replica %d could not compute its state hash for some reason: %s", sts.pbft.id, err)
+					}
+					logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)",
+						sts.pbft.id, replicaId, deltaMessage.Range.End, stateHash, testBlock.StateHash)
+
+					if bytes.Equal(testBlock.StateHash, stateHash) {
 						success = true
 					}
 				}
 
 				if !success {
 					for _, delta := range deltaMessage.Deltas {
-						sts.ledger.applyStateDelta(delta, true)
+						sts.ledger.ApplyStateDelta(delta, true)
 					}
 
 					// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
@@ -623,12 +623,12 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 	ok := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
 		logger.Debug("Replica %d is initiating state recovery from from replica %d", sts.pbft.id, replicaId)
 
-		sts.ledger.emptyState()
+		sts.ledger.EmptyState()
 
-		stateChan, err := sts.ledger.getRemoteStateSnapshot(replicaId)
+		stateChan, err := sts.ledger.GetRemoteStateSnapshot(replicaId)
 
 		if err != nil {
-			sts.ledger.emptyState()
+			sts.ledger.EmptyState()
 			return err
 		}
 
@@ -640,7 +640,7 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 				if !ok {
 					return nil
 				}
-				sts.ledger.applyStateDelta(piece.Delta, false)
+				sts.ledger.ApplyStateDelta(piece.Delta, false)
 				currentStateBlock = piece.BlockNumber
 			case <-timer.C:
 				logger.Warning("Replica %d timed out during state recovery from replica %d", sts.pbft.id, replicaId)

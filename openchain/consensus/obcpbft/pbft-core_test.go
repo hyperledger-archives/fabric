@@ -33,7 +33,7 @@ import (
 
 func makeTestnetPbftCore(inst *instance) {
 	config := readConfig()
-	inst.pbft = newPbftCore(uint64(inst.id), config, inst)
+	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
 	inst.pbft.replicaCount = len(inst.net.replicas)
 	inst.pbft.f = inst.net.f
 	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
@@ -71,7 +71,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock)
+	instance := newPbftCore(1, readConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -97,7 +97,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock)
+	instance := newPbftCore(1, readConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -484,18 +484,19 @@ func TestFallBehind(t *testing.T) {
 		}
 
 		if skipThree {
-			// Send the request for consensus to everone but replica 0
-			err = net.process(func(all bool, replica int, msg []byte) []byte {
-				if !all && replica == 3 {
+			// Send the request for consensus to everone but replica 3
+			net.filterFn = func(src, replica int, msg []byte) []byte {
+				if src != -1 && replica == 3 {
 					return nil
 				}
 
 				return msg
-			})
+			}
 		} else {
 			// Send the request for consensus to everone
-			err = net.process()
+			net.filterFn = nil
 		}
+		err = net.process()
 
 		if err != nil {
 			t.Fatalf("Processing failed: %s", err)

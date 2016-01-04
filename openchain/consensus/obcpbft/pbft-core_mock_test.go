@@ -33,13 +33,16 @@ import (
 type mockCPI struct {
 	broadcasted [][]byte
 	executed    [][]byte
+	ledger      consensus.Ledger
 }
 
 func newMock() *mockCPI {
 	mock := &mockCPI{
 		make([][]byte, 0),
 		make([][]byte, 0),
+		newMockLedger(nil),
 	}
+	mock.ledger.PutBlock(0, simpleGetBlock(0))
 	return mock
 }
 
@@ -66,8 +69,38 @@ func (mock *mockCPI) fetchRequest(digest string) (err error) {
 	panic("not implemented")
 }
 
-func (mock *mockCPI) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	return []byte("nil"), nil
+func (mock *mockCPI) GetBlock(id uint64) (block *pb.Block, err error) {
+	return simpleGetBlock(id), nil
+}
+func (mock *mockCPI) GetCurrentStateHash() (stateHash []byte, err error) {
+	return mock.ledger.GetCurrentStateHash()
+}
+func (mock *mockCPI) GetBlockchainSize() uint64 {
+	return mock.ledger.GetBlockchainSize()
+}
+func (mock *mockCPI) HashBlock(block *pb.Block) ([]byte, error) {
+	return mock.ledger.HashBlock(block)
+}
+func (mock *mockCPI) PutBlock(blockNumber uint64, block *pb.Block) {
+	mock.ledger.PutBlock(blockNumber, block)
+}
+func (mock *mockCPI) ApplyStateDelta(delta []byte, unapply bool) {
+	mock.ledger.ApplyStateDelta(delta, unapply)
+}
+func (mock *mockCPI) EmptyState() {
+	mock.ledger.EmptyState()
+}
+func (mock *mockCPI) VerifyBlockchain(start, finish uint64) (uint64, error) {
+	return mock.ledger.VerifyBlockchain(start, finish)
+}
+func (mock *mockCPI) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return mock.ledger.GetRemoteBlocks(replicaId, start, finish)
+}
+func (mock *mockCPI) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
+	return mock.ledger.GetRemoteStateSnapshot(replicaId)
+}
+func (mock *mockCPI) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return mock.ledger.GetRemoteStateDeltas(replicaId, start, finish)
 }
 
 // =============================================================================
@@ -102,6 +135,7 @@ type instance struct {
 	consenter closableConsenter
 	net       *testnet
 	executed  [][]byte
+	ledger    consensus.Ledger
 
 	txID     interface{}
 	curBatch []*pb.Transaction
@@ -161,10 +195,6 @@ func (inst *instance) fetchRequest(digest string) error {
 	}
 	inst.broadcast(msgPacked)
 	return nil
-}
-
-func (inst *instance) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	return []byte("nil"), nil
 }
 
 func (inst *instance) GetNetworkHandles() (self string, network []string, err error) {
@@ -256,12 +286,38 @@ func (inst *instance) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-func (inst *instance) GetBlock(id uint64) (*pb.Block, error) {
-	return &pb.Block{StateHash: []byte("TODO")}, nil
+func (inst *instance) GetBlock(id uint64) (block *pb.Block, err error) {
+	return inst.ledger.GetBlock(id)
 }
-
 func (inst *instance) GetCurrentStateHash() (stateHash []byte, err error) {
-	return []byte("nil"), nil
+	return inst.ledger.GetCurrentStateHash()
+}
+func (inst *instance) GetBlockchainSize() uint64 {
+	return inst.ledger.GetBlockchainSize()
+}
+func (inst *instance) HashBlock(block *pb.Block) ([]byte, error) {
+	return inst.ledger.HashBlock(block)
+}
+func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) {
+	inst.ledger.PutBlock(blockNumber, block)
+}
+func (inst *instance) ApplyStateDelta(delta []byte, unapply bool) {
+	inst.ledger.ApplyStateDelta(delta, unapply)
+}
+func (inst *instance) EmptyState() {
+	inst.ledger.EmptyState()
+}
+func (inst *instance) VerifyBlockchain(start, finish uint64) (uint64, error) {
+	return inst.ledger.VerifyBlockchain(start, finish)
+}
+func (inst *instance) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return inst.ledger.GetRemoteBlocks(replicaId, start, finish)
+}
+func (inst *instance) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
+	return inst.ledger.GetRemoteStateSnapshot(replicaId)
+}
+func (inst *instance) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return inst.ledger.GetRemoteStateDeltas(replicaId, start, finish)
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
@@ -335,6 +391,8 @@ func makeTestnet(f int, initFn ...func(*instance)) *testnet {
 	replicaCount := 3*f + 1
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
+		inst.ledger = newMockLedger(nil)
+		inst.ledger.PutBlock(0, simpleGetBlock(0))
 		net.replicas = append(net.replicas, inst)
 		net.handles = append(net.handles, inst.handle)
 	}

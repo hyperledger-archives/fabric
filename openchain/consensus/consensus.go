@@ -26,6 +26,21 @@ type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
+type Ledger interface {
+	GetBlock(id uint64) (block *pb.Block, err error)
+	GetCurrentStateHash() (stateHash []byte, err error)
+	GetBlockchainSize() uint64
+	HashBlock(block *pb.Block) ([]byte, error)
+	PutBlock(blockNumber uint64, block *pb.Block)
+	ApplyStateDelta(delta []byte, unapply bool)
+	EmptyState()
+	VerifyBlockchain(start, finish uint64) (uint64, error)
+
+	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
+	GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error)
+	GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+}
+
 // CPI (Consensus Programming Interface) is the set of
 // stack-facing methods available to the consensus plugin
 type CPI interface {
@@ -41,6 +56,5 @@ type CPI interface {
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
 
-	GetBlock(id uint64) (block *pb.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
+	Ledger
 }
