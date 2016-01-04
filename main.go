@@ -676,6 +676,11 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
@@ -747,6 +752,11 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	}
+
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Build the ChaincodeInvocationSpec message
