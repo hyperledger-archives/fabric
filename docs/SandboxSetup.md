@@ -15,7 +15,7 @@ To set up the local development environment with security enabled, you must firs
 
 The above commands build and run the CA server with the default setup in [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml). The default configuration includes multiple users already registered with the CA. These users are listed in the 'users' section of the configuration file. To register additional users with the CA for testing, modify the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml) to add more username and password pairs. When security is enabled, the CLI commands and REST payloads must be modified to include a username of a registered and logged in user, otherwise an error will result. A registered user may be logged in through the CLI or the REST API by following the instructions below.
 
-To log in a user through the CLI, issue the commands bellow, where <username> is one of the usernames listed in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml).
+To log in a user through the CLI, issue the commands bellow, where 'username' is one of the usernames listed in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml).
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     ./obc-peer login <username>
@@ -24,19 +24,19 @@ The command will prompt for a password, which must match the password listed for
 
 To log in the user through the REST API, send a POST request to the /registrar endpoint, containing the enrollId and enrollSecret, listed in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml).
 
-    ```
-    POST localhost:3000/registrar
+```
+POST localhost:3000/registrar
 
-    {
-      "enrollId": "lukas",
-      "enrollSecret": "NPKYL39uKbkj"
-    }
+{
+  "enrollId": "lukas",
+  "enrollSecret": "NPKYL39uKbkj"
+}
 
-    200 OK
-    {
-        "OK": "Login successful for user 'lukas'."
-    }
-    ```
+200 OK
+{
+    "OK": "Login successful for user 'lukas'."
+}
+```
 
 ###Window 1 (validating peer)
 **Note:** When running with security enabled, first modify the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml) to set the security.enabled setting to 'true' before building the peer executable.
@@ -100,22 +100,22 @@ POST localhost:5000/devops/deploy
 
  	  ./obc-peer chaincode deploy -u jim -p mycc -v 0.0.1 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
-    ```
-    POST localhost:5000/devops/deploy
+```
+POST localhost:5000/devops/deploy
 
-    {
-      "type": "GOLANG",
-      "chaincodeID":{
-          "url":"mycc",
-          "version":"0.0.1"
-      },
-      "ctorMsg": {
-          "function":"init",
-          "args":["a", "100", "b", "200"]
-      },
-      "secureContext": "jim"
-    }
-    ```
+{
+  "type": "GOLANG",
+  "chaincodeID":{
+      "url":"mycc",
+      "version":"0.0.1"
+  },
+  "ctorMsg": {
+      "function":"init",
+      "args":["a", "100", "b", "200"]
+  },
+  "secureContext": "jim"
+}
+```
 
 The deploy transaction initializes the chaincode by executing a target initializing function. Though the example shows “init”, the name could be arbitrarily chosen by the chaincode developer.  You should see the following output in the chaincode window:
 
@@ -157,24 +157,24 @@ POST localhost:5000/devops/invoke
 
 	 ./obc-peer chaincode invoke -u jim -l golang -p mycc -v 0.0.1 -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
-    ```
-    POST localhost:5000/devops/invoke
+```
+POST localhost:5000/devops/invoke
 
-    {
-      "chaincodeSpec":{
-          "type": "GOLANG",
-          "chaincodeID":{
-              "url":"mycc",
-              "version":"0.0.1"
-          },
-          "ctorMsg":{
-              "function":"invoke",
-              "args":["a", "b", "10"]
-          },
-  	      "secureContext": "jim"
-      }
-    }
-    ```
+{
+  "chaincodeSpec":{
+      "type": "GOLANG",
+      "chaincodeID":{
+          "url":"mycc",
+          "version":"0.0.1"
+      },
+      "ctorMsg":{
+          "function":"invoke",
+          "args":["a", "b", "10"]
+      },
+  	  "secureContext": "jim"
+  }
+}
+```
 
 The invoke transaction runs the specified transaction name “invoke” with the arguments. This transaction transfers 10 units from A to B. You should see the following output in the chaincode window:
 
@@ -227,21 +227,21 @@ POST localhost:5000/devops/query
 
     ./obc-peer chaincode query -u jim -l golang -p mycc -v 0.0.1 -c '{"Function": "query", "Args": ["b"]}'
 
-    ```
-    POST localhost:5000/devops/query
+```
+POST localhost:5000/devops/query
 
-    {
-      "chaincodeSpec":{
-          "type": "GOLANG",
-          "chaincodeID":{
-              "url":"mycc",
-              "version":"0.0.1"
-          },
-          "ctorMsg":{
-              "function":"query",
-              "args":["a"]
-          },
-  	      "secureContext": "jim"
-      }
-    }
-    ```
+{
+  "chaincodeSpec":{
+      "type": "GOLANG",
+      "chaincodeID":{
+          "url":"mycc",
+          "version":"0.0.1"
+      },
+      "ctorMsg":{
+          "function":"query",
+          "args":["a"]
+      },
+  	  "secureContext": "jim"
+  }
+}
+```
