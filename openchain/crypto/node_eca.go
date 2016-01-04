@@ -55,7 +55,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	}
 
 	// Store ECA cert
-	node.log.Debug("Storing ECA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing ECA certificate for [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
 	if err != nil {
