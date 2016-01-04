@@ -90,7 +90,7 @@ peer:
         state:
             snapshot:
                 # Channel size for readonly syncStateSnapshot messages channel for receiving state deltas for snapshot from oppositie Peer Endpoints.
-                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.  
+                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
                 channelSize: 50
 
     # Validator defines whether this peer is a validating peer or not, and if
@@ -111,7 +111,7 @@ peer:
             # total number of events that could be buffered without blocking the validator sends
             buffersize: 100
 
-            # milliseconds timeout for producer to send an event. 
+            # milliseconds timeout for producer to send an event.
             # if < 0, if buffer full, unblocks immediately and not send
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
@@ -239,7 +239,7 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
-    #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests 
+    #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
 
     #mode - options are "dev", "net"
@@ -283,6 +283,12 @@ ledger:
     # disk space, but allow the state to be rolled backwards and forwards
     # without the need to replay transactions.
     deltaHistorySize: 500
+
+    # The data structure in which the state will be stored. Different data
+    # structures may offer different performance characteristics. Options are
+    # 'buckettree' and 'trie'. If not set, the default data structure is the
+    # 'buckettree'. This CANNOT be changed after the DB has been created.
+    dataStructure: buckettree
 
 
 ###############################################################################
