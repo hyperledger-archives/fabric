@@ -90,7 +90,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	success := true
-	defer ledger.resetForNextTxGroup()
+	defer ledger.resetForNextTxGroup(success)
 	defer ledger.blockchain.blockPersistenceStatus(success)
 
 	stateHash, err := ledger.state.GetHash()
@@ -125,7 +125,7 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 	if err != nil {
 		return err
 	}
-	ledger.resetForNextTxGroup()
+	ledger.resetForNextTxGroup(false)
 	return nil
 }
 
@@ -322,8 +322,8 @@ func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
 	return nil
 }
 
-func (ledger *Ledger) resetForNextTxGroup() {
+func (ledger *Ledger) resetForNextTxGroup(txCommited bool) {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
-	ledger.state.ClearInMemoryChanges()
+	ledger.state.ClearInMemoryChanges(txCommited)
 }
