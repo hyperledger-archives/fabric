@@ -237,6 +237,39 @@
                   }
               }
            }
+        },
+        "/registrar": {
+           "post": {
+              "summary": "Service endpoint for registering a user with the certificate authority",
+              "description": "The /registrar endpoint receives requests to register a user with the certificate authority. The request must supply the registration id and password within the payload. If the registration is successful, the required transaction certificates are received and stored locally. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Registrar"
+              ],
+              "operationId": "registerUser",
+              "parameters": [{
+                 "name": "Secret",
+                 "in": "body",
+                 "description": "User enrollment credentials",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/Secret"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully registered user with the certificate authority",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
         }
     },
     "definitions": {
@@ -372,7 +405,7 @@
                     "description": "Unique Chaincode identifier."
                 },
                 "ctorMsg": {
-                    "$ref": "#/definitions/ChaincodeMessage",
+                    "$ref": "#/definitions/ChaincodeInput",
                     "description": "Specific function to execute within the Chaincode."
                 }
             }
@@ -386,7 +419,7 @@
                 }
             }
         },
-        "ChaincodeMessage": {
+        "ChaincodeInput": {
             "type": "object",
             "properties": {
                 "function": {
@@ -399,6 +432,19 @@
                         "type": "string"
                     },
                     "description": "Arguments supplied to the Chaincode function."
+                }
+            }
+        },
+        "Secret": {
+            "type": "object",
+            "properties": {
+                "enrollId": {
+                    "type": "string",
+                    "description": "User enrollment id registered with the certificate authority."
+                },
+                "enrollSecret": {
+                    "type": "string",
+                    "description": "User enrollment password registered with the certificate authority."
                 }
             }
         },
