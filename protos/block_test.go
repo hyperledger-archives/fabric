@@ -31,11 +31,10 @@ import (
 func Test_Block_CreateNew(t *testing.T) {
 
 	chaincodePath := "contract_001"
-	chaincodeVersion := "0.0.1"
 	/*
 		input := &pb.ChaincodeInput{Function: "invoke", Args: {"arg1","arg2"}}
 		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-			ChaincodeID: &pb.ChaincodeID{Path: ChaincodePath{Url: chaincodePath, Version: chaincodeVersion}}, CtorMsg: input}
+			ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: input}
 
 		// Build the ChaincodeInvocationSpec message
 		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
@@ -43,7 +42,7 @@ func Test_Block_CreateNew(t *testing.T) {
 		data, err := proto.Marshal(chaincodeInvocationSpec)
 	*/
 	var data []byte
-	transaction := &Transaction{Type: 2, ChaincodeID: &ChaincodeID{Path: &ChaincodePath{Url: chaincodePath, Version: chaincodeVersion}}, Payload: data, Uuid: "001"}
+	transaction := &Transaction{Type: 2, ChaincodeID: &ChaincodeID{Path: chaincodePath}, Payload: data, Uuid: "001"}
 	t.Logf("Transaction: %v", transaction)
 
 	block := NewBlock("proposer1", []*Transaction{transaction})

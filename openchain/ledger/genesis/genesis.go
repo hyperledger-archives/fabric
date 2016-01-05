@@ -88,24 +88,10 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				return
 			}
 
-			chaincodeIDMap, chaincodIDOK := chaincodeMap["id"].(map[interface{}]interface{})
-			if !chaincodIDOK {
-				genesisLogger.Error("Invalid chaincode ID defined in genesis configuration:", chaincodeMap["id"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode ID defined in genesis configuration: %s", chaincodeMap["id"])
-				return
-			}
-
-			url, urlOK := chaincodeIDMap["url"].(string)
-			if !urlOK {
-				genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeIDMap["url"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeIDMap["url"])
-				return
-			}
-
-			version, versionOK := chaincodeIDMap["version"].(string)
-			if !versionOK {
-				genesisLogger.Error("Invalid chaincode version defined in genesis configuration:", chaincodeIDMap["version"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode version defined in genesis configuration: %s", chaincodeIDMap["version"])
+			path, pathOK := chaincodeMap["path"].(string)
+			if !pathOK {
+				genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeMap["path"])
+				makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeMap["path"])
 				return
 			}
 
@@ -116,7 +102,7 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				return
 			}
 
-			chaincodeID := &protos.ChaincodeID{Path: &protos.ChaincodePath{Url: url, Version: version}, Name: ""}
+			chaincodeID := &protos.ChaincodeID{Path: path, Name: ""}
 
 			genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
 			genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)

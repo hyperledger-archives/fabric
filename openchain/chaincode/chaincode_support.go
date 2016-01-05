@@ -436,7 +436,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	//values, lets construct and pass as envs
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 	envs := []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + chaincode, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
-	toks := strings.Split(cID.Path.Url, "/")
+	toks := strings.Split(cID.Path, "/")
 	if toks == nil {
 		return cds, fmt.Errorf("cannot get path components from %s", chaincode)
 	}

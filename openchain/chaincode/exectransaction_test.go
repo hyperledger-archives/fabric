@@ -133,10 +133,9 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	var ctxt = context.Background()
 
 	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
-	version := "0.0.0"
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
-	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
 	if err != nil {
@@ -283,8 +282,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
 	//url := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
-	version := "0.0.0"
-	chaincodeID := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}
+	chaincodeID := &pb.ChaincodeID{Path: url}
 
 	args := []string{"a", "b", "10"}
 	err = invokeExample02Transaction(ctxt, chaincodeID, args)
@@ -406,9 +404,8 @@ func TestExecuteQuery(t *testing.T) {
 	var ctxt = context.Background()
 
 	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	version := "0.0.0"
 
-	cID := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}
+	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
 
@@ -486,8 +483,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	var ctxt = context.Background()
 
 	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	version := "0.0.0"
-	chaincodeID := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}
+	chaincodeID := &pb.ChaincodeID{Path: url}
 
 	//FAIL, FAIL!
 	args := []string{"x", "-1"}
@@ -548,9 +544,8 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	var ctxt = context.Background()
 
 	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example03"
-	version := "0.0.0"
 
-	cID := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url, Version: version}}
+	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
 	args := []string{"a", "100"}
 
@@ -621,9 +616,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	// Deploy first chaincode
 	url1 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	version1 := "0.0.0"
 
-	cID1 := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url1, Version: version1}}
+	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
 
@@ -643,9 +637,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	// Deploy second chaincode
 	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example04"
-	version2 := "0.0.0"
 
-	cID2 := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url2, Version: version2}}
+	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
 	args = []string{"e", "0"}
 
@@ -735,9 +728,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 
 	// Deploy first chaincode
 	url1 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	version1 := "0.0.0"
 
-	cID1 := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url1, Version: version1}}
+	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
 
@@ -757,9 +749,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 
 	// Deploy second chaincode
 	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example05"
-	version2 := "0.0.0"
 
-	cID2 := &pb.ChaincodeID{Path: &pb.ChaincodePath{Url: url2, Version: version2}}
+	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
 	args = []string{"sum", "0"}
 

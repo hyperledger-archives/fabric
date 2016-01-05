@@ -198,12 +198,12 @@ func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, er
 func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	var urlLocation string
-	if strings.HasPrefix(spec.ChaincodeID.Path.Url, "http://") {
-		urlLocation = spec.ChaincodeID.Path.Url[7:]
-	} else if strings.HasPrefix(spec.ChaincodeID.Path.Url, "https://") {
-		urlLocation = spec.ChaincodeID.Path.Url[8:]
+	if strings.HasPrefix(spec.ChaincodeID.Path, "http://") {
+		urlLocation = spec.ChaincodeID.Path[7:]
+	} else if strings.HasPrefix(spec.ChaincodeID.Path, "https://") {
+		urlLocation = spec.ChaincodeID.Path[8:]
 	} else {
-		urlLocation = spec.ChaincodeID.Path.Url
+		urlLocation = spec.ChaincodeID.Path
 	}
 
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)

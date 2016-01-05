@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/blang/semver"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -161,14 +160,14 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 }
 
 //name could be ChaincodeID.Name or ChaincodeID.Path
-func generateHashFromSignature(path string, version string, ctor string, args []string) []byte {
+func generateHashFromSignature(path string, ctor string, args []string) []byte {
 	fargs := ctor
 	if args != nil {
 		for _, str := range args {
 			fargs = fargs + str
 		}
 	}
-	cbytes := []byte(path + version + fargs)
+	cbytes := []byte(path + fargs)
 
 	b := make([]byte, len(cbytes))
 	copy(b, cbytes)
@@ -179,7 +178,7 @@ func generateHashFromSignature(path string, version string, ctor string, args []
 //generateHashcode gets hashcode of the code under path. If path is a HTTP(s) url
 //it downloads the code first to compute the hash.
 //NOTE: for dev mode, user builds and runs chaincode manually. The name provided
-//by the user is equivalent to the Url+Version. This method will treat the name
+//by the user is equivalent to the path. This method will treat the name
 //as codebytes and compute the hash from it. ie, user cannot run the chaincode
 //with the same (name, ctor, args)
 func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
@@ -188,18 +187,13 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	}
 
 	chaincodeID := spec.ChaincodeID
-	if chaincodeID == nil || chaincodeID.Path == nil || chaincodeID.Path.Url == "" || chaincodeID.Path.Version == "" {
+	if chaincodeID == nil || chaincodeID.Path == "" {
 		return "", fmt.Errorf("Cannot generate hashcode from empty chaincode path")
 	}
 
 	ctor := spec.CtorMsg
 	if ctor == nil || ctor.Function == "" {
 		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
-	}
-
-	version, err := semver.Make(chaincodeID.Path.Version)
-	if err != nil {
-		return "", fmt.Errorf("Error building version for VM name: %s", err)
 	}
 
 	//code root will point to the directory where the code exists
@@ -214,8 +208,9 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		}
 	}()
 
-	path := chaincodeID.Path.Url
+	path := chaincodeID.Path
 
+	var err error
 	var actualcodepath string
 	if strings.HasPrefix(path, "http://") {
 		ishttp = true
@@ -239,7 +234,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
-	hash := generateHashFromSignature(actualcodepath, version.String(), ctor.Function, ctor.Args)
+	hash := generateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
 	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {

@@ -386,12 +386,8 @@ func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Path.Url == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
-		return
-	}
-	if spec.ChaincodeID.Path.Version == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
+	if spec.ChaincodeID.Path == "" {
+		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode path.\"}")
 		return
 	}
 
@@ -437,8 +433,8 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the ChaincodeID is not left blank.
-	if spec.ChaincodeID.Path == nil {
+	// Check that the ChaincodeID is not nil.
+	if spec.ChaincodeID == nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeID.\"}")
 		logger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
@@ -446,8 +442,8 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeID.Path.Url == "") || (spec.ChaincodeID.Path.Version == "") {
+	// Check that the Chaincode path is not left blank.
+	if spec.ChaincodeID.Path == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
 		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
@@ -564,9 +560,6 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 
 		return
 	}
-
-	// NOTE - Old approach. Invoke transaction should now specify Name returned on the Deploy Transaction
-	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
 
 	// Check that the Chaincode Name is not blank.
 	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
@@ -695,9 +688,6 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 
 		return
 	}
-
-	// NOTE - Old approach. Invoke transaction should now specify Name returned on the Deploy Transaction
-	//if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
 
 	// Check that the Chaincode Name is not blank.
 	if spec.ChaincodeSpec.ChaincodeID.Name == "" {

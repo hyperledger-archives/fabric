@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/blang/semver"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -269,19 +268,17 @@ func CheckSpec(spec *pb.ChaincodeSpec) error {
 	}
 	devopsLogger.Debug("Validated spec:  %v", spec)
 
-	// Check the version
-	_, err := semver.Make(spec.ChaincodeID.Path.Version)
-	return err
+	return nil
 }
 
 func checkGolangSpec(spec *pb.ChaincodeSpec) error {
-	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path.Url)
+	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
 	exists, err := pathExists(pathToCheck)
 	if err != nil {
 		return fmt.Errorf("Error validating chaincode path: %s", err)
 	}
 	if !exists {
-		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path.Url)
+		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
 	}
 	return nil
 }

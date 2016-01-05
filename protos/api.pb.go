@@ -17,7 +17,6 @@ It has these top-level messages:
 	BlockchainInfo
 	BlockNumber
 	BlockCount
-	ChaincodePath
 	ChaincodeID
 	ChaincodeInput
 	ChaincodeSpec
