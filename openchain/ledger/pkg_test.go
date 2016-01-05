@@ -112,7 +112,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 2>-------------------------------------
 	// Deploy a chaincode
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Url: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 	// Now we add the transaction to the block 2 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
 	block2 := protos.NewBlock("sheehan", transactions2a)
@@ -124,7 +124,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 3>-------------------------------------
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
+	transaction3a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
 	// Create the third block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
 	block3 := protos.NewBlock("sheehan", transactions3a)
@@ -138,7 +138,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 func buildTestTx() (*protos.Transaction, string) {
 	uuid, _ := util.GenerateUUID()
-	return protos.NewTransaction(protos.ChaincodeID{Url: "testUrl", Version: "1.1"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
+	return protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
 }
 
 func buildTestBlock() *protos.Block {

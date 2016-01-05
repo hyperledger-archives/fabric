@@ -122,7 +122,7 @@ var (
 	chaincodeLang     string
 	chaincodeCtorJSON string
 	chaincodePath     string
-	chaincodeVersion  string
+	chaincodeName     string
 	chaincodeDevMode  bool
 	chaincodeUsr      string
 )
@@ -259,7 +259,7 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
@@ -551,18 +551,13 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {
 
-	if chaincodeVersion == undefinedParamValue {
-		err := fmt.Sprintf("Error: must supply value for %s version parameter.\n", chainFuncName)
-		cmd.Out().Write([]byte(err))
-		cmd.Usage()
-		return errors.New(err)
-	}
-
-	if chaincodePath == undefinedParamValue {
-		err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
-		cmd.Out().Write([]byte(err))
-		cmd.Usage()
-		return errors.New(err)
+	if chaincodeName == undefinedParamValue {
+		if chaincodePath == undefinedParamValue {
+			err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return errors.New(err)
+		}
 	}
 
 	if chaincodeCtorJSON != "{}" {
@@ -601,7 +596,7 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 	}
 	// Build the spec
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}}
 
 	chaincodeDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
@@ -638,7 +633,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
@@ -688,7 +683,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		cmd.Usage()
 		return
 	}
-	logger.Info("Build result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
+	logger.Info("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 }
 
 func chaincodeInvoke(cmd *cobra.Command, args []string) {
@@ -701,9 +696,15 @@ func chaincodeQuery(cmd *cobra.Command, args []string) {
 
 func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		logger.Error(fmt.Sprintf("Error invoking %s: %s", chainFuncName, err))
 		return
 	}
+
+	if chaincodeName == "" {
+		logger.Error(fmt.Sprintf("Name not given for invoke/query"))
+		return
+	}
+
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
@@ -716,7 +717,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
