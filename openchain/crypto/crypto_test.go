@@ -34,6 +34,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	_ "time"
 )
 
 var (
