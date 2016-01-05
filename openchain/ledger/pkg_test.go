@@ -189,3 +189,24 @@ func (ledgerTestWrapper *ledgerTestWrapper) GetStateDelta(blockNumber uint64) *s
 	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state delta from ledger")
 	return delta
 }
+
+func (ledgerTestWrapper *ledgerTestWrapper) GetTempStateHash() []byte {
+	hash, err := ledgerTestWrapper.ledger.GetTempStateHash()
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state hash from ledger")
+	return hash
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) {
+	err := ledgerTestWrapper.ledger.ApplyStateDelta(id, delta)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error applying state delta")
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) CommitStateDelta(id interface{}) {
+	err := ledgerTestWrapper.ledger.CommitStateDelta(id)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error committing state delta")
+}
+
+func (ledgerTestWrapper *ledgerTestWrapper) RollbackStateDelta(id interface{}) {
+	err := ledgerTestWrapper.ledger.RollbackStateDelta(id)
+	testutil.AssertNoError(ledgerTestWrapper.t, err, "error rolling back state delta")
+}

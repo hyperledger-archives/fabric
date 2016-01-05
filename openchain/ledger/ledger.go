@@ -195,7 +195,9 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
 
-// ApplyStateDelta applies a state delta to the current state.
+// ApplyStateDelta applies a state delta to the current state. This is an
+// in memory change only. You must call ledger.CommitStateDelta to persist
+// the change to the DB.
 // This should only be used as part of state synchronization. State deltas
 // can be retrieved from another peer though the Ledger.GetStateDelta function
 // or by creating state deltas with keys retrieved from
@@ -211,8 +213,36 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // be used to roll forwards from state at block 2 to state at block 3. If
 // stateDelta.RollBackwards=false, the delta retrived for block 3 can be
 // used to roll backwards from the state at block 3 to the state at block 2.
-func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
-	return ledger.state.ApplyStateDelta(delta)
+func (ledger *Ledger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	err := ledger.checkValidIDBegin()
+	if err != nil {
+		return err
+	}
+	ledger.currentID = id
+	ledger.state.ApplyStateDelta(delta)
+	return nil
+}
+
+// CommitStateDelta will commit the state delta passed to ledger.ApplyStateDelta
+// to the DB
+func (ledger *Ledger) CommitStateDelta(id interface{}) error {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return err
+	}
+	defer ledger.resetForNextTxGroup(true)
+	return ledger.state.CommitStateDelta()
+}
+
+// RollbackStateDelta will discard the state delta passed
+// to ledger.ApplyStateDelta
+func (ledger *Ledger) RollbackStateDelta(id interface{}) error {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return err
+	}
+	ledger.resetForNextTxGroup(false)
+	return nil
 }
 
 // DeleteALLStateKeysAndValues deletes all keys and values from the state.
