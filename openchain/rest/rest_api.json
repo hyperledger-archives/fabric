@@ -142,7 +142,7 @@
         "/devops/deploy": {
            "post": {
               "summary": "Service endpoint for deploying Chaincode",
-              "description": "The /devops/deploy endpoint receives Chaincode deployment requests for existing Chaincodes. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, a confirmation message is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -174,8 +174,8 @@
         },
         "/devops/invoke": {
            "post": {
-              "summary": "Service endpoint for invoking Chaincode",
-              "description": "The /devops/invoke endpoint receives requests to invoke functions for existing Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for invoking Chaincode functions",
+              "description": "The /devops/invoke endpoint receives requests for invoking functions in deployed Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -207,8 +207,8 @@
         },
         "/devops/query": {
            "post": {
-              "summary": "Service endpoint for querying Chaincode",
-              "description": "The /devops/query endpoint receives requests to query existing Chaincodes. The request triggers the query method on the target Chaincode, both specified in the required payload. If the Chaincode query is successful, the response defined within the Chaincode is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for querying Chaincode state",
+              "description": "The /devops/query endpoint receives requests to query Chaincode state. The request triggers a query method on the target Chaincode, both identified in the required payload. If the query method is successful, the response defined within the method is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -433,7 +433,7 @@
                 },
                 "version": {
                     "type": "string",
-                    "description": "Current version of a Chaincode."
+                    "description": "Current version of the Chaincode."
                 }
             }
         },
@@ -467,6 +467,14 @@
                 "ctorMsg": {
                     "$ref": "#/definitions/ChaincodeInput",
                     "description": "Specific function to execute within the Chaincode."
+                },
+                "secureContext": {
+                    "type": "string",
+                    "description": "Username when security is enabled."
+                },
+                "confidentialityLevel": {
+                    "$ref": "#/definitions/ConfidentialityLevel",
+                    "description": "Confidentiality level of the Chaincode."
                 }
             }
         },
@@ -479,12 +487,22 @@
                 }
             }
         },
+        "ConfidentialityLevel":{
+            "type": "string",
+            "default": "PUBLIC",
+            "example": "PUBLIC",
+            "enum":[
+                "PUBLIC",
+                "CONFIDENTIAL"
+              ],
+            "description": "Confidentiality level of the Chaincode."
+        },
         "ChaincodeInput": {
             "type": "object",
             "properties": {
                 "function": {
                     "type": "string",
-                    "description": "Function to execute within a Chaincode."
+                    "description": "Function to execute within the Chaincode."
                 },
                 "args": {
                     "type": "array",
