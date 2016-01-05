@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -728,19 +729,27 @@ func (sts *stateTransferState) WitnessCheckpointWeakCert(chkpt *Checkpoint) {
 		checkpointMembers := make([]uint64, sts.pbft.replicaCount)
 		i := 0
 		for testChkpt := range sts.pbft.checkpointStore {
-			if testChkpt.SequenceNumber == chkpt.SequenceNumber && bytes.Equal(testChkpt.BlockHash, chkpt.BlockHash) {
+			if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
 				checkpointMembers[i] = testChkpt.ReplicaId
 				i++
 			}
 		}
 
-		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%x)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
+		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%s)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
+
+		blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
+
+		if nil != err {
+			logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
+			return
+		}
+
 		certReq.certChan <- &chkptWeakCert{
 			syncMark: syncMark{
 				blockNumber: chkpt.BlockNumber,
 				replicaIds:  checkpointMembers[0 : i-1],
 			},
-			blockHash: chkpt.BlockHash,
+			blockHash: blockHashBytes,
 		}
 	}
 

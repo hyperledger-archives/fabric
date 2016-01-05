@@ -378,7 +378,7 @@ func (*Commit) ProtoMessage()    {}
 
 type Checkpoint struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	BlockHash      []byte `protobuf:"bytes,2,opt,name=block_hash,proto3" json:"block_hash,omitempty"`
+	BlockHash      string `protobuf:"bytes,2,opt,name=block_hash" json:"block_hash,omitempty"`
 	ReplicaId      uint64 `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
 	BlockNumber    uint64 `protobuf:"varint,4,opt,name=block_number" json:"block_number,omitempty"`
 }
@@ -424,7 +424,7 @@ func (m *ViewChange) GetQset() []*ViewChange_PQ {
 
 type ViewChange_C struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	Digest         []byte `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
+	Digest         string `protobuf:"bytes,2,opt,name=digest" json:"digest,omitempty"`
 }
 
 func (m *ViewChange_C) Reset()         { *m = ViewChange_C{} }

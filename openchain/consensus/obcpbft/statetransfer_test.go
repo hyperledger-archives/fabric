@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -41,7 +42,7 @@ func newTestStateTransfer(ml *mockLedger) *stateTransferState {
 			K:               uint64(2),
 			L:               uint64(4),
 			f:               int(1),
-			checkpointStore: make(map[*Checkpoint]bool),
+			checkpointStore: make(map[Checkpoint]bool),
 		},
 		readConfig(),
 		ml,
@@ -57,7 +58,7 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 	for i := uint64(1); i <= 3; i++ {
 		chkpt = &Checkpoint{
 			SequenceNumber: sequenceNumber - i,
-			BlockHash:      simpleGetBlockHash(blockNumber - i),
+			BlockHash:      base64.StdEncoding.EncodeToString(simpleGetBlockHash(blockNumber - i)),
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
 		}
@@ -71,11 +72,11 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 	for i := 1; i < sts.pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{
 			SequenceNumber: sequenceNumber,
-			BlockHash:      simpleGetBlockHash(blockNumber),
+			BlockHash:      base64.StdEncoding.EncodeToString(simpleGetBlockHash(blockNumber)),
 			ReplicaId:      uint64(i),
 			BlockNumber:    blockNumber,
 		}
-		sts.pbft.checkpointStore[chkpt] = true
+		sts.pbft.checkpointStore[*chkpt] = true
 	}
 
 	go func() {
@@ -227,7 +228,7 @@ func executeBlockRecovery(ml *mockLedger, millisTimeout int) error {
 			K:               uint64(2),
 			L:               uint64(4),
 			f:               int(1),
-			checkpointStore: make(map[*Checkpoint]bool),
+			checkpointStore: make(map[Checkpoint]bool),
 		},
 		readConfig(),
 		ml,
@@ -266,7 +267,7 @@ func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
 			K:               uint64(2),
 			L:               uint64(4),
 			f:               int(1),
-			checkpointStore: make(map[*Checkpoint]bool),
+			checkpointStore: make(map[Checkpoint]bool),
 		},
 		readConfig(),
 		ml,

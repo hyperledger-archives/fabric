@@ -20,7 +20,6 @@ under the License.
 package obcpbft
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"sync"
@@ -75,7 +74,7 @@ type pbftCore struct {
 	replicaCount int               // number of replicas; PBFT `|R|`
 	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64            // current view
-	chkpts       map[uint64][]byte // state checkpoints; map lastExec to global hash
+	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 	sts          *stateTransferState // Data structure which handles state transfer
@@ -92,7 +91,7 @@ type pbftCore struct {
 	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
-	checkpointStore map[*Checkpoint]bool  // track checkpoints as set
+	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
 }
@@ -155,8 +154,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
-	instance.checkpointStore = make(map[*Checkpoint]bool)
-	instance.chkpts = make(map[uint64][]byte)
+	instance.checkpointStore = make(map[Checkpoint]bool)
+	instance.chkpts = make(map[uint64]string)
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
@@ -170,7 +169,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	if err != nil {
 		panic(fmt.Errorf("Cannot load genesis block: %s", err))
 	}
-	instance.chkpts[0] = genesisBlock.StateHash
+	genesisHash, err := ledger.HashBlock(genesisBlock)
+	if err != nil {
+		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
+	}
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(genesisHash)
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -625,12 +628,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 			panic(fmt.Errorf("Replica %d could not compute its own state hash, this indicates an irrecoverable situation: %s", instance.id, err))
 		}
 
+		blockHashAsString := base64.StdEncoding.EncodeToString(blockHashBytes)
+
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
 			instance.id, instance.view, instance.lastExec, base64.StdEncoding.EncodeToString(blockHashBytes))
 
 		chkpt := &Checkpoint{
 			SequenceNumber: instance.lastExec,
-			BlockHash:      blockHashBytes,
+			BlockHash:      blockHashAsString,
 			ReplicaId:      instance.id,
 			BlockNumber:    instance.lastExec, // TODO, replace this with the block number from the commit (currently valid with no null requests)
 		}
@@ -654,8 +659,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= h {
 			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
-				instance.id, testChkpt.ReplicaId,
-				testChkpt.SequenceNumber, base64.StdEncoding.EncodeToString(testChkpt.BlockHash))
+				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.BlockHash)
 			delete(instance.checkpointStore, testChkpt)
 		}
 	}
@@ -686,7 +690,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
-		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, base64.StdEncoding.EncodeToString(chkpt.BlockHash))
+		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
 	instance.sts.WitnessCheckpoint(chkpt) // State transfer tracking
 
@@ -698,14 +702,16 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	instance.checkpointStore[chkpt] = true
+	instance.checkpointStore[*chkpt] = true
 
 	matching := 0
 	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber == chkpt.SequenceNumber && bytes.Equal(testChkpt.BlockHash, chkpt.BlockHash) {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
 			matching++
 		}
 	}
+	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
+		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
 	if instance.sts.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
@@ -727,12 +733,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	// the quorum certificate must contain 2f+1 messages, including its own
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
-			instance.id, chkpt.SequenceNumber, base64.StdEncoding.EncodeToString(chkpt.BlockHash))
+			instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
 		return nil
 	}
 
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
-		instance.id, chkpt.SequenceNumber, base64.StdEncoding.EncodeToString(chkpt.BlockHash))
+		instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
 
 	instance.moveWatermarks(chkpt.SequenceNumber)
 

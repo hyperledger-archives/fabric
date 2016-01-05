@@ -396,10 +396,11 @@ func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 }
 
 func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
-	checkpoints := make(map[*ViewChange_C][]*ViewChange)
+	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
-			checkpoints[c] = append(checkpoints[c], vc)
+			checkpoints[*c] = append(checkpoints[*c], vc)
+			logger.Debug("Appending checkpoint with sequence number %d and digest %s", c.SequenceNumber, c.Digest)
 		}
 	}
 
@@ -412,8 +413,8 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
 		if len(vcList) <= instance.f { // type casting necessary to match types
-			logger.Debug("no weak certificate for n:%d",
-				idx.SequenceNumber)
+			logger.Debug("no weak certificate for n:%d, vcList was %d long",
+				idx.SequenceNumber, len(vcList))
 			continue
 		}
 
