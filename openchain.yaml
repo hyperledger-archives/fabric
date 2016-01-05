@@ -215,8 +215,19 @@ vm:
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
     # http://localhost:4243
+    # tcp://localhost:2376
     endpoint: unix:///var/run/docker.sock
-
+        
+    # settings for docker vms
+    docker:
+        tls:
+            enabled: false
+            cert:
+                file: /path/to/server.pem
+            ca:
+                file: /path/to/ca.pem
+            key:
+                file: /path/to/server-key.pem
 
 ###############################################################################
 #
