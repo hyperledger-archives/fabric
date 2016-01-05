@@ -62,10 +62,6 @@ func (mock *mockCPI) execute(tx []byte) {
 func (mock *mockCPI) viewChange(uint64) {
 }
 
-func (mock *mockCPI) fetchRequest(digest string) (err error) {
-	panic("not implemented")
-}
-
 func (mock *mockCPI) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
 	return []byte("nil"), nil
 }
@@ -150,17 +146,6 @@ func (inst *instance) execute(payload []byte) {
 }
 
 func (inst *instance) viewChange(uint64) {
-}
-
-func (inst *instance) fetchRequest(digest string) error {
-	fmt.Printf("Debug: replica %v fetchRequest\n", inst.id)
-	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: uint64(inst.id)}}}
-	msgPacked, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
-	}
-	inst.broadcast(msgPacked)
-	return nil
 }
 
 func (inst *instance) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {

@@ -316,7 +316,7 @@ func (instance *pbftCore) processNewView() error {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
 				instance.missingReqs[d] = true
-				go instance.consumer.fetchRequest(d)
+				go instance.fetchRequest(d)
 			}
 		}
 	}

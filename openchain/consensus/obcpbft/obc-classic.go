@@ -173,17 +173,6 @@ func (op *obcClassic) execute(txRaw []byte) {
 func (op *obcClassic) viewChange(curView uint64) {
 }
 
-// used in view-change to fetch missing assigned, non-checkpointed requests
-func (op *obcClassic) fetchRequest(digest string) error {
-	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
-	msgPacked, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
-	}
-	op.broadcast(msgPacked)
-	return nil
-}
-
 // returns the state hash that corresponds to a specific block in the chain
 // if called with no arguments, it returns the latest/temp state hash
 func (op *obcClassic) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {

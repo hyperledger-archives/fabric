@@ -52,7 +52,6 @@ type innerCPI interface {
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
-	fetchRequest(digest string) (err error)
 
 	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
@@ -704,6 +703,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		instance.id, instance.h)
 
 	return instance.processNewView()
+}
+
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (instance *pbftCore) fetchRequest(digest string) error {
+	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: instance.id}}}
+	return instance.innerBroadcast(msg, false)
 }
 
 func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
