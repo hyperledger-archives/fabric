@@ -124,11 +124,15 @@ func (tca *TCA) Start(wg *sync.WaitGroup) {
 	go tca.startTCAP(wg, opts)
 	go tca.startTCAA(wg, opts)
 	
+	tca.startValidityPeriodUpdate()
+	
+	Info.Println("TCA started.")
+}
+
+func (tca *TCA) startValidityPeriodUpdate(){
 	if validityPeriodUpdateEnabled() {
 		go updateValidityPeriod()
 	}
-	
-	Info.Println("TCA started.")
 }
 
 // Stop stops the TCA.

@@ -54,6 +54,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 	
 	"sync"
+	"io/ioutil"
 )
 
 func TestMain(m *testing.M) {
@@ -81,9 +82,22 @@ func setupTestConfig() {
 	
 	viper.Set("peer.fileSystemPath", "/var/openchain/test")
 	viper.Set("security.enabled", "true")
+	viper.Set("ports.ecaP", ":50051")
+	viper.Set("ports.ecaA", ":50052")
+	viper.Set("ports.tcaP", ":50551")
+	viper.Set("ports.ecaA", ":50552")
+	viper.Set("hosts.eca", "localhost")
+	viper.Set("hosts.tca", "localhost")
+	viper.Set("eca.users.nepumuk", "9gvZQRwhUq9q")
+	viper.Set("eca.users.jim", "AwbeJH2kw9qK")
+	viper.Set("eca.users.system_chaincode_invoker", "DRJ20pEql15a")
+	viper.Set("pki.validity-period.update", "true")
+	viper.Set("pki.validity-period.tls.enabled", "false")
+	viper.Set("pki.validity-period.devops-address", "0.0.0.0:30303")
 }
 
 func TestValidityPeriod(t *testing.T) {
+	
 	startTCA()
 
 	err := startOpenchain()
@@ -94,6 +108,8 @@ func TestValidityPeriod(t *testing.T) {
 }
 
 func startTCA() {
+	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	
 	eca := NewECA()
 	defer eca.Close()
 
@@ -104,7 +120,7 @@ func startTCA() {
 	eca.Start(&wg)
 	tca.Start(&wg)
 
-	wg.Wait()
+	//wg.Wait()
 }
 
 func startOpenchain() error {
