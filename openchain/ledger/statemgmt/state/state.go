@@ -36,11 +36,6 @@ var logger = logging.MustGetLogger("state")
 
 const detaultStateImpl = "buckettree"
 
-var stateImplFactory = map[string]statemgmt.HashableState{
-	"buckettree": buckettree.NewStateImpl(),
-	"trie":       trie.NewStateTrie(),
-}
-
 var stateImpl statemgmt.HashableState
 
 // State structure for maintaining world state.
@@ -61,10 +56,17 @@ func NewState() *State {
 	stateImplName := viper.GetString("ledger.state.dataStructure")
 	if len(stateImplName) == 0 {
 		stateImplName = detaultStateImpl
-	} else if _, ok := stateImplFactory[stateImplName]; !ok {
+	}
+
+	switch stateImplName {
+	case "buckettree":
+		stateImpl = buckettree.NewStateImpl()
+	case "trie":
+		stateImpl = trie.NewStateTrie()
+	default:
 		panic(fmt.Errorf("Error during initialization of state implementation. State data structure '%s' is not valid.", stateImplName))
 	}
-	stateImpl = stateImplFactory[stateImplName]
+
 	err := stateImpl.Initialize()
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))

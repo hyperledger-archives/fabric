@@ -230,7 +230,7 @@ func (ledger *Ledger) CommitStateDelta(id interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer ledger.resetForNextTxGroup()
+	defer ledger.resetForNextTxGroup(true)
 	return ledger.state.CommitStateDelta()
 }
 
@@ -241,7 +241,7 @@ func (ledger *Ledger) RollbackStateDelta(id interface{}) error {
 	if err != nil {
 		return err
 	}
-	ledger.resetForNextTxGroup()
+	ledger.resetForNextTxGroup(false)
 	return nil
 }
 
