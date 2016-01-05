@@ -203,3 +203,65 @@ func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 	}
 	return ledger.GetTempStateHash()
 }
+
+// GetBlockchainSize returns the current size of the blockchain
+func (h *Helper) GetBlockchainSize() (uint64, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return 0, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.GetBlockchainSize(), nil
+}
+
+// GetBlockchainSize returns the hash of the included block, useful for mocking
+func (h *Helper) HashBlock(block *pb.Block) ([]byte, error) {
+	return block.GetHash()
+}
+
+// PutBlock inserts a raw block into the blockchain at the specified index, nearly no error checking is performed
+func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.PutRawBlock(block, blockNumber)
+}
+
+// TODO, waiting to see the streaming implementation to define this API nicely
+func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) {
+	return // TODO implement
+}
+
+// EmptyState completely empties the state and prepares it to restore a snapshot
+func (h *Helper) EmptyState() error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.DeleteALLStateKeysAndValues()
+}
+
+// VerifyBlockchain checks the integrity of the blockchain between indices start and finish,
+// returning the first block who's PreviousBlockHash field does not match the hash of the previous block
+func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return finish, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.VerifyChain(start, finish)
+}
+
+// GetRemoteBlocks will return a channel to stream blocks from the desired replicaId
+func (h *Helper) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return nil, fmt.Errorf("Unimplemented")
+}
+
+// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaId
+func (h *Helper) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
+	return nil, fmt.Errorf("Unimplemented")
+}
+
+// GetRemoteStateDeltas  will return a channel to stream a state snapshot deltas from the desired replicaId
+func (h *Helper) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return nil, fmt.Errorf("Unimplemented")
+}

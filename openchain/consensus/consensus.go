@@ -29,11 +29,11 @@ type Consenter interface {
 type Ledger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() uint64
+	GetBlockchainSize() (uint64, error)
 	HashBlock(block *pb.Block) ([]byte, error)
-	PutBlock(blockNumber uint64, block *pb.Block)
+	PutBlock(blockNumber uint64, block *pb.Block) error
 	ApplyStateDelta(delta []byte, unapply bool)
-	EmptyState()
+	EmptyState() error
 	VerifyBlockchain(start, finish uint64) (uint64, error)
 
 	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)

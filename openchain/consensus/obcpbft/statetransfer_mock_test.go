@@ -69,14 +69,14 @@ func newMockLedger(filter func(request mockRequest, replicaId uint64) mockRespon
 	return mock
 }
 
-func (mock *mockLedger) GetBlockchainSize() uint64 {
+func (mock *mockLedger) GetBlockchainSize() (uint64, error) {
 	max := ^uint64(0) // Count on the overflow
 	for blockNumber := range mock.blocks {
 		if max+1 <= blockNumber {
 			max = blockNumber
 		}
 	}
-	return max + 1
+	return max + 1, nil
 }
 
 func (mock *mockLedger) GetBlock(id uint64) (*protos.Block, error) {
@@ -239,8 +239,9 @@ func (mock *mockLedger) GetRemoteStateDeltas(replicaId uint64, start, finish uin
 	return res, nil
 }
 
-func (mock *mockLedger) PutBlock(blockNumber uint64, block *protos.Block) {
+func (mock *mockLedger) PutBlock(blockNumber uint64, block *protos.Block) error {
 	mock.blocks[blockNumber] = block
+	return nil
 }
 
 func (mock *mockLedger) ApplyStateDelta(delta []byte, unapply bool) {
@@ -251,8 +252,9 @@ func (mock *mockLedger) ApplyStateDelta(delta []byte, unapply bool) {
 	}
 }
 
-func (mock *mockLedger) EmptyState() {
+func (mock *mockLedger) EmptyState() error {
 	mock.state = make([][]byte, 0)
+	return nil
 }
 
 func (mock *mockLedger) GetCurrentStateHash() ([]byte, error) {
@@ -319,7 +321,7 @@ func TestMockLedger(t *testing.T) {
 		current := blockMessage.Range.Start
 		i := 0
 		for {
-			ml.PutBlock(current, blockMessage.Blocks[i])
+			_ = ml.PutBlock(current, blockMessage.Blocks[i]) // Never fails
 			i++
 
 			if current == blockMessage.Range.End {
@@ -344,7 +346,7 @@ func TestMockLedger(t *testing.T) {
 		t.Fatalf("Retrieved blockchain did not validate at block %d, error in mock ledger implementation.", blockNumber)
 	}
 
-	ml.PutBlock(uint64(3), &protos.Block{
+	_ = ml.PutBlock(uint64(3), &protos.Block{ // Never fails
 		PreviousBlockHash: []byte("WRONG"),
 		StateHash:         []byte("WRONG"),
 	})
@@ -363,7 +365,7 @@ func TestMockLedger(t *testing.T) {
 		t.Fatalf("Remote state snapshot call failed, error in mock ledger implementation: %s", err)
 	}
 
-	ml.EmptyState()
+	_ = ml.EmptyState() // Never fails
 	for syncStateMessage := range syncStateMessages {
 		ml.ApplyStateDelta(syncStateMessage.Delta, false)
 	}

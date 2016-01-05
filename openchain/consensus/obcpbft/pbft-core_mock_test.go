@@ -75,20 +75,20 @@ func (mock *mockCPI) GetBlock(id uint64) (block *pb.Block, err error) {
 func (mock *mockCPI) GetCurrentStateHash() (stateHash []byte, err error) {
 	return mock.ledger.GetCurrentStateHash()
 }
-func (mock *mockCPI) GetBlockchainSize() uint64 {
+func (mock *mockCPI) GetBlockchainSize() (uint64, error) {
 	return mock.ledger.GetBlockchainSize()
 }
 func (mock *mockCPI) HashBlock(block *pb.Block) ([]byte, error) {
 	return mock.ledger.HashBlock(block)
 }
-func (mock *mockCPI) PutBlock(blockNumber uint64, block *pb.Block) {
-	mock.ledger.PutBlock(blockNumber, block)
+func (mock *mockCPI) PutBlock(blockNumber uint64, block *pb.Block) error {
+	return mock.ledger.PutBlock(blockNumber, block)
 }
 func (mock *mockCPI) ApplyStateDelta(delta []byte, unapply bool) {
 	mock.ledger.ApplyStateDelta(delta, unapply)
 }
-func (mock *mockCPI) EmptyState() {
-	mock.ledger.EmptyState()
+func (mock *mockCPI) EmptyState() error {
+	return mock.ledger.EmptyState()
 }
 func (mock *mockCPI) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return mock.ledger.VerifyBlockchain(start, finish)
@@ -292,20 +292,20 @@ func (inst *instance) GetBlock(id uint64) (block *pb.Block, err error) {
 func (inst *instance) GetCurrentStateHash() (stateHash []byte, err error) {
 	return inst.ledger.GetCurrentStateHash()
 }
-func (inst *instance) GetBlockchainSize() uint64 {
+func (inst *instance) GetBlockchainSize() (uint64, error) {
 	return inst.ledger.GetBlockchainSize()
 }
 func (inst *instance) HashBlock(block *pb.Block) ([]byte, error) {
 	return inst.ledger.HashBlock(block)
 }
-func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) {
-	inst.ledger.PutBlock(blockNumber, block)
+func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) error {
+	return inst.ledger.PutBlock(blockNumber, block)
 }
 func (inst *instance) ApplyStateDelta(delta []byte, unapply bool) {
 	inst.ledger.ApplyStateDelta(delta, unapply)
 }
-func (inst *instance) EmptyState() {
-	inst.ledger.EmptyState()
+func (inst *instance) EmptyState() error {
+	return inst.ledger.EmptyState()
 }
 func (inst *instance) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return inst.ledger.VerifyBlockchain(start, finish)

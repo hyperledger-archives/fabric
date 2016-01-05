@@ -94,8 +94,8 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 		// Do nothing, continue the test
 	}
 
-	if sts.ledger.GetBlockchainSize() != blockNumber+1 {
-		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, sts.ledger.GetBlockchainSize())
+	if size, _ := sts.ledger.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
 	}
 
 	block, err := sts.ledger.GetBlock(blockNumber)

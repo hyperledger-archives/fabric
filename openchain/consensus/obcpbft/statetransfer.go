@@ -295,7 +295,11 @@ func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 
 	logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.pbft.id, blockSyncReq.blockNumber)
 
-	blockchainSize := sts.ledger.GetBlockchainSize()
+	blockchainSize, err := sts.ledger.GetBlockchainSize()
+
+	if nil != err {
+		panic("We can't determine how long our blockchain is, this is irrecoverable")
+	}
 
 	if blockSyncReq.blockNumber < blockchainSize {
 		if !sts.recoverDamage {
@@ -340,7 +344,10 @@ func (sts *stateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 func (sts *stateTransferState) verifyAndRecoverBlockchain() bool {
 
 	if 0 == len(sts.validBlockRanges) {
-		size := sts.ledger.GetBlockchainSize()
+		size, err := sts.ledger.GetBlockchainSize()
+		if nil != err {
+			panic("We cannot determine how long our blockchain is, this is irrecoverable")
+		}
 		if 0 == size {
 			logger.Warning("Replica %d has no blocks in its blockchain, including the genesis block", sts.pbft.id)
 			return false
