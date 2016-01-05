@@ -57,7 +57,7 @@ When you are ready to start creating your own chaincodes, create a new directory
 
 Run the chaincode command below to start and register the chaincode with the validating peer (started in window 1):
 
-    OPENCHAIN_CHAINCODE_ID_URL=mycc OPENCHAIN_CHAINCODE_ID_VERSION=0.0.1 OPENCHAIN_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+    OPENCHAIN_CHAINCODE_ID_NAME=mycc OPENCHAIN_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
 
 If you don't see “Received REGISTERED, ready for invocations” message, do not proceed farther. Something is wrong. Revisit the steps above to resolve the issue.
 
@@ -71,7 +71,7 @@ The chaincode is ready to receive requests. Please follow the steps detailed bel
 First send a chaincode deploy transaction, only once, to the validating peer. The CLI knows how to connect to the validating peer based on the properties defined in the openchain.yaml file.
 
     cd  $GOPATH/src/github.com/openblockchain/obc-peer
- 	./obc-peer chaincode deploy -p mycc -v 0.0.1 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	./obc-peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 Alternatively, you can run the chaincode deploy transaction through the REST API.
 
@@ -81,8 +81,7 @@ POST localhost:5000/devops/deploy
 {
   "type": "GOLANG",
   "chaincodeID":{
-      "url":"mycc",
-      "version":"0.0.1"
+      "name":"mycc"
   },
   "ctorMsg": {
       "function":"init",
@@ -98,7 +97,7 @@ POST localhost:5000/devops/deploy
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
- 	  ./obc-peer chaincode deploy -u jim -p mycc -v 0.0.1 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	  ./obc-peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 ```
 POST localhost:5000/devops/deploy
@@ -106,8 +105,7 @@ POST localhost:5000/devops/deploy
 {
   "type": "GOLANG",
   "chaincodeID":{
-      "url":"mycc",
-      "version":"0.0.1"
+      "name":"mycc"
   },
   "ctorMsg": {
       "function":"init",
@@ -126,7 +124,7 @@ The deploy transaction initializes the chaincode by executing a target initializ
 
 Run the chaincode invoking transaction on the CLI as many times as desired:
 
-	./obc-peer chaincode invoke -l golang -p mycc -v 0.0.1 -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	./obc-peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 Run the chaincode invoke transaction through the REST API:
 
@@ -137,8 +135,7 @@ POST localhost:5000/devops/invoke
   "chaincodeSpec":{
       "type": "GOLANG",
       "chaincodeID":{
-          "url":"mycc",
-          "version":"0.0.1"
+          "name":"mycc"
       },
       "ctorMsg":{
           "function":"invoke",
@@ -155,7 +152,7 @@ POST localhost:5000/devops/invoke
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
-	 ./obc-peer chaincode invoke -u jim -l golang -p mycc -v 0.0.1 -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	 ./obc-peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 ```
 POST localhost:5000/devops/invoke
@@ -164,8 +161,7 @@ POST localhost:5000/devops/invoke
   "chaincodeSpec":{
       "type": "GOLANG",
       "chaincodeID":{
-          "url":"mycc",
-          "version":"0.0.1"
+          "name":"mycc"
       },
       "ctorMsg":{
           "function":"invoke",
@@ -183,9 +179,9 @@ The invoke transaction runs the specified transaction name “invoke” with the
 
 #### Chaincode query via CLI and REST
 
-Run a query on the chaincode to retrieve desired values. The “-p” and “-v” args should match those provided in the Chaincode Window.
+Run a query on the chaincode to retrieve desired values. The “-n” arg should match those provided in the Chaincode Window.
 
-    ./obc-peer chaincode query -l golang -p mycc -v 0.0.1 -c '{"Function": "query", "Args": ["b"]}'
+    ./obc-peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 You should get  a response similar to:
 
@@ -204,8 +200,7 @@ POST localhost:5000/devops/query
   "chaincodeSpec":{
       "type": "GOLANG",
       "chaincodeID":{
-          "url":"mycc",
-          "version":"0.0.1"
+          "name":"mycc"
       },
       "ctorMsg":{
           "function":"query",
@@ -225,7 +220,7 @@ POST localhost:5000/devops/query
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
-    ./obc-peer chaincode query -u jim -l golang -p mycc -v 0.0.1 -c '{"Function": "query", "Args": ["b"]}'
+    ./obc-peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 ```
 POST localhost:5000/devops/query
@@ -234,8 +229,7 @@ POST localhost:5000/devops/query
   "chaincodeSpec":{
       "type": "GOLANG",
       "chaincodeID":{
-          "url":"mycc",
-          "version":"0.0.1"
+          "name":"mycc"
       },
       "ctorMsg":{
           "function":"query",
