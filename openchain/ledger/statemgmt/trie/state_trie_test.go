@@ -57,7 +57,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	hash3_hash4 := computeTestHash(hash3, hash4)
 	expectedRootHash1 := computeTestHash(hash1_hash2, hash3_hash4)
 	testutil.AssertEquals(t, rootHash1, expectedRootHash1)
-	stateTrie.ClearWorkingSet()
+	stateTrie.ClearWorkingSet(true)
 
 	// Test2 - Add one more key
 	fmt.Println("\n-- Add one more key exiting key --- ")
@@ -66,7 +66,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	hash5 := computeTestHash(newTrieKey("chaincodeID3", "key5").getEncodedBytes(), []byte("value5"))
 	expectedRootHash2 := computeTestHash(hash1_hash2, hash3_hash4, hash5)
 	testutil.AssertEquals(t, rootHash2, expectedRootHash2)
-	stateTrie.ClearWorkingSet()
+	stateTrie.ClearWorkingSet(true)
 
 	// Test3 - Remove one of the existing keys
 	fmt.Println("\n-- Remove an exiting key --- ")
@@ -74,7 +74,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	expectedRootHash3 := computeTestHash(hash1_hash2, hash3, hash5)
 	testutil.AssertEquals(t, rootHash3, expectedRootHash3)
-	stateTrie.ClearWorkingSet()
+	stateTrie.ClearWorkingSet(true)
 }
 
 func TestStateTrie_GetSet_WithDB(t *testing.T) {

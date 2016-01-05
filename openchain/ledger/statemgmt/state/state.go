@@ -197,10 +197,10 @@ func (state *State) GetTxStateDeltaHash() map[string][]byte {
 }
 
 // ClearInMemoryChanges remove from memory all the changes to state
-func (state *State) ClearInMemoryChanges() {
+func (state *State) ClearInMemoryChanges(changesPersisted bool) {
 	state.stateDelta = statemgmt.NewStateDelta()
 	state.txStateDeltaHash = make(map[string][]byte)
-	state.stateImpl.ClearWorkingSet()
+	state.stateImpl.ClearWorkingSet(changesPersisted)
 }
 
 // getStateDelta get changes in state after most recent call to method clearInMemoryChanges
@@ -270,7 +270,7 @@ func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) error {
 // only used during state synchronization when creating a new state from
 // a snapshot.
 func (state *State) DeleteState() error {
-	state.ClearInMemoryChanges()
+	state.ClearInMemoryChanges(false)
 	err := db.GetDBHandle().DeleteState()
 	if err != nil {
 		logger.Error("Error deleting state", err)
