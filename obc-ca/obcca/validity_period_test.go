@@ -116,6 +116,9 @@ func startTCA() {
 	var wg sync.WaitGroup
 	eca.Start(&wg)
 	tca.Start(&wg)
+	
+	
+	//exampleQueryTransaction(context.Background(),"github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{})
 
 	wg.Wait()
 }
@@ -143,13 +146,22 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 }
 
 
-func exampleQueryTransaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
 
-	chaincodeID, _ := getChaincodeID(cID)
+func exampleQueryTransaction(ctxt context.Context, url string, version string, args []string) error {
+	
+	chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
+	
 
 	fmt.Printf("Going to query\n")
 	f := "query"
-	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
+		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, 
+			Version: chaincodeVersion,
+		},
+		CtorMsg: &pb.ChaincodeInput{Function: f, Args: args},
+		}
+	
+	
 	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
 	
 	fmt.Println(uuid)
