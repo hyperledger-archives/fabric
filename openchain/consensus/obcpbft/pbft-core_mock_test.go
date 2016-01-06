@@ -134,7 +134,6 @@ type instance struct {
 
 	txID     interface{}
 	curBatch []*pb.Transaction
-	blocks   [][]*pb.Transaction
 
 	deliver      func([]byte)
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
@@ -255,7 +254,10 @@ func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof
 		return fmt.Errorf("Tx list does not match executed Tx batch")
 	}
 	inst.txID = nil
-	inst.blocks = append(inst.blocks, inst.curBatch)
+	blockHeight, _ := inst.ledger.GetBlockchainSize()
+	block := simpleGetBlock(blockHeight)
+	block.Transactions = inst.curBatch
+	_ = inst.ledger.PutBlock(blockHeight, block)
 	inst.curBatch = nil
 	return nil
 }

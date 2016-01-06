@@ -56,9 +56,11 @@ func TestSieveNetwork(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 1 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 1 {
 			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 1)
+				inst.id, newBlocks, 1)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
@@ -96,9 +98,11 @@ func TestSieveNoDecision(t *testing.T) {
 	net.close()
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 1 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 1 {
 			t.Errorf("replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 1)
+				inst.id, newBlocks, 1)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 1 {
@@ -139,9 +143,11 @@ func TestSieveReqBackToBack(t *testing.T) {
 	net.process()
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 2 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 2 {
 			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 2)
+				inst.id, newBlocks, 2)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
@@ -172,11 +178,12 @@ func TestSieveNonDeterministic(t *testing.T) {
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
 	net.process()
 
-	results := make([]int, len(net.replicas))
+	results := make([]uint64, len(net.replicas))
 	for _, inst := range net.replicas {
-		results[inst.id] = len(inst.blocks)
+		blockHeight, _ := inst.GetBlockchainSize() // Doesn't fail
+		results[inst.id] = blockHeight - 1
 	}
-	if !reflect.DeepEqual(results, []int{0, 0, 1, 1}) && !reflect.DeepEqual(results, []int{1, 1, 0, 0}) {
+	if !reflect.DeepEqual(results, []uint64{0, 0, 1, 1}) && !reflect.DeepEqual(results, []uint64{1, 1, 0, 0}) {
 		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
 	}
 }
