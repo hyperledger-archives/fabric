@@ -20,7 +20,7 @@ To log in a user through the CLI, issue the commands bellow, where 'username' is
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     ./obc-peer login <username>
 
-The command will prompt for a password, which must match the password listed for the target user in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml). If the password is entered incorrectly, an error will result.
+The command will prompt for a password, which must match the password listed for the target user in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml). If the password is incorrect, an error will result.
 
 To log in the user through the REST API, send a POST request to the /registrar endpoint, containing the enrollId and enrollSecret, listed in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml).
 
@@ -95,7 +95,7 @@ POST localhost:5000/devops/deploy
 }
 ```
 
-**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
+**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [security setup section](#security-setup-optional). On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
  	  ./obc-peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
@@ -150,7 +150,7 @@ POST localhost:5000/devops/invoke
 }
 ```
 
-**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
+**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [security setup section](#security-setup-optional). On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
 	 ./obc-peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
@@ -179,7 +179,7 @@ The invoke transaction runs the specified transaction name “invoke” with the
 
 #### Chaincode query via CLI and REST
 
-Run a query on the chaincode to retrieve desired values. The “-n” arg should match those provided in the Chaincode Window.
+Run a query on the chaincode to retrieve desired values. The “-n” arg should match that provided in the Chaincode Window.
 
     ./obc-peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
@@ -218,7 +218,7 @@ POST localhost:5000/devops/query
 }
 ```
 
-**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions within the security setup section above. On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
+**Note:** When security is enabled, modify the CLI command and REST API payload to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [security setup section](#security-setup-optional). On the CLI the username is passed with the -u parameter and on the REST API the username is passed with the 'secureContext' element.
 
     ./obc-peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 

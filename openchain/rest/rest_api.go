@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 
 	oc "github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -442,13 +443,29 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode path is not left blank.
-	if spec.ChaincodeID.Path == "" {
-		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+	// If the peer is running in development mode, confirm that the Chaincode name
+	// is not left blank. If the peer is running in production mode, confirm that
+	// the Chaincode path is not left blank. This is necessary as in development
+	// mode, the chaincode is identified by name not by path during the deploy
+	// process.
+	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
+		// Check that the Chaincode name is not blank.
+		if spec.ChaincodeID.Name == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
+			logger.Error("{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
 
-		return
+			return
+		}
+	} else {
+		// Check that the Chaincode path is not left blank.
+		if spec.ChaincodeID.Path == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Chaincode path may not be blank.\"}")
+			logger.Error("{\"Error\": \"Chaincode path may not be blank.\"}")
+
+			return
+		}
 	}
 
 	// If security is enabled, add client login token
@@ -566,11 +583,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode Name is not blank.
+	// Check that the Chaincode name is not blank.
 	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode name may not be blank.\"}")
 
 		return
 	}
@@ -699,11 +716,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode Name is not blank.
+	// Check that the Chaincode name is not blank.
 	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode name may not be blank.\"}")
 
 		return
 	}
