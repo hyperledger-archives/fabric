@@ -179,7 +179,7 @@ peer:
         touchMaxNodes: 100
 
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/production
+    fileSystemPath: /var/openchain/test
 
 ### NOTE: The validator section below is not needed and will be removed - BN
 ###############################################################################

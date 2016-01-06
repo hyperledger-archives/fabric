@@ -21,36 +21,43 @@ package obcca
 
 import (
 	"testing"
-	//"encoding/json"
-	//"errors"
 	"fmt"
-	//"io/ioutil"
 	"net"
 	"os"
-	//"runtime"
 	"strconv"
 	"strings"
 	"time"
-	
-	"golang.org/x/net/context"
+	"sync"
+	"io/ioutil"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-
-	//"github.com/spf13/cobra"
-	//"github.com/openblockchain/obc-peer/events/producer"
+	"golang.org/x/net/context"
+	google_protobuf "google/protobuf"
+	
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
-	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/openblockchain/obc-peer/openchain/util"
+	pb "github.com/openblockchain/obc-peer/protos"
 	
-	"sync"
-	"io/ioutil"
+	//"encoding/json"
+	//"errors"
+	//"runtime"
+	//"strings"	
+	//"github.com/howeyc/gopass"
+	//"github.com/op/go-logging"
+	//"github.com/spf13/cobra"
+	//"github.com/openblockchain/obc-peer/events/producer"
+)
+
+var (
+	tca *TCA 
+	eca *ECA 
 )
 
 func TestMain(m *testing.M) {
@@ -61,48 +68,30 @@ func TestMain(m *testing.M) {
 func setupTestConfig() {
 	viper.AutomaticEnv()
 	viper.SetConfigName("obcca_test") // name of config file (without extension)
-	viper.AddConfigPath("./")        // path to look for the config file in
-	viper.AddConfigPath("./..")      // path to look for the config file in
-	viper.AddConfigPath("./../..")      // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.AddConfigPath("./")         // path to look for the config file in
+	viper.AddConfigPath("./..")       // path to look for the config file in
+	err := viper.ReadInConfig()       // Find and read the config file
+	if err != nil {                   // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
-	
-	chaincodeDevMode := false
-	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
-		viper.Set("peer.validator.enabled", true)
-		viper.Set("peer.validator.consensus", "noops")
-		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
-	}
-	
-	/*viper.Set("peer.fileSystemPath", "/var/openchain/test")
-	viper.Set("security.enabled", true)
-	viper.Set("ports.ecaP", ":50051")
-	viper.Set("ports.ecaA", ":50052")
-	viper.Set("ports.tcaP", ":50551")
-	viper.Set("ports.tcaA", ":50552")
-	viper.Set("ports.tlscaP", ":50951")
-	viper.Set("ports.tlscaA", ":50952")
-	viper.Set("hosts.eca", "localhost")
-	viper.Set("hosts.tca", "localhost")
-	viper.Set("hosts.tlsca", "localhost")
-	viper.Set("eca.users.nepumuk", "9gvZQRwhUq9q")
-	viper.Set("eca.users.jim", "AwbeJH2kw9qK")
-	viper.Set("eca.users.lukas", "NPKYL39uKbkj")
-	viper.Set("eca.users.system_chaincode_invoker", "DRJ20pEql15a")
-	viper.Set("pki.validity-period.update", true)
-	viper.Set("pki.validity-period.tls.enabled", false)
-	viper.Set("pki.validity-period.tls.cert.file", "testdata/server1.pem")
-	viper.Set("pki.validity-period.tls.key.file", "testdata/server1.key")
-	viper.Set("pki.validity-period.devops-address", "0.0.0.0:30303")*/
 }
 
 func TestValidityPeriod(t *testing.T) {
+	go startServices(t) 
 	
-	startTCA()
+	// 1. query the validity period
+	// 2. wait at least the validity period update time
+	// 3. query the validity period again and compare with the previous value, it must be greater
+	
+	time.Sleep(time.Second * 60) // TODO remove when the test is complete
+	
+	stopServices()
+	
+	// 4. cleanup database and test folder
+}
 
+func startServices(t *testing.T) {
+	go startTCA()
 	err := startOpenchain()
 	if(err != nil){
 		t.Logf("Error starting Openchain: %s", err)
@@ -110,13 +99,18 @@ func TestValidityPeriod(t *testing.T) {
 	}
 }
 
+func stopServices(){
+	stopOpenchain()
+	stopTCA()
+}
+
 func startTCA() {
 	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 	
-	eca := NewECA()
+	eca = NewECA()
 	defer eca.Close()
 
-	tca := NewTCA(eca)
+	tca = NewTCA(eca)
 	defer tca.Close()
 
 	var wg sync.WaitGroup
@@ -126,9 +120,13 @@ func startTCA() {
 	
 	exampleQueryTransaction(context.Background(),"github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
 
-	//wg.Wait()
+	wg.Wait()
 }
 
+func stopTCA(){
+	tca.Stop()
+	eca.Stop()
+}
 
 // getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
 func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
@@ -330,6 +328,21 @@ func startOpenchain() error {
 	<-serve
 
 	return nil
+}
+
+func stopOpenchain() {
+	clientConn, err := peer.NewPeerClientConnection()
+	if err != nil {
+		logger.Error("Error trying to connect to local peer:", err)
+		return
+	}
+
+	logger.Info("Stopping peer...")
+	serverClient := pb.NewAdminClient(clientConn)
+
+	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+	logger.Info("Current status: %s", status)
+
 }
 
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
