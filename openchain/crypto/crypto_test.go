@@ -24,6 +24,7 @@ import (
 
 	"bytes"
 	"fmt"
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
@@ -649,6 +650,11 @@ func setup() {
 	if err != nil {                    // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file [%s] \n", err))
 	}
+	var formatter = logging.MustStringFormatter(
+		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
+	)
+	logging.SetFormatter(formatter)
+
 	removeFolders()
 }
 
