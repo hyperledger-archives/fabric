@@ -64,11 +64,11 @@ If you don't see “Received REGISTERED, ready for invocations” message, do no
 ###Window 3 (CLI or REST API)
 The chaincode is ready to receive requests. Please follow the steps detailed below to send a chaincode deploy, invoke, or query transaction.
 
-**Note:** The Openchain REST interface port is defined as port 5000 inside the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from the same host machine, use port 5000. If you are not issuing REST requests from the same host machine, make sure that you have port forwarding enabled from the desired host port to the REST port 5000. Further note, that if you are working directly with the REST interface Swagger definition file, rest_api.json, the port specified in that file is port 3000. This is done to emphasize that Swagger will likely not run on the same host machine as the peer process. In order to send requests directly from the Swagger-UI or Swagger-Editor interface, either set up port forwarding from port 3000 to 5000 on your host machine or edit the Swagger file to the port number of your choice.
+**Note:** The Openchain REST interface port is defined as port 5000 inside the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from the same machine, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. This is done to emphasize that Swagger will likely not run on the same machine as the peer process or outside Vagrant. In order to send requests from the Swagger-UI or Swagger-Editor interface, set up port forwarding from port 3000 to 5000 on your machine or edit the Swagger file to the port number of your choice.
 
 #### Chaincode deploy via CLI and REST
 
-First send a chaincode deploy transaction, only once, to the validating peer. The CLI knows how to connect to the validating peer based on the properties defined in the openchain.yaml file.
+First send a chaincode deploy transaction, only once, to the validating peer. The CLI knows how to connect to the validating peer based on the properties defined in the openchain.yaml file. **Note:** The deploy transaction requires a 'path' parameter to locate, build, and deploy the chaincode. However, as these instructions are for development mode and the chaincode is deployed manually, the 'name' parameter is used instead.
 
     cd  $GOPATH/src/github.com/openblockchain/obc-peer
  	./obc-peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'

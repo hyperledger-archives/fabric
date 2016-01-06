@@ -427,13 +427,13 @@
         "ChaincodeID": {
             "type": "object",
             "properties": {
-                "url": {
+                "path": {
                     "type": "string",
-                    "description": "URL for accessing the Chaincode."
+                    "description": "Chaincode location in the file system. This value is required by the deploy transaction."
                 },
-                "version": {
+                "name": {
                     "type": "string",
-                    "description": "Current version of the Chaincode."
+                    "description": "Chaincode name identifier. This value is required by the invoke and query transactions."
                 }
             }
         },
