@@ -66,26 +66,34 @@ func setupTestConfig() {
 	viper.SetConfigName("openchain") // name of config file (without extension)
 	viper.AddConfigPath("./")        // path to look for the config file in
 	viper.AddConfigPath("./..")      // path to look for the config file in
-	viper.AddConfigPath("./../..")      // path to look for the config file in
+	viper.AddConfigPath("./../..")   // path to look for the config file in
 	err := viper.ReadInConfig()      // Find and read the config file
 	if err != nil {                  // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	
-	chaincodeDevMode := false
-	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
-		viper.Set("peer.validator.enabled", "true")
-		viper.Set("peer.validator.consensus", "noops")
-		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
-	}
+//	chaincodeDevMode := false
+//	if chaincodeDevMode {
+//		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
+//		viper.Set("peer.validator.enabled", "true")
+//		viper.Set("peer.validator.consensus", "noops")
+//		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+//	}
+	
+//	viper.SetConfigName("obcca") 	 // name of config file (without extension)
+//	viper.AddConfigPath("./")        // path to look for the config file in
+//	viper.AddConfigPath("./..")      // path to look for the config file in
+//	err = viper.ReadInConfig()      // Find and read the config file
+//	if err != nil {                  // Handle errors reading the config file
+//		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+//	}
 	
 	viper.Set("peer.fileSystemPath", "/var/openchain/test")
 	viper.Set("security.enabled", "true")
 	viper.Set("ports.ecaP", ":50051")
 	viper.Set("ports.ecaA", ":50052")
 	viper.Set("ports.tcaP", ":50551")
-	viper.Set("ports.ecaA", ":50552")
+	viper.Set("ports.tcaA", ":50552")
 	viper.Set("hosts.eca", "localhost")
 	viper.Set("hosts.tca", "localhost")
 	viper.Set("eca.users.nepumuk", "9gvZQRwhUq9q")
