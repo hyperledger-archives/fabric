@@ -128,7 +128,6 @@ func stopTCA(){
 	eca.Stop()
 }
 
-
 // getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
 func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 	if cID == nil {
