@@ -62,7 +62,7 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
 		}
-		sts.WitnessCheckpoint(chkpt)
+		sts.witnessCheckpoint(chkpt)
 	}
 
 	if !sts.OutOfDate {
@@ -83,7 +83,7 @@ func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, 
 		for {
 			// In ordinary operation, the weak cert would advance, but to simply testing, send it over and over again
 			time.Sleep(time.Millisecond * 10)
-			sts.WitnessCheckpointWeakCert(chkpt)
+			sts.witnessCheckpointWeakCert(chkpt)
 		}
 	}()
 

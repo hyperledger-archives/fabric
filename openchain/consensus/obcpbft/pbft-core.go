@@ -351,6 +351,17 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
+	/*
+		if blockNumber, ok := sts.RecoveryJustCompleted() ; ok {
+			block, err := instance.cpi.GetBlock(block)
+			if err != nil {
+
+			} else {
+				instance.lastExec = block.
+			}
+		}
+	*/
+
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -686,7 +697,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
-	instance.sts.WitnessCheckpoint(chkpt) // State transfer tracking
+	instance.sts.witnessCheckpoint(chkpt) // State transfer tracking
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
@@ -709,7 +720,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if instance.sts.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
-		instance.sts.WitnessCheckpointWeakCert(chkpt)
+		instance.sts.witnessCheckpointWeakCert(chkpt)
 	}
 
 	if matching <= instance.f*2 {

@@ -55,6 +55,7 @@ type CPI interface {
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
 	RollbackTxBatch(id interface{}) error
+	PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error)
 
 	Ledger
 }

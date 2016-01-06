@@ -262,6 +262,11 @@ func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof
 	return nil
 }
 
+func (inst *instance) PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error) {
+	// TODO
+	return nil, fmt.Errorf("Unimplemented")
+}
+
 func (inst *instance) RollbackTxBatch(id interface{}) error {
 	if !reflect.DeepEqual(inst.txID, id) {
 		return fmt.Errorf("Invalid batch ID")

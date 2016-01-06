@@ -186,6 +186,11 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
+func (h *Helper) PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error) {
+	// TODO
+	return nil, fmt.Errorf("Unimplemented")
+}
+
 // GetBlock returns a block from the chain
 func (h *Helper) GetBlock(blockNumber uint64) (block *pb.Block, err error) {
 	ledger, err := ledger.GetLedger()

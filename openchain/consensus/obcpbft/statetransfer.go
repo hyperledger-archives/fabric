@@ -661,7 +661,7 @@ func (sts *stateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 	return currentStateBlock, ok
 }
 
-func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
+func (sts *stateTransferState) witnessCheckpoint(chkpt *Checkpoint) {
 	if sts.OutOfDate {
 		// State transfer is already going on, no need to track this
 		return
@@ -709,10 +709,7 @@ func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
 					}
 				}
 
-				sts.initiateStateSync <- &syncMark{
-					blockNumber: m,
-					replicaIds:  furthestReplicaIds,
-				}
+				sts.AsynchronousStateTransfer(m, furthestReplicaIds)
 			}
 
 			return
@@ -721,48 +718,71 @@ func (sts *stateTransferState) WitnessCheckpoint(chkpt *Checkpoint) {
 
 }
 
-func (sts *stateTransferState) WitnessCheckpointWeakCert(chkpt *Checkpoint) {
+func (sts *stateTransferState) witnessCheckpointWeakCert(chkpt *Checkpoint) {
+	checkpointMembers := make([]uint64, sts.pbft.replicaCount)
+	i := 0
+	for testChkpt := range sts.pbft.checkpointStore {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
+			checkpointMembers[i] = testChkpt.ReplicaId
+			i++
+		}
+	}
+
+	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
+	if nil != err {
+		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
+		return
+	}
+	sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i-1])
+}
+
+// Syncs to the block number specified, blocking until success, or failure
+// If replicaIds is nil, all replicas will be considered sync candidates
+func (sts *stateTransferState) SynchronousStateTransfer(blockNumber uint64, hash []byte, replicaIds []uint64) error {
+	return fmt.Errorf("Not implemented")
+}
+
+// Syncs to at least the block number specified, without blocking
+// For the sync to complete, a call to AsynchronousStateTransferValidHash(hash, replicaIds) must be made
+// This call should be made any time a new valid block hash above lowBlock is discovered
+// If replicaIds is nil, all replicas will be considered sync candidates
+// The channel returned may be blocked on, returning the block number synced to,
+// or alternatively, the calling thread may invoke AsynchronousStateTransferJustCompleted() which
+// will check the channel in a non-blocking way
+func (sts *stateTransferState) AsynchronousStateTransfer(lowBlock uint64, replicaIds []uint64) chan uint64 {
+	sts.initiateStateSync <- &syncMark{
+		blockNumber: lowBlock,
+		replicaIds:  replicaIds,
+	}
+	return sts.completeStateSync
+}
+
+// Informs the asynchronous sync of a new valid block hash
+func (sts *stateTransferState) AsynchronousStateTransferValidHash(blockNumber uint64, blockHash []byte, replicaIds []uint64) {
 	select {
 	default:
 		return
 	case certReq := <-sts.chkptWeakCertReq:
-		logger.Debug("Replica %d detects a weak cert for checkpoint %d, and has a certificate request for checkpoint over %d", sts.pbft.id, chkpt.BlockNumber, certReq.blockNumber)
-		if certReq.blockNumber > chkpt.BlockNumber {
+		logger.Debug("Replica %d detects a weak cert for checkpoint %d, and has a certificate request for checkpoint over %d", sts.pbft.id, blockNumber, certReq.blockNumber)
+		if certReq.blockNumber > blockNumber {
 			// There's a pending request, but this call didn't satisfy it, so put it back
 			sts.chkptWeakCertReq <- certReq
 			return
 		}
 
-		checkpointMembers := make([]uint64, sts.pbft.replicaCount)
-		i := 0
-		for testChkpt := range sts.pbft.checkpointStore {
-			if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
-				checkpointMembers[i] = testChkpt.ReplicaId
-				i++
-			}
-		}
-
-		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%s)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
-
-		blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
-
-		if nil != err {
-			logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", sts.pbft.id, chkpt.BlockNumber, chkpt.BlockHash)
-			return
-		}
+		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%x)", sts.pbft.id, blockNumber, blockHash)
 
 		certReq.certChan <- &chkptWeakCert{
 			syncMark: syncMark{
-				blockNumber: chkpt.BlockNumber,
-				replicaIds:  checkpointMembers[0 : i-1],
+				blockNumber: blockNumber,
+				replicaIds:  replicaIds,
 			},
-			blockHash: blockHashBytes,
+			blockHash: blockHash,
 		}
 	}
-
 }
 
-func (sts *stateTransferState) RecoveryJustCompleted() (uint64, bool) {
+func (sts *stateTransferState) AsynchronousStateTransferJustCompleted() (uint64, bool) {
 	select {
 	case blockNumber := <-sts.completeStateSync:
 		return blockNumber, true
