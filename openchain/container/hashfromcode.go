@@ -118,18 +118,28 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	}
 
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
-	os.Mkdir(newgopath, 0755)
+	os.Mkdir(newgopath, 0755)    
 
 	if codegopath, err = ioutil.TempDir(newgopath, ""); err != nil {
 		err = fmt.Errorf("could not create tmp dir under %s(%s)", newgopath, err)
 		return
 	}
+	
+	// If we don't copy the obc-peer code into the temp dir with the chaincode,
+	// go get will have to redownload obc-peer, which requires credentials.
+	cmd := exec.Command("cp", "-r", origgopath + "/src", codegopath + "/src")
+	cmd.Env = env
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
 
 	env[gopathenvIndex] = "GOPATH=" + codegopath
 
-	cmd := exec.Command("go", "get", path)
+	cmd = exec.Command("go", "get", path)
 	cmd.Env = env
-	var out bytes.Buffer
 	cmd.Stdout = &out
 	err = cmd.Run()
 	if err != nil {
