@@ -221,17 +221,6 @@ func (op *obcBatch) viewChange(curView uint64) {
 	}
 }
 
-// used in view-change to fetch missing assigned, non-checkpointed requests
-func (op *obcBatch) fetchRequest(digest string) error {
-	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
-	msgPacked, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
-	}
-	op.broadcast(msgPacked)
-	return nil
-}
-
 // =============================================================================
 // functions specific to batch mode
 // =============================================================================

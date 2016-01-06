@@ -53,7 +53,6 @@ type innerCPI interface {
 	verify(txRaw []byte) error
 	execute(txRaw []byte)
 	viewChange(curView uint64)
-	fetchRequest(digest string) (err error)
 }
 
 type pbftCore struct {
@@ -344,20 +343,9 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	// we're adding these receive functions here (instead of inside recvMsgSync)
-	// because we want to be able to sync even when the lock is held by recvNewView
-	if fr := msg.GetFetchRequest(); fr != nil {
-		fmt.Printf("Debug: replica %v receive fetch-request\n", instance.id)
-		err = instance.recvFetchRequest(fr)
-	} else if req := msg.GetReturnRequest(); req != nil {
-		fmt.Printf("Debug: replica %v receive return-request\n", instance.id)
-		err = instance.recvReturnRequest(req)
-	} else {
-		instance.lock.Lock()
-		defer instance.lock.Unlock()
-		fmt.Printf("Debug: replica %v receive msgSync\n", instance.id)
-		instance.recvMsgSync(msg)
-	}
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
 	return nil
 }
@@ -377,6 +365,12 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
+	} else if fr := msg.GetFetchRequest(); fr != nil {
+		fmt.Printf("Debug: replica %v receive fetch-request\n", instance.id)
+		err = instance.recvFetchRequest(fr)
+	} else if req := msg.GetReturnRequest(); req != nil {
+		fmt.Printf("Debug: replica %v receive return-request\n", instance.id)
+		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
 		logger.Error("%s", err)
@@ -745,6 +739,20 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	return instance.processNewView()
 }
 
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (instance *pbftCore) fetchRequests() (err error) {
+	var msg *Message
+	for digest := range instance.missingReqs {
+		msg = &Message{&Message_FetchRequest{&FetchRequest{
+			RequestDigest: digest,
+			ReplicaId:     instance.id,
+		}}}
+		instance.innerBroadcast(msg, false)
+	}
+
+	return
+}
+
 func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
 	fmt.Printf("Debug: replica %v recvFetchRequest\n", instance.id)
 	digest := fr.RequestDigest
@@ -774,7 +782,8 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 
 	instance.reqStore[digest] = req
 	delete(instance.missingReqs, digest)
-	return nil
+
+	return instance.processNewView()
 }
 
 // =============================================================================

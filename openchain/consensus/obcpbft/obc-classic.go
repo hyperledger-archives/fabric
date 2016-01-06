@@ -172,14 +172,3 @@ func (op *obcClassic) execute(txRaw []byte) {
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
 }
-
-// used in view-change to fetch missing assigned, non-checkpointed requests
-func (op *obcClassic) fetchRequest(digest string) error {
-	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
-	msgPacked, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
-	}
-	op.broadcast(msgPacked)
-	return nil
-}

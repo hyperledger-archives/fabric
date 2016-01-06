@@ -149,17 +149,6 @@ func (op *obcSieve) viewChange(newView uint64) {
 	}
 }
 
-// used in view-change to fetch missing assigned, non-checkpointed requests
-func (op *obcSieve) fetchRequest(digest string) error {
-	msg := &Message{&Message_FetchRequest{&FetchRequest{RequestDigest: digest, ReplicaId: op.pbft.id}}}
-	msgPacked, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("Error marshaling fetch-request message: %v", err)
-	}
-	op.broadcast(msgPacked)
-	return nil
-}
-
 func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 	msgPayload, _ := proto.Marshal(svMsg)
 	ocMsg := &pb.OpenchainMessage{

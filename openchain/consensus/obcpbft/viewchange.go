@@ -263,6 +263,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 }
 
 func (instance *pbftCore) processNewView() error {
+	var newRequestMissing bool
 	fmt.Printf("Debug: processNewView (ID: %v)\n", instance.id)
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
@@ -315,26 +316,26 @@ func (instance *pbftCore) processNewView() error {
 			if _, ok := instance.reqStore[d]; !ok {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
-				instance.missingReqs[d] = true
-				go instance.consumer.fetchRequest(d)
+				if _, ok := instance.missingReqs[d]; !ok {
+					logger.Warning("replica %v requesting to fetch %s",
+						instance.id, d)
+					newRequestMissing = true
+					instance.missingReqs[d] = true
+				}
 			}
 		}
 	}
 
-	once := true
-	for len(instance.missingReqs) > 0 {
-		if once {
-			fmt.Printf("Debug: replica %v missing %d requests....\n", instance.id, len(instance.missingReqs))
-			once = false
-		}
-		// wait until all the missing requests have been received
-		// XXX ugly; switch to a condition variable
-		// TODO what happens if we're never able to get out of here?
-	}
-	if !once {
-		fmt.Printf("Debug: replica %v is no longer missing any requests\n", instance.id)
+	if len(instance.missingReqs) == 0 {
+		return instance.processNewView2(nv)
+	} else if newRequestMissing {
+		go instance.fetchRequests()
 	}
 
+	return nil
+}
+
+func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
