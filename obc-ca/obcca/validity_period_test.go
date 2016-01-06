@@ -124,7 +124,7 @@ func startTCA() {
 	tca.Start(&wg)
 	
 	
-	//exampleQueryTransaction(context.Background(),"github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{})
+	exampleQueryTransaction(context.Background(),"github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
 
 	//wg.Wait()
 }
@@ -162,7 +162,7 @@ func exampleQueryTransaction(ctxt context.Context, url string, version string, a
 		CtorMsg: &pb.ChaincodeInput{Function: f, Args: args},
 		}
 	
-	
+	spec.SecureContext = "system_chaincode_invoker"
 	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
 	
 	fmt.Println(uuid)
@@ -171,6 +171,38 @@ func exampleQueryTransaction(ctxt context.Context, url string, version string, a
 	}
 	
 	return nil
+}
+
+func getDevopsClient(peerAddress string) (pb.DevopsClient, error) {
+	var opts []grpc.DialOption
+	if viper.GetBool("pki.validity-period.tls.enabled") {
+		var sn string
+		if viper.GetString("pki.validity-period.tls.server-host-override") != "" {
+			sn = viper.GetString("pki.validity-period.tls.server-host-override")
+		}
+		var creds credentials.TransportAuthenticator
+		if viper.GetString("pki.validity-period.tls.cert.file") != "" {
+			var err error
+			creds, err = credentials.NewClientTLSFromFile(viper.GetString("pki.validity-period.tls.cert.file"), sn)
+			if err != nil {
+				grpclog.Fatalf("Failed to create TLS credentials %v", err)
+			}
+		} else {
+			creds = credentials.NewClientTLSFromCert(nil, sn)
+		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	}
+	opts = append(opts, grpc.WithTimeout(systemChaincodeTimeout))
+	opts = append(opts, grpc.WithBlock())
+	opts = append(opts, grpc.WithInsecure())
+	conn, err := grpc.Dial(peerAddress, opts...)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error trying to connect to local peer: %s", err)
+	}
+	
+	devopsClient := obc.NewDevopsClient(conn)
+	return devopsClient, nil
 }
 
 // Invoke or query a chaincode.
