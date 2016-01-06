@@ -452,8 +452,8 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		// Check that the Chaincode name is not blank.
 		if spec.ChaincodeID.Name == "" {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank.\"}")
-			logger.Error("{\"Error\": \"Chaincode name may not be blank.\"}")
+			fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
+			logger.Error("{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
 
 			return
 		}
