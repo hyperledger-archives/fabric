@@ -22,10 +22,12 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
 
 	"github.com/golang/protobuf/proto"
@@ -76,7 +78,10 @@ type pbftCore struct {
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
-	sts          *stateTransferState // Data structure which handles state transfer
+
+	ledger  consensus.Ledger                  // Used for blockchain related queries
+	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
+	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -118,6 +123,18 @@ type vcidx struct {
 	id uint64
 }
 
+type sortableUint64Slice []uint64
+
+func (a sortableUint64Slice) Len() int {
+	return len(a)
+}
+func (a sortableUint64Slice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a sortableUint64Slice) Less(i, j int) bool {
+	return a[i] < a[j]
+}
+
 // =============================================================================
 // constructors
 // =============================================================================
@@ -126,6 +143,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
+	instance.ledger = ledger
 
 	// in dev/debugging mode you are expected to override the config values
 	// with the environment variable OPENCHAIN_OBCPBFT_X_Y
@@ -161,10 +179,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.newViewStore = make(map[uint64]*NewView)
 
 	// initialize state transfer
-	instance.sts = newStateTransferState(instance, config, ledger)
+	instance.hChkpts = make(map[uint64]uint64)
+	instance.sts = statetransfer.NewStateTransferState(fmt.Sprintf("Replica %d", instance.id), config, ledger)
 
 	// load genesis checkpoint
-	genesisBlock, err := instance.sts.ledger.GetBlock(0)
+	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
 		panic(fmt.Errorf("Cannot load genesis block: %s", err))
 	}
@@ -353,7 +372,7 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	/*
 		if blockNumber, ok := sts.RecoveryJustCompleted() ; ok {
-			block, err := instance.cpi.GetBlock(block)
+			block, err := instance.ledger.GetBlock(block)
 			if err != nil {
 
 			} else {
@@ -626,7 +645,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		blockHashBytes, err := instance.sts.ledger.GetCurrentStateHash()
+		blockHashBytes, err := instance.ledger.GetCurrentStateHash()
 
 		if nil != err {
 			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
@@ -693,11 +712,86 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 		instance.id, instance.h)
 }
 
+func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
+	if instance.sts.OutOfDate {
+		// State transfer is already going on, no need to track this
+		return
+	}
+
+	H := instance.h + instance.L
+
+	// Track the last observed checkpoint sequence number if it exceeds our high watermark, keyed by replica to prevent unbounded growth
+	if chkpt.SequenceNumber < H {
+		// For non-byzantine nodes, the checkpoint sequence number increases monotonically
+		delete(instance.hChkpts, chkpt.ReplicaId)
+	} else {
+		// We do not track the highest one, as a byzantine node could pick an arbitrarilly high sequence number
+		// and even if it recovered to be non-byzantine, we would still believe it to be far ahead
+		instance.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
+
+		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
+		// we need to check to see if we have fallen behind.
+		if len(instance.hChkpts) >= instance.f+1 {
+			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
+			index := 0
+			for replicaId, hChkpt := range instance.hChkpts {
+				chkptSeqNumArray[index] = hChkpt
+				index++
+				if hChkpt < H {
+					delete(instance.hChkpts, replicaId)
+				}
+			}
+			sort.Sort(sortableUint64Slice(chkptSeqNumArray))
+
+			// If f+1 nodes have issued checkpoints above our high water mark, then
+			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
+			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
+			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
+				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
+				instance.sts.OutOfDate = true
+				instance.moveWatermarks(m + instance.K)
+
+				furthestReplicaIds := make([]uint64, instance.f+1)
+				i := 0
+				for replicaId, hChkpt := range instance.hChkpts {
+					if hChkpt >= m {
+						furthestReplicaIds[i] = replicaId
+						i++
+					}
+				}
+
+				instance.sts.AsynchronousStateTransfer(m, furthestReplicaIds)
+			}
+
+			return
+		}
+	}
+
+}
+
+func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
+	checkpointMembers := make([]uint64, instance.replicaCount)
+	i := 0
+	for testChkpt := range instance.checkpointStore {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
+			checkpointMembers[i] = testChkpt.ReplicaId
+			i++
+		}
+	}
+
+	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
+	if nil != err {
+		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		return
+	}
+	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i-1])
+}
+
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
-	instance.sts.witnessCheckpoint(chkpt) // State transfer tracking
+	instance.witnessCheckpoint(chkpt) // State transfer tracking
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
@@ -720,7 +814,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if instance.sts.OutOfDate && matching >= instance.f+1 {
 		// We do have a weak cert
-		instance.sts.witnessCheckpointWeakCert(chkpt)
+		instance.witnessCheckpointWeakCert(chkpt)
 	}
 
 	if matching <= instance.f*2 {

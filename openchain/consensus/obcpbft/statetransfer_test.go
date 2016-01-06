@@ -21,90 +21,57 @@ package obcpbft
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	. "github.com/openblockchain/obc-peer/openchain/consensus/statetransfer" // Bad form, but here until we can figure out how to share tests across packages
 )
 
-func newTestStateTransfer(ml *mockLedger) *stateTransferState {
+func newTestStateTransfer(ml *MockLedger) *StateTransferState {
 	// The implementation of the state transfer depends on randomness
 	// Seed it here so that independent test executions are consistent
 	rand.Seed(0)
 
-	return newStateTransferState(
-		&pbftCore{
-			replicaCount:    4,
-			id:              uint64(0),
-			h:               uint64(0),
-			K:               uint64(2),
-			L:               uint64(4),
-			f:               int(1),
-			checkpointStore: make(map[Checkpoint]bool),
-		},
-		readConfig(),
-		ml,
-	)
+	return NewStateTransferState("State Transfer Test", readConfig(), ml)
 }
 
-func executeStateTransfer(sts *stateTransferState, ml *mockLedger, blockNumber, sequenceNumber uint64) error {
-
-	var chkpt *Checkpoint
+func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, sequenceNumber uint64) error {
 
 	ml.forceRemoteStateBlock(blockNumber - 2)
 
-	for i := uint64(1); i <= 3; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber - i,
-			BlockHash:      base64.StdEncoding.EncodeToString(simpleGetBlockHash(blockNumber - i)),
-			ReplicaId:      i,
-			BlockNumber:    blockNumber - i,
-		}
-		sts.witnessCheckpoint(chkpt)
-	}
-
-	if !sts.OutOfDate {
-		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
-	}
-
-	for i := 1; i < sts.pbft.replicaCount; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber,
-			BlockHash:      base64.StdEncoding.EncodeToString(simpleGetBlockHash(blockNumber)),
-			ReplicaId:      uint64(i),
-			BlockNumber:    blockNumber,
-		}
-		sts.pbft.checkpointStore[*chkpt] = true
-	}
+	result := sts.AsynchronousStateTransfer(blockNumber-3, []uint64{1, 2, 3})
 
 	go func() {
+		blockHash := SimpleGetBlockHash(blockNumber)
+
 		for {
 			// In ordinary operation, the weak cert would advance, but to simply testing, send it over and over again
 			time.Sleep(time.Millisecond * 10)
-			sts.witnessCheckpointWeakCert(chkpt)
+			sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, []uint64{1, 2, 3})
 		}
 	}()
 
 	select {
 	case <-time.After(time.Second * 2):
 		return fmt.Errorf("Timed out waiting for state to catch up, error in state transfer")
-	case <-sts.completeStateSync:
+	case <-result:
 		// Do nothing, continue the test
 	}
 
-	if size, _ := sts.ledger.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+	if size, _ := ml.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
 		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
 	}
 
-	block, err := sts.ledger.GetBlock(blockNumber)
+	block, err := ml.GetBlock(blockNumber)
 
 	if nil != err {
 		return fmt.Errorf("Error retrieving last block in the mock chain.")
 	}
 
-	if stateHash, _ := sts.ledger.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
+	if stateHash, _ := ml.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
 		return fmt.Errorf("Current state does not validate against the latest block.")
 	}
 
@@ -151,8 +118,8 @@ func makeSimpleFilter(failureTrigger mockRequest, failureType mockResponse) (fun
 func TestCatchupSimple(t *testing.T) {
 
 	// Test from blockheight of 1, with valid genesis block
-	ml := newMockLedger(nil)
-	ml.PutBlock(0, simpleGetBlock(0))
+	ml := NewMockLedger(nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("Simplest case: %s", err)
@@ -164,11 +131,11 @@ func TestCatchupSyncBlocksTimeout(t *testing.T) {
 	// Test from blockheight of 1 with valid genesis block
 	// Timeouts of 1 second
 	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
-	ml := newMockLedger(filter)
+	ml := NewMockLedger(filter)
 
-	ml.PutBlock(0, simpleGetBlock(0))
+	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
-	sts.blockRequestTimeout = 10 * time.Millisecond
+	sts.BlockRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncSnapshotTimeout case: %s", err)
 	}
@@ -179,8 +146,8 @@ func TestCatchupSyncBlocksTimeout(t *testing.T) {
 
 func TestCatchupMissingEarlyChain(t *testing.T) {
 	// Test from blockheight of 5 (with missing blocks 0-3)
-	ml := newMockLedger(nil)
-	ml.PutBlock(4, simpleGetBlock(4))
+	ml := NewMockLedger(nil)
+	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
@@ -191,10 +158,10 @@ func TestCatchupSyncSnapshotTimeout(t *testing.T) {
 	// Test from blockheight of 5 (with missing blocks 0-3)
 	// Timeouts of 1 second
 	filter, result := makeSimpleFilter(SyncSnapshot, Timeout)
-	ml := newMockLedger(filter)
-	ml.PutBlock(4, simpleGetBlock(4))
+	ml := NewMockLedger(filter)
+	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
-	sts.stateSnapshotRequestTimeout = 10 * time.Millisecond
+	sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncSnapshotTimeout case: %s", err)
 	}
@@ -207,10 +174,10 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	// Test from blockheight of 5 (with missing blocks 0-3)
 	// Timeouts of 1 second
 	filter, result := makeSimpleFilter(SyncDeltas, Timeout)
-	ml := newMockLedger(filter)
-	ml.PutBlock(4, simpleGetBlock(4))
+	ml := NewMockLedger(filter)
+	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
-	sts.stateDeltaRequestTimeout = 10 * time.Millisecond
+	sts.StateDeltaRequestTimeout = 10 * time.Millisecond
 	if err := executeStateTransfer(sts, ml, 7, 10); nil != err {
 		t.Fatalf("SyncDeltasTimeout case: %s", err)
 	}
@@ -219,27 +186,15 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	}
 }
 
-func executeBlockRecovery(ml *mockLedger, millisTimeout int) error {
-	sts := threadlessNewStateTransferState(
-		&pbftCore{
-			replicaCount:    4,
-			id:              uint64(0),
-			h:               uint64(0),
-			K:               uint64(2),
-			L:               uint64(4),
-			f:               int(1),
-			checkpointStore: make(map[Checkpoint]bool),
-		},
-		readConfig(),
-		ml,
-	)
-	sts.blockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
-	sts.recoverDamage = true
+func executeBlockRecovery(ml *MockLedger, millisTimeout int) error {
+	sts := ThreadlessNewStateTransferState("Replica 0", readConfig(), ml)
+	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
+	sts.RecoverDamage = true
 
 	w := make(chan struct{})
 
 	go func() {
-		for !sts.verifyAndRecoverBlockchain() {
+		for !sts.VerifyAndRecoverBlockchain() {
 		}
 		w <- struct{}{}
 	}()
@@ -258,22 +213,10 @@ func executeBlockRecovery(ml *mockLedger, millisTimeout int) error {
 	return nil
 }
 
-func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
-	sts := threadlessNewStateTransferState(
-		&pbftCore{
-			replicaCount:    4,
-			id:              uint64(0),
-			h:               uint64(0),
-			K:               uint64(2),
-			L:               uint64(4),
-			f:               int(1),
-			checkpointStore: make(map[Checkpoint]bool),
-		},
-		readConfig(),
-		ml,
-	)
-	sts.blockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
-	sts.recoverDamage = false
+func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int) error {
+	sts := ThreadlessNewStateTransferState("Replica 0", readConfig(), ml)
+	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
+	sts.RecoverDamage = false
 
 	w := make(chan bool)
 
@@ -282,7 +225,7 @@ func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
 			recover()
 			w <- true
 		}()
-		for !sts.verifyAndRecoverBlockchain() {
+		for !sts.VerifyAndRecoverBlockchain() {
 		}
 		w <- false
 	}()
@@ -301,22 +244,22 @@ func executeBlockRecoveryWithPanic(ml *mockLedger, millisTimeout int) error {
 }
 
 func TestCatchupLaggingChains(t *testing.T) {
-	ml := newMockLedger(nil)
-	ml.PutBlock(7, simpleGetBlock(7))
+	ml := NewMockLedger(nil)
+	ml.PutBlock(7, SimpleGetBlock(7))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupLaggingChains short chain failure: %s", err)
 	}
 
-	ml = newMockLedger(nil)
-	ml.PutBlock(700, simpleGetBlock(700))
+	ml = NewMockLedger(nil)
+	ml.PutBlock(700, SimpleGetBlock(700))
 	// Use a large timeout here because the mock ledger is slow for large blocks
 	if err := executeBlockRecovery(ml, 1000); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
 	}
 
 	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
-	ml = newMockLedger(filter)
-	ml.PutBlock(7, simpleGetBlock(7))
+	ml = NewMockLedger(filter)
+	ml.PutBlock(7, SimpleGetBlock(7))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupLaggingChains short chain with timeout failure: %s", err)
 	}
@@ -326,16 +269,16 @@ func TestCatchupLaggingChains(t *testing.T) {
 }
 
 func TestCatchupCorruptChains(t *testing.T) {
-	ml := newMockLedger(nil)
-	ml.PutBlock(7, simpleGetBlock(7))
-	ml.PutBlock(3, simpleGetBlock(2))
+	ml := NewMockLedger(nil)
+	ml.PutBlock(7, SimpleGetBlock(7))
+	ml.PutBlock(3, SimpleGetBlock(2))
 	if err := executeBlockRecovery(ml, 10); nil != err {
 		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
 	}
 
-	ml = newMockLedger(nil)
-	ml.PutBlock(7, simpleGetBlock(7))
-	ml.PutBlock(3, simpleGetBlock(2))
+	ml = NewMockLedger(nil)
+	ml.PutBlock(7, SimpleGetBlock(7))
+	ml.PutBlock(3, SimpleGetBlock(2))
 	defer func() {
 		//fmt.Println("Executing defer")
 		// We expect a panic, this is great

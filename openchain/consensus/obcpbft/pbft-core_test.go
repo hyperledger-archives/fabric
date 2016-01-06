@@ -20,6 +20,9 @@ under the License.
 package obcpbft
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
@@ -522,4 +525,68 @@ func TestFallBehind(t *testing.T) {
 	if inst.h != inst.L+inst.K*2 {
 		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K*2, inst.h)
 	}
+}
+
+func tmpExecuteStateTransfer(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64) error {
+
+	var chkpt *Checkpoint
+	var result chan uint64
+
+	ml.forceRemoteStateBlock(blockNumber - 2)
+
+	for i := uint64(1); i <= 3; i++ {
+		chkpt = &Checkpoint{
+			SequenceNumber: sequenceNumber - i,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber - i)),
+			ReplicaId:      i,
+			BlockNumber:    blockNumber - i,
+		}
+		pbft.witnessCheckpoint(chkpt)
+	}
+	/* // TODO
+	if !sts.OutOfDate {
+		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
+	}
+	*/
+
+	for i := 1; i < pbft.replicaCount; i++ {
+		chkpt = &Checkpoint{
+			SequenceNumber: sequenceNumber,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber)),
+			ReplicaId:      uint64(i),
+			BlockNumber:    blockNumber,
+		}
+		pbft.checkpointStore[*chkpt] = true
+	}
+
+	go func() {
+		for {
+			// In ordinary operation, the weak cert would advance, but to simply testing, send it over and over again
+			time.Sleep(time.Millisecond * 10)
+			pbft.witnessCheckpointWeakCert(chkpt)
+		}
+	}()
+
+	select {
+	case <-time.After(time.Second * 2):
+		return fmt.Errorf("Timed out waiting for state to catch up, error in state transfer")
+	case <-result:
+		// Do nothing, continue the test
+	}
+
+	if size, _ := pbft.ledger.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
+	}
+
+	block, err := pbft.ledger.GetBlock(blockNumber)
+
+	if nil != err {
+		return fmt.Errorf("Error retrieving last block in the mock chain.")
+	}
+
+	if stateHash, _ := pbft.ledger.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
+		return fmt.Errorf("Current state does not validate against the latest block.")
+	}
+
+	return nil
 }

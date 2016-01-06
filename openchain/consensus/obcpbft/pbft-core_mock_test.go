@@ -39,9 +39,9 @@ func newMock() *mockCPI {
 	mock := &mockCPI{
 		make([][]byte, 0),
 		make([][]byte, 0),
-		newMockLedger(nil),
+		NewMockLedger(nil),
 	}
-	mock.ledger.PutBlock(0, simpleGetBlock(0))
+	mock.ledger.PutBlock(0, SimpleGetBlock(0))
 	return mock
 }
 
@@ -65,7 +65,7 @@ func (mock *mockCPI) viewChange(uint64) {
 }
 
 func (mock *mockCPI) GetBlock(id uint64) (block *pb.Block, err error) {
-	return simpleGetBlock(id), nil
+	return SimpleGetBlock(id), nil
 }
 func (mock *mockCPI) GetCurrentStateHash() (stateHash []byte, err error) {
 	return mock.ledger.GetCurrentStateHash()
@@ -255,7 +255,7 @@ func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof
 	}
 	inst.txID = nil
 	blockHeight, _ := inst.ledger.GetBlockchainSize()
-	block := simpleGetBlock(blockHeight)
+	block := SimpleGetBlock(blockHeight)
 	block.Transactions = inst.curBatch
 	_ = inst.ledger.PutBlock(blockHeight, block)
 	inst.curBatch = nil
@@ -380,8 +380,8 @@ func makeTestnet(f int, initFn ...func(*instance)) *testnet {
 	replicaCount := 3*f + 1
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
-		inst.ledger = newMockLedger(nil)
-		inst.ledger.PutBlock(0, simpleGetBlock(0))
+		inst.ledger = NewMockLedger(nil)
+		inst.ledger.PutBlock(0, SimpleGetBlock(0))
 		net.replicas = append(net.replicas, inst)
 		net.handles = append(net.handles, inst.handle)
 	}
