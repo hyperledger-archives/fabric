@@ -335,49 +335,6 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	}
 }
 
-// Build creates the docker container that holds the Chaincode and all required
-// entities.
-func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
-	// Decode the incoming JSON payload
-	var spec pb.ChaincodeSpec
-	err := jsonpb.Unmarshal(req.Body, &spec)
-
-	// Check for proper JSON syntax
-	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character
-		// as otherwise the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
-		rw.WriteHeader(http.StatusBadRequest)
-
-		// Client must supply payload
-		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
-		} else {
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		}
-		return
-	}
-
-	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Path == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode path.\"}")
-		return
-	}
-
-	// Build the ChaincodeSpec
-	_, err = s.devops.Build(context.Background(), &spec)
-	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		return
-	}
-
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully built chainCode.\"}")
-}
-
 // Deploy first builds the chaincode package and subsequently deploys it to the
 // blockchain.
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
@@ -809,7 +766,6 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)

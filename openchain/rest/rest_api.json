@@ -69,39 +69,6 @@
                 }
             }
         },
-        "/devops/build": {
-            "post": {
-                "summary": "Service endpoint for building Chaincode",
-                "description": "The /devops/build endpoint receives Chaincode build requests for existing Chaincodes. The Chaincode and the required entities are packaged into a container upon receipt of the request. If the build is successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
-                "tags": [
-                    "Devops"
-                ],
-                "operationId": "chaincodeBuild",
-                "parameters": [{
-                    "name": "ChaincodeSpec",
-                    "in": "body",
-                    "description": "Chaincode specification message",
-                    "required": true,
-                    "schema": {
-                       "$ref": "#/definitions/ChaincodeSpec"
-                    }
-                }],
-                "responses": {
-                    "200": {
-                        "description": "Successfully built chainCode",
-                        "schema": {
-                           "$ref": "#/definitions/OK"
-                        }
-                    },
-                    "default": {
-                        "description": "Unexpected error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
         "/devops/deploy": {
            "post": {
               "summary": "Service endpoint for deploying Chaincode",
