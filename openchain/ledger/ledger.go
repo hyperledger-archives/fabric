@@ -80,6 +80,24 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
+// GetTXBatchPreviewBlock returns a preview block that will have the same
+// block.GetHash() result as the block commited to the database if
+// ledger.CommitTxBatch is called with the same parameters. If the state is modified
+// by a transaction between these two calls, the hash will be different. The
+// preview block does not include non-hashed data such as the local timestamp.
+func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
+	transactions []*protos.Transaction, proof []byte) (*protos.Block, error) {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return nil, err
+	}
+	stateHash, err := ledger.state.GetHash()
+	if err != nil {
+		return nil, err
+	}
+	return ledger.blockchain.buildBlock(protos.NewBlock("proposerID", transactions), stateHash), nil
+}
+
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
