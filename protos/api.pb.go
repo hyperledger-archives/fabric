@@ -9,6 +9,7 @@ It is generated from these files:
 	api.proto
 	chaincode.proto
 	devops.proto
+	events.proto
 	openchain.proto
 	server_admin.proto
 
@@ -28,6 +29,10 @@ It has these top-level messages:
 	PutStateInfo
 	Secret
 	BuildResult
+	Interest
+	Register
+	Generic
+	OpenchainEvent
 	Transaction
 	TransactionBlock
 	TransactionResult

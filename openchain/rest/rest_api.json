@@ -142,7 +142,7 @@
         "/devops/deploy": {
            "post": {
               "summary": "Service endpoint for deploying Chaincode",
-              "description": "The /devops/deploy endpoint receives Chaincode deployment requests for existing Chaincodes. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, a confirmation message is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -174,8 +174,8 @@
         },
         "/devops/invoke": {
            "post": {
-              "summary": "Service endpoint for invoking Chaincode",
-              "description": "The /devops/invoke endpoint receives requests to invoke functions for existing Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for invoking Chaincode functions",
+              "description": "The /devops/invoke endpoint receives requests for invoking functions in deployed Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -207,8 +207,8 @@
         },
         "/devops/query": {
            "post": {
-              "summary": "Service endpoint for querying Chaincode",
-              "description": "The /devops/query endpoint receives requests to query existing Chaincodes. The request triggers the query method on the target Chaincode, both specified in the required payload. If the Chaincode query is successful, the response defined within the Chaincode is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for querying Chaincode state",
+              "description": "The /devops/query endpoint receives requests to query Chaincode state. The request triggers a query method on the target Chaincode, both identified in the required payload. If the query method is successful, the response defined within the method is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -237,6 +237,99 @@
                   }
               }
            }
+        },
+        "/registrar": {
+           "post": {
+              "summary": "Service endpoint for registering a user with the certificate authority",
+              "description": "The /registrar endpoint receives requests to register a user with the certificate authority. The request must supply the registration id and password within the payload. If the registration is successful, the required transaction certificates are received and stored locally. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Registrar"
+              ],
+              "operationId": "registerUser",
+              "parameters": [{
+                 "name": "Secret",
+                 "in": "body",
+                 "description": "User enrollment credentials",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/Secret"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully registered user with the certificate authority",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
+        },
+        "/registrar/{userID}": {
+            "get": {
+                "summary": "Confirm the user has registered with the certificate authority",
+                "description": "The /registrar/{userID} endpoint confirms whether the specified user has registered with the certificate authority. If the user has registered, a confirmation message will be returned. Otherwise, an authorization failure will result.",
+                "tags": [
+                    "Registrar"
+                ],
+                "operationId": "getUserRegistration",
+                "parameters": [{
+                    "name": "userID",
+                    "in": "path",
+                    "description": "Username for which registration is to be confirmed",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm registration for target user",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+              "summary": "Delete user login tokens from local storage",
+              "description": "The /registrar/{userID} endpoint deletes any existing client login tokens from local storage. After the completion of this request, the target user will no longer be able to execute transactions.",
+              "tags": [
+                  "Registrar"
+              ],
+                "operationId": "deleteUserRegistration",
+                "parameters": [{
+                    "name": "userID",
+                    "in": "path",
+                    "description": "Username for which login tokens are to be deleted",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm deletion of user login tokens",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -340,7 +433,7 @@
                 },
                 "version": {
                     "type": "string",
-                    "description": "Current version of a Chaincode."
+                    "description": "Current version of the Chaincode."
                 }
             }
         },
@@ -372,26 +465,16 @@
                     "description": "Unique Chaincode identifier."
                 },
                 "ctorMsg": {
-                    "$ref": "#/definitions/ChaincodeMessage",
+                    "$ref": "#/definitions/ChaincodeInput",
                     "description": "Specific function to execute within the Chaincode."
-                }
-            }
-        },
-        "ChaincodeDeploymentSpec": {
-            "type": "object",
-            "properties": {
-                "chaincodeSpec": {
-                    "$ref": "#/definitions/ChaincodeSpec",
-                    "description": "Chaincode specification message."
                 },
-                "effectiveDate": {
+                "secureContext": {
                     "type": "string",
-                    "description": "Time of Chaincode creation/activation."
+                    "description": "Username when security is enabled."
                 },
-                "codePackage": {
-                    "type": "string",
-                    "format": "bytes",
-                    "description": "Compiled Chaincode package."
+                "confidentialityLevel": {
+                    "$ref": "#/definitions/ConfidentialityLevel",
+                    "description": "Confidentiality level of the Chaincode."
                 }
             }
         },
@@ -404,12 +487,22 @@
                 }
             }
         },
-        "ChaincodeMessage": {
+        "ConfidentialityLevel":{
+            "type": "string",
+            "default": "PUBLIC",
+            "example": "PUBLIC",
+            "enum":[
+                "PUBLIC",
+                "CONFIDENTIAL"
+              ],
+            "description": "Confidentiality level of the Chaincode."
+        },
+        "ChaincodeInput": {
             "type": "object",
             "properties": {
                 "function": {
                     "type": "string",
-                    "description": "Function to execute within a Chaincode."
+                    "description": "Function to execute within the Chaincode."
                 },
                 "args": {
                     "type": "array",
@@ -417,6 +510,19 @@
                         "type": "string"
                     },
                     "description": "Arguments supplied to the Chaincode function."
+                }
+            }
+        },
+        "Secret": {
+            "type": "object",
+            "properties": {
+                "enrollId": {
+                    "type": "string",
+                    "description": "User enrollment id registered with the certificate authority."
+                },
+                "enrollSecret": {
+                    "type": "string",
+                    "description": "User enrollment password registered with the certificate authority."
                 }
             }
         },

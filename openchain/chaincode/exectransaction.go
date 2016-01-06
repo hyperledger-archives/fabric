@@ -75,7 +75,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 		}
 
 		//this should work because it worked above...
-		chaincode, _ := getChaincodeID(cID)
+		chaincode := cID.Name
 
 		if err != nil {
 			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
@@ -159,7 +159,7 @@ var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainC
 func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
-		chaincodeID, _ := getChaincodeID(cID)
+		chaincodeID := cID.Name
 		txUUID, err := ledger.GetState(chaincodeID, "github.com_openblockchain_obc-peer_chaincode_id", true)
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))

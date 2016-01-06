@@ -32,6 +32,7 @@ var logHashOfEveryNode = false
 
 type StateTrie struct {
 	trieDelta              *trieDelta
+	persistedStateHash     []byte
 	lastComputedCryptoHash []byte
 	recomputeCryptoHash    bool
 }
@@ -46,7 +47,8 @@ func (stateTrie *StateTrie) Initialize() error {
 		panic(fmt.Errorf("Error in fetching root node from DB while initializing state trie: %s", err))
 	}
 	if rootNode != nil {
-		stateTrie.lastComputedCryptoHash = rootNode.computeCryptoHash()
+		stateTrie.persistedStateHash = rootNode.computeCryptoHash()
+		stateTrie.lastComputedCryptoHash = stateTrie.persistedStateHash
 	}
 	return nil
 }
@@ -68,9 +70,15 @@ func (stateTrie *StateTrie) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 	return nil
 }
 
-func (stateTrie *StateTrie) ClearWorkingSet() {
+func (stateTrie *StateTrie) ClearWorkingSet(changesPersisted bool) {
 	stateTrie.trieDelta = nil
 	stateTrie.recomputeCryptoHash = false
+
+	if changesPersisted {
+		stateTrie.persistedStateHash = stateTrie.lastComputedCryptoHash
+	} else {
+		stateTrie.lastComputedCryptoHash = stateTrie.persistedStateHash
+	}
 }
 
 func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {

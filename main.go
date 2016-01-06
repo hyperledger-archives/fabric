@@ -122,7 +122,7 @@ var (
 	chaincodeLang     string
 	chaincodeCtorJSON string
 	chaincodePath     string
-	chaincodeVersion  string
+	chaincodeName     string
 	chaincodeDevMode  bool
 	chaincodeUsr      string
 )
@@ -258,7 +258,7 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeVersion, "version", "v", undefinedParamValue, fmt.Sprintf("Version for the %s as described at http://semver.org/", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
 
 	chaincodeCmd.AddCommand(chaincodeBuildCmd)
@@ -440,9 +440,11 @@ func stop() {
 
 }
 
-// login will login a local user on the CLI and store the user's security
-// context into a file.
+// login confirms the enrollmentID and secret password of the client with the
+// CA and stores the enrollment certificate and key in the Devops server.
 func login(args []string) {
+	logger.Info("CLI client login...")
+
 	// Check for username argument
 	if len(args) == 0 {
 		logger.Error("Error: must supply username.\n")
@@ -456,9 +458,9 @@ func login(args []string) {
 	}
 
 	// Retrieve the CLI data storage path
-	// Returns /var/openchain/production/cli/
+	// Returns /var/openchain/production/client/
 	localStore := getCliFilePath()
-	logger.Info("Peer local data store for CLI: %s", localStore)
+	logger.Info("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
@@ -471,7 +473,7 @@ func login(args []string) {
 	pw := gopass.GetPasswdMasked()
 
 	// Log in the user
-	logger.Info("Logging in user '%s'...\n", args[0])
+	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
 
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
@@ -487,10 +489,7 @@ func login(args []string) {
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {
-		// Store the client login token for future use
-		logger.Info("Login successful for user '%s'.\n", args[0])
-
-		// If /var/openchain/production/cli/ directory does not exist, create it
+		// If /var/openchain/production/client/ directory does not exist, create it
 		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
@@ -509,6 +508,8 @@ func login(args []string) {
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
+
+		logger.Info("Login successful for user '%s'.\n", args[0])
 	} else {
 		logger.Error(fmt.Sprintf("Error on client login: %s", string(loginResult.Msg)))
 	}
@@ -516,12 +517,14 @@ func login(args []string) {
 	return
 }
 
+// getCliFilePath is a helper function to retrieve the local storage directory
+// of client login tokens.
 func getCliFilePath() string {
 	localStore := viper.GetString("peer.fileSystemPath")
 	if !strings.HasSuffix(localStore, "/") {
 		localStore = localStore + "/"
 	}
-	localStore = localStore + "cli/"
+	localStore = localStore + "client/"
 	return localStore
 }
 
@@ -545,18 +548,13 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {
 
-	if chaincodeVersion == undefinedParamValue {
-		err := fmt.Sprintf("Error: must supply value for %s version parameter.\n", chainFuncName)
-		cmd.Out().Write([]byte(err))
-		cmd.Usage()
-		return errors.New(err)
-	}
-
-	if chaincodePath == undefinedParamValue {
-		err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
-		cmd.Out().Write([]byte(err))
-		cmd.Usage()
-		return errors.New(err)
+	if chaincodeName == undefinedParamValue {
+		if chaincodePath == undefinedParamValue {
+			err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
+			cmd.Out().Write([]byte(err))
+			cmd.Usage()
+			return errors.New(err)
+		}
 	}
 
 	if chaincodeCtorJSON != "{}" {
@@ -595,7 +593,7 @@ func chaincodeBuild(cmd *cobra.Command, args []string) {
 	}
 	// Build the spec
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}}
 
 	chaincodeDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
 	if err != nil {
@@ -632,7 +630,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
@@ -644,7 +642,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -670,6 +668,11 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
@@ -677,7 +680,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		cmd.Usage()
 		return
 	}
-	logger.Info("Build result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
+	logger.Info("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 }
 
 func chaincodeInvoke(cmd *cobra.Command, args []string) {
@@ -690,9 +693,15 @@ func chaincodeQuery(cmd *cobra.Command, args []string) {
 
 func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	if err := checkChaincodeCmdParams(cmd); err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		logger.Error(fmt.Sprintf("Error invoking %s: %s", chainFuncName, err))
 		return
 	}
+
+	if chaincodeName == "" {
+		logger.Error(fmt.Sprintf("Name not given for invoke/query"))
+		return
+	}
+
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
@@ -705,7 +714,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
@@ -717,7 +726,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		}
 
 		// Retrieve the CLI data storage path
-		// Returns /var/openchain/production/cli/
+		// Returns /var/openchain/production/client/
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -741,6 +750,11 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	}
+
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Build the ChaincodeInvocationSpec message

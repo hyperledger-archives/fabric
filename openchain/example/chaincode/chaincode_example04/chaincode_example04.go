@@ -33,6 +33,14 @@ import (
 type SimpleChaincode struct {
 }
 
+func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
+	//This is the hashcode for github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02
+	//if the example is modifed this hashcode will change!!
+	//chainCodeToCall := "74db26619d161b31aec095af0c354914" //with MD5
+	chainCodeToCall := "bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c" //with SHA3
+	return chainCodeToCall, nil
+}
+
 func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var event string // Indicates whether event has happened. Initially 0
 	var eventVal int // State of event
@@ -50,7 +58,6 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 	}
 	fmt.Printf("eventVal = %d\n", eventVal)
 
-	// Write the state to the ledger
 	err = stub.PutState(event, []byte(strconv.Itoa(eventVal)))
 	if err != nil {
 		return nil, err
@@ -80,13 +87,15 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 		return nil, nil
 	}
 
-	// Invoke chaincode_example02 - assuming its URL and vesion are known
-	// Better coding will pass the chaincodeID's URL and version as arguments to this function (or to another function that stores it in the ledger state)
-	chaincodeUrl := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
-	chaincodeVersion := "0.0.1"
+	// Get the chaincode to call from the ledger
+	chainCodeToCall, err := t.getChaincodeToCall(stub)
+	if err != nil {
+		return nil, err
+	}
+
 	f := "invoke"
 	invokeArgs := []string{"a", "b", "10"}
-	response, err := stub.InvokeChaincode(chaincodeUrl, chaincodeVersion, f, invokeArgs)
+	response, err := stub.InvokeChaincode(chainCodeToCall, f, invokeArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)

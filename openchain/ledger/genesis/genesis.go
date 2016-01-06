@@ -88,24 +88,10 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				return
 			}
 
-			chaincodeIDMap, chaincodIDOK := chaincodeMap["id"].(map[interface{}]interface{})
-			if !chaincodIDOK {
-				genesisLogger.Error("Invalid chaincode ID defined in genesis configuration:", chaincodeMap["id"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode ID defined in genesis configuration: %s", chaincodeMap["id"])
-				return
-			}
-
-			url, urlOK := chaincodeIDMap["url"].(string)
-			if !urlOK {
-				genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeIDMap["url"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeIDMap["url"])
-				return
-			}
-
-			version, versionOK := chaincodeIDMap["version"].(string)
-			if !versionOK {
-				genesisLogger.Error("Invalid chaincode version defined in genesis configuration:", chaincodeIDMap["version"])
-				makeGenesisError = fmt.Errorf("Invalid chaincode version defined in genesis configuration: %s", chaincodeIDMap["version"])
+			path, pathOK := chaincodeMap["path"].(string)
+			if !pathOK {
+				genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeMap["path"])
+				makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeMap["path"])
 				return
 			}
 
@@ -116,7 +102,7 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				return
 			}
 
-			chaincodeID := &protos.ChaincodeID{Url: url, Version: version}
+			chaincodeID := &protos.ChaincodeID{Path: path, Name: ""}
 
 			genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
 			genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)
@@ -186,14 +172,9 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 			genesisLogger.Debug("check spec failed: %s", err)
 			return nil, err
 		}
-		// Get new VM and as for building of container image
-		vm, err := container.NewVM()
-		if err != nil {
-			genesisLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
-			return nil, err
-		}
 		// Build the spec
-		codePackageBytes, err = vm.BuildChaincodeContainer(spec)
+		var err error
+		codePackageBytes, err = container.GetChaincodePackageBytes(spec)
 		if err != nil {
 			genesisLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
 			return nil, err
@@ -213,10 +194,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, secCxt crypto.
 		return nil, nil, err
 	}
 
-	// Now create the Transactions message and send to Peer.
-	// The UUID must not be random so it will match on all peers.
-	uuid := "genesis_" + spec.GetChaincodeID().Url + "_" + spec.GetChaincodeID().Version
-	transaction, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
+	transaction, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
