@@ -175,8 +175,7 @@ func (x Response_StatusCode) String() string {
 // TODO: Defined remaining fields.
 type Transaction struct {
 	Type Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	// store ChaincodeID as bytes so its encrypted value can be treated
-	// uniformly
+	// store ChaincodeID as bytes so its encrypted value can be stored
 	ChaincodeID          []byte                     `protobuf:"bytes,2,opt,name=chaincodeID,proto3" json:"chaincodeID,omitempty"`
 	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
