@@ -25,10 +25,10 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 	"sync"
 	"io/ioutil"
-	
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -42,6 +42,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 	
 	//"encoding/json"
@@ -52,7 +53,11 @@ import (
 	//"github.com/op/go-logging"
 	//"github.com/spf13/cobra"
 	//"github.com/openblockchain/obc-peer/events/producer"
+)
 
+var (
+	tca *TCA 
+	eca *ECA 
 )
 
 func TestMain(m *testing.M) {
@@ -77,12 +82,12 @@ func TestValidityPeriod(t *testing.T) {
 	// 1. query the validity period
 	// 2. wait at least the validity period update time
 	// 3. query the validity period again and compare with the previous value, it must be greater
-	// 4. stop the openchain
-	// 5. stop the TCA
-	// 6. cleanup database and test folder
+	
 	time.Sleep(time.Second * 60) // TODO remove when the test is complete
 	
-	stopOpenchain()
+	stopServices()
+	
+	// 4. cleanup database and test folder
 }
 
 func startServices(t *testing.T) {
@@ -94,13 +99,18 @@ func startServices(t *testing.T) {
 	}
 }
 
+func stopServices(){
+	stopOpenchain()
+	stopTCA()
+}
+
 func startTCA() {
 	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 	
-	eca := NewECA()
+	eca = NewECA()
 	defer eca.Close()
 
-	tca := NewTCA(eca)
+	tca = NewTCA(eca)
 	defer tca.Close()
 
 	var wg sync.WaitGroup
@@ -108,6 +118,63 @@ func startTCA() {
 	tca.Start(&wg)
 
 	wg.Wait()
+}
+
+func stopTCA(){
+	tca.Stop()
+	eca.Stop()
+}
+
+
+// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
+func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
+	if cID == nil {
+		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
+	}
+	var urlLocation string
+	if strings.HasPrefix(cID.Url, "http://") {
+		urlLocation = cID.Url[7:]
+	} else if strings.HasPrefix(cID.Url, "https://") {
+		urlLocation = cID.Url[8:]
+	} else {
+		urlLocation = cID.Url
+	}
+	return urlLocation + ":" + cID.Version, nil
+}
+
+
+func exampleQueryTransaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
+
+	chaincodeID, _ := getChaincodeID(cID)
+
+	fmt.Printf("Going to query\n")
+	f := "query"
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+	
+	fmt.Println(uuid)
+	if err != nil {
+		return fmt.Errorf("Error querying <%s>: %s", chaincodeID, err)
+	}
+	
+	return nil
+}
+
+// Invoke or query a chaincode.
+func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) (string, []byte, error) {
+	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
+
+	// Now create the Transactions message and send to Peer.
+	uuid, uuidErr := util.GenerateUUID()
+	if uuidErr != nil {
+		return "", nil, uuidErr
+	}
+	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
+	if err != nil {
+		return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
+	}
+	retval, err := chaincode.Execute(ctx, chaincode.GetChain("default"), transaction, nil)
+	return uuid, retval, err
 }
 
 func startOpenchain() error {
