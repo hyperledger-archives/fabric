@@ -63,7 +63,8 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.AutomaticEnv()
+	viper.SetConfigName("obcca_test") // name of config file (without extension)
 	viper.AddConfigPath("./")        // path to look for the config file in
 	viper.AddConfigPath("./..")      // path to look for the config file in
 	viper.AddConfigPath("./../..")      // path to look for the config file in
@@ -75,25 +76,31 @@ func setupTestConfig() {
 	chaincodeDevMode := false
 	if chaincodeDevMode {
 		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
-		viper.Set("peer.validator.enabled", "true")
+		viper.Set("peer.validator.enabled", true)
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
 	
-	viper.Set("peer.fileSystemPath", "/var/openchain/test")
-	viper.Set("security.enabled", "true")
+	/*viper.Set("peer.fileSystemPath", "/var/openchain/test")
+	viper.Set("security.enabled", true)
 	viper.Set("ports.ecaP", ":50051")
 	viper.Set("ports.ecaA", ":50052")
 	viper.Set("ports.tcaP", ":50551")
-	viper.Set("ports.ecaA", ":50552")
+	viper.Set("ports.tcaA", ":50552")
+	viper.Set("ports.tlscaP", ":50951")
+	viper.Set("ports.tlscaA", ":50952")
 	viper.Set("hosts.eca", "localhost")
 	viper.Set("hosts.tca", "localhost")
+	viper.Set("hosts.tlsca", "localhost")
 	viper.Set("eca.users.nepumuk", "9gvZQRwhUq9q")
 	viper.Set("eca.users.jim", "AwbeJH2kw9qK")
+	viper.Set("eca.users.lukas", "NPKYL39uKbkj")
 	viper.Set("eca.users.system_chaincode_invoker", "DRJ20pEql15a")
-	viper.Set("pki.validity-period.update", "true")
-	viper.Set("pki.validity-period.tls.enabled", "false")
-	viper.Set("pki.validity-period.devops-address", "0.0.0.0:30303")
+	viper.Set("pki.validity-period.update", true)
+	viper.Set("pki.validity-period.tls.enabled", false)
+	viper.Set("pki.validity-period.tls.cert.file", "testdata/server1.pem")
+	viper.Set("pki.validity-period.tls.key.file", "testdata/server1.key")
+	viper.Set("pki.validity-period.devops-address", "0.0.0.0:30303")*/
 }
 
 func TestValidityPeriod(t *testing.T) {
