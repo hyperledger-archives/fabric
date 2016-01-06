@@ -29,15 +29,10 @@ import (
 	"os"
 	//"runtime"
 	"strconv"
-	//"strings"
+	"strings"
 	"time"
 	
-	//"golang.org/x/net/context"
-
-	//google_protobuf "google/protobuf"
-
-	//"github.com/howeyc/gopass"
-	//"github.com/op/go-logging"
+	"golang.org/x/net/context"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -52,6 +47,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	
 	"sync"
 	"io/ioutil"
@@ -128,6 +124,58 @@ func startTCA() {
 	tca.Start(&wg)
 
 	//wg.Wait()
+}
+
+
+// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
+func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
+	if cID == nil {
+		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
+	}
+	var urlLocation string
+	if strings.HasPrefix(cID.Url, "http://") {
+		urlLocation = cID.Url[7:]
+	} else if strings.HasPrefix(cID.Url, "https://") {
+		urlLocation = cID.Url[8:]
+	} else {
+		urlLocation = cID.Url
+	}
+	return urlLocation + ":" + cID.Version, nil
+}
+
+
+func exampleQueryTransaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
+
+	chaincodeID, _ := getChaincodeID(cID)
+
+	fmt.Printf("Going to query\n")
+	f := "query"
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+	
+	fmt.Println(uuid)
+	if err != nil {
+		return fmt.Errorf("Error querying <%s>: %s", chaincodeID, err)
+	}
+	
+	return nil
+}
+
+// Invoke or query a chaincode.
+func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) (string, []byte, error) {
+	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
+
+	// Now create the Transactions message and send to Peer.
+	uuid, uuidErr := util.GenerateUUID()
+	if uuidErr != nil {
+		return "", nil, uuidErr
+	}
+	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
+	if err != nil {
+		return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
+	}
+	retval, err := chaincode.Execute(ctx, chaincode.GetChain("default"), transaction, nil)
+	return uuid, retval, err
 }
 
 func startOpenchain() error {
