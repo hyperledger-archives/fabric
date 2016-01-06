@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"errors"
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 	)
@@ -30,10 +29,7 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 	tx.Payload = nil
 
 	chaincodeIDKey := utils.HMACTruncated(txKey, []byte{2}, utils.AESKeyLength)
-	rawChaincodeID, err := proto.Marshal(tx.ChaincodeID)
-	if err != nil {
-		return err
-	}
+	rawChaincodeID := tx.ChaincodeID
 	tx.EncryptedChaincodeID, err = utils.CBCPKCS7Encrypt(chaincodeIDKey, rawChaincodeID)
 	if err != nil {
 		return err

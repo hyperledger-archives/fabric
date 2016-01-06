@@ -174,8 +174,10 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Type Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	// store ChaincodeID as bytes so its encrypted value can be treated
+	// uniformly
+	ChaincodeID          []byte                     `protobuf:"bytes,2,opt,name=chaincodeID,proto3" json:"chaincodeID,omitempty"`
 	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
@@ -190,13 +192,6 @@ type Transaction struct {
 func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
-
-func (m *Transaction) GetChaincodeID() *ChaincodeID {
-	if m != nil {
-		return m.ChaincodeID
-	}
-	return nil
-}
 
 func (m *Transaction) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {

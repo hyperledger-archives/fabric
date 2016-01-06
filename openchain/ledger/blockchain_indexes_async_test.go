@@ -34,13 +34,17 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
 
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	asyncIndexer, _ := chain.indexer.(*blockchainIndexerAsync)
 	t.Log("Setting an error artificially so as to client query gets an error")
 	asyncIndexer.indexerState.setError(errors.New("Error created for testing"))
 	blockHash, _ := blocks[0].GetHash()
 	// index query should throw error
-	_, err := chain.getBlockByHash(blockHash)
+	_, err = chain.getBlockByHash(blockHash)
 	if err == nil {
 		t.Fatal("Error expected during execution of client query")
 	}
@@ -54,14 +58,23 @@ func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	if chain.indexer.isSynchronous() {
 		t.Skip("Skipping because blockchain is configured to index block data synchronously")
 	}
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	t.Log("Increasing size of blockchain by one artificially so as to make client wait")
 	chain.size = chain.size + 1
 	t.Log("Resetting size of blockchain to original and adding one block in a separate go routine so as to wake up the client")
 	go func() {
 		time.Sleep(2 * time.Second)
 		chain.size = chain.size - 1
-		testBlockchainWrapper.addNewBlock(buildTestBlock(), []byte("stateHash"))
+		blk,err := buildTestBlock()
+		if err != nil {
+			t.Logf("Error building test block: %s", err)
+			t.Fail()
+		}
+		testBlockchainWrapper.addNewBlock(blk, []byte("stateHash"))
 	}()
 	t.Log("Executing client query. The client would wait and will be woken up")
 	blockHash, _ := blocks[0].GetHash()

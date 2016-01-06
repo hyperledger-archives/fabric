@@ -24,6 +24,7 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
@@ -68,13 +69,11 @@ func (validator *validatorImpl) decryptTx(tx *obc.Transaction) (*obc.Transaction
 	copy(encryptedChaincodeID, clone.EncryptedChaincodeID)
 	rawChaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, encryptedChaincodeID)
 
-	chaincodeID := &obc.ChaincodeID{}
-	if err := proto.Unmarshal(rawChaincodeID, chaincodeID); err != nil {
-		validator.peer.node.log.Error("Failed decrypting chaincodeID [%s].", err.Error())
-
-		return nil, err
+	if err != nil {
+		return nil, fmt.Errorf("Error decrypting chaincode %s", err)
 	}
-	clone.ChaincodeID = chaincodeID
+
+	clone.ChaincodeID = rawChaincodeID
 
 	return clone, nil
 }

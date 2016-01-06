@@ -35,7 +35,9 @@ message Transaction {
         CHAINCODE_TERMINATE = 5;
     }
     Type type = 1;
-    ChaincodeID chaincodeID = 2;
+    //store ChaincodeID as bytes so its encrypted value can be treated
+    //uniformly
+    bytes chaincodeID = 2;
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
