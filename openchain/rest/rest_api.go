@@ -335,32 +335,6 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	}
 }
 
-// GetState returns the value for the specified chaincodeID and key.
-func (s *ServerOpenchainREST) GetState(rw web.ResponseWriter, req *web.Request) {
-	// Parse out the chaincodeId and key.
-	chaincodeID := req.PathParams["chaincodeId"]
-	key := req.PathParams["key"]
-
-	// Retrieve Chaincode state.
-	state, err := s.server.GetState(context.Background(), chaincodeID, key)
-
-	// Check for error
-	if err != nil {
-		// Failure
-		rw.WriteHeader(400)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-	} else {
-		// Success
-		if state == nil { // no match on ChaincodeID and key
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"null\"}")
-		} else {
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"%s\"}", state)
-		}
-	}
-}
-
 // Build creates the docker container that holds the Chaincode and all required
 // entities.
 func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
@@ -834,8 +808,6 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
-
-	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
 
 	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
