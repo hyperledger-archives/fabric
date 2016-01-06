@@ -463,7 +463,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
     // Turn the Chaincode spec into a string
-    transID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+	transID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
 	rw.WriteHeader(http.StatusOK)
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"name\":\"" + transID + "\"}")
 	logger.Info("Successfuly deployed chainCode.\n")
