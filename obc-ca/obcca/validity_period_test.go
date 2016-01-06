@@ -42,7 +42,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 	
 	//"encoding/json"
@@ -118,7 +117,7 @@ func startTCA() {
 	tca.Start(&wg)
 	
 	
-	exampleQueryTransaction(context.Background(),"github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
+	queryTransaction("github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
 
 	wg.Wait()
 }
@@ -146,78 +145,62 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 
 
 
-func exampleQueryTransaction(ctxt context.Context, url string, version string, args []string) error {
+func queryTransaction(url string, version string, args []string) error {
 	
-	chaincodeID, _ := getChaincodeID(&pb.ChaincodeID{Url: url, Version: version})
-	
+	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, url, version, "system_chaincode_invoker")
 
 	fmt.Printf("Going to query\n")
-	f := "query"
-	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, 
-			Version: chaincodeVersion,
-		},
-		CtorMsg: &pb.ChaincodeInput{Function: f, Args: args},
-		}
 	
-	spec.SecureContext = "system_chaincode_invoker"
-	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+	response, err := queryChaincode(chaincodeInvocationSpec)
 	
-	fmt.Println(uuid)
 	if err != nil {
-		return fmt.Errorf("Error querying <%s>: %s", chaincodeID, err)
+		return fmt.Errorf("Error querying <%s>: %s", url, err)
 	}
+	
+		
+	logger.Info("Successfully invoked validity period update: %s(%s)", url, string(response.Msg))
 	
 	return nil
 }
 
-func getDevopsClient(peerAddress string) (pb.DevopsClient, error) {
-	var opts []grpc.DialOption
-	if viper.GetBool("pki.validity-period.tls.enabled") {
-		var sn string
-		if viper.GetString("pki.validity-period.tls.server-host-override") != "" {
-			sn = viper.GetString("pki.validity-period.tls.server-host-override")
-		}
-		var creds credentials.TransportAuthenticator
-		if viper.GetString("pki.validity-period.tls.cert.file") != "" {
-			var err error
-			creds, err = credentials.NewClientTLSFromFile(viper.GetString("pki.validity-period.tls.cert.file"), sn)
-			if err != nil {
-				grpclog.Fatalf("Failed to create TLS credentials %v", err)
-			}
-		} else {
-			creds = credentials.NewClientTLSFromCert(nil, sn)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+
+
+
+func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
+
+	devopsClient, err := getDevopsClient(viper.GetString("pki.validity-period.devops-address"))
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error retrieving devops client: %s", err))
+		return nil,err
 	}
-	opts = append(opts, grpc.WithTimeout(systemChaincodeTimeout))
-	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(peerAddress, opts...)
+
+	resp, err := devopsClient.Query(context.Background(), chaincodeInvSpec)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error trying to connect to local peer: %s", err)
+		logger.Error(fmt.Sprintf("Error invoking validity period update system chaincode: %s", err))
+		return nil,err
 	}
 	
-	devopsClient := obc.NewDevopsClient(conn)
-	return devopsClient, nil
+	logger.Info("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	
+	return resp,nil
 }
 
-// Invoke or query a chaincode.
-func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type) (string, []byte, error) {
-	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-
-	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		return "", nil, uuidErr
+func createChaincodeInvocationForQuery(arguments []string, chaincodePath string, chaincodeVersion string, token string) *pb.ChaincodeInvocationSpec {
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, 
+		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, 
+			Version: chaincodeVersion,
+		}, 
+		CtorMsg: &pb.ChaincodeInput{Function: "query", 
+			Args: arguments,
+		},
 	}
-	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
-	if err != nil {
-		return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
-	}
-	retval, err := chaincode.Execute(ctx, chaincode.GetChain("default"), transaction, nil)
-	return uuid, retval, err
+	
+	spec.SecureContext = string(token)
+	
+	invocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
+	
+	return invocationSpec
 }
 
 func startOpenchain() error {
