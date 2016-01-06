@@ -450,7 +450,8 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Deploy the ChaincodeSpec
-	_, err = s.devops.Deploy(context.Background(), &spec)
+	var chaincodeDeploymentSpec *pb.ChaincodeDeploymentSpec
+	chaincodeDeploymentSpec, err = s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
@@ -462,8 +463,10 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
+    // Turn the Chaincode spec into a string
+    transID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"name\":\"" + transID + "\"}")
 	logger.Info("Successfuly deployed chainCode.\n")
 }
 
