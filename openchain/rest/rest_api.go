@@ -450,8 +450,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Deploy the ChaincodeSpec
-	var chaincodeDeploymentSpec *pb.ChaincodeDeploymentSpec
-	chaincodeDeploymentSpec, err = s.devops.Deploy(context.Background(), &spec)
+	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
