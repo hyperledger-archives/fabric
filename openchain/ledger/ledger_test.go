@@ -652,3 +652,31 @@ func TestApplyDeltaHash(t *testing.T) {
 	testutil.AssertEquals(t, preHash2, hash2)
 
 }
+
+func TestPreviewTXBatchBlock(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Block 0
+	ledger.BeginTxBatch(0)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1A"))
+	ledger.SetState("chaincode2", "key2", []byte("value2A"))
+	ledger.SetState("chaincode3", "key3", []byte("value3A"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx()
+
+	previewBlock, err := ledger.GetTXBatchPreviewBlock(0, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertNoError(t, err, "Error fetching preview block.")
+
+	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []byte("proof"))
+	commitedBlock := ledgerTestWrapper.GetBlockByNumber(0)
+
+	previewBlockHash, err := previewBlock.GetHash()
+	testutil.AssertNoError(t, err, "Error fetching preview block hash.")
+
+	commitedBlockHash, err := commitedBlock.GetHash()
+	testutil.AssertNoError(t, err, "Error fetching committed block hash.")
+
+	testutil.AssertEquals(t, previewBlockHash, commitedBlockHash)
+}
