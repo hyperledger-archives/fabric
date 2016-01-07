@@ -77,8 +77,11 @@ func TestValidityPeriod(t *testing.T) {
 	var updateInterval int64
 	updateInterval = 37
 	
-	// 1. Start TCA and Openchain
-	go startServices(t) 
+	// 1. Start TCA and Openchain...
+	go startServices(t)
+	
+	// ... and wait just let the services finish the startup
+	time.Sleep(time.Second * 180)
 			
 	// 2. Obtain the validity period by querying and directly from the ledger	
 	validityPeriod_A := queryValidityPeriod(t)
@@ -93,7 +96,6 @@ func TestValidityPeriod(t *testing.T) {
 
 	// 5. Stop TCA and Openchain
 	stopServices()
-	
 		
 	// 6. Compare the values
 	if validityPeriod_A != validityPeriodFromLedger_A {
@@ -206,8 +208,7 @@ func getValidityPeriodFromLedger(t *testing.T) int64 {
 	return i
  }
 
-
-// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
+// getChaincodeID constructs the ID from pb.ChaincodeID
 func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 	if cID == nil {
 		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
@@ -298,11 +299,6 @@ func startOpenchain() error {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
 
-//	ehubLis, ehubGrpcServer, err := createEventHubServer()
-//	if err != nil {
-//		grpclog.Fatalf("failed to create ehub server: %v", err)
-//	}
-
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 
 	var opts []grpc.ServerOption
@@ -317,7 +313,6 @@ func startOpenchain() error {
 	grpcServer := grpc.NewServer(opts...)
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
@@ -376,11 +371,6 @@ func startOpenchain() error {
 			return makeGeneisError
 		}
 	}
-
-	//start the event hub server
-//	if ehubGrpcServer != nil && ehubLis != nil {
-//		go ehubGrpcServer.Serve(ehubLis)
-//	}
 
 	// Block until grpc server exits
 	<-serve
