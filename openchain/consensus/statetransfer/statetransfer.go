@@ -95,14 +95,14 @@ func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber ui
 	default:
 		return
 	case certReq := <-sts.chkptWeakCertReq:
-		logger.Debug("Replica %d detects a weak cert for checkpoint %d, and has a certificate request for checkpoint over %d", sts.id, blockNumber, certReq.blockNumber)
+		logger.Debug("%s detects a weak cert for checkpoint %d, and has a certificate request for checkpoint over %d", sts.id, blockNumber, certReq.blockNumber)
 		if certReq.blockNumber > blockNumber {
 			// There's a pending request, but this call didn't satisfy it, so put it back
 			sts.chkptWeakCertReq <- certReq
 			return
 		}
 
-		logger.Debug("Replica %d replying to weak cert request with checkpoint %d (%x)", sts.id, blockNumber, blockHash)
+		logger.Debug("%s replying to weak cert request with checkpoint %d (%x)", sts.id, blockNumber, blockHash)
 
 		certReq.certChan <- &chkptWeakCert{
 			syncMark: syncMark{
@@ -263,7 +263,7 @@ func (sts *StateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 			if err == nil {
 				break
 			} else {
-				logger.Warning("Replica %d in tryOverReplicas loop : %s", sts.id, err)
+				logger.Warning("%s in tryOverReplicas loop : %s", sts.id, err)
 			}
 		}
 	}
@@ -276,7 +276,7 @@ func (sts *StateTransferState) tryOverReplicas(replicaIds []uint64, do func(repl
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, replicaIds []uint64) (uint64, *protos.Block, error) {
-	logger.Debug("Replica %d syncing blocks from %d to %d", sts.id, highBlock, lowBlock)
+	logger.Debug("%s syncing blocks from %d to %d", sts.id, highBlock, lowBlock)
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
@@ -284,7 +284,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	err := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
 		blockChan, err := sts.ledger.GetRemoteBlocks(replicaId, blockCursor, lowBlock)
 		if nil != err {
-			logger.Warning("Replica %d failed to get blocks from %d to %d from replica %d: %s",
+			logger.Warning("%s failed to get blocks from %d to %d from replica %d: %s",
 				sts.id, blockCursor, lowBlock, replicaId, err)
 			return err
 		}
@@ -310,16 +310,16 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 					testHash, err := sts.ledger.HashBlock(block)
 					if nil != err {
-						return fmt.Errorf("Replica %d got a block %d which could not hash from replica %d: %s",
+						return fmt.Errorf("%s got a block %d which could not hash from replica %d: %s",
 							sts.id, blockCursor, replicaId, err)
 					}
 
 					if !bytes.Equal(testHash, validBlockHash) {
-						return fmt.Errorf("Replica %d got block %d from replica %d with hash %x, was expecting hash %x",
+						return fmt.Errorf("%s got block %d from replica %d with hash %x, was expecting hash %x",
 							sts.id, blockCursor, replicaId, testHash, validBlockHash)
 					}
 
-					logger.Debug("Replica %d putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+					logger.Debug("%s putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 
 					if !sts.RecoverDamage {
 						// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
@@ -333,22 +333,22 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 					validBlockHash = block.PreviousBlockHash
 
 					if blockCursor == lowBlock {
-						logger.Debug("Replica %d successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
+						logger.Debug("%s successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
 						return nil
 					}
 					blockCursor--
 
 				}
 			case <-time.After(sts.BlockRequestTimeout):
-				return fmt.Errorf("Replica %d had block sync request to %d time out", sts.id, replicaId)
+				return fmt.Errorf("%s had block sync request to %d time out", sts.id, replicaId)
 			}
 		}
 	})
 
 	if nil != block {
-		logger.Debug("Replica %d returned from sync with block %d and hash %x", sts.id, blockCursor, block.StateHash)
+		logger.Debug("%s returned from sync with block %d and hash %x", sts.id, blockCursor, block.StateHash)
 	} else {
-		logger.Debug("Replica %d returned from sync with no new blocks", sts.id)
+		logger.Debug("%s returned from sync with no new blocks", sts.id)
 	}
 
 	return blockCursor, block, err
@@ -357,7 +357,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyncReq) {
 
-	logger.Debug("Replica %d is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
+	logger.Debug("%s is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
 
 	blockchainSize, err := sts.ledger.GetBlockchainSize()
 
@@ -413,13 +413,13 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 			panic("We cannot determine how long our blockchain is, this is irrecoverable")
 		}
 		if 0 == size {
-			logger.Warning("Replica %d has no blocks in its blockchain, including the genesis block", sts.id)
+			logger.Warning("%s has no blocks in its blockchain, including the genesis block", sts.id)
 			return false
 		}
 
 		block, err := sts.ledger.GetBlock(size - 1)
 		if nil != err {
-			logger.Warning("Replica %d could not retrieve its head block %d: %s", sts.id, size, err)
+			logger.Warning("%s could not retrieve its head block %d: %s", sts.id, size, err)
 			return false
 		}
 
@@ -452,7 +452,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 				// Range overlaps or is adjacent
 				block, err := sts.ledger.GetBlock(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
 				if nil != err {
-					logger.Warning("Replica %d could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+					logger.Warning("%s could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 				} else {
 					if blockHash, err := sts.ledger.HashBlock(block); nil != err {
 						if bytes.Equal(blockHash, lowNextHash) {
@@ -460,10 +460,10 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 							sts.validBlockRanges[0].lowBlock = sts.validBlockRanges[1].lowBlock
 							sts.validBlockRanges[0].lowNextHash = sts.validBlockRanges[1].lowNextHash
 						} else {
-							logger.Warning("Replica %d detected that a block range starting at %d previously believed to be valid did not hash correctly", sts.id, lowBlock-1)
+							logger.Warning("%s detected that a block range starting at %d previously believed to be valid did not hash correctly", sts.id, lowBlock-1)
 						}
 					} else {
-						logger.Warning("Replica %d could not hash block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+						logger.Warning("%s could not hash block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 					}
 				}
 			} else {
@@ -498,9 +498,9 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 		}
 	} else {
 		if nil == err1 {
-			logger.Warning("Replica %d just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber, err2)
+			logger.Warning("%s just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber, err2)
 		} else {
-			logger.Warning("Replica %d just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber+1, err2)
+			logger.Warning("%s just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber+1, err2)
 		}
 	}
 
@@ -522,7 +522,7 @@ func (sts *StateTransferState) blockThread() {
 			}
 		}
 
-		logger.Debug("Replica %d has validated its blockchain to the genesis block", sts.id)
+		logger.Debug("%s has validated its blockchain to the genesis block", sts.id)
 
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
 		blockSyncReq := <-sts.blockSyncReq
@@ -536,7 +536,7 @@ func (sts *StateTransferState) stateThread() {
 		// Wait for state sync to become necessary
 		mark := <-sts.initiateStateSync
 
-		logger.Debug("Replica %d is initiating state transfer", sts.id)
+		logger.Debug("%s is initiating state transfer", sts.id)
 
 		for {
 
@@ -545,7 +545,7 @@ func (sts *StateTransferState) stateThread() {
 
 			if nil != err {
 				// This is very bad, we had f+1 replicas unable to reply with a state above a block number they advertised in a checkpoint, should never happen
-				logger.Error("Replica %d could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", sts.id, mark.blockNumber)
+				logger.Error("%s could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", sts.id, mark.blockNumber)
 				mark = &syncMark{ // Let's try to just sync state from anyone, for any sequence number
 					blockNumber: 0,
 					replicaIds:  nil,
@@ -553,7 +553,7 @@ func (sts *StateTransferState) stateThread() {
 				continue
 			}
 
-			logger.Debug("Replica %d completed state transfer to block %d", sts.id, currentStateBlockNumber)
+			logger.Debug("%s completed state transfer to block %d", sts.id, currentStateBlockNumber)
 
 			certChan := make(chan *chkptWeakCert)
 			sts.chkptWeakCertReq <- &ckptWeakCertReq{
@@ -561,7 +561,7 @@ func (sts *StateTransferState) stateThread() {
 				certChan:    certChan,
 			}
 
-			logger.Debug("Replica %d state transfer thread waiting for a new checkpoint weak certificate", sts.id)
+			logger.Debug("%s state transfer thread waiting for a new checkpoint weak certificate", sts.id)
 			weakCert := <-certChan
 
 			mark = &syncMark{ // We now know of a more recent state which f+1 nodes have achieved, if we fail, try from this set
@@ -578,25 +578,25 @@ func (sts *StateTransferState) stateThread() {
 				firstBlockHash: weakCert.blockHash,
 			}
 
-			logger.Debug("Replica %d state transfer thread waiting for block sync to complete", sts.id)
+			logger.Debug("%s state transfer thread waiting for block sync to complete", sts.id)
 			blockSyncReply := <-blockReplyChannel
 
 			if blockSyncReply.err != nil {
 				// This is very bad, we had f+1 replicas unable to reply with blocks for a weak certificate they presented, this should never happen
 				// Maybe we should panic here, but we can always try again
-				logger.Error("Replica %d could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", sts.id, mark.blockNumber)
+				logger.Error("%s could not retrieve blocks as recent as advertised in checkpoints above %d, indicates byzantine of f+1", sts.id, mark.blockNumber)
 				continue
 			}
 
 			stateHash, err := sts.ledger.GetCurrentStateHash()
 			if nil != err {
-				logger.Warning("Replica %d could not compute its current state hash: %s", sts.id, err)
+				logger.Warning("%s could not compute its current state hash: %s", sts.id, err)
 				continue
 
 			}
 
 			if !bytes.Equal(stateHash, blockSyncReply.stateHash) {
-				logger.Warning("Replica %d recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, currentStateBlockNumber, stateHash, blockSyncReply.stateHash)
+				logger.Warning("%s recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, currentStateBlockNumber, stateHash, blockSyncReply.stateHash)
 				continue
 			}
 
@@ -604,7 +604,7 @@ func (sts *StateTransferState) stateThread() {
 				currentStateBlockNumber, err := sts.playStateUpToCheckpoint(currentStateBlockNumber+uint64(1), weakCert.blockNumber, weakCert.replicaIds)
 				if nil != err {
 					// This is unlikely, in the future, we may wish to play transactions forward rather than retry
-					logger.Warning("Replica %d was unable to play the state from block number %d forward to block %d, retrying: %s", sts.id, currentStateBlockNumber, weakCert.blockNumber, err)
+					logger.Warning("%s was unable to play the state from block number %d forward to block %d, retrying: %s", sts.id, currentStateBlockNumber, weakCert.blockNumber, err)
 					continue
 				}
 			}
@@ -622,7 +622,7 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 
 		deltaMessages, err := sts.ledger.GetRemoteStateDeltas(replicaId, currentBlock, toBlockNumber)
 		if err != nil {
-			return fmt.Errorf("Replica %d received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.id, fromBlockNumber, toBlockNumber, replicaId)
+			return fmt.Errorf("%s received an error while trying to get the state deltas for blocks %d through %d from replica %d", sts.id, fromBlockNumber, toBlockNumber, replicaId)
 		}
 
 		for {
@@ -632,7 +632,7 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 					if currentBlock == toBlockNumber+1 {
 						return nil
 					}
-					return fmt.Errorf("Replica %d was only able to recover to block number %d when desired to recover to %d", sts.id, currentBlock, toBlockNumber)
+					return fmt.Errorf("%s was only able to recover to block number %d when desired to recover to %d", sts.id, currentBlock, toBlockNumber)
 				}
 
 				if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
@@ -647,14 +647,14 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 				testBlock, err := sts.ledger.GetBlock(deltaMessage.Range.End)
 
 				if nil != err {
-					logger.Warning("Replica %d could not retrieve block %d, though it should be present", sts.id, deltaMessage.Range.End)
+					logger.Warning("%s could not retrieve block %d, though it should be present", sts.id, deltaMessage.Range.End)
 				} else {
 
 					stateHash, err := sts.ledger.GetCurrentStateHash()
 					if nil != err {
-						logger.Warning("Replica %d could not compute its state hash for some reason: %s", sts.id, err)
+						logger.Warning("%s could not compute its state hash for some reason: %s", sts.id, err)
 					}
-					logger.Debug("Replica %d has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)",
+					logger.Debug("%s has played state forward from replica %d to block %d with StateHash (%x), the corresponding block has StateHash (%x)",
 						sts.id, replicaId, deltaMessage.Range.End, stateHash, testBlock.StateHash)
 
 					if bytes.Equal(testBlock.StateHash, stateHash) {
@@ -668,13 +668,13 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 					}
 
 					// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
-					return fmt.Errorf("Replica %d played state forward according to replica %d, but the state hash did not match", sts.id, replicaId)
+					return fmt.Errorf("%s played state forward according to replica %d, but the state hash did not match", sts.id, replicaId)
 				} else {
 					currentBlock++
 				}
 			case <-time.After(sts.StateDeltaRequestTimeout):
-				logger.Warning("Replica %d timed out during state delta recovery from from replica %d", sts.id, replicaId)
-				return fmt.Errorf("Replica %d timed out during state delta recovery from from replica %d", sts.id, replicaId)
+				logger.Warning("%s timed out during state delta recovery from from replica %d", sts.id, replicaId)
+				return fmt.Errorf("%s timed out during state delta recovery from from replica %d", sts.id, replicaId)
 
 			}
 		}
@@ -693,7 +693,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 	currentStateBlock := uint64(0)
 
 	ok := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
-		logger.Debug("Replica %d is initiating state recovery from from replica %d", sts.id, replicaId)
+		logger.Debug("%s is initiating state recovery from from replica %d", sts.id, replicaId)
 
 		sts.ledger.EmptyState()
 
@@ -715,8 +715,8 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 				sts.ledger.ApplyStateDelta(piece.Delta, false)
 				currentStateBlock = piece.BlockNumber
 			case <-timer.C:
-				logger.Warning("Replica %d timed out during state recovery from replica %d", sts.id, replicaId)
-				return fmt.Errorf("Replica %d timed out during state recovery from replica %d", sts.id, replicaId)
+				logger.Warning("%s timed out during state recovery from replica %d", sts.id, replicaId)
+				return fmt.Errorf("%s timed out during state recovery from replica %d", sts.id, replicaId)
 			}
 		}
 
