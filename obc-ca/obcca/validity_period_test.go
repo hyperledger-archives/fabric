@@ -45,7 +45,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	
-	//"encoding/json"
+	"encoding/json"
 	//"errors"
 	//"runtime"
 	//"strings"	
@@ -59,6 +59,11 @@ var (
 	tca *TCA 
 	eca *ECA 
 )
+
+type ValidityPeriod struct {
+	Name  string
+	Value string
+}
 
 func TestMain(m *testing.M) {
 	setupTestConfig()
@@ -77,27 +82,50 @@ func setupTestConfig() {
 }
 
 func TestValidityPeriod(t *testing.T) {
+	var updateInterval int64
+	updateInterval = 37
+	
+	// 1. Start TCA and Openchain
 	go startServices(t) 
+			
+	// 2. Obtain the validity period by querying and directly from the ledger	
+	validityPeriod_A := queryValidityPeriod(t)
+	validityPeriodFromLedger_A := getValidityPeriodFromLedger(t)
+
+	// 3. Wait for the validity period to be updated...
+	time.Sleep(time.Second * 40)
 	
-//	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
-//	version := "0.0.1" 
-	
-	validityPeriodA := getValidityPeriod(t)
-	
-	time.Sleep(time.Second * 40) 
-	
-	validityPeriodB := getValidityPeriod(t)
-	
-	// 1. query the validity period
-	// 2. wait at least the validity period update time
-	// 3. query the validity period again and compare with the previous value, it must be greater
-	
+	// ... and read the values again
+	validityPeriod_B := queryValidityPeriod(t)
+	validityPeriodFromLedger_B := getValidityPeriodFromLedger(t)
+
+	// 5. Stop TCA and Openchain
 	stopServices()
 	
-	fmt.Println(validityPeriodA)
-	fmt.Println(validityPeriodB)
+		
+	// 6. Compare the values
+	if validityPeriod_A != validityPeriodFromLedger_A {
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriod_A, validityPeriodFromLedger_A)
+		t.Fail()
+	}
 	
-	// 4. cleanup database and test folder
+	if validityPeriod_B != validityPeriodFromLedger_B {
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriod_B, validityPeriodFromLedger_B)
+		t.Fail()
+	}
+	
+	if validityPeriod_B - validityPeriod_A != updateInterval {
+		t.Logf("Validity period difference must be equal to the update interval. Expected: %s, Actual: %s", updateInterval, validityPeriod_B - validityPeriod_A)
+		t.Fail()
+	}
+
+	// 7. cleanup tca and openchain folders
+	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
+		t.Logf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
+	}
+	if err := os.RemoveAll(".obcca"); err != nil {
+		t.Logf("Failed removing [%s] [%s]\n", ".obcca", err)
+	}
 }
 
 func startServices(t *testing.T) {
@@ -135,7 +163,30 @@ func stopTCA(){
 	eca.Stop()
 }
 
- func getValidityPeriod(t *testing.T) int64 { 
+func queryValidityPeriod(t *testing.T) int64 {
+	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
+	version := "0.0.1"
+	args := []string{"system.validity.period"}
+	
+	validityPeriod, err := queryTransaction(url, version, args)
+	if err != nil {
+		t.Logf("Failed querying validity period: %s", err)
+		t.Fail()
+	}
+	
+	var vp ValidityPeriod
+	json.Unmarshal(validityPeriod, &vp)
+	
+	value, err := strconv.ParseInt(vp.Value, 10, 64)
+	if err != nil {
+		t.Logf("Failed parsing validity period: %s", err)
+		t.Fail()
+	}
+	
+	return value
+} 
+
+func getValidityPeriodFromLedger(t *testing.T) int64 { 
 	chaincodeID := &pb.ChaincodeID{Url: "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", 
 		Version: "0.0.1",
 	}
@@ -160,8 +211,6 @@ func stopTCA(){
 		t.Fail()
 	}
 	
-	//vp := time.Unix(i, 0)
-	
 	return i
  }
 
@@ -182,7 +231,7 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 	return urlLocation + ":" + cID.Version, nil
 }
 
-func queryTransaction(url string, version string, args []string) error {
+func queryTransaction(url string, version string, args []string) ([]byte, error) {
 	
 	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, url, version, "system_chaincode_invoker")
 
@@ -191,13 +240,13 @@ func queryTransaction(url string, version string, args []string) error {
 	response, err := queryChaincode(chaincodeInvocationSpec)
 	
 	if err != nil {
-		return fmt.Errorf("Error querying <%s>: %s", url, err)
+		return nil, fmt.Errorf("Error querying <%s>: %s", url, err)
 	}
 	
 		
 	logger.Info("Successfully invoked validity period update: %s(%s)", url, string(response.Msg))
 	
-	return nil
+	return response.Msg, nil
 }
 
 func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
