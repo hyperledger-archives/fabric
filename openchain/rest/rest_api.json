@@ -69,76 +69,6 @@
                 }
             }
         },
-        "/state/{chaincodeID}/{key}": {
-            "get": {
-                "summary": "State information for unique chaincodeID and key",
-                "description": "The {chaincodeID}/{key} endpoint returns state information matching a specific chaincodeID and key. If there is no match on either the chaincodeID or the key, a \"null\" value is returned for the state.",
-                "tags": [
-                    "State"
-                ],
-                "operationId": "getChaincodeState",
-                "parameters": [{
-                    "name": "chaincodeID",
-                    "in": "path",
-                    "description": "Unique Chaincode identifier",
-                    "type": "string",
-                    "required": true
-                }, {
-                    "name": "key",
-                    "in": "path",
-                    "description": "Key to match within the Chaincode",
-                    "type": "string",
-                    "required": true
-                }],
-                "responses": {
-                    "200": {
-                        "description": "Retrieved state value",
-                        "schema": {
-                           "$ref": "#/definitions/State"
-                        }
-                    },
-                    "default": {
-                        "description": "Unexpected error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/devops/build": {
-            "post": {
-                "summary": "Service endpoint for building Chaincode",
-                "description": "The /devops/build endpoint receives Chaincode build requests for existing Chaincodes. The Chaincode and the required entities are packaged into a container upon receipt of the request. If the build is successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
-                "tags": [
-                    "Devops"
-                ],
-                "operationId": "chaincodeBuild",
-                "parameters": [{
-                    "name": "ChaincodeSpec",
-                    "in": "body",
-                    "description": "Chaincode specification message",
-                    "required": true,
-                    "schema": {
-                       "$ref": "#/definitions/ChaincodeSpec"
-                    }
-                }],
-                "responses": {
-                    "200": {
-                        "description": "Successfully built chainCode",
-                        "schema": {
-                           "$ref": "#/definitions/OK"
-                        }
-                    },
-                    "default": {
-                        "description": "Unexpected error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
         "/devops/deploy": {
            "post": {
               "summary": "Service endpoint for deploying Chaincode",
@@ -437,15 +367,6 @@
                 }
             }
         },
-        "State": {
-            "type": "object",
-            "properties": {
-                "State": {
-                    "type": "string",
-                    "description": "State value matching the chaincodeId and key parameters."
-                }
-            }
-        },
         "ChaincodeSpec": {
             "type": "object",
             "properties": {
@@ -541,7 +462,11 @@
                 "OK": {
                     "type": "string",
                     "description": "A descriptive message confirming a successful request."
-                }
+				},
+				"message": {
+					"type": "string",
+					"description": "An optional parameter..."
+				}
             }
         }
     }
