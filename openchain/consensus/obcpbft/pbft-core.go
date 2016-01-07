@@ -589,7 +589,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() error {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.OutOfDate {
+	if instance.sts.AsynchronousStateTransferInProgress() {
 		return nil
 	}
 
@@ -713,7 +713,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 }
 
 func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
-	if instance.sts.OutOfDate {
+	if instance.sts.AsynchronousStateTransferInProgress() {
 		// State transfer is already going on, no need to track this
 		return
 	}
@@ -748,7 +748,6 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
 			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
-				instance.sts.OutOfDate = true
 				instance.moveWatermarks(m + instance.K)
 
 				furthestReplicaIds := make([]uint64, instance.f+1)
@@ -795,7 +794,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.OutOfDate {
+		if !instance.sts.AsynchronousStateTransferInProgress() {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -812,7 +811,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.OutOfDate && matching >= instance.f+1 {
+	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}

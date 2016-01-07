@@ -49,7 +49,7 @@ func init() {
 type StateTransferState struct {
 	ledger consensus.Ledger
 
-	OutOfDate bool // To be used by the main consensus thread, not atomic, so do not use by other threads
+	asynchronousTransferInProgress bool // To be used by the main consensus thread, not atomic, so do not use by other threads
 
 	id string // Useful for log messages only
 
@@ -86,6 +86,7 @@ func (sts *StateTransferState) AsynchronousStateTransfer(lowBlock uint64, replic
 		blockNumber: lowBlock,
 		replicaIds:  replicaIds,
 	}
+	sts.asynchronousTransferInProgress = true
 	return sts.completeStateSync
 }
 
@@ -123,6 +124,14 @@ func (sts *StateTransferState) AsynchronousStateTransferJustCompleted() (uint64,
 	}
 }
 
+func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan uint64 {
+	return sts.completeStateSync
+}
+
+func (sts *StateTransferState) AsynchronousStateTransferInProgress() bool {
+	return sts.asynchronousTransferInProgress
+}
+
 // =============================================================================
 // constructors
 // =============================================================================
@@ -132,7 +141,7 @@ func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger cons
 
 	sts.ledger = ledger
 
-	sts.OutOfDate = false
+	sts.asynchronousTransferInProgress = false
 
 	sts.RecoverDamage = config.GetBool("stateTransfer.recoverdamage")
 
@@ -610,6 +619,7 @@ func (sts *StateTransferState) stateThread() {
 			}
 
 			sts.completeStateSync <- weakCert.blockNumber
+			sts.asynchronousTransferInProgress = false
 			break
 		}
 

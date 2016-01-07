@@ -514,7 +514,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.sts.OutOfDate {
+	if !inst.sts.AsynchronousStateTransferInProgress() {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -527,10 +527,9 @@ func TestFallBehind(t *testing.T) {
 	}
 }
 
-func tmpExecuteStateTransfer(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64) error {
+func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64) error {
 
 	var chkpt *Checkpoint
-	var result chan uint64
 
 	ml.forceRemoteStateBlock(blockNumber - 2)
 
@@ -543,11 +542,12 @@ func tmpExecuteStateTransfer(pbft *pbftCore, ml *MockLedger, blockNumber, sequen
 		}
 		pbft.witnessCheckpoint(chkpt)
 	}
-	/* // TODO
-	if !sts.OutOfDate {
+
+	if !pbft.sts.AsynchronousStateTransferInProgress() {
 		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
 	}
-	*/
+
+	result := pbft.sts.AsynchronousStateTransferResultChannel()
 
 	for i := 1; i < pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{
@@ -589,4 +589,19 @@ func tmpExecuteStateTransfer(pbft *pbftCore, ml *MockLedger, blockNumber, sequen
 	}
 
 	return nil
+}
+
+func TestCatchupFromPBFT(t *testing.T) {
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	config := readConfig()
+	pbft := newPbftCore(0, config, nil, ml)
+	pbft.K = 2
+	pbft.L = 4
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10); nil != err {
+		t.Fatalf("Simplest case: %s", err)
+	}
+
 }
