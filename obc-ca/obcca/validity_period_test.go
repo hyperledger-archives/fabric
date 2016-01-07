@@ -78,14 +78,20 @@ func setupTestConfig() {
 func TestValidityPeriod(t *testing.T) {
 	go startServices(t) 
 	
-	// 1. query the validity period
-	// 2. wait at least the validity period update time
-	// 3. query the validity period again and compare with the previous value, it must be greater
 	
-	time.Sleep(time.Second * 60) // TODO remove when the test is complete
+	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
+	version := "0.0.1"
+	
+	validityPeriodA := queryTransaction(url, version, []string{"system.validity.period"})
+
+	time.Sleep(time.Second * 40)
+	
+	validityPeriodB := queryTransaction(url, version, []string{"system.validity.period"})
 	
 	stopServices()
 	
+	fmt.Println(validityPeriodA)
+	fmt.Println(validityPeriodB)
 	// 4. cleanup database and test folder
 }
 
@@ -116,9 +122,6 @@ func startTCA() {
 	eca.Start(&wg)
 	tca.Start(&wg)
 	
-	
-	queryTransaction("github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
-
 	wg.Wait()
 }
 
