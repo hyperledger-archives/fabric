@@ -71,10 +71,30 @@ type StateTransferState struct {
 
 }
 
-// Syncs to the block number specified, blocking until success, or failure
+// Syncs to the block number specified, blocking until success
 // If replicaIds is nil, all replicas will be considered sync candidates
+// The function returns nil on success or error
 func (sts *StateTransferState) SynchronousStateTransfer(blockNumber uint64, blockHash []byte, replicaIds []uint64) error {
-	return fmt.Errorf("Not implemented")
+	blockHeight, err := sts.ledger.GetBlockchainSize()
+	if nil != err {
+		return err
+	}
+
+	currentStateBlockNumber := blockHeight - 1
+	blockHReply := &blockHashReply{
+		syncMark: syncMark{
+			blockNumber: blockNumber,
+			replicaIds:  replicaIds,
+		},
+		blockHash: blockHash,
+	}
+	mark := &syncMark{
+		blockNumber: blockNumber,
+		replicaIds:  replicaIds,
+	}
+	blocksValid := false
+
+	return sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid)
 }
 
 // Syncs to at least the block number specified, without blocking
@@ -557,6 +577,116 @@ func (sts *StateTransferState) blockThread() {
 	}
 }
 
+func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uint64, mark **syncMark, blockHReply **blockHashReply, blocksValid *bool) error {
+	var err error
+	//currentStateBlockNumber := *currentStateBlockNumberP
+	//blockHReply := *blockHReplyP
+	//blocksValid := *blocksValidP
+	//mark := *syncMarkP
+
+	if !sts.stateValid {
+		// Our state is currently bad, so get a new one
+		*currentStateBlockNumber, err = sts.syncStateSnapshot((*mark).blockNumber, (*mark).replicaIds)
+
+		if nil != err {
+			*mark = &syncMark{ // Let's try to just sync state from anyone, for any sequence number
+				blockNumber: 0,
+				replicaIds:  nil,
+			}
+			return fmt.Errorf("%s could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", sts.id, (*mark).blockNumber)
+		}
+
+		logger.Debug("%s completed state transfer to block %d", sts.id, *currentStateBlockNumber)
+	} else {
+		*currentStateBlockNumber, err = sts.ledger.GetBlockchainSize()
+		if nil != err {
+			panic(fmt.Errorf("Cannot get our blockchain size, this is irrecoverable: %s", err))
+		}
+		*currentStateBlockNumber-- // The block height is one more than the latest block number
+	}
+
+	// TODO, eventually we should allow lower block numbers and rewind transactions as needed
+	if nil == *blockHReply || (*blockHReply).blockNumber < *currentStateBlockNumber {
+
+		if nil == *blockHReply {
+			logger.Debug("%s has no valid block hash to validate the blockchain with yet, waiting for a known valid block hash", sts.id)
+		} else {
+			logger.Debug("%s already has valid blocks through %d but needs to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+		}
+
+		replyChan := make(chan *blockHashReply)
+		sts.blockHashReq <- &blockHashReq{
+			blockNumber: *currentStateBlockNumber,
+			replyChan:   replyChan,
+		}
+
+		*blockHReply = <-replyChan
+		*blocksValid = false // If we retrieve a new hash, we will need to sync to a new block
+	}
+
+	if !*blocksValid {
+		(*mark) = &syncMark{ // We now know of a more recent block hash
+			blockNumber: (*blockHReply).blockNumber,
+			replicaIds:  (*blockHReply).replicaIds,
+		}
+
+		blockReplyChannel := make(chan error)
+
+		sts.blockSyncReq <- &blockSyncReq{
+			syncMark:       *(*mark),
+			reportOnBlock:  *currentStateBlockNumber,
+			replyChan:      blockReplyChannel,
+			firstBlockHash: (*blockHReply).blockHash,
+		}
+
+		logger.Debug("%s state transfer thread waiting for block sync to complete", sts.id)
+		err = <-blockReplyChannel
+
+		if err != nil {
+			return fmt.Errorf("%s could not retrieve blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
+		}
+
+		*blocksValid = true
+	} else {
+		logger.Debug("%s already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+	}
+
+	stateHash, err := sts.ledger.GetCurrentStateHash()
+	if nil != err {
+		sts.stateValid = false
+		return fmt.Errorf("%s could not compute its current state hash: %s", sts.id, err)
+
+	}
+
+	block, err := sts.ledger.GetBlock(*currentStateBlockNumber)
+	if nil != err {
+		*blocksValid = false
+		return fmt.Errorf("%s believed its state for block %d to be valid, but it could not retrieve it : %s", sts.id, *currentStateBlockNumber, err)
+	}
+
+	if !bytes.Equal(stateHash, block.StateHash) {
+		sts.stateValid = false
+		if sts.stateValid {
+			return fmt.Errorf("%s believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, (*blockHReply).blockNumber, stateHash, block.StateHash)
+		} else {
+			return fmt.Errorf("%s recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, *currentStateBlockNumber, stateHash, block.StateHash)
+		}
+	}
+
+	sts.stateValid = true
+
+	if *currentStateBlockNumber < (*blockHReply).blockNumber {
+		*currentStateBlockNumber, err = sts.playStateUpToCheckpoint(*currentStateBlockNumber+uint64(1), (*blockHReply).blockNumber, (*blockHReply).replicaIds)
+		if nil != err {
+			// This is unlikely, in the future, we may wish to play transactions forward rather than retry
+			sts.stateValid = false
+			return fmt.Errorf("%s was unable to play the state from block number %d forward to block %d, retrying with new state : %s", sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, err)
+		}
+	}
+
+	return nil
+}
+
 // A thread to process state transfer
 func (sts *StateTransferState) stateThread() {
 	for {
@@ -566,124 +696,20 @@ func (sts *StateTransferState) stateThread() {
 		logger.Debug("%s is initiating state transfer", sts.id)
 
 		var currentStateBlockNumber uint64
-		var err error
 		var blockHReply *blockHashReply
 		blocksValid := false
 
 		for {
-
-			if !sts.stateValid {
-				// Our state is currently bad, so get a new one
-				currentStateBlockNumber, err = sts.syncStateSnapshot(mark.blockNumber, mark.replicaIds)
-
-				if nil != err {
-					// This is very bad, we had f+1 replicas unable to reply with a state above a block number they advertised in a checkpoint, should never happen
-					logger.Error("%s could not retrieve state as recent as advertised checkpoints above %d, indicates byzantine of f+1", sts.id, mark.blockNumber)
-					mark = &syncMark{ // Let's try to just sync state from anyone, for any sequence number
-						blockNumber: 0,
-						replicaIds:  nil,
-					}
-					continue
-				}
-
-				logger.Debug("%s completed state transfer to block %d", sts.id, currentStateBlockNumber)
-			} else {
-				currentStateBlockNumber, err = sts.ledger.GetBlockchainSize()
-				if nil != err {
-					panic(fmt.Errorf("Cannot get our blockchain size, this is irrecoverable: %s", err))
-				}
-				currentStateBlockNumber-- // The block height is one more than the latest block number
-			}
-			logger.Debug("ASDF")
-
-			// TODO, eventually we should allow lower block numbers and rewind transactions as needed
-			if nil == blockHReply || blockHReply.blockNumber < currentStateBlockNumber {
-
-				if nil == blockHReply {
-					logger.Debug("%s has no valid block hash to validate the blockchain with yet, waiting for a known valid block hash", sts.id)
-				} else {
-					logger.Debug("%s already has valid blocks through %d but needs to validate the state for block %d", sts.id, blockHReply.blockNumber, currentStateBlockNumber)
-				}
-
-				replyChan := make(chan *blockHashReply)
-				sts.blockHashReq <- &blockHashReq{
-					blockNumber: currentStateBlockNumber,
-					replyChan:   replyChan,
-				}
-
-				blockHReply = <-replyChan
-				blocksValid = false // If we retrieve a new hash, we will need to sync to a new block
-			}
-
-			if !blocksValid {
-				mark = &syncMark{ // We now know of a more recent block hash
-					blockNumber: blockHReply.blockNumber,
-					replicaIds:  blockHReply.replicaIds,
-				}
-
-				blockReplyChannel := make(chan error)
-
-				sts.blockSyncReq <- &blockSyncReq{
-					syncMark:       *mark,
-					reportOnBlock:  currentStateBlockNumber,
-					replyChan:      blockReplyChannel,
-					firstBlockHash: blockHReply.blockHash,
-				}
-
-				logger.Debug("%s state transfer thread waiting for block sync to complete", sts.id)
-				err = <-blockReplyChannel
-
-				if err != nil {
-					logger.Error("%s could not retrieve blocks as recent as %d as the block hash advertised", sts.id, mark.blockNumber)
-					continue
-				}
-
-				blocksValid = true
-			} else {
-				logger.Debug("%s already has valid blocks through %d necessary to validate the state for block %d", sts.id, blockHReply.blockNumber, currentStateBlockNumber)
-			}
-
-			stateHash, err := sts.ledger.GetCurrentStateHash()
-			if nil != err {
-				logger.Warning("%s could not compute its current state hash: %s", sts.id, err)
-				sts.stateValid = false
-				continue
-
-			}
-
-			block, err := sts.ledger.GetBlock(currentStateBlockNumber)
-			if nil != err {
-				logger.Warning("%s believed its state for block %d to be valid, but it could not retrieve it : %s", sts.id, currentStateBlockNumber, err)
-				blocksValid = false
+			if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
+				logger.Error("%s", err)
 				continue
 			}
 
-			if !bytes.Equal(stateHash, block.StateHash) {
-				if sts.stateValid {
-					logger.Warning("%s believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, blockHReply.blockNumber, stateHash, block.StateHash)
-				} else {
-					logger.Warning("%s recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, currentStateBlockNumber, stateHash, block.StateHash)
-				}
-				sts.stateValid = false
-				continue
-			}
-
-			sts.stateValid = true
-
-			if currentStateBlockNumber < blockHReply.blockNumber {
-				currentStateBlockNumber, err := sts.playStateUpToCheckpoint(currentStateBlockNumber+uint64(1), blockHReply.blockNumber, blockHReply.replicaIds)
-				if nil != err {
-					// This is unlikely, in the future, we may wish to play transactions forward rather than retry
-					logger.Warning("%s was unable to play the state from block number %d forward to block %d, retrying : %s", sts.id, currentStateBlockNumber, blockHReply.blockNumber, err)
-					continue
-				}
-			}
-
-			sts.completeStateSync <- blockHReply.blockNumber
-			sts.asynchronousTransferInProgress = false
 			break
 		}
 
+		sts.asynchronousTransferInProgress = false
+		sts.completeStateSync <- blockHReply.blockNumber
 	}
 }
 
@@ -738,7 +764,7 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 						sts.ledger.ApplyStateDelta(delta, true)
 					}
 
-					// TODO, this is wrong, our state might not rewind correctly, will need a commit/rollback API for this
+					// TODO, this is wrong, our state might not rewind correctly, change to the new commit/rollback API
 					return fmt.Errorf("%s played state forward according to replica %d, but the state hash did not match", sts.id, replicaId)
 				} else {
 					currentBlock++

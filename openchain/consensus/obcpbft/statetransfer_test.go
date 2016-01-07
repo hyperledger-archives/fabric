@@ -186,6 +186,17 @@ func TestCatchupSyncDeltasTimeout(t *testing.T) {
 	}
 }
 
+func TestCatchupSimpleSynchronous(t *testing.T) {
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	sts := newTestStateTransfer(ml)
+	if err := sts.SynchronousStateTransfer(7, SimpleGetBlockHash(7), []uint64{1, 2, 3}); nil != err {
+		t.Fatalf("SimpleSynchronous state transfer failed")
+	}
+}
+
 func executeBlockRecovery(ml *MockLedger, millisTimeout int) error {
 	sts := ThreadlessNewStateTransferState("Replica 0", readConfig(), ml)
 	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
