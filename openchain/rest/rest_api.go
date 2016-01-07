@@ -450,7 +450,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Deploy the ChaincodeSpec
-	_, err = s.devops.Deploy(context.Background(), &spec)
+	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
@@ -462,9 +462,11 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
+	// Clients will need the chaincode name in order to invoke or query it
+	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
-	logger.Info("Successfuly deployed chainCode.\n")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\"" + chainID + "\"}")
+	logger.Info("Successfuly deployed chainCode: " + chainID + ".\n")
 }
 
 // Invoke executes a specified function within a target Chaincode.

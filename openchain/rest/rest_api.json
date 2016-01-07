@@ -462,6 +462,10 @@
                 "OK": {
                     "type": "string",
                     "description": "A descriptive message confirming a successful request."
+                },
+                "message": {
+                    "type": "string",
+                    "description": "An optional parameter containing additional information about the request."
                 }
             }
         }
