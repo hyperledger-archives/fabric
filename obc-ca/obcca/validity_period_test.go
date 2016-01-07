@@ -112,8 +112,18 @@ func TestValidityPeriod(t *testing.T) {
 		t.Logf("Validity period difference must be equal to the update interval. Expected: %s, Actual: %s", updateInterval, validityPeriod_B - validityPeriod_A)
 		t.Fail()
 	}
+	
+	// 7. since the validity period is used as time in the validators convert both validity periods to Unix time and compare them
+	vpA := time.Unix(validityPeriodFromLedger_A, 0)
+	vpB := time.Unix(validityPeriodFromLedger_B, 0)
+	
+	nextVP := vpA.Add(time.Second * 37)
+	if !vpB.Equal(nextVP) {
+		t.Logf("Validity period difference must be equal to the update interval. Error converting validity period to Unix time.")
+		t.Fail()
+	} 
 
-	// 7. cleanup tca and openchain folders
+	// 8. cleanup tca and openchain folders
 	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
 		t.Logf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
 	}
