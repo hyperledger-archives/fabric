@@ -465,7 +465,7 @@
                 },
                 "message": {
                     "type": "string",
-                    "description": "An optional parameter..."
+                    "description": "An optional parameter containing additional information about the request."
                 }
             }
         }
