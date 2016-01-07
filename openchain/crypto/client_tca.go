@@ -31,26 +31,16 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google/protobuf"
-	"io/ioutil"
 	"math/big"
 	"time"
 )
 
 func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
-	// TODO: client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyPath(), client.tCertOwnerKDFKey)
-
-	pem, err := utils.AEStoEncryptedPEM(client.tCertOwnerKDFKey, client.node.ks.pwd)
-	if err != nil {
-		client.node.log.Error("Failed converting TCertOwnerKDFKey [%s].", err.Error())
-		return err
-	}
-
-	err = ioutil.WriteFile(client.node.conf.getTCertOwnerKDFKeyPath(), pem, 0700)
-	if err != nil {
+	if err := client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey, pwd); err != nil {
 		client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
+
 		return err
 	}
-
 	return nil
 }
 
@@ -58,21 +48,13 @@ func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
 	// Load TCertOwnerKDFKey
 	client.node.log.Debug("Loading TCertOwnerKDFKey at [%s]...", client.node.conf.getTCertOwnerKDFKeyPath())
 
-	missing, _ := utils.FilePathMissing(client.node.conf.getTCertOwnerKDFKeyPath())
-	if missing {
-		client.node.log.Debug("Failed loading TCertOwnerKDFKey. File is missing.")
+	if !client.node.ks.isAliasSet(client.node.conf.getTCertOwnerKDFKeyFilename()) {
+		client.node.log.Debug("Failed loading TCertOwnerKDFKey. Key is missing.")
 
 		return nil
 	}
 
-	pem, err := ioutil.ReadFile(client.node.conf.getTCertOwnerKDFKeyPath())
-	if err != nil {
-		client.node.log.Error("Failed loading TCertOwnerKDFKey [%s].", err.Error())
-
-		return err
-	}
-
-	tCertOwnerKDFKey, err := utils.PEMtoAES(pem, pwd)
+	tCertOwnerKDFKey, err := client.node.ks.loadKey(client.node.conf.getTCertOwnerKDFKeyFilename(), pwd)
 	if err != nil {
 		client.node.log.Error("Failed parsing TCertOwnerKDFKey [%s].", err.Error())
 

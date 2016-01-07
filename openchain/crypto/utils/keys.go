@@ -27,6 +27,8 @@ import (
 	"errors"
 )
 
+// TODO: does EncryptPEMBlock support authentication?
+
 // PrivateKeyToDER marshals a private key to der
 func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)
@@ -34,7 +36,7 @@ func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 
 // PrivateKeyToPEM converts a private key to PEM
 func PrivateKeyToPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
-	if pwd != nil {
+	if IsNotEmpty(pwd) {
 		return PrivateKeyToEncryptedPEM(privateKey, pwd)
 	}
 
@@ -161,7 +163,7 @@ func AEStoPEM(raw []byte) []byte {
 
 // AEStoEncryptedPEM encapsulates an AES key in the encrypted PEM format
 func AEStoEncryptedPEM(raw []byte, pwd []byte) ([]byte, error) {
-	if pwd == nil {
+	if IsEmpty(pwd) {
 		return AEStoPEM(raw), nil
 	}
 

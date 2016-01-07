@@ -124,3 +124,17 @@ func IsTCPPortOpen(laddr string) error {
 	lis.Close()
 	return nil
 }
+
+func IsNotEmpty(s []byte) bool {
+	if s == nil || len(s) == 0 {
+		return false
+	}
+	return true
+}
+
+func IsEmpty(s []byte) bool {
+	if s == nil || len(s) == 0 {
+		return true
+	}
+	return false
+}

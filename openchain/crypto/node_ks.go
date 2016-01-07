@@ -28,20 +28,18 @@ import (
 	"sync"
 
 	// Required to succefully initialized the driver
+	"crypto/x509"
 	_ "github.com/mattn/go-sqlite3"
+	"io/ioutil"
 )
 
 func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
 
 	ks := keyStore{}
-	ks.log = node.log
-	ks.conf = node.conf
-	ks.pwd = pwd // TODO: clone password
-	if err := ks.init(); err != nil {
+	if err := ks.init(node.log, node.conf, pwd); err != nil {
 		return err
 	}
-
 	node.ks = &ks
 
 	return nil
@@ -65,13 +63,17 @@ type keyStore struct {
 	m sync.Mutex
 }
 
-func (ks *keyStore) init() error {
+func (ks *keyStore) init(logger *logging.Logger, conf *configuration, pwd []byte) error {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
 	if ks.isOpen {
 		return utils.ErrKeyStoreAlreadyInitialized
 	}
+
+	ks.log = logger
+	ks.conf = conf
+	ks.pwd = utils.Clone(pwd)
 
 	err := ks.createKeyStoreIfKeyStorePathEmpty()
 	if err != nil {
@@ -84,6 +86,130 @@ func (ks *keyStore) init() error {
 	}
 
 	return nil
+}
+
+func (ks *keyStore) isAliasSet(alias string) bool {
+	missing, _ := utils.FilePathMissing(ks.conf.getPathForAlias(alias))
+	if missing {
+		return false
+	}
+
+	return true
+}
+
+func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}, pwd []byte) error {
+	if pwd == nil {
+		pwd = ks.pwd
+	}
+
+	rawKey, err := utils.PrivateKeyToPEM(privateKey, pwd)
+	if err != nil {
+		ks.log.Error("Failed converting private key to PEM [%s]: [%s]", alias, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	if err != nil {
+		ks.log.Error("Failed storing private key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadPrivateKey(alias string, pwd []byte) (interface{}, error) {
+	raw, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	if err != nil {
+		ks.log.Error("Failed loading private key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	privateKey, err := utils.PEMtoPrivateKey(raw, pwd)
+	if err != nil {
+		ks.log.Error("Failed parsing private key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+func (ks *keyStore) storeKey(alias string, key []byte, pwd []byte) error {
+	if pwd == nil {
+		pwd = ks.pwd
+	}
+
+	pem, err := utils.AEStoEncryptedPEM(key, pwd)
+	if err != nil {
+		ks.log.Error("Failed converting key to PEM [%s]: [%s]", alias, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), pem, 0700)
+	if err != nil {
+		ks.log.Error("Failed storing key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadKey(alias string, pwd []byte) ([]byte, error) {
+	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	if err != nil {
+		ks.log.Error("Failed loading key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	key, err := utils.PEMtoAES(pem, pwd)
+	if err != nil {
+		ks.log.Error("Failed parsing key [%s]: [%s]", alias, err)
+
+		return nil, err
+	}
+
+	return key, nil
+}
+
+func (ks *keyStore) storeCert(alias string, der []byte, pwd []byte) error {
+	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
+	if err != nil {
+		ks.log.Error("Failed storing certificate [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadCert(alias string, pwd []byte) ([]byte, error) {
+	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	if err != nil {
+		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	return pem, nil
+}
+
+func (ks *keyStore) loadCertX509AndDer(alias string, pwd []byte) (*x509.Certificate, []byte, error) {
+	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	if err != nil {
+		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
+
+		return nil, nil, err
+	}
+
+	cert, der, err := utils.PEMtoCertificateAndDER(pem)
+	if err != nil {
+		ks.log.Error("Failed parsing certificate [%s]: [%s].", alias, err.Error())
+
+		return nil, nil, err
+	}
+
+	return cert, der, nil
 }
 
 func (ks *keyStore) close() error {

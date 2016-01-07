@@ -42,9 +42,9 @@ type configuration struct {
 	configurationPath string
 
 	configurationPathProperty string
-	ecaPAddressProperty string
-	tcaPAddressProperty string
-	tlscaPAddressProperty string
+	ecaPAddressProperty       string
+	tcaPAddressProperty       string
+	tlscaPAddressProperty     string
 }
 
 func (conf *configuration) loadConfiguration() error {
@@ -67,13 +67,11 @@ func (conf *configuration) loadConfiguration() error {
 		return err
 	}
 
-
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
 		viper.GetString(conf.configurationPathProperty),
 		"crypto", conf.prefix, conf.name,
 	)
-
 
 	return nil
 }
@@ -116,6 +114,10 @@ func (conf *configuration) getKeyStoreFilePath() string {
 
 func (conf *configuration) getKeysPath() string {
 	return conf.getConfPath()
+}
+
+func (conf *configuration) getPathForAlias(alias string) string {
+	return filepath.Join(conf.getKeysPath(), alias)
 }
 
 func (conf *configuration) getEnrollmentKeyPath() string {

@@ -57,7 +57,7 @@ var (
 	executeTxCreators []createTxFunc
 	queryTxCreators   []createTxFunc
 
-	ksPwd = []byte("This is a very very very very pw")
+	ksPwd = []byte("This is a very very very long pw")
 )
 
 func TestMain(m *testing.M) {
