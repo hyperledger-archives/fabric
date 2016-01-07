@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/spf13/viper"
@@ -257,7 +258,7 @@ func (op *obcSieve) processExecute() {
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
-	op.currentReq = base64.StdEncoding.EncodeToString(exec.Request)
+	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
 	op.blockNumber++
 
 	op.begin()
