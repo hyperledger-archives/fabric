@@ -43,6 +43,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	
 	//"encoding/json"
 	//"errors"
@@ -78,13 +79,23 @@ func setupTestConfig() {
 func TestValidityPeriod(t *testing.T) {
 	go startServices(t) 
 	
+//	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
+//	version := "0.0.1" 
+	
+	validityPeriodA := getValidityPeriod(t)
+	
+	time.Sleep(time.Second * 40) 
+	
+	validityPeriodB := getValidityPeriod(t)
+	
 	// 1. query the validity period
 	// 2. wait at least the validity period update time
 	// 3. query the validity period again and compare with the previous value, it must be greater
 	
-	time.Sleep(time.Second * 60) // TODO remove when the test is complete
-	
 	stopServices()
+	
+	fmt.Println(validityPeriodA)
+	fmt.Println(validityPeriodB)
 	
 	// 4. cleanup database and test folder
 }
@@ -115,9 +126,6 @@ func startTCA() {
 	var wg sync.WaitGroup
 	eca.Start(&wg)
 	tca.Start(&wg)
-	
-	
-	queryTransaction("github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", "0.0.1", []string{"system.validity.period"})
 
 	wg.Wait()
 }
@@ -126,6 +134,37 @@ func stopTCA(){
 	tca.Stop()
 	eca.Stop()
 }
+
+ func getValidityPeriod(t *testing.T) int64 { 
+	chaincodeID := &pb.ChaincodeID{Url: "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", 
+		Version: "0.0.1",
+	}
+		
+	cid, _ := getChaincodeID(chaincodeID)
+		
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		t.Logf("Failed getting access to the ledger: %s", err)
+		t.Fail()
+	}
+		
+	vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
+	if err != nil {
+		t.Logf("Failed reading validity period from the ledger: %s", err)
+		t.Fail()
+	}
+		
+	i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
+	if err != nil {
+		t.Logf("Failed to parse validity period: %s", err)
+		t.Fail()
+	}
+	
+	//vp := time.Unix(i, 0)
+	
+	return i
+ }
+
 
 // getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
 func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
@@ -142,8 +181,6 @@ func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
 	}
 	return urlLocation + ":" + cID.Version, nil
 }
-
-
 
 func queryTransaction(url string, version string, args []string) error {
 	
@@ -162,9 +199,6 @@ func queryTransaction(url string, version string, args []string) error {
 	
 	return nil
 }
-
-
-
 
 func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
 
