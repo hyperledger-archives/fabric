@@ -29,6 +29,7 @@ import (
 	"time"
 	"sync"
 	"io/ioutil"
+	"encoding/json"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -44,15 +45,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
-	
-	"encoding/json"
-	//"errors"
-	//"runtime"
-	//"strings"	
-	//"github.com/howeyc/gopass"
-	//"github.com/op/go-logging"
-	//"github.com/spf13/cobra"
-	//"github.com/openblockchain/obc-peer/events/producer"
 )
 
 var (
