@@ -20,37 +20,30 @@ under the License.
 package obcca
 
 import (
+	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/op/go-logging"
-
+	"errors"
 	"math/big"
 	"net"
-	"time"
-	"github.com/spf13/viper"
 	"sync"
-	
-	"google.golang.org/grpc"
+	"time"
 
-	"errors"
 	"github.com/golang/protobuf/proto"
-	
+	pb "github.com/obc-peer/obc-ca/protos"
+	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
-	
-	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"crypto/ecdsa"
 )
-
-var logger = logging.MustGetLogger("tls_ca_pserver")
-
 
 // TLSCA is the tls certificate authority.
 //
 type TLSCA struct {
 	*CA
+	
 	sockp, socka net.Listener
-	srvp, srva *grpc.Server
+	srvp, srva   *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -69,7 +62,7 @@ type TLSCAA struct {
 //
 func NewTLSCA() *TLSCA {
 	tlsca := &TLSCA{NewCA("tlsca"), nil, nil, nil, nil}
-	
+
 	return tlsca
 }
 
@@ -130,28 +123,34 @@ func (tlsca *TLSCA) startTLSCAA(opts []grpc.ServerOption) {
 	tlsca.srva.Serve(tlsca.socka)
 }
 
+// ReadCACertificate reads the certificate of the TLSCA.
+//
+func (tlscap *TLSCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
+	Trace.Println("grpc TLSCAP:ReadCACertificate")
+
+	return &pb.Cert{tlscap.tlsca.raw}, nil
+}
+
 // CreateCertificate requests the creation of a new enrollment certificate by the TLSCA.
 //
 func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreateReq) (*pb.Cert, error) {
-	Trace.Println("grpc TLSCA_P:CreateCertificate")
+	Trace.Println("grpc TLSCAP:CreateCertificate")
 
 	id := req.Id.Id
-	
+
 	sig := req.Sig
 	req.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
-	
+
 	raw := req.Pub.Key
 	if req.Pub.Type != pb.CryptoType_ECDSA {
-		Error.Println("unsupported key type")
 		return nil, errors.New("unsupported key type")
 	}
 	pub, err := x509.ParsePKIXPublicKey(req.Pub.Key)
 	if err != nil {
-		Error.Println(err)
 		return nil, err
 	}
 
@@ -159,15 +158,14 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
 	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		Error.Println("signature does not verify")
 		return nil, errors.New("signature does not verify")
 	}
-	
-	if raw, err = tlscap.tlsca.newCertificate(id, pub.(*ecdsa.PublicKey), time.Now().UnixNano()); err != nil {
+
+	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, time.Now().UnixNano()); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
-	
+
 	return &pb.Cert{raw}, nil
 }
 
@@ -176,16 +174,8 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
-	var raw []byte
-	var err error
-
-	if req.Id.Id != "" {
-		raw, err = tlscap.tlsca.readCertificate(req.Id.Id)
-	} else {
-		raw, err = tlscap.tlsca.readCertificateByHash(req.Hash)
-	}
+	raw, err := tlscap.tlsca.readCertificate(req.Id.Id, x509.KeyUsageKeyAgreement)
 	if err != nil {
-		Error.Println(err)
 		return nil, err
 	}
 
@@ -195,13 +185,15 @@ func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadRe
 // RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.
 //
 func (tlscap *TLSCAP) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
-	// TODO: We are not going to provide revocation support for now
-	return nil, nil
+	Trace.Println("grpc TLSCAP:RevokeCertificate")
+
+	return nil, errors.New("not yet implemented")
 }
 
 // RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.
 //
 func (tlscaa *TLSCAA) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (*pb.CAStatus, error) {
-	// TODO: We are not going to provide revocation support for now
-	return nil, nil
+	Trace.Println("grpc TLSCAA:RevokeCertificate")
+
+	return nil, errors.New("not yet implemented")
 }

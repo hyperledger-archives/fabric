@@ -1,4 +1,5 @@
-test: hello
+server:
+        version: "0.1"
 
 ports:
         ecaP: ":50051"
@@ -19,9 +20,7 @@ eca:
 #                keyfile:
                 
         users:
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
+                donq: 9gvZQRwhUq9q
 tca:
 #         tls:
 #                certfile:
@@ -31,4 +30,3 @@ tlsca:
 #         tls:
 #                certfile:
 #                keyfile:
-         

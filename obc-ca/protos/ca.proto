@@ -27,23 +27,25 @@ import "google/protobuf/timestamp.proto";
 // Enrollment Certificate Authority (ECA).
 //
 service ECAP { // public service
-    rpc CreateCertificate(ECertCreateReq) returns (Creds);
-    rpc ReadCertificate(ECertReadReq) returns (Cert);
-    rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
+    rpc ReadCACertificate(Empty) returns (Cert);
+    rpc CreateCertificatePair(ECertCreateReq) returns (ECertCreateResp);
+    rpc ReadCertificatePair(ECertReadReq) returns (CertPair);
+    rpc RevokeCertificatePair(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
 }
 
 service ECAA { // admin service
-    rpc RegisterUser(Identity) returns (Password);   
+    rpc RegisterUser(Identity) returns (Token);
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
-    rpc CreateCRL(ECertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
+    rpc PublishCRL(ECertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
 }
 
 
 // Transaction Certificate Authority (TCA).
 //
 service TCAP { // public service
-    rpc CreateCertificate(TCertCreateReq) returns (Cert);
-    rpc CreateCertificateSet(TCertCreateSetReq) returns (CertSet);
+    rpc ReadCACertificate(Empty) returns (Cert);
+    rpc CreateCertificate(TCertCreateReq) returns (TCertCreateResp);
+    rpc CreateCertificateSet(TCertCreateSetReq) returns (TCertCreateSetResp);
     rpc ReadCertificate(TCertReadReq) returns (Cert);
     rpc ReadCertificateSet(TCertReadSetReq) returns (CertSet);
     rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
@@ -53,11 +55,13 @@ service TCAP { // public service
 service TCAA { // admin service
     rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
     rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // an admin can revoke any cert
-    rpc CreateCRL(TCertCRLReq) returns (CAStatus); // triggers CRL to be issued to the blockchain
+    rpc PublishCRL(TCertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
 }
 
 // TLS Certificate Authority (TLSCA)
+//
 service TLSCAP { // public service
+    rpc ReadCACertificate(Empty) returns (Cert);
     rpc CreateCertificate(TLSCertCreateReq) returns (Cert);
     rpc ReadCertificate(TLSCertReadReq) returns (Cert);
     rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
@@ -79,14 +83,19 @@ message CAStatus {
 }
 
 
+// Empty message.
+//
+message Empty {
+}
+
 // Uniquely identifies a user towards either CA.
 //
 message Identity {
     string id = 1;
 }
 
-message Password {
-    string pw = 1;
+message Token {
+    string tok = 1;
 }
 
 
@@ -123,14 +132,19 @@ message Signature {
 message ECertCreateReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2;
-    Password pw = 3;
-    PublicKey pub = 4;
-    Signature sig = 5; // sign(priv, ts | id | pw | pub)
+    Token tok = 3;
+    PublicKey sign = 4;
+    PublicKey enc = 5;
+    Signature sig = 6; // sign(privS, ts | id | tok | sign | enc)
+}
+
+message ECertCreateResp {
+    CertPair certs = 1;
+    Token tok = 2;
 }
 
 message ECertReadReq {
     Identity id = 1;
-    bytes hash = 2;
 }
 
 message ECertRevokeReq {
@@ -144,7 +158,6 @@ message ECertCRLReq {
     Signature sig = 2; // sign(priv, id)
 }
 
-
 message TCertCreateReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2; // corresponding ECert retrieved from ECA
@@ -152,11 +165,19 @@ message TCertCreateReq {
     Signature sig = 4; // sign(priv, ts | id | pub)
 }
 
+message TCertCreateResp {
+    Cert cert = 1;
+}
+
 message TCertCreateSetReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2; // corresponding ECert retrieved from ECA
     uint32 num = 3; // number of certs to create
     Signature sig = 4; // sign(priv, ts | id | params | num)
+}
+
+message TCertCreateSetResp {
+    CertSet certs = 1;
 }
 
 message TCertReadReq {
@@ -189,19 +210,15 @@ message TCertCRLReq {
     Signature sig = 2; // sign(priv, id)
 }
 
-// TLSCA Certificate requests.
-//
 message TLSCertCreateReq {
     google.protobuf.Timestamp timestamp = 1;
     Identity id = 2;
-    Password pw = 3;
-    PublicKey pub = 4;
-    Signature sig = 5; // sign(priv, timestamp | id | pub)
+    PublicKey pub = 3;
+    Signature sig = 4; // sign(priv, timestamp | id | pub)
 }
 
 message TLSCertReadReq {
     Identity id = 1;
-    bytes hash = 2;
 }
 
 message TLSCertRevokeReq {
@@ -221,7 +238,7 @@ message CertSet {
     repeated bytes certs = 2; // DER / ASN.1 encoded
 }
 
-message Creds {
-    Cert cert = 1;
-    bytes key = 2;
+message CertPair {
+    bytes sign = 1; // signature certificate, DER / ASN.1 encoded
+    bytes enc = 2; // encryption certificate, DER / ASN.1 encoded
 }
