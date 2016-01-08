@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"errors"
+	
+	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -119,42 +121,19 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	}
 
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
-	os.Mkdir(newgopath, 0755)    
+	os.Mkdir(newgopath, 0755)
 
 	if codegopath, err = ioutil.TempDir(newgopath, ""); err != nil {
 		err = fmt.Errorf("could not create tmp dir under %s(%s)", newgopath, err)
 		return
 	}
 	
-	// We're about to run some commands.  Let's give them somewhere to talk.
-	var out bytes.Buffer
-	
-	/*
-	// If we don't copy the obc-peer code into the temp dir with the chaincode,
-	// go get will have to redownload obc-peer, which requires credentials.
-	cmd := exec.Command("cp", "-r", origgopath + "/src", codegopath + "/src")
-	cmd.Env = env
-	cmd.Stdout = &out
-	err = cmd.Run()
-	if err != nil {
-		return
-	}
-	*/
-
 	env[gopathenvIndex] = "GOPATH=" + codegopath
-
-	/* The old way of getting the chaincode
-	cmd = exec.Command("go", "get", path)
-	cmd.Env = env
-	cmd.Stdout = &out
-	err = cmd.Run()
-	if err != nil {
-		return
-	}*/
 	
 	// Use a 'go get' command to pull the chaincode from the given repo
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
+	var out bytes.Buffer
 	cmd.Stdout = &out
 	err = cmd.Start()
 	
@@ -165,7 +144,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	}()
 	
 	select {
-	case <-time.After(30 * time.Second):
+	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
 		// If pulling repos takes too long, we should give up
 		// (This can happen if a repo is private and the git clone asks for credentials)
 		if err := cmd.Process.Kill(); err != nil {
