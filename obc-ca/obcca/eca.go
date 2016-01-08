@@ -35,6 +35,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
+	nacl "golang.org/x/crypto/nacl/box"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -44,8 +45,9 @@ import (
 //
 type ECA struct {
 	*CA
+	
 	obcKey []byte
-
+	encPub, encPriv []byte
 	sockp, socka net.Listener
 	srvp, srva   *grpc.Server
 }
@@ -67,8 +69,9 @@ type ECAA struct {
 func NewECA() *ECA {
 	var cooked string
 
-	eca := &ECA{NewCA("eca"), nil, nil, nil, nil, nil}
+	eca := &ECA{NewCA("eca"), nil, nil, nil, nil, nil, nil, nil}
 
+	// read or create global symmetric encryption key
 	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
 	if err != nil {
 		rand := rand.Reader
@@ -89,6 +92,29 @@ func NewECA() *ECA {
 		Panic.Panicln(err)
 	}
 
+	// read or create ECA encryption key pair
+	raw, err = ioutil.ReadFile(RootPath+"/eca.nacl")
+	if err != nil {
+		pub, priv, err := nacl.GenerateKey(rand.Reader)
+		
+		pair := make([]byte, 64)
+		copy(pair[:32], pub[:])
+		copy(pair[32:], priv[:])
+		cooked = base64.StdEncoding.EncodeToString(pair)
+		
+		err = ioutil.WriteFile(RootPath+"/eca.nacl", []byte(cooked), 0644)
+		if err != nil {
+			Panic.Panicln(err)
+		}
+	} else {
+		cooked = string(raw)
+	}
+	
+	pair, err := base64.StdEncoding.DecodeString(cooked)
+	eca.encPub = pair[:32]
+	eca.encPriv = pair[32:]
+	
+	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, tok := range users {
 		eca.registerUser(id, tok)
