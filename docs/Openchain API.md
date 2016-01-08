@@ -143,6 +143,8 @@ You can experiment with the Openchain REST API through any tool of your choice. 
   * GET /chain/blocks/{Block}
 * [Chain](#chain)
   * GET /chain
+* [Transactions](#transactions)
+  * GET /transactions/{UUID}
 * [Devops](#devops)
   * POST /devops/deploy
   * POST /devops/invoke
@@ -179,6 +181,36 @@ message BlockchainInfo {
     uint64 height = 1;
     bytes currentBlockHash = 2;
     bytes previousBlockHash = 3;
+}
+```
+
+#### Transactions
+
+* **GET /transactions/{UUID}**
+
+Use the /transactions/{UUID} endpoint to retrieve an individual transaction matching the UUID from the blockchain. The returned transaction message is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto) .
+
+```
+message Transaction {
+    enum Type {
+        UNDEFINED = 0;
+        CHAINCODE_NEW = 1;
+        CHAINCODE_UPDATE = 2;
+        CHAINCODE_EXECUTE = 3;
+        CHAINCODE_QUERY = 4;
+        CHAINCODE_TERMINATE = 5;
+    }
+    Type type = 1;
+    bytes chaincodeID = 2;
+    bytes payload = 3;
+    string uuid = 4;
+    google.protobuf.Timestamp timestamp = 5;
+
+    ConfidentialityLevel confidentialityLevel = 6;
+    bytes nonce = 7;
+
+    bytes cert = 8;
+    bytes signature = 9;
 }
 ```
 

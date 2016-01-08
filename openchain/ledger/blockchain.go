@@ -178,10 +178,15 @@ func (blockchain *blockchain) getBlockchainInfo() (*protos.BlockchainInfo, error
 	return info, nil
 }
 
-func (blockchain *blockchain) addPersistenceChangesForNewBlock(ctx context.Context,
-	block *protos.Block, stateHash []byte, writeBatch *gorocksdb.WriteBatch) (uint64, error) {
+func (blockchain *blockchain) buildBlock(block *protos.Block, stateHash []byte) *protos.Block {
 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
 	block.StateHash = stateHash
+	return block
+}
+
+func (blockchain *blockchain) addPersistenceChangesForNewBlock(ctx context.Context,
+	block *protos.Block, stateHash []byte, writeBatch *gorocksdb.WriteBatch) (uint64, error) {
+	block = blockchain.buildBlock(block, stateHash)
 	if block.NonHashData == nil {
 		block.NonHashData = &protos.NonHashData{LocalLedgerCommitTimestamp: util.CreateUtcTimestamp()}
 	} else {

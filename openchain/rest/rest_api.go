@@ -335,6 +335,37 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	}
 }
 
+// GetTransactionByUUID returns a transaction matching the specified UUID
+func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *web.Request) {
+	// Parse out the transaction UUID
+	txUUID := req.PathParams["uuid"]
+
+	// Retrieve the transaction matching the UUID
+	tx, err := s.server.GetTransactionByUUID(context.Background(), txUUID)
+
+	// Check for Error
+	if err != nil {
+		// Database retrieval error
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
+	} else {
+		// Transaction not found
+		if tx == nil {
+			rw.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
+			logger.Error(fmt.Sprintf("{\"Error\": \"Transaction %s is not found.\"}", txUUID))
+		} else {
+			// Return existing transaction
+			encoder := json.NewEncoder(rw)
+
+			rw.WriteHeader(http.StatusOK)
+			encoder.Encode(tx)
+			logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
+		}
+	}
+}
+
 // Deploy first builds the chaincode package and subsequently deploys it to the
 // blockchain.
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
@@ -464,8 +495,9 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	// Clients will need the chaincode name in order to invoke or query it
 	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\"" + chainID + "\"}")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\""+chainID+"\"}")
 	logger.Info("Successfuly deployed chainCode: " + chainID + ".\n")
 }
 
@@ -771,6 +803,8 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
+
+	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
