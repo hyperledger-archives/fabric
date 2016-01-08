@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"errors"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -125,27 +126,58 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		return
 	}
 	
+	// We're about to run some commands.  Let's give them somewhere to talk.
+	var out bytes.Buffer
+	
+	/*
 	// If we don't copy the obc-peer code into the temp dir with the chaincode,
 	// go get will have to redownload obc-peer, which requires credentials.
 	cmd := exec.Command("cp", "-r", origgopath + "/src", codegopath + "/src")
 	cmd.Env = env
-	var out bytes.Buffer
 	cmd.Stdout = &out
 	err = cmd.Run()
 	if err != nil {
 		return
 	}
+	*/
 
 	env[gopathenvIndex] = "GOPATH=" + codegopath
 
+	/* The old way of getting the chaincode
 	cmd = exec.Command("go", "get", path)
 	cmd.Env = env
 	cmd.Stdout = &out
 	err = cmd.Run()
 	if err != nil {
 		return
+	}*/
+	
+	// Use a 'go get' command to pull the chaincode from the given repo
+	cmd := exec.Command("go", "get", path)
+	cmd.Env = env
+	cmd.Stdout = &out
+	err = cmd.Start()
+	
+	// Create a go routine that will wait for the command to finish
+	done := make(chan error, 1)
+	go func() {
+    	done <- cmd.Wait()
+	}()
+	
+	select {
+	case <-time.After(30 * time.Second):
+		// If pulling repos takes too long, we should give up
+		// (This can happen if a repo is private and the git clone asks for credentials)
+		if err := cmd.Process.Kill(); err != nil {
+			err = errors.New(fmt.Sprintf("failed to kill: %s", err))
+		}
+		err = errors.New("Getting chaincode took too long")
+	case err := <-done:
+		// If we're here, the 'go get' command must have finished
+		if err != nil {
+			err = errors.New(fmt.Sprintf("process done with error = %v", err))
+		}
 	}
-
 	return
 }
 
