@@ -24,7 +24,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/obc-peer/obc-ca/obcca"
+	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/spf13/viper"
 )
 
@@ -39,8 +39,8 @@ func main() {
 	}
 
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-	
-	obcca.Info.Println("CA Server ("+viper.GetString("server.version")+")")
+
+	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
 	eca := obcca.NewECA()
 	defer eca.Close()

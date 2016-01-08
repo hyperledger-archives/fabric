@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/obc-peer/obc-ca/protos"
+	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
@@ -45,7 +45,6 @@ import (
 type ECA struct {
 	*CA
 	obcKey []byte
-	
 
 	sockp, socka net.Listener
 	srvp, srva   *grpc.Server
