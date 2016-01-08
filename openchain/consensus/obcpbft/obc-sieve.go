@@ -470,6 +470,12 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 		return
 	}
 
+	if vset.BlockNumber < op.blockNumber {
+		logger.Debug("Replica %d ignoring verify-set for old block: expected %d, got %d",
+			op.id, op.blockNumber, vset.BlockNumber)
+		return
+	}
+
 	if op.currentReq == "" {
 		logger.Debug("Replica %d received verify-set without pending execute",
 			op.id)
