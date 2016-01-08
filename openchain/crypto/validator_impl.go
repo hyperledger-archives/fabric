@@ -26,8 +26,6 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	"fmt"
-	"strings"
 	"github.com/spf13/viper"
 	
 	obc "github.com/openblockchain/obc-peer/protos"
@@ -142,12 +140,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 			return tx, err
 		}
 		
-		//TODO: this values could be configurable through a configuration file for system chaincode 
-		chaincodeID := &obc.ChaincodeID{Url: "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", 
-			Version: "0.0.1",
-		}
-		
-		cid, _ := getChaincodeID(chaincodeID)
+		cid := viper.GetString("pki.validity-period.chaincodeHash")
 		
 		ledger, err := ledger.GetLedger()
 		if err != nil {
@@ -359,20 +352,4 @@ func (validator *validatorImpl) close() error {
 	}
 
 	return nil
-}
-
-// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
-func getChaincodeID(cID *obc.ChaincodeID) (string, error) {
-	if cID == nil {
-		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
-	}
-	var urlLocation string
-	if strings.HasPrefix(cID.Url, "http://") {
-		urlLocation = cID.Url[7:]
-	} else if strings.HasPrefix(cID.Url, "https://") {
-		urlLocation = cID.Url[8:]
-	} else {
-		urlLocation = cID.Url
-	}
-	return urlLocation + ":" + cID.Version, nil
 }

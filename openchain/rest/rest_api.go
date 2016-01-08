@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 
 	oc "github.com/openblockchain/obc-peer/openchain"
+	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -334,77 +335,35 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	}
 }
 
-// GetState returns the value for the specified chaincodeID and key.
-func (s *ServerOpenchainREST) GetState(rw web.ResponseWriter, req *web.Request) {
-	// Parse out the chaincodeId and key.
-	chaincodeID := req.PathParams["chaincodeId"]
-	key := req.PathParams["key"]
+// GetTransactionByUUID returns a transaction matching the specified UUID
+func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *web.Request) {
+	// Parse out the transaction UUID
+	txUUID := req.PathParams["uuid"]
 
-	// Retrieve Chaincode state.
-	state, err := s.server.GetState(context.Background(), chaincodeID, key)
+	// Retrieve the transaction matching the UUID
+	tx, err := s.server.GetTransactionByUUID(context.Background(), txUUID)
 
-	// Check for error
+	// Check for Error
 	if err != nil {
-		// Failure
-		rw.WriteHeader(400)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		// Database retrieval error
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+		logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
 	} else {
-		// Success
-		if state == nil { // no match on ChaincodeID and key
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"null\"}")
+		// Transaction not found
+		if tx == nil {
+			rw.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
+			logger.Error(fmt.Sprintf("{\"Error\": \"Transaction %s is not found.\"}", txUUID))
 		} else {
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"%s\"}", state)
+			// Return existing transaction
+			encoder := json.NewEncoder(rw)
+
+			rw.WriteHeader(http.StatusOK)
+			encoder.Encode(tx)
+			logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
 		}
 	}
-}
-
-// Build creates the docker container that holds the Chaincode and all required
-// entities.
-func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
-	// Decode the incoming JSON payload
-	var spec pb.ChaincodeSpec
-	err := jsonpb.Unmarshal(req.Body, &spec)
-
-	// Check for proper JSON syntax
-	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character
-		// as otherwise the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
-		rw.WriteHeader(http.StatusBadRequest)
-
-		// Client must supply payload
-		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
-		} else {
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		}
-		return
-	}
-
-	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Url == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode URL path.\"}")
-		return
-	}
-	if spec.ChaincodeID.Version == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode version.\"}")
-		return
-	}
-
-	// Build the ChaincodeSpec
-	_, err = s.devops.Build(context.Background(), &spec)
-	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		return
-	}
-
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully built chainCode.\"}")
 }
 
 // Deploy first builds the chaincode package and subsequently deploys it to the
@@ -437,7 +396,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the ChaincodeID is not left blank.
+	// Check that the ChaincodeID is not nil.
 	if spec.ChaincodeID == nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a ChaincodeID.\"}")
@@ -446,13 +405,29 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeID.Url == "") || (spec.ChaincodeID.Version == "") {
-		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+	// If the peer is running in development mode, confirm that the Chaincode name
+	// is not left blank. If the peer is running in production mode, confirm that
+	// the Chaincode path is not left blank. This is necessary as in development
+	// mode, the chaincode is identified by name not by path during the deploy
+	// process.
+	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
+		// Check that the Chaincode name is not blank.
+		if spec.ChaincodeID.Name == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
+			logger.Error("{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
 
-		return
+			return
+		}
+	} else {
+		// Check that the Chaincode path is not left blank.
+		if spec.ChaincodeID.Path == "" {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Chaincode path may not be blank.\"}")
+			logger.Error("{\"Error\": \"Chaincode path may not be blank.\"}")
+
+			return
+		}
 	}
 
 	// If security is enabled, add client login token
@@ -500,8 +475,13 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	// Deploy the ChaincodeSpec
-	_, err = s.devops.Deploy(context.Background(), &spec)
+	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
@@ -513,9 +493,12 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
+	// Clients will need the chaincode name in order to invoke or query it
+	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
-	logger.Info("Successfuly deployed chainCode.\n")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\""+chainID+"\"}")
+	logger.Info("Successfuly deployed chainCode: " + chainID + ".\n")
 }
 
 // Invoke executes a specified function within a target Chaincode.
@@ -565,11 +548,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+	// Check that the Chaincode name is not blank.
+	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode name may not be blank.\"}")
 
 		return
 	}
@@ -626,6 +609,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	}
+
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Invoke the chainCode
@@ -693,11 +681,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the Chaincode URL path and version are not left blank.
-	if (spec.ChaincodeSpec.ChaincodeID.Url == "") || (spec.ChaincodeSpec.ChaincodeID.Version == "") {
+	// Check that the Chaincode name is not blank.
+	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Chaincode URL path and version may not be blank.\"}")
-		logger.Error("{\"Error\": \"Chaincode URL path and version  may not be blank.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Chaincode name may not be blank.\"}")
+		logger.Error("{\"Error\": \"Chaincode name may not be blank.\"}")
 
 		return
 	}
@@ -756,6 +744,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
+	// If privacy is enabled, mark chaincode as confidential
+	if viper.GetBool("security.privacy") {
+		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+	}
+
 	// Query the chainCode
 	resp, err := s.devops.Query(context.Background(), &spec)
 	if err != nil {
@@ -807,12 +800,11 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
-
-	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
+
+	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)

@@ -768,7 +768,7 @@ func createConfidentialDeployTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
@@ -789,7 +789,7 @@ func createConfidentialExecuteTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
@@ -808,7 +808,7 @@ func createConfidentialQueryTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
@@ -828,7 +828,7 @@ func createPublicDeployTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				},
 			EffectiveDate: nil,
@@ -848,7 +848,7 @@ func createPublicExecuteTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				},
 		},
@@ -866,7 +866,7 @@ func createPublicQueryTransaction() (*pb.Transaction, error) {
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
 				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
 				},
 		},

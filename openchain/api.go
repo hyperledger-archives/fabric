@@ -103,3 +103,8 @@ func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1
 func (s *ServerOpenchain) GetState(ctx context.Context, chaincodeID, key string) ([]byte, error) {
 	return s.ledger.GetState(chaincodeID, key, true)
 }
+
+// GetTransactionByUUID returns a transaction matching the specified UUID
+func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID string) (*pb.Transaction, error) {
+	return s.ledger.GetTransactionByUUID(txUUID)
+}

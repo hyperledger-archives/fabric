@@ -25,7 +25,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 	"sync"
 	"io/ioutil"
@@ -168,11 +167,10 @@ func stopTCA(){
 }
 
 func queryValidityPeriod(t *testing.T) int64 {
-	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
-	version := "0.0.1"
+	hash := viper.GetString("pki.validity-period.chaincodeHash")
 	args := []string{"system.validity.period"}
 	
-	validityPeriod, err := queryTransaction(url, version, args)
+	validityPeriod, err := queryTransaction(hash, args)
 	if err != nil {
 		t.Logf("Failed querying validity period: %s", err)
 		t.Fail()
@@ -191,11 +189,7 @@ func queryValidityPeriod(t *testing.T) int64 {
 } 
 
 func getValidityPeriodFromLedger(t *testing.T) int64 { 
-	chaincodeID := &pb.ChaincodeID{Url: "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update", 
-		Version: "0.0.1",
-	}
-		
-	cid, _ := getChaincodeID(chaincodeID)
+	cid := viper.GetString("pki.validity-period.chaincodeHash")
 		
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -218,36 +212,20 @@ func getValidityPeriodFromLedger(t *testing.T) int64 {
 	return i
  }
 
-// getChaincodeID constructs the ID from pb.ChaincodeID
-func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
-	if cID == nil {
-		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
-	}
-	var urlLocation string
-	if strings.HasPrefix(cID.Url, "http://") {
-		urlLocation = cID.Url[7:]
-	} else if strings.HasPrefix(cID.Url, "https://") {
-		urlLocation = cID.Url[8:]
-	} else {
-		urlLocation = cID.Url
-	}
-	return urlLocation + ":" + cID.Version, nil
-}
-
-func queryTransaction(url string, version string, args []string) ([]byte, error) {
+func queryTransaction(hash string, args []string) ([]byte, error) {
 	
-	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, url, version, "system_chaincode_invoker")
+	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, hash, "system_chaincode_invoker")
 
 	fmt.Printf("Going to query\n")
 	
 	response, err := queryChaincode(chaincodeInvocationSpec)
 	
 	if err != nil {
-		return nil, fmt.Errorf("Error querying <%s>: %s", url, err)
+		return nil, fmt.Errorf("Error querying <%s>: %s", "validity period", err)
 	}
 	
 		
-	logger.Info("Successfully invoked validity period update: %s(%s)", url, string(response.Msg))
+	logger.Info("Successfully invoked validity period update: %s", string(response.Msg))
 	
 	return response.Msg, nil
 }
@@ -272,10 +250,9 @@ func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response,
 	return resp,nil
 }
 
-func createChaincodeInvocationForQuery(arguments []string, chaincodePath string, chaincodeVersion string, token string) *pb.ChaincodeInvocationSpec {
+func createChaincodeInvocationForQuery(arguments []string, chaincodeHash string, token string) *pb.ChaincodeInvocationSpec {
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, 
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, 
-			Version: chaincodeVersion,
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeHash,
 		}, 
 		CtorMsg: &pb.ChaincodeInput{Function: "query", 
 			Args: arguments,
