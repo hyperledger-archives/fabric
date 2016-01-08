@@ -70,8 +70,6 @@ func MakeGenesis(secCxt crypto.Peer) error {
 			}
 
 			genesisTransactions = append(genesisTransactions, vpTransaction)
-			
-			fmt.Println("*********************!!!!!!!!!!!!!!!********** ID %s", vpTransaction.ChaincodeID.Name)
 		}
 
 		genesis := viper.GetStringMap("ledger.blockchain.genesisBlock")
