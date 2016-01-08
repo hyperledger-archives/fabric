@@ -320,16 +320,20 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		// Retrieve Block from blockchain
 		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
 
-		encoder := json.NewEncoder(rw)
-
 		// Check for error
 		if err != nil {
 			// Failure
-			rw.WriteHeader(400)
+			switch err {
+			case oc.ErrNotFound:
+				rw.WriteHeader(http.StatusNotFound)
+			default:
+				rw.WriteHeader(http.StatusInternalServerError)
+			}
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 		} else {
 			// Success
-			rw.WriteHeader(200)
+			rw.WriteHeader(http.StatusOK)
+			encoder := json.NewEncoder(rw)
 			encoder.Encode(block)
 		}
 	}
@@ -345,24 +349,21 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 
 	// Check for Error
 	if err != nil {
-		// Database retrieval error
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
-		logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
-	} else {
-		// Transaction not found
-		if tx == nil {
+		switch err {
+		case oc.ErrNotFound:
 			rw.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
-			logger.Error(fmt.Sprintf("{\"Error\": \"Transaction %s is not found.\"}", txUUID))
-		} else {
-			// Return existing transaction
-			encoder := json.NewEncoder(rw)
-
-			rw.WriteHeader(http.StatusOK)
-			encoder.Encode(tx)
-			logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
+		default:
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+			logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
 		}
+	} else {
+		// Return existing transaction
+		rw.WriteHeader(http.StatusOK)
+		encoder := json.NewEncoder(rw)
+		encoder.Encode(tx)
+		logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
 	}
 }
 
