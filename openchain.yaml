@@ -249,7 +249,7 @@ chaincode:
     #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
     #net - in net mode validator will run chaincode in a docker container
 
-    mode: net
+    mode: dev
 
     installpath: /go/bin/
 
