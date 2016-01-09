@@ -125,20 +125,30 @@ func GetLocalIP() string {
 	return ""
 }
 
-// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
-func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	var peerAddress string
-	var peerType pb.PeerEndpoint_Type
+// GetLocalAddress returns the address:port the local peer is operating on.  Affected by env:peer.addressAutoDetect
+func GetLocalAddress() (peerAddress string, err error) {
 	if viper.GetBool("peer.addressAutoDetect") {
 		// Need to get the port from the peer.address setting, and append to the determined host IP
 		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
 		if err != nil {
-			return nil, fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			err = fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			return "", err
 		}
 		peerAddress = net.JoinHostPort(GetLocalIP(), port)
 		peerLogger.Info("Auto detected peer address: %s", peerAddress)
 	} else {
 		peerAddress = viper.GetString("peer.address")
+	}
+	return
+}
+
+// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
+func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
+	var peerAddress string
+	var peerType pb.PeerEndpoint_Type
+	peerAddress, err := GetLocalAddress()
+	if err != nil {
+		return nil, err
 	}
 	if viper.GetBool("peer.validator.enabled") {
 		peerType = pb.PeerEndpoint_VALIDATOR
@@ -146,7 +156,6 @@ func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 		peerType = pb.PeerEndpoint_NON_VALIDATOR
 	}
 	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
-
 }
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -532,7 +541,7 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //The address to stream requests to
 func getValidatorStreamAddress() string {
-	var localaddr = viper.GetString("peer.address")
+	localaddr, _ := GetLocalAddress()
 	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
 		return localaddr
 	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
