@@ -62,6 +62,7 @@ On successful completion, the above command will return a "name:" along with oth
     type:GOLANG chaincodeID: \<path:"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" name:"bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c" > ctorMsg:<function:"init" args:"a" args:"100" args:"b" args:"200"\>
 
 The value from "name:" should be used as value to the "-n" parameter in invoke and query commands described below. For example, in the above output this value is
+
     bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c 
 
 We can run an invoke transaction to move some 10 from 'a' to 'b':
