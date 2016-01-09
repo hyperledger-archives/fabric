@@ -32,13 +32,19 @@ type Ledger interface {
 	GetBlockchainSize() (uint64, error)
 	HashBlock(block *pb.Block) ([]byte, error)
 	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(delta []byte, unapply bool)
+	ApplyStateDelta(delta []byte, unapply bool) error
 	EmptyState() error
 	VerifyBlockchain(start, finish uint64) (uint64, error)
 
 	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
 	GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+
+	BeginTxBatch(id interface{}) error
+	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
+	RollbackTxBatch(id interface{}) error
+	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, proof []byte) (*pb.Block, error)
 }
 
 // CPI (Consensus Programming Interface) is the set of
@@ -50,12 +56,6 @@ type CPI interface {
 
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle string) error
-
-	BeginTxBatch(id interface{}) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
-	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
-	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error)
 
 	Ledger
 }

@@ -527,11 +527,9 @@ func TestFallBehind(t *testing.T) {
 	}
 }
 
-func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64) error {
+func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[uint64]*MockRemoteLedger) error {
 
 	var chkpt *Checkpoint
-
-	ml.forceRemoteStateBlock(blockNumber - 2)
 
 	for i := uint64(1); i <= 3; i++ {
 		chkpt = &Checkpoint{
@@ -540,6 +538,7 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
 		}
+		(*mrls)[uint64(i)].blockHeight = blockNumber - 2
 		pbft.witnessCheckpoint(chkpt)
 	}
 
@@ -556,16 +555,11 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      uint64(i),
 			BlockNumber:    blockNumber,
 		}
+		(*mrls)[uint64(i)].blockHeight = blockNumber + 1
 		pbft.checkpointStore[*chkpt] = true
 	}
 
-	go func() {
-		for {
-			// In ordinary operation, the weak cert would advance, but to simply testing, send it over and over again
-			time.Sleep(time.Millisecond * 10)
-			pbft.witnessCheckpointWeakCert(chkpt)
-		}
-	}()
+	pbft.witnessCheckpointWeakCert(chkpt)
 
 	select {
 	case <-time.After(time.Second * 2):
@@ -592,15 +586,17 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 }
 
 func TestCatchupFromPBFT(t *testing.T) {
+	rols, mrls := createRemoteLedgers(1, 3)
 
 	// Test from blockheight of 1, with valid genesis block
-	ml := NewMockLedger(nil)
+	ml := NewMockLedger(rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 	config := readConfig()
 	pbft := newPbftCore(0, config, nil, ml)
 	pbft.K = 2
 	pbft.L = 4
-	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10); nil != err {
+	pbft.replicaCount = 4
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, mrls); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
 

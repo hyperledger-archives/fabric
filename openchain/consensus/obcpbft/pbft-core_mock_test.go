@@ -21,7 +21,6 @@ package obcpbft
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"sync"
 
@@ -39,7 +38,7 @@ func newMock() *mockCPI {
 	mock := &mockCPI{
 		make([][]byte, 0),
 		make([][]byte, 0),
-		NewMockLedger(nil),
+		NewMockLedger(nil, nil),
 	}
 	mock.ledger.PutBlock(0, SimpleGetBlock(0))
 	return mock
@@ -64,6 +63,26 @@ func (mock *mockCPI) execute(tx []byte) {
 func (mock *mockCPI) viewChange(uint64) {
 }
 
+func (mock *mockCPI) BeginTxBatch(id interface{}) error {
+	return mock.ledger.BeginTxBatch(id)
+}
+
+func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+	return mock.ledger.ExecTXs(txs)
+}
+
+func (mock *mockCPI) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
+	return mock.ledger.CommitTxBatch(id, txs, proof)
+}
+
+func (mock *mockCPI) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, proof []byte) (*pb.Block, error) {
+	return mock.ledger.PreviewCommitTxBatchBlock(id, txs, proof)
+}
+
+func (mock *mockCPI) RollbackTxBatch(id interface{}) error {
+	return mock.ledger.RollbackTxBatch(id)
+}
+
 func (mock *mockCPI) GetBlock(id uint64) (block *pb.Block, err error) {
 	return SimpleGetBlock(id), nil
 }
@@ -79,8 +98,8 @@ func (mock *mockCPI) HashBlock(block *pb.Block) ([]byte, error) {
 func (mock *mockCPI) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return mock.ledger.PutBlock(blockNumber, block)
 }
-func (mock *mockCPI) ApplyStateDelta(delta []byte, unapply bool) {
-	mock.ledger.ApplyStateDelta(delta, unapply)
+func (mock *mockCPI) ApplyStateDelta(delta []byte, unapply bool) error {
+	return mock.ledger.ApplyStateDelta(delta, unapply)
 }
 func (mock *mockCPI) EmptyState() error {
 	return mock.ledger.EmptyState()
@@ -131,9 +150,6 @@ type instance struct {
 	net       *testnet
 	executed  [][]byte
 	ledger    consensus.Ledger
-
-	txID     interface{}
-	curBatch []*pb.Transaction
 
 	deliver      func([]byte)
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
@@ -229,51 +245,23 @@ func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiver string) error {
 }
 
 func (inst *instance) BeginTxBatch(id interface{}) error {
-	if inst.txID != nil {
-		return fmt.Errorf("Tx batch is already active")
-	}
-	inst.txID = id
-	inst.curBatch = nil
-	return nil
+	return inst.ledger.BeginTxBatch(id)
 }
 
 func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	inst.curBatch = append(inst.curBatch, txs...)
-	errs := make([]error, len(txs)+1)
-	if inst.execTxResult != nil {
-		return inst.execTxResult(txs)
-	}
-	return nil, errs
+	return inst.ledger.ExecTXs(txs)
 }
 
 func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
-	if !reflect.DeepEqual(inst.txID, id) {
-		return fmt.Errorf("Invalid batch ID")
-	}
-	if !reflect.DeepEqual(txs, inst.curBatch) {
-		return fmt.Errorf("Tx list does not match executed Tx batch")
-	}
-	inst.txID = nil
-	blockHeight, _ := inst.ledger.GetBlockchainSize()
-	block := SimpleGetBlock(blockHeight)
-	block.Transactions = inst.curBatch
-	_ = inst.ledger.PutBlock(blockHeight, block)
-	inst.curBatch = nil
-	return nil
+	return inst.ledger.CommitTxBatch(id, txs, proof)
 }
 
-func (inst *instance) PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error) {
-	// TODO
-	return nil, fmt.Errorf("Unimplemented")
+func (inst *instance) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, proof []byte) (*pb.Block, error) {
+	return inst.ledger.PreviewCommitTxBatchBlock(id, txs, proof)
 }
 
 func (inst *instance) RollbackTxBatch(id interface{}) error {
-	if !reflect.DeepEqual(inst.txID, id) {
-		return fmt.Errorf("Invalid batch ID")
-	}
-	inst.curBatch = nil
-	inst.txID = nil
-	return nil
+	return inst.ledger.RollbackTxBatch(id)
 }
 
 func (inst *instance) GetBlock(id uint64) (block *pb.Block, err error) {
@@ -291,8 +279,8 @@ func (inst *instance) HashBlock(block *pb.Block) ([]byte, error) {
 func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return inst.ledger.PutBlock(blockNumber, block)
 }
-func (inst *instance) ApplyStateDelta(delta []byte, unapply bool) {
-	inst.ledger.ApplyStateDelta(delta, unapply)
+func (inst *instance) ApplyStateDelta(delta []byte, unapply bool) error {
+	return inst.ledger.ApplyStateDelta(delta, unapply)
 }
 func (inst *instance) EmptyState() error {
 	return inst.ledger.EmptyState()
@@ -378,10 +366,18 @@ func makeTestnet(f int, initFn ...func(*instance)) *testnet {
 	net := &testnet{f: f}
 	net.cond = sync.NewCond(&sync.Mutex{})
 	replicaCount := 3*f + 1
+
+	for i := uint64(0); i < uint64(replicaCount); i++ {
+	}
+
+	ledgers := make(map[uint64]ReadOnlyLedger, replicaCount)
 	for i := 0; i < replicaCount; i++ {
 		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
-		inst.ledger = NewMockLedger(nil)
-		inst.ledger.PutBlock(0, SimpleGetBlock(0))
+		ml := NewMockLedger(&ledgers, nil)
+		ml.inst = inst
+		ml.PutBlock(0, SimpleGetBlock(0))
+		ledgers[uint64(i)] = ml
+		inst.ledger = ml
 		net.replicas = append(net.replicas, inst)
 		net.handles = append(net.handles, inst.handle)
 	}

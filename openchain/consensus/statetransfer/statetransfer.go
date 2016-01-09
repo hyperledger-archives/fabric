@@ -156,6 +156,7 @@ func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger cons
 	sts := &StateTransferState{}
 
 	sts.ledger = ledger
+	sts.id = id
 
 	sts.asynchronousTransferInProgress = false
 
@@ -415,12 +416,15 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 		}
 
 		if nil != blockSyncReq.replyChan {
+			logger.Debug("%s replying to blockSyncReq on reply channel with : %s", sts.id, err)
 			blockSyncReq.replyChan <- err
 			goodRange.lowBlock = blockNumber
 		}
 
 		goodRange.lowNextHash = block.PreviousBlockHash
-		sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
+		if nil == err {
+			sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
+		}
 	}
 }
 
@@ -545,7 +549,7 @@ func (sts *StateTransferState) blockHashReceiverThread() {
 					continue
 				}
 
-				logger.Debug("%s replying to block hash request with block %d and hash (%x)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
+				logger.Debug("%s replying to block hash request with block %d and hash (%s)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
 				request.replyChan <- lastHashReceived
 				lastHashReceived = nil
 			}
@@ -641,6 +645,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 
 		logger.Debug("%s state transfer thread waiting for block sync to complete", sts.id)
 		err = <-blockReplyChannel
+		logger.Debug("%s state transfer thread continuing", sts.id)
 
 		if err != nil {
 			return fmt.Errorf("%s could not retrieve blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
@@ -665,12 +670,14 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 	}
 
 	if !bytes.Equal(stateHash, block.StateHash) {
-		sts.stateValid = false
 		if sts.stateValid {
-			return fmt.Errorf("%s believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, (*blockHReply).blockNumber, stateHash, block.StateHash)
+			sts.stateValid = false
+			return fmt.Errorf("%s believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, (*currentStateBlockNumber), stateHash, block.StateHash)
 		} else {
 			return fmt.Errorf("%s recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, *currentStateBlockNumber, stateHash, block.StateHash)
 		}
+	} else {
+		logger.Debug("%s state is now valid", sts.id)
 	}
 
 	sts.stateValid = true
@@ -789,7 +796,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, replicaI
 	currentStateBlock := uint64(0)
 
 	ok := sts.tryOverReplicas(replicaIds, func(replicaId uint64) error {
-		logger.Debug("%s is initiating state recovery from from replica %d", sts.id, replicaId)
+		logger.Debug("%s is initiating state recovery from replica %d", sts.id, replicaId)
 
 		sts.ledger.EmptyState()
 

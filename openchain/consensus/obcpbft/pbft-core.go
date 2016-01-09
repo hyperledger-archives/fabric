@@ -371,7 +371,7 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	/*
-		if blockNumber, ok := sts.RecoveryJustCompleted() ; ok {
+		if blockNumber, ok := sts.AsynchronousRecoveryJustCompleted() ; ok {
 			block, err := instance.ledger.GetBlock(block)
 			if err != nil {
 
@@ -783,6 +783,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
 		return
 	}
+	logger.Debug("replicaCount=%d, i=%d", instance.replicaCount, i)
 	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i-1])
 }
 
