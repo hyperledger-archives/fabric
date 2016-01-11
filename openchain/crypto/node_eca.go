@@ -106,6 +106,27 @@ func (node *nodeImpl) callECACreateCertificate(ctx context.Context, in *obcca.EC
 	return cred.Cert, cred.Key, nil
 }
 
+func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
+	if err != nil {
+		node.log.Error("Failed eca dialing in [%s].", err.Error())
+
+		return nil, err
+	}
+	defer sockP.Close()
+
+	ecaP := obcca.NewECAPClient(sockP)
+
+	cert, err := ecaP.ReadCACertificate(context.Background(), &protobuf.Empty{})
+	if err != nil {
+		node.log.Error("Failed requesting read certificate [%s].", err.Error())
+
+		return nil, err
+	}
+
+	return cert, nil
+}
+
 func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
 	if err != nil {
@@ -139,9 +160,9 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	req := &obcca.ECertCreateReq{
-		Ts: &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id: &obcca.Identity{Id: id},
-		Pw: &obcca.Password{Pw: pw},
+		Ts:  &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id:  &obcca.Identity{Id: id},
+		Pw:  &obcca.Password{Pw: pw},
 		Pub: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: pubraw},
 		Sig: nil}
 	rawreq, _ := proto.Marshal(req)
@@ -171,7 +192,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 func (node *nodeImpl) getECACertificate() ([]byte, error) {
 	// Prepare the request
 	req := &obcca.ECertReadReq{&obcca.Identity{Id: "eca-root"}, nil}
-	pbCert, err := node.callECAReadCertificate(context.Background(), req)
+	pbCert, err := node.callECAReadCACertificate(context.Background(), req)
 	if err != nil {
 		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 

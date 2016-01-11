@@ -101,7 +101,7 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
 	// Extract the signing key from the tCert
 
-//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
+	//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
 
 	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
@@ -182,7 +182,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		return nil, err
 	}
 
-//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
+	//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
 
 	// Store TCertOwnerKDFKey and checks that every time it is always the same key
 	if client.tCertOwnerKDFKey != nil {
@@ -201,7 +201,6 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 			return nil, err
 		}
 	}
-
 
 	// Validate the Certificates obtained
 	opts := x509.VerifyOptions{
@@ -398,5 +397,5 @@ func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, er
 		return nil, nil, err
 	}
 
-	return certSet.Key, certSet.Certs, nil
+	return certSet.Certs.Key, certSet.Certs.Certs, nil
 }
