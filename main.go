@@ -135,26 +135,6 @@ var chaincodeCmd = &cobra.Command{
 
 var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(chainFuncName))
 
-var chaincodeBuildCmd = &cobra.Command{
-	Use:       "build",
-	Short:     fmt.Sprintf("Builds the specified %s.", chainFuncName),
-	Long:      fmt.Sprintf("Builds the specified %s.", chainFuncName),
-	ValidArgs: []string{"1"},
-	Run: func(cmd *cobra.Command, args []string) {
-		chaincodeBuild(cmd, args)
-	},
-}
-
-var chaincodeTestCmd = &cobra.Command{
-	Use:       fmt.Sprintf("test %s", chaincodePathArgumentSpecifier),
-	Short:     fmt.Sprintf("Test the specified %s.", chainFuncName),
-	Long:      fmt.Sprintf(`Test the specified %s without persisting state or modifying chain.`, chainFuncName),
-	ValidArgs: []string{"1"},
-	Run: func(cmd *cobra.Command, args []string) {
-		chaincodeTest(cmd, args)
-	},
-}
-
 var chaincodeDeployCmd = &cobra.Command{
 	Use:       "deploy",
 	Short:     fmt.Sprintf("Deploy the specified %s to the network.", chainFuncName),
@@ -261,8 +241,6 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
 
-	chaincodeCmd.AddCommand(chaincodeBuildCmd)
-	chaincodeCmd.AddCommand(chaincodeTestCmd)
 	chaincodeCmd.AddCommand(chaincodeDeployCmd)
 	chaincodeCmd.AddCommand(chaincodeInvokeCmd)
 	chaincodeCmd.AddCommand(chaincodeQueryCmd)
@@ -579,38 +557,6 @@ func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	}
 	devopsClient := pb.NewDevopsClient(clientConn)
 	return devopsClient, nil
-}
-
-func chaincodeBuild(cmd *cobra.Command, args []string) {
-	if err := checkChaincodeCmdParams(cmd); err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
-		return
-	}
-	devopsClient, err := getDevopsClient(cmd)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
-		return
-	}
-	// Build the spec
-	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}}
-
-	chaincodeDeploymentSpec, err := devopsClient.Build(context.Background(), spec)
-	if err != nil {
-		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
-		cmd.Out().Write([]byte(errMsg))
-		cmd.Usage()
-		return
-	}
-	logger.Info("Build result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
-}
-
-func chaincodeTest(cmd *cobra.Command, args []string) error {
-	if err := checkChaincodeCmdParams(cmd); err != nil {
-		return err
-	}
-	cmd.Out().Write([]byte(fmt.Sprintf("going to test %s: %s\n", chainFuncName, chaincodePath)))
-	return nil
 }
 
 func chaincodeDeploy(cmd *cobra.Command, args []string) {

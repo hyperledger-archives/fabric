@@ -424,11 +424,11 @@ func TestBlockNumberOutOfBoundsError(t *testing.T) {
 
 	ledgerTestWrapper.GetBlockByNumber(9)
 	_, err := ledger.GetBlockByNumber(10)
-	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+	testutil.AssertEquals(t, err, ErrOutOfBounds)
 
 	ledgerTestWrapper.GetStateDelta(9)
 	_, err = ledger.GetStateDelta(10)
-	testutil.AssertError(t, err, "Expected error as block is out of bounds")
+	testutil.AssertEquals(t, err, ErrOutOfBounds)
 
 }
 
@@ -651,4 +651,55 @@ func TestApplyDeltaHash(t *testing.T) {
 	preHash2 = ledgerTestWrapper.GetTempStateHash()
 	testutil.AssertEquals(t, preHash2, hash2)
 
+}
+
+func TestPreviewTXBatchBlock(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Block 0
+	ledger.BeginTxBatch(0)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1A"))
+	ledger.SetState("chaincode2", "key2", []byte("value2A"))
+	ledger.SetState("chaincode3", "key3", []byte("value3A"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx()
+
+	previewBlock, err := ledger.GetTXBatchPreviewBlock(0, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertNoError(t, err, "Error fetching preview block.")
+
+	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []byte("proof"))
+	commitedBlock := ledgerTestWrapper.GetBlockByNumber(0)
+
+	previewBlockHash, err := previewBlock.GetHash()
+	testutil.AssertNoError(t, err, "Error fetching preview block hash.")
+
+	commitedBlockHash, err := commitedBlock.GetHash()
+	testutil.AssertNoError(t, err, "Error fetching committed block hash.")
+
+	testutil.AssertEquals(t, previewBlockHash, commitedBlockHash)
+}
+
+func TestGetTransactionByUUID(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+
+	// Block 0
+	ledger.BeginTxBatch(0)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1A"))
+	ledger.SetState("chaincode2", "key2", []byte("value2A"))
+	ledger.SetState("chaincode3", "key3", []byte("value3A"))
+	ledger.TxFinished("txUuid1", true)
+	transaction, uuid := buildTestTx()
+	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []byte("proof"))
+
+	ledgerTransaction, err := ledger.GetTransactionByUUID(uuid)
+	testutil.AssertNoError(t, err, "Error fetching transaction by UUID.")
+	testutil.AssertEquals(t, transaction, ledgerTransaction)
+
+	ledgerTransaction, err = ledger.GetTransactionByUUID("InvalidUUID")
+	testutil.AssertEquals(t, err, ErrResourceNotFound)
+	testutil.AssertNil(t, ledgerTransaction)
 }

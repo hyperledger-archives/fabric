@@ -320,88 +320,51 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		// Retrieve Block from blockchain
 		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
 
-		encoder := json.NewEncoder(rw)
-
 		// Check for error
 		if err != nil {
 			// Failure
-			rw.WriteHeader(400)
+			switch err {
+			case oc.ErrNotFound:
+				rw.WriteHeader(http.StatusNotFound)
+			default:
+				rw.WriteHeader(http.StatusInternalServerError)
+			}
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 		} else {
 			// Success
-			rw.WriteHeader(200)
+			rw.WriteHeader(http.StatusOK)
+			encoder := json.NewEncoder(rw)
 			encoder.Encode(block)
 		}
 	}
 }
 
-// GetState returns the value for the specified chaincodeID and key.
-func (s *ServerOpenchainREST) GetState(rw web.ResponseWriter, req *web.Request) {
-	// Parse out the chaincodeId and key.
-	chaincodeID := req.PathParams["chaincodeId"]
-	key := req.PathParams["key"]
+// GetTransactionByUUID returns a transaction matching the specified UUID
+func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *web.Request) {
+	// Parse out the transaction UUID
+	txUUID := req.PathParams["uuid"]
 
-	// Retrieve Chaincode state.
-	state, err := s.server.GetState(context.Background(), chaincodeID, key)
+	// Retrieve the transaction matching the UUID
+	tx, err := s.server.GetTransactionByUUID(context.Background(), txUUID)
 
-	// Check for error
+	// Check for Error
 	if err != nil {
-		// Failure
-		rw.WriteHeader(400)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		switch err {
+		case oc.ErrNotFound:
+			rw.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
+		default:
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+			logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
+		}
 	} else {
-		// Success
-		if state == nil { // no match on ChaincodeID and key
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"null\"}")
-		} else {
-			rw.WriteHeader(200)
-			fmt.Fprintf(rw, "{\"State\": \"%s\"}", state)
-		}
+		// Return existing transaction
+		rw.WriteHeader(http.StatusOK)
+		encoder := json.NewEncoder(rw)
+		encoder.Encode(tx)
+		logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
 	}
-}
-
-// Build creates the docker container that holds the Chaincode and all required
-// entities.
-func (s *ServerOpenchainREST) Build(rw web.ResponseWriter, req *web.Request) {
-	// Decode the incoming JSON payload
-	var spec pb.ChaincodeSpec
-	err := jsonpb.Unmarshal(req.Body, &spec)
-
-	// Check for proper JSON syntax
-	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character
-		// as otherwise the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
-		rw.WriteHeader(http.StatusBadRequest)
-
-		// Client must supply payload
-		if err == io.EOF {
-			fmt.Fprintf(rw, "{\"Error\": \"Must provide ChaincodeSpec.\"}")
-		} else {
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		}
-		return
-	}
-
-	// Check for incomplete ChaincodeSpec
-	if spec.ChaincodeID.Path == "" {
-		fmt.Fprintf(rw, "{\"Error\": \"Must specify Chaincode path.\"}")
-		return
-	}
-
-	// Build the ChaincodeSpec
-	_, err = s.devops.Build(context.Background(), &spec)
-	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		return
-	}
-
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully built chainCode.\"}")
 }
 
 // Deploy first builds the chaincode package and subsequently deploys it to the
@@ -519,7 +482,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Deploy the ChaincodeSpec
-	_, err = s.devops.Deploy(context.Background(), &spec)
+	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
@@ -531,9 +494,12 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
+	// Clients will need the chaincode name in order to invoke or query it
+	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\"}")
-	logger.Info("Successfuly deployed chainCode.\n")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\""+chainID+"\"}")
+	logger.Info("Successfuly deployed chainCode: " + chainID + ".\n")
 }
 
 // Invoke executes a specified function within a target Chaincode.
@@ -835,12 +801,11 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	router.Get("/state/:chaincodeId/:key", (*ServerOpenchainREST).GetState)
-
-	router.Post("/devops/build", (*ServerOpenchainREST).Build)
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
+
+	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)

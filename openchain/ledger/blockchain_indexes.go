@@ -129,6 +129,9 @@ func fetchTransactionIndexByUUIDFromDB(txUUID string) (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	if blockNumTxIndexBytes == nil {
+		return 0, 0, ErrResourceNotFound
+	}
 	return decodeBlockNumTxIndex(blockNumTxIndexBytes)
 }
 

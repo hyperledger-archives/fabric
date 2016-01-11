@@ -69,65 +69,26 @@
                 }
             }
         },
-        "/state/{chaincodeID}/{key}": {
+        "/transactions/{UUID}": {
             "get": {
-                "summary": "State information for unique chaincodeID and key",
-                "description": "The {chaincodeID}/{key} endpoint returns state information matching a specific chaincodeID and key. If there is no match on either the chaincodeID or the key, a \"null\" value is returned for the state.",
+                "summary": "Individual Transaction Contents",
+                "description": "The /transactions/{UUID} endpoint returns the transaction matching the specified UUID.",
                 "tags": [
-                    "State"
+                    "Transaction"
                 ],
-                "operationId": "getChaincodeState",
+                "operationId": "getTransaction",
                 "parameters": [{
-                    "name": "chaincodeID",
+                    "name": "UUID",
                     "in": "path",
-                    "description": "Unique Chaincode identifier",
-                    "type": "string",
-                    "required": true
-                }, {
-                    "name": "key",
-                    "in": "path",
-                    "description": "Key to match within the Chaincode",
+                    "description": "Transaction to retrieve from the blockchain.",
                     "type": "string",
                     "required": true
                 }],
                 "responses": {
                     "200": {
-                        "description": "Retrieved state value",
+                        "description": "Individual Transaction contents",
                         "schema": {
-                           "$ref": "#/definitions/State"
-                        }
-                    },
-                    "default": {
-                        "description": "Unexpected error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/devops/build": {
-            "post": {
-                "summary": "Service endpoint for building Chaincode",
-                "description": "The /devops/build endpoint receives Chaincode build requests for existing Chaincodes. The Chaincode and the required entities are packaged into a container upon receipt of the request. If the build is successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
-                "tags": [
-                    "Devops"
-                ],
-                "operationId": "chaincodeBuild",
-                "parameters": [{
-                    "name": "ChaincodeSpec",
-                    "in": "body",
-                    "description": "Chaincode specification message",
-                    "required": true,
-                    "schema": {
-                       "$ref": "#/definitions/ChaincodeSpec"
-                    }
-                }],
-                "responses": {
-                    "200": {
-                        "description": "Successfully built chainCode",
-                        "schema": {
-                           "$ref": "#/definitions/OK"
+                           "$ref": "#/definitions/Transaction"
                         }
                     },
                     "default": {
@@ -360,9 +321,9 @@
                     "type": "string",
                     "description": "Creator/originator of the block."
                 },
-                "Timestamp": {
-                    "type": "string",
-                    "description": "Time of block creation."
+                "timestamp": {
+                  "$ref": "#/definitions/Timestamp",
+                  "description": "Time of block creation."
                 },
                 "transactions": {
                     "type": "array",
@@ -379,6 +340,16 @@
                     "type": "string",
                     "format": "bytes",
                     "description": "Hash of the previous block in the blockchain."
+                },
+                "consensusMetadata": {
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Metadata required for consensus."
+                },
+                "nonHashData": {
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Data stored in the block, but excluded from the computation of block hash."
                 }
             }
         },
@@ -394,24 +365,15 @@
                         "CHAINCODE_NEW",
                         "CHAINCODE_UPDATE",
                         "CHAINCODE_EXECUTE",
+                        "CHAINCODE_QUERY",
                         "CHAINCODE_TERMINATE"
                     ],
                     "description": "Transaction type."
                 },
                 "chaincodeID": {
-                    "$ref": "#/definitions/ChaincodeID",
-                    "description": "Unique Chaincode identifier."
-                },
-                "function": {
-                    "type": "string",
-                    "description": "Function to execute within a Chaincode."
-                },
-                "args": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "Arguments supplied to the Chaincode function."
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Chaincode identifier as bytes."
                 },
                 "payload": {
                     "type": "string",
@@ -421,28 +383,42 @@
                 "uuid": {
                    "type": "string",
                    "description": "Unique transaction identifier."
+                },
+                "timestamp": {
+                  "$ref": "#/definitions/Timestamp",
+                  "description": "Time at which the chanincode becomes executable."
+                },
+                "confidentialityLevel": {
+                    "$ref": "#/definitions/ConfidentialityLevel",
+                    "description": "Confidentiality level of the Chaincode."
+                },
+                "nonce": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Nonce value generated for this transaction."
+                },
+                "cert": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Certificate of client sending the transaction."
+                },
+                "signature": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Signature of client sending the transaction."
                 }
             }
         },
         "ChaincodeID": {
             "type": "object",
             "properties": {
-                "url": {
+                "path": {
                     "type": "string",
-                    "description": "URL for accessing the Chaincode."
+                    "description": "Chaincode location in the file system. This value is required by the deploy transaction."
                 },
-                "version": {
+                "name": {
                     "type": "string",
-                    "description": "Current version of the Chaincode."
-                }
-            }
-        },
-        "State": {
-            "type": "object",
-            "properties": {
-                "State": {
-                    "type": "string",
-                    "description": "State value matching the chaincodeId and key parameters."
+                    "description": "Chaincode name identifier. This value is required by the invoke and query transactions."
                 }
             }
         },
@@ -526,6 +502,21 @@
                 }
             }
         },
+        "Timestamp": {
+            "type": "object",
+            "properties": {
+                "seconds": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must be from from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive."
+                },
+                "nanos": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Non-negative fractions of a second at nanosecond resolution. Negative second values with fractions must still have non-negative nanos values that count forward in time. Must be from 0 to 999,999,999 inclusive."
+                }
+            }
+        },
         "Error": {
             "type": "object",
             "properties": {
@@ -541,6 +532,10 @@
                 "OK": {
                     "type": "string",
                     "description": "A descriptive message confirming a successful request."
+                },
+                "message": {
+                    "type": "string",
+                    "description": "An optional parameter containing additional information about the request."
                 }
             }
         }
