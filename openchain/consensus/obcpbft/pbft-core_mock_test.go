@@ -20,11 +20,13 @@ under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"sync"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -148,7 +150,6 @@ type instance struct {
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
-	executed  [][]byte
 	ledger    consensus.Ledger
 
 	deliver      func([]byte)
@@ -189,7 +190,37 @@ func (inst *instance) verify(payload []byte) error {
 }
 
 func (inst *instance) execute(payload []byte) {
-	inst.executed = append(inst.executed, payload)
+
+	tx := &pb.Transaction{
+		Payload: payload,
+	}
+
+	txs := []*pb.Transaction{tx}
+	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(payload))
+
+	if err := inst.BeginTxBatch(txBatchID); err != nil {
+		fmt.Printf("Failed to begin transaction %s: %v", txBatchID, err)
+		return
+	}
+
+	_, errs := inst.ExecTXs(txs)
+
+	if errs[len(txs)] != nil {
+		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, errs)
+		if err := inst.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
+	}
+
+	if err := inst.CommitTxBatch(txBatchID, txs, nil); err != nil {
+		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		if err = inst.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
+	}
+
 }
 
 func (inst *instance) viewChange(uint64) {

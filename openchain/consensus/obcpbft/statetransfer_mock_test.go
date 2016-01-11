@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/protos"
@@ -59,6 +60,8 @@ type MockLedger struct {
 	remoteLedgers *map[uint64]ReadOnlyLedger
 	filter        func(request mockRequest, replicaId uint64) mockResponse
 
+	mutex *sync.Mutex
+
 	txID     interface{}
 	curBatch []*protos.Transaction
 
@@ -67,6 +70,7 @@ type MockLedger struct {
 
 func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request mockRequest, replicaId uint64) mockResponse) *MockLedger {
 	mock := &MockLedger{}
+	mock.mutex = &sync.Mutex{}
 	mock.blocks = make(map[uint64]*protos.Block)
 	mock.state = 0
 	mock.blockHeight = 0
@@ -165,6 +169,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 	if preview {
 		mock.ApplyStateDelta(buffer, true)
 	} else {
+		fmt.Printf("Debug: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
 
@@ -185,10 +190,18 @@ func (mock *MockLedger) RollbackTxBatch(id interface{}) error {
 }
 
 func (mock *MockLedger) GetBlockchainSize() (uint64, error) {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	return mock.blockHeight, nil
 }
 
 func (mock *MockLedger) GetBlock(id uint64) (*protos.Block, error) {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	block, ok := mock.blocks[id]
 	if !ok {
 		return nil, fmt.Errorf("Block not found")
@@ -318,6 +331,10 @@ func (mock *MockLedger) GetRemoteStateDeltas(replicaId uint64, start, finish uin
 }
 
 func (mock *MockLedger) PutBlock(blockNumber uint64, block *protos.Block) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	mock.blocks[blockNumber] = block
 	if blockNumber >= mock.blockHeight {
 		mock.blockHeight = blockNumber + 1
@@ -326,6 +343,10 @@ func (mock *MockLedger) PutBlock(blockNumber uint64, block *protos.Block) error 
 }
 
 func (mock *MockLedger) ApplyStateDelta(delta []byte, unapply bool) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	d, r := binary.Uvarint(delta)
 	if r <= 0 {
 		return fmt.Errorf("State delta could not be applied, was not a uint64, %x", delta)
@@ -339,11 +360,19 @@ func (mock *MockLedger) ApplyStateDelta(delta []byte, unapply bool) error {
 }
 
 func (mock *MockLedger) EmptyState() error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	mock.state = 0
 	return nil
 }
 
 func (mock *MockLedger) GetCurrentStateHash() ([]byte, error) {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
 	return []byte(fmt.Sprintf("%d", mock.state)), nil
 }
 

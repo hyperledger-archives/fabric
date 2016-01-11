@@ -645,7 +645,18 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		blockHashBytes, err := instance.ledger.GetCurrentStateHash()
+		blockHeight, err := instance.ledger.GetBlockchainSize()
+		if nil != err {
+			panic("Could not determine block height, this is irrecoverable")
+		}
+
+		lastBlock, err := instance.ledger.GetBlock(blockHeight - 1)
+		if nil != err {
+			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
+			panic(fmt.Errorf("Just committed a block, but could not retrieve it : %s", err))
+		}
+
+		blockHashBytes, err := instance.ledger.HashBlock(lastBlock)
 
 		if nil != err {
 			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
@@ -654,14 +665,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 		blockHashAsString := base64.StdEncoding.EncodeToString(blockHashBytes)
 
-		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
-			instance.id, instance.view, instance.lastExec, base64.StdEncoding.EncodeToString(blockHashBytes))
+		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 block hash %s",
+			instance.id, instance.view, instance.lastExec, blockHashAsString)
 
 		chkpt := &Checkpoint{
 			SequenceNumber: instance.lastExec,
 			BlockHash:      blockHashAsString,
 			ReplicaId:      instance.id,
-			BlockNumber:    instance.lastExec, // TODO, replace this with the block number from the commit (currently valid with no null requests)
+			BlockNumber:    blockHeight - 1,
 		}
 		instance.chkpts[instance.lastExec] = chkpt.BlockHash
 		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
@@ -682,7 +693,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= h {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 block hash %s",
 				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.BlockHash)
 			delete(instance.checkpointStore, testChkpt)
 		}
@@ -748,7 +759,7 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
 			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
-				instance.moveWatermarks(m + instance.K)
+				instance.moveWatermarks(m)
 
 				furthestReplicaIds := make([]uint64, instance.f+1)
 				i := 0
@@ -783,7 +794,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
 		return
 	}
-	logger.Debug("replicaCount=%d, i=%d", instance.replicaCount, i)
+	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d", instance.id, chkpt.SequenceNumber, i, instance.replicaCount)
 	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i-1])
 }
 

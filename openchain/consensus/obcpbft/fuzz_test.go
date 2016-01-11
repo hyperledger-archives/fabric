@@ -136,9 +136,12 @@ func TestMinimalFuzz(t *testing.T) {
 
 		quorum := 0
 		for _, r := range net.replicas {
-			if len(r.executed) > 0 {
+			blockHeight, _ := r.pbft.ledger.GetBlockchainSize()
+			if blockHeight > 1 {
 				quorum++
-				r.executed = nil
+				// We don't have a delete API yet, so, just create a new one
+				r.pbft.ledger = NewMockLedger(nil, nil)
+				r.pbft.ledger.PutBlock(0, SimpleGetBlock(0))
 			}
 		}
 		if quorum < len(net.replicas)/3 {

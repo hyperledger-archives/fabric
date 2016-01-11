@@ -416,13 +416,13 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 		}
 
 		if nil != blockSyncReq.replyChan {
-			logger.Debug("%s replying to blockSyncReq on reply channel with : %s", sts.id, err)
+			logger.Debug("%s replying to blockSyncReq on reply channel with : %x", sts.id, err)
 			blockSyncReq.replyChan <- err
 			goodRange.lowBlock = blockNumber
 		}
 
-		goodRange.lowNextHash = block.PreviousBlockHash
 		if nil == err {
+			goodRange.lowNextHash = block.PreviousBlockHash
 			sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
 		}
 	}
@@ -533,6 +533,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 func (sts *StateTransferState) blockHashReceiverThread() {
 	var lastHashReceived *blockHashReply
 	for {
+		//logger.Debug("%s block hash request thread looping", sts.id)
 		select {
 		case request := <-sts.blockHashReq:
 			logger.Debug("%s block hash request thread received a block hash request for block greater than %d", sts.id, request.blockNumber)
@@ -549,7 +550,7 @@ func (sts *StateTransferState) blockHashReceiverThread() {
 					continue
 				}
 
-				logger.Debug("%s replying to block hash request with block %d and hash (%s)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
+				logger.Debug("%s replying to block hash request with block %d and hash (%x)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
 				request.replyChan <- lastHashReceived
 				lastHashReceived = nil
 			}
@@ -659,7 +660,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 	stateHash, err := sts.ledger.GetCurrentStateHash()
 	if nil != err {
 		sts.stateValid = false
-		return fmt.Errorf("%s could not compute its current state hash: %s", sts.id, err)
+		return fmt.Errorf("%s could not compute its current state hash: %x", sts.id, err)
 
 	}
 
@@ -714,6 +715,8 @@ func (sts *StateTransferState) stateThread() {
 
 			break
 		}
+
+		logger.Debug("%s is completing state transfer", sts.id)
 
 		sts.asynchronousTransferInProgress = false
 		sts.completeStateSync <- blockHReply.blockNumber
