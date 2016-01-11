@@ -140,21 +140,21 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
 	go func() {
-    	done <- cmd.Wait()
+		done <- cmd.Wait()
 	}()
 	
 	select {
 	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
 		// If pulling repos takes too long, we should give up
 		// (This can happen if a repo is private and the git clone asks for credentials)
-		if err := cmd.Process.Kill(); err != nil {
-			err = errors.New(fmt.Sprintf("failed to kill: %s", err))
+		if err = cmd.Process.Kill(); err != nil {
+			err = fmt.Errorf("failed to kill: %s", err)
 		}
 		err = errors.New("Getting chaincode took too long")
-	case err := <-done:
+	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = errors.New(fmt.Sprintf("process done with error = %v", err))
+			err = fmt.Errorf("process done with error = %v", err)
 		}
 	}
 	return
