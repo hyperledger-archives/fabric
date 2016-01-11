@@ -32,17 +32,16 @@ import (
 
 type mockCPI struct {
 	broadcasted [][]byte
-	executed    [][]byte
-	ledger      consensus.Ledger
+	*instance
 }
 
 func newMock() *mockCPI {
 	mock := &mockCPI{
 		make([][]byte, 0),
-		make([][]byte, 0),
-		NewMockLedger(nil, nil),
+		&instance{},
 	}
-	mock.ledger.PutBlock(0, SimpleGetBlock(0))
+	mock.instance.ledger = NewMockLedger(nil, nil)
+	mock.instance.ledger.PutBlock(0, SimpleGetBlock(0))
 	return mock
 }
 
@@ -52,71 +51,6 @@ func (mock *mockCPI) broadcast(msg []byte) {
 
 func (mock *mockCPI) unicast(msg []byte, receiverID uint64) (err error) {
 	panic("not implemented")
-}
-
-func (mock *mockCPI) verify(tx []byte) error {
-	return nil
-}
-
-func (mock *mockCPI) execute(tx []byte) {
-	mock.executed = append(mock.executed, tx)
-}
-
-func (mock *mockCPI) viewChange(uint64) {
-}
-
-func (mock *mockCPI) BeginTxBatch(id interface{}) error {
-	return mock.ledger.BeginTxBatch(id)
-}
-
-func (mock *mockCPI) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	return mock.ledger.ExecTXs(txs)
-}
-
-func (mock *mockCPI) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
-	return mock.ledger.CommitTxBatch(id, txs, proof)
-}
-
-func (mock *mockCPI) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, proof []byte) (*pb.Block, error) {
-	return mock.ledger.PreviewCommitTxBatchBlock(id, txs, proof)
-}
-
-func (mock *mockCPI) RollbackTxBatch(id interface{}) error {
-	return mock.ledger.RollbackTxBatch(id)
-}
-
-func (mock *mockCPI) GetBlock(id uint64) (block *pb.Block, err error) {
-	return SimpleGetBlock(id), nil
-}
-func (mock *mockCPI) GetCurrentStateHash() (stateHash []byte, err error) {
-	return mock.ledger.GetCurrentStateHash()
-}
-func (mock *mockCPI) GetBlockchainSize() (uint64, error) {
-	return mock.ledger.GetBlockchainSize()
-}
-func (mock *mockCPI) HashBlock(block *pb.Block) ([]byte, error) {
-	return mock.ledger.HashBlock(block)
-}
-func (mock *mockCPI) PutBlock(blockNumber uint64, block *pb.Block) error {
-	return mock.ledger.PutBlock(blockNumber, block)
-}
-func (mock *mockCPI) ApplyStateDelta(delta []byte, unapply bool) error {
-	return mock.ledger.ApplyStateDelta(delta, unapply)
-}
-func (mock *mockCPI) EmptyState() error {
-	return mock.ledger.EmptyState()
-}
-func (mock *mockCPI) VerifyBlockchain(start, finish uint64) (uint64, error) {
-	return mock.ledger.VerifyBlockchain(start, finish)
-}
-func (mock *mockCPI) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	return mock.ledger.GetRemoteBlocks(replicaId, start, finish)
-}
-func (mock *mockCPI) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
-	return mock.ledger.GetRemoteStateSnapshot(replicaId)
-}
-func (mock *mockCPI) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	return mock.ledger.GetRemoteStateDeltas(replicaId, start, finish)
 }
 
 // =============================================================================
