@@ -355,8 +355,10 @@ func serve(args []string) error {
 
 	pb.RegisterOpenchainServer(grpcServer, serverOpenchain)
 
-	// Create and register the REST service
-	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
+	// Create and register the REST service if configured
+	if viper.GetBool("rest.enabled") {
+		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
+	}
 
 	rootNode, err := openchain.GetRootNode()
 	if err != nil {
