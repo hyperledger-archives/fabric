@@ -149,8 +149,9 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		// (This can happen if a repo is private and the git clone asks for credentials)
 		if err = cmd.Process.Kill(); err != nil {
 			err = fmt.Errorf("failed to kill: %s", err)
+		} else {
+			err = errors.New("Getting chaincode took too long")
 		}
-		err = errors.New("Getting chaincode took too long")
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
