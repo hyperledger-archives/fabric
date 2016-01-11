@@ -18,6 +18,9 @@ cli:
 ###############################################################################
 rest:
 
+    # Enable/disable setting for the REST service.
+    enabled: true
+
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
@@ -227,7 +230,7 @@ chaincode:
 
     # The id is used by the Chaincode stub to register the executing Chaincode ID with the Peerand is generally supplied through ENV variables
     # the Path form of ID is provided when deploying the chaincode. The name is used for all other requests. The name is really a hashcode
-    # returned by the system in response to the deploy transaction. In development mode where user runs the chaincode, the name can be 
+    # returned by the system in response to the deploy transaction. In development mode where user runs the chaincode, the name can be
     # any string
     id:
         path:
