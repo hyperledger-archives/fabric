@@ -51,17 +51,6 @@ func NewOpenchainServer() (*ServerOpenchain, error) {
 	}
 	s := &ServerOpenchain{ledger: ledger}
 
-	/*
-		num := ledger.GetBlockchainSize()
-		for i := uint64(0); i < num; i++ {
-			block, err := ledger.GetBlockByNumber(i)
-			if err != nil {
-				log.Info("\nError retrieving block from blockchain: %s\n", err)
-				return nil, err
-			}
-			log.Info("\n\nBlock %d:\n\n%s\n\n", i, block)
-		}
-	*/
 	return s, nil
 }
 

@@ -60,6 +60,12 @@ type ServerOpenchainREST struct {
 	devops *oc.Devops
 }
 
+// restResult defines the structure of the REST interface JSON response.
+type restResult struct {
+	OK    string `json:",omitempty"`
+	Error string `json:",omitempty"`
+}
+
 // SetOpenchainServer is a middleware function that sets the pointer to the
 // underlying ServerOpenchain object and the undeflying Devops object.
 func (s *ServerOpenchainREST) SetOpenchainServer(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
@@ -763,12 +769,25 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Replace " characters with '
-	respVal := strings.Replace(string(resp.Msg), "\"", "'", -1)
+	// Determine if the response received is JSON formatted
+	if isJSON(string(resp.Msg)) {
+		// Response is JSON formatted, return it as is
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"OK\": %s}", string(resp.Msg))
+	} else {
+		// Response is not JSON formatted, construct a JSON formatted response
+		jsonResponse, err := json.Marshal(restResult{OK: string(resp.Msg)})
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			logger.Error(fmt.Sprintf("{\"Error marshalling query response\": \"%s\"}", err))
 
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": %s}", respVal)
-	logger.Info("Successfuly invoked chainCode.\n")
+			return
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, string(jsonResponse))
+	}
 }
 
 // NotFound returns a custom landing page when a given openchain end point
