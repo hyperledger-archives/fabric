@@ -57,8 +57,8 @@ var (
 type TCA struct {
 	*CA
 	eca     *ECA
-	hmacKey []byte
 
+	hmacKey []byte
 	rand io.Reader
 
 	sockp, socka net.Listener

@@ -62,7 +62,7 @@ service TCAA { // admin service
 //
 service TLSCAP { // public service
     rpc ReadCACertificate(Empty) returns (Cert);
-    rpc CreateCertificate(TLSCertCreateReq) returns (Cert);
+    rpc CreateCertificate(TLSCertCreateReq) returns (TLSCertCreateResp);
     rpc ReadCertificate(TLSCertReadReq) returns (Cert);
     rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
 }
@@ -211,10 +211,14 @@ message TCertCRLReq {
 }
 
 message TLSCertCreateReq {
-    google.protobuf.Timestamp timestamp = 1;
+    google.protobuf.Timestamp ts = 1;
     Identity id = 2;
     PublicKey pub = 3;
-    Signature sig = 4; // sign(priv, timestamp | id | pub)
+    Signature sig = 4; // sign(priv, ts | id | pub)
+}
+
+message TLSCertCreateResp {
+    Cert cert = 1;
 }
 
 message TLSCertReadReq {

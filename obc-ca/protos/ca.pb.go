@@ -31,6 +31,7 @@ It has these top-level messages:
 	TCertRevokeSetReq
 	TCertCRLReq
 	TLSCertCreateReq
+	TLSCertCreateResp
 	TLSCertReadReq
 	TLSCertRevokeReq
 	Cert
@@ -565,19 +566,19 @@ func (m *TCertCRLReq) GetSig() *Signature {
 }
 
 type TLSCertCreateReq struct {
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
-	Id        *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Pub       *PublicKey                 `protobuf:"bytes,3,opt,name=pub" json:"pub,omitempty"`
-	Sig       *Signature                 `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
+	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
+	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Pub *PublicKey                 `protobuf:"bytes,3,opt,name=pub" json:"pub,omitempty"`
+	Sig *Signature                 `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TLSCertCreateReq) Reset()         { *m = TLSCertCreateReq{} }
 func (m *TLSCertCreateReq) String() string { return proto.CompactTextString(m) }
 func (*TLSCertCreateReq) ProtoMessage()    {}
 
-func (m *TLSCertCreateReq) GetTimestamp() *google_protobuf.Timestamp {
+func (m *TLSCertCreateReq) GetTs() *google_protobuf.Timestamp {
 	if m != nil {
-		return m.Timestamp
+		return m.Ts
 	}
 	return nil
 }
@@ -599,6 +600,21 @@ func (m *TLSCertCreateReq) GetPub() *PublicKey {
 func (m *TLSCertCreateReq) GetSig() *Signature {
 	if m != nil {
 		return m.Sig
+	}
+	return nil
+}
+
+type TLSCertCreateResp struct {
+	Cert *Cert `protobuf:"bytes,1,opt,name=cert" json:"cert,omitempty"`
+}
+
+func (m *TLSCertCreateResp) Reset()         { *m = TLSCertCreateResp{} }
+func (m *TLSCertCreateResp) String() string { return proto.CompactTextString(m) }
+func (*TLSCertCreateResp) ProtoMessage()    {}
+
+func (m *TLSCertCreateResp) GetCert() *Cert {
+	if m != nil {
+		return m.Cert
 	}
 	return nil
 }
@@ -1269,7 +1285,7 @@ var _TCAA_serviceDesc = grpc.ServiceDesc{
 
 type TLSCAPClient interface {
 	ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error)
-	CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*Cert, error)
+	CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*TLSCertCreateResp, error)
 	ReadCertificate(ctx context.Context, in *TLSCertReadReq, opts ...grpc.CallOption) (*Cert, error)
 	RevokeCertificate(ctx context.Context, in *TLSCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -1291,8 +1307,8 @@ func (c *tLSCAPClient) ReadCACertificate(ctx context.Context, in *Empty, opts ..
 	return out, nil
 }
 
-func (c *tLSCAPClient) CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*Cert, error) {
-	out := new(Cert)
+func (c *tLSCAPClient) CreateCertificate(ctx context.Context, in *TLSCertCreateReq, opts ...grpc.CallOption) (*TLSCertCreateResp, error) {
+	out := new(TLSCertCreateResp)
 	err := grpc.Invoke(ctx, "/protos.TLSCAP/CreateCertificate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -1322,7 +1338,7 @@ func (c *tLSCAPClient) RevokeCertificate(ctx context.Context, in *TLSCertRevokeR
 
 type TLSCAPServer interface {
 	ReadCACertificate(context.Context, *Empty) (*Cert, error)
-	CreateCertificate(context.Context, *TLSCertCreateReq) (*Cert, error)
+	CreateCertificate(context.Context, *TLSCertCreateReq) (*TLSCertCreateResp, error)
 	ReadCertificate(context.Context, *TLSCertReadReq) (*Cert, error)
 	RevokeCertificate(context.Context, *TLSCertRevokeReq) (*CAStatus, error)
 }
