@@ -152,13 +152,9 @@ func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
 
 func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	logger.Debug("Executing transactions")
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
-	}
 	logger.Debug("Starting TX batch with timestamp: %v", msg.Timestamp)
-	if err := ledger.BeginTxBatch(msg.Timestamp); err != nil {
-		return fmt.Errorf("Fail to begin transaction with the ledger: %v", err)
+	if err := i.cpi.BeginTxBatch(msg.Timestamp); err != nil {
+		return err
 	}
 
 	// Grab all transactions from the FIFO queue and run them in order
@@ -171,21 +167,26 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	//producing the hash, if any. That's the only error we do want to check
 	if errs[len(txarr)] != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		ledger.RollbackTxBatch(msg.Timestamp)
+		i.cpi.RollbackTxBatch(msg.Timestamp)
 		return fmt.Errorf("Fail to execute transactions: %v", errs)
 	}
 
 	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
-	if err := ledger.CommitTxBatch(msg.Timestamp, txarr, nil); err != nil {
+	if err := i.cpi.CommitTxBatch(msg.Timestamp, txarr, nil); err != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		ledger.RollbackTxBatch(msg.Timestamp)
-		return fmt.Errorf("Fail to commit transaction to the ledger: %v", err)
+		i.cpi.RollbackTxBatch(msg.Timestamp)
+		return err
 	}
 
-	return i.notifyBlockAdded(ledger)
+	return i.notifyBlockAdded()
 }
 
-func (i *Noops) notifyBlockAdded(ledger *ledger.Ledger) error {
+func (i *Noops) notifyBlockAdded() error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Fail to get the ledger: %v", err)
+	}
+
 	// TODO: Broadcast SYNC_BLOCK_ADDED to connected NVPs
 	// VPs already know about this newly added block since they participate
 	// in the execution. That is, they can compare their current block with

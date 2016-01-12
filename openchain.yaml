@@ -101,11 +101,15 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops
+        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
         consensus: noops
 
-        # List of validating peers. For MVP, assume list is static.
-        replicas: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
+         # List of validating peers.
+        replicas:
+            # For MVP, assume list is static.
+            ips: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
+            # Base64-encoded values.
+            hashes: a, b, c, d
 
         events:
             # The address that the Event service will be enabled on the validator

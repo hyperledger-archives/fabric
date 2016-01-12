@@ -492,23 +492,27 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
 	}
-	peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
-	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
-	if err != nil {
-		e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
-		peerLogger.Error(e.Error())
-		return e
+	for {
+		time.Sleep(1 * time.Second)
+		peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
+		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+		if err != nil {
+			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error(e.Error())
+			continue
+		}
+		serverClient := pb.NewPeerClient(conn)
+		ctx := context.Background()
+		stream, err := serverClient.Chat(ctx)
+		if err != nil {
+			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error("%s", e.Error())
+			continue
+		}
+		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
+		p.handleChat(ctx, stream, true)
+		stream.CloseSend()
 	}
-	serverClient := pb.NewPeerClient(conn)
-	ctx := context.Background()
-	stream, err := serverClient.Chat(ctx)
-	if err != nil {
-		return fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-	}
-	defer stream.CloseSend()
-	peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
-	p.handleChat(ctx, stream, true)
-	return nil
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function

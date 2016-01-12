@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	gp "google/protobuf"
@@ -30,6 +30,7 @@ import (
 	"github.com/op/go-logging"
 
 	"fmt"
+
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -40,24 +41,22 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	mock := NewMock()
-	primary := New(mock)
-	backup := New(mock)
-	backup.id = 1
+	primary := newPbftCore(0, readConfig(), newMock())
+	defer primary.close()
+	backup := newPbftCore(1, readConfig(), newMock())
+	defer backup.close()
 
 	f := fuzz.New()
 
 	for i := 0; i < 30; i++ {
 		msg := &Message{}
 		f.Fuzz(msg)
-
-		payload, _ := proto.Marshal(msg)
-		msgWrapped := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CONSENSUS,
-			Payload: payload,
-		}
-		primary.RecvMsg(msgWrapped)
-		backup.RecvMsg(msgWrapped)
+		// roundtrip through protobufs to translate
+		// nil slices into empty slices
+		raw, _ := proto.Marshal(msg)
+		proto.Unmarshal(raw, msg)
+		primary.recvMsgSync(msg)
+		backup.recvMsgSync(msg)
 	}
 
 	logging.Reset()
@@ -101,8 +100,10 @@ func TestMinimalFuzz(t *testing.T) {
 		t.Skip("Skipping fuzz test")
 	}
 
-	net := makeTestnet(1)
+	net := makeTestnet(1, makeTestnetPbftCore)
+	defer net.close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
+	net.filterFn = fuzzer.fuzzPacket
 
 	noExec := 0
 	for reqid := 1; reqid < 30; reqid++ {
@@ -118,16 +119,15 @@ func TestMinimalFuzz(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &pb.OpenchainMessage{
-			Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-			Payload: txPacked,
+		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		for _, inst := range net.replicas {
+			inst.pbft.recvMsgSync(msg)
 		}
-		err = net.replicas[fuzzer.r.Intn(len(net.replicas))].plugin.RecvMsg(msg)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
 
-		err = net.process(fuzzer.fuzzPacket)
+		err = net.process()
 		if err != nil {
 			t.Fatalf("Processing failed: %s", err)
 		}
@@ -145,9 +145,9 @@ func TestMinimalFuzz(t *testing.T) {
 		if noExec > 1 {
 			noExec = 0
 			for _, r := range net.replicas {
-				r.plugin.sendViewChange()
+				r.pbft.sendViewChange()
 			}
-			err = net.process(fuzzer.fuzzPacket)
+			err = net.process()
 			if err != nil {
 				t.Fatalf("Processing failed: %s", err)
 			}
@@ -160,14 +160,14 @@ type protoFuzzer struct {
 	r        *rand.Rand
 }
 
-func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter *pb.OpenchainMessage) *pb.OpenchainMessage {
-	if !outgoing || node != f.fuzzNode {
+func (f *protoFuzzer) fuzzPacket(src int, dst int, msgOuter []byte) []byte {
+	if dst != -1 || src != f.fuzzNode {
 		return msgOuter
 	}
 
 	// XXX only with some probability
 	msg := &Message{}
-	if proto.Unmarshal(msgOuter.Payload, msg) != nil {
+	if proto.Unmarshal(msgOuter, msg) != nil {
 		panic("could not unmarshal")
 	}
 
@@ -192,8 +192,8 @@ func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter *pb.Openchain
 		f.fuzzPayload(m)
 	}
 
-	msgOuter.Payload, _ = proto.Marshal(msg)
-	return msgOuter
+	newMsg, _ := proto.Marshal(msg)
+	return newMsg
 }
 
 func (f *protoFuzzer) fuzzPayload(s interface{}) {
@@ -261,6 +261,8 @@ func (f *protoFuzzer) Fuzz(v reflect.Value) {
 	case reflect.Struct:
 		f.Fuzz(v.Field(f.r.Intn(v.NumField())))
 		return
+	case reflect.Map:
+		// TODO fuzz map
 	default:
 		panic(fmt.Sprintf("Not fuzzing %v %+v", v.Kind(), v))
 	}

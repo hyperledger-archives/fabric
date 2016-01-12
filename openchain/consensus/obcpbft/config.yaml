@@ -1,0 +1,53 @@
+---
+################################################################################
+#
+#   PBFT PROPERTIES
+#
+#   - List all algorithm-specific properties here.
+#   - Nest keys where appropriate, and sort alphabetically for easier parsing.
+#
+################################################################################
+general:
+
+    # Consensus plugin package name goes here
+    name: obc-pbft
+
+    # Operational mode: batch, classic, or sieve
+    mode: classic
+
+    # How many Byzantine nodes can we tolerate
+    f: 1
+
+    # Checkpoint period
+    K: 10
+
+    # How many requests should the primary send per pre-prepare when in "batch" mode
+    batchsize: 2
+
+    # Timeouts
+    timeout:
+
+        # Send a pre-prepare if there are pending requests, batchsize isn't reached yet,
+        # and this much time has elapsed since the current batch was formed
+        batch: 2s
+
+        # How long may a request take between reception and execution
+        request: 2s
+
+        # How long may a view change take
+        viewchange: 2s
+
+
+################################################################################
+#
+#   SECTION: REPLICA
+#
+#   - This applies to all validating peers.
+#
+################################################################################
+replica:
+
+    # Whether the replica should act as a byzantine one
+    # Useful for debugging on the live network
+    byzantine: false
+...

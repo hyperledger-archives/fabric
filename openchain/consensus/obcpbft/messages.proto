@@ -21,7 +21,7 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-package pbft;
+package obcpbft;
 
 /*
  * mapping to PBFT paper names
@@ -37,52 +37,53 @@ package pbft;
  * i: replicaId
  */
 
-message Message {
+message message {
     oneof payload {
-        Request request = 1;
-        PrePrepare prePrepare = 2;
-        Prepare prepare = 3;
-        Commit commit = 4;
-        Checkpoint checkpoint = 5;
-        ViewChange viewChange = 6;
-        NewView newView = 7;
+        request request = 1;
+        pre_prepare pre_prepare = 2;
+        prepare prepare = 3;
+        commit commit = 4;
+        checkpoint checkpoint = 5;
+        view_change view_change = 6;
+        new_view new_view = 7;
     }
 }
 
-message Request {
+message request {
     google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
-    bytes payload = 2;  // Opaque payload
+    bytes payload = 2;  // opaque payload
+    uint64 replica_id = 3;
 }
 
-message PrePrepare {
+message pre_prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
-    Request request = 4;
+    request request = 4;
     uint64 replica_id = 5;
 }
 
-message Prepare {
+message prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     uint64 replica_id = 4;
 }
 
-message Commit {
+message commit {
     uint64 view = 1;
     uint64 sequence_number = 2;
     string request_digest = 3;
     uint64 replica_id = 4;
 }
 
-message Checkpoint {
+message checkpoint {
     uint64 sequence_number = 1;
     string state_digest = 2;
     uint64 replica_id = 3;
 }
 
-message ViewChange {
+message view_change {
     message C {
         uint64 sequence_number = 1;
         string digest = 2;
@@ -99,11 +100,61 @@ message ViewChange {
     repeated PQ pset = 4;
     repeated PQ qset = 5;
     uint64 replica_id = 6;
+    bytes signature = 7;
 }
 
-message NewView {
+message new_view {
     uint64 view = 1;
-    repeated ViewChange Vset = 2;
-    map<uint64, string> Xset = 3;
+    repeated view_change vset = 2;
+    map<uint64, string> xset = 3;
     uint64 replica_id = 4;
+}
+
+// sieve
+
+message sieve_message {
+    oneof payload {
+        bytes request = 1;
+        execute execute = 2;
+        verify verify = 3;
+        bytes pbft_message = 4;
+    }
+}
+
+message execute {
+    uint64 view = 1;
+    uint64 block_number = 2;
+    bytes request = 3;
+    uint64 replica_id = 4;
+}
+
+message verify {
+    uint64 view = 1;
+    uint64 block_number = 2;
+    string request_digest = 3;
+    bytes result_digest = 4;
+    uint64 replica_id = 5;
+    bytes signature = 6;
+}
+
+message sieve_pbft_message {
+    oneof payload {
+        verify_set verify_set = 1;
+        flush flush = 2;
+    }
+}
+
+message verify_set {
+    uint64 view = 1;
+    uint64 block_number = 2;
+    string request_digest = 3;
+    repeated verify dset = 4;
+    uint64 replica_id = 5;
+    bytes signature = 6;
+}
+
+message flush {
+    uint64 view = 1;
+    uint64 replica_id = 2;
+    bytes signature = 3;
 }
