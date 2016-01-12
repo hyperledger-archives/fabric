@@ -120,6 +120,7 @@ message PeerEndpoint {
       NON_VALIDATOR = 2;
     }
     Type type = 3;
+    string cryptoHandle = 4;
 }
 message PeersMessage {
     repeated PeerEndpoint peers = 1;
@@ -131,18 +132,18 @@ message HelloMessage {
 message OpenchainMessage {
     enum Type {
         UNDEFINED = 0;
-        
+
         DISC_HELLO = 1;
         DISC_DISCONNECT = 2;
         DISC_GET_PEERS = 3;
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
-        
+
         CHAIN_STATUS = 6;
         CHAIN_TRANSACTION = 7;
         CHAIN_GET_TRANSACTIONS = 8;
         CHAIN_QUERY = 9;
-        
+
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;
         SYNC_BLOCK_ADDED = 13;
@@ -151,7 +152,7 @@ message OpenchainMessage {
         SYNC_STATE_SNAPSHOT = 15;
         SYNC_STATE_GET_DELTAS = 16;
         SYNC_STATE_DELTAS = 17;
-        
+
         RESPONSE = 20;
         CONSENSUS = 21;
     }
@@ -193,7 +194,7 @@ message SyncBlocks {
     repeated Block blocks = 2;
 }
 
-// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message. 
+// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message.
 message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
@@ -217,10 +218,9 @@ message SyncStateDeltasRequest {
     SyncBlockRange range = 1;
 }
 
-// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to 
+// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to
 // the OpenchainMessage.SYNC_GET_STATE message.
 message SyncStateDeltas {
     SyncBlockRange range = 1;
     repeated bytes deltas = 2;
 }
-
