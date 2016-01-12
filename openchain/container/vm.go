@@ -117,24 +117,57 @@ func (vm *VM) ListImages(context context.Context) error {
 
 // BuildChaincodeContainer builds the container for the supplied chaincode specification
 func (vm *VM) BuildChaincodeContainer(spec *pb.ChaincodeSpec) ([]byte, error) {
-	chaincodePkgBytes, err := vm.GetChaincodePackageBytes(spec)
+	chaincodePkgBytes, err := GetChaincodePackageBytes(spec)
 	if err != nil {
-		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
+		return nil, fmt.Errorf("Error getting chaincode package bytes: %s", err)
 	}
-	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, bytes.NewReader(chaincodePkgBytes))
+	err = vm.buildChaincodeContainerUsingDockerfilePackageBytes(spec, chaincodePkgBytes)
 	if err != nil {
 		return nil, fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	return chaincodePkgBytes, nil
 }
 
-// Builds the Chaincode image using the supplied Dockerfile package contents
-func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChaincodeSpec, inputbuf io.Reader) error {
-	outputbuf := bytes.NewBuffer(nil)
-	vmName, err := GetVMName(spec.ChaincodeID)
-	if err != nil {
-		return fmt.Errorf("Error building chaincode using package bytes: %s", err)
+// GetChaincodePackageBytes creates bytes for docker container generation using the supplied chaincode specification
+func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
+	if spec == nil || spec.ChaincodeID == nil {
+		return nil, fmt.Errorf("invalid chaincode spec")
 	}
+	if spec.ChaincodeID.Name != "" {
+		return nil, fmt.Errorf("chaincode name exists")
+	}
+
+	inputbuf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(inputbuf)
+	tw := tar.NewWriter(gw)
+
+	var err error
+	spec.ChaincodeID.Name, err = generateHashcode(spec, tw)
+	if err != nil {
+		tw.Close()
+		gw.Close()
+		return nil, fmt.Errorf("Error generating hashcode: %s", err)
+	}
+	err = writeChaincodePackage(spec, tw)
+	if err != nil {
+		tw.Close()
+		gw.Close()
+		return nil, fmt.Errorf("Error writing chaincode package: %s", err)
+	}
+
+	tw.Close()
+	gw.Close()
+
+	chaincodePkgBytes := inputbuf.Bytes()
+
+	return chaincodePkgBytes, nil
+}
+
+// Builds the Chaincode image using the supplied Dockerfile package contents
+func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.ChaincodeSpec, code []byte) error {
+	outputbuf := bytes.NewBuffer(nil)
+	vmName := spec.ChaincodeID.Name
+	inputbuf := bytes.NewReader(code)
 	opts := docker.BuildImageOptions{
 		Name:         vmName,
 		Pull:         true,
@@ -168,21 +201,6 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
-// GetChaincodePackageBytes returns the gzipped tar image used for docker build of supplied Chaincode package
-func (vm *VM) GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
-	inputbuf := bytes.NewBuffer(nil)
-	gw := gzip.NewWriter(inputbuf)
-	tr := tar.NewWriter(gw)
-	// Get the Tar contents for the image
-	err := vm.writeChaincodePackage(spec, tr)
-	tr.Close()
-	gw.Close()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting Peer package: %s", err)
-	}
-	return inputbuf.Bytes(), nil
-}
-
 // GetPeerPackageBytes returns the gzipped tar image used for docker build of Peer
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
@@ -214,26 +232,29 @@ func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, er
 	return inputbuf, nil
 }
 
-func (vm *VM) writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
-	startTime := time.Now()
+//tw is expected to have the chaincode in it from GenerateHashcode. This method
+//will just package rest of the bytes
+func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
-	// Dynamically create the Dockerfile from the base config and required additions
-	var newRunLine string
-	if strings.HasPrefix(spec.ChaincodeID.Url, "http://") {
-		urlLocation := spec.ChaincodeID.Url[7:]
-		newRunLine = fmt.Sprintf("RUN go get %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
-	} else if strings.HasPrefix(spec.ChaincodeID.Url, "https://") {
-		urlLocation := spec.ChaincodeID.Url[8:]
-		newRunLine = fmt.Sprintf("RUN go get %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	var urlLocation string
+	if strings.HasPrefix(spec.ChaincodeID.Path, "http://") {
+		urlLocation = spec.ChaincodeID.Path[7:]
+	} else if strings.HasPrefix(spec.ChaincodeID.Path, "https://") {
+		urlLocation = spec.ChaincodeID.Path[8:]
 	} else {
-		newRunLine = fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", spec.ChaincodeID.Url)
+		urlLocation = spec.ChaincodeID.Path
 	}
+
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
-	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
+	//Make headers identical by using zero time
+	var zeroTime time.Time
+	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: zeroTime, AccessTime: zeroTime, ChangeTime: zeroTime})
 	tw.Write([]byte(dockerFileContents))
-	err := vm.writeGopathSrc(tw)
+	err := writeGopathSrc(tw, urlLocation)
 	if err != nil {
 		return fmt.Errorf("Error writing Chaincode package contents: %s", err)
 	}
@@ -248,19 +269,27 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
 	tw.Write([]byte(dockerFileContents))
-	err := vm.writeGopathSrc(tw)
+	err := writeGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing Peer package contents: %s", err)
 	}
 	return nil
 }
 
-func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
+func writeGopathSrc(tw *tar.Writer, excludeDir string) error {
+	gopath := os.Getenv("GOPATH")
+	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
+		gopath = gopath[:len(gopath)]
+	}
 	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
-	//inputbuf := bytes.NewBuffer(nil)
-	//tw := tar.NewWriter(inputbuf)
 
+	//append "/" if necessary
+	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir)-1 {
+		excludeDir = excludeDir + "/"
+	}
+
+	rootDirLen := len(rootDirectory)
 	walkFn := func(path string, info os.FileInfo, err error) error {
 
 		// If path includes .git, ignore
@@ -271,8 +300,13 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 		if info.Mode().IsDir() {
 			return nil
 		}
+
+		//exclude any files with excludeDir prefix. They should already be in the tar
+		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen+1 { //1 for "/"
+			return nil
+		}
 		// Because of scoping we can reference the external rootDirectory variable
-		newPath := fmt.Sprintf("src%s", path[len(rootDirectory):])
+		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
 		//newPath := path[len(rootDirectory):]
 		if len(newPath) == 0 {
 			return nil
@@ -289,6 +323,11 @@ func (vm *VM) writeGopathSrc(tw *tar.Writer) error {
 			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
 			return err
 		}
+		//Let's take the variance out of the tar, make headers identical everywhere by using zero time
+		var zeroTime time.Time
+		h.AccessTime = zeroTime
+		h.ModTime = zeroTime
+		h.ChangeTime = zeroTime
 		h.Name = newPath
 		if err = tw.WriteHeader(h); err != nil {
 			vmLogger.Error(fmt.Sprintf("Error writing header: %s", err))

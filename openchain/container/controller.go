@@ -28,9 +28,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blang/semver"
 	"github.com/fsouza/go-dockerclient"
-	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
@@ -386,24 +384,11 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	}
 }
 
-// GetVMName gets the container name given the chaincode name and version
-func GetVMName(chaincodeID *pb.ChaincodeID) (string, error) {
-	// Make sure version is specfied correctly
-	version, err := semver.Make(chaincodeID.Version)
-	if err != nil {
-		return "", fmt.Errorf("Error building VM name: %s", err)
-	}
-
-	var urlLocation string
-	if strings.HasPrefix(chaincodeID.Url, "http://") {
-		urlLocation = chaincodeID.Url[7:]
-	} else if strings.HasPrefix(chaincodeID.Url, "https://") {
-		urlLocation = chaincodeID.Url[8:]
-	} else {
-		urlLocation = chaincodeID.Url
-	}
-	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(urlLocation, string(os.PathSeparator), ".", -1), version)
-	return vmName, nil
+//GetVMFromName generates the docker image from peer information given the hashcode. This is needed to
+//keep image name's unique in a single host, multi-peer environment (such as a development environment)
+func GetVMFromName(name string) string {
+	vmName := fmt.Sprintf("%s-%s-%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), name)
+	return vmName
 }
 
 /*******************

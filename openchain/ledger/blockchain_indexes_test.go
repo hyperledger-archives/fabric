@@ -20,9 +20,10 @@ under the License.
 package ledger
 
 import (
+	"testing"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/protos"
-	"testing"
 )
 
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
@@ -72,12 +73,12 @@ func TestIndexes_GetTransactionByUUID(t *testing.T) {
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	tx1, uuid1 := buildTestTx()
 	tx2, uuid2 := buildTestTx()
-	block1 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx1, tx2})
+	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2})
 	testBlockchainWrapper.addNewBlock(block1, []byte("stateHash1"))
 
 	tx3, uuid3 := buildTestTx()
 	tx4, uuid4 := buildTestTx()
-	block2 := protos.NewBlock("DummyBlock", []*protos.Transaction{tx3, tx4})
+	block2 := protos.NewBlock([]*protos.Transaction{tx3, tx4})
 	testBlockchainWrapper.addNewBlock(block2, []byte("stateHash2"))
 
 	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid1), tx1)

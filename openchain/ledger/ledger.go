@@ -21,6 +21,7 @@ package ledger
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -37,6 +38,14 @@ import (
 )
 
 var ledgerLogger = logging.MustGetLogger("ledger")
+
+var (
+	// ErrOutOfBounds is returned if a request is out of bounds
+	ErrOutOfBounds = errors.New("ledger: out of bounds")
+
+	// ErrResourceNotFound is returned if a resource is not found
+	ErrResourceNotFound = errors.New("ledger: resource not found")
+)
 
 // Ledger - the struct for openchain ledger
 type Ledger struct {
@@ -80,6 +89,24 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
+// GetTXBatchPreviewBlock returns a preview block that will have the same
+// block.GetHash() result as the block commited to the database if
+// ledger.CommitTxBatch is called with the same parameters. If the state is modified
+// by a transaction between these two calls, the hash will be different. The
+// preview block does not include non-hashed data such as the local timestamp.
+func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
+	transactions []*protos.Transaction, proof []byte) (*protos.Block, error) {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return nil, err
+	}
+	stateHash, err := ledger.state.GetHash()
+	if err != nil {
+		return nil, err
+	}
+	return ledger.blockchain.buildBlock(protos.NewBlock(transactions), stateHash), nil
+}
+
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
@@ -90,7 +117,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	success := true
-	defer ledger.resetForNextTxGroup()
+	defer ledger.resetForNextTxGroup(success)
 	defer ledger.blockchain.blockPersistenceStatus(success)
 
 	stateHash, err := ledger.state.GetHash()
@@ -100,7 +127,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock("proposerID", transactions)
+	block := protos.NewBlock(transactions)
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		success = false
@@ -125,7 +152,7 @@ func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 	if err != nil {
 		return err
 	}
-	ledger.resetForNextTxGroup()
+	ledger.resetForNextTxGroup(false)
 	return nil
 }
 
@@ -190,12 +217,14 @@ func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 // available.
 func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
 	if blockNumber >= ledger.GetBlockchainSize() {
-		return nil, fmt.Errorf("Block number %d is out of range.", blockNumber)
+		return nil, ErrOutOfBounds
 	}
 	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
 
-// ApplyStateDelta applies a state delta to the current state.
+// ApplyStateDelta applies a state delta to the current state. This is an
+// in memory change only. You must call ledger.CommitStateDelta to persist
+// the change to the DB.
 // This should only be used as part of state synchronization. State deltas
 // can be retrieved from another peer though the Ledger.GetStateDelta function
 // or by creating state deltas with keys retrieved from
@@ -211,8 +240,36 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // be used to roll forwards from state at block 2 to state at block 3. If
 // stateDelta.RollBackwards=false, the delta retrived for block 3 can be
 // used to roll backwards from the state at block 3 to the state at block 2.
-func (ledger *Ledger) ApplyStateDelta(delta *statemgmt.StateDelta) error {
-	return ledger.state.ApplyStateDelta(delta)
+func (ledger *Ledger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	err := ledger.checkValidIDBegin()
+	if err != nil {
+		return err
+	}
+	ledger.currentID = id
+	ledger.state.ApplyStateDelta(delta)
+	return nil
+}
+
+// CommitStateDelta will commit the state delta passed to ledger.ApplyStateDelta
+// to the DB
+func (ledger *Ledger) CommitStateDelta(id interface{}) error {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return err
+	}
+	defer ledger.resetForNextTxGroup(true)
+	return ledger.state.CommitStateDelta()
+}
+
+// RollbackStateDelta will discard the state delta passed
+// to ledger.ApplyStateDelta
+func (ledger *Ledger) RollbackStateDelta(id interface{}) error {
+	err := ledger.checkValidIDCommitORRollback(id)
+	if err != nil {
+		return err
+	}
+	ledger.resetForNextTxGroup(false)
+	return nil
 }
 
 // DeleteALLStateKeysAndValues deletes all keys and values from the state.
@@ -235,7 +292,7 @@ func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
 // Lowest block on chain is block number zero
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
 	if blockNumber >= ledger.GetBlockchainSize() {
-		return nil, fmt.Errorf("Block number %d is out of bounds.", blockNumber)
+		return nil, ErrOutOfBounds
 	}
 	return ledger.blockchain.getBlock(blockNumber)
 }
@@ -274,10 +331,10 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 // you wish to verify the entire chain, use 0 for the genesis block.
 func (ledger *Ledger) VerifyChain(highBlock, lowBlock uint64) (uint64, error) {
 	if highBlock >= ledger.GetBlockchainSize() {
-		return highBlock, fmt.Errorf("Out of bounds error. The highBlock %d is greater than the blockchain size.", highBlock)
+		return highBlock, ErrOutOfBounds
 	}
 	if highBlock <= lowBlock {
-		return lowBlock, fmt.Errorf("highBlock %d must be greater than lowBlock. %d", highBlock, lowBlock)
+		return lowBlock, ErrOutOfBounds
 	}
 
 	for i := highBlock; i > lowBlock; i-- {
@@ -322,8 +379,8 @@ func (ledger *Ledger) checkValidIDCommitORRollback(id interface{}) error {
 	return nil
 }
 
-func (ledger *Ledger) resetForNextTxGroup() {
+func (ledger *Ledger) resetForNextTxGroup(txCommited bool) {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
-	ledger.state.ClearInMemoryChanges()
+	ledger.state.ClearInMemoryChanges(txCommited)
 }

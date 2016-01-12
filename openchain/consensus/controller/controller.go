@@ -25,7 +25,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
-	"github.com/openblockchain/obc-peer/openchain/consensus/pbft"
+	"github.com/openblockchain/obc-peer/openchain/consensus/obcpbft"
 )
 
 // =============================================================================
@@ -47,9 +47,9 @@ func init() {
 func NewConsenter(cpi consensus.CPI) consensus.Consenter {
 	plugin := viper.GetString("peer.validator.consensus")
 	var algo consensus.Consenter
-	if plugin == "pbft" {
-		logger.Debug("Running with PBFT consensus")
-		algo = pbft.GetPlugin(cpi)
+	if plugin == "obcpbft" {
+		logger.Debug("Running with OBC-PBFT consensus")
+		algo = obcpbft.GetPlugin(cpi)
 	} else {
 		logger.Debug("Running with NOOPS consensus")
 		algo = noops.GetNoops(cpi)
