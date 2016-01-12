@@ -64,7 +64,7 @@ func TestGenesis(t *testing.T) {
 	}
 	grpcServer := grpc.NewServer(opts...)
 
-	getPeerEndpoint := func() (*protos.PeerEndpoint, error) {
+	getPeerEndpoint := func(opts ...interface{}) (*protos.PeerEndpoint, error) {
 		return &protos.PeerEndpoint{ID: &protos.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
