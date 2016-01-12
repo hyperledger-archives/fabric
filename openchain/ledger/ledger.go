@@ -83,7 +83,7 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
-func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, proof []byte) error {
+func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, metadata []byte) error {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock("proposerID", transactions)
+	block := protos.NewBlock("proposerID", transactions, metadata)
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		success = false

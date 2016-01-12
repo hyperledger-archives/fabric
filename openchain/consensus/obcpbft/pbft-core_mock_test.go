@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -124,7 +125,7 @@ func (inst *instance) verify(payload []byte) error {
 	return nil
 }
 
-func (inst *instance) execute(payload []byte) {
+func (inst *instance) execute(payload []byte, opts ...interface{}) {
 
 	tx := &pb.Transaction{
 		Payload: payload,
@@ -148,7 +149,14 @@ func (inst *instance) execute(payload []byte) {
 		return
 	}
 
-	if err := inst.CommitTxBatch(txBatchID, txs, nil); err != nil {
+	metadataMsg := &Metadata{SeqNo: opts[1].(uint64), BlockProposer: opts[0].(uint64)}
+	rawMetadata, err := proto.Marshal(metadataMsg)
+	if err != nil {
+		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
+		return
+	}
+
+	if err := inst.CommitTxBatch(txBatchID, txs, rawMetadata); err != nil {
 		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
@@ -218,12 +226,12 @@ func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return inst.ledger.ExecTXs(txs)
 }
 
-func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
-	return inst.ledger.CommitTxBatch(id, txs, proof)
+func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, metadata []byte) error {
+	return inst.ledger.CommitTxBatch(id, txs, metadata)
 }
 
-func (inst *instance) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, proof []byte) (*pb.Block, error) {
-	return inst.ledger.PreviewCommitTxBatchBlock(id, txs, proof)
+func (inst *instance) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
+	return inst.ledger.PreviewCommitTxBatchBlock(id, txs, metadata)
 }
 
 func (inst *instance) RollbackTxBatch(id interface{}) error {

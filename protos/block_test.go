@@ -46,7 +46,7 @@ func Test_Block_CreateNew(t *testing.T) {
 	transaction := &Transaction{Type: 2, ChaincodeID: &ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, Payload: data, Uuid: "001"}
 	t.Logf("Transaction: %v", transaction)
 
-	block := NewBlock("proposer1", []*Transaction{transaction})
+	block := NewBlock("proposer1", []*Transaction{transaction}, nil)
 	t.Logf("Block: %v", block)
 
 	data, err := proto.Marshal(block)
@@ -63,8 +63,8 @@ func Test_Block_CreateNew(t *testing.T) {
 }
 
 func TestBlockNonHashData(t *testing.T) {
-	block1 := NewBlock("proposer1", nil)
-	block2 := NewBlock("proposer1", nil)
+	block1 := NewBlock("proposer1", nil, nil)
+	block2 := NewBlock("proposer1", nil, nil)
 	time1 := util.CreateUtcTimestamp()
 	time.Sleep(100 * time.Millisecond)
 	time2 := util.CreateUtcTimestamp()

@@ -142,12 +142,12 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
-func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
+func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, metadata []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if err := ledger.CommitTxBatch(id, transactions, proof); err != nil {
+	if err := ledger.CommitTxBatch(id, transactions, metadata); err != nil {
 		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil
@@ -213,7 +213,7 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 }
 
 // TODO, waiting to see the streaming implementation to define this API nicely
-func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) {
+func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) error {
 	return // TODO implement
 }
 

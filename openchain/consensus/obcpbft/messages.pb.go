@@ -776,7 +776,7 @@ func (*Flush) ProtoMessage()    {}
 
 type Metadata struct {
 	SeqNo         uint64 `protobuf:"varint,1,opt,name=seqNo" json:"seqNo,omitempty"`
-	BlockProposer string `protobuf:"bytes,2,opt,name=blockProposer" json:"blockProposer,omitempty"`
+	BlockProposer uint64 `protobuf:"varint,2,opt,name=blockProposer" json:"blockProposer,omitempty"`
 }
 
 func (m *Metadata) Reset()         { *m = Metadata{} }

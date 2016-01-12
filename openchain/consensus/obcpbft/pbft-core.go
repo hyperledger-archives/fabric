@@ -53,7 +53,7 @@ type innerCPI interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	verify(txRaw []byte) error
-	execute(txRaw []byte)
+	execute(txRaw []byte, opts ...interface{})
 	viewChange(curView uint64)
 }
 
@@ -636,7 +636,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		instance.consumer.execute(req.Payload)
+		instance.consumer.execute(req.Payload, idx.v, idx.n)
 		delete(instance.outstandingReqs, digest)
 	}
 

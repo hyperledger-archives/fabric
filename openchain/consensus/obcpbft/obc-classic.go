@@ -129,7 +129,7 @@ func (op *obcClassic) verify(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(txRaw []byte) {
+func (op *obcClassic) execute(txRaw []byte, opts ...interface{}) {
 	if err := op.verify(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
@@ -152,14 +152,20 @@ func (op *obcClassic) execute(txRaw []byte) {
 
 	_, errs := op.cpi.ExecTXs(txs)
 	if errs[len(txs)] != nil {
-		logger.Error("Fail to execute transaction %s: %v", txBatchID, errs)
+		logger.Error("Failed to execute transaction %s: %v", txBatchID, errs)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil); err != nil {
+	metadataMsg := &Metadata{SeqNo: opts[1].(uint64), BlockProposer: opts[0].(uint64)}
+	rawMetadata, err := proto.Marshal(metadataMsg)
+	if err != nil {
+		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
+		return
+	}
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, rawMetadata); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
