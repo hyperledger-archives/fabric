@@ -67,7 +67,6 @@ message TransactionResult {
 }
 
 // Block carries The data that describes a block in the blockchain.
-// proposerID - The ID of the peer that proposed the Block.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -79,7 +78,6 @@ message TransactionResult {
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 message Block {
-    string proposerID = 1;
     google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
@@ -131,18 +129,18 @@ message HelloMessage {
 message OpenchainMessage {
     enum Type {
         UNDEFINED = 0;
-        
+
         DISC_HELLO = 1;
         DISC_DISCONNECT = 2;
         DISC_GET_PEERS = 3;
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
-        
+
         CHAIN_STATUS = 6;
         CHAIN_TRANSACTION = 7;
         CHAIN_GET_TRANSACTIONS = 8;
         CHAIN_QUERY = 9;
-        
+
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;
         SYNC_BLOCK_ADDED = 13;
@@ -151,7 +149,7 @@ message OpenchainMessage {
         SYNC_STATE_SNAPSHOT = 15;
         SYNC_STATE_GET_DELTAS = 16;
         SYNC_STATE_DELTAS = 17;
-        
+
         RESPONSE = 20;
         CONSENSUS = 21;
     }
@@ -193,7 +191,7 @@ message SyncBlocks {
     repeated Block blocks = 2;
 }
 
-// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message. 
+// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message.
 message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
@@ -217,10 +215,9 @@ message SyncStateDeltasRequest {
     SyncBlockRange range = 1;
 }
 
-// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to 
+// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to
 // the OpenchainMessage.SYNC_GET_STATE message.
 message SyncStateDeltas {
     SyncBlockRange range = 1;
     repeated bytes deltas = 2;
 }
-

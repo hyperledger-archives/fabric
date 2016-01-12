@@ -190,7 +190,6 @@ func TestLedgerPutRawBlock(t *testing.T) {
 	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
 	ledger := ledgerTestWrapper.ledger
 	block := new(protos.Block)
-	block.ProposerID = "test"
 	block.PreviousBlockHash = []byte("foo")
 	block.StateHash = []byte("bar")
 	ledger.PutRawBlock(block, 4)
@@ -272,8 +271,8 @@ func TestLedgerSetRawState(t *testing.T) {
 	delta := statemgmt.NewStateDelta()
 	for i := 0; snapshot.Next(); i++ {
 		k, v := snapshot.GetRawKeyValue()
-		cID, kID := statemgmt.DecodeCompositeKey(k)
-		delta.Set(cID, kID, v, nil)
+		cID, keyID := statemgmt.DecodeCompositeKey(k)
+		delta.Set(cID, keyID, v, nil)
 	}
 
 	ledgerTestWrapper.ApplyStateDelta(1, delta)
@@ -369,7 +368,7 @@ func TestVerifyChain(t *testing.T) {
 	}
 
 	// Add bad blocks and test
-	badBlock := protos.NewBlock("Sheehan", nil)
+	badBlock := protos.NewBlock(nil)
 	badBlock.PreviousBlockHash = []byte("evil")
 	for i := uint64(0); i < ledger.GetBlockchainSize(); i++ {
 		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)

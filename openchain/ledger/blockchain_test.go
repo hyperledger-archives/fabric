@@ -20,11 +20,12 @@ under the License.
 package ledger
 
 import (
+	"testing"
+	"time"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
-	"testing"
-	"time"
 )
 
 func TestBlockChain_SingleBlock(t *testing.T) {
@@ -42,7 +43,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 	testutil.AssertNoError(t, err, "Failed to create new chaincode Deployment Transaction")
 	t.Logf("New chaincode tx: %v", newChaincodeTx)
 
-	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChaincodeTx})
+	block1 := protos.NewBlock([]*protos.Transaction{newChaincodeTx})
 	blockNumber := blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))
 	t.Logf("New chain: %v", blockchain)
 	testutil.AssertEquals(t, blockNumber, uint64(0))
@@ -95,7 +96,7 @@ func TestBlockChainEmptyChain(t *testing.T) {
 func TestBlockchainBlockLedgerCommitTimestamp(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
-	block1 := protos.NewBlock("sheehan", nil)
+	block1 := protos.NewBlock(nil)
 	startTime := util.CreateUtcTimestamp()
 	time.Sleep(2 * time.Second)
 	blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))

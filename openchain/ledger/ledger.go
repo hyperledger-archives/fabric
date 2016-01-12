@@ -104,7 +104,7 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock("proposerID", transactions), stateHash), nil
+	return ledger.blockchain.buildBlock(protos.NewBlock(transactions), stateHash), nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
@@ -127,7 +127,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock("proposerID", transactions)
+	block := protos.NewBlock(transactions)
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		success = false
