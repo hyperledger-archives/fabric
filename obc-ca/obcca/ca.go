@@ -187,7 +187,7 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 	return block.Bytes, nil
 }
 
-func (ca *CA) createCertificate(id string, pub *ecdsa.PublicKey, usage x509.KeyUsage, timestamp int64, opt ...pkix.Extension) ([]byte, error) {
+func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, opt ...pkix.Extension) ([]byte, error) {
 	Trace.Println("Creating certificate for "+id+".")
 
 	raw, err := ca.newCertificate(pub, usage, opt)
@@ -205,7 +205,7 @@ func (ca *CA) createCertificate(id string, pub *ecdsa.PublicKey, usage x509.KeyU
 	return raw, err
 }
 
-func (ca *CA) newCertificate(pub *ecdsa.PublicKey, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
+func (ca *CA) newCertificate(pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
 

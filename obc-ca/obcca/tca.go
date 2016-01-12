@@ -29,7 +29,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
-	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -59,7 +58,6 @@ type TCA struct {
 	eca     *ECA
 
 	hmacKey []byte
-	rand io.Reader
 
 	sockp, socka net.Listener
 	srvp, srva   *grpc.Server
@@ -82,13 +80,12 @@ type TCAA struct {
 func NewTCA(eca *ECA) *TCA {
 	var cooked string
 
-	tca := &TCA{NewCA("tca"), eca, nil, rand.Reader, nil, nil, nil, nil}
+	tca := &TCA{NewCA("tca"), eca, nil, nil, nil, nil, nil}
 
 	raw, err := ioutil.ReadFile(RootPath + "/tca.hmac")
 	if err != nil {
-		rand := rand.Reader
 		key := make([]byte, 49)
-		rand.Read(key)
+		rand.Reader.Read(key)
 		cooked = base64.StdEncoding.EncodeToString(key)
 
 		err = ioutil.WriteFile(RootPath+"/tca.hmac", []byte(cooked), 0644)
@@ -250,7 +247,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 	}
 
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
-	tcap.tca.rand.Read(nonce[:8])
+	rand.Reader.Read(nonce[:8])
 	binary.LittleEndian.PutUint64(nonce[8:], uint64(req.Ts.Seconds))
 
 	mac := hmac.New(sha3.New384, tcap.tca.hmacKey)

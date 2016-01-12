@@ -95,7 +95,7 @@ message Identity {
 }
 
 message Token {
-    string tok = 1;
+    bytes tok = 1;
 }
 
 

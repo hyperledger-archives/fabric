@@ -20,8 +20,10 @@ under the License.
 package obcca
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
@@ -34,7 +36,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
-	nacl "golang.org/x/crypto/nacl/box"
+//	nacl "golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -47,7 +49,8 @@ type ECA struct {
 	*CA
 
 	obcKey          []byte
-	encPub, encPriv []byte
+//	encPub, encPriv []byte
+
 	sockp, socka    net.Listener
 	srvp, srva      *grpc.Server
 }
@@ -69,7 +72,7 @@ type ECAA struct {
 func NewECA() *ECA {
 	var cooked string
 
-	eca := &ECA{NewCA("eca"), nil, nil, nil, nil, nil, nil, nil}
+	eca := &ECA{NewCA("eca"), nil, /* nil, nil, */ nil, nil, nil, nil}
 
 	// read or create global symmetric encryption key
 	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
@@ -92,6 +95,7 @@ func NewECA() *ECA {
 		Panic.Panicln(err)
 	}
 
+/*
 	// read or create ECA encryption key pair
 	raw, err = ioutil.ReadFile(RootPath + "/eca.nacl")
 	if err != nil {
@@ -113,6 +117,7 @@ func NewECA() *ECA {
 	pair, err := base64.StdEncoding.DecodeString(cooked)
 	eca.encPub = pair[:32]
 	eca.encPriv = pair[32:]
+*/
 
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
@@ -195,26 +200,36 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 	Trace.Println("grpc ECAP:CreateCertificate")
 
 	// validate token
-	var tok string
+	var tok []byte
 	var state int
 
 	id := req.Id.Id
 	err := ecap.eca.readToken(id).Scan(&tok, &state)
-	if err != nil || tok != req.Tok.Tok {
+	if err != nil || !bytes.Equal(tok, req.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
+	}
+
+	ekey, err := x509.ParsePKIXPublicKey(req.Enc.Key)
+	if err != nil {
+		return nil, err
 	}
 
 	switch {
 	case state == 0:
 		// initial request, create encryption challenge
-		tok = randomString(12)
+		tok = []byte(randomString(12))
 
 		_, err = ecap.eca.db.Exec("UPDATE Users SET token=?, state=? WHERE id=?", tok, 1, id)
 		if err != nil {
 			return nil, err
 		}
 
-		return &pb.ECertCreateResp{nil, &pb.Token{tok}}, nil
+		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
+		if err != nil {
+			return nil, err
+		}
+		
+		return &pb.ECertCreateResp{nil, &pb.Token{out}}, nil
 
 	case state == 1:
 		// validate request signature
@@ -229,10 +244,6 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 			return nil, errors.New("unsupported key type")
 		}
 		skey, err := x509.ParsePKIXPublicKey(req.Sign.Key)
-		if err != nil {
-			return nil, err
-		}
-		ekey, err := x509.ParsePKIXPublicKey(req.Enc.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +264,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, ts)
+		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts)
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)
@@ -313,7 +324,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Token,
 
 	tok, err := ecaa.eca.registerUser(id.Id)
 
-	return &pb.Token{tok}, err
+	return &pb.Token{[]byte(tok)}, err
 }
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.

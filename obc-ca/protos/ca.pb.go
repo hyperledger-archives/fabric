@@ -130,7 +130,7 @@ func (m *Identity) String() string { return proto.CompactTextString(m) }
 func (*Identity) ProtoMessage()    {}
 
 type Token struct {
-	Tok string `protobuf:"bytes,1,opt,name=tok" json:"tok,omitempty"`
+	Tok []byte `protobuf:"bytes,1,opt,name=tok,proto3" json:"tok,omitempty"`
 }
 
 func (m *Token) Reset()         { *m = Token{} }
