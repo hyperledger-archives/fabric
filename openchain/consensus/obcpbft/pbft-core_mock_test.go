@@ -69,6 +69,7 @@ type taggedMsg struct {
 }
 
 type testnet struct {
+	N        int
 	f        int
 	cond     *sync.Cond
 	closed   bool
@@ -327,16 +328,16 @@ func (net *testnet) processContinually() {
 	}
 }
 
-func makeTestnet(f int, initFn ...func(*instance)) *testnet {
-	net := &testnet{f: f}
+func makeTestnet(N int, initFn ...func(*instance)) *testnet {
+	f := N / 3
+	net := &testnet{f: f, N: N}
 	net.cond = sync.NewCond(&sync.Mutex{})
-	replicaCount := 3*f + 1
 
-	for i := uint64(0); i < uint64(replicaCount); i++ {
+	for i := uint64(0); i < uint64(N); i++ {
 	}
 
-	ledgers := make(map[uint64]ReadOnlyLedger, replicaCount)
-	for i := 0; i < replicaCount; i++ {
+	ledgers := make(map[uint64]ReadOnlyLedger, N)
+	for i := 0; i < N; i++ {
 		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
 		ml := NewMockLedger(&ledgers, nil)
 		ml.inst = inst

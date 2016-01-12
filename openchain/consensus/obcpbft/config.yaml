@@ -15,8 +15,8 @@ general:
     # Operational mode: batch, classic, or sieve
     mode: classic
 
-    # How many Byzantine nodes can we tolerate
-    f: 1
+    # Maximum number of validators/replicas we expect in the network.
+    N: 4
 
     # Checkpoint period
     K: 10
