@@ -166,3 +166,10 @@ message flush {
     uint64 replica_id = 2;
     bytes signature = 3;
 }
+
+// consensus metadata
+
+message metadata {
+    uint64 seqNo = 1;
+    string blockProposer = 2;
+}
