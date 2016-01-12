@@ -46,6 +46,10 @@ func New(cpi consensus.CPI) consensus.Consenter {
 	config := readConfig()
 	handle, _, _ := cpi.GetNetworkHandles()
 	id, _ := cpi.GetReplicaID(handle)
+	if id > uint64(config.GetInt("general.N")-1) {
+		err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(config.GetInt("general.N")-1))
+		panic(err)
+	}
 
 	switch config.GetString("general.mode") {
 	case "classic":

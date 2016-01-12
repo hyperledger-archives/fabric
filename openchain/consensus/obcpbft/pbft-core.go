@@ -66,7 +66,8 @@ type pbftCore struct {
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int               // number of faults we can tolerate
+	f            int               // max. number of faults we can tolerate
+	N            int               // max.number of validators in the network
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
@@ -153,7 +154,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
 	var err error
 	instance.byzantine = config.GetBool("replica.byzantine")
-	instance.f = config.GetInt("general.f")
+	instance.N = config.GetInt("general.N")
+	instance.f = instance.N / 3
 	instance.K = uint64(config.GetInt("general.K"))
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
