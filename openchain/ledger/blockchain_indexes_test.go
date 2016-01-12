@@ -87,29 +87,13 @@ func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 func TestIndexes_GetTransactionByUUID(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	tx1, uuid1, err := buildTestTx()
-	if err != nil {
-		t.Logf("Error building test transaction: %s", err)
-		t.Fail()
-	}
-	tx2, uuid2, err := buildTestTx()
-	if err != nil {
-		t.Logf("Error building test transaction: %s", err)
-		t.Fail()
-	}
+	tx1, uuid1 := buildTestTx(t)
+	tx2, uuid2 := buildTestTx(t)
 	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2})
 	testBlockchainWrapper.addNewBlock(block1, []byte("stateHash1"))
 
-	tx3, uuid3, err := buildTestTx()
-	if err != nil {
-		t.Logf("Error building test transaction: %s", err)
-		t.Fail()
-	}
-	tx4, uuid4, err := buildTestTx()
-	if err != nil {
-		t.Logf("Error building test transaction: %s", err)
-		t.Fail()
-	}
+	tx3, uuid3 := buildTestTx(t)
+	tx4, uuid4 := buildTestTx(t)
 	block2 := protos.NewBlock([]*protos.Transaction{tx3, tx4})
 	testBlockchainWrapper.addNewBlock(block2, []byte("stateHash2"))
 

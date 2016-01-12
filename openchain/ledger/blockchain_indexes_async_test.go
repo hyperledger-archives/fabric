@@ -69,7 +69,7 @@ func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		chain.size = chain.size - 1
-		blk,err := buildTestBlock()
+		blk,err := buildTestBlock(t)
 		if err != nil {
 			t.Logf("Error building test block: %s", err)
 			t.Fail()

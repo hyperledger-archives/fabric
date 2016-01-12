@@ -142,18 +142,16 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	return allBlocks, allHashes, nil
 }
 
-func buildTestTx() (*protos.Transaction, string, error) {
+func buildTestTx(t *testing.T) (*protos.Transaction, string) {
 	uuid, _ := util.GenerateUUID()
 	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-	return tx, uuid, err
+	testutil.AssertNil(t, err)
+	return tx, uuid
 }
 
-func buildTestBlock() (*protos.Block, error) {
+func buildTestBlock(t *testing.T) (*protos.Block, error) {
 	transactions := []*protos.Transaction{}
-	tx, _, err := buildTestTx()
-	if err != nil {
-		return nil, err
-	}
+	tx, _ := buildTestTx(t)
 	transactions = append(transactions, tx)
 	block := protos.NewBlock(transactions)
 	return block, nil
