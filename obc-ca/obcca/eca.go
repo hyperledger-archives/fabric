@@ -29,8 +29,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -40,19 +38,13 @@ import (
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // ECA is the enrollment certificate authority.
 //
 type ECA struct {
 	*CA
-
 	obcKey          []byte
-//	encPub, encPriv []byte
-
-	sockp, socka    net.Listener
-	srvp, srva      *grpc.Server
 }
 
 // ECAP serves the public GRPC interface of the ECA.
@@ -72,7 +64,7 @@ type ECAA struct {
 func NewECA() *ECA {
 	var cooked string
 
-	eca := &ECA{NewCA("eca"), nil, /* nil, nil, */ nil, nil, nil, nil}
+	eca := &ECA{NewCA("eca"), nil}
 
 	// read or create global symmetric encryption key
 	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
@@ -95,30 +87,6 @@ func NewECA() *ECA {
 		Panic.Panicln(err)
 	}
 
-/*
-	// read or create ECA encryption key pair
-	raw, err = ioutil.ReadFile(RootPath + "/eca.nacl")
-	if err != nil {
-		pub, priv, err := nacl.GenerateKey(rand.Reader)
-
-		pair := make([]byte, 64)
-		copy(pair[:32], pub[:])
-		copy(pair[32:], priv[:])
-		cooked = base64.StdEncoding.EncodeToString(pair)
-
-		err = ioutil.WriteFile(RootPath+"/eca.nacl", []byte(cooked), 0644)
-		if err != nil {
-			Panic.Panicln(err)
-		}
-	} else {
-		cooked = string(raw)
-	}
-
-	pair, err := base64.StdEncoding.DecodeString(cooked)
-	eca.encPub = pair[:32]
-	eca.encPriv = pair[32:]
-*/
-
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, tok := range users {
@@ -130,60 +98,19 @@ func NewECA() *ECA {
 
 // Start starts the ECA.
 //
-func (eca *ECA) Start(wg *sync.WaitGroup) {
-	var opts []grpc.ServerOption
-	if viper.GetString("eca.tls.certfile") != "" {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("eca.tls.certfile"), viper.GetString("eca.tls.keyfile"))
-		if err != nil {
-			Panic.Panicln(err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-
-	wg.Add(2)
-	go eca.startECAP(wg, opts)
-	go eca.startECAA(wg, opts)
+func (eca *ECA) Start(srv *grpc.Server) {
+	eca.startECAP(srv)
+	eca.startECAA(srv)
 
 	Info.Println("ECA started.")
 }
 
-// Stop stops the ECA.
-//
-func (eca *ECA) Stop() {
-	eca.srvp.Stop()
-	eca.srva.Stop()
+func (eca *ECA) startECAP(srv *grpc.Server) {
+	pb.RegisterECAPServer(srv, &ECAP{eca})
 }
 
-func (eca *ECA) startECAP(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-
-	eca.sockp, err = net.Listen("tcp", viper.GetString("ports.ecaP"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	eca.srvp = grpc.NewServer(opts...)
-	pb.RegisterECAPServer(eca.srvp, &ECAP{eca})
-	eca.srvp.Serve(eca.sockp)
-
-	_ = eca.sockp.Close()
-	wg.Done()
-}
-
-func (eca *ECA) startECAA(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-
-	eca.socka, err = net.Listen("tcp", viper.GetString("ports.ecaA"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	eca.srva = grpc.NewServer(opts...)
-	pb.RegisterECAAServer(eca.srva, &ECAA{eca})
-	eca.srva.Serve(eca.socka)
-
-	_ = eca.socka.Close()
-	wg.Done()
+func (eca *ECA) startECAA(srv *grpc.Server) {
+	pb.RegisterECAAServer(srv, &ECAA{eca})
 }
 
 // ReadCACertificate reads the certificate of the ECA.

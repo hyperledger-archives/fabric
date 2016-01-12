@@ -31,18 +31,14 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"net"
 	"strconv"
-	"sync"
 
 	"golang.org/x/crypto/sha3"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -56,11 +52,7 @@ var (
 type TCA struct {
 	*CA
 	eca     *ECA
-
 	hmacKey []byte
-
-	sockp, socka net.Listener
-	srvp, srva   *grpc.Server
 }
 
 // TCAP serves the public GRPC interface of the TCA.
@@ -80,7 +72,7 @@ type TCAA struct {
 func NewTCA(eca *ECA) *TCA {
 	var cooked string
 
-	tca := &TCA{NewCA("tca"), eca, nil, nil, nil, nil, nil}
+	tca := &TCA{NewCA("tca"), eca, nil}
 
 	raw, err := ioutil.ReadFile(RootPath + "/tca.hmac")
 	if err != nil {
@@ -106,60 +98,19 @@ func NewTCA(eca *ECA) *TCA {
 
 // Start starts the TCA.
 //
-func (tca *TCA) Start(wg *sync.WaitGroup) {
-	var opts []grpc.ServerOption
-	if viper.GetString("tca.tls.certfile") != "" {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("tca.tls.certfile"), viper.GetString("tca.tls.keyfile"))
-		if err != nil {
-			Panic.Panicln(err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-
-	wg.Add(2)
-	go tca.startTCAP(wg, opts)
-	go tca.startTCAA(wg, opts)
+func (tca *TCA) Start(srv *grpc.Server) {
+	tca.startTCAP(srv)
+	tca.startTCAA(srv)
 
 	Info.Println("TCA started.")
 }
 
-// Stop stops the TCA.
-//
-func (tca *TCA) Stop() {
-	tca.srvp.Stop()
-	tca.srva.Stop()
+func (tca *TCA) startTCAP(srv *grpc.Server) {
+	pb.RegisterTCAPServer(srv, &TCAP{tca})
 }
 
-func (tca *TCA) startTCAP(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-
-	tca.sockp, err = net.Listen("tcp", viper.GetString("ports.tcaP"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tca.srvp = grpc.NewServer(opts...)
-	pb.RegisterTCAPServer(tca.srvp, &TCAP{tca})
-	tca.srvp.Serve(tca.sockp)
-
-	_ = tca.sockp.Close()
-	wg.Done()
-}
-
-func (tca *TCA) startTCAA(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-
-	tca.socka, err = net.Listen("tcp", viper.GetString("ports.tcaA"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tca.srva = grpc.NewServer(opts...)
-	pb.RegisterTCAAServer(tca.srva, &TCAA{tca})
-	tca.srva.Serve(tca.socka)
-
-	_ = tca.socka.Close()
-	wg.Done()
+func (tca *TCA) startTCAA(srv *grpc.Server) {
+	pb.RegisterTCAAServer(srv, &TCAA{tca})
 }
 
 // ReadCACertificate reads the certificate of the TCA.

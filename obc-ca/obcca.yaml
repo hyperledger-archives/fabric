@@ -1,33 +1,12 @@
 server:
         version: "0.1"
+        port: ":50051"
 
-ports:
-        ecaP: ":50051"
-        ecaA: ":50052"
-        tcaP: ":50551"
-        tcaA: ":50552"
-        tlscaP: ":50951"
-        tlscaA: ":50952"
+        tls:
+#                certfile:
+#                keyfile:
 
-hosts:
-        eca: localhost
-        tca: localhost
-        tlsca: localhost
-        
+
 eca:
-        tls:
-#                certfile:
-#                keyfile:
-                
         users:
-#                donq: 9gvZQRwhUq9q
-
-tca:
-        tls:
-#                certfile:
-#                keyfile:
-
-tlsca:
-        tls:
-#                certfile:
-#                keyfile:
+#                 donq: 9gvZQRwhUq9q

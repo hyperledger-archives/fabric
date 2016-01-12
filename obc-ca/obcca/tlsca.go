@@ -24,16 +24,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"math/big"
-	"net"
-	"sync"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // TLSCA is the tls certificate authority.
@@ -41,9 +37,6 @@ import (
 type TLSCA struct {
 	*CA
 	eca     *ECA
-	
-	sockp, socka net.Listener
-	srvp, srva   *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -61,66 +54,26 @@ type TLSCAA struct {
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca"), eca, nil, nil, nil, nil}
+	tlsca := &TLSCA{NewCA("tlsca"), eca}
 
 	return tlsca
 }
 
 // Start starts the TLSCA.
 //
-func (tlsca *TLSCA) Start(wg *sync.WaitGroup) {
-	var opts []grpc.ServerOption
-	if viper.GetString("tlsca.tls.certfile") != "" {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("tlsca.tls.certfile"), viper.GetString("tlsca.tls.keyfile"))
-		if err != nil {
-			Panic.Panicln(err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-
-	wg.Add(2)
-	go tlsca.startTLSCAP(opts)
-	go tlsca.startTLSCAA(opts)
+func (tlsca *TLSCA) Start(srv *grpc.Server) {
+	tlsca.startTLSCAP(srv)
+	tlsca.startTLSCAA(srv)
 
 	Info.Println("TLSCA started.")
 }
 
-// Stop stops the TLSCA.
-//
-func (tlsca *TLSCA) Stop(wg *sync.WaitGroup) {
-	tlsca.srvp.Stop()
-	_ = tlsca.sockp.Close()
-	wg.Done()
-
-	tlsca.srva.Stop()
-	_ = tlsca.socka.Close()
-	wg.Done()
+func (tlsca *TLSCA) startTLSCAP(srv *grpc.Server) {
+	pb.RegisterTLSCAPServer(srv, &TLSCAP{tlsca})
 }
 
-func (tlsca *TLSCA) startTLSCAP(opts []grpc.ServerOption) {
-	var err error
-
-	tlsca.sockp, err = net.Listen("tcp", viper.GetString("ports.tlscaP"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tlsca.srvp = grpc.NewServer(opts...)
-	pb.RegisterTLSCAPServer(tlsca.srvp, &TLSCAP{tlsca})
-	tlsca.srvp.Serve(tlsca.sockp)
-}
-
-func (tlsca *TLSCA) startTLSCAA(opts []grpc.ServerOption) {
-	var err error
-
-	tlsca.socka, err = net.Listen("tcp", viper.GetString("ports.tlscaA"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tlsca.srva = grpc.NewServer(opts...)
-	pb.RegisterTLSCAAServer(tlsca.srva, &TLSCAA{tlsca})
-	tlsca.srva.Serve(tlsca.socka)
+func (tlsca *TLSCA) startTLSCAA(srv *grpc.Server) {
+	pb.RegisterTLSCAAServer(srv, &TLSCAA{tlsca})
 }
 
 // ReadCACertificate reads the certificate of the TLSCA.

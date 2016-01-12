@@ -20,12 +20,15 @@ under the License.
 package main
 
 import (
-	"io/ioutil"
+//	"fmt"
+//	"io/ioutil"
+	"net"
 	"os"
-	"sync"
 
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -38,7 +41,7 @@ func main() {
 		panic(err)
 	}
 
-	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	obcca.LogInit(os.Stdout /* ioutil.Discard */, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
@@ -51,10 +54,26 @@ func main() {
 	tlsca := obcca.NewTLSCA(eca)
 	defer tlsca.Close()
 
-	var wg sync.WaitGroup
-	eca.Start(&wg)
-	tca.Start(&wg)
-	tlsca.Start(&wg)
+	var opts []grpc.ServerOption
+	if viper.GetString("tls.certfile") != "" {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
+		if err != nil {
+			panic(err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	srv := grpc.NewServer(opts...)
 
-	wg.Wait()
+	eca.Start(srv)
+	tca.Start(srv)
+	tlsca.Start(srv)
+
+	sock, err := net.Listen("tcp", viper.GetString("server.port"))
+	if err != nil {
+		panic(err)
+	}
+
+	srv.Serve(sock)
+
+	sock.Close()
 }
