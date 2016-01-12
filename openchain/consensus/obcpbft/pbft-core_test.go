@@ -25,7 +25,7 @@ import (
 	"fmt"
 	gp "google/protobuf"
 	"os"
-	// "reflect"
+	"reflect"
 	"testing"
 	"time"
 
@@ -150,13 +150,11 @@ func TestNetwork(t *testing.T) {
 			t.Errorf("Instance %d executed more than one transaction", inst.id)
 			continue
 		}
-		/* // TODO, this should work, pending discussion as to why it doesn't
 		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
-		if !reflect.DeepEqual(highestBlock.Transactions[0], tx) {
-			t.Errorf("Instance %d executed wrong transaction, %v should be %v",
-				inst.id, highestBlock.Transactions[0], tx)
+		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, txPacked) {
+			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
+				inst.id, highestBlock.Transactions[0].Payload, txPacked)
 		}
-		*/
 	}
 }
 
