@@ -134,11 +134,9 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	cmd := exec.Command("cp", "-r", origgopath + "/src", codegopath + "/src")
 	cmd.Env = env
 	cmd.Stdout = &out
-	err = cmd.Run()
-	if err != nil {
-		return
-	}
+	err = cmd.Start()
 	
+	// Create a go routine that will wait for the command to finish	
 	env[gopathenvIndex] = "GOPATH=" + codegopath
 	
 	// Use a 'go get' command to pull the chaincode from the given repo
@@ -149,7 +147,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	err = cmd.Start()
 	
 	// Create a go routine that will wait for the command to finish
-	done := make(chan error, 1)
+	done = make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
