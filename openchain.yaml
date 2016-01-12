@@ -101,10 +101,6 @@ peer:
         # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
         consensus: noops
 
-         # List of validating peers.
-        replicas:
-            # Base64-encoded values of hashed raw enrollment certificates.
-            handles: wflO9QwKqE491gdUvgiAWa5dU2YLxGxLi/lNkRMBdSYgPRBiTc0yCylqELAxvtRd, XvtaQ3yvEW8qNw0QivEZtSD4/YZKZJ6psMeCVawmcosEERW4L5MB0BfVjVUAdZ1Q, /wbGpAMC/mdBDXwioQdwbVPTpclSOCTEm1UFc75bcSlZlwYrBnCZN4XLh7VGEf64, GvOyMK1If75nlCN6NvM9btjVWd+v56/n9Iof8f0SOI/z9NFQ3VLPONREYgvNnyXz
         events:
             # The address that the Event service will be enabled on the validator
             address: 0.0.0.0:31315
