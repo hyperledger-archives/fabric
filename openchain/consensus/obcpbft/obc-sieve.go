@@ -513,7 +513,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 			_ = dSet
 		} else {
 			logger.Debug("Decision successful, committing result")
-			if op.commit(vset.View, vset.BlockNumber) != nil {
+			if op.commit(vset.BlockNumber) != nil {
 				op.rollback()
 				op.blockNumber--
 				op.currentReq = ""
@@ -566,8 +566,8 @@ func (op *obcSieve) rollback() error {
 	return nil
 }
 
-func (op *obcSieve) commit(view uint64, seqNo uint64) error {
-	metadataMsg := &Metadata{SeqNo: seqNo, BlockProposer: view}
+func (op *obcSieve) commit(seqNo uint64) error {
+	metadataMsg := &Metadata{SeqNo: seqNo}
 	rawMetadata, err := proto.Marshal(metadataMsg)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal consensus metadata before committing of transaction: %v", err)

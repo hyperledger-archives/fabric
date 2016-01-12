@@ -205,7 +205,7 @@ func (op *obcBatch) execute(tbRaw []byte, opts ...interface{}) {
 		return
 	}
 
-	metadataMsg := &Metadata{SeqNo: opts[1].(uint64), BlockProposer: opts[0].(uint64)}
+	metadataMsg := &Metadata{SeqNo: opts[0].(uint64)}
 	rawMetadata, err := proto.Marshal(metadataMsg)
 	if err != nil {
 		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
