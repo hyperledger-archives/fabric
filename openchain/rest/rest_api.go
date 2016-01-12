@@ -773,7 +773,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	if isJSON(string(resp.Msg)) {
 		// Response is JSON formatted, return it as is
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", string(resp.Msg))
+		fmt.Fprintf(rw, "{\"OK\": %s}", string(resp.Msg))
 	} else {
 		// Response is not JSON formatted, construct a JSON formatted response
 		jsonResponse, err := json.Marshal(restResult{OK: string(resp.Msg)})
