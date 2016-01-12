@@ -118,7 +118,7 @@ func TestIncompletePayload(t *testing.T) {
 }
 
 func TestNetwork(t *testing.T) {
-	net := makeTestnet(2, makeTestnetPbftCore)
+	net := makeTestnet(7, makeTestnetPbftCore)
 	defer net.close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -159,7 +159,7 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 	})
@@ -206,7 +206,7 @@ func TestCheckpoint(t *testing.T) {
 }
 
 func TestLostPrePrepare(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -253,7 +253,7 @@ func TestLostPrePrepare(t *testing.T) {
 }
 
 func TestInconsistentPrePrepare(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -300,7 +300,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = inst.pbft.K * 2
@@ -356,7 +356,7 @@ func TestViewChange(t *testing.T) {
 }
 
 func TestInconsistentDataViewChange(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -419,7 +419,7 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.newViewTimeout = 100 * time.Millisecond
 		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
@@ -468,7 +468,7 @@ func TestNewViewTimeout(t *testing.T) {
 }
 
 func TestFallBehind(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = 2 * inst.pbft.K

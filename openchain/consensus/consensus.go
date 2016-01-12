@@ -42,9 +42,9 @@ type Ledger interface {
 
 	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
-	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
+	CommitTxBatch(id interface{}, transactions []*pb.Transaction, metadata []byte) error
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, proof []byte) (*pb.Block, error)
+	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
 }
 
 // CPI (Consensus Programming Interface) is the set of

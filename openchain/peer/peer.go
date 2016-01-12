@@ -146,23 +146,28 @@ func GetLocalAddress() (peerAddress string, err error) {
 
 // GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
 func GetPeerEndpoint(opts ...interface{}) (*pb.PeerEndpoint, error) {
-	var peerAddress, peerID string
+	var peerID, peerAddress, peerCrypto string
 	var peerType pb.PeerEndpoint_Type
+
+	peerID = viper.GetString("peer.id")
+
 	peerAddress, err := GetLocalAddress()
 	if err != nil {
 		return nil, err
 	}
-	if viper.GetBool("security.enabled") && len(opts) > 0 {
-		peerID = base64.StdEncoding.EncodeToString(opts[0].(crypto.Peer).GetID())
-	} else {
-		peerID = viper.GetString("peer.id")
-	}
+
 	if viper.GetBool("peer.validator.enabled") {
 		peerType = pb.PeerEndpoint_VALIDATOR
 	} else {
 		peerType = pb.PeerEndpoint_NON_VALIDATOR
 	}
-	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: peerID}, Address: peerAddress, Type: peerType}, nil
+
+	if viper.GetBool("security.enabled") && len(opts) > 0 {
+		// hashed raw enrollment certificate
+		peerCrypto = base64.StdEncoding.EncodeToString(opts[0].(crypto.Peer).GetID())
+	}
+
+	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: peerID}, Address: peerAddress, Type: peerType, CryptoHandle: peerCrypto}, nil
 }
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -237,7 +242,6 @@ func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, 
 			if nil != err {
 				return nil, err
 			}
-			peerLogger.Debug("Validator's crypto-ID is: %s", base64.StdEncoding.EncodeToString(peer.secHelper.GetID()))
 		} else {
 			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
@@ -273,7 +277,7 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	for _, msgHandler := range p.handlerMap.m {
 		peerEndpoint, err := msgHandler.To()
 		if err != nil {
-			return nil, fmt.Errorf("Error Getting Peers: %s", err)
+			return nil, fmt.Errorf("Error getting Peers: %s", err)
 		}
 		peers = append(peers, &peerEndpoint)
 	}
@@ -332,7 +336,7 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 		return newDuplicateHandlerError(messageHandler)
 	}
 	p.handlerMap.m[key] = messageHandler
-	peerLogger.Debug("registered handler with key: %s", key)
+	peerLogger.Debug("Registered handler with key: %s", key)
 	return nil
 }
 
@@ -358,8 +362,7 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	var errorsFromHandlers []error
-	for key, msgHandler := range p.handlerMap.m {
-		peerLogger.Debug("Key: %s", key)
+	for _, msgHandler := range p.handlerMap.m {
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()

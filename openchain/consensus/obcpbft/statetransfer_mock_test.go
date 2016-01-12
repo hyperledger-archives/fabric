@@ -117,8 +117,8 @@ func (mock *MockLedger) ExecTXs(txs []*protos.Transaction) ([]byte, []error) {
 	return nil, errs
 }
 
-func (mock *MockLedger) CommitTxBatch(id interface{}, txs []*protos.Transaction, proof []byte) error {
-	_, err := mock.commonCommitTx(id, txs, proof, false)
+func (mock *MockLedger) CommitTxBatch(id interface{}, txs []*protos.Transaction, metadata []byte) error {
+	_, err := mock.commonCommitTx(id, txs, metadata, false)
 	if nil == err {
 		mock.txID = nil
 	}
@@ -176,8 +176,8 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 	return block, nil
 }
 
-func (mock *MockLedger) PreviewCommitTxBatchBlock(id interface{}, txs []*protos.Transaction, proof []byte) (*protos.Block, error) {
-	return mock.commonCommitTx(id, txs, proof, true)
+func (mock *MockLedger) PreviewCommitTxBatchBlock(id interface{}, txs []*protos.Transaction, metadata []byte) (*protos.Block, error) {
+	return mock.commonCommitTx(id, txs, metadata, true)
 }
 
 func (mock *MockLedger) RollbackTxBatch(id interface{}) error {

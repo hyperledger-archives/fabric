@@ -42,7 +42,7 @@ func makeTestnetSieve(inst *instance) {
 }
 
 func TestSieveNetwork(t *testing.T) {
-	net := makeTestnet(1, makeTestnetSieve)
+	net := makeTestnet(4, makeTestnetSieve)
 	defer net.close()
 
 	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
@@ -71,7 +71,7 @@ func TestSieveNetwork(t *testing.T) {
 }
 
 func TestSieveNoDecision(t *testing.T) {
-	net := makeTestnet(1, func(i *instance) {
+	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
 		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
 		i.consenter.(*obcSieve).pbft.newViewTimeout = 100 * time.Millisecond
@@ -113,7 +113,7 @@ func TestSieveNoDecision(t *testing.T) {
 }
 
 func TestSieveReqBackToBack(t *testing.T) {
-	net := makeTestnet(1, makeTestnetSieve)
+	net := makeTestnet(4, makeTestnetSieve)
 	defer net.close()
 
 	var delayPkt []taggedMsg
@@ -160,7 +160,7 @@ func TestSieveReqBackToBack(t *testing.T) {
 func TestSieveNonDeterministic(t *testing.T) {
 	var instResults []int
 
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetSieve(inst)
 		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)

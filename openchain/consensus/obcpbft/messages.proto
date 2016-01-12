@@ -166,3 +166,11 @@ message flush {
     uint64 replica_id = 2;
     bytes signature = 3;
 }
+
+// consensus metadata
+
+message metadata {
+    uint64 seqNo = 1;
+    uint64 blockProposer = 2; // eventually this needs to be switched to a string
+                              // and carry the hashed raw enrollment certificate
+}

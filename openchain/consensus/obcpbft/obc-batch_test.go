@@ -52,7 +52,7 @@ func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
 }
 
 func TestNetworkBatch(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetBatch(inst, 2)
 	})
 	defer net.close()
