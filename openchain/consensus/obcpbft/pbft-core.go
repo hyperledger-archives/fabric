@@ -745,11 +745,11 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 		if len(instance.hChkpts) >= instance.f+1 {
 			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
 			index := 0
-			for replicaId, hChkpt := range instance.hChkpts {
+			for replicaID, hChkpt := range instance.hChkpts {
 				chkptSeqNumArray[index] = hChkpt
 				index++
 				if hChkpt < H {
-					delete(instance.hChkpts, replicaId)
+					delete(instance.hChkpts, replicaID)
 				}
 			}
 			sort.Sort(sortableUint64Slice(chkptSeqNumArray))
@@ -763,9 +763,9 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 
 				furthestReplicaIds := make([]uint64, instance.f+1)
 				i := 0
-				for replicaId, hChkpt := range instance.hChkpts {
+				for replicaID, hChkpt := range instance.hChkpts {
 					if hChkpt >= m {
-						furthestReplicaIds[i] = replicaId
+						furthestReplicaIds[i] = replicaID
 						i++
 					}
 				}

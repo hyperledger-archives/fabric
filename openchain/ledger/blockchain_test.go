@@ -35,7 +35,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 
 	// Create the Chaincode specification
 	chaincodeSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
-		ChaincodeID: &protos.ChaincodeID{Url: "Contracts"},
+		ChaincodeID: &protos.ChaincodeID{Path: "Contracts"},
 		CtorMsg:     &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
 	chaincodeDeploymentSepc := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: chaincodeSpec}
 	uuid := testutil.GenerateUUID(t)
@@ -43,7 +43,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 	testutil.AssertNoError(t, err, "Failed to create new chaincode Deployment Transaction")
 	t.Logf("New chaincode tx: %v", newChaincodeTx)
 
-	block1 := protos.NewBlock("sheehan", []*protos.Transaction{newChaincodeTx}, nil)
+	block1 := protos.NewBlock([]*protos.Transaction{newChaincodeTx}, nil)
 	blockNumber := blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))
 	t.Logf("New chain: %v", blockchain)
 	testutil.AssertEquals(t, blockNumber, uint64(0))
@@ -96,7 +96,7 @@ func TestBlockChainEmptyChain(t *testing.T) {
 func TestBlockchainBlockLedgerCommitTimestamp(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
-	block1 := protos.NewBlock("sheehan", nil, nil)
+	block1 := protos.NewBlock(nil, nil)
 	startTime := util.CreateUtcTimestamp()
 	time.Sleep(2 * time.Second)
 	blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))

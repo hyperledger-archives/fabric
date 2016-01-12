@@ -58,7 +58,7 @@ type MockLedger struct {
 	blockHeight   uint64
 	state         uint64
 	remoteLedgers *map[uint64]ReadOnlyLedger
-	filter        func(request mockRequest, replicaId uint64) mockResponse
+	filter        func(request mockRequest, replicaID uint64) mockResponse
 
 	mutex *sync.Mutex
 
@@ -68,7 +68,7 @@ type MockLedger struct {
 	inst *instance // To support the ExecTX stuff
 }
 
-func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request mockRequest, replicaId uint64) mockResponse) *MockLedger {
+func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request mockRequest, replicaID uint64) mockResponse) *MockLedger {
 	mock := &MockLedger{}
 	mock.mutex = &sync.Mutex{}
 	mock.blocks = make(map[uint64]*protos.Block)
@@ -76,7 +76,7 @@ func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request
 	mock.blockHeight = 0
 
 	if nil == filter {
-		mock.filter = func(request mockRequest, replicaId uint64) mockResponse {
+		mock.filter = func(request mockRequest, replicaID uint64) mockResponse {
 			return Normal
 		}
 	} else {
@@ -213,15 +213,15 @@ func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 	return SimpleHashBlock(block), nil
 }
 
-func (mock *MockLedger) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
+func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
 	res := make(chan *protos.SyncBlocks)
-	ft := mock.filter(SyncBlocks, replicaId)
+	ft := mock.filter(SyncBlocks, replicaID)
 	switch ft {
 	case Normal:
 		go func() {
 			current := start
 			for {
-				if block, err := (*mock.remoteLedgers)[replicaId].GetBlock(current); nil == err {
+				if block, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
 					res <- &protos.SyncBlocks{
 						Range: &protos.SyncBlockRange{
 							Start: current,
@@ -253,16 +253,16 @@ func (mock *MockLedger) GetRemoteBlocks(replicaId uint64, start, finish uint64) 
 	return res, nil
 }
 
-func (mock *MockLedger) GetRemoteStateSnapshot(replicaId uint64) (<-chan *protos.SyncStateSnapshot, error) {
+func (mock *MockLedger) GetRemoteStateSnapshot(replicaID uint64) (<-chan *protos.SyncStateSnapshot, error) {
 	res := make(chan *protos.SyncStateSnapshot)
-	ft := mock.filter(SyncSnapshot, replicaId)
+	ft := mock.filter(SyncSnapshot, replicaID)
 	switch ft {
 	case Normal:
-		remoteBlockHeight, _ := (*mock.remoteLedgers)[replicaId].GetBlockchainSize()
+		remoteBlockHeight, _ := (*mock.remoteLedgers)[replicaID].GetBlockchainSize()
 		if remoteBlockHeight < 1 {
 			break
 		}
-		rds, err := mock.GetRemoteStateDeltas(replicaId, 0, remoteBlockHeight-1)
+		rds, err := mock.GetRemoteStateDeltas(replicaID, 0, remoteBlockHeight-1)
 		if nil != err {
 			return nil, err
 		}
@@ -288,15 +288,15 @@ func (mock *MockLedger) GetRemoteStateSnapshot(replicaId uint64) (<-chan *protos
 	return res, nil
 }
 
-func (mock *MockLedger) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+func (mock *MockLedger) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
 	res := make(chan *protos.SyncStateDeltas)
-	ft := mock.filter(SyncDeltas, replicaId)
+	ft := mock.filter(SyncDeltas, replicaID)
 	switch ft {
 	case Normal:
 		go func() {
 			current := start
 			for {
-				if remoteBlock, err := (*mock.remoteLedgers)[replicaId].GetBlock(current); nil == err {
+				if remoteBlock, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
 					deltas := make([][]byte, len(remoteBlock.Transactions))
 					for i, transaction := range remoteBlock.Transactions {
 						deltas[i] = transaction.Payload

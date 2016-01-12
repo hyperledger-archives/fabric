@@ -65,7 +65,7 @@ func (stateTrieTestWrapper *stateTrieTestWrapper) PersistChangesAndResetInMemory
 	writeBatch := gorocksdb.NewWriteBatch()
 	stateTrieTestWrapper.AddChangesForPersistence(writeBatch)
 	testDBWrapper.WriteToDB(stateTrieTestWrapper.t, writeBatch)
-	stateTrieTestWrapper.stateTrie.ClearWorkingSet()
+	stateTrieTestWrapper.stateTrie.ClearWorkingSet(true)
 }
 
 type trieNodeTestWrapper struct {

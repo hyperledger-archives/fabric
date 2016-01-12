@@ -17,31 +17,12 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package protos
+package rest
 
-import (
-	"testing"
+import "encoding/json"
 
-	"github.com/golang/protobuf/proto"
-)
-
-func Test_Transaction_CreateNew(t *testing.T) {
-
-	tx := &Transaction{ChaincodeID: &ChaincodeID{Path: "Contract001"}}
-	t.Logf("Transaction: %v", tx)
-
-	data, err := proto.Marshal(tx)
-	if err != nil {
-		t.Errorf("Error marshalling transaction: %s", err)
-	}
-	t.Logf("Marshalled data: %v", data)
-
-	// TODO: This doesn't seem like a proper test. Needs to be edited.
-	txUnmarshalled := &Transaction{}
-	err = proto.Unmarshal(data, txUnmarshalled)
-	t.Logf("Unmarshalled transaction: %v", txUnmarshalled)
-	if err != nil {
-		t.Errorf("Error unmarshalling block: %s", err)
-	}
-
+// isJSON is a helper function to determine if a given string is proper JSON.
+func isJSON(s string) bool {
+	var js map[string]interface{}
+	return json.Unmarshal([]byte(s), &js) == nil
 }

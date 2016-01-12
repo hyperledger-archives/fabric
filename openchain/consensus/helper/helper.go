@@ -166,7 +166,8 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-func (h *Helper) PreviewCommitTxBatchBlock(id interface{}) (*pb.Block, error) {
+// PreviewCommitTxBatchBlock ...
+func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
 	// TODO
 	return nil, fmt.Errorf("Unimplemented")
 }
@@ -198,7 +199,7 @@ func (h *Helper) GetBlockchainSize() (uint64, error) {
 	return ledger.GetBlockchainSize(), nil
 }
 
-// GetBlockchainSize returns the hash of the included block, useful for mocking
+// HashBlock returns the hash of the included block, useful for mocking
 func (h *Helper) HashBlock(block *pb.Block) ([]byte, error) {
 	return block.GetHash()
 }
@@ -212,9 +213,10 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return ledger.PutRawBlock(block, blockNumber)
 }
 
+// ApplyStateDelta ....
 // TODO, waiting to see the streaming implementation to define this API nicely
 func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) error {
-	return // TODO implement
+	return nil // TODO implement
 }
 
 // EmptyState completely empties the state and prepares it to restore a snapshot
@@ -237,16 +239,16 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 }
 
 // GetRemoteBlocks will return a channel to stream blocks from the desired replicaId
-func (h *Helper) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 
 // GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaId
-func (h *Helper) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
+func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 
 // GetRemoteStateDeltas  will return a channel to stream a state snapshot deltas from the desired replicaId
-func (h *Helper) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+func (h *Helper) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
