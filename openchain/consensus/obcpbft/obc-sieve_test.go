@@ -187,3 +187,23 @@ func TestSieveNonDeterministic(t *testing.T) {
 		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
 	}
 }
+
+func TestSieveRequestHash(t *testing.T) {
+	net := makeTestnet(1, makeTestnetSieve)
+	defer net.close()
+
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Payload: make([]byte, 1000)}
+	txPacked, _ := proto.Marshal(tx)
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
+	}
+
+	r0 := net.replicas[0]
+	r0.consenter.RecvMsg(msg)
+
+	txId := r0.txID.(string)
+	if len(txId) == 0 || len(txId) > 1000 {
+		t.Fatalf("invalid transaction id hash length %d", len(txId))
+	}
+}

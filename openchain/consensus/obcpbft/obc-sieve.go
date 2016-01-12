@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/spf13/viper"
@@ -252,7 +253,7 @@ func (op *obcSieve) processExecute() {
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
-	op.currentReq = base64.StdEncoding.EncodeToString(exec.Request)
+	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
 	op.blockNumber++
 
 	op.begin()
@@ -461,6 +462,18 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	if vset.View != op.epoch {
 		logger.Debug("Replica %d ignoring verify-set for wrong epoch: expected %d, got %d",
 			op.id, op.epoch, vset.View)
+		return
+	}
+
+	if vset.BlockNumber < op.blockNumber {
+		logger.Debug("Replica %d ignoring verify-set for old block: expected %d, got %d",
+			op.id, op.blockNumber, vset.BlockNumber)
+		return
+	}
+
+	if vset.BlockNumber == op.blockNumber && op.currentReq == "" {
+		logger.Debug("Replica %d ignoring verify-set for already committed block",
+			op.id)
 		return
 	}
 
