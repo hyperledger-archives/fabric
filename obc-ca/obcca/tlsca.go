@@ -137,14 +137,6 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 	Trace.Println("grpc TLSCAP:CreateCertificate")
 
 	id := req.Id.Id
-	raw, err := tlscap.tlsca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := x509.ParseCertificate(raw)
-	if err != nil {
-		return nil, err
-	}
 
 	sig := req.Sig
 	req.Sig = nil
@@ -153,7 +145,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	raw = req.Pub.Key
+	raw := req.Pub.Key
 	if req.Pub.Type != pb.CryptoType_ECDSA {
 		return nil, errors.New("unsupported key type")
 	}
@@ -165,7 +157,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 	hash := sha3.New384()
 	raw, _ = proto.Marshal(req)
 	hash.Write(raw)
-	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
 		return nil, errors.New("signature does not verify")
 	}
 

@@ -305,16 +305,13 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 	return nil, errors.New("not yet implemented")
 }
 
-// RegisterUser registers a new user with the ECA.  If the user had been registered before all
-// his/her certificates are deleted and the user is registered anew.
+// RegisterUser registers a new user with the ECA.  If the user had been registered before
+// an error is returned.
 //
 func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Token, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
 	tok, err := ecaa.eca.registerUser(id.Id)
-	if err != nil {
-		Error.Println(err)
-	}
 
 	return &pb.Token{tok}, err
 }

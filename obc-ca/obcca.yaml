@@ -15,18 +15,19 @@ hosts:
         tlsca: localhost
         
 eca:
-#        tls:
+        tls:
 #                certfile:
 #                keyfile:
                 
         users:
-                donq: 9gvZQRwhUq9q
+#                donq: 9gvZQRwhUq9q
+
 tca:
-#         tls:
+        tls:
 #                certfile:
 #                keyfile:
 
 tlsca:
-#         tls:
+        tls:
 #                certfile:
 #                keyfile:

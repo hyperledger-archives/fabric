@@ -27,6 +27,7 @@ import (
 	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -292,22 +293,12 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 func (ca *CA) registerUser(id string, opt ...string) (string, error) {
 	Trace.Println("Registering user "+id+".")
 
-	// delete user and his/her certificates from the database if registered before
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
 	if err == nil {
-		_, err = ca.db.Exec("DELETE FROM Certificates Where id=?", id)
-		if err != nil {
-			Error.Println(err)
-		}
-
-		_, err = ca.db.Exec("DELETE FROM Users WHERE row=?", row)
-		if err != nil {
-			Error.Println(err)
-		}
+		return "", errors.New("user is already registered")
 	}
 
-	// register user (anew)
 	var tok string
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		tok = opt[0]
@@ -322,6 +313,26 @@ func (ca *CA) registerUser(id string, opt ...string) (string, error) {
 	}
 
 	return tok, err
+}
+
+func (ca *CA) deleteUser(id string) (error) {
+	Trace.Println("Deleting user "+id+".")
+
+	var row int
+	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
+	if err == nil {
+		_, err = ca.db.Exec("DELETE FROM Certificates Where id=?", id)
+		if err != nil {
+			Error.Println(err)
+		}
+
+		_, err = ca.db.Exec("DELETE FROM Users WHERE row=?", row)
+		if err != nil {
+			Error.Println(err)
+		}
+	}
+	
+	return err
 }
 
 func (ca *CA) readToken(id string) *sql.Row {
