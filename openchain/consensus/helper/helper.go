@@ -20,13 +20,10 @@ under the License.
 package helper
 
 import (
-	"encoding/base64"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
@@ -60,44 +57,35 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 
 // GetNetworkHandles returns the handles (MVP: hashed raw enrollment certificates) of the current replica and the whole network of VPs
 func (h *Helper) GetNetworkHandles() (self string, network []string, err error) {
-	if viper.GetBool("security.enabled") {
-		self = base64.StdEncoding.EncodeToString(h.coordinator.GetSecHelper().GetID())
-		network = viper.GetStringSlice("peer.validator.replicas.handles")
-	} else { // when we don't have a fixed list in the config file
-		ep, err := h.coordinator.GetPeerEndpoint()
-		if err != nil {
-			return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
-		}
-		self = ep.ID.Name
-		peersMsg, err := h.coordinator.GetPeers()
-		if err != nil {
-			return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
-		}
-		peers := peersMsg.GetPeers()
-		for _, endpoint := range peers {
-			if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-				network = append(network, endpoint.ID.Name)
-			}
-		}
-		network = append(network, self)
-		sort.Strings(network)
+	ep, err := h.coordinator.GetPeerEndpoint()
+	if err != nil {
+		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
 	}
-	return self, network, nil
+	self = ep.ID.Name
+
+	peersMsg, err := h.coordinator.GetPeers()
+	if err != nil {
+		return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+	}
+	peers := peersMsg.GetPeers()
+	for _, endpoint := range peers {
+		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
+			network = append(network, endpoint.ID.Name)
+		}
+	}
+	network = append(network, self)
+	// sort.Strings(network)
+
+	return
 }
 
 // GetReplicaHandle returns the handle that corresponds to a replica ID (uin64 assigned to it for PBFT)
 func (h *Helper) GetReplicaHandle(id uint64) (handle string, err error) {
-	_, network, err := h.GetNetworkHandles()
-	if err != nil {
-		return
-	}
-	if int(id) > (len(network) - 1) {
-		return handle, fmt.Errorf("Replica ID is out of bounds")
-	}
-	return network[int(id)], nil
+	handle = "vp" + strconv.FormatUint(id, 10)
+	return
 }
 
-// GetReplicaID returns the uint handle corresponding to a replica handle
+// GetReplicaID returns the uint ID corresponding to a replica handle
 func (h *Helper) GetReplicaID(handle string) (id uint64, err error) {
 	// if the handle starts with "vp*", short-circuit the function
 	// consider this our debugging mode for when we don't have a fixed VP list
@@ -109,17 +97,9 @@ func (h *Helper) GetReplicaID(handle string) (id uint64, err error) {
 		}
 		return
 	}
-
-	_, network, err := h.GetNetworkHandles()
-	if err != nil {
-		return
-	}
-	for i, v := range network {
-		if v == handle {
-			return uint64(i), nil
-		}
-	}
-	err = fmt.Errorf("Couldn't find handle in list of VP handles")
+	err = fmt.Errorf(`For MVP, set the VP's peer.id to vpX,
+		where X is a unique integer between 0 and N-1
+		(N being the maximum number of VPs in the network`)
 	return
 }
 
