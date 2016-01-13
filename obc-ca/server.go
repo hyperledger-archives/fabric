@@ -21,7 +21,7 @@ package main
 
 import (
 //	"fmt"
-//	"io/ioutil"
+	"io/ioutil"
 	"net"
 	"os"
 
@@ -41,7 +41,7 @@ func main() {
 		panic(err)
 	}
 
-	obcca.LogInit(os.Stdout /* ioutil.Discard */, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 

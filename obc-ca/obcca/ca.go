@@ -157,7 +157,7 @@ func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 	Trace.Println("Creating CA certificate.")
 
-	raw, err := ca.newCertificate(pub, x509.KeyUsageDigitalSignature, nil)
+	raw, err := ca.newCertificate(pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
 	if err != nil {
 		Panic.Panicln(err)
 	}
