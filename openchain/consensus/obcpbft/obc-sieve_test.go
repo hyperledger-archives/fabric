@@ -74,8 +74,8 @@ func TestSieveNoDecision(t *testing.T) {
 	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
 		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 100 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -94,7 +94,7 @@ func TestSieveNoDecision(t *testing.T) {
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 	net.close()
 
 	for _, inst := range net.replicas {
