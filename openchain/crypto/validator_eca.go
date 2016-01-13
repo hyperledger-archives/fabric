@@ -34,7 +34,7 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 	}
 
 	// Retrieve from the DB or from the ECA in case
-	rawCert, err := validator.peer.node.ks.GetEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
+	rawCert, err := validator.peer.node.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
 		validator.peer.node.log.Error("Failed getting enrollment certificate for ", sid, err)
 	}
@@ -49,18 +49,18 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 	return cert, nil
 }
 
-func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, error) {
+func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte, error) {
 	// Prepare the request
 	validator.peer.node.log.Debug("Reading certificate for hash " + utils.EncodeBase64(id))
 
 	req := &obcca.ECertReadReq{Id: &obcca.Identity{Id: ""}, Hash: id}
-	pbCert, err := validator.peer.node.callECAReadCertificate(context.Background(), req)
+	resp, err := validator.peer.node.callECAReadCertificate(context.Background(), req)
 	if err != nil {
 		validator.peer.node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
-		return nil, err
+		return nil, nil, err
 	}
 
 	// TODO Verify pbCert.Cert
-	return pbCert.Cert, nil
+	return resp.Sign, resp.Enc, nil
 }

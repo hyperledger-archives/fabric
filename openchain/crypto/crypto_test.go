@@ -28,11 +28,11 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 	"io/ioutil"
 	"os"
-	"sync"
-	"testing"
 	"reflect"
+	"testing"
 )
 
 var (
@@ -43,18 +43,17 @@ var (
 	deployer Client
 	invoker  Client
 
-	caAlreadyOn bool
-	eca         *obcca.ECA
-	tca         *obcca.TCA
-	tlsca		*obcca.TLSCA
-	caWaitGroup sync.WaitGroup
+	server *grpc.Server
+	eca    *obcca.ECA
+	tca    *obcca.TCA
+	tlsca  *obcca.TLSCA
 )
 
 func TestMain(m *testing.M) {
 	setup()
 
 	// Init PKI
-	go initPKI()
+	initPKI()
 	defer cleanup()
 
 	// Init clients
@@ -522,9 +521,9 @@ func TestValidatorPublicDeployTransaction(t *testing.T) {
 	}
 
 	// TODO:
-//	if reflect.DeepEqual(res, tx) {
-//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
-//	}
+	//	if reflect.DeepEqual(res, tx) {
+	//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
+	//	}
 }
 
 func TestValidatorPublicExecuteTransaction(t *testing.T) {
@@ -549,9 +548,9 @@ func TestValidatorPublicExecuteTransaction(t *testing.T) {
 		t.Fatalf("Result must be diffrent from nil")
 	}
 	// TODO:
-//	if reflect.DeepEqual(res, tx) {
-//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
-//	}
+	//	if reflect.DeepEqual(res, tx) {
+	//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
+	//	}
 }
 
 func TestValidatorStateEncryptor(t *testing.T) {
@@ -619,7 +618,6 @@ func TestValidatorStateEncryptor(t *testing.T) {
 
 }
 
-
 func TestValidatorSignVerify(t *testing.T) {
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
@@ -644,29 +642,17 @@ func setup() {
 }
 
 func initPKI() {
-	// Check if the CAs are already up
-	if err := utils.IsTCPPortOpen(viper.GetString("ports.ecaP")); err != nil {
-		caAlreadyOn = true
-		fmt.Println("Someone already listening")
-		return
-	}
-	caAlreadyOn = false
-
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	eca = obcca.NewECA()
-	defer eca.Close()
-	eca.Start(&caWaitGroup)
-
 	tca = obcca.NewTCA(eca)
-	defer tca.Close()
-	tca.Start(&caWaitGroup)
+	tlsca = obcca.NewTLSCA(eca)
 
-	tlsca = obcca.NewTLSCA()
-	defer tlsca.Close()
-	tlsca.Start(&caWaitGroup)
+	server = grpc.NewServer(nil)
 
-	caWaitGroup.Wait()
+	eca.Start(server)
+	tca.Start(server)
+	tlsca.Start(server)
 }
 
 func initClients() error {
@@ -759,9 +745,9 @@ func createConfidentialDeployTransaction() (*pb.Transaction, error) {
 	tx, err := deployer.NewChaincodeDeployTransaction(
 		&pb.ChaincodeDeploymentSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
-				CtorMsg:     nil,
+				Type:                 pb.ChaincodeSpec_GOLANG,
+				ChaincodeID:          &pb.ChaincodeID{Path: "Contract001"},
+				CtorMsg:              nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 			EffectiveDate: nil,
@@ -780,9 +766,9 @@ func createConfidentialExecuteTransaction() (*pb.Transaction, error) {
 	tx, err := invoker.NewChaincodeExecute(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
-				CtorMsg:     nil,
+				Type:                 pb.ChaincodeSpec_GOLANG,
+				ChaincodeID:          &pb.ChaincodeID{Path: "Contract001"},
+				CtorMsg:              nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 		},
@@ -799,9 +785,9 @@ func createConfidentialQueryTransaction() (*pb.Transaction, error) {
 	tx, err := invoker.NewChaincodeQuery(
 		&pb.ChaincodeInvocationSpec{
 			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
-				CtorMsg:     nil,
+				Type:                 pb.ChaincodeSpec_GOLANG,
+				ChaincodeID:          &pb.ChaincodeID{Path: "Contract001"},
+				CtorMsg:              nil,
 				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 		},
@@ -822,7 +808,7 @@ func createPublicDeployTransaction() (*pb.Transaction, error) {
 				Type:        pb.ChaincodeSpec_GOLANG,
 				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				},
+			},
 			EffectiveDate: nil,
 			CodePackage:   nil,
 		},
@@ -842,7 +828,7 @@ func createPublicExecuteTransaction() (*pb.Transaction, error) {
 				Type:        pb.ChaincodeSpec_GOLANG,
 				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				},
+			},
 		},
 		uuid,
 	)
@@ -860,32 +846,29 @@ func createPublicQueryTransaction() (*pb.Transaction, error) {
 				Type:        pb.ChaincodeSpec_GOLANG,
 				ChaincodeID: &pb.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				},
+			},
 		},
 		uuid,
 	)
 	return tx, err
 }
 
-
 func cleanup() {
 	fmt.Println("Cleanup...")
 	CloseAllClients()
 	CloseAllPeers()
 	CloseAllValidators()
-	killCAs()
+	stopPKI()
 	removeFolders()
 	fmt.Println("Cleanup...done!")
 }
 
-func killCAs() {
-	if !caAlreadyOn {
-		eca.Stop()
-		eca.Close()
+func stopPKI() {
+	eca.Close()
+	tca.Close()
+	tlsca.Close()
 
-		tca.Stop()
-		tca.Close()
-	}
+	server.Stop()
 }
 
 func removeFolders() {
