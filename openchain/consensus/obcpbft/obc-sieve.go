@@ -75,8 +75,8 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 
 		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
 		svMsgRaw, _ := proto.Marshal(svMsg)
-		op.recvRequest(svMsgRaw)
 		op.broadcastMsg(svMsg)
+		op.recvRequest(svMsgRaw)
 		return nil
 	}
 
@@ -210,8 +210,8 @@ func (op *obcSieve) processRequest() {
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
 		op.id, exec.View, exec.BlockNumber)
-	op.recvExecute(exec)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
+	op.recvExecute(exec)
 }
 
 func (op *obcSieve) recvExecute(exec *Execute) {
@@ -285,8 +285,8 @@ func (op *obcSieve) processExecute() {
 
 	logger.Debug("Sieve replica %d sending verify blockNo=%d",
 		op.id, verify.BlockNumber)
-	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
+	op.recvVerify(verify)
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
