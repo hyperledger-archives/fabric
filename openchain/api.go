@@ -20,6 +20,7 @@ under the License.
 package openchain
 
 import (
+	"errors"
 	"fmt"
 
 	"golang.org/x/net/context"
@@ -28,6 +29,11 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
+)
+
+var (
+	// ErrNotFound is returned if a requested resource does not exist
+	ErrNotFound = errors.New("openchain: resource not found")
 )
 
 // ServerOpenchain defines the Openchain server object, which holds the
@@ -45,17 +51,6 @@ func NewOpenchainServer() (*ServerOpenchain, error) {
 	}
 	s := &ServerOpenchain{ledger: ledger}
 
-	/*
-		num := ledger.GetBlockchainSize()
-		for i := uint64(0); i < num; i++ {
-			block, err := ledger.GetBlockByNumber(i)
-			if err != nil {
-				log.Info("\nError retrieving block from blockchain: %s\n", err)
-				return nil, err
-			}
-			log.Info("\n\nBlock %d:\n\n%s\n\n", i, block)
-		}
-	*/
 	return s, nil
 }
 
@@ -74,10 +69,12 @@ func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_proto
 func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNumber) (*pb.Block, error) {
 	block, err := s.ledger.GetBlockByNumber(num.Number)
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
-	}
-	if block == nil {
-		return nil, fmt.Errorf("Requested block not in blockchain.")
+		switch err {
+		case ledger.ErrOutOfBounds:
+			return nil, ErrNotFound
+		default:
+			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
+		}
 	}
 	return block, nil
 }
@@ -106,5 +103,14 @@ func (s *ServerOpenchain) GetState(ctx context.Context, chaincodeID, key string)
 
 // GetTransactionByUUID returns a transaction matching the specified UUID
 func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID string) (*pb.Transaction, error) {
-	return s.ledger.GetTransactionByUUID(txUUID)
+	transaction, err := s.ledger.GetTransactionByUUID(txUUID)
+	if err != nil {
+		switch err {
+		case ledger.ErrResourceNotFound:
+			return nil, ErrNotFound
+		default:
+			return nil, fmt.Errorf("Error retrieving transaction from blockchain: %s", err)
+		}
+	}
+	return transaction, nil
 }

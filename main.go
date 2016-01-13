@@ -166,7 +166,6 @@ var chaincodeQueryCmd = &cobra.Command{
 }
 
 func main() {
-
 	runtime.GOMAXPROCS(2)
 
 	// For environment variables.
@@ -248,7 +247,6 @@ func main() {
 
 	mainCmd.AddCommand(chaincodeCmd)
 	mainCmd.Execute()
-
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
@@ -279,7 +277,6 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
-
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
@@ -355,8 +352,10 @@ func serve(args []string) error {
 
 	pb.RegisterOpenchainServer(grpcServer, serverOpenchain)
 
-	// Create and register the REST service
-	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
+	// Create and register the REST service if configured
+	if viper.GetBool("rest.enabled") {
+		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
+	}
 
 	rootNode, err := openchain.GetRootNode()
 	if err != nil {

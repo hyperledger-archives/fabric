@@ -19,37 +19,27 @@ under the License.
 
 package consensus
 
-import (
-	pb "github.com/openblockchain/obc-peer/protos"
+import pb "github.com/openblockchain/obc-peer/protos"
 
-	"github.com/op/go-logging"
-)
-
-// =============================================================================
-// Init
-// =============================================================================
-
-var logger *logging.Logger // package-level logger
-
-func init() {
-	logger = logging.MustGetLogger("consensus")
-}
-
-// =============================================================================
-// Interface definitions go here
-// =============================================================================
-
-// Consenter is implemented by every consensus algorithm implementation (plugin).
+// Consenter is implemented by every consensus plugin package
 type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-// CPI stands for Consensus Programming Interface.
-// It is the set of stack-facing methods available to the plugin.
+// CPI (Consensus Programming Interface) is the set of
+// stack-facing methods available to the consensus plugin
 type CPI interface {
-	GetReplicaAddress(self bool) (addresses []string, err error)
-	GetReplicaID(address string) (id uint64, err error)
+	GetReplicaHash() (self string, network []string, err error)
+	GetReplicaID(addr string) (id uint64, err error)
+
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msgPayload []byte, receiver string) error
+
+	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
+	CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error
+	RollbackTxBatch(id interface{}) error
+
+	GetBlock(id uint64) (block *pb.Block, err error)
+	GetCurrentStateHash() (stateHash []byte, err error)
 }
