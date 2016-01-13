@@ -142,7 +142,14 @@ func getTxExecutingAddress(tx *protos.Transaction) string {
 
 func getAuthorisedAddresses(tx *protos.Transaction) ([]string, *protos.ChaincodeID) {
 	// TODO fetch address from chaincode deployment tx
-	return []string{"address1", "address2"}, tx.GetChaincodeID()
+	// TODO this method should also return error
+	data := tx.ChaincodeID
+	cID := &protos.ChaincodeID{}
+	err := proto.Unmarshal(data, cID)
+	if err != nil {
+		return nil, nil
+	}
+	return []string{"address1", "address2"}, cID
 }
 
 // functions for encoding/decoding db keys/values for index data

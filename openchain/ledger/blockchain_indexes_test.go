@@ -29,7 +29,11 @@ import (
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	for i := range blocks {
 		testutil.AssertEquals(t, testBlockchainWrapper.getBlock(uint64(i)), blocks[i])
 	}
@@ -38,7 +42,11 @@ func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
 func TestIndexes_GetBlockByBlockHash(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	for i := range blocks {
 		blockHash, _ := blocks[i].GetHash()
 		testutil.AssertEquals(t, testBlockchainWrapper.getBlockByHash(blockHash), blocks[i])
@@ -48,7 +56,11 @@ func TestIndexes_GetBlockByBlockHash(t *testing.T) {
 func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	for i, block := range blocks {
 		for j, tx := range block.GetTransactions() {
 			testutil.AssertEquals(t, testBlockchainWrapper.getTransaction(uint64(i), uint64(j)), tx)
@@ -59,7 +71,11 @@ func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
 func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	blocks, _ := testBlockchainWrapper.populateBlockChainWithSampleData()
+	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	for _, block := range blocks {
 		blockHash, _ := block.GetHash()
 		for j, tx := range block.GetTransactions() {
@@ -71,13 +87,13 @@ func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 func TestIndexes_GetTransactionByUUID(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
-	tx1, uuid1 := buildTestTx()
-	tx2, uuid2 := buildTestTx()
+	tx1, uuid1 := buildTestTx(t)
+	tx2, uuid2 := buildTestTx(t)
 	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2})
 	testBlockchainWrapper.addNewBlock(block1, []byte("stateHash1"))
 
-	tx3, uuid3 := buildTestTx()
-	tx4, uuid4 := buildTestTx()
+	tx3, uuid3 := buildTestTx(t)
+	tx4, uuid4 := buildTestTx(t)
 	block2 := protos.NewBlock([]*protos.Transaction{tx3, tx4})
 	testBlockchainWrapper.addNewBlock(block2, []byte("stateHash2"))
 

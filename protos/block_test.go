@@ -42,13 +42,17 @@ func Test_Block_CreateNew(t *testing.T) {
 		data, err := proto.Marshal(chaincodeInvocationSpec)
 	*/
 	var data []byte
-	transaction := &Transaction{Type: 2, ChaincodeID: &ChaincodeID{Path: chaincodePath}, Payload: data, Uuid: "001"}
+	cidBytes, err := proto.Marshal(&ChaincodeID{Path: chaincodePath})
+	if err != nil {
+		t.Fatalf("Could not marshal chaincode: %s", err)
+	}
+	transaction := &Transaction{Type: 2, ChaincodeID: cidBytes, Payload: data, Uuid: "001"}
 	t.Logf("Transaction: %v", transaction)
 
 	block := NewBlock([]*Transaction{transaction})
 	t.Logf("Block: %v", block)
 
-	data, err := proto.Marshal(block)
+	data, err = proto.Marshal(block)
 	if err != nil {
 		t.Errorf("Error marshalling block: %s", err)
 	}
