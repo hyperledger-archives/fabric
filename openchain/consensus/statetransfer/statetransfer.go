@@ -584,10 +584,6 @@ func (sts *StateTransferState) blockThread() {
 
 func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uint64, mark **syncMark, blockHReply **blockHashReply, blocksValid *bool) error {
 	var err error
-	//currentStateBlockNumber := *currentStateBlockNumberP
-	//blockHReply := *blockHReplyP
-	//blocksValid := *blocksValidP
-	//mark := *syncMarkP
 
 	if !sts.stateValid {
 		// Our state is currently bad, so get a new one
