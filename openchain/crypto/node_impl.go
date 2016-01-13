@@ -107,7 +107,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 
 	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data: %s", err)
+		node.log.Error("Failed retrieveing tls certificate data: %s", err)
 
 		return err
 	}
