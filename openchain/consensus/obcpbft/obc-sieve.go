@@ -439,7 +439,7 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
-func (op *obcSieve) execute(raw []byte, opts ...interface{}) {
+func (op *obcSieve) execute(raw []byte, rawMetadata []byte) {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {

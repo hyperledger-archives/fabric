@@ -53,7 +53,7 @@ type innerCPI interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	verify(txRaw []byte) error
-	execute(txRaw []byte, opts ...interface{})
+	execute(txRaw []byte, rawMetadata []byte)
 	viewChange(curView uint64)
 }
 
@@ -638,7 +638,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		instance.consumer.execute(req.Payload, idx.n)
+		metadataMsg := &Metadata{SeqNo: idx.n}
+		rawMetadata, err := proto.Marshal(metadataMsg)
+		if err != nil {
+			logger.Error("Failed to marshal consensus metadata before executing transaction: %v", err)
+			return false
+		}
+
+		instance.consumer.execute(req.Payload, rawMetadata)
 		delete(instance.outstandingReqs, digest)
 	}
 

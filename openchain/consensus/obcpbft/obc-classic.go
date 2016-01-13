@@ -129,7 +129,7 @@ func (op *obcClassic) verify(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(txRaw []byte, opts ...interface{}) {
+func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
 	if err := op.verify(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
@@ -159,12 +159,6 @@ func (op *obcClassic) execute(txRaw []byte, opts ...interface{}) {
 		return
 	}
 
-	metadataMsg := &Metadata{SeqNo: opts[0].(uint64)}
-	rawMetadata, err := proto.Marshal(metadataMsg)
-	if err != nil {
-		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
-		return
-	}
 	if err = op.cpi.CommitTxBatch(txBatchID, txs, rawMetadata); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {

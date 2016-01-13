@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -125,7 +124,7 @@ func (inst *instance) verify(payload []byte) error {
 	return nil
 }
 
-func (inst *instance) execute(payload []byte, opts ...interface{}) {
+func (inst *instance) execute(payload []byte, metadata []byte) {
 
 	tx := &pb.Transaction{
 		Payload: payload,
@@ -149,14 +148,7 @@ func (inst *instance) execute(payload []byte, opts ...interface{}) {
 		return
 	}
 
-	metadataMsg := &Metadata{SeqNo: opts[0].(uint64)}
-	rawMetadata, err := proto.Marshal(metadataMsg)
-	if err != nil {
-		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
-		return
-	}
-
-	if err := inst.CommitTxBatch(txBatchID, txs, rawMetadata); err != nil {
+	if err := inst.CommitTxBatch(txBatchID, txs, metadata); err != nil {
 		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
