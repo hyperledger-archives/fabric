@@ -35,7 +35,8 @@ message Transaction {
         CHAINCODE_TERMINATE = 5;
     }
     Type type = 1;
-    ChaincodeID chaincodeID = 2;
+    //store ChaincodeID as bytes so its encrypted value can be stored
+    bytes chaincodeID = 2;
     bytes payload = 3;
     string uuid = 4;
     google.protobuf.Timestamp timestamp = 5;
@@ -43,11 +44,8 @@ message Transaction {
     ConfidentialityLevel confidentialityLevel = 6;
     bytes nonce = 7;
 
-    bytes encryptedChaincodeID = 8;
-    bytes encryptedPayload = 9;
-
-    bytes cert = 10;
-    bytes signature = 11;
+    bytes cert = 8;
+    bytes signature = 9;
 }
 
 // TransactionBlock carries a batch of transactions.
