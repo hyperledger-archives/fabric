@@ -129,6 +129,9 @@ func TestCatchupSimple(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 
 	sts := newTestStateTransfer(ml)
+	defer func() {
+		sts.StopThreads()
+	}()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
@@ -146,6 +149,9 @@ func TestCatchupSyncBlocksErrors(t *testing.T) {
 
 		ml.PutBlock(0, SimpleGetBlock(0))
 		sts := newTestStateTransfer(ml)
+		defer func() {
+			sts.StopThreads()
+		}()
 		sts.BlockRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
 			t.Fatalf("SyncBlocksErrors %s case: %s", failureType, err)
@@ -163,6 +169,9 @@ func TestCatchupMissingEarlyChain(t *testing.T) {
 	ml := NewMockLedger(rols, nil)
 	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml)
+	defer func() {
+		sts.StopThreads()
+	}()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
 	}
@@ -178,6 +187,9 @@ func TestCatchupSyncSnapshotError(t *testing.T) {
 		ml := NewMockLedger(rols, filter)
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml)
+		defer func() {
+			sts.StopThreads()
+		}()
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
 			t.Fatalf("SyncSnapshotError %s case: %s", failureType, err)
@@ -198,6 +210,9 @@ func TestCatchupSyncDeltasError(t *testing.T) {
 		ml := NewMockLedger(rols, filter)
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml)
+		defer func() {
+			sts.StopThreads()
+		}()
 		sts.StateDeltaRequestTimeout = 10 * time.Millisecond
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
@@ -220,6 +235,9 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	ml := NewMockLedger(rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml)
+	defer func() {
+		sts.StopThreads()
+	}()
 	if err := sts.SynchronousStateTransfer(7, SimpleGetBlockHash(7), []uint64{1, 2, 3}); nil != err {
 		t.Fatalf("SimpleSynchronous state transfer failed : %s", err)
 	}

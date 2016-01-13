@@ -65,6 +65,10 @@ type StateTransferState struct {
 	blockSyncReq      chan *blockSyncReq   // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 	completeStateSync chan uint64          // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 
+	blockThreadExit             chan struct{} // Used to inform the block thread that we are shutting down
+	stateThreadExit             chan struct{} // Used to inform the state thread that we are shutting down
+	blockHashReceiverThreadExit chan struct{} // Used to inform the block hash receiver thread that we are shutting down
+
 	BlockRequestTimeout         time.Duration // How long to wait for a replica to respond to a block request
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a replica to respond to a state delta request
 	StateSnapshotRequestTimeout time.Duration // How long to wait for a replica to respond to a state snapshot request
@@ -148,6 +152,22 @@ func (sts *StateTransferState) InvalidateState() {
 	sts.stateValid = false
 }
 
+// This will send a signal to any running threads to stop, regardless of whether they are stopped
+// It will never block, and if called before threads start, they will exit at startup
+// Attempting to start threads after this call may fail once
+func (sts *StateTransferState) StopThreads() {
+outer:
+	for {
+		select {
+		case sts.blockThreadExit <- struct{}{}:
+		case sts.stateThreadExit <- struct{}{}:
+		case sts.blockHashReceiverThreadExit <- struct{}{}:
+		default:
+			break outer
+		}
+	}
+}
+
 // =============================================================================
 // constructors
 // =============================================================================
@@ -175,6 +195,10 @@ func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger cons
 	sts.blockHashReceiver = make(chan *blockHashReply)
 	sts.blockSyncReq = make(chan *blockSyncReq)
 	sts.completeStateSync = make(chan uint64)
+
+	sts.blockThreadExit = make(chan struct{}, 1)
+	sts.stateThreadExit = make(chan struct{}, 1)
+	sts.blockHashReceiverThreadExit = make(chan struct{}, 1)
 
 	var err error
 
@@ -555,6 +579,9 @@ func (sts *StateTransferState) blockHashReceiverThread() {
 				lastHashReceived = nil
 			}
 		case lastHashReceived = <-sts.blockHashReceiver:
+		case <-sts.blockHashReceiverThreadExit:
+			logger.Debug("Received request for block hash receiver thread to exit")
+			return
 		}
 	}
 }
@@ -566,6 +593,9 @@ func (sts *StateTransferState) blockThread() {
 		select {
 		case blockSyncReq := <-sts.blockSyncReq:
 			sts.syncBlockchainToCheckpoint(blockSyncReq)
+		case <-sts.blockThreadExit:
+			logger.Debug("Received request for block transfer thread to exit (1)")
+			return
 		default:
 			// If there is no checkpoint to sync to, make sure the rest of the chain is valid
 			if !sts.VerifyAndRecoverBlockchain() {
@@ -576,9 +606,15 @@ func (sts *StateTransferState) blockThread() {
 
 		logger.Debug("%s has validated its blockchain to the genesis block", sts.id)
 
+		select {
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
-		blockSyncReq := <-sts.blockSyncReq
-		sts.syncBlockchainToCheckpoint(blockSyncReq)
+		case blockSyncReq := <-sts.blockSyncReq:
+			sts.syncBlockchainToCheckpoint(blockSyncReq)
+		case <-sts.blockThreadExit:
+			logger.Debug("Received request for block transfer thread to exit (2)")
+			return
+		}
+
 	}
 }
 
@@ -694,28 +730,34 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 // A thread to process state transfer
 func (sts *StateTransferState) stateThread() {
 	for {
+		select {
 		// Wait for state sync to become necessary
-		mark := <-sts.initiateStateSync
+		case mark := <-sts.initiateStateSync:
 
-		logger.Debug("%s is initiating state transfer", sts.id)
+			logger.Debug("%s is initiating state transfer", sts.id)
 
-		var currentStateBlockNumber uint64
-		var blockHReply *blockHashReply
-		blocksValid := false
+			var currentStateBlockNumber uint64
+			var blockHReply *blockHashReply
+			blocksValid := false
 
-		for {
-			if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
-				logger.Error("%s", err)
-				continue
+			for {
+				if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
+					logger.Error("%s", err)
+					continue
+				}
+
+				break
 			}
 
-			break
+			logger.Debug("%s is completing state transfer", sts.id)
+
+			sts.asynchronousTransferInProgress = false
+			sts.completeStateSync <- blockHReply.blockNumber
+
+		case <-sts.stateThreadExit:
+			logger.Debug("Received request for state thread to exit")
+			return
 		}
-
-		logger.Debug("%s is completing state transfer", sts.id)
-
-		sts.asynchronousTransferInProgress = false
-		sts.completeStateSync <- blockHReply.blockNumber
 	}
 }
 
