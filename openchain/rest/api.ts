@@ -81,20 +81,13 @@ export namespace Transaction {
 }
 export class ChaincodeID {
     /**
-    * URL for accessing the Chaincode.
+    * Chaincode location in the file system. This value is required by the deploy transaction.
     */
-    url: string;
+    path: string;
     /**
-    * Current version of a Chaincode.
+    * Chaincode name identifier. This value is required by the invoke and query transactions.
     */
-    version: string;
-}
-
-export class State {
-    /**
-    * State value matching the chaincodeId and key parameters.
-    */
-    state: string;
+    name: string;
 }
 
 export class ChaincodeSpec {
@@ -109,7 +102,15 @@ export class ChaincodeSpec {
     /**
     * Specific function to execute within the Chaincode.
     */
-    ctorMsg: ChaincodeMessage;
+    ctorMsg: ChaincodeInput;
+    /**
+    * Username when security is enabled.
+    */
+    secureContext: string;
+    /**
+    * Confidentiality level of the Chaincode.
+    */
+    confidentialityLevel: ConfidentialityLevel;
 }
 
 export namespace ChaincodeSpec {
@@ -119,21 +120,6 @@ export namespace ChaincodeSpec {
         NODE = <any> 'NODE',
     }
 }
-export class ChaincodeDeploymentSpec {
-    /**
-    * Chaincode specification message.
-    */
-    chaincodeSpec: ChaincodeSpec;
-    /**
-    * Time of Chaincode creation/activation.
-    */
-    effectiveDate: string;
-    /**
-    * Compiled Chaincode package.
-    */
-    codePackage: string;
-}
-
 export class ChaincodeInvocationSpec {
     /**
     * Chaincode specification message.
@@ -141,15 +127,32 @@ export class ChaincodeInvocationSpec {
     chaincodeSpec: ChaincodeSpec;
 }
 
-export class ChaincodeMessage {
+/**
+* Confidentiality level of the Chaincode.
+*/
+export class ConfidentialityLevel {
+}
+
+export class ChaincodeInput {
     /**
-    * Function to execute within a Chaincode.
+    * Function to execute within the Chaincode.
     */
     function: string;
     /**
     * Arguments supplied to the Chaincode function.
     */
     args: Array<string>;
+}
+
+export class Secret {
+    /**
+    * User enrollment id registered with the certificate authority.
+    */
+    enrollId: string;
+    /**
+    * User enrollment password registered with the certificate authority.
+    */
+    enrollSecret: string;
 }
 
 export class Error {
@@ -213,7 +216,7 @@ class VoidAuth implements Authentication {
     }
 }
 
-export class StateApi {
+export class RegistrarApi {
     protected basePath = 'http://127.0.0.1:3000';
     protected defaultHeaders : any = {};
 
@@ -244,31 +247,125 @@ export class StateApi {
         return <T1&T2>objA;
     }
 
-    public getChaincodeState (chaincodeID: string, key: string) : Promise<{ response: http.ClientResponse; body: State;  }> {
-        const path = this.url + this.basePath + '/state/{chaincodeID}/{key}'
-            .replace('{' + 'chaincodeID' + '}', String(chaincodeID))
-            .replace('{' + 'key' + '}', String(key));
+    public registerUser (secret: Secret) : Promise<{ response: http.ClientResponse; body: OK;  }> {
+        const path = this.url + this.basePath + '/registrar';
         let queryParameters: any = {};
         let headerParams: any = this.extendObj({}, this.defaultHeaders);
         let formParams: any = {};
 
 
-        // verify required parameter 'chaincodeID' is set
-        if (!chaincodeID) {
-            throw new Error('Missing required parameter chaincodeID when calling getChaincodeState');
-        }
-
-        // verify required parameter 'key' is set
-        if (!key) {
-            throw new Error('Missing required parameter key when calling getChaincodeState');
+        // verify required parameter 'secret' is set
+        if (!secret) {
+            throw new Error('Missing required parameter secret when calling registerUser');
         }
 
         let useFormData = false;
 
-        let deferred = promise.defer<{ response: http.ClientResponse; body: State;  }>();
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
+
+        let requestOptions: request.Options = {
+            method: 'POST',
+            qs: queryParameters,
+            headers: headerParams,
+            uri: path,
+            json: true,
+            body: secret,
+        }
+
+        this.authentications.default.applyToRequest(requestOptions);
+
+        if (Object.keys(formParams).length) {
+            if (useFormData) {
+                (<any>requestOptions).formData = formParams;
+            } else {
+                requestOptions.form = formParams;
+            }
+        }
+
+        request(requestOptions, (error, response, body) => {
+            if (error) {
+                deferred.reject(error);
+            } else {
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                    deferred.resolve({ response: response, body: body });
+                } else {
+                    deferred.reject({ response: response, body: body });
+                }
+            }
+        });
+
+        return deferred.promise;
+    }
+
+    public getUserRegistration (userID: string) : Promise<{ response: http.ClientResponse; body: OK;  }> {
+        const path = this.url + this.basePath + '/registrar/{userID}'
+            .replace('{' + 'userID' + '}', String(userID));
+        let queryParameters: any = {};
+        let headerParams: any = this.extendObj({}, this.defaultHeaders);
+        let formParams: any = {};
+
+
+        // verify required parameter 'userID' is set
+        if (!userID) {
+            throw new Error('Missing required parameter userID when calling getUserRegistration');
+        }
+
+        let useFormData = false;
+
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
 
         let requestOptions: request.Options = {
             method: 'GET',
+            qs: queryParameters,
+            headers: headerParams,
+            uri: path,
+            json: true,
+        }
+
+        this.authentications.default.applyToRequest(requestOptions);
+
+        if (Object.keys(formParams).length) {
+            if (useFormData) {
+                (<any>requestOptions).formData = formParams;
+            } else {
+                requestOptions.form = formParams;
+            }
+        }
+
+        request(requestOptions, (error, response, body) => {
+            if (error) {
+                deferred.reject(error);
+            } else {
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                    deferred.resolve({ response: response, body: body });
+                } else {
+                    deferred.reject({ response: response, body: body });
+                }
+            }
+        });
+
+        return deferred.promise;
+    }
+
+    public deleteUserRegistration (userID: string) : Promise<{ response: http.ClientResponse; body: OK;  }> {
+        const path = this.url + this.basePath + '/registrar/{userID}'
+            .replace('{' + 'userID' + '}', String(userID));
+        let queryParameters: any = {};
+        let headerParams: any = this.extendObj({}, this.defaultHeaders);
+        let formParams: any = {};
+
+
+        // verify required parameter 'userID' is set
+        if (!userID) {
+            throw new Error('Missing required parameter userID when calling deleteUserRegistration');
+        }
+
+        let useFormData = false;
+
+        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
+
+        let requestOptions: request.Options = {
+            method: 'DELETE',
             qs: queryParameters,
             headers: headerParams,
             uri: path,
@@ -485,56 +582,6 @@ export class DevopsApi {
             }
         }
         return <T1&T2>objA;
-    }
-
-    public chaincodeBuild (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {
-        const path = this.url + this.basePath + '/devops/build';
-        let queryParameters: any = {};
-        let headerParams: any = this.extendObj({}, this.defaultHeaders);
-        let formParams: any = {};
-
-
-        // verify required parameter 'chaincodeSpec' is set
-        if (!chaincodeSpec) {
-            throw new Error('Missing required parameter chaincodeSpec when calling chaincodeBuild');
-        }
-
-        let useFormData = false;
-
-        let deferred = promise.defer<{ response: http.ClientResponse; body: OK;  }>();
-
-        let requestOptions: request.Options = {
-            method: 'POST',
-            qs: queryParameters,
-            headers: headerParams,
-            uri: path,
-            json: true,
-            body: chaincodeSpec,
-        }
-
-        this.authentications.default.applyToRequest(requestOptions);
-
-        if (Object.keys(formParams).length) {
-            if (useFormData) {
-                (<any>requestOptions).formData = formParams;
-            } else {
-                requestOptions.form = formParams;
-            }
-        }
-
-        request(requestOptions, (error, response, body) => {
-            if (error) {
-                deferred.reject(error);
-            } else {
-                if (response.statusCode >= 200 && response.statusCode <= 299) {
-                    deferred.resolve({ response: response, body: body });
-                } else {
-                    deferred.reject({ response: response, body: body });
-                }
-            }
-        });
-
-        return deferred.promise;
     }
 
     public chaincodeDeploy (chaincodeSpec: ChaincodeSpec) : Promise<{ response: http.ClientResponse; body: OK;  }> {

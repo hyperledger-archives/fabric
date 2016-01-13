@@ -8,11 +8,6 @@
 			"revisionTime": "2015-05-01T06:40:42-04:00"
 		},
 		{
-			"path": "github.com/blang/semver",
-			"revision": "31b736133b98f26d5e078ec9eb591666edfd091f",
-			"revisionTime": "2015-06-20T10:58:49+02:00"
-		},
-		{
 			"path": "github.com/cpuguy83/go-md2man/md2man",
 			"revision": "71acacd42f85e5e82f70a55327789582a5200a90",
 			"revisionTime": "2015-08-03T11:35:22-04:00"

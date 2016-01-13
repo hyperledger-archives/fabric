@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
+	obc "github.com/openblockchain/obc-peer/protos"
 
 	"bytes"
 	"fmt"
@@ -30,9 +30,9 @@ import (
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
-	"reflect"
 )
 
 var (
@@ -46,7 +46,7 @@ var (
 	caAlreadyOn bool
 	eca         *obcca.ECA
 	tca         *obcca.TCA
-	tlsca		*obcca.TLSCA
+	tlsca       *obcca.TLSCA
 	caWaitGroup sync.WaitGroup
 )
 
@@ -60,22 +60,22 @@ func TestMain(m *testing.M) {
 	// Init clients
 	err := initClients()
 	if err != nil {
-		fmt.Printf("Failed initializing clients [%s]\n", err.Error())
-		panic(fmt.Errorf("Failed initializing clients [%s].", err.Error()))
+		fmt.Printf("Failed initializing clients [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing clients [%s].", err))
 	}
 
 	// Init peer
 	err = initPeers()
 	if err != nil {
-		fmt.Printf("Failed initializing peers [%s]\n", err.Error())
-		panic(fmt.Errorf("Failed initializing peers [%s].", err.Error()))
+		fmt.Printf("Failed initializing peers [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing peers [%s].", err))
 	}
 
 	// Init validators
 	err = initValidators()
 	if err != nil {
-		fmt.Printf("Failed initializing validators [%s]\n", err.Error())
-		panic(fmt.Errorf("Failed initializing validators [%s].", err.Error()))
+		fmt.Printf("Failed initializing validators [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing validators [%s].", err))
 	}
 	
 	viper.Set("pki.validity-period.update", "false")
@@ -94,10 +94,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestClientDeployTransaction(t *testing.T) {
-	tx, err := createConfidentialDeployTransaction()
+	_, tx, err := createConfidentialDeployTransaction()
 
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
 
 	if tx == nil {
@@ -107,7 +107,7 @@ func TestClientDeployTransaction(t *testing.T) {
 	// Check transaction. For test purposes only
 	err = deployer.(*clientImpl).checkTransaction(tx)
 	if err != nil {
-		t.Fatalf("Failed checking transaction [%s].", err.Error())
+		t.Fatalf("Failed checking transaction [%s].", err)
 	}
 }
 
@@ -115,10 +115,10 @@ func TestClientDeployTransaction2(t *testing.T) {
 }
 
 func TestClientExecuteTransaction(t *testing.T) {
-	tx, err := createConfidentialExecuteTransaction()
+	_, tx, err := createConfidentialExecuteTransaction()
 
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
 
 	if tx == nil {
@@ -128,16 +128,16 @@ func TestClientExecuteTransaction(t *testing.T) {
 	// Check transaction. For test purposes only
 	err = invoker.(*clientImpl).checkTransaction(tx)
 	if err != nil {
-		t.Fatalf("Failed checking transaction [%s].", err.Error())
+		t.Fatalf("Failed checking transaction [%s].", err)
 	}
 }
 
 func TestClientMultiExecuteTransaction(t *testing.T) {
 	for i := 0; i < 24; i++ {
-		tx, err := createConfidentialExecuteTransaction()
+		_, tx, err := createConfidentialExecuteTransaction()
 
 		if err != nil {
-			t.Fatalf("Failed creating execute transaction [%s].", err.Error())
+			t.Fatalf("Failed creating execute transaction [%s].", err)
 		}
 
 		if tx == nil {
@@ -147,7 +147,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 		// Check transaction. For test purposes only
 		err = invoker.(*clientImpl).checkTransaction(tx)
 		if err != nil {
-			t.Fatalf("Failed checking transaction [%s].", err.Error())
+			t.Fatalf("Failed checking transaction [%s].", err)
 		}
 	}
 }
@@ -172,14 +172,14 @@ func TestPeerID(t *testing.T) {
 }
 
 func TestPeerConfidentialDeployTransaction(t *testing.T) {
-	tx, err := createConfidentialDeployTransaction()
+	_, tx, err := createConfidentialDeployTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err.Error())
+		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -187,7 +187,7 @@ func TestPeerConfidentialDeployTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -195,14 +195,14 @@ func TestPeerConfidentialDeployTransaction(t *testing.T) {
 }
 
 func TestPeerConfidentialExecuteTransaction(t *testing.T) {
-	tx, err := createConfidentialExecuteTransaction()
+	_, tx, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err.Error())
+		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -210,7 +210,7 @@ func TestPeerConfidentialExecuteTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -218,14 +218,14 @@ func TestPeerConfidentialExecuteTransaction(t *testing.T) {
 }
 
 func TestPeerConfidentialQueryTransaction(t *testing.T) {
-	tx, err := createConfidentialQueryTransaction()
+	_, tx, err := createConfidentialQueryTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating query transaction [%s].", err.Error())
+		t.Fatalf("Failed creating query transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -233,7 +233,7 @@ func TestPeerConfidentialQueryTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -243,12 +243,12 @@ func TestPeerConfidentialQueryTransaction(t *testing.T) {
 func TestPeerPublicDeployTransaction(t *testing.T) {
 	tx, err := createPublicDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating public deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating public deploy transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -256,7 +256,7 @@ func TestPeerPublicDeployTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -266,12 +266,12 @@ func TestPeerPublicDeployTransaction(t *testing.T) {
 func TestPeerPublicExecuteTransaction(t *testing.T) {
 	tx, err := createPublicExecuteTransaction()
 	if err != nil {
-		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err.Error())
+		t.Fatalf("TransactionPreValidation: failed creating transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -279,7 +279,7 @@ func TestPeerPublicExecuteTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -289,12 +289,12 @@ func TestPeerPublicExecuteTransaction(t *testing.T) {
 func TestPeerPublicQueryTransaction(t *testing.T) {
 	tx, err := createPublicQueryTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating query transaction [%s].", err.Error())
+		t.Fatalf("Failed creating query transaction [%s].", err)
 	}
 
 	res, err := peer.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -302,7 +302,7 @@ func TestPeerPublicQueryTransaction(t *testing.T) {
 
 	res, err = peer.TransactionPreExecution(tx)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must nil")
@@ -310,18 +310,18 @@ func TestPeerPublicQueryTransaction(t *testing.T) {
 }
 
 func TestPeerStateEncryptor(t *testing.T) {
-	deployTx, err := createConfidentialDeployTransaction()
+	_, deployTx, err := createConfidentialDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
-	invokeTxOne, err := createConfidentialExecuteTransaction()
+	_, invokeTxOne, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating invoke transaction [%s].", err.Error())
+		t.Fatalf("Failed creating invoke transaction [%s].", err)
 	}
 
 	res, err := peer.GetStateEncryptor(deployTx, invokeTxOne)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if res != nil {
 		t.Fatalf("Result must be nil")
@@ -332,7 +332,7 @@ func TestPeerSignVerify(t *testing.T) {
 	msg := []byte("Hello World!!!")
 	signature, err := peer.Sign(msg)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 	if signature != nil {
 		t.Fatalf("Result must be nil")
@@ -340,7 +340,7 @@ func TestPeerSignVerify(t *testing.T) {
 
 	err = peer.Verify(validator.GetID(), signature, msg)
 	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err.Error())
+		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
 	}
 }
 
@@ -364,14 +364,14 @@ func TestValidatorID(t *testing.T) {
 }
 
 func TestValidatorConfidentialDeployTransaction(t *testing.T) {
-	tx, err := createConfidentialDeployTransaction()
+	otx, tx, err := createConfidentialDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -379,7 +379,7 @@ func TestValidatorConfidentialDeployTransaction(t *testing.T) {
 
 	res, err = validator.TransactionPreExecution(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -387,18 +387,21 @@ func TestValidatorConfidentialDeployTransaction(t *testing.T) {
 
 	if reflect.DeepEqual(res, tx) {
 		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
+	}
+	if err := isEqual(otx, res); err != nil {
+		t.Fatalf("Decrypted transaction differs from the original: [%s]", err)
 	}
 }
 
 func TestValidatorConfidentialExecuteTransaction(t *testing.T) {
-	tx, err := createConfidentialExecuteTransaction()
+	otx, tx, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating execute transaction [%s].", err.Error())
+		t.Fatalf("Failed creating execute transaction [%s].", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -406,7 +409,7 @@ func TestValidatorConfidentialExecuteTransaction(t *testing.T) {
 
 	res, err = validator.TransactionPreExecution(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -414,65 +417,71 @@ func TestValidatorConfidentialExecuteTransaction(t *testing.T) {
 	if reflect.DeepEqual(res, tx) {
 		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
 	}
+	if err := isEqual(otx, res); err != nil {
+		t.Fatalf("Decrypted transaction differs from the original: [%s]", err)
+	}
 }
 
 func TestValidatorConfidentialQueryTransaction(t *testing.T) {
-	deployTx, err := createConfidentialDeployTransaction()
+	_, deployTx, err := createConfidentialDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
-	invokeTxOne, err := createConfidentialExecuteTransaction()
+	_, invokeTxOne, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating invoke transaction [%s].", err.Error())
+		t.Fatalf("Failed creating invoke transaction [%s].", err)
 	}
-	invokeTxTwo, err := createConfidentialExecuteTransaction()
+	_, invokeTxTwo, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating invoke transaction [%s].", err.Error())
+		t.Fatalf("Failed creating invoke transaction [%s].", err)
 	}
-	queryTx, err := createConfidentialQueryTransaction()
+	otx, queryTx, err := createConfidentialQueryTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating query transaction [%s].", err.Error())
+		t.Fatalf("Failed creating query transaction [%s].", err)
 	}
 
 	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
 	if _, err := validator.TransactionPreValidation(deployTx); err != nil {
-		t.Fatalf("Failed pre-validating deploty transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
-		t.Fatalf("Failed pre-validating deploty transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-executing deploty transaction [%s].", err)
 	}
 	if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
-		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
-		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-executing exec1 transaction [%s].", err)
 	}
 	if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 	if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-executing exec2 transaction [%s].", err)
 	}
 	if _, err := validator.TransactionPreValidation(queryTx); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating query transaction [%s].", err)
 	}
 	if queryTx, err = validator.TransactionPreExecution(queryTx); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-executing query transaction [%s].", err)
+	}
+	if err := isEqual(otx, queryTx); err != nil {
+		t.Fatalf("Decrypted transaction differs from the original: [%s]", err)
 	}
 
 	// First invokeTx
 	seOne, err := validator.GetStateEncryptor(deployTx, invokeTxOne)
 	if err != nil {
-		t.Fatalf("Failed creating state encryptor [%s].", err.Error())
+		t.Fatalf("Failed creating state encryptor [%s].", err)
 	}
 	pt := []byte("Hello World")
 	aCt, err := seOne.Encrypt(pt)
 	if err != nil {
-		t.Fatalf("Failed encrypting state [%s].", err.Error())
+		t.Fatalf("Failed encrypting state [%s].", err)
 	}
 	aPt, err := seOne.Decrypt(aCt)
 	if err != nil {
-		t.Fatalf("Failed decrypting state [%s].", err.Error())
+		t.Fatalf("Failed decrypting state [%s].", err)
 	}
 	if !bytes.Equal(pt, aPt) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
@@ -481,11 +490,11 @@ func TestValidatorConfidentialQueryTransaction(t *testing.T) {
 	// Second invokeTx
 	seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
 	if err != nil {
-		t.Fatalf("Failed creating state encryptor [%s].", err.Error())
+		t.Fatalf("Failed creating state encryptor [%s].", err)
 	}
 	aPt2, err := seTwo.Decrypt(aCt)
 	if err != nil {
-		t.Fatalf("Failed decrypting state [%s].", err.Error())
+		t.Fatalf("Failed decrypting state [%s].", err)
 	}
 	if !bytes.Equal(pt, aPt2) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
@@ -495,12 +504,12 @@ func TestValidatorConfidentialQueryTransaction(t *testing.T) {
 	seThree, err := validator.GetStateEncryptor(deployTx, queryTx)
 	ctQ, err := seThree.Encrypt(aPt2)
 	if err != nil {
-		t.Fatalf("Failed encrypting query result [%s].", err.Error())
+		t.Fatalf("Failed encrypting query result [%s].", err)
 	}
 
 	aPt3, err := invoker.DecryptQueryResult(queryTx, ctQ)
 	if err != nil {
-		t.Fatalf("Failed decrypting query result [%s].", err.Error())
+		t.Fatalf("Failed decrypting query result [%s].", err)
 	}
 	if !bytes.Equal(aPt2, aPt3) {
 		t.Fatalf("Failed decrypting query result [%s != %s]: %s", string(aPt2), string(aPt3), err)
@@ -510,12 +519,12 @@ func TestValidatorConfidentialQueryTransaction(t *testing.T) {
 func TestValidatorPublicDeployTransaction(t *testing.T) {
 	tx, err := createPublicDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s].", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s].", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -523,27 +532,27 @@ func TestValidatorPublicDeployTransaction(t *testing.T) {
 
 	res, err = validator.TransactionPreExecution(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
 	}
 
 	// TODO:
-//	if reflect.DeepEqual(res, tx) {
-//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
-//	}
+	//	if reflect.DeepEqual(res, tx) {
+	//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
+	//	}
 }
 
 func TestValidatorPublicExecuteTransaction(t *testing.T) {
 	tx, err := createPublicExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating execute transaction [%s].", err.Error())
+		t.Fatalf("Failed creating execute transaction [%s].", err)
 	}
 
 	res, err := validator.TransactionPreValidation(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
@@ -551,63 +560,63 @@ func TestValidatorPublicExecuteTransaction(t *testing.T) {
 
 	res, err = validator.TransactionPreExecution(tx)
 	if err != nil {
-		t.Fatalf("Error must be nil [%s].", err.Error())
+		t.Fatalf("Error must be nil [%s].", err)
 	}
 	if res == nil {
 		t.Fatalf("Result must be diffrent from nil")
 	}
 	// TODO:
-//	if reflect.DeepEqual(res, tx) {
-//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
-//	}
+	//	if reflect.DeepEqual(res, tx) {
+	//		t.Fatalf("Src and Dest Transaction should be different after PreExecution")
+	//	}
 }
 
 func TestValidatorStateEncryptor(t *testing.T) {
-	deployTx, err := createConfidentialDeployTransaction()
+	_, deployTx, err := createConfidentialDeployTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating deploy transaction [%s]", err.Error())
+		t.Fatalf("Failed creating deploy transaction [%s]", err)
 	}
-	invokeTxOne, err := createConfidentialExecuteTransaction()
+	_, invokeTxOne, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating invoke transaction [%s]", err.Error())
+		t.Fatalf("Failed creating invoke transaction [%s]", err)
 	}
-	invokeTxTwo, err := createConfidentialExecuteTransaction()
+	_, invokeTxTwo, err := createConfidentialExecuteTransaction()
 	if err != nil {
-		t.Fatalf("Failed creating invoke transaction [%s]", err.Error())
+		t.Fatalf("Failed creating invoke transaction [%s]", err)
 	}
 
 	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
 	if _, err := validator.TransactionPreValidation(deployTx); err != nil {
-		t.Fatalf("Failed pre-validating deploty transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
-		t.Fatalf("Failed pre-validating deploty transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
-		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
-		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 	if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
-		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err.Error())
+		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 
 	seOne, err := validator.GetStateEncryptor(deployTx, invokeTxOne)
 	if err != nil {
-		t.Fatalf("Failed creating state encryptor [%s].", err.Error())
+		t.Fatalf("Failed creating state encryptor [%s].", err)
 	}
 	pt := []byte("Hello World")
 	aCt, err := seOne.Encrypt(pt)
 	if err != nil {
-		t.Fatalf("Failed encrypting state [%s].", err.Error())
+		t.Fatalf("Failed encrypting state [%s].", err)
 	}
 	aPt, err := seOne.Decrypt(aCt)
 	if err != nil {
-		t.Fatalf("Failed decrypting state [%s].", err.Error())
+		t.Fatalf("Failed decrypting state [%s].", err)
 	}
 	if !bytes.Equal(pt, aPt) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
@@ -615,11 +624,11 @@ func TestValidatorStateEncryptor(t *testing.T) {
 
 	seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
 	if err != nil {
-		t.Fatalf("Failed creating state encryptor [%s].", err.Error())
+		t.Fatalf("Failed creating state encryptor [%s].", err)
 	}
 	aPt2, err := seTwo.Decrypt(aCt)
 	if err != nil {
-		t.Fatalf("Failed decrypting state [%s].", err.Error())
+		t.Fatalf("Failed decrypting state [%s].", err)
 	}
 	if !bytes.Equal(pt, aPt2) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
@@ -627,17 +636,16 @@ func TestValidatorStateEncryptor(t *testing.T) {
 
 }
 
-
 func TestValidatorSignVerify(t *testing.T) {
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
 	if err != nil {
-		t.Fatalf("TestSign: failed generating signature [%s].", err.Error())
+		t.Fatalf("TestSign: failed generating signature [%s].", err)
 	}
 
 	err = validator.Verify(validator.GetID(), signature, msg)
 	if err != nil {
-		t.Fatalf("TestSign: failed validating signature [%s].", err.Error())
+		t.Fatalf("TestSign: failed validating signature [%s].", err)
 	}
 }
 
@@ -646,7 +654,7 @@ func setup() {
 	viper.AddConfigPath(".")           // path to look for the config file in
 	err := viper.ReadInConfig()        // Find and read the config file
 	if err != nil {                    // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error config file [%s] \n", err.Error()))
+		panic(fmt.Errorf("Fatal error config file [%s] \n", err))
 	}
 	removeFolders()
 }
@@ -758,19 +766,89 @@ func initValidators() error {
 	return err
 }
 
-func createConfidentialDeployTransaction() (*pb.Transaction, error) {
+func createConfidentialDeployTransaction() (*obc.Transaction, *obc.Transaction, error) {
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cds := &obc.ChaincodeDeploymentSpec{
+		ChaincodeSpec: &obc.ChaincodeSpec{
+			Type:                 obc.ChaincodeSpec_GOLANG,
+			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+			CtorMsg:              nil,
+			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+		},
+		EffectiveDate: nil,
+		CodePackage:   nil,
+	}
+
+	otx, err := obc.NewChaincodeDeployTransaction(cds, uuid)
+	if err != nil {
+		return nil, nil, err
+	}
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid)
+	return otx, tx, err
+}
+
+func createConfidentialExecuteTransaction() (*obc.Transaction, *obc.Transaction, error) {
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cis := &obc.ChaincodeInvocationSpec{
+		ChaincodeSpec: &obc.ChaincodeSpec{
+			Type:                 obc.ChaincodeSpec_GOLANG,
+			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+			CtorMsg:              nil,
+			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+		},
+	}
+
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	if err != nil {
+		return nil, nil, err
+	}
+	tx, err := invoker.NewChaincodeExecute(cis, uuid)
+	return otx, tx, err
+}
+
+func createConfidentialQueryTransaction() (*obc.Transaction, *obc.Transaction, error) {
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cis := &obc.ChaincodeInvocationSpec{
+		ChaincodeSpec: &obc.ChaincodeSpec{
+			Type:                 obc.ChaincodeSpec_GOLANG,
+			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+			CtorMsg:              nil,
+			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+		},
+	}
+
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_QUERY)
+	if err != nil {
+		return nil, nil, err
+	}
+	tx, err := invoker.NewChaincodeQuery(cis, uuid)
+	return otx, tx, err
+}
+
+func createPublicDeployTransaction() (*obc.Transaction, error) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		return nil, err
 	}
 
 	tx, err := deployer.NewChaincodeDeployTransaction(
-		&pb.ChaincodeDeploymentSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+		&obc.ChaincodeDeploymentSpec{
+			ChaincodeSpec: &obc.ChaincodeSpec{
+				Type:        obc.ChaincodeSpec_GOLANG,
+				ChaincodeID: &obc.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 			EffectiveDate: nil,
 			CodePackage:   nil,
@@ -780,18 +858,17 @@ func createConfidentialDeployTransaction() (*pb.Transaction, error) {
 	return tx, err
 }
 
-func createConfidentialExecuteTransaction() (*pb.Transaction, error) {
+func createPublicExecuteTransaction() (*obc.Transaction, error) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		return nil, err
 	}
 	tx, err := invoker.NewChaincodeExecute(
-		&pb.ChaincodeInvocationSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+		&obc.ChaincodeInvocationSpec{
+			ChaincodeSpec: &obc.ChaincodeSpec{
+				Type:        obc.ChaincodeSpec_GOLANG,
+				ChaincodeID: &obc.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 		},
 		uuid,
@@ -799,18 +876,17 @@ func createConfidentialExecuteTransaction() (*pb.Transaction, error) {
 	return tx, err
 }
 
-func createConfidentialQueryTransaction() (*pb.Transaction, error) {
+func createPublicQueryTransaction() (*obc.Transaction, error) {
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		return nil, err
 	}
 	tx, err := invoker.NewChaincodeQuery(
-		&pb.ChaincodeInvocationSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
+		&obc.ChaincodeInvocationSpec{
+			ChaincodeSpec: &obc.ChaincodeSpec{
+				Type:        obc.ChaincodeSpec_GOLANG,
+				ChaincodeID: &obc.ChaincodeID{Path: "Contract001"},
 				CtorMsg:     nil,
-				ConfidentialityLevel: pb.ConfidentialityLevel_CONFIDENTIAL,
 			},
 		},
 		uuid,
@@ -818,63 +894,17 @@ func createConfidentialQueryTransaction() (*pb.Transaction, error) {
 	return tx, err
 }
 
-func createPublicDeployTransaction() (*pb.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, err
+func isEqual(src, dst *obc.Transaction) error {
+	if !reflect.DeepEqual(src.Payload, dst.Payload) {
+		return fmt.Errorf("Different Payload [%s]!=[%s].", utils.EncodeBase64(src.Payload), utils.EncodeBase64(dst.Payload))
 	}
 
-	tx, err := deployer.NewChaincodeDeployTransaction(
-		&pb.ChaincodeDeploymentSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-				CtorMsg:     nil,
-				},
-			EffectiveDate: nil,
-			CodePackage:   nil,
-		},
-		uuid,
-	)
-	return tx, err
-}
-
-func createPublicExecuteTransaction() (*pb.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, err
+	if !reflect.DeepEqual(src.ChaincodeID, dst.ChaincodeID) {
+		return fmt.Errorf("Different ChaincodeID [%s]!=[%s].", utils.EncodeBase64(src.ChaincodeID), utils.EncodeBase64(dst.ChaincodeID))
 	}
-	tx, err := invoker.NewChaincodeExecute(
-		&pb.ChaincodeInvocationSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-				CtorMsg:     nil,
-				},
-		},
-		uuid,
-	)
-	return tx, err
-}
 
-func createPublicQueryTransaction() (*pb.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, err
-	}
-	tx, err := invoker.NewChaincodeQuery(
-		&pb.ChaincodeInvocationSpec{
-			ChaincodeSpec: &pb.ChaincodeSpec{
-				Type:        pb.ChaincodeSpec_GOLANG,
-				ChaincodeID: &pb.ChaincodeID{Url: "Contract001", Version: "0.0.1"},
-				CtorMsg:     nil,
-				},
-		},
-		uuid,
-	)
-	return tx, err
+	return nil
 }
-
 
 func cleanup() {
 	fmt.Println("Cleanup...")

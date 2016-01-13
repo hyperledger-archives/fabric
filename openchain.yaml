@@ -18,6 +18,9 @@ cli:
 ###############################################################################
 rest:
 
+    # Enable/disable setting for the REST service.
+    enabled: true
+
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
@@ -98,11 +101,15 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops
+        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
         consensus: noops
 
-        # List of validating peers. For MVP, assume list is static.
-        replicas: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
+         # List of validating peers.
+        replicas:
+            # For MVP, assume list is static.
+            ips: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
+            # Base64-encoded values.
+            hashes: a, b, c, d
 
         events:
             # The address that the Event service will be enabled on the validator
@@ -228,10 +235,13 @@ vm:
 ###############################################################################
 chaincode:
 
-    # The id is used by the Chaincode stub to register the executing ChaincodeID with the Peerand is generally supplied through ENV variables
+    # The id is used by the Chaincode stub to register the executing Chaincode ID with the Peerand is generally supplied through ENV variables
+    # the Path form of ID is provided when deploying the chaincode. The name is used for all other requests. The name is really a hashcode
+    # returned by the system in response to the deploy transaction. In development mode where user runs the chaincode, the name can be
+    # any string
     id:
-        url:
-        version:
+        path:
+        name:
 
     golang:
 
@@ -244,6 +254,9 @@ chaincode:
 
     #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
+
+    #timeout in millisecs for deploying chaincode from a remote repository.
+    deploytimeout: 30000
 
     #mode - options are "dev", "net"
     #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
@@ -268,9 +281,7 @@ ledger:
 
       # Deploy chaincodes into the genesis block
       # chaincode:
-      #   - id:
-      #       url: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-      #       version: 0.1.0
+      #     path: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
       #     type: GOLANG
       #     constructor:
       #       func: init

@@ -113,7 +113,7 @@ func (testWrapper *stateImplTestWrapper) persistChangesAndResetInMemoryChanges()
 	writeBatch := gorocksdb.NewWriteBatch()
 	testWrapper.addChangesForPersistence(writeBatch)
 	testDBWrapper.WriteToDB(testWrapper.t, writeBatch)
-	testWrapper.stateImpl.ClearWorkingSet()
+	testWrapper.stateImpl.ClearWorkingSet(true)
 }
 
 func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {

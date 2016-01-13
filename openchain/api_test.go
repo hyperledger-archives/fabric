@@ -250,7 +250,11 @@ func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
 	// TODO Use chaincode instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
 	ledger1.BeginTxBatch(1)
-	transaction1a := protos.NewTransaction(protos.ChaincodeID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction1a,err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
 	ledger1.TxBegin(transaction1a.Uuid)
@@ -262,8 +266,16 @@ func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
 	// -----------------------------<Block #2>------------------------------------
 
 	ledger1.BeginTxBatch(2)
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction2b := protos.NewTransaction(protos.ChaincodeID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction2a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction2b,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger1.TxBegin(transaction2a.Uuid)
@@ -295,7 +307,11 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// TODO Use chaincode instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
 	ledger.BeginTxBatch(1)
-	transaction1a := protos.NewTransaction(protos.ChaincodeID{Url: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction1a,err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
 	ledger.TxBegin(transaction1a.Uuid)
@@ -308,8 +324,16 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// -----------------------------<Block #2>------------------------------------
 
 	ledger.BeginTxBatch(2)
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction2b := protos.NewTransaction(protos.ChaincodeID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction2a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction2b,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger.TxBegin(transaction2a.Uuid)
@@ -324,9 +348,21 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// -----------------------------<Block #3>------------------------------------
 
 	ledger.BeginTxBatch(3)
-	transaction3a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction3b := protos.NewTransaction(protos.ChaincodeID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
-	transaction3c := protos.NewTransaction(protos.ChaincodeID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	transaction3a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction3b,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction3c,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	ledger.TxBegin(transaction3a.Uuid)
 	ledger.SetState("MyContract", "x", []byte("hello"))
 	ledger.SetState("MyOtherContract", "y", []byte("goodbuy"))
@@ -342,10 +378,26 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction4a := protos.NewTransaction(protos.ChaincodeID{Url: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction4b := protos.NewTransaction(protos.ChaincodeID{Url: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
-	transaction4c := protos.NewTransaction(protos.ChaincodeID{Url: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
-	transaction4d := protos.NewTransaction(protos.ChaincodeID{Url: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
+	transaction4a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4b,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4c,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4d,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger.TxBegin(transaction4a.Uuid)

@@ -320,7 +320,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 		}
 
 		// Invoke ledger to get state
-		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
+		chaincodeID := handler.ChaincodeID.Name
 		// ToDo: Eventually, once consensus is plugged in, we need to set bool to true for ledger
 		res, err := ledgerObj.GetState(chaincodeID, key, false)
 		chaincodeLogger.Debug("Got state %s from ledger", string(res))
@@ -424,7 +424,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			return
 		}
 
-		chaincodeID, _ := getChaincodeID(handler.ChaincodeID)
+		chaincodeID := handler.ChaincodeID.Name
 		var err error
 		var res []byte
 
@@ -471,7 +471,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			}
 
 			// Get the chaincodeID to invoke
-			newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+			newChaincodeID := chaincodeSpec.ChaincodeID.Name
 
 			// Create the transaction object
 			chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
@@ -660,7 +660,7 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		}
 
 		// Get the chaincodeID to invoke
-		newChaincodeID, _ := getChaincodeID(chaincodeSpec.ChaincodeID)
+		newChaincodeID := chaincodeSpec.ChaincodeID.Name
 
 		// Create the transaction object
 		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}

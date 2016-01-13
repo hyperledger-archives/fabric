@@ -17,71 +17,79 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package pbft
+package obcpbft
 
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
+	"sync"
+	"time"
+
+	"github.com/openblockchain/obc-peer/openchain/util"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
-
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
 // =============================================================================
-// Constants
-// =============================================================================
-
-const configPrefix = "OPENCHAIN_PBFT"
-
-// =============================================================================
-// Init
+// init
 // =============================================================================
 
 var logger *logging.Logger // package-level logger
-var pluginInstance *Plugin // the Plugin is a singleton
 
 func init() {
-	logger = logging.MustGetLogger("consensus/pbft")
+	logger = logging.MustGetLogger("consensus/obcpbft")
 }
 
 // =============================================================================
-// Custom structure definitions go here
+// custom interfaces and structure definitions
 // =============================================================================
 
-// Plugin carries fields related to the consensus algorithm implementation.
-type Plugin struct {
+type innerCPI interface {
+	broadcast(msgPayload []byte)
+	verify(txRaw []byte) error
+	execute(txRaw []byte)
+	viewChange(curView uint64)
+
+	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
+}
+
+type pbftCore struct {
 	// internal data
-	config *viper.Viper  // link to the plugin config file
-	cpi    consensus.CPI // link to the CPI
+	lock     sync.Mutex
+	closed   bool
+	consumer innerCPI
 
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            uint              // number of faults we can tolerate
+	f            int               // number of faults we can tolerate
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
 	L            uint64            // log size
 	lastExec     uint64            // last request we executed
-	replicaCount uint              // number of replicas; PBFT `|R|`
+	replicaCount int               // number of replicas; PBFT `|R|`
 	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
 	view         uint64            // current view
 	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
-	// Implementation of PBFT `in`
+	newViewTimer       *time.Timer         // timeout triggering a view change
+	timerActive        bool                // is the timer running?
+	requestTimeout     time.Duration       // progress timeout for requests
+	newViewTimeout     time.Duration       // progress timeout for new views
+	lastNewViewTimeout time.Duration       // last timeout we used during this view change
+	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+
+	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
 	certStore       map[msgID]*msgCert    // track quorum certificates for requests
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
-	lastNewView     NewView               // track last new-view we received or sent
+	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
 }
 
 type qidx struct {
@@ -108,59 +116,36 @@ type vcidx struct {
 }
 
 // =============================================================================
-// Constructors go here
+// constructors
 // =============================================================================
 
-// GetPlugin returns the handle to the Plugin singleton and updates the CPI if necessary.
-func GetPlugin(c consensus.CPI) *Plugin {
-	if pluginInstance == nil {
-		pluginInstance = New(c)
-	} else {
-		pluginInstance.cpi = c // otherwise, just update the CPI
-	}
-	return pluginInstance
-}
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
+	instance := &pbftCore{}
+	instance.id = id
+	instance.consumer = consumer
 
-// New creates an plugin-specific structure that acts as the ConsenusHandler's consenter.
-func New(c consensus.CPI) *Plugin {
-	instance := &Plugin{}
-	instance.cpi = c
-
-	// set ID
-	address, _ := instance.cpi.GetReplicaAddress(true)
-	instance.id, _ = instance.cpi.GetReplicaID(address[0])
-
-	// setup the link to the config file
-	instance.config = viper.New()
-
-	// for environment variables
-	instance.config.SetEnvPrefix(configPrefix)
-	instance.config.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	instance.config.SetEnvKeyReplacer(replacer)
-
-	instance.config.SetConfigName("config")
-	instance.config.AddConfigPath("./")
-	instance.config.AddConfigPath("./openchain/consensus/pbft/")
-	err := instance.config.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
-	}
-
-	// In dev/debugging mode you are expected to override the config values
-	// with the environment variable OPENCHAIN_PBFT_X_Y
+	// in dev/debugging mode you are expected to override the config values
+	// with the environment variable OPENCHAIN_OBCPBFT_X_Y
 
 	// read from the config file
-	// you can override the config values with the
-	// environment variable prefix OPENCHAIN_PBFT e.g. OPENCHAIN_PBFT_REPLICA_ID
-	instance.f = uint(instance.config.GetInt("general.f"))
-	instance.K = uint64(instance.config.GetInt("general.K"))
-	instance.byzantine = instance.config.GetBool("replica.byzantine")
-
-	instance.replicaCount = 3*instance.f + 1
-	instance.L = 2 * instance.K
+	// you can override the config values with the environment variable prefix
+	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
+	var err error
+	instance.byzantine = config.GetBool("replica.byzantine")
+	instance.f = config.GetInt("general.f")
+	instance.K = uint64(config.GetInt("general.K"))
+	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
+	}
+	instance.newViewTimeout, err = time.ParseDuration(config.GetString("general.timeout.viewchange"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
+	}
 
 	instance.activeView = true
+	instance.L = 2 * instance.K // log size
+	instance.replicaCount = 3*instance.f + 1
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -170,36 +155,73 @@ func New(c consensus.CPI) *Plugin {
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
+	instance.newViewStore = make(map[uint64]*NewView)
 
-	// initialize genesis checkpoint
-	// TODO load state from disk
-	instance.chkpts[0] = "TODO GENESIS STATE FROM STACK"
+	// load genesis checkpoint
+	stateHash, err := instance.consumer.getStateHash(0)
+	if err != nil {
+		panic(fmt.Errorf("Cannot load genesis block: %s", err))
+	}
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(stateHash)
+
+	// create non-running timer XXX ugly
+	instance.newViewTimer = time.NewTimer(100 * time.Hour)
+	instance.newViewTimer.Stop()
+	instance.lastNewViewTimeout = instance.newViewTimeout
+	instance.outstandingReqs = make(map[string]*Request)
+
+	go instance.timerHander()
 
 	return instance
 }
 
+// tear down resources opened by newPbftCore
+func (instance *pbftCore) close() {
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.closed = true
+	instance.newViewTimer.Reset(0)
+}
+
+// allow the view-change protocol to kick-off when the timer expires
+func (instance *pbftCore) timerHander() {
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+			instance.lock.Lock()
+			if instance.closed {
+				instance.lock.Unlock()
+				return
+			}
+			logger.Info("Replica %d view change timeout expired", instance.id)
+			instance.sendViewChange()
+			instance.lock.Unlock()
+		}
+	}
+}
+
 // =============================================================================
-// Helper functions for PBFT go here
+// helper functions for PBFT
 // =============================================================================
 
 // Given a certain view n, what is the expected primary?
-func (instance *Plugin) getPrimary(n uint64) uint64 {
+func (instance *pbftCore) primary(n uint64) uint64 {
 	return n % uint64(instance.replicaCount)
 }
 
 // Is the sequence number between watermarks?
-func (instance *Plugin) inW(n uint64) bool {
+func (instance *pbftCore) inW(n uint64) bool {
 	return n-instance.h > 0 && n-instance.h <= instance.L
 }
 
 // Is the view right? And is the sequence number between watermarks?
-func (instance *Plugin) inWV(v uint64, n uint64) bool {
+func (instance *pbftCore) inWV(v uint64, n uint64) bool {
 	return instance.view == v && instance.inW(n)
 }
 
 // Given a digest/view/seq, is there an entry in the certLog?
 // If so, return it. If not, create it.
-func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
+func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 	idx := msgID{v, n}
 	cert, ok := instance.certStore[idx]
 	if ok {
@@ -212,10 +234,10 @@ func (instance *Plugin) getCert(v uint64, n uint64) (cert *msgCert) {
 }
 
 // =============================================================================
-// Preprepare/prepare/commit quorum checks
+// preprepare/prepare/commit quorum checks
 // =============================================================================
 
-func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
 	if digest != "" && !mInLog {
@@ -238,7 +260,7 @@ func (instance *Plugin) prePrepared(digest string, v uint64, n uint64) bool {
 	return false
 }
 
-func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 	if !instance.prePrepared(digest, v, n) {
 		return false
 	}
@@ -247,7 +269,7 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 		return true
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -265,12 +287,12 @@ func (instance *Plugin) prepared(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f
 }
 
-func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
+func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	if !instance.prepared(digest, v, n) {
 		return false
 	}
 
-	quorum := uint(0)
+	quorum := 0
 	cert := instance.certStore[msgID{v, n}]
 	if cert == nil {
 		return false
@@ -289,24 +311,34 @@ func (instance *Plugin) committed(digest string, v uint64, n uint64) bool {
 }
 
 // =============================================================================
-// Receive methods go here
+// receive methods
 // =============================================================================
 
-// RecvMsg receives messages transmitted by CPI.Broadcast or CPI.Unicast.
-func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
-	if msgWrapped.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		return instance.Request(msgWrapped.Payload)
-	}
-	if msgWrapped.Type != pb.OpenchainMessage_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", msgWrapped.Type)
-	}
+// handle new consensus requests
+func (instance *pbftCore) request(msgPayload []byte) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload}}}
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
+	return nil
+}
+
+// handle internal consensus messages
+func (instance *pbftCore) receive(msgPayload []byte) error {
 	msg := &Message{}
-	err := proto.Unmarshal(msgWrapped.Payload, msg)
+	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+	instance.recvMsgSync(msg)
 
+	return nil
+}
+
+func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -322,40 +354,36 @@ func (instance *Plugin) RecvMsg(msgWrapped *pb.OpenchainMessage) error {
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
 	} else {
-		err := fmt.Errorf("Invalid message: %v", msgWrapped.Payload)
+		err = fmt.Errorf("Invalid message: %v", msg)
 		logger.Error("%s", err)
 	}
 
 	return err
 }
 
-// Request is the main entry into the consensus plugin.
-// txs will be passed to CPI.ExecTXs once consensus is reached.
-func (instance *Plugin) Request(txs []byte) error {
-	logger.Info("New consensus request received")
-	req := &Request{Payload: txs}
-	return instance.broadcast(&Message{&Message_Request{req}}, true) // route to ourselves as well
-}
-
-func (instance *Plugin) recvRequest(req *Request) error {
+func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	// TODO verify transaction
-	// if err := instance.cpi.VerifyTransaction(...); err != nil {
-	//   logger.Warning("Invalid request");
-	//   return err
-	// }
+	if err := instance.consumer.verify(req.Payload); err != nil {
+		logger.Warning("Request %s did not verify: %s", digest, err)
+		return err
+	}
+
 	instance.reqStore[digest] = req
+	instance.outstandingReqs[digest] = req
+	if !instance.timerActive {
+		instance.startTimer(instance.requestTimeout)
+	}
 
-	n := instance.seqNo + 1
-
-	if instance.getPrimary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
+	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
+		n := instance.seqNo + 1
 		haveOther := false
+
 		for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 			if p := cert.prePrepare; p != nil {
 				if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest {
-					logger.Debug("Other pre-prepared found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
+					logger.Debug("Other pre-prepare found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
 					haveOther = true
 					break
 				}
@@ -376,14 +404,14 @@ func (instance *Plugin) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
-			return instance.broadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			return instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
 		}
 	}
 
 	return nil
 }
 
-func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
+func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
@@ -391,13 +419,13 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 		return nil
 	}
 
-	if instance.getPrimary(instance.view) != preprep.ReplicaId {
-		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.getPrimary(instance.view))
+	if instance.primary(instance.view) != preprep.ReplicaId {
+		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.primary(instance.view))
 		return nil
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.getPrimary(instance.view), preprep.SequenceNumber, instance.h)
+		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		return nil
 	}
 
@@ -416,15 +444,16 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
-		// TODO verify transaction
-		// if err := instance.cpi.VerifyTransaction(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
+		if err := instance.consumer.verify(preprep.Request.Payload); err != nil {
+			logger.Warning("Request %s did not verify: %s", digest, err)
+			return err
+		}
+
 		instance.reqStore[digest] = preprep.Request
+		instance.outstandingReqs[digest] = preprep.Request
 	}
 
-	if instance.getPrimary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
+	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
@@ -435,30 +464,36 @@ func (instance *Plugin) recvPrePrepare(preprep *PrePrepare) error {
 			ReplicaId:      instance.id,
 		}
 
+		// TODO build this properly
+		// https://github.com/openblockchain/obc-peer/issues/217
 		if instance.byzantine {
 			prep.RequestDigest = "foo"
 		}
 
-		cert.prepare = append(cert.prepare, prep)
 		cert.sentPrepare = true
-
-		return instance.broadcast(&Message{&Message_Prepare{prep}}, false)
+		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 	}
 
 	return nil
 }
 
-func (instance *Plugin) recvPrepare(prep *Prepare) error {
+func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
-		instance.id, prep.ReplicaId, prep.View,
-		prep.SequenceNumber)
+		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
 
-	if !(instance.getPrimary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
+	if !(instance.primary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
 		logger.Warning("Ignoring invalid prepare")
 		return nil
 	}
 
 	cert := instance.getCert(prep.View, prep.SequenceNumber)
+
+	for _, prevPrep := range cert.prepare {
+		if prevPrep.ReplicaId == prep.ReplicaId {
+			logger.Warning("Ignoring duplicate prepare from %d", prep.ReplicaId)
+			return nil
+		}
+	}
 	cert.prepare = append(cert.prepare, prep)
 	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
@@ -473,19 +508,24 @@ func (instance *Plugin) recvPrepare(prep *Prepare) error {
 
 		cert.sentCommit = true
 
-		return instance.broadcast(&Message{&Message_Commit{commit}}, true)
+		return instance.innerBroadcast(&Message{&Message_Commit{commit}}, true)
 	}
 
 	return nil
 }
 
-func (instance *Plugin) recvCommit(commit *Commit) error {
+func (instance *pbftCore) recvCommit(commit *Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
-		instance.id, commit.ReplicaId, commit.View,
-		commit.SequenceNumber)
+		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
 
 	if instance.inWV(commit.View, commit.SequenceNumber) {
 		cert := instance.getCert(commit.View, commit.SequenceNumber)
+		for _, prevCommit := range cert.commit {
+			if prevCommit.ReplicaId == commit.ReplicaId {
+				logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
+				return nil
+			}
+		}
 		cert.commit = append(cert.commit, commit)
 
 		// note that we can reach this point without
@@ -499,7 +539,7 @@ func (instance *Plugin) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *Plugin) executeOutstanding() error {
+func (instance *pbftCore) executeOutstanding() error {
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -514,7 +554,7 @@ func (instance *Plugin) executeOutstanding() error {
 	return nil
 }
 
-func (instance *Plugin) executeOne(idx msgID) bool {
+func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -531,8 +571,9 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 	}
 
 	// we have a commit certificate for this request
-
 	instance.lastExec = idx.n
+	instance.stopTimer()
+	instance.lastNewViewTimeout = instance.newViewTimeout
 
 	// null request
 	if digest == "" {
@@ -542,17 +583,16 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		tx := &pb.Transaction{}
-		err := proto.Unmarshal(req.Payload, tx)
-		if err == nil {
-			// XXX switch to https://github.com/openblockchain/obc-peer/issues/340
-			instance.cpi.ExecTXs([]*pb.Transaction{tx})
-		}
+		instance.consumer.execute(req.Payload)
+		delete(instance.outstandingReqs, digest)
+	}
+
+	if len(instance.outstandingReqs) > 0 {
+		instance.startTimer(instance.requestTimeout)
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		// XXX replace with instance.cpi.GetStateHash()
-		stateHashBytes := []byte("XXX get current state hash")
+		stateHashBytes, _ := instance.consumer.getStateHash()
 		stateHash := base64.StdEncoding.EncodeToString(stateHashBytes)
 
 		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
@@ -564,13 +604,13 @@ func (instance *Plugin) executeOne(idx msgID) bool {
 			ReplicaId:      instance.id,
 		}
 		instance.chkpts[instance.lastExec] = stateHash
-		instance.broadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
 	return true
 }
 
-func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
 
@@ -581,7 +621,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 
 	instance.checkpointStore[*chkpt] = true
 
-	quorum := uint(0)
+	quorum := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
 			quorum++
@@ -592,8 +632,7 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 		return nil
 	}
 
-	// If we do not have this checkpoint locally, we should not
-	// clear our state.
+	// If we do not have this checkpoint locally, we should not clear our state.
 	// PBFT: This diverges from the paper.
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		// XXX fetch checkpoint from other replica
@@ -655,26 +694,51 @@ func (instance *Plugin) recvCheckpoint(chkpt *Checkpoint) error {
 // =============================================================================
 
 // Marshals a Message and hands it to the CPI. If toSelf is true,
-// the message is also dispatched to the local instance's RecvMsg.
-func (instance *Plugin) broadcast(msg *Message, toSelf bool) error {
-	msgPacked, err := proto.Marshal(msg)
+// the message is also dispatched to the local instance's RecvMsgSync.
+func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
+	msgRaw, err := proto.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("[broadcast] Cannot marshal message: %s", err)
+		return fmt.Errorf("[innerBroadcast] Cannot marshal message: %s", err)
 	}
+	instance.consumer.broadcast(msgRaw)
 
-	msgWrapped := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msgPacked,
+	// We call ourselves synchronously, so that testing can run
+	// synchronous.
+	if toSelf {
+		instance.recvMsgSync(msg)
 	}
+	return nil
+}
 
-	err = instance.cpi.Broadcast(msgWrapped)
-	if err == nil && toSelf {
-		err = instance.RecvMsg(msgWrapped)
+func (instance *pbftCore) startTimer(timeout time.Duration) {
+	instance.newViewTimer.Reset(timeout)
+	logger.Debug("Replica %d starting new view timer for %s",
+		instance.id, timeout)
+	instance.timerActive = true
+}
+
+func (instance *pbftCore) stopTimer() {
+	// remove timeouts that may have raced, to prevent additional view change
+	instance.newViewTimer.Stop()
+	logger.Debug("Replica %d stopping new view timer", instance.id)
+	instance.timerActive = false
+	if instance.closed {
+		return
 	}
-	return err
+	// XXX draining here does not help completely, because the
+	// timer handler goroutine may already have consumed the
+	// timeout and now is blocked on Lock()
+loopNewView:
+	for {
+		select {
+		case <-instance.newViewTimer.C:
+		default:
+			break loopNewView
+		}
+	}
 }
 
 func hashReq(req *Request) (digest string) {
-	packedReq, _ := proto.Marshal(req)
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(packedReq))
+	reqRaw, _ := proto.Marshal(req)
+	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(reqRaw))
 }
