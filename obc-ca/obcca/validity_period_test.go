@@ -25,10 +25,10 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 	"sync"
 	"io/ioutil"
+	"encoding/json"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -43,21 +43,18 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
-	
-	//"encoding/json"
-	//"errors"
-	//"runtime"
-	//"strings"	
-	//"github.com/howeyc/gopass"
-	//"github.com/op/go-logging"
-	//"github.com/spf13/cobra"
-	//"github.com/openblockchain/obc-peer/events/producer"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
 
 var (
 	tca *TCA 
 	eca *ECA 
 )
+
+type ValidityPeriod struct {
+	Name  string
+	Value string
+}
 
 func TestMain(m *testing.M) {
 	setupTestConfig()
@@ -76,23 +73,62 @@ func setupTestConfig() {
 }
 
 func TestValidityPeriod(t *testing.T) {
-	go startServices(t) 
+	var updateInterval int64
+	updateInterval = 37
 	
+	// 1. Start TCA and Openchain...
+	go startServices(t)
 	
-	url := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
-	version := "0.0.1"
-	
-	validityPeriodA := queryTransaction(url, version, []string{"system.validity.period"})
+	// ... and wait just let the services finish the startup
+	time.Sleep(time.Second * 180)
+			
+	// 2. Obtain the validity period by querying and directly from the ledger	
+	validityPeriod_A := queryValidityPeriod(t)
+	validityPeriodFromLedger_A := getValidityPeriodFromLedger(t)
 
+	// 3. Wait for the validity period to be updated...
 	time.Sleep(time.Second * 40)
 	
-	validityPeriodB := queryTransaction(url, version, []string{"system.validity.period"})
-	
+	// ... and read the values again
+	validityPeriod_B := queryValidityPeriod(t)
+	validityPeriodFromLedger_B := getValidityPeriodFromLedger(t)
+
+	// 5. Stop TCA and Openchain
 	stopServices()
+		
+	// 6. Compare the values
+	if validityPeriod_A != validityPeriodFromLedger_A {
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriod_A, validityPeriodFromLedger_A)
+		t.Fail()
+	}
 	
-	fmt.Println(validityPeriodA)
-	fmt.Println(validityPeriodB)
-	// 4. cleanup database and test folder
+	if validityPeriod_B != validityPeriodFromLedger_B {
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriod_B, validityPeriodFromLedger_B)
+		t.Fail()
+	}
+	
+	if validityPeriod_B - validityPeriod_A != updateInterval {
+		t.Logf("Validity period difference must be equal to the update interval. Expected: %s, Actual: %s", updateInterval, validityPeriod_B - validityPeriod_A)
+		t.Fail()
+	}
+	
+	// 7. since the validity period is used as time in the validators convert both validity periods to Unix time and compare them
+	vpA := time.Unix(validityPeriodFromLedger_A, 0)
+	vpB := time.Unix(validityPeriodFromLedger_B, 0)
+	
+	nextVP := vpA.Add(time.Second * 37)
+	if !vpB.Equal(nextVP) {
+		t.Logf("Validity period difference must be equal to the update interval. Error converting validity period to Unix time.")
+		t.Fail()
+	} 
+
+	// 8. cleanup tca and openchain folders
+	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
+		t.Logf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
+	}
+	if err := os.RemoveAll(".obcca"); err != nil {
+		t.Logf("Failed removing [%s] [%s]\n", ".obcca", err)
+	}
 }
 
 func startServices(t *testing.T) {
@@ -121,7 +157,7 @@ func startTCA() {
 	var wg sync.WaitGroup
 	eca.Start(&wg)
 	tca.Start(&wg)
-	
+
 	wg.Wait()
 }
 
@@ -130,44 +166,69 @@ func stopTCA(){
 	eca.Stop()
 }
 
-// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
-func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
-	if cID == nil {
-		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
-	}
-	var urlLocation string
-	if strings.HasPrefix(cID.Url, "http://") {
-		urlLocation = cID.Url[7:]
-	} else if strings.HasPrefix(cID.Url, "https://") {
-		urlLocation = cID.Url[8:]
-	} else {
-		urlLocation = cID.Url
-	}
-	return urlLocation + ":" + cID.Version, nil
-}
-
-
-
-func queryTransaction(url string, version string, args []string) error {
+func queryValidityPeriod(t *testing.T) int64 {
+	hash := viper.GetString("pki.validity-period.chaincodeHash")
+	args := []string{"system.validity.period"}
 	
-	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, url, version, "system_chaincode_invoker")
+	validityPeriod, err := queryTransaction(hash, args)
+	if err != nil {
+		t.Logf("Failed querying validity period: %s", err)
+		t.Fail()
+	}
+	
+	var vp ValidityPeriod
+	json.Unmarshal(validityPeriod, &vp)
+	
+	value, err := strconv.ParseInt(vp.Value, 10, 64)
+	if err != nil {
+		t.Logf("Failed parsing validity period: %s", err)
+		t.Fail()
+	}
+	
+	return value
+} 
+
+func getValidityPeriodFromLedger(t *testing.T) int64 { 
+	cid := viper.GetString("pki.validity-period.chaincodeHash")
+		
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		t.Logf("Failed getting access to the ledger: %s", err)
+		t.Fail()
+	}
+		
+	vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
+	if err != nil {
+		t.Logf("Failed reading validity period from the ledger: %s", err)
+		t.Fail()
+	}
+		
+	i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
+	if err != nil {
+		t.Logf("Failed to parse validity period: %s", err)
+		t.Fail()
+	}
+	
+	return i
+ }
+
+func queryTransaction(hash string, args []string) ([]byte, error) {
+	
+	chaincodeInvocationSpec := createChaincodeInvocationForQuery(args, hash, "system_chaincode_invoker")
 
 	fmt.Printf("Going to query\n")
 	
 	response, err := queryChaincode(chaincodeInvocationSpec)
 	
 	if err != nil {
-		return fmt.Errorf("Error querying <%s>: %s", url, err)
+		return nil, fmt.Errorf("Error querying <%s>: %s", "validity period", err)
 	}
 	
 		
-	logger.Info("Successfully invoked validity period update: %s(%s)", url, string(response.Msg))
+	logger.Info("Successfully invoked validity period update: %s", string(response.Msg))
 	
-	return nil
+	return response.Msg, nil
 }
-
-
-
 
 func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
 
@@ -189,10 +250,9 @@ func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response,
 	return resp,nil
 }
 
-func createChaincodeInvocationForQuery(arguments []string, chaincodePath string, chaincodeVersion string, token string) *pb.ChaincodeInvocationSpec {
+func createChaincodeInvocationForQuery(arguments []string, chaincodeHash string, token string) *pb.ChaincodeInvocationSpec {
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, 
-		ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, 
-			Version: chaincodeVersion,
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeHash,
 		}, 
 		CtorMsg: &pb.ChaincodeInput{Function: "query", 
 			Args: arguments,
@@ -226,11 +286,6 @@ func startOpenchain() error {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
 
-//	ehubLis, ehubGrpcServer, err := createEventHubServer()
-//	if err != nil {
-//		grpclog.Fatalf("failed to create ehub server: %v", err)
-//	}
-
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 
 	var opts []grpc.ServerOption
@@ -245,7 +300,6 @@ func startOpenchain() error {
 	grpcServer := grpc.NewServer(opts...)
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
@@ -304,11 +358,6 @@ func startOpenchain() error {
 			return makeGeneisError
 		}
 	}
-
-	//start the event hub server
-//	if ehubGrpcServer != nil && ehubLis != nil {
-//		go ehubGrpcServer.Serve(ehubLis)
-//	}
 
 	// Block until grpc server exits
 	<-serve

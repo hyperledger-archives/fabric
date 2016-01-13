@@ -36,8 +36,6 @@ const (
 	//TODO: this values could be configurable through a configuration file for system chaincode 
 	systemChaincodeTimeout = time.Second * 3
 	drjTime time.Duration = 37
-	chaincodePath = "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
-	chaincodeVersion = "0.0.1"
 	function = "invoke"
 )
 
@@ -126,8 +124,7 @@ func invokeChaincode(chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
 
 func createChaincodeInvocation(validityPeriod string, token string) *obc.ChaincodeInvocationSpec {
 	spec := &obc.ChaincodeSpec{Type: obc.ChaincodeSpec_GOLANG, 
-		ChaincodeID: &obc.ChaincodeID{Url: chaincodePath, 
-			Version: chaincodeVersion,
+		ChaincodeID: &obc.ChaincodeID{Name: viper.GetString("pki.validity-period.chaincodeHash"),
 		}, 
 		CtorMsg: &obc.ChaincodeInput{Function: function, 
 			Args: []string{validityPeriod},
