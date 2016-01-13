@@ -188,8 +188,6 @@ func TestSieveNonDeterministic(t *testing.T) {
 	}
 }
 
-/*
-// TODO @jyellick
 func TestSieveRequestHash(t *testing.T) {
 	net := makeTestnet(1, makeTestnetSieve)
 	defer net.close()
@@ -208,4 +206,4 @@ func TestSieveRequestHash(t *testing.T) {
 	if len(txID) == 0 || len(txID) > 1000 {
 		t.Fatalf("invalid transaction id hash length %d", len(txID))
 	}
-} */
+}

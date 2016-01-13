@@ -62,6 +62,9 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
+
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 		// TODO verify transaction
@@ -80,9 +83,6 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
-
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
 
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
