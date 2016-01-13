@@ -125,7 +125,7 @@ func (mock *MockLedger) CommitTxBatch(id interface{}, txs []*protos.Transaction,
 	return err
 }
 
-func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction, proof []byte, preview bool) (*protos.Block, error) {
+func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction, metadata []byte, preview bool) (*protos.Block, error) {
 	if !reflect.DeepEqual(mock.txID, id) {
 		return nil, fmt.Errorf("Invalid batch ID")
 	}
@@ -161,7 +161,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 
 	block := &protos.Block{
 		Transactions:      txs,
-		ConsensusMetadata: proof,
+		ConsensusMetadata: metadata,
 		PreviousBlockHash: previousBlockHash,
 		StateHash:         stateHash,
 	}

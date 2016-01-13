@@ -372,16 +372,23 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
-	/*
-		if blockNumber, ok := sts.AsynchronousRecoveryJustCompleted() ; ok {
-			block, err := instance.ledger.GetBlock(block)
-			if err != nil {
-
+	if blockNumber, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
+		logger.Debug("Replica %d state transfer completed to block %d, attempting to finish pbft sync.", instance.id, blockNumber)
+		block, err := instance.ledger.GetBlock(blockNumber)
+		if err != nil {
+			logger.Error("Replica %d just returned from state transfer, which claims to have syned to %d, but could not retrieve that block, retrying", instance.id, blockNumber)
+			instance.sts.AsynchronousStateTransfer(blockNumber, nil)
+		} else {
+			metadata := &Metadata{}
+			if err := proto.Unmarshal(block.ConsensusMetadata, metadata); nil == err {
+				logger.Debug("Replica %d completed state transfer to block %d at sequence number %d, about to execute outstanding requests", instance.id, blockNumber, metadata.SeqNo)
+				instance.lastExec = metadata.SeqNo
+				instance.executeOutstanding()
 			} else {
-				instance.lastExec = block.
+				panic("Retrieved and validated block did not contain valid consensus metadata")
 			}
 		}
-	*/
+	}
 
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)

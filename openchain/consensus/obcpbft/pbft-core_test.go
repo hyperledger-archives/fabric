@@ -549,6 +549,12 @@ func TestFallBehind(t *testing.T) {
 	if !success {
 		t.Fatalf("Request failed to complete state transfer within 2 seconds")
 	}
+
+	execReq(int64(inst.L+inst.K*2+1), false)
+
+	if inst.lastExec != inst.L+inst.K*2+1 {
+		t.Fatalf("Replica did not begin participating normally after state transfer completed")
+	}
 }
 
 func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[uint64]*MockRemoteLedger) error {
