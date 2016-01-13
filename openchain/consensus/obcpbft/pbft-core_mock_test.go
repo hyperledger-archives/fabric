@@ -149,7 +149,7 @@ func (inst *instance) execute(payload []byte, opts ...interface{}) {
 		return
 	}
 
-	metadataMsg := &Metadata{SeqNo: opts[1].(uint64), BlockProposer: opts[0].(uint64)}
+	metadataMsg := &Metadata{SeqNo: opts[0].(uint64)}
 	rawMetadata, err := proto.Marshal(metadataMsg)
 	if err != nil {
 		logger.Error("Failed to marshal consensus metadata before committing of transaction: %v", err)
@@ -262,14 +262,14 @@ func (inst *instance) EmptyState() error {
 func (inst *instance) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return inst.ledger.VerifyBlockchain(start, finish)
 }
-func (inst *instance) GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	return inst.ledger.GetRemoteBlocks(replicaId, start, finish)
+func (inst *instance) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return inst.ledger.GetRemoteBlocks(replicaID, start, finish)
 }
-func (inst *instance) GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error) {
-	return inst.ledger.GetRemoteStateSnapshot(replicaId)
+func (inst *instance) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
+	return inst.ledger.GetRemoteStateSnapshot(replicaID)
 }
-func (inst *instance) GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	return inst.ledger.GetRemoteStateDeltas(replicaId, start, finish)
+func (inst *instance) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return inst.ledger.GetRemoteStateDeltas(replicaID, start, finish)
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {

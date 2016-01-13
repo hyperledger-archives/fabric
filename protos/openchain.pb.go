@@ -237,7 +237,6 @@ func (m *TransactionResult) String() string { return proto.CompactTextString(m) 
 func (*TransactionResult) ProtoMessage()    {}
 
 // Block carries The data that describes a block in the blockchain.
-// proposerID - The ID of the peer that proposed the Block.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -249,7 +248,6 @@ func (*TransactionResult) ProtoMessage()    {}
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 type Block struct {
-	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
 	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Transactions      []*Transaction             `protobuf:"bytes,3,rep,name=transactions" json:"transactions,omitempty"`
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`

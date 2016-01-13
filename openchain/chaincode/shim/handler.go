@@ -525,13 +525,13 @@ func (handler *Handler) handleDelState(key string, uuid string) error {
 }
 
 // handleInvokeChaincode communicates with the validator to invoke another chaincode.
-func (handler *Handler) handleInvokeChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
+func (handler *Handler) handleInvokeChaincode(chaincodeName string, function string, args []string, uuid string) ([]byte, error) {
 	// Check if this is a transaction
 	if !handler.isTransaction[uuid] {
 		return nil, errors.New("Cannot invoke chaincode in query context")
 	}
 
-	chaincodeID := &pb.ChaincodeID{Url: chaincodeURL, Version: chaincodeVersion}
+	chaincodeID := &pb.ChaincodeID{Name: chaincodeName}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
 	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
 	payloadBytes, err := proto.Marshal(payload)
@@ -579,8 +579,8 @@ func (handler *Handler) handleInvokeChaincode(chaincodeURL string, chaincodeVers
 }
 
 // handleQueryChaincode communicates with the validator to query another chaincode.
-func (handler *Handler) handleQueryChaincode(chaincodeURL string, chaincodeVersion string, function string, args []string, uuid string) ([]byte, error) {
-	chaincodeID := &pb.ChaincodeID{Url: chaincodeURL, Version: chaincodeVersion}
+func (handler *Handler) handleQueryChaincode(chaincodeName string, function string, args []string, uuid string) ([]byte, error) {
+	chaincodeID := &pb.ChaincodeID{Name: chaincodeName}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
 	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
 	payloadBytes, err := proto.Marshal(payload)

@@ -235,13 +235,13 @@ func executeBlockRecovery(ml *MockLedger, millisTimeout int) error {
 
 	select {
 	case <-time.After(time.Second * 2):
-		fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
+		return fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
 	case <-w:
 		// Do nothing, continue the test
 	}
 
 	if n, err := ml.VerifyBlockchain(7, 0); 0 != n || nil != err {
-		fmt.Errorf("Blockchain claims to be up to date, but does not verify")
+		return fmt.Errorf("Blockchain claims to be up to date, but does not verify")
 	}
 
 	return nil
@@ -267,11 +267,11 @@ func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int) error {
 
 	select {
 	case <-time.After(time.Second * 2):
-		fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
+		return fmt.Errorf("Timed out waiting for blocks to replicate for blockchain")
 	case didPanic := <-w:
 		// Do nothing, continue the test
 		if !didPanic {
-			fmt.Errorf("Blockchain was supposed to panic on modification, but did not")
+			return fmt.Errorf("Blockchain was supposed to panic on modification, but did not")
 		}
 	}
 

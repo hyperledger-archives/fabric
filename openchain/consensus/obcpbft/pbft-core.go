@@ -66,7 +66,8 @@ type pbftCore struct {
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int               // number of faults we can tolerate
+	f            int               // max. number of faults we can tolerate
+	N            int               // max.number of validators in the network
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
@@ -153,7 +154,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
 	var err error
 	instance.byzantine = config.GetBool("replica.byzantine")
-	instance.f = config.GetInt("general.f")
+	instance.N = config.GetInt("general.N")
+	instance.f = instance.N / 3
 	instance.K = uint64(config.GetInt("general.K"))
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
@@ -636,7 +638,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		instance.consumer.execute(req.Payload, idx.v, idx.n)
+		instance.consumer.execute(req.Payload, idx.n)
 		delete(instance.outstandingReqs, digest)
 	}
 
@@ -745,11 +747,11 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 		if len(instance.hChkpts) >= instance.f+1 {
 			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
 			index := 0
-			for replicaId, hChkpt := range instance.hChkpts {
+			for replicaID, hChkpt := range instance.hChkpts {
 				chkptSeqNumArray[index] = hChkpt
 				index++
 				if hChkpt < H {
-					delete(instance.hChkpts, replicaId)
+					delete(instance.hChkpts, replicaID)
 				}
 			}
 			sort.Sort(sortableUint64Slice(chkptSeqNumArray))
@@ -763,9 +765,9 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 
 				furthestReplicaIds := make([]uint64, instance.f+1)
 				i := 0
-				for replicaId, hChkpt := range instance.hChkpts {
+				for replicaID, hChkpt := range instance.hChkpts {
 					if hChkpt >= m {
-						furthestReplicaIds[i] = replicaId
+						furthestReplicaIds[i] = replicaID
 						i++
 					}
 				}

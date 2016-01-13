@@ -36,6 +36,7 @@ var logger = logging.MustGetLogger("buckettree")
 type StateImpl struct {
 	dataNodesDelta         *dataNodesDelta
 	bucketTreeDelta        *bucketTreeDelta
+	persistedStateHash     []byte
 	lastComputedCryptoHash []byte
 	recomputeCryptoHash    bool
 }
@@ -53,7 +54,8 @@ func (stateImpl *StateImpl) Initialize() error {
 		return err
 	}
 	if rootBucketNode != nil {
-		stateImpl.lastComputedCryptoHash = rootBucketNode.computeCryptoHash()
+		stateImpl.persistedStateHash = rootBucketNode.computeCryptoHash()
+		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
 	}
 	return nil
 
@@ -91,11 +93,16 @@ func (stateImpl *StateImpl) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 }
 
 // ClearWorkingSet - method implementation for interface 'statemgmt.HashableState'
-func (stateImpl *StateImpl) ClearWorkingSet() {
+func (stateImpl *StateImpl) ClearWorkingSet(changesPersisted bool) {
 	logger.Debug("Enter - ClearWorkingSet()")
 	stateImpl.dataNodesDelta = nil
 	stateImpl.bucketTreeDelta = nil
 	stateImpl.recomputeCryptoHash = false
+	if changesPersisted {
+		stateImpl.persistedStateHash = stateImpl.lastComputedCryptoHash
+	} else {
+		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
+	}
 }
 
 // ComputeCryptoHash - method implementation for interface 'statemgmt.HashableState'

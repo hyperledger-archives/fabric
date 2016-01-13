@@ -74,8 +74,8 @@ func TestSieveNoDecision(t *testing.T) {
 	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
 		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 100 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -94,7 +94,7 @@ func TestSieveNoDecision(t *testing.T) {
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 	net.close()
 
 	for _, inst := range net.replicas {
@@ -185,5 +185,25 @@ func TestSieveNonDeterministic(t *testing.T) {
 	}
 	if !reflect.DeepEqual(results, []uint64{0, 0, 1, 1}) && !reflect.DeepEqual(results, []uint64{1, 1, 0, 0}) {
 		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
+	}
+}
+
+func TestSieveRequestHash(t *testing.T) {
+	net := makeTestnet(1, makeTestnetSieve)
+	defer net.close()
+
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Payload: make([]byte, 1000)}
+	txPacked, _ := proto.Marshal(tx)
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
+	}
+
+	r0 := net.replicas[0]
+	r0.consenter.RecvMsg(msg)
+
+	txID := r0.ledger.(*MockLedger).txID.(string)
+	if len(txID) == 0 || len(txID) > 1000 {
+		t.Fatalf("invalid transaction id hash length %d", len(txID))
 	}
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/spf13/viper"
@@ -61,6 +62,9 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
+
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 		// TODO verify transaction
@@ -71,17 +75,14 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 
 		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
 		svMsgRaw, _ := proto.Marshal(svMsg)
-		op.recvRequest(svMsgRaw)
 		op.broadcastMsg(svMsg)
+		op.recvRequest(svMsgRaw)
 		return nil
 	}
 
 	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
-
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
 
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
@@ -209,8 +210,8 @@ func (op *obcSieve) processRequest() {
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
 		op.id, exec.View, exec.BlockNumber)
-	op.recvExecute(exec)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
+	op.recvExecute(exec)
 }
 
 func (op *obcSieve) recvExecute(exec *Execute) {
@@ -252,7 +253,7 @@ func (op *obcSieve) processExecute() {
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
-	op.currentReq = base64.StdEncoding.EncodeToString(exec.Request)
+	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
 	op.blockNumber++
 
 	op.begin()
@@ -284,8 +285,8 @@ func (op *obcSieve) processExecute() {
 
 	logger.Debug("Sieve replica %d sending verify blockNo=%d",
 		op.id, verify.BlockNumber)
-	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
+	op.recvVerify(verify)
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
@@ -464,6 +465,18 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 		return
 	}
 
+	if vset.BlockNumber < op.blockNumber {
+		logger.Debug("Replica %d ignoring verify-set for old block: expected %d, got %d",
+			op.id, op.blockNumber, vset.BlockNumber)
+		return
+	}
+
+	if vset.BlockNumber == op.blockNumber && op.currentReq == "" {
+		logger.Debug("Replica %d ignoring verify-set for already committed block",
+			op.id)
+		return
+	}
+
 	if op.currentReq == "" {
 		logger.Debug("Replica %d received verify-set without pending execute",
 			op.id)
@@ -500,7 +513,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 			_ = dSet
 		} else {
 			logger.Debug("Decision successful, committing result")
-			if op.commit(vset.View, vset.BlockNumber) != nil {
+			if op.commit(vset.BlockNumber) != nil {
 				op.rollback()
 				op.blockNumber--
 				op.currentReq = ""
@@ -553,8 +566,8 @@ func (op *obcSieve) rollback() error {
 	return nil
 }
 
-func (op *obcSieve) commit(view uint64, seqNo uint64) error {
-	metadataMsg := &Metadata{SeqNo: seqNo, BlockProposer: view}
+func (op *obcSieve) commit(seqNo uint64) error {
+	metadataMsg := &Metadata{SeqNo: seqNo}
 	rawMetadata, err := proto.Marshal(metadataMsg)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal consensus metadata before committing of transaction: %v", err)

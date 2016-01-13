@@ -68,7 +68,7 @@ func (testWrapper *stateTestWrapper) persistAndClearInMemoryChanges(blockNumber 
 	writeBatch := gorocksdb.NewWriteBatch()
 	testWrapper.state.AddChangesForPersistence(blockNumber, writeBatch)
 	testDBWrapper.WriteToDB(testWrapper.t, writeBatch)
-	testWrapper.state.ClearInMemoryChanges()
+	testWrapper.state.ClearInMemoryChanges(true)
 }
 
 func (testWrapper *stateTestWrapper) fetchStateDeltaFromDB(blockNumber uint64) *statemgmt.StateDelta {

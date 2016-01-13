@@ -67,7 +67,6 @@ message TransactionResult {
 }
 
 // Block carries The data that describes a block in the blockchain.
-// proposerID - The ID of the peer that proposed the Block.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -79,7 +78,6 @@ message TransactionResult {
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 message Block {
-    string proposerID = 1;
     google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;

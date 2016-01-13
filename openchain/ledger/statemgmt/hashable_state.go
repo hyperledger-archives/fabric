@@ -49,7 +49,7 @@ type HashableState interface {
 
 	// ClearWorkingSet state implementation may clear any data structures that it may have constructed
 	// for computing cryptoHash and persisting the changes for the stateDelta (passed in PrepareWorkingSet method)
-	ClearWorkingSet()
+	ClearWorkingSet(changesPersisted bool)
 
 	// GetStateSnapshotIterator state implementation to provide an iterator that is supposed to give
 	// All the key-value of global state. A particular implementation may need to remove additional information

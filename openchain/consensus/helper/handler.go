@@ -198,7 +198,7 @@ func (handler *ConsensusHandler) GetStateSnapshot() (<-chan *pb.SyncStateSnapsho
 	return nil, fmt.Errorf("Not implemented")
 }
 
-// GetBlocks returns a block range
+// GetStateDeltas returns a block range
 func (handler *ConsensusHandler) GetStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error) {
 	// TODO uncomment once implemented
 	// return handler.peerHandler.GetStateDeltas(syncBlockRange)

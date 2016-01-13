@@ -33,13 +33,9 @@ import (
 )
 
 var logger = logging.MustGetLogger("state")
-var stateImplFactory = map[string]statemgmt.HashableState{
-	"buckettree": buckettree.NewStateImpl(),
-	"trie":       trie.NewStateTrie(),
-}
 
-// TODO Should be configurable in openchain.yaml
-var stateImplName = "buckettree"
+const detaultStateImpl = "buckettree"
+
 var stateImpl statemgmt.HashableState
 
 // State structure for maintaining world state.
@@ -57,7 +53,20 @@ type State struct {
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
-	stateImpl = stateImplFactory[stateImplName]
+	stateImplName := viper.GetString("ledger.state.dataStructure")
+	if len(stateImplName) == 0 {
+		stateImplName = detaultStateImpl
+	}
+
+	switch stateImplName {
+	case "buckettree":
+		stateImpl = buckettree.NewStateImpl()
+	case "trie":
+		stateImpl = trie.NewStateTrie()
+	default:
+		panic(fmt.Errorf("Error during initialization of state implementation. State data structure '%s' is not valid.", stateImplName))
+	}
+
 	err := stateImpl.Initialize()
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))
@@ -190,10 +199,10 @@ func (state *State) GetTxStateDeltaHash() map[string][]byte {
 }
 
 // ClearInMemoryChanges remove from memory all the changes to state
-func (state *State) ClearInMemoryChanges() {
+func (state *State) ClearInMemoryChanges(changesPersisted bool) {
 	state.stateDelta = statemgmt.NewStateDelta()
 	state.txStateDeltaHash = make(map[string][]byte)
-	state.stateImpl.ClearWorkingSet()
+	state.stateImpl.ClearWorkingSet(changesPersisted)
 }
 
 // getStateDelta get changes in state after most recent call to method clearInMemoryChanges
@@ -245,25 +254,32 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 	logger.Debug("state.addChangesForPersistence()...finished")
 }
 
-// ApplyStateDelta applies already prepared stateDelta to the existing state
-// This method is to be used in state transfer
-func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) error {
-	state.stateImpl.PrepareWorkingSet(delta)
+// ApplyStateDelta applies already prepared stateDelta to the existing state.
+// This is an in memory change only. state.CommitStateDelta must be used to
+// commit the state to the DB. This method is to be used in state transfer.
+func (state *State) ApplyStateDelta(delta *statemgmt.StateDelta) {
+	state.stateDelta = delta
+	state.updateStateImpl = true
+}
+
+// CommitStateDelta commits the changes from state.ApplyStateDelta to the
+// DB.
+func (state *State) CommitStateDelta() error {
+	if state.updateStateImpl {
+		state.stateImpl.PrepareWorkingSet(state.stateDelta)
+		state.updateStateImpl = false
+	}
 	writeBatch := gorocksdb.NewWriteBatch()
 	state.stateImpl.AddChangesForPersistence(writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
-	err := db.GetDBHandle().DB.Write(opt, writeBatch)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.GetDBHandle().DB.Write(opt, writeBatch)
 }
 
 // DeleteState deletes ALL state keys/values from the DB. This is generally
 // only used during state synchronization when creating a new state from
 // a snapshot.
 func (state *State) DeleteState() error {
-	state.ClearInMemoryChanges()
+	state.ClearInMemoryChanges(false)
 	err := db.GetDBHandle().DeleteState()
 	if err != nil {
 		logger.Error("Error deleting state", err)
