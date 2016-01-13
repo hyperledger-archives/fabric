@@ -44,11 +44,8 @@ message Transaction {
     ConfidentialityLevel confidentialityLevel = 6;
     bytes nonce = 7;
 
-    bytes encryptedChaincodeID = 8;
-    bytes encryptedPayload = 9;
-
-    bytes cert = 10;
-    bytes signature = 11;
+    bytes cert = 8;
+    bytes signature = 9;
 }
 
 // TransactionBlock carries a batch of transactions.
