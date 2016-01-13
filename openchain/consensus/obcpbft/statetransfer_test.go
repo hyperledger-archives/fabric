@@ -135,22 +135,24 @@ func TestCatchupSimple(t *testing.T) {
 
 }
 
-func TestCatchupSyncBlocksTimeout(t *testing.T) {
-	rols, mrls := createRemoteLedgers(1, 3)
+func TestCatchupSyncBlocksErrors(t *testing.T) {
+	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+		rols, mrls := createRemoteLedgers(1, 3)
 
-	// Test from blockheight of 1 with valid genesis block
-	// Timeouts of 1 second
-	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
-	ml := NewMockLedger(rols, filter)
+		// Test from blockheight of 1 with valid genesis block
+		// Timeouts of 10 milliseconds
+		filter, result := makeSimpleFilter(SyncBlocks, failureType)
+		ml := NewMockLedger(rols, filter)
 
-	ml.PutBlock(0, SimpleGetBlock(0))
-	sts := newTestStateTransfer(ml)
-	sts.BlockRequestTimeout = 10 * time.Millisecond
-	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
-		t.Fatalf("SyncSnapshotTimeout case: %s", err)
-	}
-	if !result.wasTriggered() {
-		t.Fatalf("SyncSnapshotTimeout case never simulated a timeout")
+		ml.PutBlock(0, SimpleGetBlock(0))
+		sts := newTestStateTransfer(ml)
+		sts.BlockRequestTimeout = 10 * time.Millisecond
+		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
+			t.Fatalf("SyncBlocksErrors %s case: %s", failureType, err)
+		}
+		if !result.wasTriggered() {
+			t.Fatalf("SyncBlocksErrors case never simulated a %v", failureType)
+		}
 	}
 }
 
@@ -166,40 +168,44 @@ func TestCatchupMissingEarlyChain(t *testing.T) {
 	}
 }
 
-func TestCatchupSyncSnapshotTimeout(t *testing.T) {
-	rols, mrls := createRemoteLedgers(1, 3)
+func TestCatchupSyncSnapshotError(t *testing.T) {
+	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+		rols, mrls := createRemoteLedgers(1, 3)
 
-	// Test from blockheight of 5 (with missing blocks 0-3)
-	// Timeouts of 1 second
-	filter, result := makeSimpleFilter(SyncSnapshot, Timeout)
-	ml := NewMockLedger(rols, filter)
-	ml.PutBlock(4, SimpleGetBlock(4))
-	sts := newTestStateTransfer(ml)
-	sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
-	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
-		t.Fatalf("SyncSnapshotTimeout case: %s", err)
-	}
-	if !result.wasTriggered() {
-		t.Fatalf("SyncSnapshotTimeout case never simulated a timeout")
+		// Test from blockheight of 5 (with missing blocks 0-3)
+		// Timeouts of 1 second, also test corrupt snapshot
+		filter, result := makeSimpleFilter(SyncSnapshot, failureType)
+		ml := NewMockLedger(rols, filter)
+		ml.PutBlock(4, SimpleGetBlock(4))
+		sts := newTestStateTransfer(ml)
+		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
+		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
+			t.Fatalf("SyncSnapshotError %s case: %s", failureType, err)
+		}
+		if !result.wasTriggered() {
+			t.Fatalf("SyncSnapshotError case never simulated a %s", failureType)
+		}
 	}
 }
 
-func TestCatchupSyncDeltasTimeout(t *testing.T) {
-	rols, mrls := createRemoteLedgers(1, 3)
+func TestCatchupSyncDeltasError(t *testing.T) {
+	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+		rols, mrls := createRemoteLedgers(1, 3)
 
-	// Test from blockheight of 5 (with missing blocks 0-3)
-	// Timeouts of 1 second
-	filter, result := makeSimpleFilter(SyncDeltas, Timeout)
-	ml := NewMockLedger(rols, filter)
-	ml.PutBlock(4, SimpleGetBlock(4))
-	sts := newTestStateTransfer(ml)
-	sts.StateDeltaRequestTimeout = 10 * time.Millisecond
-	sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
-	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
-		t.Fatalf("SyncDeltasTimeout case: %s", err)
-	}
-	if !result.wasTriggered() {
-		t.Fatalf("SyncDeltasTimeout case never simulated a timeout")
+		// Test from blockheight of 5 (with missing blocks 0-3)
+		// Timeouts of 1 second
+		filter, result := makeSimpleFilter(SyncDeltas, failureType)
+		ml := NewMockLedger(rols, filter)
+		ml.PutBlock(4, SimpleGetBlock(4))
+		sts := newTestStateTransfer(ml)
+		sts.StateDeltaRequestTimeout = 10 * time.Millisecond
+		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
+		if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
+			t.Fatalf("SyncDeltasError %s case: %s", failureType, err)
+		}
+		if !result.wasTriggered() {
+			t.Fatalf("SyncDeltasError case never simulated a %s", failureType)
+		}
 	}
 }
 
@@ -297,15 +303,25 @@ func TestCatchupLaggingChains(t *testing.T) {
 	if err := executeBlockRecovery(ml, 1000); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
 	}
+}
 
-	filter, result := makeSimpleFilter(SyncBlocks, Timeout)
-	ml = NewMockLedger(rols, filter)
-	ml.PutBlock(7, SimpleGetBlock(7))
-	if err := executeBlockRecovery(ml, 10); nil != err {
-		t.Fatalf("TestCatchupLaggingChains short chain with timeout failure: %s", err)
-	}
-	if !result.wasTriggered() {
-		t.Fatalf("TestCatchupLaggingChains short chain with timeout never simulated a timeout")
+func TestCatchupLaggingChainsErrors(t *testing.T) {
+	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+		rols, mrls := createRemoteLedgers(0, 3)
+
+		for i := uint64(0); i <= 3; i++ {
+			(*mrls)[i].blockHeight = 701
+		}
+
+		filter, result := makeSimpleFilter(SyncBlocks, failureType)
+		ml := NewMockLedger(rols, filter)
+		ml.PutBlock(7, SimpleGetBlock(7))
+		if err := executeBlockRecovery(ml, 10); nil != err {
+			t.Fatalf("TestCatchupLaggingChainsErrors %s short chain with timeout failure: %s", failureType, err)
+		}
+		if !result.wasTriggered() {
+			t.Fatalf("TestCatchupLaggingChainsErrors short chain with timeout never simulated a %s", failureType)
+		}
 	}
 }
 

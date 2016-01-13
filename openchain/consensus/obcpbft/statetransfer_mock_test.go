@@ -41,10 +41,23 @@ const (
 type mockResponse int
 
 const (
-	Normal  mockResponse = iota
-	Corrupt              // TODO implement
+	Normal mockResponse = iota
+	Corrupt
 	Timeout
 )
+
+func (r mockResponse) String() string {
+	switch r {
+	case Normal:
+		return "Normal"
+	case Corrupt:
+		return "Corrupt"
+	case Timeout:
+		return "Timeout"
+	}
+
+	return "ERROR"
+}
 
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *protos.Block, err error)
@@ -217,30 +230,53 @@ func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) 
 	res := make(chan *protos.SyncBlocks)
 	ft := mock.filter(SyncBlocks, replicaID)
 	switch ft {
+	case Corrupt:
+		fallthrough
 	case Normal:
 		go func() {
 			current := start
+			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
+
 			for {
-				if block, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
+				if ft != Corrupt || current != corruptBlock {
+					if block, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
+						res <- &protos.SyncBlocks{
+							Range: &protos.SyncBlockRange{
+								Start: current,
+								End:   current,
+							},
+							Blocks: []*protos.Block{block},
+						}
+
+					} else {
+						break
+					}
+				} else {
 					res <- &protos.SyncBlocks{
 						Range: &protos.SyncBlockRange{
 							Start: current,
 							End:   current,
 						},
-						Blocks: []*protos.Block{block},
+						Blocks: []*protos.Block{&protos.Block{
+							PreviousBlockHash: []byte("GARBAGE_BLOCK_HASH"),
+							StateHash:         []byte("GARBAGE_STATE_HASH"),
+							Transactions: []*protos.Transaction{
+								&protos.Transaction{
+									Payload: []byte("GARBAGE_PAYLOAD"),
+								},
+							},
+						}},
 					}
+				}
 
-					if current == finish {
-						break
-					}
-
-					if start < finish {
-						current++
-					} else {
-						current--
-					}
-				} else {
+				if current == finish {
 					break
+				}
+
+				if start < finish {
+					current++
+				} else {
+					current--
 				}
 			}
 			close(res)
@@ -257,7 +293,10 @@ func (mock *MockLedger) GetRemoteStateSnapshot(replicaID uint64) (<-chan *protos
 	res := make(chan *protos.SyncStateSnapshot)
 	ft := mock.filter(SyncSnapshot, replicaID)
 	switch ft {
+	case Corrupt:
+		fallthrough
 	case Normal:
+
 		remoteBlockHeight, _ := (*mock.remoteLedgers)[replicaID].GetBlockchainSize()
 		if remoteBlockHeight < 1 {
 			break
@@ -267,6 +306,15 @@ func (mock *MockLedger) GetRemoteStateSnapshot(replicaID uint64) (<-chan *protos
 			return nil, err
 		}
 		go func() {
+			if Corrupt == ft {
+				res <- &protos.SyncStateSnapshot{
+					Delta:       []byte("GARBAGE_DELTA"),
+					Sequence:    0,
+					BlockNumber: ^uint64(0),
+					Request:     nil,
+				}
+			}
+
 			i := uint64(0)
 			for deltas := range rds {
 				for _, delta := range deltas.Deltas {
@@ -292,14 +340,32 @@ func (mock *MockLedger) GetRemoteStateDeltas(replicaID uint64, start, finish uin
 	res := make(chan *protos.SyncStateDeltas)
 	ft := mock.filter(SyncDeltas, replicaID)
 	switch ft {
+	case Corrupt:
+		fallthrough
 	case Normal:
 		go func() {
 			current := start
+			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
 			for {
-				if remoteBlock, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
-					deltas := make([][]byte, len(remoteBlock.Transactions))
-					for i, transaction := range remoteBlock.Transactions {
-						deltas[i] = transaction.Payload
+				if ft != Corrupt || current != corruptBlock {
+					if remoteBlock, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
+						deltas := make([][]byte, len(remoteBlock.Transactions))
+						for i, transaction := range remoteBlock.Transactions {
+							deltas[i] = transaction.Payload
+						}
+						res <- &protos.SyncStateDeltas{
+							Range: &protos.SyncBlockRange{
+								Start: current,
+								End:   current,
+							},
+							Deltas: deltas,
+						}
+					} else {
+						break
+					}
+				} else {
+					deltas := [][]byte{
+						[]byte("GARBAGE_DELTA"),
 					}
 					res <- &protos.SyncStateDeltas{
 						Range: &protos.SyncBlockRange{
@@ -308,17 +374,17 @@ func (mock *MockLedger) GetRemoteStateDeltas(replicaID uint64, start, finish uin
 						},
 						Deltas: deltas,
 					}
-					if current == finish {
-						break
-					}
 
-					if start < finish {
-						current++
-					} else {
-						current--
-					}
-				} else {
+				}
+
+				if current == finish {
 					break
+				}
+
+				if start < finish {
+					current++
+				} else {
+					current--
 				}
 			}
 			close(res)
