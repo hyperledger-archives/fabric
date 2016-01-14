@@ -29,6 +29,11 @@ func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 	return utils.ECDSASign(signKey, msg)
 }
 
+func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
+	node.log.Debug("Signing message [%s].", utils.EncodeBase64(msg))
+	return utils.ECDSASign(node.enrollPrivKey, msg)
+}
+
 func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
 	node.log.Debug("Signing message direct [%s].", utils.EncodeBase64(msg))
 	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
@@ -41,4 +46,13 @@ func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, e
 	)
 
 	return utils.ECDSAVerify(verKey, msg, signature)
+}
+
+func (node *nodeImpl) verifyWithEnrollmentCert(msg, signature []byte) (bool, error) {
+	node.log.Debug("Verifing signature [%s] against message [%s].",
+		utils.EncodeBase64(signature),
+		utils.EncodeBase64(msg),
+	)
+
+	return utils.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
 }

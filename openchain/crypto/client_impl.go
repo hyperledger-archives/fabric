@@ -22,7 +22,6 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
@@ -55,7 +54,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	}
 
 	// Create Transaction
-	return client.newChaincodeDeploy(chaincodeDeploymentSpec, uuid, rawTCert)
+	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, rawTCert)
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
@@ -73,7 +72,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	}
 
 	// Create Transaction
-	return client.newChaincodeExecute(chaincodeInvocation, uuid, rawTCert)
+	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, rawTCert)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -91,7 +90,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	}
 
 	// Create Transaction
-	return client.newChaincodeQuery(chaincodeInvocation, uuid, rawTCert)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, rawTCert)
 }
 
 // DecryptQueryResult is used to decrypt the result of a query transaction
@@ -137,16 +136,14 @@ func (client *clientImpl) GetEnrollmentCertHandler() (CertificateHandler, error)
 	}
 
 	// Return the handler
-	/*	handler := &eCertHandlerImpl{}
-		err = handler.init(client)
-		if err != nil {
-			client.node.log.Error("Failed getting handler [%s].", err.Error())
-			return nil, err
-		}
+	handler := &eCertHandlerImpl{}
+	err := handler.init(client)
+	if err != nil {
+		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		return nil, err
+	}
 
-		return handler, nil
-	*/
-	return nil, utils.ErrNotImplemented
+	return handler, nil
 }
 
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
@@ -166,7 +163,7 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 	}
 
 	// Return the handler
-	handler := &eCertHandlerImpl{}
+	handler := &tCertHandlerImpl{}
 	err = handler.init(client, rawTCert)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
@@ -194,7 +191,7 @@ func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHa
 	}
 
 	// Return the handler
-	handler := &eCertHandlerImpl{}
+	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCertDER)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
@@ -276,53 +273,4 @@ func (client *clientImpl) close() error {
 		return client.node.close()
 	}
 	return nil
-}
-
-// CheckTransaction is used to verify that a transaction
-// is well formed with the respect to the security layer
-// prescriptions. To be used for internal verifications.
-func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
-	if !client.isInitialized {
-		return utils.ErrNotInitialized
-	}
-
-	if tx.Cert == nil && tx.Signature == nil {
-		return utils.ErrTransactionMissingCert
-	}
-
-	if tx.Cert != nil && tx.Signature != nil {
-		// Verify the transaction
-		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
-		if err != nil {
-			client.node.log.Error("Failed unmarshalling cert [%s].", err.Error())
-			return err
-		}
-		// TODO: verify cert
-
-		// 3. Marshall tx without signature
-		signature := tx.Signature
-		tx.Signature = nil
-		rawTx, err := proto.Marshal(tx)
-		if err != nil {
-			client.node.log.Error("Failed marshaling tx [%s].", err.Error())
-			return err
-		}
-		tx.Signature = signature
-
-		// 2. Verify signature
-		ver, err := client.node.verify(cert.PublicKey, rawTx, tx.Signature)
-		if err != nil {
-			client.node.log.Error("Failed marshaling tx [%s].", err.Error())
-			return err
-		}
-
-		if ver {
-			return nil
-		}
-
-		return utils.ErrInvalidTransactionSignature
-	}
-
-	return utils.ErrTransactionMissingCert
 }

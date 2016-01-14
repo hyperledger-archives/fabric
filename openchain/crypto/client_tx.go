@@ -6,13 +6,7 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-// NewChaincodeDeployTransaction is used to deploy chaincode.
-func (client *clientImpl) newChaincodeDeploy(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
+func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
@@ -36,6 +30,75 @@ func (client *clientImpl) newChaincodeDeploy(chaincodeDeploymentSpec *obc.Chainc
 			return nil, err
 
 		}
+	}
+
+	return tx, nil
+}
+
+func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+	/// Create a new transaction
+	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	if err != nil {
+		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
+		return nil, err
+	}
+
+	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
+		// 1. set confidentiality level and nonce
+		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
+		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		if err != nil {
+			client.node.log.Error("Failed creating nonce [%s].", err.Error())
+			return nil, err
+		}
+
+		// 2. encrypt tx
+		err = client.encryptTx(tx)
+		if err != nil {
+			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
+			return nil, err
+
+		}
+	}
+
+	return tx, nil
+}
+
+func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+	// Create a new transaction
+	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
+	if err != nil {
+		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
+		return nil, err
+	}
+
+	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
+		// 1. set confidentiality level and nonce
+		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
+		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		if err != nil {
+			client.node.log.Error("Failed creating nonce [%s].", err.Error())
+			return nil, err
+		}
+
+		// 2. encrypt tx
+		err = client.encryptTx(tx)
+		if err != nil {
+			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
+			return nil, err
+
+		}
+	}
+
+	return tx, nil
+}
+
+func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
+	// Create a new transaction
+	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid)
+	if err != nil {
+		client.node.log.Error("Failed creating new deploy transaction [%s].", err.Error())
+		return nil, err
 	}
 
 	// Sign the transaction
@@ -68,36 +131,12 @@ func (client *clientImpl) newChaincodeDeploy(chaincodeDeploymentSpec *obc.Chainc
 	return tx, nil
 }
 
-// NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-func (client *clientImpl) newChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
+func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	tx, err := client.createExecuteTx(chaincodeInvocation, uuid)
 	if err != nil {
-		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
+		client.node.log.Error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
-	}
-
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.node.log.Error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-
-		// 2. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
 	}
 
 	// Sign the transaction
@@ -130,36 +169,12 @@ func (client *clientImpl) newChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	return tx, nil
 }
 
-// NewChaincodeQuery is used to query chaincode's functions.
-func (client *clientImpl) newChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
-	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
+func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte) (*obc.Transaction, error) {
+	// Create a new transaction
+	tx, err := client.createQueryTx(chaincodeInvocation, uuid)
 	if err != nil {
-		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
+		client.node.log.Error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
-	}
-
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.node.log.Error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-
-		// 2. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
 	}
 
 	// Sign the transaction
@@ -190,4 +205,167 @@ func (client *clientImpl) newChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
 
 	return tx, nil
+}
+
+func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
+	// Create a new transaction
+	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid)
+	if err != nil {
+		client.node.log.Error("Failed creating new deploy transaction [%s].", err.Error())
+		return nil, err
+	}
+
+	// Sign the transaction
+
+	// Append the certificate to the transaction
+	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	tx.Cert = client.node.enrollCert.Raw
+
+	// Sign the transaction and append the signature
+	// 1. Marshall tx to bytes
+	rawTx, err := proto.Marshal(tx)
+	if err != nil {
+		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
+		return nil, err
+	}
+
+	// 2. Sign rawTx and check signature
+	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	if err != nil {
+		client.node.log.Error("Failed creating signature [%s].", err.Error())
+		return nil, err
+	}
+
+	// 3. Append the signature
+	tx.Signature = rawSignature
+
+	client.node.log.Debug("Appending signature: [%s]", utils.EncodeBase64(rawSignature))
+
+	return tx, nil
+}
+
+func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+	/// Create a new transaction
+	tx, err := client.createExecuteTx(chaincodeInvocation, uuid)
+	if err != nil {
+		client.node.log.Error("Failed creating new execute transaction [%s].", err.Error())
+		return nil, err
+	}
+
+	// Sign the transaction
+
+	// Append the certificate to the transaction
+	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	tx.Cert = client.node.enrollCert.Raw
+
+	// Sign the transaction and append the signature
+	// 1. Marshall tx to bytes
+	rawTx, err := proto.Marshal(tx)
+	if err != nil {
+		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
+		return nil, err
+	}
+
+	// 2. Sign rawTx and check signature
+	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	if err != nil {
+		client.node.log.Error("Failed creating signature [%s].", err.Error())
+		return nil, err
+	}
+
+	// 3. Append the signature
+	tx.Signature = rawSignature
+
+	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+
+	return tx, nil
+}
+
+func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+	// Create a new transaction
+	tx, err := client.createQueryTx(chaincodeInvocation, uuid)
+	if err != nil {
+		client.node.log.Error("Failed creating new query transaction [%s].", err.Error())
+		return nil, err
+	}
+
+	// Sign the transaction
+
+	// Append the certificate to the transaction
+	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	tx.Cert = client.node.enrollCert.Raw
+
+	// Sign the transaction and append the signature
+	// 1. Marshall tx to bytes
+	rawTx, err := proto.Marshal(tx)
+	if err != nil {
+		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
+		return nil, err
+	}
+
+	// 2. Sign rawTx and check signature
+	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	if err != nil {
+		client.node.log.Error("Failed creating signature [%s].", err.Error())
+		return nil, err
+	}
+
+	// 3. Append the signature
+	tx.Signature = rawSignature
+
+	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+
+	return tx, nil
+}
+
+// CheckTransaction is used to verify that a transaction
+// is well formed with the respect to the security layer
+// prescriptions. To be used for internal verifications.
+func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
+	if !client.isInitialized {
+		return utils.ErrNotInitialized
+	}
+
+	if tx.Cert == nil && tx.Signature == nil {
+		return utils.ErrTransactionMissingCert
+	}
+
+	if tx.Cert != nil && tx.Signature != nil {
+		// Verify the transaction
+		// 1. Unmarshal cert
+		cert, err := utils.DERToX509Certificate(tx.Cert)
+		if err != nil {
+			client.node.log.Error("Failed unmarshalling cert [%s].", err.Error())
+			return err
+		}
+		// TODO: verify cert
+
+		// 3. Marshall tx without signature
+		signature := tx.Signature
+		tx.Signature = nil
+		rawTx, err := proto.Marshal(tx)
+		if err != nil {
+			client.node.log.Error("Failed marshaling tx [%s].", err.Error())
+			return err
+		}
+		tx.Signature = signature
+
+		// 2. Verify signature
+		ver, err := client.node.verify(cert.PublicKey, rawTx, tx.Signature)
+		if err != nil {
+			client.node.log.Error("Failed marshaling tx [%s].", err.Error())
+			return err
+		}
+
+		if ver {
+			return nil
+		}
+
+		return utils.ErrInvalidTransactionSignature
+	}
+
+	return utils.ErrTransactionMissingCert
 }

@@ -49,15 +49,15 @@ func (handler *tCertHandlerImpl) Verify(signature []byte, msg []byte) error {
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
 func (handler *tCertHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeDeploy(chaincodeDeploymentSpec, uuid, handler.tCertDER)
+	return handler.client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, handler.tCertDER)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
 func (handler *tCertHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeExecute(chaincodeInvocation, uuid, handler.tCertDER)
+	return handler.client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, handler.tCertDER)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
 func (handler *tCertHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeQuery(chaincodeInvocation, uuid, handler.tCertDER)
+	return handler.client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, handler.tCertDER)
 }
