@@ -153,7 +153,7 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcc
 		return nil, err
 	}
 
-	return resp.Cert, nil
+	return &obcca.CertPair{resp.Cert, nil}, nil
 }
 
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {

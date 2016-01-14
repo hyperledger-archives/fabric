@@ -648,7 +648,7 @@ func initPKI() {
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
 
-	server = grpc.NewServer(nil)
+	server = grpc.NewServer()
 
 	eca.Start(server)
 	tca.Start(server)
@@ -875,7 +875,7 @@ func removeFolders() {
 	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
 		fmt.Printf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
 	}
-	if err := os.RemoveAll(viper.GetString("eca.crypto.path")); err != nil {
+	if err := os.RemoveAll(viper.GetString("server.rootpath")); err != nil {
 		fmt.Printf("Failed removing [%s] [%s]\n", viper.GetString("eca.crypto.path"), err)
 	}
 }
