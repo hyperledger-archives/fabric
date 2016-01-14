@@ -64,14 +64,14 @@ func MakeGenesis(secCxt crypto.Peer) error {
 
 		if genesis == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")
-			ledger.CommitTxBatch(0, genesisTransactions, nil)
+			ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 			return
 		}
 
 		chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
 		if !chaincodesOK {
 			genesisLogger.Info("No genesis block chaincodes defined.")
-			ledger.CommitTxBatch(0, genesisTransactions, nil)
+			ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 			return
 		}
 
@@ -156,7 +156,7 @@ func MakeGenesis(secCxt crypto.Peer) error {
 		}
 
 		genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
-		ledger.CommitTxBatch(0, genesisTransactions, nil)
+		ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 
 	})
 	return makeGenesisError
