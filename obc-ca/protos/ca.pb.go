@@ -13,6 +13,7 @@ It has these top-level messages:
 	Empty
 	Identity
 	Token
+	Hash
 	PublicKey
 	PrivateKey
 	Signature
@@ -137,6 +138,14 @@ func (m *Token) Reset()         { *m = Token{} }
 func (m *Token) String() string { return proto.CompactTextString(m) }
 func (*Token) ProtoMessage()    {}
 
+type Hash struct {
+	Hash []byte `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+}
+
+func (m *Hash) Reset()         { *m = Hash{} }
+func (m *Hash) String() string { return proto.CompactTextString(m) }
+func (*Hash) ProtoMessage()    {}
+
 type PublicKey struct {
 	Type CryptoType `protobuf:"varint,1,opt,name=type,enum=protos.CryptoType" json:"type,omitempty"`
 	Key  []byte     `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
@@ -226,7 +235,8 @@ func (m *ECertCreateReq) GetSig() *Signature {
 
 type ECertCreateResp struct {
 	Certs *CertPair `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
-	Tok   *Token    `protobuf:"bytes,2,opt,name=tok" json:"tok,omitempty"`
+	Chain *Token    `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
+	Tok   *Token    `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
 }
 
 func (m *ECertCreateResp) Reset()         { *m = ECertCreateResp{} }
@@ -236,6 +246,13 @@ func (*ECertCreateResp) ProtoMessage()    {}
 func (m *ECertCreateResp) GetCerts() *CertPair {
 	if m != nil {
 		return m.Certs
+	}
+	return nil
+}
+
+func (m *ECertCreateResp) GetChain() *Token {
+	if m != nil {
+		return m.Chain
 	}
 	return nil
 }
@@ -708,6 +725,7 @@ type ECAPClient interface {
 	ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error)
 	CreateCertificatePair(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*ECertCreateResp, error)
 	ReadCertificatePair(ctx context.Context, in *ECertReadReq, opts ...grpc.CallOption) (*CertPair, error)
+	ReadCertificateByHash(ctx context.Context, in *Hash, opts ...grpc.CallOption) (*Cert, error)
 	RevokeCertificatePair(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
 
@@ -746,6 +764,15 @@ func (c *eCAPClient) ReadCertificatePair(ctx context.Context, in *ECertReadReq, 
 	return out, nil
 }
 
+func (c *eCAPClient) ReadCertificateByHash(ctx context.Context, in *Hash, opts ...grpc.CallOption) (*Cert, error) {
+	out := new(Cert)
+	err := grpc.Invoke(ctx, "/protos.ECAP/ReadCertificateByHash", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *eCAPClient) RevokeCertificatePair(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
 	out := new(CAStatus)
 	err := grpc.Invoke(ctx, "/protos.ECAP/RevokeCertificatePair", in, out, c.cc, opts...)
@@ -761,6 +788,7 @@ type ECAPServer interface {
 	ReadCACertificate(context.Context, *Empty) (*Cert, error)
 	CreateCertificatePair(context.Context, *ECertCreateReq) (*ECertCreateResp, error)
 	ReadCertificatePair(context.Context, *ECertReadReq) (*CertPair, error)
+	ReadCertificateByHash(context.Context, *Hash) (*Cert, error)
 	RevokeCertificatePair(context.Context, *ECertRevokeReq) (*CAStatus, error)
 }
 
@@ -804,6 +832,18 @@ func _ECAP_ReadCertificatePair_Handler(srv interface{}, ctx context.Context, dec
 	return out, nil
 }
 
+func _ECAP_ReadCertificateByHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Hash)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ECAPServer).ReadCertificateByHash(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func _ECAP_RevokeCertificatePair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ECertRevokeReq)
 	if err := dec(in); err != nil {
@@ -831,6 +871,10 @@ var _ECAP_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadCertificatePair",
 			Handler:    _ECAP_ReadCertificatePair_Handler,
+		},
+		{
+			MethodName: "ReadCertificateByHash",
+			Handler:    _ECAP_ReadCertificateByHash_Handler,
 		},
 		{
 			MethodName: "RevokeCertificatePair",

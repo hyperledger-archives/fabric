@@ -74,13 +74,13 @@ func NewTCA(eca *ECA) *TCA {
 
 	tca := &TCA{NewCA("tca"), eca, nil}
 
-	raw, err := ioutil.ReadFile(RootPath + "/tca.hmac")
+	raw, err := ioutil.ReadFile(tca.path + "/tca.hmac")
 	if err != nil {
 		key := make([]byte, 49)
 		rand.Reader.Read(key)
 		cooked = base64.StdEncoding.EncodeToString(key)
 
-		err = ioutil.WriteFile(RootPath+"/tca.hmac", []byte(cooked), 0644)
+		err = ioutil.WriteFile(tca.path+"/tca.hmac", []byte(cooked), 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}

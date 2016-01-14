@@ -30,6 +30,7 @@ service ECAP { // public service
     rpc ReadCACertificate(Empty) returns (Cert);
     rpc CreateCertificatePair(ECertCreateReq) returns (ECertCreateResp);
     rpc ReadCertificatePair(ECertReadReq) returns (CertPair);
+    rpc ReadCertificateByHash(Hash) returns (Cert);
     rpc RevokeCertificatePair(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
 }
 
@@ -98,6 +99,10 @@ message Token {
     bytes tok = 1;
 }
 
+message Hash {
+    bytes hash = 1;
+}
+
 
 // Public/private keys.
 //
@@ -140,7 +145,8 @@ message ECertCreateReq {
 
 message ECertCreateResp {
     CertPair certs = 1;
-    Token tok = 2;
+    Token chain = 2;
+    Token tok = 3;
 }
 
 message ECertReadReq {
@@ -182,7 +188,7 @@ message TCertCreateSetResp {
 
 message TCertReadReq {
     google.protobuf.Timestamp ts = 1; // timestamp of cert to read
-    Identity id = 2; // corresponding Ecert retrieved from ECA
+    Identity id = 2; // corresponding ECert retrieved from ECA
     Signature sig = 3; // sign(priv, id)
 }
 
