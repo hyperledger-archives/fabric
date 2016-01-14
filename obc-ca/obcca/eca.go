@@ -67,14 +67,14 @@ func NewECA() *ECA {
 	eca := &ECA{NewCA("eca"), nil}
 
 	// read or create global symmetric encryption key
-	raw, err := ioutil.ReadFile(RootPath + "/obc.key")
+	raw, err := ioutil.ReadFile(eca.path+"/obc.key")
 	if err != nil {
 		rand := rand.Reader
 		key := make([]byte, 32) // AES-256
 		rand.Read(key)
 		cooked = base64.StdEncoding.EncodeToString(key)
 
-		err = ioutil.WriteFile(RootPath+"/obc.key", []byte(cooked), 0644)
+		err = ioutil.WriteFile(eca.path+"/obc.key", []byte(cooked), 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}
@@ -156,7 +156,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 			return nil, err
 		}
 		
-		return &pb.ECertCreateResp{nil, &pb.Token{out}}, nil
+		return &pb.ECertCreateResp{nil, nil, &pb.Token{out}}, nil
 
 	case state == 1:
 		// validate request signature
@@ -205,7 +205,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 			return nil, err
 		}
 
-		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, nil}, nil
+		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, nil}, nil
 	}
 
 	return nil, errors.New("certificate creation token expired")
@@ -233,6 +233,19 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, req *pb.ECertReadReq)
 	}
 
 	return &pb.CertPair{certs[0], certs[1]}, nil
+}
+
+// ReadCertificateByHash reads a single enrollment certificate by hash from the ECA.
+//
+func (ecap *ECAP) ReadCertificateByHash(ctx context.Context, hash *pb.Hash) (*pb.Cert, error) {
+	Trace.Println("grpc ECAP:ReadCertificateByHash")
+	
+	raw, err := ecap.eca.readCertificateByHash(hash.Hash)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &pb.Cert{raw}, nil
 }
 
 // RevokeCertificatePair revokes a certificate pair from the ECA.  Not yet implemented.

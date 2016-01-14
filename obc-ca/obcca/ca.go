@@ -35,6 +35,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/sha3"
+	"github.com/spf13/viper"
 )
 
 // CA is the base certificate authority.
@@ -42,26 +43,29 @@ import (
 type CA struct {
 	db *sql.DB
 
+	path string
+	
 	priv *ecdsa.PrivateKey
 	cert *x509.Certificate
-	raw  []byte
+	raw []byte
 }
 
 // NewCA sets up a new CA.
 //
 func NewCA(name string) *CA {
-	if _, err := os.Stat(RootPath); err != nil {
+	ca := new(CA)
+	ca.path = viper.GetString("server.rootpath")
+
+	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
 
-		if err := os.Mkdir(RootPath, 0755); err != nil {
+		if err := os.Mkdir(ca.path, 0755); err != nil {
 			Panic.Panicln(err)
 		}
 	}
 
-	ca := new(CA)
-
 	// open or create certificate database
-	db, err := sql.Open("sqlite3", RootPath+"/"+name+".db")
+	db, err := sql.Open("sqlite3", ca.path+"/"+name+".db")
 	if err != nil {
 		Panic.Panicln(err)
 	}
@@ -119,7 +123,7 @@ func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 				Type:  "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			})
-		err := ioutil.WriteFile(RootPath+"/"+name+".priv", cooked, 0644)
+		err := ioutil.WriteFile(ca.path+"/"+name+".priv", cooked, 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}
@@ -130,7 +134,7 @@ func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 				Type:  "ECDSA PUBLIC KEY",
 				Bytes: raw,
 			})
-		err = ioutil.WriteFile(RootPath+"/"+name+".pub", cooked, 0644)
+		err = ioutil.WriteFile(ca.path+"/"+name+".pub", cooked, 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}
@@ -145,7 +149,7 @@ func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 	Trace.Println("Reading CA private key.")
 
-	cooked, err := ioutil.ReadFile(RootPath + "/" + name + ".priv")
+	cooked, err := ioutil.ReadFile(ca.path + "/" + name + ".priv")
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +171,7 @@ func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 			Type:  "CERTIFICATE",
 			Bytes: raw,
 		})
-	err = ioutil.WriteFile(RootPath+"/"+name+".cert", cooked, 0644)
+	err = ioutil.WriteFile(ca.path+"/"+name+".cert", cooked, 0644)
 	if err != nil {
 		Panic.Panicln(err)
 	}
@@ -178,7 +182,7 @@ func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 func (ca *CA) readCACertificate(name string) ([]byte, error) {
 	Trace.Println("Reading CA certificate.")
 
-	cooked, err := ioutil.ReadFile(RootPath + "/" + name + ".cert")
+	cooked, err := ioutil.ReadFile(ca.path+"/"+name+".cert")
 	if err != nil {
 		return nil, err
 	}
