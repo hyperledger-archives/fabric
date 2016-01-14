@@ -46,7 +46,7 @@ func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
 
 func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
 	// Load TCertOwnerKDFKey
-	client.node.log.Debug("Loading TCertOwnerKDFKey at [%s]...", client.node.conf.getTCertOwnerKDFKeyPath())
+	client.node.log.Debug("Loading TCertOwnerKDFKey...")
 
 	if !client.node.ks.isAliasSet(client.node.conf.getTCertOwnerKDFKeyFilename()) {
 		client.node.log.Debug("Failed loading TCertOwnerKDFKey. Key is missing.")

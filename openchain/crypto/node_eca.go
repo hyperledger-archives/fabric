@@ -65,7 +65,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) loadECACertsChain() error {
-	node.log.Debug("Loading ECA certificates chain at [%s]...", node.conf.getECACertsChainPath())
+	node.log.Debug("Loading ECA certificates chain...")
 
 	pem, err := node.ks.loadCert(node.conf.getECACertsChainFilename(), nil)
 	if err != nil {

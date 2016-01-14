@@ -118,7 +118,10 @@ func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}, pwd []
 }
 
 func (ks *keyStore) loadPrivateKey(alias string, pwd []byte) (interface{}, error) {
-	raw, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	path := ks.conf.getPathForAlias(alias)
+	ks.log.Debug("Loading private key [%s] at [%s]...", alias, path)
+
+	raw, err := ioutil.ReadFile(path)
 	if err != nil {
 		ks.log.Error("Failed loading private key [%s]: [%s].", alias, err.Error())
 
@@ -156,7 +159,10 @@ func (ks *keyStore) storeKey(alias string, key []byte, pwd []byte) error {
 }
 
 func (ks *keyStore) loadKey(alias string, pwd []byte) ([]byte, error) {
-	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	path := ks.conf.getPathForAlias(alias)
+	ks.log.Debug("Loading key [%s] at [%s]...", alias, path)
+
+	pem, err := ioutil.ReadFile(path)
 	if err != nil {
 		ks.log.Error("Failed loading key [%s]: [%s].", alias, err.Error())
 
@@ -184,7 +190,10 @@ func (ks *keyStore) storeCert(alias string, der []byte, pwd []byte) error {
 }
 
 func (ks *keyStore) loadCert(alias string, pwd []byte) ([]byte, error) {
-	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	path := ks.conf.getPathForAlias(alias)
+	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
+
+	pem, err := ioutil.ReadFile(path)
 	if err != nil {
 		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
 
@@ -195,7 +204,10 @@ func (ks *keyStore) loadCert(alias string, pwd []byte) ([]byte, error) {
 }
 
 func (ks *keyStore) loadCertX509AndDer(alias string, pwd []byte) (*x509.Certificate, []byte, error) {
-	pem, err := ioutil.ReadFile(ks.conf.getPathForAlias(alias))
+	path := ks.conf.getPathForAlias(alias)
+	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
+
+	pem, err := ioutil.ReadFile(path)
 	if err != nil {
 		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
 
@@ -250,24 +262,29 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 }
 
 func (ks *keyStore) createKeyStore() error {
-	dbPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating Keystore at [%s].", dbPath)
+	// Create keystore directory root if it doesn't exist yet
+	ksPath := ks.conf.getKeyStorePath()
+	ks.log.Debug("Creating Keystore at [%s].", ksPath)
 
-	missing, err := utils.FileMissing(dbPath, ks.conf.getKeyStoreFilename())
+	missing, err := utils.FileMissing(ksPath, ks.conf.getKeyStoreFilename())
 	if !missing {
-		ks.log.Debug("Creating Keystore at [%s]. Keystore already there", dbPath)
+		ks.log.Debug("Creating Keystore at [%s]. Keystore already there", ksPath)
 		return nil
 	}
 
-	os.MkdirAll(dbPath, 0755)
+	os.MkdirAll(ksPath, 0755)
 
-	ks.log.Debug("Open Keystore at [%s].", dbPath)
-	db, err := sql.Open("sqlite3", filepath.Join(dbPath, ks.conf.getKeyStoreFilename()))
+	// Create Raw material folder
+	os.MkdirAll(ks.conf.getRawsPath(), 0755)
+
+	// Create DB
+	ks.log.Debug("Open Keystore at [%s].", ksPath)
+	db, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
 	if err != nil {
 		return err
 	}
 
-	ks.log.Debug("Ping Keystore at [%s].", dbPath)
+	ks.log.Debug("Ping Keystore at [%s].", ksPath)
 	err = db.Ping()
 	if err != nil {
 		ks.log.Fatal(err)
@@ -275,7 +292,7 @@ func (ks *keyStore) createKeyStore() error {
 
 	defer db.Close()
 
-	ks.log.Debug("Keystore created at [%s].", dbPath)
+	ks.log.Debug("Keystore created at [%s].", ksPath)
 	return nil
 }
 

@@ -26,7 +26,7 @@ import (
 )
 
 func (node *nodeImpl) isRegistered() bool {
-	missing, _ := utils.FileMissing(node.conf.getKeysPath(), node.conf.getEnrollmentIDFilename())
+	missing, _ := utils.FileMissing(node.conf.getRawsPath(), node.conf.getEnrollmentIDFilename())
 
 	return !missing
 }
@@ -71,7 +71,7 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string, ksPWD [
 }
 
 func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
-	node.log.Debug("Loading enrollment key at [%s]...", node.conf.getEnrollmentKeyPath())
+	node.log.Debug("Loading enrollment key...")
 
 	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename(), pwd)
 	if err != nil {
@@ -86,7 +86,7 @@ func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
 }
 
 func (node *nodeImpl) loadEnrollmentCertificate() error {
-	node.log.Debug("Loading enrollment certificate at [%s]...", node.conf.getEnrollmentCertPath())
+	node.log.Debug("Loading enrollment certificate...")
 
 	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentCertFilename(), nil)
 	if err != nil {
@@ -160,7 +160,7 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string, ksPWD []byt
 }
 
 func (node *nodeImpl) loadEnrollmentChainKey(pwd []byte) error {
-	node.log.Debug("Loading enrollment chain key at [%s]...", node.conf.getEnrollmentChainKeyPath())
+	node.log.Debug("Loading enrollment chain key...")
 
 	enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename(), pwd)
 	if err != nil {

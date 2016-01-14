@@ -59,7 +59,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 
 func (node *nodeImpl) loadTCACertsChain() error {
 	// Load TCA certs chain
-	node.log.Debug("Loading TCA certificates chain at [%s]...", node.conf.getTCACertsChainPath())
+	node.log.Debug("Loading TCA certificates chain...")
 
 	cert, err := node.ks.loadCert(node.conf.getTCACertsChainFilename(), nil)
 	if err != nil {
