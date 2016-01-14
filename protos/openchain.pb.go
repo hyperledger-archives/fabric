@@ -218,7 +218,7 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
 // errorCode - An error code. 5xx will be logged as a failure in the dashboard.
-// errorCode - An error string for logging an issue.
+// error - An error string for logging an issue.
 type TransactionResult struct {
 	Uuid      string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
 	Result    []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`

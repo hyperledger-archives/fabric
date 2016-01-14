@@ -58,7 +58,7 @@ message TransactionBlock {
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
 // errorCode - An error code. 5xx will be logged as a failure in the dashboard.
-// errorCode - An error string for logging an issue.
+// error - An error string for logging an issue.
 message TransactionResult {
   string uuid = 1;
   bytes result = 2;
