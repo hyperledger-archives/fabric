@@ -175,3 +175,7 @@ func (stateTrie *StateTrie) PerfHintKeyChanged(chaincodeID string, key string) {
 func (stateTrie *StateTrie) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
 	return newStateSnapshotIterator(snapshot)
 }
+
+func (stateTrie *StateTrie) GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
+	return newRangeScanIterator(chaincodeID, startKey, endKey)
+}

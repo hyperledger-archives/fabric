@@ -57,6 +57,8 @@ type HashableState interface {
 	// key-values or remove some data from particular key-values.
 	GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (StateSnapshotIterator, error)
 
+	GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (RangeScanIterator, error)
+
 	// PerfHintKeyChanged state implementation may be provided with some hints before (e.g., during tx execution)
 	// the StateDelta is prepared and passed in PrepareWorkingSet method.
 	// A state implementation may use this hint for prefetching relevant data so as if this could improve
@@ -73,6 +75,17 @@ type StateSnapshotIterator interface {
 
 	// GetRawKeyValue return next key-value
 	GetRawKeyValue() ([]byte, []byte)
+
+	// Close release resources occupied by the iterator
+	Close()
+}
+
+type RangeScanIterator interface {
+	// Move to next key-value. Returns true if next key-value exists
+	Next() bool
+
+	// GetRawKeyValue return next key-value
+	GetKeyValue() (string, []byte)
 
 	// Close release resources occupied by the iterator
 	Close()
