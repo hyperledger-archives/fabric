@@ -30,7 +30,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google/protobuf"
 	"io/ioutil"
 	"math/big"
@@ -175,7 +174,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	client.node.log.Debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
-	TCertOwnerKDFKey, derBytes, err := client.tcaCreateCertificateSet(num)
+	TCertOwnerKDFKey, derBytes, err := client.callTCACreateCertificateSet(num)
 	if err != nil {
 		client.node.log.Debug("Failed contacting TCA [%s].", err.Error())
 
@@ -350,17 +349,12 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	return resCert[:j], nil
 }
 
-func (client *clientImpl) tcaCreateCertificateSet(num int) ([]byte, [][]byte, error) {
-	sockP, err := grpc.Dial(client.node.conf.getTCAPAddr(), grpc.WithInsecure())
-	if err != nil {
-		client.node.log.Error("Failed tca dial in [%s].", err.Error())
+func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte, error) {
+	// Get a TCA Client
+	sock, tcaP, err := client.node.getTCAClient()
+	defer sock.Close()
 
-		return nil, nil, err
-	}
-	defer sockP.Close()
-
-	tcaP := obcca.NewTCAPClient(sockP)
-
+	// Execute the protocol
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 	req := &obcca.TCertCreateSetReq{

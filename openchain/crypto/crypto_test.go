@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"io/ioutil"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -53,7 +54,7 @@ func TestMain(m *testing.M) {
 	setup()
 
 	// Init PKI
-	initPKI()
+	go initPKI()
 	defer cleanup()
 
 	// Init clients
@@ -648,11 +649,19 @@ func initPKI() {
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
 
+	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
+	if err != nil {
+		panic("Cannot open port: " + err.Error())
+	}
+
 	server = grpc.NewServer()
 
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
+
+	server.Serve(sockp)
+
 }
 
 func initClients() error {

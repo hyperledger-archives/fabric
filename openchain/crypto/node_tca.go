@@ -82,18 +82,25 @@ func (node *nodeImpl) loadTCACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
+func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
+	socket, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		node.log.Error("Failed tca dial in [%s].", err.Error())
+		node.log.Error("Failed dailing in [%s].", err.Error())
 
-		return nil, err
+		return nil, nil, err
 	}
-	defer sockP.Close()
+	tcaPClient := obcca.NewTCAPClient(socket)
 
-	tcaP := obcca.NewTCAPClient(sockP)
+	return socket, tcaPClient, nil
+}
 
-	cert, err := tcaP.ReadCertificate(context.Background(), in)
+func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	// Get a TCA Client
+	sock, tcaP, err := node.getTCAClient()
+	defer sock.Close()
+
+	// Issue the request
+	cert, err := tcaP.ReadCertificate(ctx, in, opts...)
 	if err != nil {
 		node.log.Error("Failed requesting tca read certificate [%s].", err.Error())
 
