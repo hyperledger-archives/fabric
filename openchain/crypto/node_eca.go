@@ -135,6 +135,27 @@ func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 	return resp, nil
 }
 
+func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcca.Hash, opts ...grpc.CallOption) (*obcca.CertPair, error) {
+	sockP, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
+	if err != nil {
+		node.log.Error("Failed eca dialing in [%s].", err.Error())
+
+		return nil, err
+	}
+	defer sockP.Close()
+
+	ecaP := obcca.NewECAPClient(sockP)
+
+	resp, err := ecaP.ReadCertificateByHash(ctx, in, opts...)
+	if err != nil {
+		node.log.Error("Failed requesting read certificate [%s].", err.Error())
+
+		return nil, err
+	}
+
+	return resp.Cert, nil
+}
+
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
 	// Get a new ECA Client
 	sock, ecaP, err := node.getECAClient()
@@ -217,7 +238,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 	// Verify pbCert.Cert
 
-	return signPriv, resp.Certs.Sign, chainKey, nil
+	return signPriv, resp.Certs.Sign, resp.Chain.Tok, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {
