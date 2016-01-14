@@ -80,7 +80,7 @@ func (a *Adapter) Disconnected(err error) {
 }
 
 func createTestBlock() *ehpb.OpenchainEvent {
-	emsg := producer.CreateBlockEvent(&ehpb.Block{ProposerID: "proposer", Transactions: []*ehpb.Transaction{}})
+	emsg := producer.CreateBlockEvent(&ehpb.Block{Transactions: []*ehpb.Transaction{}})
 	return emsg
 }
 

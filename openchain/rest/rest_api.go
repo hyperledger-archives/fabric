@@ -60,6 +60,12 @@ type ServerOpenchainREST struct {
 	devops *oc.Devops
 }
 
+// restResult defines the structure of the REST interface JSON response.
+type restResult struct {
+	OK    string `json:",omitempty"`
+	Error string `json:",omitempty"`
+}
+
 // SetOpenchainServer is a middleware function that sets the pointer to the
 // underlying ServerOpenchain object and the undeflying Devops object.
 func (s *ServerOpenchainREST) SetOpenchainServer(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
@@ -320,16 +326,20 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		// Retrieve Block from blockchain
 		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
 
-		encoder := json.NewEncoder(rw)
-
 		// Check for error
 		if err != nil {
 			// Failure
-			rw.WriteHeader(400)
+			switch err {
+			case oc.ErrNotFound:
+				rw.WriteHeader(http.StatusNotFound)
+			default:
+				rw.WriteHeader(http.StatusInternalServerError)
+			}
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 		} else {
 			// Success
-			rw.WriteHeader(200)
+			rw.WriteHeader(http.StatusOK)
+			encoder := json.NewEncoder(rw)
 			encoder.Encode(block)
 		}
 	}
@@ -345,24 +355,21 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 
 	// Check for Error
 	if err != nil {
-		// Database retrieval error
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
-		logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
-	} else {
-		// Transaction not found
-		if tx == nil {
+		switch err {
+		case oc.ErrNotFound:
 			rw.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
-			logger.Error(fmt.Sprintf("{\"Error\": \"Transaction %s is not found.\"}", txUUID))
-		} else {
-			// Return existing transaction
-			encoder := json.NewEncoder(rw)
-
-			rw.WriteHeader(http.StatusOK)
-			encoder.Encode(tx)
-			logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
+		default:
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+			logger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
 		}
+	} else {
+		// Return existing transaction
+		rw.WriteHeader(http.StatusOK)
+		encoder := json.NewEncoder(rw)
+		encoder.Encode(tx)
+		logger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
 	}
 }
 
@@ -762,12 +769,25 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Replace " characters with '
-	respVal := strings.Replace(string(resp.Msg), "\"", "'", -1)
+	// Determine if the response received is JSON formatted
+	if isJSON(string(resp.Msg)) {
+		// Response is JSON formatted, return it as is
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"OK\": %s}", string(resp.Msg))
+	} else {
+		// Response is not JSON formatted, construct a JSON formatted response
+		jsonResponse, err := json.Marshal(restResult{OK: string(resp.Msg)})
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			logger.Error(fmt.Sprintf("{\"Error marshalling query response\": \"%s\"}", err))
 
-	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": %s}", respVal)
-	logger.Info("Successfuly invoked chainCode.\n")
+			return
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, string(jsonResponse))
+	}
 }
 
 // NotFound returns a custom landing page when a given openchain end point

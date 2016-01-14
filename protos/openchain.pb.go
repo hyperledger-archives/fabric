@@ -174,29 +174,21 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Type Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	// store ChaincodeID as bytes so its encrypted value can be stored
+	ChaincodeID          []byte                     `protobuf:"bytes,2,opt,name=chaincodeID,proto3" json:"chaincodeID,omitempty"`
 	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
 	ConfidentialityLevel ConfidentialityLevel       `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
 	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	EncryptedChaincodeID []byte                     `protobuf:"bytes,8,opt,name=encryptedChaincodeID,proto3" json:"encryptedChaincodeID,omitempty"`
-	EncryptedPayload     []byte                     `protobuf:"bytes,9,opt,name=encryptedPayload,proto3" json:"encryptedPayload,omitempty"`
-	Cert                 []byte                     `protobuf:"bytes,10,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature            []byte                     `protobuf:"bytes,11,opt,name=signature,proto3" json:"signature,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,8,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,9,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
-
-func (m *Transaction) GetChaincodeID() *ChaincodeID {
-	if m != nil {
-		return m.ChaincodeID
-	}
-	return nil
-}
 
 func (m *Transaction) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
@@ -237,7 +229,6 @@ func (m *TransactionResult) String() string { return proto.CompactTextString(m) 
 func (*TransactionResult) ProtoMessage()    {}
 
 // Block carries The data that describes a block in the blockchain.
-// proposerID - The ID of the peer that proposed the Block.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -249,7 +240,6 @@ func (*TransactionResult) ProtoMessage()    {}
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 type Block struct {
-	ProposerID        string                     `protobuf:"bytes,1,opt,name=proposerID" json:"proposerID,omitempty"`
 	Timestamp         *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 	Transactions      []*Transaction             `protobuf:"bytes,3,rep,name=transactions" json:"transactions,omitempty"`
 	StateHash         []byte                     `protobuf:"bytes,4,opt,name=stateHash,proto3" json:"stateHash,omitempty"`

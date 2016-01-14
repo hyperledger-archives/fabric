@@ -21,6 +21,7 @@ package ledger
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -37,6 +38,14 @@ import (
 )
 
 var ledgerLogger = logging.MustGetLogger("ledger")
+
+var (
+	// ErrOutOfBounds is returned if a request is out of bounds
+	ErrOutOfBounds = errors.New("ledger: out of bounds")
+
+	// ErrResourceNotFound is returned if a resource is not found
+	ErrResourceNotFound = errors.New("ledger: resource not found")
+)
 
 // Ledger - the struct for openchain ledger
 type Ledger struct {
@@ -95,7 +104,7 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock("proposerID", transactions), stateHash), nil
+	return ledger.blockchain.buildBlock(protos.NewBlock(transactions), stateHash), nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
@@ -118,7 +127,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock("proposerID", transactions)
+	block := protos.NewBlock(transactions)
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		success = false
@@ -208,7 +217,7 @@ func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 // available.
 func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
 	if blockNumber >= ledger.GetBlockchainSize() {
-		return nil, fmt.Errorf("Block number %d is out of range.", blockNumber)
+		return nil, ErrOutOfBounds
 	}
 	return ledger.state.FetchStateDeltaFromDB(blockNumber)
 }
@@ -283,7 +292,7 @@ func (ledger *Ledger) GetBlockchainInfo() (*protos.BlockchainInfo, error) {
 // Lowest block on chain is block number zero
 func (ledger *Ledger) GetBlockByNumber(blockNumber uint64) (*protos.Block, error) {
 	if blockNumber >= ledger.GetBlockchainSize() {
-		return nil, fmt.Errorf("Block number %d is out of bounds.", blockNumber)
+		return nil, ErrOutOfBounds
 	}
 	return ledger.blockchain.getBlock(blockNumber)
 }
@@ -322,10 +331,10 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 // you wish to verify the entire chain, use 0 for the genesis block.
 func (ledger *Ledger) VerifyChain(highBlock, lowBlock uint64) (uint64, error) {
 	if highBlock >= ledger.GetBlockchainSize() {
-		return highBlock, fmt.Errorf("Out of bounds error. The highBlock %d is greater than the blockchain size.", highBlock)
+		return highBlock, ErrOutOfBounds
 	}
 	if highBlock <= lowBlock {
-		return lowBlock, fmt.Errorf("highBlock %d must be greater than lowBlock. %d", highBlock, lowBlock)
+		return lowBlock, ErrOutOfBounds
 	}
 
 	for i := highBlock; i > lowBlock; i-- {

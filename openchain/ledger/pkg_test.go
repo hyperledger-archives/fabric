@@ -97,13 +97,13 @@ func (testWrapper *blockchainTestWrapper) getTransactionByUUID(txUUID string) *p
 	testutil.AssertNoError(testWrapper.t, err, "Error while getting tx from blockchain")
 	return tx
 }
-func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (blocks []*protos.Block, hashes [][]byte) {
+func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (blocks []*protos.Block, hashes [][]byte, err error) {
 	var allBlocks []*protos.Block
 	var allHashes [][]byte
 
 	// -----------------------------<Genisis block>-------------------------------
 	// Add the first (genesis block)
-	block1 := protos.NewBlock("sheehan", nil)
+	block1 := protos.NewBlock(nil)
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, []byte("stateHash1"))
 	testWrapper.addNewBlock(block1, []byte("stateHash1"))
@@ -112,10 +112,13 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 2>-------------------------------------
 	// Deploy a chaincode
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a,err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	if err != nil {
+		return nil,nil,err
+	}
 	// Now we add the transaction to the block 2 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock("sheehan", transactions2a)
+	block2 := protos.NewBlock(transactions2a)
 
 	allBlocks = append(allBlocks, block2)
 	allHashes = append(allHashes, []byte("stateHash2"))
@@ -124,29 +127,34 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 3>-------------------------------------
 	// Create a transaction'
-	transaction3a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
+	transaction3a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		return nil,nil,err
+	}
 	// Create the third block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
-	block3 := protos.NewBlock("sheehan", transactions3a)
+	block3 := protos.NewBlock(transactions3a)
 	allBlocks = append(allBlocks, block3)
 	allHashes = append(allHashes, []byte("stateHash3"))
 	testWrapper.addNewBlock(block3, []byte("stateHash3"))
 
 	// -----------------------------</Block 3>------------------------------------
-	return allBlocks, allHashes
+	return allBlocks, allHashes, nil
 }
 
-func buildTestTx() (*protos.Transaction, string) {
+func buildTestTx(t *testing.T) (*protos.Transaction, string) {
 	uuid, _ := util.GenerateUUID()
-	return protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"}), uuid
+	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+	testutil.AssertNil(t, err)
+	return tx, uuid
 }
 
-func buildTestBlock() *protos.Block {
+func buildTestBlock(t *testing.T) (*protos.Block, error) {
 	transactions := []*protos.Transaction{}
-	tx, _ := buildTestTx()
+	tx, _ := buildTestTx(t)
 	transactions = append(transactions, tx)
-	block := protos.NewBlock("ErrorCreator", transactions)
-	return block
+	block := protos.NewBlock(transactions)
+	return block, nil
 }
 
 type ledgerTestWrapper struct {
