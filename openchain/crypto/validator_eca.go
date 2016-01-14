@@ -29,19 +29,26 @@ import (
 func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 	sid := utils.EncodeBase64(id)
 
+	validator.peer.node.log.Debug("Getting enrollment certificate for [%d]", sid)
+
 	if cert := validator.enrollCerts[sid]; cert != nil {
+		validator.peer.node.log.Debug("Enrollment certificate for [%d] already in memory.", sid)
+
 		return cert, nil
 	}
 
 	// Retrieve from the DB or from the ECA in case
+	validator.peer.node.log.Debug("Retrieve Enrollment certificate for [%d]...", sid)
 	rawCert, err := validator.peer.node.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
-		validator.peer.node.log.Error("Failed getting enrollment certificate for ", sid, err)
+		validator.peer.node.log.Error("Failed getting enrollment certificate for [%s]: [%s]", sid, err)
 	}
+
+	validator.peer.node.log.Debug("Enrollment certificate for [%s] = [%s]", sid, utils.EncodeBase64(rawCert))
 
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
-		validator.peer.node.log.Error("Failed parsing enrollment certificate for ", sid, utils.EncodeBase64(rawCert))
+		validator.peer.node.log.Error("Failed parsing enrollment certificate for [%s]: [%s],[%s]", sid, utils.EncodeBase64(rawCert), err)
 	}
 
 	validator.enrollCerts[sid] = cert
@@ -51,7 +58,7 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 
 func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte, error) {
 	// Prepare the request
-	validator.peer.node.log.Debug("Reading certificate for hash " + utils.EncodeBase64(id))
+	validator.peer.node.log.Debug("Reading certificate for hash [%s]", utils.EncodeBase64(id))
 
 	req := &obcca.Hash{Hash: id}
 	resp, err := validator.peer.node.callECAReadCertificateByHash(context.Background(), req)
@@ -60,6 +67,8 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 
 		return nil, nil, err
 	}
+
+	validator.peer.node.log.Debug("Certificate for hash [%s] = [%s][%s]", utils.EncodeBase64(id), utils.EncodeBase64(resp.Sign), utils.EncodeBase64(resp.Enc))
 
 	// TODO Verify pbCert.Cert
 	return resp.Sign, resp.Enc, nil

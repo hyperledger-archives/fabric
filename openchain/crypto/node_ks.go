@@ -31,7 +31,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func (node *nodeImpl) initKeyStore() error {
 	// TODO: move all the ket/certificate store/load to the keyStore struct
 
@@ -146,13 +145,6 @@ func (ks *keyStore) createKeyStore() error {
 	}
 
 	defer db.Close()
-
-	// create tables
-	log.Debug("Create Table if not exists [%s] at [%s].", "Certificates", dbPath)
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		log.Debug("Failed creating table [%s].", err.Error())
-		return err
-	}
 
 	ks.log.Debug("Keystore created at [%s].", dbPath)
 	return nil

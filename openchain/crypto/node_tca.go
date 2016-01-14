@@ -26,9 +26,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google/protobuf"
 	"io/ioutil"
-	"time"
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
@@ -94,13 +92,13 @@ func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error)
 	return socket, tcaPClient, nil
 }
 
-func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
+func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := node.getTCAClient()
 	defer sock.Close()
 
 	// Issue the request
-	cert, err := tcaP.ReadCertificate(ctx, in, opts...)
+	cert, err := tcaP.ReadCACertificate(ctx, &obcca.Empty{}, opts...)
 	if err != nil {
 		node.log.Error("Failed requesting tca read certificate [%s].", err.Error())
 
@@ -111,11 +109,7 @@ func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCer
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	// Prepare the request
-	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
-	req := &obcca.TCertReadReq{Ts: &timestamp, Id: &obcca.Identity{Id: "tca-root"}, Sig: nil}
-	pbCert, err := node.callTCAReadCertificate(context.Background(), req)
+	pbCert, err := node.callTCAReadCACertificate(context.Background())
 	if err != nil {
 		node.log.Error("Failed requesting tca certificate [%s].", err.Error())
 
