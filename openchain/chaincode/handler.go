@@ -63,15 +63,21 @@ type MessageHandler interface {
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
-	ChatStream        PeerChaincodeStream
-	FSM               *fsm.FSM
-	ChaincodeID       *pb.ChaincodeID
+	ChatStream  PeerChaincodeStream
+	FSM         *fsm.FSM
+	ChaincodeID *pb.ChaincodeID
+
+	// A copy of decrypted deploy tx this handler manages, no code
+	deployTX *pb.Transaction
+
 	chaincodeSupport  *ChaincodeSupport
 	registered        bool
 	readyNotify       chan bool
 	responseNotifiers map[string]chan *pb.ChaincodeMessage
-	// Uuids of all in-progress state invocations
-	uuidMap map[string]bool
+
+	// Map of tx uuid to either invoke or query tx (decrypted)
+	uuidMap map[string]*pb.Transaction
+
 	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
 }
@@ -337,6 +343,8 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
+			// Decrypt the data if the confidential is enabled
+			//res = decrypt(res)
 			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			handler.ChatStream.Send(responseMsg)
 		}

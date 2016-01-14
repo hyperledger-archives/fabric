@@ -33,7 +33,7 @@ import (
 )
 
 //Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, secCxt crypto.Peer) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
 
 	// get a handle to ledger to mark the begin/finish of a tx
@@ -42,11 +42,10 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
-	// check security if enabled
-	if nil != secCxt {
-		t, err = secCxt.TransactionPreExecution(t)
-		// If confidential, t is now decrypted and should not be stored
-
+	if secCxt, err := GetSecureContext(ctxt); nil != err {
+		return nil, err
+	} else if nil != secCxt {
+		t, err := secCxt.TransactionPreExecution(t)
 		if nil != err {
 			return nil, err
 		}
@@ -136,14 +135,14 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns state hash
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction, secCxt crypto.Peer) ([]byte, []error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
-		_, errs[i] = Execute(ctxt, chain, t, secCxt)
+		_, errs[i] = Execute(ctxt, chain, t)
 	}
 	ledger, hasherr := ledger.GetLedger()
 	var statehash []byte
@@ -152,6 +151,20 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 	}
 	errs[len(errs)-1] = hasherr
 	return statehash, errs
+}
+
+// GetSecureContext returns the security context from the context object or error
+// Security context is nil if security is off from openchain.yaml file
+func GetSecureContext(ctxt context.Context) (crypto.Peer, error) {
+	var err error
+	temp := ctxt.Value("security")
+	if nil != temp {
+		if secCxt, ok := temp.(crypto.Peer); ok {
+			return secCxt, nil
+		}
+		err = errors.New("Failed to convert security context type")
+	}
+	return nil, err
 }
 
 var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
