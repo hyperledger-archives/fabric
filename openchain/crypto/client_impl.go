@@ -20,11 +20,11 @@ under the License.
 package crypto
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
-	"crypto/aes"
-	"crypto/cipher"
 )
 
 type clientImpl struct {
@@ -34,6 +34,10 @@ type clientImpl struct {
 
 	// TCA KDFKey
 	tCertOwnerKDFKey []byte
+}
+
+func (client *clientImpl) GetName() string {
+	return client.node.GetName()
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
@@ -95,7 +99,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
+	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err
@@ -168,7 +172,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
+	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err
@@ -182,6 +186,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	return tx, nil
 }
 
+// NewChaincodeQuery is used to query chaincode's functions.
 func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
@@ -240,7 +245,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signWithTCert(rawTCert, rawTx)
+	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err
@@ -254,9 +259,10 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	return tx, nil
 }
 
+// DecryptQueryResult is used to decrypt the result of a query transaction
 func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error) {
 	queryKey := utils.HMACTruncated(client.node.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-//	client.node.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
+	//	client.node.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
 
 	if len(ct) <= utils.NonceSize {
 		return nil, utils.ErrDecrypt
@@ -283,9 +289,42 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	return out, nil
 }
 
+// GetNextTCert retrieves the next available TCert
+func (client *clientImpl) GetNextTCert() ([]byte, error) {
+	rawTCert, err := client.getNextTCert()
+	if err != nil {
+		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
+		return nil, err
+	}
 
-func (client *clientImpl) GetName() string {
-	return client.node.GetName()
+	return rawTCert, nil
+}
+
+// SignWithTCert allows to sign msg using the signing key corresponding to the given TCert
+func (client *clientImpl) SignUsingTCert(tCertDER []byte, msg []byte) ([]byte, error) {
+	// Validate the transaction certificate
+	tcert, err := client.validateTCert(tCertDER)
+	if err != nil {
+		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
+
+		return nil, err
+	}
+
+	// Sign
+	return client.signUsingTCertX509(tcert, msg)
+}
+
+// VerifyUsingTCert allows to verify msg using the verifying key corresponding to the given TCert
+func (client *clientImpl) VerifyUsingTCert(tCertDER []byte, signature []byte, msg []byte) error {
+	// Validate the transaction certificate
+	tcert, err := client.validateTCert(tCertDER)
+	if err != nil {
+		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
+
+		return err
+	}
+
+	return client.verifyUsingTCertX509(tcert, signature, msg)
 }
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
@@ -347,7 +386,6 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 		return err
 	}
 
-
 	// initialized
 	client.isInitialized = true
 
@@ -362,7 +400,6 @@ func (client *clientImpl) close() error {
 	}
 	return nil
 }
-
 
 // CheckTransaction is used to verify that a transaction
 // is well formed with the respect to the security layer

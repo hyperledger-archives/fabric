@@ -97,20 +97,22 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 	return rawCert, nil
 }
 
-func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, error) {
-	// Extract the signing key from the tCert
-
-	//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(client.tCertOwnerKDFKey))
-
-	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
-	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
-
+func (client *clientImpl) signUsingTCertDER(tCertDER []byte, msg []byte) ([]byte, error) {
+	// Parse the DER
 	tCert, err := utils.DERToX509Certificate(tCertDER)
 	if err != nil {
-		client.node.log.Error("Failed parsing key [%s].", err.Error())
+		client.node.log.Error("Failed parsing TCert DER [%s].", err.Error())
 
 		return nil, err
 	}
+
+	return client.signUsingTCertX509(tCert, msg)
+}
+
+func (client *clientImpl) signUsingTCertX509(tCert *x509.Certificate, msg []byte) ([]byte, error) {
+	// Extract the signing key from the tCert
+	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
+	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
 	ct, err := utils.GetExtension(tCert, utils.TCertEncTCertIndex)
@@ -168,6 +170,17 @@ func (client *clientImpl) signWithTCert(tCertDER []byte, msg []byte) ([]byte, er
 		)
 
 	return client.node.sign(tempSK, msg)
+}
+
+func (client *clientImpl) verifyUsingTCertX509(tCert *x509.Certificate, signature, msg []byte) error {
+	ok, err := client.node.verify(tCert.PublicKey, msg, signature)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return utils.ErrInvalidSignature
+	}
+	return nil
 }
 
 func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
@@ -392,4 +405,27 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	}
 
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
+}
+
+func (client *clientImpl) validateTCert(tCertDER []byte) (*x509.Certificate, error) {
+	opts := x509.VerifyOptions{
+		//		DNSName: "test.example.com",
+		Roots: client.node.rootsCertPool,
+	}
+
+	certificate, err := utils.DERToX509Certificate(tCertDER)
+	if err != nil {
+		client.node.log.Debug("Failed parsing certificate: [%s].", err)
+
+		return nil, err
+	}
+
+	// TODO: Verify certificate against root certs
+	_, err = certificate.Verify(opts)
+	// TODO: verify that the root of the chain refers to the tca
+	if err != nil {
+		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
+	}
+
+	return certificate, nil
 }

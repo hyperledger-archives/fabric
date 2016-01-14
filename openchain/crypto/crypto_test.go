@@ -169,6 +169,57 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+func TestClientGetNextTCert(t *testing.T) {
+	tCertDER, err := deployer.GetNextTCert()
+
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if tCertDER == nil {
+		t.Fatalf("TCert should be different from nil")
+	}
+	if len(tCertDER) == 0 {
+		t.Fatalf("TCert should have length > 0")
+	}
+}
+
+func TestClientSignUsingTCert(t *testing.T) {
+	tCertDER, err := deployer.GetNextTCert()
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+
+	msg := []byte("Hello World!!!")
+	signature, err := deployer.SignUsingTCert(tCertDER, msg)
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if signature == nil || len(signature) == 0 {
+		t.Fatalf("Failed getting non-nil signature")
+	}
+
+	err = deployer.VerifyUsingTCert(tCertDER, signature, msg)
+	if err != nil {
+		t.Fatalf("Failed verifying signature: [%s]", err)
+	}
+
+	// Check that the invoker (another party) can verify the signature
+	err = invoker.VerifyUsingTCert(tCertDER, signature, msg)
+	if err != nil {
+		t.Fatalf("Failed verifying signature: [%s]", err)
+	}
+
+	// Check that the invoker (another party) cannot sign using
+	// a tcert obtained by the deployer
+	signature, err = invoker.SignUsingTCert(tCertDER, msg)
+	if err == nil {
+		t.Fatalf("Bob should not be able to use Alice's tcert to sign")
+	}
+	if signature != nil {
+		t.Fatalf("Signature should be nil")
+	}
+}
+
 func TestPeerID(t *testing.T) {
 	// Verify that any id modification doesn't change
 	id := peer.GetID()

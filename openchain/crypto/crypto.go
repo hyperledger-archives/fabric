@@ -28,6 +28,15 @@ type Client interface {
 
 	// DecryptQueryResult is used to decrypt the result of a query transaction
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
+
+	// GetNextTCert retrieves the next available TCert
+	GetNextTCert() ([]byte, error)
+
+	// SignWithTCert allows to sign msg using the signing key corresponding to the given TCert
+	SignUsingTCert(tCertDER []byte, msg []byte) ([]byte, error)
+
+	// VerifyUsingTCert allows to verify msg using the verifying key corresponding to the given TCert
+	VerifyUsingTCert(tCertDER []byte, signature []byte, msg []byte) error
 }
 
 // Peer is an entity able to verify transactions
