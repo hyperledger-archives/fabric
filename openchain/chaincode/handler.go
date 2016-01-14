@@ -66,6 +66,11 @@ type transactionContext struct {
 	responseNotifier      chan *pb.ChaincodeMessage
 }
 
+type nextStateInfo struct {
+	msg	*pb.ChaincodeMessage
+	sendToCC	bool
+}
+
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
@@ -87,6 +92,7 @@ type Handler struct {
 
 	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
+	nextState	chan *nextStateInfo
 }
 
 func (handler *Handler) createTxContext(uuid string, tx *pb.Transaction) (*transactionContext, error) {
@@ -177,22 +183,52 @@ func (handler *Handler) deregister() error {
 	return nil
 }
 
+func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
+	handler.nextState <- &nextStateInfo{ msg, send }
+}
+
 func (handler *Handler) processStream() error {
 	defer handler.deregister()
+	msgAvail := make(chan *pb.ChaincodeMessage)
+	var nsInfo  *nextStateInfo
+	var in *pb.ChaincodeMessage
+	var err error
 	for {
-		in, err := handler.ChatStream.Recv()
-		// Defer the deregistering of the this handler.
-		if err == io.EOF {
-			chaincodeLogger.Debug("Received EOF, ending chaincode support stream")
-			return err
-		}
-		if err != nil {
-			chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
-			return err
+		in = nil
+		err = nil
+		nsInfo = nil
+		go func() {
+			var in2 *pb.ChaincodeMessage
+			in2, err = handler.ChatStream.Recv()
+			msgAvail <- in2
+		}()
+		select {
+		case in = <-msgAvail:
+			// Defer the deregistering of the this handler.
+			if in == nil || err == io.EOF {
+				if err == nil {
+					err = fmt.Errorf("Received nil message, ending chaincode support stream")
+					chaincodeLogger.Debug("Received nil message, ending chaincode support stream")
+				} else {
+					chaincodeLogger.Debug("Received EOF, ending chaincode support stream")
+				}
+				return err
+			}
+			if err != nil {
+				chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
+				return err
+			}
+		case nsInfo = <- handler.nextState:
+			in = nsInfo.msg
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
 			return fmt.Errorf("Error handling message, ending stream: %s", err)
+		}
+		if nsInfo != nil && nsInfo.sendToCC {
+			if err = handler.ChatStream.Send(in); err != nil {
+				return fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
+			}
 		}
 	}
 }
@@ -210,6 +246,8 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 		ChatStream: peerChatStream,
 	}
 	v.chaincodeSupport = chaincodeSupport
+	//we want this to block
+	v.nextState = make(chan *nextStateInfo)
 
 	v.FSM = fsm.NewFSM(
 		createdstate,
@@ -495,12 +533,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			payload := []byte(fmt.Sprintf("Cannot handle %s in query context", msg.Type.String()))
 			chaincodeLogger.Debug("Cannot handle %s in query context. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
 
@@ -518,14 +551,9 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			payload := []byte(ledgerErr.Error())
 			chaincodeLogger.Debug("Failed to handle %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
 
@@ -540,14 +568,9 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 				payload := []byte(unmarshalErr.Error())
 				chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-				// Send FSM event to trigger state change
-				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-				if eventErr != nil {
-					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-				}
 				// Remove uuid from current set
 				handler.deleteUUIDEntry(msg.Uuid)
-				handler.ChatStream.Send(errMsg)
+				handler.triggerNextState(errMsg, true)
 				return
 			}
 
@@ -568,14 +591,9 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 				payload := []byte(unmarshalErr.Error())
 				chaincodeLogger.Debug("Unable to decipher payload. Sending %s", pb.ChaincodeMessage_ERROR)
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-				// Send FSM event to trigger state change
-				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-				if eventErr != nil {
-					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-				}
 				// Remove uuid from current set
 				handler.deleteUUIDEntry(msg.Uuid)
-				handler.ChatStream.Send(errMsg)
+				handler.triggerNextState(errMsg, true)
 				return
 			}
 
@@ -592,14 +610,9 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 				payload := []byte(launchErr.Error())
 				chaincodeLogger.Debug("Failed to launch invoked chaincode. Sending %s", pb.ChaincodeMessage_ERROR)
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-				// Send FSM event to trigger state change
-				eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-				if eventErr != nil {
-					chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-				}
 				// Remove uuid from current set
 				handler.deleteUUIDEntry(msg.Uuid)
-				handler.ChatStream.Send(errMsg)
+				handler.triggerNextState(errMsg, true)
 				return
 			}
 
@@ -620,28 +633,18 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			payload := []byte(err.Error())
 			chaincodeLogger.Debug("Failed to handle %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			// Send FSM event to trigger state change
-			eventErr := handler.FSM.Event(pb.ChaincodeMessage_ERROR.String(), errMsg)
-			if eventErr != nil {
-				chaincodeLogger.Debug("Failed to trigger FSM event ERROR: %s", eventErr)
-			}
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
 
 		// Send response msg back to chaincode.
 		chaincodeLogger.Debug("Completed %s. Sending %s", msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
 		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
-		// Send FSM event to trigger state change
-		eventErr := handler.FSM.Event(pb.ChaincodeMessage_RESPONSE.String(), responseMsg)
-		if eventErr != nil {
-			chaincodeLogger.Debug("Failed to trigger FSM event RESPONSE: %s", eventErr)
-		}
 		// Remove uuid from current set
 		handler.deleteUUIDEntry(msg.Uuid)
-		handler.ChatStream.Send(responseMsg)
+		handler.triggerNextState(responseMsg, true)
 	}()
 }
 
@@ -721,12 +724,6 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 			return nil, err
 		}
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
-		/** we need to send when actually in init state (see enterInitState)
-		if err = handler.ChatStream.Send(ccMsg); err != nil {
-			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)), Uuid: uuid}
-			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
-		}
-		*/
 		event = pb.ChaincodeMessage_INIT.String()
 	} else {
 		chaincodeLogger.Debug("sending READY")

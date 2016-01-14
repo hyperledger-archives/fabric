@@ -134,7 +134,6 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 
 func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
 
-	var errFromChat error
 	// Establish stream with validating peer
 	stream, err := chaincodeSupportClient.Register(context.Background())
 	if err != nil {
@@ -159,23 +158,47 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
+		defer close(waitc)
+		msgAvail := make(chan *pb.ChaincodeMessage)
+		var nsInfo  *nextStateInfo
+		var in *pb.ChaincodeMessage
 		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
-				close(waitc)
-				return
-			}
-			if err != nil {
-				grpclog.Fatalf("Failed to receive a Registered message from server : %v", err)
+			in = nil
+			err = nil
+			nsInfo = nil
+			go func() {
+				var in2 *pb.ChaincodeMessage
+				in2, err = stream.Recv()
+				msgAvail <- in2
+			}()
+			select {
+			case in = <-msgAvail:
+				// Defer the deregistering of the this handler.
+				if in == nil || err == io.EOF {
+					if err == nil {
+						err = fmt.Errorf("Error received nil message, peer address=%s")
+					} else {
+						err = fmt.Errorf("Error sending transactions to peer address=%s, received EOF", getPeerAddress())
+					}
+					return
+				}
+				if err != nil {
+					grpclog.Fatalf("Received error from server : %v", err)
+				}
+			case nsInfo = <- handler.nextState:
+				in = nsInfo.msg
 			}
 
 			// Call FSM.handleMessage()
 			err = handler.handleMessage(in)
 			if err != nil {
-				chaincodeLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+				err = fmt.Errorf("Error handling message: %s", err)
 				return
+			}
+			if nsInfo != nil && nsInfo.sendToCC {
+				if err = stream.Send(in); err != nil {
+					err =  fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
+				}
 			}
 		}
 	}()
