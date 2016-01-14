@@ -572,7 +572,7 @@ func (op *obcSieve) rollback() error {
 }
 
 func (op *obcSieve) commit() error {
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil); err != nil {
+	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, nil); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil
