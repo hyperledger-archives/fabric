@@ -716,7 +716,7 @@ func TestTransactionResult(t *testing.T) {
 	ledger.TxFinished("txUuid1", true)
 	transaction, uuid := buildTestTx(t)
 
-	transactionResult := &protos.TransactionResult{Uuid: uuid, Error: "bad"}
+	transactionResult := &protos.TransactionResult{Uuid: uuid, ErrorCode: 500, Error: "bad"}
 
 	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []*protos.TransactionResult{transactionResult}, []byte("proof"))
 
@@ -733,5 +733,6 @@ func TestTransactionResult(t *testing.T) {
 
 	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Uuid, uuid)
 	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Error, "bad")
+	testutil.AssertEquals(t, nonHashData.TransactionResults[0].ErrorCode, uint32(500))
 
 }

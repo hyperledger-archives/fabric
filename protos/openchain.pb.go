@@ -217,11 +217,13 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 // not track potential state changes that were a result of the transaction.
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
-// error - Any errors that occured as a result of running the transaction.
+// errorCode - An error code. 5xx will be logged as a failure in the dashboard.
+// errorCode - An error string for logging an issue.
 type TransactionResult struct {
-	Uuid   string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
-	Result []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
-	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
+	Uuid      string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
+	Result    []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	ErrorCode uint32 `protobuf:"varint,3,opt,name=errorCode" json:"errorCode,omitempty"`
+	Error     string `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *TransactionResult) Reset()         { *m = TransactionResult{} }

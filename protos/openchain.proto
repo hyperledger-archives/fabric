@@ -57,11 +57,13 @@ message TransactionBlock {
 // not track potential state changes that were a result of the transaction.
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
-// error - Any errors that occured as a result of running the transaction.
+// errorCode - An error code. 5xx will be logged as a failure in the dashboard.
+// errorCode - An error string for logging an issue.
 message TransactionResult {
   string uuid = 1;
   bytes result = 2;
-  string error = 3;
+  uint32 errorCode = 3;
+  string error = 4;
 }
 
 // Block carries The data that describes a block in the blockchain.
