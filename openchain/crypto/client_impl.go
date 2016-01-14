@@ -47,70 +47,15 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 		return nil, utils.ErrNotInitialized
 	}
 
-	// Create a new transaction
-	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
-	if err != nil {
-		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	if chaincodeDeploymentSpec.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.node.log.Error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-
-		// 2. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
-	}
-
-	// Sign the transaction
-
-	// Implement like this: getNextTCert returns only a TCert
-	// Then, invoke signWithTCert to sign the signature
-
 	// Get next available (not yet used) transaction certificate
-	// with the relative signing key.
 	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
-	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
-	tx.Cert = rawTCert
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
-	if err != nil {
-		client.node.log.Error("Failed creating signature [%s].", err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.node.log.Debug("Appending signature: [%s]", utils.EncodeBase64(rawSignature))
-
-	return tx, nil
+	// Create Transaction
+	return client.newChaincodeDeploy(chaincodeDeploymentSpec, uuid, rawTCert)
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
@@ -120,70 +65,15 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 		return nil, utils.ErrNotInitialized
 	}
 
-	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_EXECUTE)
-	if err != nil {
-		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.node.log.Error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-
-		// 2. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
-	}
-
-	// Sign the transaction
-
-	// Implement like this: getNextTCert returns only a TCert
-	// Then, invoke signWithTCert to sign the signature
-
 	// Get next available (not yet used) transaction certificate
-	// with the relative signing key.
 	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
-	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
-	tx.Cert = rawTCert
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
-	if err != nil {
-		client.node.log.Error("Failed creating signature [%s].", err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
-
-	return tx, nil
+	// Create Transaction
+	return client.newChaincodeExecute(chaincodeInvocation, uuid, rawTCert)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -193,74 +83,24 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 		return nil, utils.ErrNotInitialized
 	}
 
-	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
-	if err != nil {
-		client.node.log.Error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.node.log.Error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-
-		// 2. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.node.log.Error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
-	}
-
-	// Sign the transaction
-
-	// Implement like this: getNextTCert returns only a TCert
-	// Then, invoke signWithTCert to sign the signature
-
 	// Get next available (not yet used) transaction certificate
-	// with the relative signing key.
 	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
-	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
-	tx.Cert = rawTCert
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.node.log.Error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
-	if err != nil {
-		client.node.log.Error("Failed creating signature [%s].", err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
-
-	return tx, nil
+	// Create Transaction
+	return client.newChaincodeQuery(chaincodeInvocation, uuid, rawTCert)
 }
 
 // DecryptQueryResult is used to decrypt the result of a query transaction
 func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
 	queryKey := utils.HMACTruncated(client.node.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
 	//	client.node.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
 
@@ -289,7 +129,33 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	return out, nil
 }
 
+// GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
+func (client *clientImpl) GetEnrollmentCertHandler() (CertificateHandler, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	// Return the handler
+	/*	handler := &eCertHandlerImpl{}
+		err = handler.init(client)
+		if err != nil {
+			client.node.log.Error("Failed getting handler [%s].", err.Error())
+			return nil, err
+		}
+
+		return handler, nil
+	*/
+	return nil, utils.ErrNotImplemented
+}
+
+// GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
 func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
 	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
 
 	// Get next TCert
@@ -300,7 +166,7 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 	}
 
 	// Return the handler
-	handler := &tCertHandlerImpl{}
+	handler := &eCertHandlerImpl{}
 	err = handler.init(client, rawTCert)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
@@ -310,7 +176,13 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 	return handler, nil
 }
 
+// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHandler, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
 	client.node.log.Info("Getting a CertificateHandler for TCert [%s]", utils.EncodeBase64(tCertDER))
 
 	// Validate the transaction certificate
@@ -322,7 +194,7 @@ func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHa
 	}
 
 	// Return the handler
-	handler := &tCertHandlerImpl{}
+	handler := &eCertHandlerImpl{}
 	err = handler.init(client, tCertDER)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())

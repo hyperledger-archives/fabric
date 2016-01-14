@@ -29,10 +29,13 @@ type Client interface {
 	// DecryptQueryResult is used to decrypt the result of a query transaction
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
 
-	// GetTCertHandlerNext returns a TCert handler whose TCert is the next available
+	// GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
+	GetEnrollmentCertHandler() (CertificateHandler, error)
+
+	// GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
 	GetTCertHandlerNext() (CertificateHandler, error)
 
-	// GetTCertHandlerFromDER returns a TCert handler whose TCert is the one passed
+	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 	GetTCertHandlerFromDER(der []byte) (CertificateHandler, error)
 }
 
@@ -86,21 +89,21 @@ type StateEncryptor interface {
 
 type CertificateHandler interface {
 
-	// GetCertificate returns the TCert DER
+	// GetCertificate returns the certificate's DER
 	GetCertificate() []byte
 
-	// Sign signs msg using the signing key corresponding to this TCert
+	// Sign signs msg using the signing key corresponding to the certificate
 	Sign(msg []byte) ([]byte, error)
 
-	// Verify verifies msg using the verifying key corresponding to this TCert
+	// Verify verifies msg using the verifying key corresponding to the certificate
 	Verify(signature []byte, msg []byte) error
 
-	// NewChaincodeDeployTransaction is used to deploy chaincode.
+	// NewChaincodeDeployTransaction is used to deploy chaincode using the certificate
 	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
-	// NewChaincodeExecute is used to execute chaincode's functions.
+	// NewChaincodeExecute is used to execute chaincode's functions using the certificate
 	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 
-	// NewChaincodeQuery is used to query chaincode's functions.
+	// NewChaincodeQuery is used to query chaincode's functions using the certificate
 	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }
