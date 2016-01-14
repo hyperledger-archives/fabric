@@ -169,12 +169,18 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
-func TestClientGetNextTCert(t *testing.T) {
-	tCertDER, err := deployer.GetNextTCert()
+func TestClientGetTCertHandlerNext(t *testing.T) {
+	handler, err := deployer.GetTCertHandlerNext()
 
 	if err != nil {
-		t.Fatalf("Failed getting tcert: [%s]", err)
+		t.Fatalf("Failed getting handler: [%s]", err)
 	}
+	if handler == nil {
+		t.Fatalf("Handler should be different from nil")
+	}
+
+	tCertDER := handler.GetCertificate()
+
 	if tCertDER == nil {
 		t.Fatalf("TCert should be different from nil")
 	}
@@ -183,14 +189,40 @@ func TestClientGetNextTCert(t *testing.T) {
 	}
 }
 
-func TestClientSignUsingTCert(t *testing.T) {
-	tCertDER, err := deployer.GetNextTCert()
+func TestClientGetTCertHandlerFromDER(t *testing.T) {
+	handler, err := deployer.GetTCertHandlerNext()
+	if err != nil {
+		t.Fatalf("Failed getting handler: [%s]", err)
+	}
+
+	handler2, err := deployer.GetTCertHandlerFromDER(handler.GetCertificate())
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
+	if handler == nil {
+		t.Fatalf("Handler should be different from nil")
+	}
+	tCertDER := handler2.GetCertificate()
+	if tCertDER == nil {
+		t.Fatalf("TCert should be different from nil")
+	}
+	if len(tCertDER) == 0 {
+		t.Fatalf("TCert should have length > 0")
+	}
+
+	if !reflect.DeepEqual(handler.GetCertificate(), tCertDER) {
+		t.Fatalf("TCerts must be the same")
+	}
+}
+
+func TestClientTCertHandlerSign(t *testing.T) {
+	handlerDeployer, err := deployer.GetTCertHandlerNext()
+	if err != nil {
+		t.Fatalf("Failed getting handler: [%s]", err)
+	}
 
 	msg := []byte("Hello World!!!")
-	signature, err := deployer.SignUsingTCert(tCertDER, msg)
+	signature, err := handlerDeployer.Sign(msg)
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
@@ -198,20 +230,24 @@ func TestClientSignUsingTCert(t *testing.T) {
 		t.Fatalf("Failed getting non-nil signature")
 	}
 
-	err = deployer.VerifyUsingTCert(tCertDER, signature, msg)
+	err = handlerDeployer.Verify(signature, msg)
 	if err != nil {
 		t.Fatalf("Failed verifying signature: [%s]", err)
 	}
 
-	// Check that the invoker (another party) can verify the signature
-	err = invoker.VerifyUsingTCert(tCertDER, signature, msg)
+	// Check that invoker (another party) can verify the signature
+	handlerInvoker, err := invoker.GetTCertHandlerFromDER(handlerDeployer.GetCertificate())
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+
+	err = handlerInvoker.Verify(signature, msg)
 	if err != nil {
 		t.Fatalf("Failed verifying signature: [%s]", err)
 	}
 
-	// Check that the invoker (another party) cannot sign using
-	// a tcert obtained by the deployer
-	signature, err = invoker.SignUsingTCert(tCertDER, msg)
+	// Check that invoker cannot sign using a tcert obtained by the deployer
+	signature, err = handlerInvoker.Sign(msg)
 	if err == nil {
 		t.Fatalf("Bob should not be able to use Alice's tcert to sign")
 	}

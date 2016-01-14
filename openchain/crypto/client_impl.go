@@ -289,42 +289,47 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	return out, nil
 }
 
-// GetNextTCert retrieves the next available TCert
-func (client *clientImpl) GetNextTCert() ([]byte, error) {
+func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
+	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
+
+	// Get next TCert
 	rawTCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
-	return rawTCert, nil
+	// Return the handler
+	handler := &tCertHandlerImpl{}
+	err = handler.init(client, rawTCert)
+	if err != nil {
+		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		return nil, err
+	}
+
+	return handler, nil
 }
 
-// SignWithTCert allows to sign msg using the signing key corresponding to the given TCert
-func (client *clientImpl) SignUsingTCert(tCertDER []byte, msg []byte) ([]byte, error) {
+func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHandler, error) {
+	client.node.log.Info("Getting a CertificateHandler for TCert [%s]", utils.EncodeBase64(tCertDER))
+
 	// Validate the transaction certificate
-	tcert, err := client.validateTCert(tCertDER)
+	_, err := client.validateTCert(tCertDER)
 	if err != nil {
 		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
 
 		return nil, err
 	}
 
-	// Sign
-	return client.signUsingTCertX509(tcert, msg)
-}
-
-// VerifyUsingTCert allows to verify msg using the verifying key corresponding to the given TCert
-func (client *clientImpl) VerifyUsingTCert(tCertDER []byte, signature []byte, msg []byte) error {
-	// Validate the transaction certificate
-	tcert, err := client.validateTCert(tCertDER)
+	// Return the handler
+	handler := &tCertHandlerImpl{}
+	err = handler.init(client, tCertDER)
 	if err != nil {
-		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
-
-		return err
+		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		return nil, err
 	}
 
-	return client.verifyUsingTCertX509(tcert, signature, msg)
+	return handler, nil
 }
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {

@@ -29,14 +29,11 @@ type Client interface {
 	// DecryptQueryResult is used to decrypt the result of a query transaction
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
 
-	// GetNextTCert retrieves the next available TCert
-	GetNextTCert() ([]byte, error)
+	// GetTCertHandlerNext returns a TCert handler whose TCert is the next available
+	GetTCertHandlerNext() (CertificateHandler, error)
 
-	// SignWithTCert allows to sign msg using the signing key corresponding to the given TCert
-	SignUsingTCert(tCertDER []byte, msg []byte) ([]byte, error)
-
-	// VerifyUsingTCert allows to verify msg using the verifying key corresponding to the given TCert
-	VerifyUsingTCert(tCertDER []byte, signature []byte, msg []byte) error
+	// GetTCertHandlerFromDER returns a TCert handler whose TCert is the one passed
+	GetTCertHandlerFromDER(der []byte) (CertificateHandler, error)
 }
 
 // Peer is an entity able to verify transactions
@@ -85,4 +82,25 @@ type StateEncryptor interface {
 	// Decrypt decrypts ciphertext ct obtained
 	// from a call of the Encrypt method.
 	Decrypt(ct []byte) ([]byte, error)
+}
+
+type CertificateHandler interface {
+
+	// GetCertificate returns the TCert DER
+	GetCertificate() []byte
+
+	// Sign signs msg using the signing key corresponding to this TCert
+	Sign(msg []byte) ([]byte, error)
+
+	// Verify verifies msg using the verifying key corresponding to this TCert
+	Verify(signature []byte, msg []byte) error
+
+	// NewChaincodeDeployTransaction is used to deploy chaincode.
+	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
+
+	// NewChaincodeExecute is used to execute chaincode's functions.
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+
+	// NewChaincodeQuery is used to query chaincode's functions.
+	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }
