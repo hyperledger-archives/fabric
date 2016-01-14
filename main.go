@@ -47,6 +47,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
@@ -337,7 +338,7 @@ func serve(args []string) error {
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, peerServer.GetSecHelper())
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer(peerServer)
@@ -376,7 +377,7 @@ func serve(args []string) error {
 
 	// Deploy the geneis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		makeGeneisError := genesis.MakeGenesis()
 		if makeGeneisError != nil {
 			return makeGeneisError
 		}
@@ -508,7 +509,7 @@ func getCliFilePath() string {
 	return localStore
 }
 
-func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
+func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server, secHelper crypto.Peer) {
 	//get user mode
 	userRunsCC := false
 	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
@@ -523,7 +524,7 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {

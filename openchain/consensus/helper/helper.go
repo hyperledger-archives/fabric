@@ -134,8 +134,9 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 // one-by-one. If all the executions are successful, it returns
 // the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
-	return chaincode.ExecuteTransactions(cxt, chaincode.DefaultChain, txs)
+	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
+	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs

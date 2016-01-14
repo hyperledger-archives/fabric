@@ -75,8 +75,10 @@ type Handler struct {
 	readyNotify       chan bool
 	responseNotifiers map[string]chan *pb.ChaincodeMessage
 
-	// Map of tx uuid to either invoke or query tx (decrypted)
-	uuidMap map[string]*pb.Transaction
+	// Map of tx uuid to either invoke or query tx (decrypted). Each tx will be
+	// added prior to execute and remove when done execute
+	//uuidMap map[string]*pb.Transaction
+	uuidMap map[string]bool
 
 	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
