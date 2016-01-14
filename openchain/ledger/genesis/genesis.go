@@ -199,6 +199,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, secCxt crypto.
 		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
-	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction, secCxt)
+	ctx = context.WithValue(ctx, "security", secCxt)
+	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return transaction, result, err
 }

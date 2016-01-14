@@ -175,7 +175,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
-	chaincodehandler.uuidMap = make(map[string]bool)
+	chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
 	chaincodeLogger.Debug("registered handler complete for chaincode %s", key)

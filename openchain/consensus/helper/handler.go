@@ -146,8 +146,8 @@ func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
 		}
 		// execute if response nil (ie, no error)
 		if nil == response {
-			result, err := chaincode.Execute(context.Background(),
-				chaincode.GetChain(chaincode.DefaultChain), tx, secHelper)
+			cxt := context.WithValue(context.Background(), "security", secHelper)
+			result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
 			if err != nil {
 				response = &pb.Response{Status: pb.Response_FAILURE,
 					Msg: []byte(fmt.Sprintf("Error:%s", err))}
