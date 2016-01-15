@@ -713,6 +713,11 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 		return nil, funcErr
 	}
 	notfy := txctx.responseNotifier
+	defer func() {
+		if funcErr != nil {
+			handler.deleteUUIDEntry(uuid)
+		}
+	}()
 	if f != nil || initArgs != nil {
 		chaincodeLogger.Debug("sending INIT")
 		var f2 string
@@ -741,7 +746,6 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 
 	if send {
 		if funcErr = handler.ChatStream.Send(ccMsg); funcErr != nil {
-			handler.deleteUUIDEntry(uuid)
 			return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, funcErr)
 		}
 	}
