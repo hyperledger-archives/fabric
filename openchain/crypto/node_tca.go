@@ -49,7 +49,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	// Store TCA cert
 	node.log.Debug("Storing TCA certificate for [%s]...", userID)
 
-	if err := node.ks.storeCert(node.conf.getTCACertsChainFilename(), tcaCertRaw, nil); err != nil {
+	if err := node.ks.storeCert(node.conf.getTCACertsChainFilename(), tcaCertRaw); err != nil {
 		node.log.Error("Failed storing tca certificate [%s].", err.Error())
 		return err
 	}
@@ -61,7 +61,7 @@ func (node *nodeImpl) loadTCACertsChain() error {
 	// Load TCA certs chain
 	node.log.Debug("Loading TCA certificates chain...")
 
-	cert, err := node.ks.loadCert(node.conf.getTCACertsChainFilename(), nil)
+	cert, err := node.ks.loadCert(node.conf.getTCACertsChainFilename())
 	if err != nil {
 		node.log.Error("Failed loading TCA certificates chain [%s].", err.Error())
 

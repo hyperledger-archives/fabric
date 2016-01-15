@@ -35,8 +35,8 @@ import (
 	"time"
 )
 
-func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
-	if err := client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey, pwd); err != nil {
+func (client *clientImpl) storeTCertOwnerKDFKey() error {
+	if err := client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey); err != nil {
 		client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 
 		return err
@@ -44,7 +44,7 @@ func (client *clientImpl) storeTCertOwnerKDFKey(pwd []byte) error {
 	return nil
 }
 
-func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
+func (client *clientImpl) loadTCertOwnerKDFKey() error {
 	// Load TCertOwnerKDFKey
 	client.node.log.Debug("Loading TCertOwnerKDFKey...")
 
@@ -54,7 +54,7 @@ func (client *clientImpl) loadTCertOwnerKDFKey(pwd []byte) error {
 		return nil
 	}
 
-	tCertOwnerKDFKey, err := client.node.ks.loadKey(client.node.conf.getTCertOwnerKDFKeyFilename(), pwd)
+	tCertOwnerKDFKey, err := client.node.ks.loadKey(client.node.conf.getTCertOwnerKDFKeyFilename())
 	if err != nil {
 		client.node.log.Error("Failed parsing TCertOwnerKDFKey [%s].", err.Error())
 
@@ -73,7 +73,7 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 	client.node.log.Debug("Getting next TCert...")
 	rawCert, err := client.node.ks.GetNextTCert(client.getTCertsFromTCA)
 	if err != nil {
-		client.node.log.Error("getNextTCert: failed accessing db [%s].", err.Error())
+		client.node.log.Error("Failed accessing db [%s].", err.Error())
 
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
 
 		// TODO: handle this situation more carefully
-		if err := client.storeTCertOwnerKDFKey(nil); err != nil {
+		if err := client.storeTCertOwnerKDFKey(); err != nil {
 			client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 
 			return nil, err
@@ -373,7 +373,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	}
 
 	// 2. Sign rawReq
-	client.node.log.Debug("Signing req  ", utils.EncodeBase64(rawReq))
+	client.node.log.Debug("Signing req [%s]", utils.EncodeBase64(rawReq))
 	r, s, err := client.node.ecdsaSignWithEnrollmentKey(rawReq)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s] [%s].", err.Error())

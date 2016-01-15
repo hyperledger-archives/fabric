@@ -56,7 +56,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	// Store ECA cert
 	node.log.Debug("Storing ECA certificate for [%s]...", userID)
 
-	if err := node.ks.storeCert(node.conf.getECACertsChainFilename(), ecaCertRaw, nil); err != nil {
+	if err := node.ks.storeCert(node.conf.getECACertsChainFilename(), ecaCertRaw); err != nil {
 		node.log.Error("Failed storing eca certificate [%s].", err.Error())
 		return err
 	}
@@ -67,7 +67,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 func (node *nodeImpl) loadECACertsChain() error {
 	node.log.Debug("Loading ECA certificates chain...")
 
-	pem, err := node.ks.loadCert(node.conf.getECACertsChainFilename(), nil)
+	pem, err := node.ks.loadCert(node.conf.getECACertsChainFilename())
 	if err != nil {
 		node.log.Error("Failed loading ECA certificates chain [%s].", err.Error())
 

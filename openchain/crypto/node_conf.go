@@ -117,7 +117,7 @@ func (conf *configuration) getRawsPath() string {
 }
 
 func (conf *configuration) getKeyStoreFilename() string {
-	return "keystore"
+	return "db"
 }
 
 func (conf *configuration) getKeyStoreFilePath() string {

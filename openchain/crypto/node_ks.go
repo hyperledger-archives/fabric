@@ -75,7 +75,7 @@ func (ks *keyStore) init(logger *logging.Logger, conf *configuration, pwd []byte
 	ks.conf = conf
 	ks.pwd = utils.Clone(pwd)
 
-	err := ks.createKeyStoreIfKeyStorePathEmpty()
+	err := ks.createKeyStoreIfNotExists()
 	if err != nil {
 		return err
 	}
@@ -97,12 +97,8 @@ func (ks *keyStore) isAliasSet(alias string) bool {
 	return true
 }
 
-func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}, pwd []byte) error {
-	if pwd == nil {
-		pwd = ks.pwd
-	}
-
-	rawKey, err := utils.PrivateKeyToPEM(privateKey, pwd)
+func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error {
+	rawKey, err := utils.PrivateKeyToPEM(privateKey, ks.pwd)
 	if err != nil {
 		ks.log.Error("Failed converting private key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -117,7 +113,23 @@ func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}, pwd []
 	return nil
 }
 
-func (ks *keyStore) loadPrivateKey(alias string, pwd []byte) (interface{}, error) {
+func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{}) error {
+	rawKey, err := utils.PrivateKeyToPEM(privateKey, nil)
+	if err != nil {
+		ks.log.Error("Failed converting private key to PEM [%s]: [%s]", alias, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	if err != nil {
+		ks.log.Error("Failed storing private key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 	path := ks.conf.getPathForAlias(alias)
 	ks.log.Debug("Loading private key [%s] at [%s]...", alias, path)
 
@@ -128,7 +140,7 @@ func (ks *keyStore) loadPrivateKey(alias string, pwd []byte) (interface{}, error
 		return nil, err
 	}
 
-	privateKey, err := utils.PEMtoPrivateKey(raw, pwd)
+	privateKey, err := utils.PEMtoPrivateKey(raw, ks.pwd)
 	if err != nil {
 		ks.log.Error("Failed parsing private key [%s]: [%s].", alias, err.Error())
 
@@ -138,12 +150,8 @@ func (ks *keyStore) loadPrivateKey(alias string, pwd []byte) (interface{}, error
 	return privateKey, nil
 }
 
-func (ks *keyStore) storeKey(alias string, key []byte, pwd []byte) error {
-	if pwd == nil {
-		pwd = ks.pwd
-	}
-
-	pem, err := utils.AEStoEncryptedPEM(key, pwd)
+func (ks *keyStore) storeKey(alias string, key []byte) error {
+	pem, err := utils.AEStoEncryptedPEM(key, ks.pwd)
 	if err != nil {
 		ks.log.Error("Failed converting key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -158,7 +166,7 @@ func (ks *keyStore) storeKey(alias string, key []byte, pwd []byte) error {
 	return nil
 }
 
-func (ks *keyStore) loadKey(alias string, pwd []byte) ([]byte, error) {
+func (ks *keyStore) loadKey(alias string) ([]byte, error) {
 	path := ks.conf.getPathForAlias(alias)
 	ks.log.Debug("Loading key [%s] at [%s]...", alias, path)
 
@@ -169,7 +177,7 @@ func (ks *keyStore) loadKey(alias string, pwd []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	key, err := utils.PEMtoAES(pem, pwd)
+	key, err := utils.PEMtoAES(pem, ks.pwd)
 	if err != nil {
 		ks.log.Error("Failed parsing key [%s]: [%s]", alias, err)
 
@@ -179,7 +187,7 @@ func (ks *keyStore) loadKey(alias string, pwd []byte) ([]byte, error) {
 	return key, nil
 }
 
-func (ks *keyStore) storeCert(alias string, der []byte, pwd []byte) error {
+func (ks *keyStore) storeCert(alias string, der []byte) error {
 	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
 	if err != nil {
 		ks.log.Error("Failed storing certificate [%s]: [%s]", alias, err)
@@ -189,7 +197,7 @@ func (ks *keyStore) storeCert(alias string, der []byte, pwd []byte) error {
 	return nil
 }
 
-func (ks *keyStore) loadCert(alias string, pwd []byte) ([]byte, error) {
+func (ks *keyStore) loadCert(alias string) ([]byte, error) {
 	path := ks.conf.getPathForAlias(alias)
 	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
 
@@ -203,7 +211,7 @@ func (ks *keyStore) loadCert(alias string, pwd []byte) ([]byte, error) {
 	return pem, nil
 }
 
-func (ks *keyStore) loadCertX509AndDer(alias string, pwd []byte) (*x509.Certificate, []byte, error) {
+func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte, error) {
 	path := ks.conf.getPathForAlias(alias)
 	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
 
@@ -238,16 +246,16 @@ func (ks *keyStore) close() error {
 	return err
 }
 
-func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
-	// Check directory
+func (ks *keyStore) createKeyStoreIfNotExists() error {
+	// Check keystore directory
 	ksPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
 	ks.log.Debug("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
 
 	if !missing {
-		// Check file
+		// Check keystore file
 		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		ks.log.Debug("Keystore file [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
+		ks.log.Debug("Keystore [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
@@ -264,7 +272,7 @@ func (ks *keyStore) createKeyStoreIfKeyStorePathEmpty() error {
 func (ks *keyStore) createKeyStore() error {
 	// Create keystore directory root if it doesn't exist yet
 	ksPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating Keystore at [%s].", ksPath)
+	ks.log.Debug("Creating Keystore at [%s]...", ksPath)
 
 	missing, err := utils.FileMissing(ksPath, ks.conf.getKeyStoreFilename())
 	if !missing {
@@ -278,18 +286,17 @@ func (ks *keyStore) createKeyStore() error {
 	os.MkdirAll(ks.conf.getRawsPath(), 0755)
 
 	// Create DB
-	ks.log.Debug("Open Keystore at [%s].", ksPath)
+	ks.log.Debug("Open Keystore DB...")
 	db, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
 	if err != nil {
 		return err
 	}
 
-	ks.log.Debug("Ping Keystore at [%s].", ksPath)
+	ks.log.Debug("Ping Keystore DB...")
 	err = db.Ping()
 	if err != nil {
 		ks.log.Fatal(err)
 	}
-
 	defer db.Close()
 
 	ks.log.Debug("Keystore created at [%s].", ksPath)
@@ -306,16 +313,20 @@ func (ks *keyStore) openKeyStore() error {
 	if ks.isOpen {
 		return nil
 	}
+
+	// Open DB
 	ksPath := ks.conf.getKeyStorePath()
+	ks.log.Debug("Open keystore at [%s]...", ksPath)
 
 	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
-
 	if err != nil {
 		ks.log.Error("Error opening keystore%s", err.Error())
 		return err
 	}
 	ks.isOpen = true
 	ks.sqlDB = sqlDB
+
+	ks.log.Debug("Open keystore at [%s]...done", ksPath)
 
 	return nil
 }

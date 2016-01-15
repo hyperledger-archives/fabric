@@ -31,7 +31,7 @@ func (node *nodeImpl) isRegistered() bool {
 	return !missing
 }
 
-func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string, ksPWD []byte) error {
+func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 	key, enrollCertRaw, enrollChainKey, err := node.getEnrollmentCertificateFromECA(enrollID, enrollPWD)
 	if err != nil {
 		node.log.Error("Failed getting enrollment certificate [id=%s]: [%s]", enrollID, err)
@@ -50,19 +50,19 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string, ksPWD [
 	}
 
 	// Store enrollment key
-	if err := node.ks.storePrivateKey(node.conf.getEnrollmentKeyFilename(), key, ksPWD); err != nil {
+	if err := node.ks.storePrivateKey(node.conf.getEnrollmentKeyFilename(), key); err != nil {
 		node.log.Error("Failed storing enrollment key [id=%s]: [%s]", enrollID, err)
 		return err
 	}
 
 	// Store enrollment cert
-	if err := node.ks.storeCert(node.conf.getEnrollmentCertFilename(), enrollCertRaw, ksPWD); err != nil {
+	if err := node.ks.storeCert(node.conf.getEnrollmentCertFilename(), enrollCertRaw); err != nil {
 		node.log.Error("Failed storing enrollment certificate [id=%s]: [%s]", enrollID, err)
 		return err
 	}
 
 	// Store enrollment chain key
-	if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey, ksPWD); err != nil {
+	if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
 		node.log.Error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -70,10 +70,10 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string, ksPWD [
 	return nil
 }
 
-func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
+func (node *nodeImpl) loadEnrollmentKey() error {
 	node.log.Debug("Loading enrollment key...")
 
-	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename(), pwd)
+	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename())
 	if err != nil {
 		node.log.Error("Failed loading enrollment private key [%s].", err.Error())
 
@@ -88,7 +88,7 @@ func (node *nodeImpl) loadEnrollmentKey(pwd []byte) error {
 func (node *nodeImpl) loadEnrollmentCertificate() error {
 	node.log.Debug("Loading enrollment certificate...")
 
-	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentCertFilename(), nil)
+	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentCertFilename())
 	if err != nil {
 		node.log.Error("Failed parsing enrollment certificate [%s].", err.Error())
 
@@ -133,7 +133,7 @@ func (node *nodeImpl) loadEnrollmentID() error {
 	return nil
 }
 
-func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string, ksPWD []byte) error {
+func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
 		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
@@ -144,14 +144,14 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string, ksPWD []byt
 
 	node.log.Info("Storing TLS key and certificate for user [%s]...", id)
 
-	// Store tls key
-	if err := node.ks.storePrivateKey(node.conf.getTLSKeyFilename(), key, ksPWD); err != nil {
+	// Store tls key.
+	if err := node.ks.storePrivateKeyInClear(node.conf.getTLSKeyFilename(), key); err != nil {
 		node.log.Error("Failed storing tls key [id=%s]: %s", id, err)
 		return err
 	}
 
 	// Store tls cert
-	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), utils.DERCertToPEM(tlsCertRaw), ksPWD); err != nil {
+	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), utils.DERCertToPEM(tlsCertRaw)); err != nil {
 		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
 		return err
 	}
@@ -159,10 +159,10 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string, ksPWD []byt
 	return nil
 }
 
-func (node *nodeImpl) loadEnrollmentChainKey(pwd []byte) error {
+func (node *nodeImpl) loadEnrollmentChainKey() error {
 	node.log.Debug("Loading enrollment chain key...")
 
-	enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename(), pwd)
+	enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
 	if err != nil {
 		node.log.Error("Failed loading enrollment chain key [%s].", err.Error())
 

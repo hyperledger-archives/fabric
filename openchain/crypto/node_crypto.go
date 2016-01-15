@@ -2,7 +2,7 @@ package crypto
 
 import "crypto/x509"
 
-func (node *nodeImpl) initCryptoEngine(pwd []byte) error {
+func (node *nodeImpl) initCryptoEngine() error {
 	node.log.Info("Initializing node crypto engine...")
 
 	node.rootsCertPool = x509.NewCertPool()
@@ -18,7 +18,7 @@ func (node *nodeImpl) initCryptoEngine(pwd []byte) error {
 	}
 
 	// Load enrollment secret key
-	if err := node.loadEnrollmentKey(pwd); err != nil {
+	if err := node.loadEnrollmentKey(); err != nil {
 		return err
 	}
 
@@ -33,7 +33,7 @@ func (node *nodeImpl) initCryptoEngine(pwd []byte) error {
 	}
 
 	// Load enrollment chain key
-	if err := node.loadEnrollmentChainKey(pwd); err != nil {
+	if err := node.loadEnrollmentChainKey(); err != nil {
 		return err
 	}
 

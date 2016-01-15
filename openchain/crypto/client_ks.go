@@ -45,7 +45,6 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 
 		return nil, err
 	}
-	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
 	if cert == nil {
 		// If No TCert is available, fetch new ones, store them and return the first available.
@@ -99,13 +98,13 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 		}
 	}
 
+	ks.log.Debug("TCert [%s].", utils.EncodeBase64(cert))
+
 	return cert, nil
-	//	return nil, nil, errors.New("No cert obtained")
-	//	return utils.NewSelfSignedCert()
 }
 
 func (ks *keyStore) selectNextTCert() ([]byte, error) {
-	ks.log.Debug("Select next TCert...")
+	ks.log.Debug("Lookup TCert in cache...")
 
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
@@ -122,6 +121,8 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	err = row.Scan(&id, &cert)
 
 	if err == sql.ErrNoRows {
+		ks.log.Error("No TCert in cache found.")
+
 		return nil, nil
 	} else if err != nil {
 		ks.log.Error("Error during select [%s].", err.Error())
@@ -157,7 +158,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 		return nil, err
 	}
 
-	ks.log.Debug("Select next TCert...done!")
+	ks.log.Debug("Lookup TCert in cache...done!")
 
 	return cert, nil
 }
