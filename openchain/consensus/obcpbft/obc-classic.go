@@ -159,7 +159,7 @@ func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, rawMetadata); err != nil {
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, rawMetadata); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))

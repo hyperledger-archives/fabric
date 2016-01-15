@@ -138,7 +138,7 @@ func (inst *instance) execute(payload []byte, metadata []byte) {
 		return
 	}
 
-	_, errs := inst.ExecTXs(txs)
+	result, errs := inst.ExecTXs(txs)
 
 	if errs[len(txs)] != nil {
 		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, errs)
@@ -148,7 +148,13 @@ func (inst *instance) execute(payload []byte, metadata []byte) {
 		return
 	}
 
-	if err := inst.CommitTxBatch(txBatchID, txs, metadata); err != nil {
+	txResult := []*pb.TransactionResult{
+		&pb.TransactionResult{
+			Result: result,
+		},
+	}
+
+	if err := inst.CommitTxBatch(txBatchID, txs, txResult, metadata); err != nil {
 		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
@@ -218,8 +224,8 @@ func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return inst.ledger.ExecTXs(txs)
 }
 
-func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, metadata []byte) error {
-	return inst.ledger.CommitTxBatch(id, txs, metadata)
+func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, txResults []*pb.TransactionResult, metadata []byte) error {
+	return inst.ledger.CommitTxBatch(id, txs, txResults, metadata)
 }
 
 func (inst *instance) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {

@@ -174,29 +174,21 @@ func (x Response_StatusCode) String() string {
 // For example, they may wish to use JSON, XML, or a custom format.
 // TODO: Defined remaining fields.
 type Transaction struct {
-	Type                 Transaction_Type           `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
-	ChaincodeID          *ChaincodeID               `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	Type Transaction_Type `protobuf:"varint,1,opt,name=type,enum=protos.Transaction_Type" json:"type,omitempty"`
+	// store ChaincodeID as bytes so its encrypted value can be stored
+	ChaincodeID          []byte                     `protobuf:"bytes,2,opt,name=chaincodeID,proto3" json:"chaincodeID,omitempty"`
 	Payload              []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid                 string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	Timestamp            *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
 	ConfidentialityLevel ConfidentialityLevel       `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
 	Nonce                []byte                     `protobuf:"bytes,7,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	EncryptedChaincodeID []byte                     `protobuf:"bytes,8,opt,name=encryptedChaincodeID,proto3" json:"encryptedChaincodeID,omitempty"`
-	EncryptedPayload     []byte                     `protobuf:"bytes,9,opt,name=encryptedPayload,proto3" json:"encryptedPayload,omitempty"`
-	Cert                 []byte                     `protobuf:"bytes,10,opt,name=cert,proto3" json:"cert,omitempty"`
-	Signature            []byte                     `protobuf:"bytes,11,opt,name=signature,proto3" json:"signature,omitempty"`
+	Cert                 []byte                     `protobuf:"bytes,8,opt,name=cert,proto3" json:"cert,omitempty"`
+	Signature            []byte                     `protobuf:"bytes,9,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
-
-func (m *Transaction) GetChaincodeID() *ChaincodeID {
-	if m != nil {
-		return m.ChaincodeID
-	}
-	return nil
-}
 
 func (m *Transaction) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
@@ -225,11 +217,13 @@ func (m *TransactionBlock) GetTransactions() []*Transaction {
 // not track potential state changes that were a result of the transaction.
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
-// error - Any errors that occured as a result of running the transaction.
+// errorCode - An error code. 5xx will be logged as a failure in the dashboard.
+// error - An error string for logging an issue.
 type TransactionResult struct {
-	Uuid   string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
-	Result []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
-	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
+	Uuid      string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
+	Result    []byte `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	ErrorCode uint32 `protobuf:"varint,3,opt,name=errorCode" json:"errorCode,omitempty"`
+	Error     string `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *TransactionResult) Reset()         { *m = TransactionResult{} }

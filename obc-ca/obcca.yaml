@@ -1,37 +1,13 @@
-test: hello
+server:
+        version: "0.1"
+        rootpath: ".obc-ca"
+        port: ":50051"
+        
+        tls:
+#                certfile:
+#                keyfile:
 
-ports:
-        ecaP: ":50051"
-        ecaA: ":50052"
-        tcaP: ":50551"
-        tcaA: ":50552"
-        tlscaP: ":50951"
-        tlscaA: ":50952"
-
-hosts:
-        eca: localhost
-        tca: localhost
-        tlsca: localhost
 
 eca:
-#        tls:
-#                certfile:
-#                keyfile:
-
         users:
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
-                vp0: test
-                vp1: test
-                vp2: test
-                vp3: test
-tca:
-#         tls:
-#                certfile:
-#                keyfile:
-
-tlsca:
-#         tls:
-#                certfile:
-#                keyfile:
+#                 donq: 9gvZQRwhUq9q

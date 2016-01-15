@@ -572,7 +572,7 @@ func (op *obcSieve) commit(seqNo uint64) error {
 	if err != nil {
 		return fmt.Errorf("Failed to marshal consensus metadata before committing of transaction: %v", err)
 	}
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, rawMetadata); err != nil {
+	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, rawMetadata); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil

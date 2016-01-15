@@ -142,12 +142,12 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
-func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, metadata []byte) error {
+func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if err := ledger.CommitTxBatch(id, transactions, metadata); err != nil {
+	if err := ledger.CommitTxBatch(id, transactions, nil, metadata); err != nil {
 		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil
@@ -168,8 +168,15 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 
 // PreviewCommitTxBatchBlock ...
 func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
-	// TODO
-	return nil, fmt.Errorf("Unimplemented")
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
+	}
+	if block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata); err != nil {
+		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+	} else {
+		return block, err
+	}
 }
 
 // GetBlock returns a block from the chain

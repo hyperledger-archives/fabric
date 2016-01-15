@@ -130,15 +130,15 @@ func (mock *MockLedger) ExecTXs(txs []*protos.Transaction) ([]byte, []error) {
 	return nil, errs
 }
 
-func (mock *MockLedger) CommitTxBatch(id interface{}, txs []*protos.Transaction, metadata []byte) error {
-	_, err := mock.commonCommitTx(id, txs, metadata, false)
+func (mock *MockLedger) CommitTxBatch(id interface{}, txs []*protos.Transaction, txResults []*protos.TransactionResult, metadata []byte) error {
+	_, err := mock.commonCommitTx(id, txs, txResults, metadata, false)
 	if nil == err {
 		mock.txID = nil
 	}
 	return err
 }
 
-func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction, metadata []byte, preview bool) (*protos.Block, error) {
+func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction, txResults []*protos.TransactionResult, metadata []byte, preview bool) (*protos.Block, error) {
 	if !reflect.DeepEqual(mock.txID, id) {
 		return nil, fmt.Errorf("Invalid batch ID")
 	}
@@ -190,7 +190,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 }
 
 func (mock *MockLedger) PreviewCommitTxBatchBlock(id interface{}, txs []*protos.Transaction, metadata []byte) (*protos.Block, error) {
-	return mock.commonCommitTx(id, txs, metadata, true)
+	return mock.commonCommitTx(id, txs, nil, metadata, true)
 }
 
 func (mock *MockLedger) RollbackTxBatch(id interface{}) error {

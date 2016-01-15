@@ -186,21 +186,17 @@ func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }
 
-// GetBlocks returns a block range
-func (handler *ConsensusHandler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
-	return handler.peerHandler.GetBlocks(syncBlockRange)
+// RequestBlocks returns the current sync block
+func (handler *ConsensusHandler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	return handler.peerHandler.RequestBlocks(syncBlockRange)
 }
 
-// GetStateSnapshot returns the current state
-func (handler *ConsensusHandler) GetStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
-	// TODO uncomment once implemented
-	// return handler.peerHandler.GetStateSnapshot()
-	return nil, fmt.Errorf("Not implemented")
+// RequestStateeSnapshot returns the current state
+func (handler *ConsensusHandler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
+	return handler.peerHandler.RequestStateSnapshot()
 }
 
-// GetStateDeltas returns a block range
-func (handler *ConsensusHandler) GetStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error) {
-	// TODO uncomment once implemented
-	// return handler.peerHandler.GetStateDeltas(syncBlockRange)
-	return nil, fmt.Errorf("Not implemented")
+// RequestStateDeltas returns state deltas for a block range
+func (handler *ConsensusHandler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error) {
+	return handler.peerHandler.RequestStateDeltas(syncBlockRange)
 }

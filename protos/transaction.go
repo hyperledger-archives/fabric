@@ -39,9 +39,13 @@ func (transaction *Transaction) Bytes() ([]byte, error) {
 // the chaincodeID on which the function should be called, and the arguments
 // string. The arguments could be a string of JSON, but there is no strict
 // requirement.
-func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, arguments []string) *Transaction {
+func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, arguments []string) (*Transaction, error) {
+	data, err := proto.Marshal(&chaincodeID)
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal chaincode : %s", err)
+	}
 	transaction := new(Transaction)
-	transaction.ChaincodeID = &chaincodeID
+	transaction.ChaincodeID = data
 	transaction.Uuid = uuid
 	transaction.Timestamp = util.CreateUtcTimestamp()
 	/*
@@ -58,7 +62,7 @@ func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, argum
 		}
 		transaction.Payload = data
 	*/
-	return transaction
+	return transaction, nil
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
@@ -67,7 +71,14 @@ func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentS
 	transaction.Type = Transaction_CHAINCODE_NEW
 	transaction.Uuid = uuid
 	transaction.Timestamp = util.CreateUtcTimestamp()
-	transaction.ChaincodeID = chaincodeDeploymentSpec.ChaincodeSpec.GetChaincodeID()
+	cID := chaincodeDeploymentSpec.ChaincodeSpec.GetChaincodeID()
+	if cID != nil {
+		data, err := proto.Marshal(cID)
+		if err != nil {
+			return nil, fmt.Errorf("Could not marshal chaincode : %s", err)
+		}
+		transaction.ChaincodeID = data
+	}
 	//if chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg() != nil {
 	//	transaction.Function = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Function
 	//	transaction.Args = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Args
@@ -87,7 +98,14 @@ func NewChaincodeExecute(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid 
 	transaction.Type = typ
 	transaction.Uuid = uuid
 	transaction.Timestamp = util.CreateUtcTimestamp()
-	transaction.ChaincodeID = chaincodeInvocationSpec.ChaincodeSpec.GetChaincodeID()
+	cID := chaincodeInvocationSpec.ChaincodeSpec.GetChaincodeID()
+	if cID != nil {
+		data, err := proto.Marshal(cID)
+		if err != nil {
+			return nil, fmt.Errorf("Could not marshal chaincode : %s", err)
+		}
+		transaction.ChaincodeID = data
+	}
 	data, err := proto.Marshal(chaincodeInvocationSpec)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)

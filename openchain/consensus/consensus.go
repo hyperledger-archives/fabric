@@ -42,7 +42,7 @@ type Ledger interface {
 
 	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
-	CommitTxBatch(id interface{}, transactions []*pb.Transaction, metadata []byte) error
+	CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error
 	RollbackTxBatch(id interface{}) error
 	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
 }

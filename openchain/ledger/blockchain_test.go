@@ -55,7 +55,11 @@ func TestBlockChain_SimpleChain(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blockchain := blockchainTestWrapper.blockchain
-	allBlocks, allStateHashes := blockchainTestWrapper.populateBlockChainWithSampleData()
+	allBlocks, allStateHashes, err := blockchainTestWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	testutil.AssertEquals(t, blockchain.getSize(), uint64(len(allBlocks)))
 	testutil.AssertEquals(t, blockchainTestWrapper.fetchBlockchainSizeFromDB(), uint64(len(allBlocks)))
 
