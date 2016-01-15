@@ -605,6 +605,11 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 			// Add the login token to the chaincodeSpec
 			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
@@ -614,11 +619,6 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
@@ -689,6 +689,11 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 
 			// Add the login token to the chaincodeSpec
 			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
@@ -698,11 +703,6 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Build the ChaincodeInvocationSpec message
