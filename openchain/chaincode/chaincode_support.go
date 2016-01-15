@@ -210,7 +210,7 @@ func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Co
 }
 
 // Based on state of chaincode send either init or ready to move to ready state
-func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
+func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction) error {
 	chaincodeSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -224,7 +224,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.initOrReady(uuid, f, initArgs); err != nil {
+	if notfy, err = handler.initOrReady(uuid, f, initArgs, tx); err != nil {
 		return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
 	if notfy != nil {
@@ -390,7 +390,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout)
+		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t)
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
@@ -407,8 +407,8 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	return cID, cMsg, err
 }
 
-// GetSecHelper returns the security help set from NewChaincodeSupport
-func (chaincodeSupport *ChaincodeSupport) GetSecHelper() crypto.Peer {
+// getSecHelper returns the security help set from NewChaincodeSupport
+func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
 	return chaincodeSupport.secHelper
 }
 

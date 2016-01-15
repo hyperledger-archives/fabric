@@ -41,7 +41,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
-	if secHelper := chain.GetSecHelper(); nil != secHelper {
+	if secHelper := chain.getSecHelper(); nil != secHelper {
 		var err error
 		t, err = secHelper.TransactionPreExecution(t)
 		// Note that t is now decrypted and is a deep clone of the original input t
