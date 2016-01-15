@@ -128,6 +128,12 @@ func (state *State) Get(chaincodeID string, key string, committed bool) ([]byte,
 	return state.stateImpl.Get(chaincodeID, key)
 }
 
+// GetRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
+// (assuming lexical order of the keys) for a chaincodeID.
+func (state *State) GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
+	return state.stateImpl.GetRangeScanIterator(chaincodeID, startKey, endKey)
+}
+
 // Set sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (state *State) Set(chaincodeID string, key string, value []byte) error {
 	logger.Debug("set() chaincodeID=[%s], key=[%s], value=[%#v]", chaincodeID, key, value)

@@ -10,6 +10,7 @@ eca:
         user2: 9gvZQRwhUq9q
         validator: 9gvZQRwhUq9q
         peer: 9gvZQRwhUq9q
+        TestRegistrationSameEnrollIDDifferentRole: 9gvZQRwhUq9q
 
 server:
         version: "0.1"
@@ -62,3 +63,8 @@ tests:
             peer:
                 enrollid: peer
                 enrollpw: 9gvZQRwhUq9q
+
+            TestRegistrationSameEnrollIDDifferentRole:
+                enrollid: TestRegistrationSameEnrollIDDifferentRole
+                enrollpw: 9gvZQRwhUq9q
+

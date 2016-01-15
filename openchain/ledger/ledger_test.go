@@ -736,3 +736,105 @@ func TestTransactionResult(t *testing.T) {
 	testutil.AssertEquals(t, nonHashData.TransactionResults[0].ErrorCode, uint32(500))
 
 }
+
+func TestRangeScanIterator(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	ledger := ledgerTestWrapper.ledger
+	ledger.BeginTxBatch(0)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincode1", "key1", []byte("value1A"))
+	ledger.SetState("chaincode2", "key2", []byte("value2A"))
+	ledger.SetState("chaincode3", "key3", []byte("value3A"))
+
+	ledger.SetState("chaincodeID1", "key1", []byte("value1"))
+
+	ledger.SetState("chaincodeID2", "key1", []byte("value1"))
+	ledger.SetState("chaincodeID2", "key2", []byte("value2"))
+	ledger.SetState("chaincodeID2", "key3", []byte("value3"))
+	ledger.SetState("chaincodeID2", "key4", []byte("value4"))
+	ledger.SetState("chaincodeID2", "key5", []byte("value5"))
+	ledger.SetState("chaincodeID2", "key6", []byte("value6"))
+	ledger.SetState("chaincodeID2", "key7", []byte("value7"))
+
+	ledger.SetState("chaincodeID3", "key1", []byte("value1"))
+
+	ledger.SetState("chaincodeID4", "key1", []byte("value1"))
+	ledger.SetState("chaincodeID4", "key2", []byte("value2"))
+	ledger.SetState("chaincodeID4", "key3", []byte("value3"))
+	ledger.SetState("chaincodeID4", "key4", []byte("value4"))
+	ledger.SetState("chaincodeID4", "key5", []byte("value5"))
+	ledger.SetState("chaincodeID4", "key6", []byte("value6"))
+	ledger.SetState("chaincodeID4", "key7", []byte("value7"))
+
+	ledger.SetState("chaincodeID5", "key1", []byte("value5"))
+	ledger.SetState("chaincodeID6", "key1", []byte("value6"))
+
+	ledger.TxFinished("txUuid1", true)
+	transaction, _ := buildTestTx(t)
+	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
+
+	// test range scan for chaincodeID2
+	rangeScanItr, _ := ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5")
+
+	var results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 4)
+	testutil.AssertEquals(t, results["key2"], []byte("value2"))
+	testutil.AssertEquals(t, results["key3"], []byte("value3"))
+	testutil.AssertEquals(t, results["key4"], []byte("value4"))
+	testutil.AssertEquals(t, results["key5"], []byte("value5"))
+	rangeScanItr.Close()
+
+	// test range scan for chaincodeID4
+	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "key3", "key6")
+	results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 4)
+	testutil.AssertEquals(t, results["key3"], []byte("value3"))
+	testutil.AssertEquals(t, results["key4"], []byte("value4"))
+	testutil.AssertEquals(t, results["key5"], []byte("value5"))
+	testutil.AssertEquals(t, results["key6"], []byte("value6"))
+	rangeScanItr.Close()
+
+	// test range scan for chaincodeID2 starting from first key
+	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "", "key5")
+	results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 5)
+	testutil.AssertEquals(t, results["key1"], []byte("value1"))
+	testutil.AssertEquals(t, results["key2"], []byte("value2"))
+	testutil.AssertEquals(t, results["key3"], []byte("value3"))
+	testutil.AssertEquals(t, results["key4"], []byte("value4"))
+	testutil.AssertEquals(t, results["key5"], []byte("value5"))
+	rangeScanItr.Close()
+
+	// test range scan for all the keys in chaincodeID2 starting from first key
+	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "", "")
+	results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 7)
+	testutil.AssertEquals(t, results["key1"], []byte("value1"))
+	testutil.AssertEquals(t, results["key2"], []byte("value2"))
+	testutil.AssertEquals(t, results["key3"], []byte("value3"))
+	testutil.AssertEquals(t, results["key4"], []byte("value4"))
+	testutil.AssertEquals(t, results["key5"], []byte("value5"))
+	testutil.AssertEquals(t, results["key6"], []byte("value6"))
+	testutil.AssertEquals(t, results["key7"], []byte("value7"))
+	rangeScanItr.Close()
+}

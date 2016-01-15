@@ -65,6 +65,12 @@ type StateRetriever interface {
 	RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error)
 }
 
+// RemoteLedger interface for retrieving remote ledger data.
+type RemoteLedger interface {
+	BlocksRetriever
+	StateRetriever
+}
+
 // BlockChainAccessor interface for retreiving blocks by block number
 type BlockChainAccessor interface {
 	GetBlockByNumber(blockNumber uint64) (*pb.Block, error)
@@ -78,8 +84,7 @@ type StateAccessor interface {
 
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
-	BlocksRetriever
-	StateRetriever
+	RemoteLedger
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -97,6 +102,7 @@ type MessageHandlerCoordinator interface {
 	Broadcast(*pb.OpenchainMessage) []error
 	Unicast(*pb.OpenchainMessage, string) error
 	GetPeers() (*pb.PeersMessage, error)
+	GetRemoteLedger(receiver string) (RemoteLedger, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
 }
@@ -292,6 +298,17 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	}
 	peersMessage := &pb.PeersMessage{Peers: peers}
 	return peersMessage, nil
+}
+
+// GetRemoteLedger returns the RemoteLedger interface for the remote Peer Endpoint
+func (p *PeerImpl) GetRemoteLedger(receiver string) (RemoteLedger, error) {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	remoteLedger, ok := p.handlerMap.m[receiver]
+	if !ok {
+		return nil, fmt.Errorf("Remote ledger not found for receiver = %s", receiver)
+	}
+	return remoteLedger, nil
 }
 
 // PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
