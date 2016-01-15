@@ -35,6 +35,7 @@ import (
 	google_protobuf "google/protobuf"
 
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -90,8 +91,8 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
-	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
+func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer) *ChaincodeSupport {
+	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}, secHelper: secHelper}
 
 	//initialize global chain
 	chains[chainname] = s
@@ -133,6 +134,7 @@ type ChaincodeSupport struct {
 	ccStartupTimeout     time.Duration
 	chaincodeInstallPath string
 	userRunsCC           bool
+	secHelper            crypto.Peer
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -172,7 +174,8 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 	chaincodehandler.registered = true
 
 	//now we are ready to receive messages and send back responses
-	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
+	chaincodehandler.txCtxs = make(map[string]*transactionContext)
+	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
@@ -207,7 +210,7 @@ func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Co
 }
 
 // Based on state of chaincode send either init or ready to move to ready state
-func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
+func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction) error {
 	chaincodeSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -221,7 +224,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.initOrReady(uuid, f, initArgs); err != nil {
+	if notfy, err = handler.initOrReady(uuid, f, initArgs, tx); err != nil {
 		return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
 	if notfy != nil {
@@ -331,6 +334,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var cMsg *pb.ChaincodeInput
 	var f *string
 	var initargs []string
+
 	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		cds := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
@@ -386,7 +390,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout)
+		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t)
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
@@ -401,6 +405,11 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	chaincodeLog.Debug("LaunchChaincode complete")
 
 	return cID, cMsg, err
+}
+
+// getSecHelper returns the security help set from NewChaincodeSupport
+func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
+	return chaincodeSupport.secHelper
 }
 
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
@@ -485,7 +494,7 @@ func createQueryMessage(uuid string, cMsg *pb.ChaincodeInput) (*pb.ChaincodeMess
 }
 
 // Execute executes a transaction and waits for it to complete until a timeout value.
-func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
+func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration, tx *pb.Transaction) (*pb.ChaincodeMessage, error) {
 	chaincodeSupport.handlerMap.Lock()
 	//we expect the chaincode to be running... sanity check
 	handler, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode)
@@ -498,20 +507,20 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.sendExecuteMessage(msg); err != nil {
+	if notfy, err = handler.sendExecuteMessage(msg, tx); err != nil {
 		return nil, fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
 	select {
 	case ccresp := <-notfy:
 		//we delete the notifier now that it has been delivered
-		handler.deleteNotifier(msg.Uuid)
+		handler.deleteTxContext(msg.Uuid)
 		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
 			return ccresp, fmt.Errorf(string(ccresp.Payload))
 		}
 		return ccresp, nil
 	case <-time.After(timeout):
 		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)
-		handler.deleteNotifier(msg.Uuid)
+		handler.deleteTxContext(msg.Uuid)
 		return nil, fmt.Errorf("Timeout expired while executing transaction")
 	}
 }

@@ -79,7 +79,7 @@ func TestGenesis(t *testing.T) {
 		t.Fatalf("Expected blockchain size of 0, but got %d", ledger.GetBlockchainSize())
 	}
 
-	makeGenesisErr := MakeGenesis(nil)
+	makeGenesisErr := MakeGenesis()
 	if makeGenesisErr != nil {
 		t.Fatalf("Error creating genesis block, %s", makeGenesisErr)
 	}

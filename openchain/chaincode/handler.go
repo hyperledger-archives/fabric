@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 
@@ -60,20 +61,113 @@ type MessageHandler interface {
 	SendMessage(msg *pb.ChaincodeMessage) error
 }
 
+type transactionContext struct {
+	transactionSecContext *pb.Transaction
+	responseNotifier      chan *pb.ChaincodeMessage
+}
+
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
-	ChatStream        PeerChaincodeStream
-	FSM               *fsm.FSM
-	ChaincodeID       *pb.ChaincodeID
-	chaincodeSupport  *ChaincodeSupport
-	registered        bool
-	readyNotify       chan bool
-	responseNotifiers map[string]chan *pb.ChaincodeMessage
-	// Uuids of all in-progress state invocations
+	ChatStream  PeerChaincodeStream
+	FSM         *fsm.FSM
+	ChaincodeID *pb.ChaincodeID
+
+	// A copy of decrypted deploy tx this handler manages, no code
+	deployTXSecContext *pb.Transaction
+
+	chaincodeSupport *ChaincodeSupport
+	registered       bool
+	readyNotify      chan bool
+	// Map of tx uuid to either invoke or query tx (decrypted). Each tx will be
+	// added prior to execute and remove when done execute
+	txCtxs map[string]*transactionContext
+
 	uuidMap map[string]bool
+
 	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
+}
+
+func (handler *Handler) createTxContext(uuid string, tx *pb.Transaction) (*transactionContext, error) {
+	if handler.txCtxs == nil {
+		return nil, fmt.Errorf("cannot create notifier for Uuid:%s", uuid)
+	}
+	handler.Lock()
+	defer handler.Unlock()
+	if handler.txCtxs[uuid] != nil {
+		return nil, fmt.Errorf("Uuid:%s exists", uuid)
+	}
+	txctx := &transactionContext{transactionSecContext: tx, responseNotifier: make(chan *pb.ChaincodeMessage, 1)}
+	handler.txCtxs[uuid] = txctx
+	return txctx, nil
+}
+
+func (handler *Handler) getTxContext(uuid string) *transactionContext {
+	handler.Lock()
+	defer handler.Unlock()
+	return handler.txCtxs[uuid]
+}
+
+func (handler *Handler) deleteTxContext(uuid string) {
+	handler.Lock()
+	if handler.txCtxs != nil {
+		delete(handler.txCtxs, uuid)
+	}
+	handler.Unlock()
+}
+
+func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []byte) ([]byte, error) {
+	secHelper := handler.chaincodeSupport.getSecHelper()
+	if secHelper == nil {
+		return payload, nil
+	}
+
+	txctx := handler.getTxContext(uuid)
+	if txctx == nil {
+		return nil, fmt.Errorf("No context for uuid %s", uuid)
+	}
+	if txctx.transactionSecContext == nil {
+		return nil, fmt.Errorf("transaction context is nil for uuid %s", uuid)
+	}
+
+	var enc crypto.StateEncryptor
+	var err error
+	if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_NEW {
+		if enc, err = secHelper.GetStateEncryptor(handler.deployTXSecContext, handler.deployTXSecContext); err != nil {
+			return nil, fmt.Errorf("error getting crypto encryptor for deploy tx :%s", err)
+		}
+	} else if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_EXECUTE || txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_QUERY {
+		if enc, err = secHelper.GetStateEncryptor(handler.deployTXSecContext, txctx.transactionSecContext); err != nil {
+			return nil, fmt.Errorf("error getting crypto encryptor %s", err)
+		}
+	} else {
+		return nil, fmt.Errorf("invalid transaction type %s", txctx.transactionSecContext.Type.String())
+	}
+	if enc == nil {
+		return nil, fmt.Errorf("secure context returns nil encryptor for tx %s", uuid)
+	}
+	if chaincodeLogger.IsEnabledFor(logging.DEBUG) {
+		chaincodeLogger.Debug("Payload before encrypt/decrypt: %v", payload)
+	}
+	if encrypt {
+		payload, err = enc.Encrypt(payload)
+	} else {
+		payload, err = enc.Decrypt(payload)
+	}
+	if chaincodeLogger.IsEnabledFor(logging.DEBUG) {
+		chaincodeLogger.Debug("Payload after encrypt/decrypt: %v", payload)
+	}
+
+	return payload, err
+}
+
+func (handler *Handler) decrypt(uuid string, payload []byte) ([]byte, error) {
+	return handler.encryptOrDecrypt(false, uuid, payload)
+}
+
+func (handler *Handler) encrypt(uuid string, payload []byte) ([]byte, error) {
+	return handler.encryptOrDecrypt(true, uuid, payload)
 }
 
 func (handler *Handler) deregister() error {
@@ -250,12 +344,12 @@ func (handler *Handler) beforeRegisterEvent(e *fsm.Event, state string) {
 func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 	handler.Lock()
 	defer handler.Unlock()
-	notfy := handler.responseNotifiers[msg.Uuid]
-	if notfy == nil {
+	tctx := handler.txCtxs[msg.Uuid]
+	if tctx == nil {
 		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
 		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
-		notfy <- msg
+		tctx.responseNotifier <- msg
 	}
 }
 
@@ -333,12 +427,23 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 		} else {
-			// Send response msg back to chaincode. GetState will not trigger event
-			chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
+			// Decrypt the data if the confidential is enabled
+			if res, err = handler.decrypt(msg.Uuid, res); err == nil {
+				// Send response msg back to chaincode. GetState will not trigger event
+				chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
+				responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
+				handler.ChatStream.Send(responseMsg)
+			} else {
+				// Send err msg back to chaincode.
+				chaincodeLogger.Debug("Got error while decrypting. Sending %s", pb.ChaincodeMessage_ERROR)
+				errBytes := []byte(err.Error())
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: errBytes, Uuid: msg.Uuid}
+				handler.ChatStream.Send(errMsg)
+			}
+
 			// Remove uuid from current set
 			handler.deleteUUIDEntry(msg.Uuid)
-			responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
-			handler.ChatStream.Send(responseMsg)
+
 		}
 
 	}()
@@ -446,8 +551,12 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 				return
 			}
 
-			// Invoke ledger to put state
-			err = ledgerObj.SetState(chaincodeID, putStateInfo.Key, putStateInfo.Value)
+			var pVal []byte
+			// Encrypt the data if the confidential is enabled
+			if pVal, err = handler.encrypt(msg.Uuid, putStateInfo.Value); err == nil {
+				// Invoke ledger to put state
+				err = ledgerObj.SetState(chaincodeID, putStateInfo.Key, pVal)
+			}
 		} else if msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() {
 			// Invoke ledger to delete state
 			key := string(msg.Payload)
@@ -500,7 +609,8 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
 
 			// Execute the chaincode
-			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
+			//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
+			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
 			err = execErr
 			res = response.Payload
 		}
@@ -591,10 +701,14 @@ func (handler *Handler) enterEndState(e *fsm.Event, state string) {
 
 //if initArgs is set (should be for "deploy" only) move to Init
 //else move to ready
-func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (chan *pb.ChaincodeMessage, error) {
+func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
 	var event string
-	var notfy chan *pb.ChaincodeMessage
 	var ccMsg *pb.ChaincodeMessage
+	txctx, err := handler.createTxContext(uuid, tx)
+	if err != nil {
+		return nil, err
+	}
+	notfy := txctx.responseNotifier
 	if f != nil || initArgs != nil {
 		chaincodeLogger.Debug("sending INIT")
 		var f2 string
@@ -603,10 +717,6 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		}
 		funcArgsMsg := &pb.ChaincodeInput{Function: f2, Args: initArgs}
 		payload, err := proto.Marshal(funcArgsMsg)
-		if err != nil {
-			return nil, err
-		}
-		notfy, err = handler.createNotifier(uuid)
 		if err != nil {
 			return nil, err
 		}
@@ -623,8 +733,8 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 		var payload []byte
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_READY, Payload: payload, Uuid: uuid}
 		if err := handler.ChatStream.Send(ccMsg); err != nil {
-			notfy <- &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(fmt.Sprintf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)), Uuid: uuid}
-			return notfy, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)
+			handler.deleteTxContext(uuid)
+			return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)
 		}
 		event = pb.ChaincodeMessage_READY.String()
 	}
@@ -632,6 +742,9 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string) (
 	if eventErr != nil {
 		chaincodeLogger.Debug("Failed to trigger FSM event %s : %s\n", ccMsg.Type.String(), eventErr)
 	}
+
+	//set deploy transaction on the handler
+	handler.deployTXSecContext = tx
 
 	return notfy, eventErr
 }
@@ -684,7 +797,8 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		ccMsg, _ := createQueryMessage(transaction.Uuid, chaincodeInput)
 
 		// Query the chaincode
-		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout)
+		//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
+		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
 
 		if execErr != nil {
 			// Send error msg back to chaincode and trigger event
@@ -778,28 +892,8 @@ func filterError(errFromFSMEvent error) error {
 	return nil
 }
 
-func (handler *Handler) deleteNotifier(uuid string) {
-	handler.Lock()
-	if handler.responseNotifiers != nil {
-		delete(handler.responseNotifiers, uuid)
-	}
-	handler.Unlock()
-}
-func (handler *Handler) createNotifier(uuid string) (chan *pb.ChaincodeMessage, error) {
-	if handler.responseNotifiers == nil {
-		return nil, fmt.Errorf("cannot create notifier for Uuid:%s", uuid)
-	}
-	handler.Lock()
-	defer handler.Unlock()
-	if handler.responseNotifiers[uuid] != nil {
-		return nil, fmt.Errorf("Uuid:%s exists", uuid)
-	}
-	handler.responseNotifiers[uuid] = make(chan *pb.ChaincodeMessage, 1)
-	return handler.responseNotifiers[uuid], nil
-}
-
-func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage) (chan *pb.ChaincodeMessage, error) {
-	notfy, err := handler.createNotifier(msg.Uuid)
+func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage, tx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
+	txctx, err := handler.createTxContext(msg.Uuid, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -823,11 +917,11 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage) (chan *pb.C
 
 	// Send the message to shim
 	if err := handler.ChatStream.Send(msg); err != nil {
-		handler.deleteNotifier(msg.Uuid)
+		handler.deleteTxContext(msg.Uuid)
 		return nil, fmt.Errorf("SendMessage error sending %s(%s)", msg.Uuid, err)
 	}
 
-	return notfy, nil
+	return txctx.responseNotifier, nil
 }
 
 func (handler *Handler) isRunning() bool {

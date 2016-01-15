@@ -47,6 +47,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
@@ -307,6 +308,7 @@ func serve(args []string) error {
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
+	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -337,7 +339,15 @@ func serve(args []string) error {
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
+	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
+	// privacy is enabled
+	var secHelper crypto.Peer
+	if viper.GetBool("security.privacy") {
+		secHelper = peerServer.GetSecHelper()
+	} else {
+		secHelper = nil
+	}
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer(peerServer)
@@ -376,7 +386,7 @@ func serve(args []string) error {
 
 	// Deploy the geneis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		makeGeneisError := genesis.MakeGenesis()
 		if makeGeneisError != nil {
 			return makeGeneisError
 		}
@@ -508,7 +518,7 @@ func getCliFilePath() string {
 	return localStore
 }
 
-func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
+func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server, secHelper crypto.Peer) {
 	//get user mode
 	userRunsCC := false
 	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
@@ -523,7 +533,7 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) error {
@@ -582,6 +592,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
+		logger.Debug("Security is enabled. Include security context in deploy spec")
 		if chaincodeUsr == undefinedParamValue {
 			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
 			cmd.Out().Write([]byte(err))
