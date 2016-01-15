@@ -48,7 +48,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	}
 
 	// Store TCA cert
-	node.log.Debug("Storing TCA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing TCA certificate for [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {

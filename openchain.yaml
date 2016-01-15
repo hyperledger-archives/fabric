@@ -143,9 +143,9 @@ peer:
         eca:
             paddr: localhost:50051
         tca:
-            paddr: localhost:50551
+            paddr: localhost:50051
         tlsca:
-            paddr: localhost:50951
+            paddr: localhost:50051
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
