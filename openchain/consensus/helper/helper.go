@@ -245,17 +245,49 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return ledger.VerifyChain(start, finish)
 }
 
+func (h *Helper) getRemoteLedger(replicaID uint64) (peer.RemoteLedger, error) {
+	receiverHandle, err := h.GetReplicaHandle(replicaID)
+	if nil != err {
+		return nil, fmt.Errorf("Error retrieving handle for given replicaID %d : %s", replicaID, err)
+	}
+
+	remoteLedger, err := h.coordinator.GetRemoteLedger(receiverHandle)
+	if nil != err {
+		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", err)
+	}
+
+	return remoteLedger, nil
+}
+
 // GetRemoteBlocks will return a channel to stream blocks from the desired replicaId
 func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	return nil, fmt.Errorf("Unimplemented")
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestBlocks(&pb.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
 }
 
 // GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaId
 func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
-	return nil, fmt.Errorf("Unimplemented")
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateSnapshot()
 }
 
 // GetRemoteStateDeltas  will return a channel to stream a state snapshot deltas from the desired replicaId
 func (h *Helper) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	return nil, fmt.Errorf("Unimplemented")
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateDeltas(&pb.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
 }
