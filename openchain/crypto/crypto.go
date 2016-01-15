@@ -9,7 +9,7 @@ import (
 // Entity represents a crypto object having a name
 type Entity interface {
 
-	// GetID returns this entity's name
+	// GetName returns this entity's name
 	GetName() string
 }
 
