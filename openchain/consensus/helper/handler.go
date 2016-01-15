@@ -186,7 +186,15 @@ func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }
 
-// GetBlocks returns the current sync block
-func (handler *ConsensusHandler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
-	return handler.peerHandler.GetBlocks(syncBlockRange)
+// RequestBlocks returns the current sync block
+func (handler *ConsensusHandler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	return handler.peerHandler.RequestBlocks(syncBlockRange)
+}
+
+func (handler *ConsensusHandler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
+	return handler.peerHandler.RequestStateSnapshot()
+}
+
+func (handler *ConsensusHandler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error) {
+	return handler.peerHandler.RequestStateDeltas(syncBlockRange)
 }
