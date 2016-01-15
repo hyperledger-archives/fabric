@@ -213,6 +213,7 @@ func (instance *pbftCore) close() {
 	defer instance.lock.Unlock()
 	instance.closed = true
 	instance.newViewTimer.Reset(0)
+	instance.sts.StopThreads()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
