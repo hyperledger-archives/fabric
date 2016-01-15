@@ -30,7 +30,7 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-func (validator *validatorImpl) decryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
+func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
 		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
 	}

@@ -37,6 +37,11 @@ func (handler *tCertHandlerImpl) GetCertificate() []byte {
 	return handler.tCertDER
 }
 
+// GetHook returns an Hook to the underlying transaction layer
+func (handler *tCertHandlerImpl) GetHook() ([]byte, error) {
+	return nil, utils.ErrNotImplemented
+}
+
 // Sign signs msg using the signing key corresponding to this TCert
 func (handler *tCertHandlerImpl) Sign(msg []byte) ([]byte, error) {
 	return handler.client.signUsingTCertX509(handler.tCert, msg)

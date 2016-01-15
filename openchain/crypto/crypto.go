@@ -92,6 +92,9 @@ type CertificateHandler interface {
 	// GetCertificate returns the certificate's DER
 	GetCertificate() []byte
 
+	// GetHook returns an Hook to the underlying transaction layer
+	GetHook() ([]byte, error)
+
 	// Sign signs msg using the signing key corresponding to the certificate
 	Sign(msg []byte) ([]byte, error)
 

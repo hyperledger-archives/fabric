@@ -21,6 +21,11 @@ func (handler *eCertHandlerImpl) GetCertificate() []byte {
 	return handler.client.node.enrollCert.Raw
 }
 
+// GetHook returns an Hook to the underlying transaction layer
+func (handler *eCertHandlerImpl) GetHook() ([]byte, error) {
+	return nil, utils.ErrNotImplemented
+}
+
 // Sign signs msg using the signing key corresponding to this TCert
 func (handler *eCertHandlerImpl) Sign(msg []byte) ([]byte, error) {
 	return handler.client.node.signWithEnrollmentKey(msg)

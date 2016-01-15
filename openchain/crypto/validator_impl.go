@@ -90,21 +90,14 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 	switch tx.ConfidentialityLevel {
 	case obc.ConfidentialityLevel_PUBLIC:
-		validator.peer.node.log.Debug("Deep cloning.")
+		// Nothing to do here!
 
-		// Nothing to do here. Clone tx.
-		clone, err := validator.deepCloneTransaction(tx)
-		if err != nil {
-			validator.peer.node.log.Error("Failed deep cloning [%s].", err.Error())
-			return nil, err
-		}
-
-		return clone, nil
+		return tx, nil
 	case obc.ConfidentialityLevel_CONFIDENTIAL:
 		validator.peer.node.log.Debug("Clone and Decrypt.")
 
 		// Clone the transaction and decrypt it
-		newTx, err := validator.decryptTx(tx)
+		newTx, err := validator.deepCloneAndDecryptTx(tx)
 		if err != nil {
 			validator.peer.node.log.Error("Failed decrypting [%s].", err.Error())
 
