@@ -27,6 +27,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/protos"
 )
 
@@ -59,18 +60,12 @@ func (r mockResponse) String() string {
 	return "ERROR"
 }
 
-type ReadOnlyLedger interface {
-	GetBlock(id uint64) (block *protos.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() (uint64, error)
-}
-
 type MockLedger struct {
 	cleanML       *MockLedger
 	blocks        map[uint64]*protos.Block
 	blockHeight   uint64
 	state         uint64
-	remoteLedgers *map[uint64]ReadOnlyLedger
+	remoteLedgers *map[uint64]consensus.ReadOnlyLedger
 	filter        func(request mockRequest, replicaID uint64) mockResponse
 
 	mutex *sync.Mutex
@@ -81,7 +76,7 @@ type MockLedger struct {
 	inst *instance // To support the ExecTX stuff
 }
 
-func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request mockRequest, replicaID uint64) mockResponse) *MockLedger {
+func NewMockLedger(remoteLedgers *map[uint64]consensus.ReadOnlyLedger, filter func(request mockRequest, replicaID uint64) mockResponse) *MockLedger {
 	mock := &MockLedger{}
 	mock.mutex = &sync.Mutex{}
 	mock.blocks = make(map[uint64]*protos.Block)
@@ -98,7 +93,7 @@ func NewMockLedger(remoteLedgers *map[uint64]ReadOnlyLedger, filter func(request
 
 	/* // This might be useful to add back
 	if nil == remoteLedgers {
-		mock.remoteLedgers = make(map[uint64]ReadOnlyLedger)
+		mock.remoteLedgers = make(map[uint64]consensus.ReadOnlyLedger)
 		DummyLedger := &MockRemoteLedger{^uint64(0)}
 		for i := uint64(0); i < 100; i++ {
 			mock.remoteLedgers[i] = DummyLedger
@@ -575,7 +570,7 @@ func SimpleGetBlock(blockNumber uint64) *protos.Block {
 }
 
 func TestMockLedger(t *testing.T) {
-	remoteLedgers := make(map[uint64]ReadOnlyLedger)
+	remoteLedgers := make(map[uint64]consensus.ReadOnlyLedger)
 	rl := &MockRemoteLedger{11}
 	remoteLedgers[0] = rl
 

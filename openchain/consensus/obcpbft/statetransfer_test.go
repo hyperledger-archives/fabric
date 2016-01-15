@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	. "github.com/openblockchain/obc-peer/openchain/consensus/statetransfer" // Bad form, but here until we can figure out how to share tests across packages
 )
 
@@ -38,8 +39,8 @@ func newTestStateTransfer(ml *MockLedger) *StateTransferState {
 	return NewStateTransferState("State Transfer Test", readConfig(), ml)
 }
 
-func createRemoteLedgers(low, high uint64) (*map[uint64]ReadOnlyLedger, *map[uint64]*MockRemoteLedger) {
-	rols := make(map[uint64]ReadOnlyLedger)
+func createRemoteLedgers(low, high uint64) (*map[uint64]consensus.ReadOnlyLedger, *map[uint64]*MockRemoteLedger) {
+	rols := make(map[uint64]consensus.ReadOnlyLedger)
 	mrls := make(map[uint64]*MockRemoteLedger)
 	for i := low; i <= high; i++ {
 		l := &MockRemoteLedger{}

@@ -85,7 +85,7 @@ type instance struct {
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
-	ledger    consensus.Ledger
+	ledger    consensus.BlockchainPackage
 
 	deliver      func([]byte)
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
@@ -342,7 +342,7 @@ func makeTestnet(N int, initFn ...func(*instance)) *testnet {
 	for i := uint64(0); i < uint64(N); i++ {
 	}
 
-	ledgers := make(map[uint64]ReadOnlyLedger, N)
+	ledgers := make(map[uint64]consensus.ReadOnlyLedger, N)
 	for i := 0; i < N; i++ {
 		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
 		ml := NewMockLedger(&ledgers, nil)

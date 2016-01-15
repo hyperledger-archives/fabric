@@ -26,25 +26,54 @@ type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-type Ledger interface {
+// ReadOnlyLedger is used for interrogating the blockchain
+type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
+}
+
+// UtilLedger contains additional useful utility functions for interrogating the blockchain
+type UtilLedger interface {
 	HashBlock(block *pb.Block) ([]byte, error)
+	VerifyBlockchain(start, finish uint64) (uint64, error)
+}
+
+// WritableLedger is useful for updating the blockchain during state transfer
+type WritableLedger interface {
 	PutBlock(blockNumber uint64, block *pb.Block) error
 	ApplyStateDelta(delta []byte, unapply bool) error
 	EmptyState() error
-	VerifyBlockchain(start, finish uint64) (uint64, error)
+}
 
-	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+// Ledger is an unrestricted union of reads, utilities, and updates
+type Ledger interface {
+	ReadOnlyLedger
+	UtilLedger
+	WritableLedger
+}
 
+// Executor is used to invoke transactions, potentially modifying the backing ledger
+type Executor interface {
 	BeginTxBatch(id interface{}) error
 	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
 	CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error
 	RollbackTxBatch(id interface{}) error
 	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
+}
+
+// RemoteLedgers is used to interrogate the blockchain of other replicas
+type RemoteLedgers interface {
+	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
+	GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error)
+	GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+}
+
+// BlockchainPackage serves as interface to the blockchain oriented activities, such as executing transactions, querying, and updating the ledger
+type BlockchainPackage interface {
+	Executor
+	Ledger
+	RemoteLedgers
 }
 
 // CPI (Consensus Programming Interface) is the set of
@@ -57,5 +86,5 @@ type CPI interface {
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle string) error
 
-	Ledger
+	BlockchainPackage
 }

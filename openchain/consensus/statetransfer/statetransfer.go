@@ -47,7 +47,7 @@ func init() {
 // =============================================================================
 
 type StateTransferState struct {
-	ledger consensus.Ledger
+	ledger consensus.BlockchainPackage
 
 	asynchronousTransferInProgress bool // To be used by the main consensus thread, not atomic, so do not use by other threads
 
@@ -172,7 +172,7 @@ outer:
 // constructors
 // =============================================================================
 
-func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger consensus.Ledger) *StateTransferState {
+func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger consensus.BlockchainPackage) *StateTransferState {
 	sts := &StateTransferState{}
 
 	sts.ledger = ledger
@@ -218,7 +218,7 @@ func ThreadlessNewStateTransferState(id string, config *viper.Viper, ledger cons
 	return sts
 }
 
-func NewStateTransferState(id string, config *viper.Viper, ledger consensus.Ledger) *StateTransferState {
+func NewStateTransferState(id string, config *viper.Viper, ledger consensus.BlockchainPackage) *StateTransferState {
 	sts := ThreadlessNewStateTransferState(id, config, ledger)
 
 	go sts.stateThread()
