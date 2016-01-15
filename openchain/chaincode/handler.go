@@ -707,9 +707,10 @@ func (handler *Handler) enterEndState(e *fsm.Event, state string) {
 func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
 	var event string
 	var ccMsg *pb.ChaincodeMessage
-	txctx, err := handler.createTxContext(uuid, tx)
-	if err != nil {
-		return nil, err
+	var send bool
+	txctx, funcErr := handler.createTxContext(uuid, tx)
+	if funcErr != nil {
+		return nil, funcErr
 	}
 	notfy := txctx.responseNotifier
 	if f != nil || initArgs != nil {
@@ -719,31 +720,36 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 			f2 = *f
 		}
 		funcArgsMsg := &pb.ChaincodeInput{Function: f2, Args: initArgs}
-		payload, err := proto.Marshal(funcArgsMsg)
-		if err != nil {
-			return nil, err
+		var payload []byte
+		if payload, funcErr = proto.Marshal(funcArgsMsg); funcErr != nil {
+			return nil, fmt.Errorf("Failed to marshall %s : %s\n", ccMsg.Type.String(), funcErr)
 		}
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
 		event = pb.ChaincodeMessage_INIT.String()
+		send = false
 	} else {
 		chaincodeLogger.Debug("sending READY")
-		var payload []byte
-		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_READY, Payload: payload, Uuid: uuid}
-		if err := handler.ChatStream.Send(ccMsg); err != nil {
-			handler.deleteTxContext(uuid)
-			return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, err)
-		}
+		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_READY, Uuid: uuid}
 		event = pb.ChaincodeMessage_READY.String()
+		send = true
 	}
-	eventErr := handler.FSM.Event(event, ccMsg)
-	if eventErr != nil {
-		chaincodeLogger.Debug("Failed to trigger FSM event %s : %s\n", ccMsg.Type.String(), eventErr)
+
+	funcErr = handler.FSM.Event(event, ccMsg)
+	if funcErr != nil {
+		return nil, fmt.Errorf("Failed to trigger FSM event %s : %s\n", ccMsg.Type.String(), funcErr)
+	}
+
+	if send {
+		if funcErr = handler.ChatStream.Send(ccMsg); funcErr != nil {
+			handler.deleteUUIDEntry(uuid)
+			return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, funcErr)
+		}
 	}
 
 	//set deploy transaction on the handler
 	handler.deployTXSecContext = tx
 
-	return notfy, eventErr
+	return notfy, funcErr
 }
 
 // Handles request to query another chaincode
