@@ -44,11 +44,12 @@ type ConsensusHandler struct {
 	chatStream  peer.ChatStream
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
-	done        chan bool
+	done        chan struct{}
 	peerHandler peer.MessageHandler
 }
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
+// Is instance of peer.HandlerFactory
 func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	stream peer.ChatStream, initiatedStream bool,
 	next peer.MessageHandler) (peer.MessageHandler, error) {
@@ -65,7 +66,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	}
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
-	handler.done = make(chan bool)
+	handler.done = make(chan struct{})
 
 	return handler, nil
 }
@@ -174,7 +175,7 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 // Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer).
 func (handler *ConsensusHandler) Stop() error {
 	err := handler.peerHandler.Stop() // deregister the handler
-	handler.done <- true
+	handler.done <- struct{}{}
 	if err != nil {
 		return fmt.Errorf("Error stopping ConsensusHandler: %s", err)
 	}
