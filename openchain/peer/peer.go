@@ -39,6 +39,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -54,7 +55,13 @@ type Peer interface {
 
 // BlocksRetriever interface for retrieving blocks .
 type BlocksRetriever interface {
-	GetBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+	RequestBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+}
+
+// StateRetriever interface for retrieving state deltas, etc.
+type StateRetriever interface {
+	RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error)
+	RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error)
 }
 
 // BlockChainAccessor interface for retreiving blocks by block number
@@ -65,11 +72,13 @@ type BlockChainAccessor interface {
 // StateAccessor interface for retreiving blocks by block number
 type StateAccessor interface {
 	GetStateSnapshot() (*state.StateSnapshot, error)
+	GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error)
 }
 
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
 	BlocksRetriever
+	StateRetriever
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -506,7 +515,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		stream, err := serverClient.Chat(ctx)
 		if err != nil {
 			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-			peerLogger.Error("%s", e.Error())
+			peerLogger.Error(fmt.Sprintf("%s", e.Error()))
 			continue
 		}
 		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
@@ -591,10 +600,18 @@ func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
 	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
 }
 
+// GetStateSnapshot return the state snapshot
 func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	return p.ledgerWrapper.ledger.GetStateSnapshot()
+}
+
+// GetStateDelta return the state delta for the requested block number
+func (p *PeerImpl) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetStateDelta(blockNumber)
 }
 
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending
