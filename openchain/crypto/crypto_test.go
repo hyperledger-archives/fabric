@@ -87,6 +87,21 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
+func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "client", Name: "TestRegistrationSameEnrollIDDifferentRole"}
+	if err := RegisterClient(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed client registration [%s]", err)
+	}
+
+	if err := RegisterValidator(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err == nil {
+		t.Fatalf("Reusing the same enrollment id must be forbidden", err)
+	}
+
+	if err := RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err == nil {
+		t.Fatalf("Reusing the same enrollment id must be forbidden", err)
+	}
+}
+
 func TestClientDeployTransaction(t *testing.T) {
 	_, tx, err := createConfidentialDeployTransaction()
 
