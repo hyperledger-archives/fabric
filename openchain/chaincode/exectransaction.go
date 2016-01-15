@@ -101,7 +101,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		}
 
 		markTxBegin(ledger, t)
-		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
+		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout, t)
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)

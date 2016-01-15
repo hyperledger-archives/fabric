@@ -174,7 +174,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 	chaincodehandler.registered = true
 
 	//now we are ready to receive messages and send back responses
-	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
+	chaincodehandler.txCtxs = make(map[string]*transactionContext)
 	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
@@ -494,7 +494,7 @@ func createQueryMessage(uuid string, cMsg *pb.ChaincodeInput) (*pb.ChaincodeMess
 }
 
 // Execute executes a transaction and waits for it to complete until a timeout value.
-func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
+func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration, tx *pb.Transaction) (*pb.ChaincodeMessage, error) {
 	chaincodeSupport.handlerMap.Lock()
 	//we expect the chaincode to be running... sanity check
 	handler, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode)
@@ -507,20 +507,20 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.sendExecuteMessage(msg); err != nil {
+	if notfy, err = handler.sendExecuteMessage(msg, tx); err != nil {
 		return nil, fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
 	select {
 	case ccresp := <-notfy:
 		//we delete the notifier now that it has been delivered
-		handler.deleteNotifier(msg.Uuid)
+		handler.deleteTxContext(msg.Uuid)
 		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
 			return ccresp, fmt.Errorf(string(ccresp.Payload))
 		}
 		return ccresp, nil
 	case <-time.After(timeout):
 		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)
-		handler.deleteNotifier(msg.Uuid)
+		handler.deleteTxContext(msg.Uuid)
 		return nil, fmt.Errorf("Timeout expired while executing transaction")
 	}
 }
