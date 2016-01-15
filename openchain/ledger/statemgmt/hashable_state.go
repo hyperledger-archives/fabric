@@ -57,6 +57,11 @@ type HashableState interface {
 	// key-values or remove some data from particular key-values.
 	GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (StateSnapshotIterator, error)
 
+	// GetRangeScanIterator - state implementation to provide an iterator that is supposed to give
+	// All the key-values for a given chaincodeID such that a return key should be lexically greater than or
+	// equal to startKey and less than or equal to endKey. If the value for startKey parameter is an empty string
+	// startKey is assumed to be the smallest key available in the db for the chaincodeID. Similarly, an empty string
+	// for endKey parameter assumes the endKey to be the greatest key available in the db for the chaincodeID
 	GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (RangeScanIterator, error)
 
 	// PerfHintKeyChanged state implementation may be provided with some hints before (e.g., during tx execution)
@@ -70,23 +75,26 @@ type HashableState interface {
 // GetStateSnapshotIterator method in the implementation of HashableState interface
 type StateSnapshotIterator interface {
 
-	// Move to next key-value. Returns true if next key-value exists
+	// Next moves to next key-value. Returns true if next key-value exists
 	Next() bool
 
-	// GetRawKeyValue return next key-value
+	// GetRawKeyValue returns next key-value
 	GetRawKeyValue() ([]byte, []byte)
 
-	// Close release resources occupied by the iterator
+	// Close releases resources occupied by the iterator
 	Close()
 }
 
+// RangeScanIterator - is to be implemented by the return value of
+// GetRangeScanIterator method in the implementation of HashableState interface
 type RangeScanIterator interface {
-	// Move to next key-value. Returns true if next key-value exists
+
+	// Next moves to next key-value. Returns true if next key-value exists
 	Next() bool
 
-	// GetRawKeyValue return next key-value
+	// GetKeyValue returns next key-value
 	GetKeyValue() (string, []byte)
 
-	// Close release resources occupied by the iterator
+	// Close releases resources occupied by the iterator
 	Close()
 }

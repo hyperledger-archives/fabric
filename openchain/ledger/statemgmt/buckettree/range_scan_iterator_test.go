@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package trie
+package buckettree
 
 import (
 	"testing"
@@ -28,8 +28,7 @@ import (
 
 func TestRangeScanIterator(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
-	stateTrieTestWrapper := newStateTrieTestWrapper(t)
-	stateTrie := stateTrieTestWrapper.stateTrie
+	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateDelta := statemgmt.NewStateDelta()
 
 	// insert keys
@@ -56,11 +55,11 @@ func TestRangeScanIterator(t *testing.T) {
 	stateDelta.Set("chaincodeID5", "key1", []byte("value5"), nil)
 	stateDelta.Set("chaincodeID6", "key1", []byte("value6"), nil)
 
-	stateTrie.PrepareWorkingSet(stateDelta)
-	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
+	stateImplTestWrapper.prepareWorkingSet(stateDelta)
+	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 
 	// test range scan for chaincodeID2
-	rangeScanItr, _ := stateTrie.GetRangeScanIterator("chaincodeID2", "key2", "key5")
+	rangeScanItr := stateImplTestWrapper.getRangeScanIterator("chaincodeID2", "key2", "key5")
 
 	var results = make(map[string][]byte)
 	for rangeScanItr.Next() {
@@ -76,7 +75,7 @@ func TestRangeScanIterator(t *testing.T) {
 	rangeScanItr.Close()
 
 	// test range scan for chaincodeID4
-	rangeScanItr, _ = stateTrie.GetRangeScanIterator("chaincodeID2", "key3", "key6")
+	rangeScanItr = stateImplTestWrapper.getRangeScanIterator("chaincodeID2", "key3", "key6")
 	results = make(map[string][]byte)
 	for rangeScanItr.Next() {
 		key, value := rangeScanItr.GetKeyValue()
@@ -91,7 +90,7 @@ func TestRangeScanIterator(t *testing.T) {
 	rangeScanItr.Close()
 
 	// test range scan for chaincodeID2 starting from first key
-	rangeScanItr, _ = stateTrie.GetRangeScanIterator("chaincodeID2", "", "key5")
+	rangeScanItr = stateImplTestWrapper.getRangeScanIterator("chaincodeID2", "", "key5")
 	results = make(map[string][]byte)
 	for rangeScanItr.Next() {
 		key, value := rangeScanItr.GetKeyValue()
@@ -107,7 +106,7 @@ func TestRangeScanIterator(t *testing.T) {
 	rangeScanItr.Close()
 
 	// test range scan for all the keys in chaincodeID2 starting from first key
-	rangeScanItr, _ = stateTrie.GetRangeScanIterator("chaincodeID2", "", "")
+	rangeScanItr = stateImplTestWrapper.getRangeScanIterator("chaincodeID2", "", "")
 	results = make(map[string][]byte)
 	for rangeScanItr.Next() {
 		key, value := rangeScanItr.GetKeyValue()

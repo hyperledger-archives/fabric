@@ -17,30 +17,36 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package trie
+package buckettree
 
 import (
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/util"
 	"github.com/tecbot/gorocksdb"
 )
 
 // RangeScanIterator implements the interface 'statemgmt.RangeScanIterator'
 type RangeScanIterator struct {
-	dbItr        *gorocksdb.Iterator
-	chaincodeID  string
-	endKey       string
-	currentKey   string
-	currentValue []byte
-	done         bool
+	dbItr               *gorocksdb.Iterator
+	chaincodeID         string
+	startKey            string
+	endKey              string
+	currentBucketNumber int
+	currentKey          string
+	currentValue        []byte
+	done                bool
 }
 
 func newRangeScanIterator(chaincodeID string, startKey string, endKey string) (*RangeScanIterator, error) {
 	dbItr := db.GetDBHandle().GetStateCFIterator()
-	encodedStartKey := newTrieKey(chaincodeID, startKey).getEncodedBytes()
-	dbItr.Seek(encodedStartKey)
-	return &RangeScanIterator{dbItr, chaincodeID, endKey, "", nil, false}, nil
+	itr := &RangeScanIterator{
+		dbItr:       dbItr,
+		chaincodeID: chaincodeID,
+		startKey:    startKey,
+		endKey:      endKey,
+	}
+	itr.seekForStartKeyWithinBucket(1)
+	return itr, nil
 }
 
 // Next - see interface 'statemgmt.RangeScanIterator' for details
@@ -48,29 +54,42 @@ func (itr *RangeScanIterator) Next() bool {
 	if itr.done {
 		return false
 	}
-	for ; itr.dbItr.Valid(); itr.dbItr.Next() {
-		trieKeyBytes := itr.dbItr.Key().Data()
-		trieNodeBytes := itr.dbItr.Value().Data()
-		value := unmarshalTrieNodeValue(trieNodeBytes)
-		if util.IsNil(value) {
+
+	for itr.dbItr.Valid() {
+		keyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
+		valueBytes := itr.dbItr.Value().Data()
+
+		dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
+		dataKey := dataNode.dataKey
+		chaincodeID, key := statemgmt.DecodeCompositeKey(dataNode.getCompositeKey())
+		value := dataNode.value
+		logger.Debug("Evaluating data-key = %s", dataKey)
+
+		bucketNumber := dataKey.bucketKey.bucketNumber
+		if bucketNumber > itr.currentBucketNumber {
+			itr.seekForStartKeyWithinBucket(bucketNumber)
 			continue
 		}
 
-		// found an actual key
-		currentCompositeKey := trieKeyEncoderImpl.decodeTrieKeyBytes(statemgmt.Copy(trieKeyBytes))
-		currentChaincodeID, currentKey := statemgmt.DecodeCompositeKey(currentCompositeKey)
-		if currentChaincodeID == itr.chaincodeID && (itr.endKey == "" || currentKey <= itr.endKey) {
-			itr.currentKey = currentKey
+		if chaincodeID == itr.chaincodeID && (itr.endKey == "" || key <= itr.endKey) {
+			logger.Debug("including data-key = %s", dataKey)
+			itr.currentKey = key
 			itr.currentValue = value
 			itr.dbItr.Next()
 			return true
 		}
 
-		// retrieved all the keys in the given range
-		break
+		itr.seekForStartKeyWithinBucket(bucketNumber + 1)
+		continue
 	}
 	itr.done = true
 	return false
+}
+
+func (itr *RangeScanIterator) seekForStartKeyWithinBucket(bucketNumber int) {
+	itr.currentBucketNumber = bucketNumber
+	datakeyBytes := minimumPossibleDataKeyBytes(bucketNumber, itr.chaincodeID, itr.startKey)
+	itr.dbItr.Seek(datakeyBytes)
 }
 
 // GetKeyValue - see interface 'statemgmt.RangeScanIterator' for details

@@ -283,3 +283,8 @@ func (stateImpl *StateImpl) PerfHintKeyChanged(chaincodeID string, key string) {
 func (stateImpl *StateImpl) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
 	return newStateSnapshotIterator(snapshot)
 }
+
+// GetRangeScanIterator - method implementation for interface 'statemgmt.HashableState'
+func (stateImpl *StateImpl) GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
+	return newRangeScanIterator(chaincodeID, startKey, endKey)
+}
