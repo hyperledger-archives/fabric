@@ -6,7 +6,6 @@
 eca:
 
     users:
-        TestRegistrationUser: 9gvZQRwhUq9q
         user1: 9gvZQRwhUq9q
         user2: 9gvZQRwhUq9q
         validator: 9gvZQRwhUq9q
@@ -48,10 +47,6 @@ tests:
     crypto:
 
         users:
-
-            TestRegistrationUser:
-                enrollid: TestRegistrationUser
-                enrollpw: 9gvZQRwhUq9q
 
             user1:
                 enrollid: user1
