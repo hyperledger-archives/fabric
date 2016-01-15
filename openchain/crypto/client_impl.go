@@ -156,7 +156,7 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
 
 	// Get next TCert
-	rawTCert, err := client.getNextTCert()
+	tCertDER, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -164,7 +164,7 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.init(client, rawTCert)
+	err = handler.initDER(client, tCertDER)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
 		return nil, err
@@ -183,7 +183,7 @@ func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHa
 	client.node.log.Info("Getting a CertificateHandler for TCert [%s]", utils.EncodeBase64(tCertDER))
 
 	// Validate the transaction certificate
-	_, err := client.validateTCert(tCertDER)
+	tCert, err := client.validateTCert(tCertDER)
 	if err != nil {
 		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
 
@@ -192,7 +192,7 @@ func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHa
 
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.init(client, tCertDER)
+	err = handler.initX509(client, tCert)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
 		return nil, err

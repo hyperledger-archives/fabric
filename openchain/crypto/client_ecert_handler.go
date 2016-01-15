@@ -17,13 +17,12 @@ func (handler *eCertHandlerImpl) init(client *clientImpl) error {
 
 // GetCertificate returns the TCert DER
 func (handler *eCertHandlerImpl) GetCertificate() []byte {
-	// TODO: clone this
-	return handler.client.node.enrollCert.Raw
+	return utils.Clone(handler.client.node.enrollCert.Raw)
 }
 
 // GetHook returns an Hook to the underlying transaction layer
 func (handler *eCertHandlerImpl) GetHook() ([]byte, error) {
-	return nil, utils.ErrNotImplemented
+	return utils.Clone(handler.client.node.enrollCertHash), nil
 }
 
 // Sign signs msg using the signing key corresponding to this TCert

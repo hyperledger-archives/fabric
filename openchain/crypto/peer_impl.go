@@ -39,11 +39,7 @@ func (peer *peerImpl) GetName() string {
 
 // GetID returns this peer's identifier
 func (peer *peerImpl) GetID() []byte {
-	// Clone id to avoid exposure of internal data structure
-	clone := make([]byte, len(peer.node.id))
-	copy(clone, peer.node.id)
-
-	return clone
+	return utils.Clone(peer.node.id)
 }
 
 // GetEnrollmentID returns this peer's enroolment id

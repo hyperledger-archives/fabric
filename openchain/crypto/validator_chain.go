@@ -53,9 +53,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc
 
 	// Decrypt Payload
 	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
-	encryptedPayload := make([]byte, len(clone.Payload))
-	copy(encryptedPayload, clone.Payload)
-	payload, err := utils.CBCPKCS7Decrypt(payloadKey, encryptedPayload)
+	payload, err := utils.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
 	if err != nil {
 		validator.peer.node.log.Error("Failed decrypting payload [%s].", err.Error())
 		return nil, err
@@ -63,9 +61,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc
 	clone.Payload = payload
 
 	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
-	encryptedChaincodeID := make([]byte, len(clone.ChaincodeID))
-	copy(encryptedChaincodeID, clone.ChaincodeID)
-	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, encryptedChaincodeID)
+	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
 	if err != nil {
 		validator.peer.node.log.Error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err

@@ -19,16 +19,10 @@ under the License.
 
 package utils
 
-import "crypto/rand"
+// Clone clones the passed slice
+func Clone(src []byte) []byte {
+	clone := make([]byte, len(src))
+	copy(clone, src)
 
-// GetRandomBytes returns len random looking bytes
-func GetRandomBytes(len int) ([]byte, error) {
-	key := make([]byte, len)
-
-	_, err := rand.Read(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
+	return clone
 }
