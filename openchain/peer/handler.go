@@ -37,7 +37,7 @@ type Handler struct {
 	ToPeerEndpoint                *pb.PeerEndpoint
 	Coordinator                   MessageHandlerCoordinator
 	ChatStream                    ChatStream
-	doneChan                      chan bool
+	doneChan                      chan struct{}
 	FSM                           *fsm.FSM
 	initiatedStream               bool // Was the stream initiated within this Peer
 	registered                    bool
@@ -48,6 +48,7 @@ type Handler struct {
 }
 
 // NewPeerHandler returns a new Peer handler
+// Is instance of HandlerFactory
 func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiatedStream bool, nextHandler MessageHandler) (MessageHandler, error) {
 
 	d := &Handler{
@@ -55,7 +56,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 		initiatedStream: initiatedStream,
 		Coordinator:     coord,
 	}
-	d.doneChan = make(chan bool)
+	d.doneChan = make(chan struct{})
 
 	d.snapshotRequestHandler = newSyncStateSnapshotRequestHandler()
 	d.syncStateDeltasRequestHandler = newSyncStateDeltasHandler()
@@ -126,7 +127,7 @@ func (d *Handler) To() (pb.PeerEndpoint, error) {
 func (d *Handler) Stop() error {
 	// Deregister the handler
 	err := d.deregister()
-	d.doneChan <- true
+	d.doneChan <- struct{}{}
 	d.registered = false
 	if err != nil {
 		return fmt.Errorf("Error stopping MessageHandler: %s", err)

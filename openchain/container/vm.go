@@ -39,6 +39,21 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+func NewDockerClient() (client *docker.Client, err error) {
+	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
+	endpoint := viper.GetString("vm.endpoint")
+	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
+	if viper.GetBool("vm.docker.tls.enabled") {
+		cert := viper.GetString("vm.docker.tls.cert.file")
+		key := viper.GetString("vm.docker.tls.key.file")
+		ca := viper.GetString("vm.docker.tls.ca.file")
+		client, err = docker.NewTLSClient(endpoint, cert, key, ca)
+	} else {
+		client, err = docker.NewClient(endpoint)
+	}
+	return
+}
+
 // VM implemenation of VM management functionality.
 type VM struct {
 	Client *docker.Client
@@ -46,9 +61,7 @@ type VM struct {
 
 // NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
-	endpoint := viper.GetString("vm.endpoint")
-	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
-	client, err := docker.NewClient(endpoint)
+	client, err := NewDockerClient()
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +149,7 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainc
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
+		vmLogger.Debug(fmt.Sprintf("Failed Chaincode docker build:\n%s\n", outputbuf.String()))
 		return fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	return nil
@@ -157,7 +171,8 @@ func (vm *VM) BuildPeerContainer() error {
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		return fmt.Errorf("Error building Peer container: %s", err)
+		vmLogger.Debug(fmt.Sprintf("Failed Peer docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building Peer container: %s\n", err)
 	}
 	return nil
 }
