@@ -308,6 +308,7 @@ func serve(args []string) error {
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
+	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -338,7 +339,15 @@ func serve(args []string) error {
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, peerServer.GetSecHelper())
+	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
+	// privacy is enabled
+	var secHelper crypto.Peer
+	if viper.GetBool("security.privacy") {
+		secHelper = peerServer.GetSecHelper()
+	} else {
+		secHelper = nil
+	}
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer(peerServer)

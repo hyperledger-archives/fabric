@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 
@@ -62,8 +62,8 @@ type MessageHandler interface {
 }
 
 type transactionContext struct {
-	transactionSecContext	*pb.Transaction
-	responseNotifier	chan* pb.ChaincodeMessage
+	transactionSecContext *pb.Transaction
+	responseNotifier      chan *pb.ChaincodeMessage
 }
 
 // Handler responsbile for managment of Peer's side of chaincode stream
@@ -76,12 +76,12 @@ type Handler struct {
 	// A copy of decrypted deploy tx this handler manages, no code
 	deployTXSecContext *pb.Transaction
 
-	chaincodeSupport  *ChaincodeSupport
-	registered        bool
-	readyNotify       chan bool
+	chaincodeSupport *ChaincodeSupport
+	registered       bool
+	readyNotify      chan bool
 	// Map of tx uuid to either invoke or query tx (decrypted). Each tx will be
 	// added prior to execute and remove when done execute
-	txCtxs  map[string] *transactionContext
+	txCtxs map[string]*transactionContext
 
 	uuidMap map[string]bool
 
@@ -98,12 +98,12 @@ func (handler *Handler) createTxContext(uuid string, tx *pb.Transaction) (*trans
 	if handler.txCtxs[uuid] != nil {
 		return nil, fmt.Errorf("Uuid:%s exists", uuid)
 	}
-	txctx := &transactionContext{ transactionSecContext: tx, responseNotifier: make(chan *pb.ChaincodeMessage, 1) }
+	txctx := &transactionContext{transactionSecContext: tx, responseNotifier: make(chan *pb.ChaincodeMessage, 1)}
 	handler.txCtxs[uuid] = txctx
 	return txctx, nil
 }
 
-func (handler *Handler) getTxContext(uuid string) *transactionContext{
+func (handler *Handler) getTxContext(uuid string) *transactionContext {
 	handler.Lock()
 	defer handler.Unlock()
 	return handler.txCtxs[uuid]
@@ -147,11 +147,16 @@ func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []by
 	if enc == nil {
 		return nil, fmt.Errorf("secure context returns nil encryptor for tx %s", uuid)
 	}
-
+	if chaincodeLogger.IsEnabledFor(logging.DEBUG) {
+		chaincodeLogger.Debug("Payload before encrypt/decrypt: %v", payload)
+	}
 	if encrypt {
 		payload, err = enc.Encrypt(payload)
 	} else {
 		payload, err = enc.Decrypt(payload)
+	}
+	if chaincodeLogger.IsEnabledFor(logging.DEBUG) {
+		chaincodeLogger.Debug("Payload after encrypt/decrypt: %v", payload)
 	}
 
 	return payload, err
@@ -423,13 +428,13 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			handler.ChatStream.Send(errMsg)
 		} else {
 			// Decrypt the data if the confidential is enabled
-			if res,err = handler.decrypt(msg.Uuid, res); err == nil {
+			if res, err = handler.decrypt(msg.Uuid, res); err == nil {
 				// Send response msg back to chaincode. GetState will not trigger event
 				chaincodeLogger.Debug("Got state. Sending %s", pb.ChaincodeMessage_RESPONSE)
 				responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 				handler.ChatStream.Send(responseMsg)
 			} else {
-				// Send err msg back to chaincode. 
+				// Send err msg back to chaincode.
 				chaincodeLogger.Debug("Got error while decrypting. Sending %s", pb.ChaincodeMessage_ERROR)
 				errBytes := []byte(err.Error())
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: errBytes, Uuid: msg.Uuid}
@@ -548,7 +553,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 
 			var pVal []byte
 			// Encrypt the data if the confidential is enabled
-			if pVal,err = handler.encrypt(msg.Uuid, putStateInfo.Value); err == nil {
+			if pVal, err = handler.encrypt(msg.Uuid, putStateInfo.Value); err == nil {
 				// Invoke ledger to put state
 				err = ledgerObj.SetState(chaincodeID, putStateInfo.Key, pVal)
 			}
