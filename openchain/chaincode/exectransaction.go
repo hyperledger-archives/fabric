@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -42,10 +41,10 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
-	if secCxt, err := GetSecureContext(ctxt); nil != err {
-		return nil, err
-	} else if nil != secCxt {
-		t, err := secCxt.TransactionPreExecution(t)
+	if secHelper := chain.GetSecHelper(); nil != secHelper {
+		var err error
+		t, err = secHelper.TransactionPreExecution(t)
+		// Note that t is now decrypted and is a deep clone of the original input t
 		if nil != err {
 			return nil, err
 		}
@@ -155,17 +154,17 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 
 // GetSecureContext returns the security context from the context object or error
 // Security context is nil if security is off from openchain.yaml file
-func GetSecureContext(ctxt context.Context) (crypto.Peer, error) {
-	var err error
-	temp := ctxt.Value("security")
-	if nil != temp {
-		if secCxt, ok := temp.(crypto.Peer); ok {
-			return secCxt, nil
-		}
-		err = errors.New("Failed to convert security context type")
-	}
-	return nil, err
-}
+// func GetSecureContext(ctxt context.Context) (crypto.Peer, error) {
+// 	var err error
+// 	temp := ctxt.Value("security")
+// 	if nil != temp {
+// 		if secCxt, ok := temp.(crypto.Peer); ok {
+// 			return secCxt, nil
+// 		}
+// 		err = errors.New("Failed to convert security context type")
+// 	}
+// 	return nil, err
+// }
 
 var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
 

@@ -35,6 +35,7 @@ import (
 	google_protobuf "google/protobuf"
 
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -90,8 +91,8 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
-	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
+func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer) *ChaincodeSupport {
+	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}, secHelper: secHelper}
 
 	//initialize global chain
 	chains[chainname] = s
@@ -133,6 +134,7 @@ type ChaincodeSupport struct {
 	ccStartupTimeout     time.Duration
 	chaincodeInstallPath string
 	userRunsCC           bool
+	secHelper            crypto.Peer
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -173,7 +175,8 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
-	chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
+	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
+	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
 	chaincodeLogger.Debug("registered handler complete for chaincode %s", key)
@@ -331,6 +334,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var cMsg *pb.ChaincodeInput
 	var f *string
 	var initargs []string
+
 	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		cds := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
@@ -401,6 +405,11 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	chaincodeLog.Debug("LaunchChaincode complete")
 
 	return cID, cMsg, err
+}
+
+// GetSecHelper returns the security help set from NewChaincodeSupport
+func (chaincodeSupport *ChaincodeSupport) GetSecHelper() crypto.Peer {
+	return chaincodeSupport.secHelper
 }
 
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
