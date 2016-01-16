@@ -21,8 +21,6 @@ package helper
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"golang.org/x/net/context"
 
@@ -33,35 +31,23 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// =============================================================================
-// Structure definitions go here
-// =============================================================================
-
-// Helper contains the reference to coordinator for broadcasts/unicasts.
+// Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 }
 
-// =============================================================================
-// Constructors go here
-// =============================================================================
-
-// NewHelper constructs the consensus helper object.
+// NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 	return &Helper{coordinator: mhc}
 }
 
-// =============================================================================
-// Stack-facing implementation goes here
-// =============================================================================
-
-// GetNetworkHandles returns the handles (MVP: hashed raw enrollment certificates) of the current replica and the whole network of VPs
-func (h *Helper) GetNetworkHandles() (self string, network []string, err error) {
+// GetNetworkHandles returns the peer handles of the current validator and VP network
+func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
 	ep, err := h.coordinator.GetPeerEndpoint()
 	if err != nil {
 		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
 	}
-	self = ep.ID.Name
+	self = ep.ID
 
 	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
@@ -70,40 +56,15 @@ func (h *Helper) GetNetworkHandles() (self string, network []string, err error) 
 	peers := peersMsg.GetPeers()
 	for _, endpoint := range peers {
 		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-			network = append(network, endpoint.ID.Name)
+			network = append(network, endpoint.ID)
 		}
 	}
 	network = append(network, self)
-	// sort.Strings(network)
 
 	return
 }
 
-// GetReplicaHandle returns the handle that corresponds to a replica ID (uin64 assigned to it for PBFT)
-func (h *Helper) GetReplicaHandle(id uint64) (handle string, err error) {
-	handle = "vp" + strconv.FormatUint(id, 10)
-	return
-}
-
-// GetReplicaID returns the uint ID corresponding to a replica handle
-func (h *Helper) GetReplicaID(handle string) (id uint64, err error) {
-	// if the handle starts with "vp*", short-circuit the function
-	// consider this our debugging mode for when we don't have a fixed VP list
-	// and want to instantiate the Consenter with the proper ID
-	if startsWith := strings.HasPrefix(handle, "vp"); startsWith {
-		id, err = strconv.ParseUint(handle[2:], 10, 64)
-		if err != nil {
-			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle, err)
-		}
-		return
-	}
-	err = fmt.Errorf(`For MVP, set the VP's peer.id to vpX,
-		where X is a unique integer between 0 and N-1
-		(N being the maximum number of VPs in the network`)
-	return
-}
-
-// Broadcast sends a message to all validating peers.
+// Broadcast sends a message to all validating peers
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 	errors := h.coordinator.Broadcast(msg)
 	if len(errors) > 0 {
@@ -112,8 +73,8 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle string) error {
+// Unicast sends a message to a specified receiver
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
@@ -246,20 +207,24 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 }
 
 func (h *Helper) getRemoteLedger(replicaID uint64) (peer.RemoteLedger, error) {
-	receiverHandle, err := h.GetReplicaHandle(replicaID)
+	// TODO adding this so that the code compiles without errors
+	var err error
+	receiverHandle := &pb.PeerID{}
+	// receiverHandle, err := h.GetReplicaHandle(replicaID)
+
 	if nil != err {
 		return nil, fmt.Errorf("Error retrieving handle for given replicaID %d : %s", replicaID, err)
 	}
 
 	remoteLedger, err := h.coordinator.GetRemoteLedger(receiverHandle)
 	if nil != err {
-		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", err)
+		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", receiverHandle, err)
 	}
 
 	return remoteLedger, nil
 }
 
-// GetRemoteBlocks will return a channel to stream blocks from the desired replicaId
+// GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
 func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
@@ -271,7 +236,7 @@ func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan
 	})
 }
 
-// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaId
+// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
 func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
@@ -280,7 +245,7 @@ func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateS
 	return remoteLedger.RequestStateSnapshot()
 }
 
-// GetRemoteStateDeltas  will return a channel to stream a state snapshot deltas from the desired replicaId
+// GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
 func (h *Helper) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {

@@ -21,9 +21,17 @@ package consensus
 
 import pb "github.com/openblockchain/obc-peer/protos"
 
-// Consenter is implemented by every consensus plugin package
+// Consenter is used to receive messages from the network
+// Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
+}
+
+// Communicator is used to send messages to other validators
+type Communicator interface {
+	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
+	Broadcast(msg *pb.OpenchainMessage) error
+	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
 // ReadOnlyLedger is used for interrogating the blockchain
@@ -64,27 +72,20 @@ type Executor interface {
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
 type RemoteLedgers interface {
-	GetRemoteBlocks(replicaId uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaId uint64) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaId uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+	GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
+	GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error)
+	GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
-// BlockchainPackage serves as interface to the blockchain oriented activities, such as executing transactions, querying, and updating the ledger
+// BlockchainPackage serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
 type BlockchainPackage interface {
 	Executor
 	Ledger
 	RemoteLedgers
 }
 
-// CPI (Consensus Programming Interface) is the set of
-// stack-facing methods available to the consensus plugin
+// CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
 type CPI interface {
-	GetNetworkHandles() (self string, network []string, err error)
-	GetReplicaHandle(id uint64) (handle string, err error)
-	GetReplicaID(handle string) (id uint64, err error)
-
-	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msg *pb.OpenchainMessage, receiverHandle string) error
-
+	Communicator
 	BlockchainPackage
 }

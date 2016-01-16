@@ -150,7 +150,7 @@ func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := op.cpi.GetReplicaHandle(receiverID)
+	receiverHandle, err := getValidatorHandle(receiverID)
 	if err != nil {
 		return
 	}

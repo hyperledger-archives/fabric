@@ -21,9 +21,11 @@ package obcpbft
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/spf13/viper"
 )
@@ -31,8 +33,9 @@ import (
 const configPrefix = "OPENCHAIN_OBCPBFT"
 
 var pluginInstance consensus.Consenter // singleton service
+var config *viper.Viper
 
-// GetPlugin returns the handle to the Plugin singleton
+// GetPlugin returns the handle to the consenter singleton
 func GetPlugin(c consensus.CPI) consensus.Consenter {
 	if pluginInstance == nil {
 		pluginInstance = New(c)
@@ -43,13 +46,9 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // New creates a new Obc* instance that provides the Consenter interface.
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
-	config := readConfig()
+	config = readConfig()
 	handle, _, _ := cpi.GetNetworkHandles()
-	id, _ := cpi.GetReplicaID(handle)
-	if id > uint64(config.GetInt("general.N")-1) {
-		err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(config.GetInt("general.N")-1))
-		panic(err)
-	}
+	id, _ := getValidatorID(handle)
 
 	switch config.GetString("general.mode") {
 	case "classic":
@@ -80,4 +79,32 @@ func readConfig() (config *viper.Viper) {
 		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
 	}
 	return
+}
+
+// Returns the uint64 ID corresponding to a peer handle
+func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
+	// as requested here: https://github.com/openblockchain/obc-peer/issues/462#issuecomment-170785410
+	if startsWith := strings.HasPrefix(handle.Name, "vp"); startsWith {
+		id, err = strconv.ParseUint(handle.Name[2:], 10, 64)
+		if err != nil {
+			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle.Name, err)
+		}
+		if id > uint64(config.GetInt("general.N")-1) {
+			err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(config.GetInt("general.N")-1))
+			panic(err)
+		}
+		return
+	}
+
+	err = fmt.Errorf(`For MVP, set the VP's peer.id to vpX,
+		where X is a unique integer between 0 and N-1
+		(N being the maximum number of VPs in the network`)
+	return
+}
+
+// Returns the peer handle that corresponds to a validator ID (uint64 assigned to it for PBFT)
+func getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+	// as requested here: https://github.com/openblockchain/obc-peer/issues/462#issuecomment-170785410
+	name := "vp" + strconv.FormatUint(id, 10)
+	return &pb.PeerID{Name: name}, nil
 }

@@ -406,10 +406,8 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
 	} else if fr := msg.GetFetchRequest(); fr != nil {
-		fmt.Printf("Debug: replica %v receive fetch-request\n", instance.id)
 		err = instance.recvFetchRequest(fr)
 	} else if req := msg.GetReturnRequest(); req != nil {
-		fmt.Printf("Debug: replica %v receive return-request\n", instance.id)
 		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
@@ -887,7 +885,6 @@ func (instance *pbftCore) fetchRequests() (err error) {
 }
 
 func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
-	fmt.Printf("Debug: replica %v recvFetchRequest\n", instance.id)
 	digest := fr.RequestDigest
 	if _, ok := instance.reqStore[digest]; !ok {
 		return nil // we don't have it either
@@ -908,7 +905,6 @@ func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
 
 func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 	digest := hashReq(req)
-	fmt.Printf("Debug: replica %v recvReturnRequest (missing %d requests, receiving digest %v)\n", instance.id, len(instance.missingReqs), digest)
 	if _, ok := instance.missingReqs[digest]; !ok {
 		return nil // either the wrong digest, or we got it already from someone else
 	}

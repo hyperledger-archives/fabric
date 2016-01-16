@@ -75,13 +75,13 @@ type testnet struct {
 	closed   bool
 	replicas []*instance
 	msgs     []taggedMsg
-	handles  []string
+	handles  []*pb.PeerID
 	filterFn func(int, int, []byte) []byte
 }
 
 type instance struct {
 	id        int
-	handle    string
+	handle    *pb.PeerID
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
@@ -94,11 +94,6 @@ type instance struct {
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
-	/* msg := &Message{}
-	_ = proto.Unmarshal(payload, msg)
-	if fr := msg.GetFetchRequest(); fr != nil {
-		fmt.Printf("Debug: replica %v broadcast fetch-request\n", inst.id)
-	} */
 	net.broadcastFilter(inst, payload)
 	net.cond.Signal()
 	net.cond.L.Unlock()
@@ -106,13 +101,6 @@ func (inst *instance) broadcast(payload []byte) {
 
 func (inst *instance) unicast(payload []byte, receiverID uint64) error {
 	net := inst.net
-	/* msg := &Message{}
-	_ = proto.Unmarshal(payload, msg)
-	if rr := msg.GetReturnRequest(); rr != nil {
-		fmt.Printf("Debug: replica %v unicast return-request to %v\n", inst.id, receiverID)
-		net.replicas[int(receiverID)].deliver(payload)
-	} else {
-		fmt.Printf("Debug: replica %v unicast (non return-request) to %v\n", inst.id, receiverID) */
 	net.cond.L.Lock()
 	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), payload})
 	net.cond.Signal()
@@ -167,26 +155,9 @@ func (inst *instance) execute(payload []byte, metadata []byte) {
 func (inst *instance) viewChange(uint64) {
 }
 
-func (inst *instance) GetNetworkHandles() (self string, network []string, err error) {
-	return inst.handle, inst.net.handles, nil
-}
-
-func (inst *instance) GetReplicaHandle(id uint64) (handle string, err error) {
-	_, network, _ := inst.GetNetworkHandles()
-	if int(id) > (len(network) - 1) {
-		return handle, fmt.Errorf("Replica ID is out of bounds")
-	}
-	return network[int(id)], nil
-}
-
-func (inst *instance) GetReplicaID(handle string) (id uint64, err error) {
-	_, network, _ := inst.GetNetworkHandles()
-	for i, v := range network {
-		if v == handle {
-			return uint64(i), nil
-		}
-	}
-	err = fmt.Errorf("Couldn't find handle in list of handles in testnet")
+func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+	self = inst.handle
+	network = inst.net.handles
 	return
 }
 
@@ -203,12 +174,12 @@ func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiver string) error {
+func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	net := inst.net
 	net.cond.L.Lock()
-	receiverID, err := inst.GetReplicaID(receiver)
+	receiverID, err := getValidatorID(receiverHandle)
 	if err != nil {
-		return fmt.Errorf("Couldn't unicast message to %s: %v", receiver, err)
+		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
 	}
 	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), msg.Payload})
 	net.cond.Signal()
@@ -344,7 +315,7 @@ func makeTestnet(N int, initFn ...func(*instance)) *testnet {
 
 	ledgers := make(map[uint64]consensus.ReadOnlyLedger, N)
 	for i := 0; i < N; i++ {
-		inst := &instance{handle: "vp" + strconv.Itoa(i), id: i, net: net}
+		inst := &instance{handle: &pb.PeerID{Name: "vp" + strconv.Itoa(i)}, id: i, net: net}
 		ml := NewMockLedger(&ledgers, nil)
 		ml.inst = inst
 		ml.PutBlock(0, SimpleGetBlock(0))
