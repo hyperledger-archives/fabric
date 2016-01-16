@@ -660,29 +660,12 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s(state:%s)", msg.Type, handler.FSM.Current())
 	if handler.FSM.Cannot(msg.Type.String()) {
-		//TODO - this is a hack but it fixes an important hole that's
-		//tricky to fix. "FSM.Cannot(..)" may fail not because we are in a bad state
-		//but because FSM's transition object is not nilled. There is a tiny timing
-		//window in looplab's fsm.go
-		//	f.transition()
-		//	f.transition = nil
-		//before f.transition is set to nil where we could get a message causing Cannot() to return false.
-		//We see this typically in ready state. Some rearranging might help us here
-		//but for now, trying once more after a small sleep/seems to fix this and
-		//helps the test cases run smoothly.
-		//NEEDS REVISITING...
-
-		time.Sleep(2 * time.Millisecond)
-
-		//try again
-		if handler.FSM.Cannot(msg.Type.String()) {
-			errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
-			err := errors.New(errStr)
-			payload := []byte(err.Error())
-			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.ChatStream.Send(errorMsg)
-			return err
-		}
+		errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
+		err := errors.New(errStr)
+		payload := []byte(err.Error())
+		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		handler.ChatStream.Send(errorMsg)
+		return err
 	}
 	err := handler.FSM.Event(msg.Type.String(), msg)
 	return filterError(err)
