@@ -466,6 +466,11 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 			// Add the login token to the chaincodeSpec
 			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
@@ -480,11 +485,6 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Deploy the ChaincodeSpec
@@ -602,6 +602,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 
 			// Add the login token to the chaincodeSpec
 			spec.ChaincodeSpec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
@@ -616,11 +621,6 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Invoke the chainCode
@@ -735,6 +735,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 
 			// Add the login token to the chaincodeSpec
 			spec.ChaincodeSpec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
@@ -749,11 +754,6 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Query the chainCode
