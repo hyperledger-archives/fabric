@@ -380,7 +380,11 @@ func serve(args []string) error {
 	// genesis block if needed.
 	serve := make(chan bool)
 	go func() {
-		grpcServer.Serve(lis)
+		if grpcErr := grpcServer.Serve(lis); grpcErr != nil {
+			logger.Error(fmt.Sprintf("grpc server exited with error: %s", grpcErr))
+		} else {
+			logger.Info("grpc server exited")
+		}
 		serve <- true
 	}()
 
