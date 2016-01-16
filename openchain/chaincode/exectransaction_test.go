@@ -66,7 +66,7 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	b, err := Execute(ctx, GetChain(DefaultChain), transaction, nil)
+	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
 
 	return b, err
 }
@@ -86,7 +86,7 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 		return uuid, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	retval, err := Execute(ctx, GetChain(DefaultChain), transaction, nil)
+	retval, err := Execute(ctx, GetChain(DefaultChain), transaction)
 
 	return uuid, retval, err
 }
@@ -126,7 +126,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -274,7 +274,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -397,7 +397,7 @@ func TestExecuteQuery(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -476,7 +476,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -537,7 +537,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -608,7 +608,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -720,7 +720,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
