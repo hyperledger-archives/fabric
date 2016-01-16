@@ -37,7 +37,7 @@ func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, 
 	//This is the hashcode for github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
 	//chainCodeToCall := "74db26619d161b31aec095af0c354914" //with MD5
-	chainCodeToCall := "be0ab97f2785deba511f8ff97da31dbf26001a0136cfc412b26f0345f6c995a42ebc638fc7755ca64f956438e9a0ad597b861e9f5a7b0f75218239d0caf234c6" //with SHA3
+	chainCodeToCall := "bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c" //with SHA3
 	return chainCodeToCall, nil
 }
 

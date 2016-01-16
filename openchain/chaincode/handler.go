@@ -312,10 +312,12 @@ func (handler *Handler) createUUIDEntry(uuid string) bool {
 
 func (handler *Handler) deleteUUIDEntry(uuid string) {
 	handler.Lock()
+	defer handler.Unlock()
 	if handler.uuidMap != nil {
 		delete(handler.uuidMap, uuid)
+	} else {
+		chaincodeLogger.Warning("UUID %s not found!", uuid)
 	}
-	handler.Unlock()
 }
 
 // markIsTransaction marks a UUID as a transaction or a query; true = transaction, false = query
@@ -465,6 +467,9 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			handler.ChatStream.Send(errMsg)
 		} else {
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+
 			// Decrypt the data if the confidential is enabled
 			if res, err = handler.decrypt(msg.Uuid, res); err == nil {
 				// Send response msg back to chaincode. GetState will not trigger event
@@ -478,9 +483,6 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: errBytes, Uuid: msg.Uuid}
 				handler.ChatStream.Send(errMsg)
 			}
-
-			// Remove uuid from current set
-			handler.deleteUUIDEntry(msg.Uuid)
 
 		}
 
