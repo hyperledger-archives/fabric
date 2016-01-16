@@ -19,10 +19,7 @@ under the License.
 
 package obcpbft
 
-import (
-	"fmt"
-	"reflect"
-)
+import "reflect"
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
@@ -264,7 +261,6 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 
 func (instance *pbftCore) processNewView() error {
 	var newRequestMissing bool
-	fmt.Printf("Debug: processNewView (ID: %v)\n", instance.id)
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
