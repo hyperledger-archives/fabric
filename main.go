@@ -277,18 +277,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
-	// Create the Peer server
-	var peerServer *peer.PeerImpl
-
-	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
-	} else {
-		logger.Debug("Running as non-validating peer")
-		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
-	}
-
-	peerEndpoint, err := peerServer.GetPeerEndpoint()
+	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
 		return err
@@ -303,12 +292,12 @@ func serve(args []string) error {
 
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		grpclog.Fatalf("failed to listen: %v", err)
+		grpclog.Fatalf("Failed to listen: %v", err)
 	}
 
 	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
-		grpclog.Fatalf("failed to create ehub server: %v", err)
+		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
 	if chaincodeDevMode {
@@ -329,6 +318,16 @@ func serve(args []string) error {
 	}
 
 	grpcServer := grpc.NewServer(opts...)
+
+	var peerServer *peer.PeerImpl
+
+	if viper.GetBool("peer.validator.enabled") {
+		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
+	} else {
+		logger.Debug("Running as non-validating peer")
+		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
+	}
 
 	// Register the Peer server
 	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())

@@ -321,10 +321,9 @@ func (m *PeerID) String() string { return proto.CompactTextString(m) }
 func (*PeerID) ProtoMessage()    {}
 
 type PeerEndpoint struct {
-	ID           *PeerID           `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
-	Address      string            `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
-	Type         PeerEndpoint_Type `protobuf:"varint,3,opt,name=type,enum=protos.PeerEndpoint_Type" json:"type,omitempty"`
-	CryptoHandle string            `protobuf:"bytes,4,opt,name=cryptoHandle" json:"cryptoHandle,omitempty"`
+	ID      *PeerID           `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Address string            `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Type    PeerEndpoint_Type `protobuf:"varint,3,opt,name=type,enum=protos.PeerEndpoint_Type" json:"type,omitempty"`
 }
 
 func (m *PeerEndpoint) Reset()         { *m = PeerEndpoint{} }

@@ -121,7 +121,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -269,7 +269,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -392,7 +392,7 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -471,7 +471,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -532,7 +532,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -603,7 +603,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
@@ -715,7 +715,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 		return
 	}
 
-	getPeerEndpoint := func(opts ...interface{}) (*pb.PeerEndpoint, error) {
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 

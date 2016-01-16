@@ -118,7 +118,6 @@ message PeerEndpoint {
       NON_VALIDATOR = 2;
     }
     Type type = 3;
-    string cryptoHandle = 4;
 }
 message PeersMessage {
     repeated PeerEndpoint peers = 1;
