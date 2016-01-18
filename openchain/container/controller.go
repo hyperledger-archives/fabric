@@ -34,7 +34,7 @@ import (
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
 	build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	start(ctxt context.Context, id string, args []string, env[] string, attachstdin bool, attachstdout bool) error
+	start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
 	stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
 
@@ -45,7 +45,7 @@ type dockerVM struct {
 
 //create a docker client given endpoint to communicate with docker host
 func (vm *dockerVM) newClient() (*docker.Client, error) {
-	return NewDockerClient()
+	return newDockerClient()
 }
 
 func (vm *dockerVM) createContainer(ctxt context.Context, client *docker.Client, id string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
@@ -86,7 +86,7 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	return vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
 }
 
-func (vm *dockerVM) start(ctxt context.Context, id string, args []string, env[] string, attachstdin bool, attachstdout bool) error {
+func (vm *dockerVM) start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	client, err := vm.newClient()
 	if err != nil {
 		vmLogger.Debug("start - cannot create client %s", err)
@@ -95,12 +95,19 @@ func (vm *dockerVM) start(ctxt context.Context, id string, args []string, env[] 
 	containerID := strings.Replace(id, ":", "_", -1)
 	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
-		if nscErr,ok := err.(*docker.NoSuchContainer); ok && nscErr != nil {
+		errMsg := "start"
+		if nscErr, ok := err.(*docker.NoSuchContainer); ok && nscErr != nil {
+			errMsg = "restart"
 			vmLogger.Debug("start-container does not exist, attempting to create %s", err)
 			err = vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
+			if err != nil {
+				vmLogger.Debug("start-could not recreate container %s", err)
+				return err
+			}
+			err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 		}
 		if err != nil {
-			vmLogger.Debug("start-could not start container %s", err)
+			vmLogger.Debug("start-could not %s container %s", errMsg, err)
 			return err
 		}
 	}
@@ -229,7 +236,7 @@ func (vmc *VMController) unlockContainer(id string) {
 //note that we'd stop on the first method on the stack that does not
 //take context
 type VMCReqIntf interface {
-	do(ctxt context.Context, v vm) *VMCResp
+	do(ctxt context.Context, v vm) VMCResp
 	getID() string
 }
 
@@ -250,12 +257,12 @@ type CreateImageReq struct {
 	Env          []string
 }
 
-func (bp CreateImageReq) do(ctxt context.Context, v vm) *VMCResp {
-	var resp *VMCResp
+func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
 	if err := v.build(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
-		resp = &VMCResp{Err: err}
+		resp = VMCResp{Err: err}
 	} else {
-		resp = &VMCResp{}
+		resp = VMCResp{}
 	}
 
 	return resp
@@ -267,19 +274,19 @@ func (bp CreateImageReq) getID() string {
 
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
-	ID        string
-	Args      []string
+	ID           string
+	Args         []string
 	Env          []string
 	AttachStdin  bool
 	AttachStdout bool
 }
 
-func (si StartImageReq) do(ctxt context.Context, v vm) *VMCResp {
-	var resp *VMCResp
+func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
 	if err := v.start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
-		resp = &VMCResp{Err: err}
+		resp = VMCResp{Err: err}
 	} else {
-		resp = &VMCResp{}
+		resp = VMCResp{}
 	}
 
 	return resp
@@ -299,12 +306,12 @@ type StopImageReq struct {
 	Dontremove bool
 }
 
-func (si StopImageReq) do(ctxt context.Context, v vm) *VMCResp {
-	var resp *VMCResp
+func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
 	if err := v.stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
-		resp = &VMCResp{Err: err}
+		resp = VMCResp{Err: err}
 	} else {
-		resp = &VMCResp{}
+		resp = VMCResp{}
 	}
 
 	return resp

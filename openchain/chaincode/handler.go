@@ -223,10 +223,12 @@ func (handler *Handler) processStream() error {
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
+			chaincodeLog.Error(fmt.Sprintf("Error handling message, ending stream: %s", err))
 			return fmt.Errorf("Error handling message, ending stream: %s", err)
 		}
 		if nsInfo != nil && nsInfo.sendToCC {
 			if err = handler.ChatStream.Send(in); err != nil {
+				chaincodeLog.Error(fmt.Sprintf("Error sending %s: %s", in.Type.String(), err))
 				return fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
 			}
 		}
@@ -710,16 +712,14 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 	var event string
 	var ccMsg *pb.ChaincodeMessage
 	var send bool
+
 	txctx, funcErr := handler.createTxContext(uuid, tx)
 	if funcErr != nil {
 		return nil, funcErr
 	}
+
 	notfy := txctx.responseNotifier
-	defer func() {
-		if funcErr != nil {
-			handler.deleteUUIDEntry(uuid)
-		}
-	}()
+
 	if f != nil || initArgs != nil {
 		chaincodeLogger.Debug("sending INIT")
 		var f2 string
@@ -729,6 +729,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 		funcArgsMsg := &pb.ChaincodeInput{Function: f2, Args: initArgs}
 		var payload []byte
 		if payload, funcErr = proto.Marshal(funcArgsMsg); funcErr != nil {
+			handler.deleteTxContext(uuid)
 			return nil, fmt.Errorf("Failed to marshall %s : %s\n", ccMsg.Type.String(), funcErr)
 		}
 		ccMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INIT, Payload: payload, Uuid: uuid}
@@ -743,11 +744,13 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 
 	funcErr = handler.FSM.Event(event, ccMsg)
 	if funcErr != nil {
+		handler.deleteTxContext(uuid)
 		return nil, fmt.Errorf("Failed to trigger FSM event %s : %s\n", ccMsg.Type.String(), funcErr)
 	}
 
 	if send {
 		if funcErr = handler.ChatStream.Send(ccMsg); funcErr != nil {
+			handler.deleteTxContext(uuid)
 			return nil, fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_READY, funcErr)
 		}
 	}
@@ -917,15 +920,16 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage, tx *pb.Tran
 
 	// Trigger FSM event if it is a transaction
 	if msg.Type.String() == pb.ChaincodeMessage_TRANSACTION.String() {
-		eventErr := handler.FSM.Event(msg.Type.String(), msg)
-		if eventErr != nil {
-			chaincodeLogger.Debug("Failed to trigger FSM event TRANSACTION: %s", eventErr)
+		err = handler.FSM.Event(msg.Type.String(), msg)
+		if err != nil {
+			handler.deleteTxContext(msg.Uuid)
+			chaincodeLogger.Debug("Failed to trigger FSM event TRANSACTION: %s", err)
+			return nil, fmt.Errorf("Failed to trigger FSM event TRANSACTION: %s", err)
 		}
-
 	}
 
 	// Send the message to shim
-	if err := handler.ChatStream.Send(msg); err != nil {
+	if err = handler.ChatStream.Send(msg); err != nil {
 		handler.deleteTxContext(msg.Uuid)
 		return nil, fmt.Errorf("SendMessage error sending %s(%s)", msg.Uuid, err)
 	}

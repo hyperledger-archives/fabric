@@ -180,9 +180,9 @@ func TestVMCCreateAndStartContainer(t *testing.T) {
 			t.Logf("Error starting container: %s", err)
 			return
 		}
-		vmcresp,ok := r.(*VMCResp)
-		if !ok || vmcresp == nil {
-			t.Fatalf("VMCResp is nil %v", vmcresp)
+		vmcresp, ok := r.(VMCResp)
+		if !ok {
+			t.Fatalf("invalid response from VMCProcess")
 		}
 		if vmcresp.Err != nil {
 			t.Fail()
