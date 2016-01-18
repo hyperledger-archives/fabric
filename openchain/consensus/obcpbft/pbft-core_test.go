@@ -31,6 +31,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -557,7 +558,7 @@ func TestFallBehind(t *testing.T) {
 	}
 }
 
-func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[uint64]*MockRemoteLedger) error {
+func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[pb.PeerID]*MockRemoteLedger) error {
 
 	var chkpt *Checkpoint
 
@@ -568,7 +569,8 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
 		}
-		(*mrls)[uint64(i)].blockHeight = blockNumber - 2
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber - 2
 		pbft.witnessCheckpoint(chkpt)
 	}
 
@@ -585,7 +587,8 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      uint64(i),
 			BlockNumber:    blockNumber,
 		}
-		(*mrls)[uint64(i)].blockHeight = blockNumber + 1
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber + 1
 		pbft.checkpointStore[*chkpt] = true
 	}
 
@@ -616,17 +619,24 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 }
 
 func TestCatchupFromPBFT(t *testing.T) {
-	rols, mrls := createRemoteLedgers(1, 3)
+	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	for i := uint64(0); i <= 3; i++ {
+		peerID, _ := getValidatorHandle(i)
+		l := &MockRemoteLedger{}
+		rols[*peerID] = l
+		mrls[*peerID] = l
+	}
 
 	// Test from blockheight of 1, with valid genesis block
-	ml := NewMockLedger(rols, nil)
+	ml := NewMockLedger(&rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 	config := readConfig()
 	pbft := newPbftCore(0, config, nil, ml)
 	pbft.K = 2
 	pbft.L = 4
 	pbft.replicaCount = 4
-	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, mrls); nil != err {
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
 

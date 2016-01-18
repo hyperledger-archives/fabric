@@ -231,14 +231,14 @@ func (inst *instance) EmptyState() error {
 func (inst *instance) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return inst.ledger.VerifyBlockchain(start, finish)
 }
-func (inst *instance) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	return inst.ledger.GetRemoteBlocks(replicaID, start, finish)
+func (inst *instance) GetRemoteBlocks(peerID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return inst.ledger.GetRemoteBlocks(peerID, start, finish)
 }
-func (inst *instance) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
-	return inst.ledger.GetRemoteStateSnapshot(replicaID)
+func (inst *instance) GetRemoteStateSnapshot(peerID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
+	return inst.ledger.GetRemoteStateSnapshot(peerID)
 }
-func (inst *instance) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	return inst.ledger.GetRemoteStateDeltas(replicaID, start, finish)
+func (inst *instance) GetRemoteStateDeltas(peerID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return inst.ledger.GetRemoteStateDeltas(peerID, start, finish)
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
@@ -313,13 +313,14 @@ func makeTestnet(N int, initFn ...func(*instance)) *testnet {
 	for i := uint64(0); i < uint64(N); i++ {
 	}
 
-	ledgers := make(map[uint64]consensus.ReadOnlyLedger, N)
+	ledgers := make(map[pb.PeerID]consensus.ReadOnlyLedger, N)
 	for i := 0; i < N; i++ {
 		inst := &instance{handle: &pb.PeerID{Name: "vp" + strconv.Itoa(i)}, id: i, net: net}
 		ml := NewMockLedger(&ledgers, nil)
 		ml.inst = inst
 		ml.PutBlock(0, SimpleGetBlock(0))
-		ledgers[uint64(i)] = ml
+		handle, _ := getValidatorHandle(uint64(i))
+		ledgers[*handle] = ml
 		inst.ledger = ml
 		net.replicas = append(net.replicas, inst)
 		net.handles = append(net.handles, inst.handle)

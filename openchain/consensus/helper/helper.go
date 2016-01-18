@@ -208,17 +208,8 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return ledger.VerifyChain(start, finish)
 }
 
-func (h *Helper) getRemoteLedger(replicaID uint64) (peer.RemoteLedger, error) {
-	// TODO adding this so that the code compiles without errors
-	var err error
-	receiverHandle := &pb.PeerID{}
-	// receiverHandle, err := h.GetReplicaHandle(replicaID)
-
-	if nil != err {
-		return nil, fmt.Errorf("Error retrieving handle for given replicaID %d : %s", replicaID, err)
-	}
-
-	remoteLedger, err := h.coordinator.GetRemoteLedger(receiverHandle)
+func (h *Helper) getRemoteLedger(replicaID *pb.PeerID) (peer.RemoteLedger, error) {
+	remoteLedger, err := h.coordinator.GetRemoteLedger(replicaID)
 	if nil != err {
 		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", receiverHandle, err)
 	}
@@ -227,7 +218,7 @@ func (h *Helper) getRemoteLedger(replicaID uint64) (peer.RemoteLedger, error) {
 }
 
 // GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
-func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+func (h *Helper) GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -239,7 +230,7 @@ func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan
 }
 
 // GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
-func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
+func (h *Helper) GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -248,7 +239,7 @@ func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateS
 }
 
 // GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
-func (h *Helper) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err

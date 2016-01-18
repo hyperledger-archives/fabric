@@ -29,6 +29,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -182,7 +183,26 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
-	instance.sts = statetransfer.NewStateTransferState(fmt.Sprintf("Replica %d", instance.id), config, ledger)
+
+	defaultPeerIDs := make([]*protos.PeerID, instance.replicaCount-1)
+	if instance.replicaCount > 1 {
+		// For some tests, only 1 replica will be present, and defaultPeerIDs makes no sense
+		for i := uint64(0); i < uint64(instance.replicaCount); i++ {
+			handle, err := getValidatorHandle(i)
+			if err != nil {
+				panic(fmt.Errorf("Cannot retrieve handle for peer which must exist : %s", err))
+			}
+			if i < instance.id {
+				fmt.Printf("Assigning to index %d for replicaCount %d and id %d\n", i, instance.replicaCount, instance.id)
+				defaultPeerIDs[i] = handle
+			} else if i > instance.id {
+				defaultPeerIDs[i-1] = handle
+			} else {
+				// This is our ID, do not add it to the list of default peers
+			}
+		}
+	}
+	instance.sts = statetransfer.NewStateTransferState(&protos.PeerID{fmt.Sprintf("Replica %d", instance.id)}, config, ledger, defaultPeerIDs)
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
@@ -776,11 +796,14 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.moveWatermarks(m)
 
-				furthestReplicaIds := make([]uint64, instance.f+1)
+				furthestReplicaIds := make([]*protos.PeerID, instance.f+1)
 				i := 0
 				for replicaID, hChkpt := range instance.hChkpts {
 					if hChkpt >= m {
-						furthestReplicaIds[i] = replicaID
+						var err error
+						if furthestReplicaIds[i], err = getValidatorHandle(replicaID); nil != err {
+							panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
+						}
 						i++
 					}
 				}
@@ -795,11 +818,14 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 }
 
 func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
-	checkpointMembers := make([]uint64, instance.replicaCount)
+	checkpointMembers := make([]*protos.PeerID, instance.replicaCount)
 	i := 0
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
-			checkpointMembers[i] = testChkpt.ReplicaId
+			var err error
+			if checkpointMembers[i], err = getValidatorHandle(testChkpt.ReplicaId); err != nil {
+				panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
+			}
 			i++
 		}
 	}
