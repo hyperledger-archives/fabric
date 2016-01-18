@@ -22,6 +22,7 @@ package openchain
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -272,13 +273,23 @@ func CheckSpec(spec *pb.ChaincodeSpec) error {
 }
 
 func checkGolangSpec(spec *pb.ChaincodeSpec) error {
-	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
-	exists, err := pathExists(pathToCheck)
-	if err != nil {
-		return fmt.Errorf("Error validating chaincode path: %s", err)
+	url, err := url.Parse(spec.ChaincodeID.Path)
+	if err != nil || url == nil {
+		return fmt.Errorf("invalid path: %s", err)
 	}
-	if !exists {
-		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
+
+	//we have no real good way of checking existence of remote urls except by downloading and testin
+	//which we do later anyway. But we *can* - and *should* - test for existence of local paths.
+	//Treat empty scheme as a local filesystem path
+	if url.Scheme == "" {
+		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
+		exists, err := pathExists(pathToCheck)
+		if err != nil {
+			return fmt.Errorf("Error validating chaincode path: %s", err)
+		}
+		if !exists {
+			return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
+		}
 	}
 	return nil
 }
