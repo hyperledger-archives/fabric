@@ -159,7 +159,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	go func() {
 		defer close(waitc)
 		msgAvail := make(chan *pb.ChaincodeMessage)
-		var nsInfo  *nextStateInfo
+		var nsInfo *nextStateInfo
 		var in *pb.ChaincodeMessage
 		for {
 			in = nil
@@ -184,7 +184,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 				if err != nil {
 					grpclog.Fatalf("Received error from server : %v", err)
 				}
-			case nsInfo = <- handler.nextState:
+			case nsInfo = <-handler.nextState:
 				in = nsInfo.msg
 			}
 
@@ -196,7 +196,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 			}
 			if nsInfo != nil && nsInfo.sendToCC {
 				if err = stream.Send(in); err != nil {
-					err =  fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
+					err = fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
 					return
 				}
 			}
@@ -219,6 +219,12 @@ func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 // DelState function can be invoked by a chaincode to del state from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
+}
+
+// RangeQueryState function can be invoked by a chaincode to query of a range
+// of keys in the state.
+func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string, limit uint32) (*pb.RangeQueryStateResponse, error) {
+	return handler.handleRangeQueryState(startKey, endKey, limit, stub.UUID)
 }
 
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.

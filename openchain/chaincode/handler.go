@@ -67,8 +67,8 @@ type transactionContext struct {
 }
 
 type nextStateInfo struct {
-	msg	*pb.ChaincodeMessage
-	sendToCC	bool
+	msg      *pb.ChaincodeMessage
+	sendToCC bool
 }
 
 // Handler responsbile for managment of Peer's side of chaincode stream
@@ -92,7 +92,7 @@ type Handler struct {
 
 	// Track which UUIDs are queries; Although the shim maintains this, it cannot be trusted.
 	isTransaction map[string]bool
-	nextState	chan *nextStateInfo
+	nextState     chan *nextStateInfo
 }
 
 func (handler *Handler) createTxContext(uuid string, tx *pb.Transaction) (*transactionContext, error) {
@@ -184,13 +184,13 @@ func (handler *Handler) deregister() error {
 }
 
 func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
-	handler.nextState <- &nextStateInfo{ msg, send }
+	handler.nextState <- &nextStateInfo{msg, send}
 }
 
 func (handler *Handler) processStream() error {
 	defer handler.deregister()
 	msgAvail := make(chan *pb.ChaincodeMessage)
-	var nsInfo  *nextStateInfo
+	var nsInfo *nextStateInfo
 	var in *pb.ChaincodeMessage
 	var err error
 	for {
@@ -218,7 +218,7 @@ func (handler *Handler) processStream() error {
 				chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
 				return err
 			}
-		case nsInfo = <- handler.nextState:
+		case nsInfo = <-handler.nextState:
 			in = nsInfo.msg
 		}
 		err = handler.HandleMessage(in)
@@ -271,6 +271,11 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{transactionstate}, Dst: transactionstate},
 			{Name: pb.ChaincodeMessage_GET_STATE.String(), Src: []string{busyxactstate}, Dst: busyxactstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{readystate}, Dst: readystate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{initstate}, Dst: initstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{transactionstate}, Dst: transactionstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{busyxactstate}, Dst: busyxactstate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{initstate}, Dst: endstate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{transactionstate}, Dst: readystate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{busyinitstate}, Dst: initstate},
@@ -279,20 +284,21 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			{Name: pb.ChaincodeMessage_RESPONSE.String(), Src: []string{busyxactstate}, Dst: transactionstate},
 		},
 		fsm.Callbacks{
-			"before_" + pb.ChaincodeMessage_REGISTER.String():        func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_COMPLETED.String():       func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_INIT.String():            func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_GET_STATE.String():        func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_PUT_STATE.String():        func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_DEL_STATE.String():        func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String(): func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
-			"enter_" + establishedstate:                              func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
-			"enter_" + initstate:                                     func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
-			"enter_" + readystate:                                    func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
-			"enter_" + busyinitstate:                                 func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + busyxactstate:                                 func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + transactionstate:                              func(e *fsm.Event) { v.enterTransactionState(e, v.FSM.Current()) },
-			"enter_" + endstate:                                      func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_REGISTER.String():         func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_COMPLETED.String():        func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_INIT.String():             func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_GET_STATE.String():         func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_RANGE_QUERY_STATE.String(): func(e *fsm.Event) { v.afterRangeQueryState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_PUT_STATE.String():         func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_DEL_STATE.String():         func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String():  func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
+			"enter_" + establishedstate:                               func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
+			"enter_" + initstate:                                      func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
+			"enter_" + readystate:                                     func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
+			"enter_" + busyinitstate:                                  func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + busyxactstate:                                  func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + transactionstate:                               func(e *fsm.Event) { v.enterTransactionState(e, v.FSM.Current()) },
+			"enter_" + endstate:                                       func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
 		},
 	)
 
@@ -487,6 +493,125 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			}
 
 		}
+
+	}()
+}
+
+const maxRangeQueryStateLimit = 100
+
+// afterRangeQueryState handles a RANGE_QUERY_STATE request from the chaincode.
+func (handler *Handler) afterRangeQueryState(e *fsm.Event, state string) {
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	chaincodeLogger.Debug("Received %s, invoking get state from ledger", pb.ChaincodeMessage_RANGE_QUERY_STATE)
+
+	// Query ledger for state
+	defer handler.handleRangeQueryState(msg)
+	chaincodeLogger.Debug("Exiting GET_STATE")
+}
+
+// Handles query to ledger to rage query state
+func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the afterRangeQueryState function is exited. Interesting bug fix!!
+	go func() {
+		// Check if this is the unique state request from this chaincode uuid
+		uniqueReq := handler.createUUIDEntry(msg.Uuid)
+		if !uniqueReq {
+			// Drop this request
+			chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
+			return
+		}
+
+		rangeQueryStateInfo := &pb.RangeQueryStateInfo{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, rangeQueryStateInfo)
+		if unmarshalErr != nil {
+			payload := []byte(unmarshalErr.Error())
+			chaincodeLogger.Debug("Failed to unmarshall range query request. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		ledger, ledgerErr := ledger.GetLedger()
+		if ledgerErr != nil {
+			// Send error msg back to chaincode. GetState will not trigger event
+			payload := []byte(ledgerErr.Error())
+			chaincodeLogger.Debug("Failed to get ledger. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		chaincodeID := handler.ChaincodeID.Name
+		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryStateInfo.StartKey, rangeQueryStateInfo.EndKey)
+		if err != nil {
+			// Send error msg back to chaincode. GetState will not trigger event
+			payload := []byte(err.Error())
+			chaincodeLogger.Debug("Failed to get ledger scan iterator. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+		defer rangeIter.Close()
+
+		var limit uint32
+		if rangeQueryStateInfo.Limit <= maxRangeQueryStateLimit {
+			limit = rangeQueryStateInfo.Limit
+		} else {
+			limit = maxRangeQueryStateLimit
+		}
+
+		var keysAndValues []*pb.RangeQueryStateKeyValue
+		var i = uint32(0)
+		for ; rangeIter.Next() && i < limit; i++ {
+			key, value := rangeIter.GetKeyValue()
+			// Decrypt the data if the confidential is enabled
+			decryptedValue, err := handler.decrypt(msg.Uuid, value)
+			if err != nil {
+				payload := []byte(unmarshalErr.Error())
+				chaincodeLogger.Debug("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
+				// Remove uuid from current set
+				handler.deleteUUIDEntry(msg.Uuid)
+				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+				handler.ChatStream.Send(errMsg)
+				return
+			}
+			keyAndValue := pb.RangeQueryStateKeyValue{Key: key, Value: decryptedValue}
+			keysAndValues = append(keysAndValues, &keyAndValue)
+		}
+
+		hasNext := i == limit && rangeIter.Next()
+
+		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext}
+		payloadBytes, err := proto.Marshal(payload)
+		if err != nil {
+			// Send error msg back to chaincode. GetState will not trigger event
+			payload := []byte(err.Error())
+			chaincodeLogger.Debug("Failed marshall resopnse. Sending %s", pb.ChaincodeMessage_ERROR)
+			// Remove uuid from current set
+			handler.deleteUUIDEntry(msg.Uuid)
+			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			handler.ChatStream.Send(errMsg)
+			return
+		}
+
+		// Remove uuid from current set
+		handler.deleteUUIDEntry(msg.Uuid)
+
+		chaincodeLogger.Debug("Got keys and values. Sending %s", pb.ChaincodeMessage_RESPONSE)
+		responseMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: payloadBytes, Uuid: msg.Uuid}
+		handler.ChatStream.Send(responseMsg)
 
 	}()
 }
