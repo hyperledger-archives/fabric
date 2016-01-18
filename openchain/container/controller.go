@@ -229,7 +229,7 @@ func (vmc *VMController) unlockContainer(id string) {
 //note that we'd stop on the first method on the stack that does not
 //take context
 type VMCReqIntf interface {
-	do(ctxt context.Context, v vm) VMCResp
+	do(ctxt context.Context, v vm) *VMCResp
 	getID() string
 }
 
@@ -250,12 +250,12 @@ type CreateImageReq struct {
 	Env          []string
 }
 
-func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
-	var resp VMCResp
+func (bp CreateImageReq) do(ctxt context.Context, v vm) *VMCResp {
+	var resp *VMCResp
 	if err := v.build(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
-		resp = VMCResp{Err: err}
+		resp = &VMCResp{Err: err}
 	} else {
-		resp = VMCResp{}
+		resp = &VMCResp{}
 	}
 
 	return resp
@@ -274,12 +274,12 @@ type StartImageReq struct {
 	AttachStdout bool
 }
 
-func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
-	var resp VMCResp
+func (si StartImageReq) do(ctxt context.Context, v vm) *VMCResp {
+	var resp *VMCResp
 	if err := v.start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
-		resp = VMCResp{Err: err}
+		resp = &VMCResp{Err: err}
 	} else {
-		resp = VMCResp{}
+		resp = &VMCResp{}
 	}
 
 	return resp
@@ -299,12 +299,12 @@ type StopImageReq struct {
 	Dontremove bool
 }
 
-func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
-	var resp VMCResp
+func (si StopImageReq) do(ctxt context.Context, v vm) *VMCResp {
+	var resp *VMCResp
 	if err := v.stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
-		resp = VMCResp{Err: err}
+		resp = &VMCResp{Err: err}
 	} else {
-		resp = VMCResp{}
+		resp = &VMCResp{}
 	}
 
 	return resp
