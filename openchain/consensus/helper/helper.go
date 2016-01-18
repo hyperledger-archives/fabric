@@ -208,10 +208,10 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return ledger.VerifyChain(start, finish)
 }
 
-func (h *Helper) getRemoteLedger(replicaID *pb.PeerID) (peer.RemoteLedger, error) {
-	remoteLedger, err := h.coordinator.GetRemoteLedger(replicaID)
+func (h *Helper) getRemoteLedger(peerID *pb.PeerID) (peer.RemoteLedger, error) {
+	remoteLedger, err := h.coordinator.GetRemoteLedger(peerID)
 	if nil != err {
-		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", receiverHandle, err)
+		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", peerID, err)
 	}
 
 	return remoteLedger, nil
