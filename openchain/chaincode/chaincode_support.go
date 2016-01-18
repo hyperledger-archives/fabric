@@ -231,10 +231,10 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 		select {
 		case ccMsg := <-notfy:
 			if ccMsg.Type == pb.ChaincodeMessage_ERROR {
-				err =  fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
+				err = fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
 			}
 		case <-time.After(timeout):
-			err =  fmt.Errorf("Timeout expired while executing send init message")
+			err = fmt.Errorf("Timeout expired while executing send init message")
 		}
 	}
 
@@ -253,12 +253,13 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (ar
 		return nil, nil, fmt.Errorf("cannot get path components from %s", cID.Name)
 	}
 
-	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
+	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
+
 	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
 	//       need to revisit executable name assignment
 	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-	//     exec is "chaincode_example01"
-	args = []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
+	//     exec is "chaincode_example01 --peer.address=1.1.1.1:11111"
+	args = []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1], fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
 
 	chaincodeLog.Debug("Executable is %s", args[0])
 

@@ -20,6 +20,7 @@ under the License.
 package shim
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -56,6 +57,9 @@ type ChaincodeStub struct {
 	UUID string
 }
 
+// Peer address derived from command line or env var
+var peerAddress string
+
 // Start entry point for chaincodes bootstrap.
 func Start(cc Chaincode) error {
 	viper.SetEnvPrefix("OPENCHAIN")
@@ -63,7 +67,11 @@ func Start(cc Chaincode) error {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	chaincodeLogger.Debug("peer.address: %s", getPeerAddress())
+	flag.StringVar(&peerAddress, "peer.address", "172.17.42.1:30303", "peer address")
+
+	flag.Parse()
+
+	chaincodeLogger.Debug("Peer address: %s", getPeerAddress())
 
 	// Establish connection with validating peer
 	clientConn, err := newPeerClientConnection()
@@ -82,12 +90,16 @@ func Start(cc Chaincode) error {
 }
 
 func getPeerAddress() string {
-	if viper.GetString("peer.address") == "" {
-		// Assume docker container, return well known docker host address
-		return "172.17.42.1:30303"
+	if peerAddress != "" {
+		return peerAddress
 	}
 
-	return viper.GetString("peer.address")
+	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
+		// Assume docker container, return well known docker host address
+		peerAddress = "172.17.42.1:30303"
+	}
+
+	return peerAddress
 }
 
 func newPeerClientConnection() (*grpc.ClientConn, error) {
@@ -163,7 +175,7 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 				// Defer the deregistering of the this handler.
 				if in == nil || err == io.EOF {
 					if err == nil {
-						err = fmt.Errorf("Error received nil message, peer address=%s")
+						err = fmt.Errorf("Error received nil message")
 					} else {
 						err = fmt.Errorf("Error sending transactions to peer address=%s, received EOF", getPeerAddress())
 					}
