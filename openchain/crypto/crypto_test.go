@@ -1012,6 +1012,16 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		t.Fatal("Hook is malformed!")
 	}
 
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cis.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cis.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
+	}
+
 	return otx, tx, err
 }
 
@@ -1048,6 +1058,16 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	hook, _ := txHandler.GetHook()
 	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Hook is malformed!")
+	}
+
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cis.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cis.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
 	}
 
 	return otx, tx, err
@@ -1090,6 +1110,16 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 		t.Fatal("Hook is malformed!")
 	}
 
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cds.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cds.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
+	}
+
 	return otx, tx, err
 }
 
@@ -1128,6 +1158,16 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		t.Fatal("Hook is malformed!")
 	}
 
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cis.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cis.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
+	}
+
 	return otx, tx, err
 }
 
@@ -1164,6 +1204,16 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	hook, _ := txHandler.GetHook()
 	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Hook is malformed!")
+	}
+
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cis.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cis.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
 	}
 
 	return otx, tx, err
@@ -1247,6 +1297,10 @@ func isEqual(src, dst *obc.Transaction) error {
 
 	if !reflect.DeepEqual(src.ChaincodeID, dst.ChaincodeID) {
 		return fmt.Errorf("Different ChaincodeID [%s]!=[%s].", utils.EncodeBase64(src.ChaincodeID), utils.EncodeBase64(dst.ChaincodeID))
+	}
+
+	if !reflect.DeepEqual(src.Metadata, dst.Metadata) {
+		return fmt.Errorf("Different Metadata [%s]!=[%s].", utils.EncodeBase64(src.Metadata), utils.EncodeBase64(dst.Metadata))
 	}
 
 	return nil
