@@ -99,7 +99,7 @@ type CertificateHandler interface {
 	Verify(signature []byte, msg []byte) error
 
 	// GetTransactionHandler returns the transaction handler relative to this certificate
-	GetTransactionHandler() TransactionHandler
+	GetTransactionHandler() (TransactionHandler, error)
 }
 
 type TransactionHandler interface {

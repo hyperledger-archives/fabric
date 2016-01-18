@@ -11,6 +11,9 @@ type eCertHandlerImpl struct {
 
 type eCertTransactionHandlerImpl struct {
 	client *clientImpl
+
+	nonce []byte
+	hook  []byte
 }
 
 func (handler *eCertHandlerImpl) init(client *clientImpl) error {
@@ -42,15 +45,29 @@ func (handler *eCertHandlerImpl) Verify(signature []byte, msg []byte) error {
 }
 
 // GetTransactionHandler returns the transaction handler relative to this certificate
-func (handler *eCertHandlerImpl) GetTransactionHandler() TransactionHandler {
+func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, error) {
 	eCertTransactionHandlerImpl := &eCertTransactionHandlerImpl{}
-	eCertTransactionHandlerImpl.init(handler.client)
+	err := eCertTransactionHandlerImpl.init(handler.client)
+	if err != nil {
+		handler.client.node.log.Error("Failed getting transaction handler [%s]", err)
 
-	return eCertTransactionHandlerImpl
+		return nil, err
+	}
+
+	return eCertTransactionHandlerImpl, nil
 }
 
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
+	nonce, err := client.createTransactionNonce()
+	if err != nil {
+		client.node.log.Error("Failed initiliazing transaction handler [%s]", err)
+
+		return err
+	}
+
 	handler.client = client
+	handler.nonce = nonce
+	handler.hook = utils.Hash(append(handler.client.node.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }
@@ -62,20 +79,20 @@ func (handler *eCertTransactionHandlerImpl) GetCertificateHandler() (Certificate
 
 // GetHook returns an Hook to the underlying transaction layer
 func (handler *eCertTransactionHandlerImpl) GetHook() ([]byte, error) {
-	return utils.Clone(handler.client.node.enrollCertHash), nil
+	return utils.Clone(handler.hook), nil
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeDeployUsingECert(chaincodeDeploymentSpec, uuid)
+	return handler.client.newChaincodeDeployUsingECert(chaincodeDeploymentSpec, uuid, handler.nonce)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeExecuteUsingECert(chaincodeInvocation, uuid)
+	return handler.client.newChaincodeExecuteUsingECert(chaincodeInvocation, uuid, handler.nonce)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeQueryUsingECert(chaincodeInvocation, uuid)
+	return handler.client.newChaincodeQueryUsingECert(chaincodeInvocation, uuid, handler.nonce)
 }

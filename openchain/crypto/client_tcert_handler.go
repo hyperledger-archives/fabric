@@ -15,7 +15,9 @@ type tCertHandlerImpl struct {
 
 type tCertTransactionHandlerImpl struct {
 	tCertHandler *tCertHandlerImpl
-	hook         []byte
+
+	nonce []byte
+	hook  []byte
 }
 
 func (handler *tCertHandlerImpl) initDER(client *clientImpl, tCertDER []byte) error {
@@ -36,7 +38,12 @@ func (handler *tCertHandlerImpl) initX509(client *clientImpl, tCert *x509.Certif
 	handler.client = client
 	handler.tCert = tCert
 	handler.txHandler = &tCertTransactionHandlerImpl{}
-	handler.txHandler.init(handler)
+	err := handler.txHandler.init(handler)
+	if err != nil {
+		client.node.log.Error("Failed initiliazing certificate handler [%s]", err)
+
+		return err
+	}
 
 	return nil
 }
@@ -57,14 +64,22 @@ func (handler *tCertHandlerImpl) Verify(signature []byte, msg []byte) error {
 }
 
 // GetTransactionHandler returns the transaction handler relative to this certificate
-func (handler *tCertHandlerImpl) GetTransactionHandler() TransactionHandler {
+func (handler *tCertHandlerImpl) GetTransactionHandler() (TransactionHandler, error) {
 	// TODO: in the future should return a different instance
-	return handler.txHandler
+	return handler.txHandler, nil
 }
 
 func (handler *tCertTransactionHandlerImpl) init(tCertHandler *tCertHandlerImpl) error {
+	nonce, err := tCertHandler.client.createTransactionNonce()
+	if err != nil {
+		tCertHandler.client.node.log.Error("Failed initiliazing transaction handler [%s]", err)
+
+		return err
+	}
+
 	handler.tCertHandler = tCertHandler
-	handler.hook = utils.Hash(handler.tCertHandler.tCert.Raw)
+	handler.nonce = nonce
+	handler.hook = utils.Hash(append(handler.tCertHandler.tCert.Raw, nonce...))
 
 	return nil
 }
@@ -81,15 +96,15 @@ func (handler *tCertTransactionHandlerImpl) GetHook() ([]byte, error) {
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
 func (handler *tCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, handler.tCertHandler.tCert.Raw)
+	return handler.tCertHandler.client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, handler.tCertHandler.tCert.Raw, handler.nonce)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
 func (handler *tCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert.Raw)
+	return handler.tCertHandler.client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert.Raw, handler.nonce)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
 func (handler *tCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert.Raw)
+	return handler.tCertHandler.client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert.Raw, handler.nonce)
 }

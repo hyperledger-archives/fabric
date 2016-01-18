@@ -54,7 +54,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	}
 
 	// Create Transaction
-	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, rawTCert)
+	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, rawTCert, nil)
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
@@ -72,7 +72,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	}
 
 	// Create Transaction
-	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, rawTCert)
+	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, rawTCert, nil)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -90,7 +90,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	}
 
 	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, rawTCert)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, rawTCert, nil)
 }
 
 // DecryptQueryResult is used to decrypt the result of a query transaction
