@@ -203,7 +203,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
-	handler, err := deployer.GetTCertHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext()
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -223,12 +223,12 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerFromDER(t *testing.T) {
-	handler, err := deployer.GetTCertHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext()
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
 
-	handler2, err := deployer.GetTCertHandlerFromDER(handler.GetCertificate())
+	handler2, err := deployer.GetTCertificateHandlerFromDER(handler.GetCertificate())
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
@@ -249,7 +249,7 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 }
 
 func TestClientTCertHandlerSign(t *testing.T) {
-	handlerDeployer, err := deployer.GetTCertHandlerNext()
+	handlerDeployer, err := deployer.GetTCertificateHandlerNext()
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -269,7 +269,7 @@ func TestClientTCertHandlerSign(t *testing.T) {
 	}
 
 	// Check that invoker (another party) can verify the signature
-	handlerInvoker, err := invoker.GetTCertHandlerFromDER(handlerDeployer.GetCertificate())
+	handlerInvoker, err := invoker.GetTCertificateHandlerFromDER(handlerDeployer.GetCertificate())
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
@@ -290,7 +290,7 @@ func TestClientTCertHandlerSign(t *testing.T) {
 }
 
 func TestClientGetEnrollmentCertHandler(t *testing.T) {
-	handler, err := deployer.GetEnrollmentCertHandler()
+	handler, err := deployer.GetEnrollmentCertificateHandler()
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -948,7 +948,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetTCertHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -962,6 +962,16 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	hook, _ := txHandler.GetHook()
 	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Hook is malformed!")
+	}
+
+	// Check confidentiality level
+	if tx.ConfidentialityLevel != cds.ChaincodeSpec.ConfidentialityLevel {
+		t.Fatal("Failed setting confidentiality level")
+	}
+
+	// Check metadata
+	if !reflect.DeepEqual(cds.ChaincodeSpec.Metadata, tx.Metadata) {
+		t.Fatal("Failed copying metadata")
 	}
 
 	return otx, tx, err
@@ -986,7 +996,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1024,7 +1034,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1064,7 +1074,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetEnrollmentCertHandler()
+	handler, err := deployer.GetEnrollmentCertificateHandler()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1102,7 +1112,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetEnrollmentCertHandler()
+	handler, err := invoker.GetEnrollmentCertificateHandler()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1140,7 +1150,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetEnrollmentCertHandler()
+	handler, err := invoker.GetEnrollmentCertificateHandler()
 	if err != nil {
 		return nil, nil, err
 	}

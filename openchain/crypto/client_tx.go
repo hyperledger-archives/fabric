@@ -24,6 +24,10 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 		return nil, err
 	}
 
+	// Copy metadata from ChaincodeSpec
+	tx.Metadata = chaincodeDeploymentSpec.ChaincodeSpec.Metadata
+
+	// Handle confidentiality
 	if chaincodeDeploymentSpec.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
@@ -58,6 +62,10 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		return nil, err
 	}
 
+	// Copy metadata from ChaincodeSpec
+	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
+
+	// Handle confidentiality
 	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
@@ -92,6 +100,10 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 		return nil, err
 	}
 
+	// Copy metadata from ChaincodeSpec
+	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
+
+	// Handle confidentiality
 	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL

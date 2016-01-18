@@ -129,7 +129,7 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
-func (client *clientImpl) GetEnrollmentCertHandler() (CertificateHandler, error) {
+func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
@@ -147,7 +147,7 @@ func (client *clientImpl) GetEnrollmentCertHandler() (CertificateHandler, error)
 }
 
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
-func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
+func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
@@ -174,7 +174,7 @@ func (client *clientImpl) GetTCertHandlerNext() (CertificateHandler, error) {
 }
 
 // GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
-func (client *clientImpl) GetTCertHandlerFromDER(tCertDER []byte) (CertificateHandler, error) {
+func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (CertificateHandler, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized

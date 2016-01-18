@@ -46,15 +46,15 @@ func (handler *eCertHandlerImpl) Verify(signature []byte, msg []byte) error {
 
 // GetTransactionHandler returns the transaction handler relative to this certificate
 func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, error) {
-	eCertTransactionHandlerImpl := &eCertTransactionHandlerImpl{}
-	err := eCertTransactionHandlerImpl.init(handler.client)
+	txHandler := &eCertTransactionHandlerImpl{}
+	err := txHandler.init(handler.client)
 	if err != nil {
 		handler.client.node.log.Error("Failed getting transaction handler [%s]", err)
 
 		return nil, err
 	}
 
-	return eCertTransactionHandlerImpl, nil
+	return txHandler, nil
 }
 
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
@@ -74,7 +74,7 @@ func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 
 // GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction
 func (handler *eCertTransactionHandlerImpl) GetCertificateHandler() (CertificateHandler, error) {
-	return handler.client.GetEnrollmentCertHandler()
+	return handler.client.GetEnrollmentCertificateHandler()
 }
 
 // GetHook returns an Hook to the underlying transaction layer

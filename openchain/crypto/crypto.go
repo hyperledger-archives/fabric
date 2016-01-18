@@ -30,13 +30,13 @@ type Client interface {
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
 
 	// GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
-	GetEnrollmentCertHandler() (CertificateHandler, error)
+	GetEnrollmentCertificateHandler() (CertificateHandler, error)
 
 	// GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
-	GetTCertHandlerNext() (CertificateHandler, error)
+	GetTCertificateHandlerNext() (CertificateHandler, error)
 
 	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
-	GetTCertHandlerFromDER(der []byte) (CertificateHandler, error)
+	GetTCertificateHandlerFromDER(der []byte) (CertificateHandler, error)
 }
 
 // Peer is an entity able to verify transactions
@@ -87,6 +87,7 @@ type StateEncryptor interface {
 	Decrypt(ct []byte) ([]byte, error)
 }
 
+// CertificateHandler exposes methods to deal with an ECert/TCert
 type CertificateHandler interface {
 
 	// GetCertificate returns the certificate's DER
@@ -98,10 +99,11 @@ type CertificateHandler interface {
 	// Verify verifies msg using the verifying key corresponding to the certificate
 	Verify(signature []byte, msg []byte) error
 
-	// GetTransactionHandler returns the transaction handler relative to this certificate
+	// GetTransactionHandler returns a new transaction handler relative to this certificate
 	GetTransactionHandler() (TransactionHandler, error)
 }
 
+// TransactionHandler represents a single transaction that can be named by the output of the GetHook method.
 type TransactionHandler interface {
 
 	// GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction

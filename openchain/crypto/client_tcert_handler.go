@@ -7,8 +7,7 @@ import (
 )
 
 type tCertHandlerImpl struct {
-	client    *clientImpl
-	txHandler *tCertTransactionHandlerImpl
+	client *clientImpl
 
 	tCert *x509.Certificate
 }
@@ -37,13 +36,6 @@ func (handler *tCertHandlerImpl) initDER(client *clientImpl, tCertDER []byte) er
 func (handler *tCertHandlerImpl) initX509(client *clientImpl, tCert *x509.Certificate) error {
 	handler.client = client
 	handler.tCert = tCert
-	handler.txHandler = &tCertTransactionHandlerImpl{}
-	err := handler.txHandler.init(handler)
-	if err != nil {
-		client.node.log.Error("Failed initiliazing certificate handler [%s]", err)
-
-		return err
-	}
 
 	return nil
 }
@@ -65,8 +57,15 @@ func (handler *tCertHandlerImpl) Verify(signature []byte, msg []byte) error {
 
 // GetTransactionHandler returns the transaction handler relative to this certificate
 func (handler *tCertHandlerImpl) GetTransactionHandler() (TransactionHandler, error) {
-	// TODO: in the future should return a different instance
-	return handler.txHandler, nil
+	txHandler := &tCertTransactionHandlerImpl{}
+	err := txHandler.init(handler)
+	if err != nil {
+		handler.client.node.log.Error("Failed initiliazing transaction handler [%s]", err)
+
+		return nil, err
+	}
+
+	return txHandler, nil
 }
 
 func (handler *tCertTransactionHandlerImpl) init(tCertHandler *tCertHandlerImpl) error {
