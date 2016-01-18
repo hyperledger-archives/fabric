@@ -40,6 +40,8 @@ var peerClientConn *grpc.ClientConn
 
 func TestMain(m *testing.M) {
 	config.SetupTestConfig("./../..")
+	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+	viper.Set("validator.validity-period.verification", "false")
 
 	tmpConn, err := NewPeerClientConnection()
 	if err != nil {

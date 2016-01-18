@@ -79,6 +79,14 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed initializing validators [%s]\n", err)
 		panic(fmt.Errorf("Failed initializing validators [%s].", err))
 	}
+	
+	viper.Set("pki.validity-period.update", "false")
+	viper.Set("validator.validity-period.verification", "false")
+	
+	if err != nil {
+		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
+		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
+	}
 
 	ret := m.Run()
 
@@ -930,8 +938,8 @@ func stopPKI() {
 	eca.Close()
 	tca.Close()
 	tlsca.Close()
-
 	server.Stop()
+
 }
 
 func removeFolders() {

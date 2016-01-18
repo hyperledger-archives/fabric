@@ -836,5 +836,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	SetupTestConfig()
+	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+	viper.Set("validator.validity-period.verification", "false")
 	os.Exit(m.Run())
 }

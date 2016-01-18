@@ -23,9 +23,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
 	"reflect"
+	"strconv"
+	"time"
+	"github.com/spf13/viper"
+	
+	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 )
 
 // Public Struct
@@ -74,6 +79,14 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
 	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	
+	if validityPeriodVerificationEnabled() {
+		tx, err := validator.verifyValidityPeriod(tx)
+		if(err != nil){
+			validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
+			return tx, err
+		}
+	}
 
 	switch tx.ConfidentialityLevel {
 	case obc.ConfidentialityLevel_PUBLIC:
@@ -104,7 +117,70 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 	default:
 		return nil, utils.ErrInvalidConfidentialityLevel
 	}
+}
 
+
+func validityPeriodVerificationEnabled() bool {
+	// If the verification of the validity period is enabled in the configuration file return the configured value
+	if viper.IsSet("validator.validity-period.verification") {
+		return viper.GetBool("validator.validity-period.verification")
+	}
+	
+	// Validity period verification is enabled by default if no configuration was specified.
+	return true
+}
+
+func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {
+	if tx.Cert != nil && tx.Signature != nil {
+
+		// Unmarshal cert
+		cert, err := utils.DERToX509Certificate(tx.Cert)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			return tx, err
+		}
+		
+		cid := viper.GetString("pki.validity-period.chaincodeHash")
+		
+		ledger, err := ledger.GetLedger()
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			return tx, err
+		}
+		
+		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			return tx, err
+		}
+		
+		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
+		if err != nil {
+			validator.peer.node.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			return tx, err
+		}
+		
+		vp := time.Unix(i, 0)
+		
+		var errMsg string = ""
+		
+		// Verify the validity period of the TCert
+		switch {
+			case cert.NotAfter.Before(cert.NotBefore):
+				errMsg = "verifyValidityPeriod: certificate validity period is invalid"
+			case vp.Before(cert.NotBefore):
+				errMsg = "verifyValidityPeriod: certificate validity period is in the future"
+			case vp.After(cert.NotAfter):
+				errMsg = "verifyValidityPeriod: certificate validity period is in the past"
+		}
+		
+		if errMsg != "" {
+			validator.peer.node.log.Error(errMsg)
+			return tx, errors.New(errMsg)
+		}
+	}
+	
+	return tx, nil
 }
 
 // Sign signs msg with this validator's signing key and outputs
