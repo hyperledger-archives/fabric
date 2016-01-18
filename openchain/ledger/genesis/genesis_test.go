@@ -69,7 +69,7 @@ func TestGenesis(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(30000) * time.Millisecond
-	protos.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	protos.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 

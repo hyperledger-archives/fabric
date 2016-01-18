@@ -402,6 +402,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -473,6 +474,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
