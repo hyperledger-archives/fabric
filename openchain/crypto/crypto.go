@@ -92,14 +92,23 @@ type CertificateHandler interface {
 	// GetCertificate returns the certificate's DER
 	GetCertificate() []byte
 
-	// GetHook returns an Hook to the underlying transaction layer
-	GetHook() ([]byte, error)
-
 	// Sign signs msg using the signing key corresponding to the certificate
 	Sign(msg []byte) ([]byte, error)
 
 	// Verify verifies msg using the verifying key corresponding to the certificate
 	Verify(signature []byte, msg []byte) error
+
+	// GetTransactionHandler returns the transaction handler relative to this certificate
+	GetTransactionHandler() TransactionHandler
+}
+
+type TransactionHandler interface {
+
+	// GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction
+	GetCertificateHandler() (CertificateHandler, error)
+
+	// GetHook returns an Hook to the underlying transaction layer
+	GetHook() ([]byte, error)
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode using the certificate
 	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)

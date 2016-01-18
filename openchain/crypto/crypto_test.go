@@ -118,7 +118,7 @@ func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
 
 func TestClientDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestClientDeployTransaction with [%s]", i)
+		t.Logf("TestClientDeployTransaction with [%d]", i)
 
 		_, tx, err := createTx()
 
@@ -952,7 +952,7 @@ func createConfidentialTCertHDeployTransaction() (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeDeployTransaction(cds, uuid)
 	return otx, tx, err
 }
 
@@ -979,7 +979,7 @@ func createConfidentialTCertHExecuteTransaction() (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeExecute(cis, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeExecute(cis, uuid)
 	return otx, tx, err
 }
 
@@ -1006,7 +1006,7 @@ func createConfidentialTCertHQueryTransaction() (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeQuery(cis, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeQuery(cis, uuid)
 	return otx, tx, err
 }
 
@@ -1035,7 +1035,7 @@ func createConfidentialECertHDeployTransaction() (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeDeployTransaction(cds, uuid)
 	return otx, tx, err
 }
 
@@ -1062,7 +1062,7 @@ func createConfidentialECertHExecuteTransaction() (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeExecute(cis, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeExecute(cis, uuid)
 	return otx, tx, err
 }
 
@@ -1089,7 +1089,7 @@ func createConfidentialECertHQueryTransaction() (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := handler.NewChaincodeQuery(cis, uuid)
+	tx, err := handler.GetTransactionHandler().NewChaincodeQuery(cis, uuid)
 	return otx, tx, err
 }
 
