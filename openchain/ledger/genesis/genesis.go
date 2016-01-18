@@ -29,7 +29,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
@@ -42,7 +41,7 @@ var once sync.Once
 
 // MakeGenesis creates the genesis block based on configuration in openchain.yaml
 // and adds it to the blockchain.
-func MakeGenesis(secCxt crypto.Peer) error {
+func MakeGenesis() error {
 	once.Do(func() {
 		ledger, err := ledger.GetLedger()
 		if err != nil {
@@ -60,11 +59,11 @@ func MakeGenesis(secCxt crypto.Peer) error {
 		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
 		
-		if deploySystemChaincodeEnabled() {
-			vpTransaction, deployErr := deployUpdateValidityPeriodChaincode(secCxt)
-
+		if(deploySystemChaincodeEnabled()){
+			vpTransaction, deployErr :=  deployUpdateValidityPeriodChaincode()
+			
 			if deployErr != nil {
-				genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
+				genesisLogger.Error("Error deploying validity period system chaincode for genesis block.", deployErr)
 				makeGenesisError = deployErr
 				return
 			}
@@ -77,16 +76,17 @@ func MakeGenesis(secCxt crypto.Peer) error {
 		if genesis == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")
 		} else {
-
+			
 			chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
 			if !chaincodesOK {
 				genesisLogger.Info("No genesis block chaincodes defined.")
-				ledger.CommitTxBatch(0, genesisTransactions, nil)
+				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 				return
 			}
 	
 			genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
-
+	
+			
 			for i := 0; i < len(chaincodes); i++ {
 				genesisLogger.Debug("Chaincode %d is %s", i, chaincodes[i])
 	
@@ -153,7 +153,7 @@ func MakeGenesis(secCxt crypto.Peer) error {
 					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
 				}
 	
-				transaction, _, deployErr := DeployLocal(context.Background(), &spec, secCxt)
+				transaction, _, deployErr := DeployLocal(context.Background(), &spec)
 				if deployErr != nil {
 					genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
 					makeGenesisError = deployErr
@@ -161,11 +161,13 @@ func MakeGenesis(secCxt crypto.Peer) error {
 				}
 	
 				genesisTransactions = append(genesisTransactions, transaction)
-			}
-		}
-		
+	
+			}//for
+
+		}//else
+
 		genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
-		ledger.CommitTxBatch(0, genesisTransactions, nil)
+		ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 
 	})
 	return makeGenesisError
@@ -194,7 +196,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, secCxt crypto.Peer) (*protos.Transaction, []byte, error) {
+func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Transaction, []byte, error) {
 	// First build and get the deployment spec
 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
@@ -208,7 +210,9 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, secCxt crypto.
 		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
-	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction, secCxt)
+	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+	//ctx = context.WithValue(ctx, "security", secCxt)
+	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return transaction, result, err
 }
 
@@ -222,7 +226,7 @@ func deploySystemChaincodeEnabled() bool {
 	return true
 } 
 
-func deployUpdateValidityPeriodChaincode(secCxt crypto.Peer) (*protos.Transaction, error) {
+func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
 	//TODO It should be configurable, not hardcoded
 	vpChaincodePath := "github.com/openblockchain/obc-peer/openchain/system_chaincode/validity_period_update"
 	vpFunction := "init"
@@ -244,7 +248,7 @@ func deployUpdateValidityPeriodChaincode(secCxt crypto.Peer) (*protos.Transactio
 
 	validityPeriodSpec.SecureContext = string(vpToken)
 
-	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec, secCxt)
+	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec)
 
 	if deployErr != nil {
 		genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)

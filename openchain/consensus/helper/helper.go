@@ -134,7 +134,9 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 // one-by-one. If all the executions are successful, it returns
 // the candidate global state hash, and nil error array.
 func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs, h.coordinator.GetSecHelper())
+	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
+	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -142,12 +144,12 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
-func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, proof []byte) error {
+func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, proof []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if err := ledger.CommitTxBatch(id, transactions, proof); err != nil {
+	if err := ledger.CommitTxBatch(id, transactions, nil, proof); err != nil {
 		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil

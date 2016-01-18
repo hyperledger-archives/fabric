@@ -23,11 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
-	//"github.com/openblockchain/obc-peer/openchain/chaincode"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -35,6 +33,15 @@ import (
 type PeerChaincodeStream interface {
 	Send(*pb.ChaincodeMessage) error
 	Recv() (*pb.ChaincodeMessage, error)
+}
+
+type nextStateInfo struct {
+	msg	*pb.ChaincodeMessage
+	sendToCC	bool
+}
+
+func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
+	handler.nextState <- &nextStateInfo{ msg, send }
 }
 
 // Handler handler implementation for shim side of chaincode.
@@ -49,6 +56,7 @@ type Handler struct {
 	responseChannel map[string]chan pb.ChaincodeMessage
 	// Track which UUIDs are transactions and which are queries, to decide whether get/put state and invoke chaincode are allowed.
 	isTransaction map[string]bool
+	nextState	chan *nextStateInfo
 }
 
 func (handler *Handler) createChannel(uuid string) error {
@@ -100,6 +108,7 @@ func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincod
 	}
 	v.responseChannel = make(map[string]chan pb.ChaincodeMessage)
 	v.isTransaction = make(map[string]bool)
+	v.nextState = make(chan *nextStateInfo)
 
 	// Create the shim side FSM
 	v.FSM = fsm.NewFSM(
@@ -128,7 +137,6 @@ func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincod
 			"enter_init":                                     func(e *fsm.Event) { v.enterInitState(e) },
 			"enter_transaction":                              func(e *fsm.Event) { v.enterTransactionState(e) },
 			//"enter_ready":                                     func(e *fsm.Event) { v.enterReadyState(e) },
-			"after_" + pb.ChaincodeMessage_COMPLETED.String(): func(e *fsm.Event) { v.afterCompleted(e) },
 			"before_" + pb.ChaincodeMessage_QUERY.String():    func(e *fsm.Event) { v.beforeQuery(e) }, //only checks for QUERY
 		},
 	)
@@ -158,8 +166,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.FSM.Event(errMsg.Type.String(), errMsg)
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
 
@@ -171,24 +178,23 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		stub := new(ChaincodeStub)
 		stub.UUID = msg.Uuid
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
+
+		// delete isTransaction entry
+		handler.deleteIsTransaction(msg.Uuid)
+
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Init failed. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.FSM.Event(errMsg.Type.String(), errMsg)
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
-
-		// delete isTransaction entry
-		handler.deleteIsTransaction(msg.Uuid)
 
 		// Send COMPLETED message to chaincode support and change state
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
 		chaincodeLogger.Debug("Init succeeded. Sending %s(%s)", pb.ChaincodeMessage_COMPLETED, completedMsg.Uuid)
-		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
-		handler.ChatStream.Send(completedMsg)
+		handler.triggerNextState(completedMsg, true)
 	}()
 }
 
@@ -221,8 +227,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Incorrect payload format. Sending %s", pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.FSM.Event(errMsg.Type.String(), errMsg)
-			handler.ChatStream.Send(errMsg)
+			handler.triggerNextState(errMsg, true)
 			return
 		}
 
@@ -234,27 +239,23 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		stub := new(ChaincodeStub)
 		stub.UUID = msg.Uuid
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
+
+		// delete isTransaction entry
+		handler.deleteIsTransaction(msg.Uuid)
+
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("Transaction execution failed. Sending %s", pb.ChaincodeMessage_ERROR)
 			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.FSM.Event(errorMsg.Type.String(), errorMsg)
-			handler.ChatStream.Send(errorMsg)
+			handler.triggerNextState(errorMsg, true)
 			return
 		}
-
-		// delete isTransaction entry
-		handler.deleteIsTransaction(msg.Uuid)
 
 		// Send COMPLETED message to chaincode support and change state
 		chaincodeLogger.Debug("Transaction completed. Sending %s", pb.ChaincodeMessage_COMPLETED)
 		completedMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
-		handler.FSM.Event(completedMsg.Type.String(), completedMsg)
-		//there's still a timing window .... user could send another transaction
-		//before the state transitions to ready.... so we really have to do the send
-		//in the readystate (see afterCompleted (previously enterReadyState))
-		//handler.ChatStream.Send(completedMsg)
+		handler.triggerNextState(completedMsg, true)
 	}()
 }
 
@@ -282,6 +283,10 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		stub := new(ChaincodeStub)
 		stub.UUID = msg.Uuid
 		res, err := handler.cc.Query(stub, input.Function, input.Args)
+
+		// delete isTransaction entry
+		handler.deleteIsTransaction(msg.Uuid)
+
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
@@ -290,9 +295,6 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 			handler.ChatStream.Send(errorMsg)
 			return
 		}
-
-		// delete isTransaction entry
-		handler.deleteIsTransaction(msg.Uuid)
 
 		// Send COMPLETED message to chaincode support
 		chaincodeLogger.Debug("Query completed. Sending %s", pb.ChaincodeMessage_QUERY_COMPLETED)
@@ -314,11 +316,6 @@ func (handler *Handler) enterTransactionState(e *fsm.Event) {
 		// Call the chaincode's Run function to invoke transaction
 		handler.handleTransaction(msg)
 	}
-	/* This is being called from beforeQuery()
-	else if msg.Type.String() == pb.ChaincodeMessage_QUERY.String() {
-		handler.handleQuery(msg)
-	}
-	*/
 }
 
 // enterReadyState will need to handle COMPLETED event by sending message to the peer
@@ -631,29 +628,12 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("Handling ChaincodeMessage of type: %s(state:%s)", msg.Type, handler.FSM.Current())
 	if handler.FSM.Cannot(msg.Type.String()) {
-		//TODO - this is a hack but it fixes an important hole that's
-		//tricky to fix. "FSM.Cannot(..)" may fail not because we are in a bad state
-		//but because FSM's transition object is not nilled. There is a tiny timing
-		//window in looplab's fsm.go
-		//	f.transition()
-		//	f.transition = nil
-		//before f.transition is set to nil where we could get a message causing Cannot() to return false.
-		//We see this typically in ready state. Some rearranging might help us here
-		//but for now, trying once more after a small sleep/seems to fix this and
-		//helps the test cases run smoothly.
-		//NEEDS REVISITING...
-
-		time.Sleep(2 * time.Millisecond)
-
-		//try again
-		if handler.FSM.Cannot(msg.Type.String()) {
-			errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
-			err := errors.New(errStr)
-			payload := []byte(err.Error())
-			errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
-			handler.ChatStream.Send(errorMsg)
-			return err
-		}
+		errStr := fmt.Sprintf("Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), handler.FSM.Current())
+		err := errors.New(errStr)
+		payload := []byte(err.Error())
+		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		handler.ChatStream.Send(errorMsg)
+		return err
 	}
 	err := handler.FSM.Event(msg.Type.String(), msg)
 	return filterError(err)

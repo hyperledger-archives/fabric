@@ -26,7 +26,7 @@ import (
 	"os"
 	"strconv"
 	"time"
-	"sync"
+	//"sync"
 	"io/ioutil"
 	"encoding/json"
 	"github.com/spf13/viper"
@@ -44,11 +44,13 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/rest"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 )
 
 var (
 	tca *TCA 
 	eca *ECA 
+	server *grpc.Server
 )
 
 type ValidityPeriod struct {
@@ -84,7 +86,7 @@ func TestValidityPeriod(t *testing.T) {
 			
 	// 2. Obtain the validity period by querying and directly from the ledger	
 	validityPeriod_A := queryValidityPeriod(t)
-	validityPeriodFromLedger_A := getValidityPeriodFromLedger(t)
+	validityPeriodFromLedger_A := getValidityPeriodFromLedger(t) 
 
 	// 3. Wait for the validity period to be updated...
 	time.Sleep(time.Second * 40)
@@ -154,16 +156,24 @@ func startTCA() {
 	tca = NewTCA(eca)
 	defer tca.Close()
 
-	var wg sync.WaitGroup
-	eca.Start(&wg)
-	tca.Start(&wg)
+	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
+	if err != nil {
+		panic("Cannot open port: " + err.Error())
+	}
+	
+	server = grpc.NewServer()
 
-	wg.Wait()
+	eca.Start(server)
+	tca.Start(server)
+
+	server.Serve(sockp)
 }
 
+
 func stopTCA(){
-	tca.Stop()
-	eca.Stop()
+	eca.Close()
+	tca.Close()
+	server.Stop()
 }
 
 func queryValidityPeriod(t *testing.T) int64 {
@@ -225,7 +235,7 @@ func queryTransaction(hash string, args []string) ([]byte, error) {
 	}
 	
 		
-	logger.Info("Successfully invoked validity period update: %s", string(response.Msg))
+	Info.Println("Successfully invoked validity period update: %s", string(response.Msg))
 	
 	return response.Msg, nil
 }
@@ -234,18 +244,18 @@ func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec) (*pb.Response,
 
 	devopsClient, err := getDevopsClient(viper.GetString("pki.validity-period.devops-address"))
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error retrieving devops client: %s", err))
+		Error.Println(fmt.Sprintf("Error retrieving devops client: %s", err))
 		return nil,err
 	}
 
 	resp, err := devopsClient.Query(context.Background(), chaincodeInvSpec)
 
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error invoking validity period update system chaincode: %s", err))
+		Error.Println(fmt.Sprintf("Error invoking validity period update system chaincode: %s", err))
 		return nil,err
 	}
 	
-	logger.Info("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	Info.Println("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
 	
 	return resp,nil
 }
@@ -270,14 +280,14 @@ func startOpenchain() error {
 
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
+		Error.Println(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
 		return err
 	}
 
 	listenAddr := viper.GetString("peer.listenaddress")
 
 	if "" == listenAddr {
-		logger.Debug("Listen address not specified, using peer endpoint address")
+		Info.Println("Listen address not specified, using peer endpoint address")
 		listenAddr = peerEndpoint.Address
 	}
 
@@ -286,7 +296,7 @@ func startOpenchain() error {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
 
-	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
+	Info.Println("Security enabled status: %t", viper.GetBool("security.enabled"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -303,10 +313,10 @@ func startOpenchain() error {
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		Info.Println("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, _ = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
-		logger.Debug("Running as non-validating peer")
+		Info.Println("Running as non-validating peer")
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
@@ -316,7 +326,15 @@ func startOpenchain() error {
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
+	
+	var secHelper crypto.Peer
+	if viper.GetBool("security.privacy") {
+		secHelper = peerServer.GetSecHelper()
+	} else {
+		secHelper = nil
+	}
+	
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer(peerServer)
@@ -325,7 +343,7 @@ func startOpenchain() error {
 	// Register the ServerOpenchain server
 	serverOpenchain, err := openchain.NewOpenchainServer()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating OpenchainServer: %s", err))
+		Error.Println(fmt.Sprintf("Error creating OpenchainServer: %s", err))
 		return err
 	}
 
@@ -339,7 +357,7 @@ func startOpenchain() error {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
 
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+	Info.Println("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
 
@@ -353,7 +371,7 @@ func startOpenchain() error {
 
 	// Deploy the geneis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
+		makeGeneisError := genesis.MakeGenesis()
 		if makeGeneisError != nil {
 			return makeGeneisError
 		}
@@ -368,19 +386,19 @@ func startOpenchain() error {
 func stopOpenchain() {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error("Error trying to connect to local peer:", err)
+		Error.Println("Error trying to connect to local peer:", err)
 		return
 	}
 
-	logger.Info("Stopping peer...")
+	Info.Println("Stopping peer...")
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-	logger.Info("Current status: %s", status)
+	Info.Println("Current status: %s", status)
 
 }
 
-func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
+func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server, secHelper crypto.Peer) {
 	//get user mode
 	userRunsCC := false
 	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
@@ -395,5 +413,6 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout))
+//(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer)
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
 }

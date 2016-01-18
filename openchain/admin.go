@@ -44,7 +44,7 @@ func NewAdminServer() *ServerAdmin {
 type ServerAdmin struct {
 }
 
-func worker(id int, die chan bool) {
+func worker(id int, die chan struct{}) {
 	for {
 		select {
 		case <-die:
@@ -60,7 +60,7 @@ func worker(id int, die chan bool) {
 // GetStatus reports the status of the server
 func (*ServerAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN}
-	die := make(chan bool)
+	die := make(chan struct{})
 	log.Debug("Creating %d workers", viper.GetInt("peer.workers"))
 	for i := 0; i < viper.GetInt("peer.workers"); i++ {
 		go worker(i, die)

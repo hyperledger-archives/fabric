@@ -20,11 +20,10 @@ under the License.
 package buckettree
 
 import (
-	"bytes"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/util"
 )
 
 type dataKey struct {
@@ -36,7 +35,7 @@ func newDataKey(chaincodeID string, key string) *dataKey {
 	logger.Debug("Enter - newDataKey. chaincodeID=[%s], key=[%s]", chaincodeID, key)
 	compositeKey := statemgmt.ConstructCompositeKey(chaincodeID, key)
 	bucketHash := conf.computeBucketHash(compositeKey)
-	// Adding one because - we start number buckets 1 onwards
+	// Adding one because - we start bucket-numbers 1 onwards
 	bucketNumber := int(bucketHash)%conf.getNumBucketsAtLowestLevel() + 1
 	dataKey := &dataKey{newBucketKeyAtLowestLevel(bucketNumber), compositeKey}
 	logger.Debug("Exit - newDataKey=[%s]", dataKey)
@@ -44,29 +43,40 @@ func newDataKey(chaincodeID string, key string) *dataKey {
 }
 
 func minimumPossibleDataKeyBytesFor(bucketKey *bucketKey) []byte {
-	min := proto.EncodeVarint(uint64(bucketKey.bucketNumber))
+	min := encodeBucketNumber(bucketKey.bucketNumber)
 	min = append(min, byte(0))
 	return min
 }
 
-func newDataKeyFromEncodedBytes(encodedBytes []byte) *dataKey {
-	bucketNum, l := proto.DecodeVarint(encodedBytes)
-	if !bytes.Equal(encodedBytes[l:l+1], []byte{byte(0)}) {
-		panic(fmt.Errorf("[%#v] is not a valid data key", encodedBytes))
-	}
-	compositeKey := encodedBytes[l+1:]
-	return &dataKey{newBucketKeyAtLowestLevel(int(bucketNum)), compositeKey}
+func minimumPossibleDataKeyBytes(bucketNumber int, chaincodeID string, key string) []byte {
+	b := encodeBucketNumber(bucketNumber)
+	b = append(b, statemgmt.ConstructCompositeKey(chaincodeID, key)...)
+	return b
 }
 
 func (key *dataKey) getBucketKey() *bucketKey {
 	return key.bucketKey
 }
 
+func encodeBucketNumber(bucketNumber int) []byte {
+	return util.EncodeOrderPreservingVarUint64(uint64(bucketNumber))
+}
+
+func decodeBucketNumber(encodedBytes []byte) (int, int) {
+	bucketNum, bytesConsumed := util.DecodeOrderPreservingVarUint64(encodedBytes)
+	return int(bucketNum), bytesConsumed
+}
+
 func (key *dataKey) getEncodedBytes() []byte {
-	encodedBytes := proto.EncodeVarint(uint64(key.bucketKey.bucketNumber))
-	encodedBytes = append(encodedBytes, byte(0))
+	encodedBytes := encodeBucketNumber(key.bucketKey.bucketNumber)
 	encodedBytes = append(encodedBytes, key.compositeKey...)
 	return encodedBytes
+}
+
+func newDataKeyFromEncodedBytes(encodedBytes []byte) *dataKey {
+	bucketNum, l := decodeBucketNumber(encodedBytes)
+	compositeKey := encodedBytes[l:]
+	return &dataKey{newBucketKeyAtLowestLevel(bucketNum), compositeKey}
 }
 
 func (key *dataKey) String() string {

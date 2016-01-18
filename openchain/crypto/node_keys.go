@@ -48,7 +48,7 @@ func (node *nodeImpl) retrieveEnrollmentData(userID, pwd string) error {
 	//	validatorLogger.Info("Register:key  ", utils.EncodeBase64(key))
 
 	// Store enrollment  key
-	node.log.Debug("Storing enrollment data for user [%s]...", userID)
+	node.log.Debug("Storing enrollment data for [%s]...", userID)
 
 	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {
@@ -157,7 +157,7 @@ func (node *nodeImpl) loadEnrollmentID() error {
 	return nil
 }
 
-func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string ) error {
+func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
 		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
@@ -167,7 +167,7 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string ) error {
 	node.log.Info("Register:cert %s", utils.EncodeBase64(tlsCertRaw))
 
 	// Store enrollment  key
-	node.log.Info("Storing enrollment key and certificate for user [%s]...", id)
+	node.log.Info("Storing enrollment key and certificate for [%s]...", id)
 
 	rawKey, err := utils.PrivateKeyToPEM(key)
 	if err != nil {

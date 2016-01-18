@@ -45,13 +45,7 @@ type dockerVM struct {
 
 //create a docker client given endpoint to communicate with docker host
 func (vm *dockerVM) newClient() (*docker.Client, error) {
-	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
-	endpoint := viper.GetString("vm.endpoint")
-	client, err := docker.NewClient(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
+	return NewDockerClient()
 }
 
 //for docker inputbuf is tar reader ready for use by docker.Client

@@ -39,6 +39,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -54,7 +55,19 @@ type Peer interface {
 
 // BlocksRetriever interface for retrieving blocks .
 type BlocksRetriever interface {
-	GetBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+	RequestBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+}
+
+// StateRetriever interface for retrieving state deltas, etc.
+type StateRetriever interface {
+	RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error)
+	RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error)
+}
+
+// RemoteLedger interface for retrieving remote ledger data.
+type RemoteLedger interface {
+	BlocksRetriever
+	StateRetriever
 }
 
 // BlockChainAccessor interface for retreiving blocks by block number
@@ -65,11 +78,12 @@ type BlockChainAccessor interface {
 // StateAccessor interface for retreiving blocks by block number
 type StateAccessor interface {
 	GetStateSnapshot() (*state.StateSnapshot, error)
+	GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error)
 }
 
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
-	BlocksRetriever
+	RemoteLedger
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -86,6 +100,7 @@ type MessageHandlerCoordinator interface {
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
 	GetPeers() (*pb.PeersMessage, error)
+	GetRemoteLedger(receiver string) (RemoteLedger, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
 }
@@ -198,16 +213,18 @@ type handlerMap struct {
 	m map[string]MessageHandler
 }
 
+type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+
 // PeerImpl implementation of the Peer service
 type PeerImpl struct {
-	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+	handlerFactory HandlerFactory
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)) (*PeerImpl, error) {
+func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -271,6 +288,17 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	}
 	peersMessage := &pb.PeersMessage{Peers: peers}
 	return peersMessage, nil
+}
+
+// GetRemoteLedger returns the RemoteLedger interface for the remote Peer Endpoint
+func (p *PeerImpl) GetRemoteLedger(receiver string) (RemoteLedger, error) {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	remoteLedger, ok := p.handlerMap.m[receiver]
+	if !ok {
+		return nil, fmt.Errorf("Remote ledger not found for receiver = %s", receiver)
+	}
+	return remoteLedger, nil
 }
 
 // PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
@@ -360,6 +388,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -431,6 +460,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -506,7 +536,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		stream, err := serverClient.Chat(ctx)
 		if err != nil {
 			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-			peerLogger.Error("%s", e.Error())
+			peerLogger.Error(fmt.Sprintf("%s", e.Error()))
 			continue
 		}
 		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
@@ -591,10 +621,18 @@ func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
 	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
 }
 
+// GetStateSnapshot return the state snapshot
 func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	return p.ledgerWrapper.ledger.GetStateSnapshot()
+}
+
+// GetStateDelta return the state delta for the requested block number
+func (p *PeerImpl) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetStateDelta(blockNumber)
 }
 
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending

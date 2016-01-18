@@ -174,7 +174,7 @@ func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 	return nil, errs
 }
 
-func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
+func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, txResults []*pb.TransactionResult, proof []byte) error {
 	if !reflect.DeepEqual(inst.txID, id) {
 		return fmt.Errorf("Invalid batch ID")
 	}
