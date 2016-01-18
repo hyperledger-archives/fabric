@@ -112,9 +112,9 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 2>-------------------------------------
 	// Deploy a chaincode
-	transaction2a,err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction2a, err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, testutil.GenerateUUID(testWrapper.t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
 	if err != nil {
-		return nil,nil,err
+		return nil, nil, err
 	}
 	// Now we add the transaction to the block 2 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
@@ -127,9 +127,9 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Block 3>-------------------------------------
 	// Create a transaction'
-	transaction3a,err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
+	transaction3a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
 	if err != nil {
-		return nil,nil,err
+		return nil, nil, err
 	}
 	// Create the third block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}

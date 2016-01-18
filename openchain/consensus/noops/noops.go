@@ -172,7 +172,7 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	}
 
 	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
-	if err := i.cpi.CommitTxBatch(msg.Timestamp, txarr, nil); err != nil {
+	if err := i.cpi.CommitTxBatch(msg.Timestamp, txarr, nil, nil); err != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
 		i.cpi.RollbackTxBatch(msg.Timestamp)
 		return err

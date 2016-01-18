@@ -272,11 +272,9 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 	for i := 0; i < num; i++ {
 		tidx := []byte(strconv.Itoa(i))
 		tidx = append(tidx[:], nonce[:]...)
-
 		mac = hmac.New(sha3.New384, kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
-
 		mac = hmac.New(sha3.New384, kdfKey)
 		mac.Write([]byte{2})
 		mac = hmac.New(sha3.New384, mac.Sum(nil))
@@ -295,7 +293,6 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 		if err != nil {
 			return nil, err
 		}
-
 		if raw, err = tcap.tca.newCertificate(id, &txPub, req.Ts.Seconds, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
 			Error.Println(err)
 			return nil, err
