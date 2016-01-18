@@ -30,18 +30,16 @@ var logger = logging.MustGetLogger("statemgmt")
 var stateKeyDelimiter = []byte{0x00}
 
 // ConstructCompositeKey returns a []byte that uniquely represents a given chaincodeID and key.
-// This assumes that chaincodeID and key does not contain a nil byte
+// This assumes that chaincodeID does not contain a 0x00 byte, but the key may
+// TODO:enforce this restriction on chaincodeID or use length prefixing here instead of delimiter
 func ConstructCompositeKey(chaincodeID string, key string) []byte {
-	compositeKey := []byte(chaincodeID)
-	compositeKey = append(compositeKey, stateKeyDelimiter...)
-	compositeKey = append(compositeKey, []byte(key)...)
-	return compositeKey
+	return bytes.Join([][]byte{[]byte(chaincodeID), []byte(key)}, stateKeyDelimiter)
 }
 
 // DecodeCompositeKey decodes the compositeKey constructed by ConstructCompositeKey method
 // back to the original chaincodeID and key form
 func DecodeCompositeKey(compositeKey []byte) (string, string) {
-	split := bytes.Split(compositeKey, stateKeyDelimiter)
+	split := bytes.SplitN(compositeKey, stateKeyDelimiter, 2)
 	return string(split[0]), string(split[1])
 }
 

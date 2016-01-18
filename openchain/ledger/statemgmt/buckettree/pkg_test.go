@@ -116,6 +116,12 @@ func (testWrapper *stateImplTestWrapper) persistChangesAndResetInMemoryChanges()
 	testWrapper.stateImpl.ClearWorkingSet(true)
 }
 
+func (testWrapper *stateImplTestWrapper) getRangeScanIterator(chaincodeID string, startKey string, endKey string) statemgmt.RangeScanIterator {
+	itr, err := testWrapper.stateImpl.GetRangeScanIterator(chaincodeID, startKey, endKey)
+	testutil.AssertNoError(testWrapper.t, err, "Error while getting iterator")
+	return itr
+}
+
 func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {
 	testDBWrapper.CreateFreshDB(t)
 	testHasher := newTestHasher()

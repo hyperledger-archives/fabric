@@ -27,7 +27,7 @@ import (
 func (validator *validatorImpl) initKeyStore() error {
 	// create tables
 	validator.peer.node.log.Debug("Create Table if not exists", "Certificates", validator.peer.node.conf.getKeysPath())
-	if _, err := validator.peer.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, cert BLOB, PRIMARY KEY (id))"); err != nil {
+	if _, err := validator.peer.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, certsign BLOB, certenc BLOB, PRIMARY KEY (id))"); err != nil {
 		validator.peer.node.log.Debug("Failed creating table [%s].", err.Error())
 		return err
 	}
@@ -35,26 +35,27 @@ func (validator *validatorImpl) initKeyStore() error {
 	return nil
 }
 
-func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, error)) ([]byte, error) {
+func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, []byte, error)) ([]byte, error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
 	sid := utils.EncodeBase64(id)
 
-	cert, err := ks.selectEnrollmentCert(sid)
+	certSign, certEnc, err := ks.selectSignEnrollmentCert(sid)
 	if err != nil {
 		ks.log.Error("Failed selecting enrollment cert [%s].", err.Error())
 
 		return nil, err
 	}
-	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
-	if cert == nil {
+	if certSign == nil {
+		ks.log.Debug("Cert for [%s] not available. Fetching from ECA....", utils.EncodeBase64(id))
+
 		// If No cert is available, fetch from ECA
 
 		// 1. Fetch
 		ks.log.Debug("Fectch Enrollment Certificate from ECA...")
-		cert, err = certFetcher(id)
+		certSign, certEnc, err = certFetcher(id)
 		if err != nil {
 			return nil, err
 		}
@@ -69,9 +70,9 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 		}
 
 		ks.log.Debug("Insert id [%s].", sid)
-		ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(cert))
+		ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(certSign))
 
-		_, err = tx.Exec("INSERT INTO Certificates (id, cert) VALUES (?, ?)", sid, cert)
+		_, err = tx.Exec("INSERT INTO Certificates (id, certsign, certenc) VALUES (?, ?, ?)", sid, certSign, certEnc)
 
 		if err != nil {
 			ks.log.Error("Failed inserting cert [%s].", err.Error())
@@ -92,7 +93,7 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 
 		ks.log.Debug("Fectch Enrollment Certificate from ECA...done!")
 
-		cert, err = ks.selectEnrollmentCert(sid)
+		certSign, certEnc, err = ks.selectSignEnrollmentCert(sid)
 		if err != nil {
 			ks.log.Error("Failed selecting next TCert after fetching [%s].", err.Error())
 
@@ -100,28 +101,30 @@ func (ks *keyStore) GetEnrollmentCert(id []byte, certFetcher func(id []byte) ([]
 		}
 	}
 
-	return cert, nil
+	ks.log.Debug("Cert for [%s] = [%s]", sid, utils.EncodeBase64(certSign))
+
+	return certSign, nil
 }
 
-func (ks *keyStore) selectEnrollmentCert(id string) ([]byte, error) {
-	ks.log.Debug("Select Enrollment TCert...")
+func (ks *keyStore) selectSignEnrollmentCert(id string) ([]byte, []byte, error) {
+	ks.log.Debug("Select Sign Enrollment Cert for id [%s]", id)
 
 	// Get the first row available
 	var cert []byte
-	row := ks.sqlDB.QueryRow("SELECT cert FROM Certificates where id = ?", id)
+	row := ks.sqlDB.QueryRow("SELECT certsign FROM Certificates where id = ?", id)
 	err := row.Scan(&cert)
 
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, nil, nil
 	} else if err != nil {
 		ks.log.Error("Error during select [%s].", err.Error())
 
-		return nil, err
+		return nil, nil, err
 	}
 
 	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
 
 	ks.log.Debug("Select Enrollment Cert...done!")
 
-	return cert, nil
+	return cert, nil, nil
 }

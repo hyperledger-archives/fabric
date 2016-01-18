@@ -4,28 +4,18 @@
 #
 ###############################################################################
 eca:
-    # ECA's settings
-    crypto:
-        # location on file system
-        path: .obcca
 
     users:
         user1: 9gvZQRwhUq9q
         user2: 9gvZQRwhUq9q
         validator: 9gvZQRwhUq9q
         peer: 9gvZQRwhUq9q
+        TestRegistrationSameEnrollIDDifferentRole: 9gvZQRwhUq9q
 
-ports:
-        ecaP: ":53051"
-        ecaA: ":53052"
-        tcaP: ":53551"
-        tcaA: ":53552"
-        tlscaP: ":53951"
-        tlscaA: ":53952"
-
-
-defaults:
-        certSetSize: 32
+server:
+        version: "0.1"
+        rootpath: ".obc-ca"
+        port: ":50051"
 
 
 ###############################################################################
@@ -37,13 +27,13 @@ peer:
 
     pki:
           eca:
-              paddr: localhost:53051
+              paddr: localhost:50051
 
           tca:
-              paddr: localhost:53551
+              paddr: localhost:50051
 
           tlsca:
-              paddr: localhost:53951
+              paddr: localhost:50051
 
     fileSystemPath: .obc-peer
 
@@ -73,3 +63,8 @@ tests:
             peer:
                 enrollid: peer
                 enrollpw: 9gvZQRwhUq9q
+
+            TestRegistrationSameEnrollIDDifferentRole:
+                enrollid: TestRegistrationSameEnrollIDDifferentRole
+                enrollpw: 9gvZQRwhUq9q
+

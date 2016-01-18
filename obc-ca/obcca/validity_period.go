@@ -106,18 +106,18 @@ func invokeChaincode(chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
 
 	devopsClient, err := getDevopsClient(viper.GetString("pki.validity-period.devops-address"))
 	if err != nil {
-		Error(fmt.Sprintf("Error retrieving devops client: %s", err))
+		Error.Println(fmt.Sprintf("Error retrieving devops client: %s", err))
 		return err
 	}
 
 	resp, err := devopsClient.Invoke(context.Background(), chaincodeInvSpec)
 
 	if err != nil {
-		Error(fmt.Sprintf("Error invoking validity period update system chaincode: %s", err))
+		Error.Println(fmt.Sprintf("Error invoking validity period update system chaincode: %s", err))
 		return err
 	}
 	
-	Info("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	Info.Println("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
 	
 	return nil
 }

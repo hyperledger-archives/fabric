@@ -44,11 +44,12 @@ type ConsensusHandler struct {
 	chatStream  peer.ChatStream
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
-	done        chan bool
+	done        chan struct{}
 	peerHandler peer.MessageHandler
 }
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
+// Is instance of peer.HandlerFactory
 func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	stream peer.ChatStream, initiatedStream bool,
 	next peer.MessageHandler) (peer.MessageHandler, error) {
@@ -65,7 +66,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	}
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
-	handler.done = make(chan bool)
+	handler.done = make(chan struct{})
 
 	return handler, nil
 }
@@ -146,8 +147,10 @@ func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
 		}
 		// execute if response nil (ie, no error)
 		if nil == response {
-			result, err := chaincode.Execute(context.Background(),
-				chaincode.GetChain(chaincode.DefaultChain), tx, secHelper)
+			// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+			//cxt := context.WithValue(context.Background(), "security", secHelper)
+			cxt := context.Background()
+			result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
 			if err != nil {
 				response = &pb.Response{Status: pb.Response_FAILURE,
 					Msg: []byte(fmt.Sprintf("Error:%s", err))}
@@ -174,7 +177,7 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 // Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer).
 func (handler *ConsensusHandler) Stop() error {
 	err := handler.peerHandler.Stop() // deregister the handler
-	handler.done <- true
+	handler.done <- struct{}{}
 	if err != nil {
 		return fmt.Errorf("Error stopping ConsensusHandler: %s", err)
 	}
@@ -186,7 +189,15 @@ func (handler *ConsensusHandler) To() (pb.PeerEndpoint, error) {
 	return handler.peerHandler.To()
 }
 
-// GetBlocks returns the current sync block
-func (handler *ConsensusHandler) GetBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
-	return handler.peerHandler.GetBlocks(syncBlockRange)
+// RequestBlocks returns the current sync block
+func (handler *ConsensusHandler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
+	return handler.peerHandler.RequestBlocks(syncBlockRange)
+}
+
+func (handler *ConsensusHandler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
+	return handler.peerHandler.RequestStateSnapshot()
+}
+
+func (handler *ConsensusHandler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error) {
+	return handler.peerHandler.RequestStateDeltas(syncBlockRange)
 }

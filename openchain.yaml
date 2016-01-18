@@ -95,6 +95,10 @@ peer:
                 # Channel size for readonly syncStateSnapshot messages channel for receiving state deltas for snapshot from oppositie Peer Endpoints.
                 # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
                 channelSize: 50
+            deltas:
+                # Channel size for readonly syncStateDeltas messages channel for receiving state deltas for a syncBlockRange from oppositie Peer Endpoints.
+                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+                channelSize: 5
 
     # Validator defines whether this peer is a validating peer or not, and if
     # it is enabled, what consensus plugin to load
@@ -139,9 +143,9 @@ peer:
         eca:
             paddr: localhost:50051
         tca:
-            paddr: localhost:50551
+            paddr: localhost:50051
         tlsca:
-            paddr: localhost:50951
+            paddr: localhost:50051
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
@@ -225,8 +229,19 @@ vm:
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
     # http://localhost:4243
+    # tcp://localhost:2376
     endpoint: unix:///var/run/docker.sock
-
+        
+    # settings for docker vms
+    docker:
+        tls:
+            enabled: false
+            cert:
+                file: /path/to/server.pem
+            ca:
+                file: /path/to/ca.pem
+            key:
+                file: /path/to/server-key.pem
 
 ###############################################################################
 #
@@ -314,7 +329,7 @@ security:
     enabled: true
     # To enroll NVP or VP with Member Services PKI. These parameters are for
     # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: nepumuk
-    enrollSecret: 9gvZQRwhUq9q
+    enrollID: donq
+    enrollSecret: 7avZQLwcUe9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false

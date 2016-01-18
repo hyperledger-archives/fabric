@@ -1,4 +1,13 @@
 ---
+server:
+        version: "0.1"
+        rootpath: ".obc-ca"
+        port: ":50051"
+        
+        tls:
+#                certfile:
+#                keyfile:
+
 ###############################################################################
 #
 #    CLI section

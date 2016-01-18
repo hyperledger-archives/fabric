@@ -26,9 +26,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google/protobuf"
 	"io/ioutil"
-	"time"
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
@@ -50,7 +48,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	}
 
 	// Store TCA cert
-	node.log.Debug("Storing TCA certificate for validator [%s]...", userID)
+	node.log.Debug("Storing TCA certificate for [%s]...", userID)
 
 	err = ioutil.WriteFile(node.conf.getTCACertsChainPath(), utils.DERCertToPEM(tcaCertRaw), 0700)
 	if err != nil {
@@ -82,18 +80,25 @@ func (node *nodeImpl) loadTCACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCertReadReq, opts ...grpc.CallOption) (*obcca.Cert, error) {
-	sockP, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
+func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
+	socket, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
 	if err != nil {
-		node.log.Error("Failed tca dial in [%s].", err.Error())
+		node.log.Error("Failed dailing in [%s].", err.Error())
 
-		return nil, err
+		return nil, nil, err
 	}
-	defer sockP.Close()
+	tcaPClient := obcca.NewTCAPClient(socket)
 
-	tcaP := obcca.NewTCAPClient(sockP)
+	return socket, tcaPClient, nil
+}
 
-	cert, err := tcaP.ReadCertificate(context.Background(), in)
+func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
+	// Get a TCA Client
+	sock, tcaP, err := node.getTCAClient()
+	defer sock.Close()
+
+	// Issue the request
+	cert, err := tcaP.ReadCACertificate(ctx, &obcca.Empty{}, opts...)
 	if err != nil {
 		node.log.Error("Failed requesting tca read certificate [%s].", err.Error())
 
@@ -104,11 +109,7 @@ func (node *nodeImpl) callTCAReadCertificate(ctx context.Context, in *obcca.TCer
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	// Prepare the request
-	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
-	req := &obcca.TCertReadReq{Ts: &timestamp, Id: &obcca.Identity{Id: "tca-root"}, Sig: nil}
-	pbCert, err := node.callTCAReadCertificate(context.Background(), req)
+	pbCert, err := node.callTCAReadCACertificate(context.Background())
 	if err != nil {
 		node.log.Error("Failed requesting tca certificate [%s].", err.Error())
 

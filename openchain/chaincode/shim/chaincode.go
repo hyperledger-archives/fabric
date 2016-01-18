@@ -46,10 +46,8 @@ var handler *Handler
 // Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
 	// Run method will be called during init and for every transaction
-	//Run(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Run(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 	// Query is to be used for read-only access to chaincode state
-	//Query(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
@@ -64,37 +62,26 @@ func Start(cc Chaincode) error {
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	/*
-		viper.SetConfigName("openchain") // name of config file (without extension)
-		viper.AddConfigPath("./../../../")        // path to look for the config file in
-		err := viper.ReadInConfig()      // Find and read the config file
-		if err != nil {                  // Handle errors reading the config file
-			panic(fmt.Errorf("Fatal error config file: %s \n", err))
-		}
-	*/
-	fmt.Printf("peer.address: %s\n", getPeerAddress())
+
+	chaincodeLogger.Debug("peer.address: %s", getPeerAddress())
 
 	// Establish connection with validating peer
 	clientConn, err := newPeerClientConnection()
 	if err != nil {
+		chaincodeLogger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
 		return fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
 
-	fmt.Printf("os.Args returns: %s\n", os.Args)
+	chaincodeLogger.Debug("os.Args returns: %s", os.Args)
 
 	chaincodeSupportClient := pb.NewChaincodeSupportClient(clientConn)
 
-	//err = c.Run(chaincodeSupportClient)
-	//if err != nil {
-	//}
-	// Handle message exchange with validating peer
 	err = chatWithPeer(chaincodeSupportClient, cc)
 
 	return err
 }
 
 func getPeerAddress() string {
-	//fmt.Printf("Peer address from viper is: %s", viper.GetString("peer.address"))
 	if viper.GetString("peer.address") == "" {
 		// Assume docker container, return well known docker host address
 		return "172.17.42.1:30303"
@@ -134,7 +121,6 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 
 func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
 
-	var errFromChat error
 	// Establish stream with validating peer
 	stream, err := chaincodeSupportClient.Register(context.Background())
 	if err != nil {
@@ -159,28 +145,53 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
+		defer close(waitc)
+		msgAvail := make(chan *pb.ChaincodeMessage)
+		var nsInfo  *nextStateInfo
+		var in *pb.ChaincodeMessage
 		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
-				close(waitc)
-				return
-			}
-			if err != nil {
-				grpclog.Fatalf("Failed to receive a Registered message from server : %v", err)
+			in = nil
+			err = nil
+			nsInfo = nil
+			go func() {
+				var in2 *pb.ChaincodeMessage
+				in2, err = stream.Recv()
+				msgAvail <- in2
+			}()
+			select {
+			case in = <-msgAvail:
+				// Defer the deregistering of the this handler.
+				if in == nil || err == io.EOF {
+					if err == nil {
+						err = fmt.Errorf("Error received nil message, peer address=%s")
+					} else {
+						err = fmt.Errorf("Error sending transactions to peer address=%s, received EOF", getPeerAddress())
+					}
+					return
+				}
+				if err != nil {
+					grpclog.Fatalf("Received error from server : %v", err)
+				}
+			case nsInfo = <- handler.nextState:
+				in = nsInfo.msg
 			}
 
 			// Call FSM.handleMessage()
 			err = handler.handleMessage(in)
 			if err != nil {
-				chaincodeLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+				err = fmt.Errorf("Error handling message: %s", err)
 				return
+			}
+			if nsInfo != nil && nsInfo.sendToCC {
+				if err = stream.Send(in); err != nil {
+					err =  fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
+					return
+				}
 			}
 		}
 	}()
 	<-waitc
-	return nil
+	return err
 }
 
 // GetState function can be invoked by a chaincode to get a state from the ledger.
