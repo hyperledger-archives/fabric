@@ -67,7 +67,7 @@ func Start(cc Chaincode) error {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	flag.StringVar(&peerAddress, "peer.address", "172.17.42.1:30303", "peer address")
+	flag.StringVar(&peerAddress, "peer.address", "", "peer address")
 
 	flag.Parse()
 
