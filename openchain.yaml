@@ -318,7 +318,7 @@ ledger:
     # 'buckettree'. This CANNOT be changed after the DB has been created.
     dataStructure: buckettree
 
-    deploy-system-chaincode: true
+    deploy-system-chaincode: false
 ###############################################################################
 #
 #    Security section -
