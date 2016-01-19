@@ -12,8 +12,8 @@ type eCertHandlerImpl struct {
 type eCertTransactionHandlerImpl struct {
 	client *clientImpl
 
-	nonce []byte
-	hook  []byte
+	nonce   []byte
+	binding []byte
 }
 
 func (handler *eCertHandlerImpl) init(client *clientImpl) error {
@@ -67,7 +67,7 @@ func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 
 	handler.client = client
 	handler.nonce = nonce
-	handler.hook = utils.Hash(append(handler.client.node.enrollCert.Raw, handler.nonce...))
+	handler.binding = utils.Hash(append(handler.client.node.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }
@@ -77,9 +77,9 @@ func (handler *eCertTransactionHandlerImpl) GetCertificateHandler() (Certificate
 	return handler.client.GetEnrollmentCertificateHandler()
 }
 
-// GetHook returns an Hook to the underlying transaction layer
-func (handler *eCertTransactionHandlerImpl) GetHook() ([]byte, error) {
-	return utils.Clone(handler.hook), nil
+// GetBinding returns an Binding to the underlying transaction layer
+func (handler *eCertTransactionHandlerImpl) GetBinding() ([]byte, error) {
+	return utils.Clone(handler.binding), nil
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.

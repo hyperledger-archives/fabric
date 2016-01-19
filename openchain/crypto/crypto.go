@@ -103,21 +103,22 @@ type CertificateHandler interface {
 	GetTransactionHandler() (TransactionHandler, error)
 }
 
-// TransactionHandler represents a single transaction that can be named by the output of the GetHook method.
+// TransactionHandler represents a single transaction that can be named by the output of the GetBinding method.
+// This transaction is linked to a single Certificate (TCert or ECert).
 type TransactionHandler interface {
 
 	// GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction
 	GetCertificateHandler() (CertificateHandler, error)
 
-	// GetHook returns an Hook to the underlying transaction layer
-	GetHook() ([]byte, error)
+	// GetBinding returns a binding to the underlying transaction
+	GetBinding() ([]byte, error)
 
-	// NewChaincodeDeployTransaction is used to deploy chaincode using the certificate
+	// NewChaincodeDeployTransaction is used to deploy chaincode
 	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
-	// NewChaincodeExecute is used to execute chaincode's functions using the certificate
+	// NewChaincodeExecute is used to execute chaincode's functions
 	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 
-	// NewChaincodeQuery is used to query chaincode's functions using the certificate
+	// NewChaincodeQuery is used to query chaincode's functions
 	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }

@@ -85,10 +85,10 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed initializing validators [%s]\n", err)
 		panic(fmt.Errorf("Failed initializing validators [%s].", err))
 	}
-	
+
 	viper.Set("pki.validity-period.update", "false")
 	viper.Set("validator.validity-period.verification", "false")
-	
+
 	if err != nil {
 		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
 		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
@@ -958,10 +958,10 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	}
 	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level
@@ -1006,10 +1006,10 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	}
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level
@@ -1054,10 +1054,10 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	}
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level
@@ -1104,10 +1104,10 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	}
 	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level
@@ -1152,10 +1152,10 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	}
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level
@@ -1200,10 +1200,10 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	}
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
 
-	// Check hook consistency
-	hook, _ := txHandler.GetHook()
-	if !reflect.DeepEqual(hook, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
-		t.Fatal("Hook is malformed!")
+	// Check binding consistency
+	binding, _ := txHandler.GetBinding()
+	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+		t.Fatal("Binding is malformed!")
 	}
 
 	// Check confidentiality level

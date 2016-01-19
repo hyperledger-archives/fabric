@@ -15,8 +15,8 @@ type tCertHandlerImpl struct {
 type tCertTransactionHandlerImpl struct {
 	tCertHandler *tCertHandlerImpl
 
-	nonce []byte
-	hook  []byte
+	nonce   []byte
+	binding []byte
 }
 
 func (handler *tCertHandlerImpl) initDER(client *clientImpl, tCertDER []byte) error {
@@ -78,7 +78,7 @@ func (handler *tCertTransactionHandlerImpl) init(tCertHandler *tCertHandlerImpl)
 
 	handler.tCertHandler = tCertHandler
 	handler.nonce = nonce
-	handler.hook = utils.Hash(append(handler.tCertHandler.tCert.Raw, nonce...))
+	handler.binding = utils.Hash(append(handler.tCertHandler.tCert.Raw, nonce...))
 
 	return nil
 }
@@ -88,9 +88,9 @@ func (handler *tCertTransactionHandlerImpl) GetCertificateHandler() (Certificate
 	return handler.tCertHandler, nil
 }
 
-// GetHook returns an Hook to the underlying transaction layer
-func (handler *tCertTransactionHandlerImpl) GetHook() ([]byte, error) {
-	return utils.Clone(handler.hook), nil
+// GetBinding returns an Binding to the underlying transaction layer
+func (handler *tCertTransactionHandlerImpl) GetBinding() ([]byte, error) {
+	return utils.Clone(handler.binding), nil
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
