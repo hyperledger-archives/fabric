@@ -71,6 +71,7 @@ message ChaincodeSpec {
     int32 timeout = 4;
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
+    bytes metadata = 7;
 }
 
 // Specify the deployment of a chaincode.

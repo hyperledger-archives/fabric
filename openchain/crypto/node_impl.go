@@ -47,9 +47,10 @@ type nodeImpl struct {
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollID      string
-	enrollCert    *x509.Certificate
-	enrollPrivKey *ecdsa.PrivateKey
+	enrollID       string
+	enrollCert     *x509.Certificate
+	enrollPrivKey  *ecdsa.PrivateKey
+	enrollCertHash []byte
 
 	// Enrollment Chain
 	enrollChainKey []byte

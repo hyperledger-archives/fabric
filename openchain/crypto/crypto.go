@@ -9,7 +9,7 @@ import (
 // Entity represents a crypto object having a name
 type Entity interface {
 
-	// GetID returns this entity's name
+	// GetName returns this entity's name
 	GetName() string
 }
 
@@ -28,6 +28,15 @@ type Client interface {
 
 	// DecryptQueryResult is used to decrypt the result of a query transaction
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
+
+	// GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
+	GetEnrollmentCertificateHandler() (CertificateHandler, error)
+
+	// GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
+	GetTCertificateHandlerNext() (CertificateHandler, error)
+
+	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
+	GetTCertificateHandlerFromDER(der []byte) (CertificateHandler, error)
 }
 
 // Peer is an entity able to verify transactions
@@ -76,4 +85,40 @@ type StateEncryptor interface {
 	// Decrypt decrypts ciphertext ct obtained
 	// from a call of the Encrypt method.
 	Decrypt(ct []byte) ([]byte, error)
+}
+
+// CertificateHandler exposes methods to deal with an ECert/TCert
+type CertificateHandler interface {
+
+	// GetCertificate returns the certificate's DER
+	GetCertificate() []byte
+
+	// Sign signs msg using the signing key corresponding to the certificate
+	Sign(msg []byte) ([]byte, error)
+
+	// Verify verifies msg using the verifying key corresponding to the certificate
+	Verify(signature []byte, msg []byte) error
+
+	// GetTransactionHandler returns a new transaction handler relative to this certificate
+	GetTransactionHandler() (TransactionHandler, error)
+}
+
+// TransactionHandler represents a single transaction that can be named by the output of the GetBinding method.
+// This transaction is linked to a single Certificate (TCert or ECert).
+type TransactionHandler interface {
+
+	// GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction
+	GetCertificateHandler() (CertificateHandler, error)
+
+	// GetBinding returns a binding to the underlying transaction
+	GetBinding() ([]byte, error)
+
+	// NewChaincodeDeployTransaction is used to deploy chaincode
+	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
+
+	// NewChaincodeExecute is used to execute chaincode's functions
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+
+	// NewChaincodeQuery is used to query chaincode's functions
+	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 }

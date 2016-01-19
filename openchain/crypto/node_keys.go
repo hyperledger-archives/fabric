@@ -137,6 +137,10 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 	node.id = utils.Hash(rawEnrollCert)
 	node.log.Debug("Setting id to [%s].", utils.EncodeBase64(node.id))
 
+	// Set eCertHash
+	node.enrollCertHash = utils.Hash(rawEnrollCert)
+	node.log.Debug("Setting enrollCertHash to [%s].", utils.EncodeBase64(node.enrollCertHash))
+
 	return nil
 }
 
