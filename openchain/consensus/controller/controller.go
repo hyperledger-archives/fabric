@@ -21,7 +21,6 @@ package controller
 
 import (
 	"github.com/op/go-logging"
-	"github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
@@ -34,14 +33,14 @@ func init() {
 	logger = logging.MustGetLogger("consensus/controller")
 }
 
-// NewConsenter constructs a consenter object
+// NewConsenter constructs a Consenter object
 func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter) {
-	plugin := viper.GetString("peer.validator.consensus")
-	if plugin == "obcpbft" {
-		logger.Debug("Running with OBC-PBFT consensus")
+	plugin := consensus.Config.GetString("name")
+	if plugin == "obcpbft" { // ATTN: plugin devs edit this to point to your plugin
+		logger.Debug("Running with custom consensus plugin: %s", plugin)
 		consenter = obcpbft.GetPlugin(cpi)
 	} else {
-		logger.Debug("Running with NOOPS consensus")
+		logger.Debug("Running with default consensus plugin: noops")
 		consenter = noops.GetNoops(cpi)
 	}
 	return

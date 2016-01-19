@@ -1,41 +1,39 @@
 ---
 ################################################################################
 #
-#   PBFT PROPERTIES
+#   OBCPBFT PROPERTIES
 #
-#   - List all algorithm-specific properties here.
-#   - Nest keys where appropriate, and sort alphabetically for easier parsing.
+#   - List all plugin properties here
+#   - keys where appropriate,
 #
 ################################################################################
-general:
 
-    # Consensus plugin package name goes here
-    name: obc-pbft
+# Operational mode: batch, classic, or sieve
+mode: classic
 
-    # Operational mode: batch, classic, or sieve
-    mode: classic
+# Checkpoint period
+K: 10
 
-    # Maximum number of validators/replicas we expect in the network.
-    N: 4
+# How many requests should the primary send per pre-prepare when in "batch" mode
+batchsize: 2
 
-    # Checkpoint period
-    K: 10
+# Timeouts
+timeout:
 
-    # How many requests should the primary send per pre-prepare when in "batch" mode
-    batchsize: 2
+    # Send a pre-prepare if there are pending requests, batchsize isn't reached yet,
+    # and this much time has elapsed since the current batch was formed
+    batch: 2s
 
-    # Timeouts
-    timeout:
+    # How long may a request take between reception and execution
+    request: 2s
 
-        # Send a pre-prepare if there are pending requests, batchsize isn't reached yet,
-        # and this much time has elapsed since the current batch was formed
-        batch: 2s
+    # How long may a view change take
+    viewchange: 2s
 
-        # How long may a request take between reception and execution
-        request: 2s
+# Whether the replica should act as a byzantine one
+# Useful for debugging on the network
+byzantine: false
 
-        # How long may a view change take
-        viewchange: 2s
 ################################################################################
 #
 #   SECTION: STATETRANSFER
@@ -71,16 +69,3 @@ statetransfer:
 
         # How long may transferring the complete state take
         fullstate: 60s
-################################################################################
-#
-#   SECTION: REPLICA
-#
-#   - This applies to all validating peers.
-#
-################################################################################
-replica:
-
-    # Whether the replica should act as a byzantine one
-    # Useful for debugging on the live network
-    byzantine: false
-...

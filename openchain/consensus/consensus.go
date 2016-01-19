@@ -20,9 +20,42 @@ under the License.
 package consensus
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/spf13/viper"
 )
+
+const configPrefix = "OPENCHAIN_CONSENSUS"
+
+// Config holds the configuration for the consensus package
+var Config *viper.Viper
+
+func init() {
+	Config = loadConfig()
+}
+
+func loadConfig() (Config *viper.Viper) {
+	Config = viper.New()
+
+	// for ENV variables
+	Config.SetEnvPrefix(configPrefix)
+	Config.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	Config.SetEnvKeyReplacer(replacer)
+
+	Config.SetConfigName("config")
+	Config.AddConfigPath("./../")                  // when invoking from the plugin tests
+	Config.AddConfigPath("./openchain/consensus/") // when invoking from main
+	err := Config.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Error reading %s config: %s", configPrefix, err))
+	}
+
+	return
+}
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface

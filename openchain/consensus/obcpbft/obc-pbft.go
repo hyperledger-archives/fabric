@@ -35,10 +35,10 @@ const configPrefix = "OPENCHAIN_OBCPBFT"
 var pluginInstance consensus.Consenter // singleton service
 var config *viper.Viper
 
-// GetPlugin returns the handle to the consenter singleton
-func GetPlugin(c consensus.CPI) consensus.Consenter {
+// GetPlugin returns the handle to the Consenter singleton
+func GetPlugin(cpi consensus.CPI) consensus.Consenter {
 	if pluginInstance == nil {
-		pluginInstance = New(c)
+		pluginInstance = New(cpi)
 	}
 	return pluginInstance
 }
@@ -46,11 +46,11 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // New creates a new Obc* instance that provides the Consenter interface.
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
-	config = readConfig()
+	config = loadConfig()
 	handle, _, _ := cpi.GetNetworkHandles()
 	id, _ := getValidatorID(handle)
 
-	switch config.GetString("general.mode") {
+	switch config.GetString("mode") {
 	case "classic":
 		return newObcClassic(id, config, cpi)
 	case "batch":
@@ -58,25 +58,25 @@ func New(cpi consensus.CPI) consensus.Consenter {
 	case "sieve":
 		return newObcSieve(id, config, cpi)
 	default:
-		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("general.mode")))
+		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("mode")))
 	}
 }
 
-func readConfig() (config *viper.Viper) {
+func loadConfig() (config *viper.Viper) {
 	config = viper.New()
 
-	// for environment variables
+	// for ENV variables
 	config.SetEnvPrefix(configPrefix)
 	config.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	config.SetEnvKeyReplacer(replacer)
 
 	config.SetConfigName("config")
-	config.AddConfigPath("./")
-	config.AddConfigPath("./openchain/consensus/obcpbft/")
+	config.AddConfigPath("./")                     // when invoking from the plugin tests
+	config.AddConfigPath("./openchain/consensus/") // when invoking from main
 	err := config.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
+		panic(fmt.Errorf("Error reading %s config: %s", configPrefix, err))
 	}
 	return
 }
@@ -89,8 +89,8 @@ func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
 		if err != nil {
 			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle.Name, err)
 		}
-		if id > uint64(config.GetInt("general.N")-1) {
-			err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(config.GetInt("general.N")-1))
+		if id > uint64(consensus.Config.GetInt("N")-1) {
+			err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(consensus.Config.GetInt("N")-1))
 			panic(err)
 		}
 		return
