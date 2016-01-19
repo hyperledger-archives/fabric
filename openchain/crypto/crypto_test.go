@@ -309,6 +309,39 @@ func TestClientGetEnrollmentCertHandler(t *testing.T) {
 	}
 }
 
+func TestClientGetEnrollmentCertHandlerSign(t *testing.T) {
+	handlerDeployer, err := deployer.GetEnrollmentCertificateHandler()
+	if err != nil {
+		t.Fatalf("Failed getting handler: [%s]", err)
+	}
+
+	msg := []byte("Hello World!!!")
+	signature, err := handlerDeployer.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if signature == nil || len(signature) == 0 {
+		t.Fatalf("Failed getting non-nil signature")
+	}
+
+	err = handlerDeployer.Verify(signature, msg)
+	if err != nil {
+		t.Fatalf("Failed verifying signature: [%s]", err)
+	}
+
+	// Check that invoker (another party) can verify the signature
+	handlerInvoker, err := invoker.GetEnrollmentCertificateHandler()
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+
+	err = handlerInvoker.Verify(signature, msg)
+	if err == nil {
+		t.Fatalf("Failed verifying signature: [%s]", err)
+	}
+
+}
+
 func TestPeerID(t *testing.T) {
 	// Verify that any id modification doesn't change
 	id := peer.GetID()

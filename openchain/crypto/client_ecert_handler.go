@@ -34,7 +34,7 @@ func (handler *eCertHandlerImpl) Sign(msg []byte) ([]byte, error) {
 
 // Verify verifies msg using the verifying key corresponding to this TCert
 func (handler *eCertHandlerImpl) Verify(signature []byte, msg []byte) error {
-	ok, err := handler.client.node.verifyWithEnrollmentCert(signature, msg)
+	ok, err := handler.client.node.verifyWithEnrollmentCert(msg, signature)
 	if err != nil {
 		return err
 	}
