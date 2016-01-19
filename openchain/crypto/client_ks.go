@@ -32,6 +32,12 @@ func (client *clientImpl) initKeyStore() error {
 		return err
 	}
 
+	client.node.ks.log.Debug("Create Table if not exists [UsedTCert] at [%s].", client.node.ks.conf.getKeyStorePath())
+	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+		client.node.ks.log.Debug("Failed creating table [%s].", err.Error())
+		return err
+	}
+
 	return nil
 }
 
@@ -133,21 +139,27 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	ks.log.Debug("id [%d]", id)
 	ks.log.Debug("cert [%s].", utils.EncodeBase64(cert))
 
-	// TODO: rather than removing, move the cert to another table
-	// which stores the TCerts used
+	ks.log.Debug("Move row with id [%d] to UsedTCert...", id)
 
-	// Remove that row
-	ks.log.Debug("Removing row with id [%d]...", id)
-
-	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		ks.log.Error("Failed removing row [%d] [%s].", id, err.Error())
+	// Copy to UsedTCert
+	if _, err := tx.Exec("INSERT INTO UsedTCert (cert) VALUES (?)", cert); err != nil {
+		ks.log.Error("Failed copying row [%d] to UsedTCert: [%s].", id, err.Error())
 
 		tx.Rollback()
 
 		return nil, err
 	}
 
-	ks.log.Debug("Removing row with id [%d]...done", id)
+	// Remove from TCert
+	if _, err := tx.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
+		ks.log.Error("Failed removing row [%d] from TCert: [%s].", id, err.Error())
+
+		tx.Rollback()
+
+		return nil, err
+	}
+
+	ks.log.Debug("Moving row with id [%d]...done", id)
 
 	// Finalize
 	err = tx.Commit()

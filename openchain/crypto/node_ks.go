@@ -34,8 +34,6 @@ import (
 )
 
 func (node *nodeImpl) initKeyStore(pwd []byte) error {
-	// TODO: move all the ket/certificate store/load to the keyStore struct
-
 	ks := keyStore{}
 	if err := ks.init(node.log, node.conf, pwd); err != nil {
 		return err
