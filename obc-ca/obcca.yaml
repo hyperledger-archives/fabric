@@ -1,6 +1,7 @@
 server:
         version: "0.1"
-        rootpath: ".obc-ca"
+        rootpath: "."
+        cadir: ".obcca"
         port: ":50051"
         
         tls:
@@ -10,12 +11,9 @@ server:
 
 eca:
         users:
-                donq: 7avZQLwcUe9q
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
-                system_chaincode_invoker: DRJ20pEql15a
-                diego: DRJ23pEQl16a
+                lukas: 1 NPKYL39uKbkj
+                system_chaincode_invoker: 2 DRJ20pEql15a
+                diego: 2 DRJ23pEQl16a
 tca:
 #         tls:
 #                certfile:
