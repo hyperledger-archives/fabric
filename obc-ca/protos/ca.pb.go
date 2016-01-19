@@ -17,6 +17,7 @@ It has these top-level messages:
 	PublicKey
 	PrivateKey
 	Signature
+	RegisterUserReq
 	ECertCreateReq
 	ECertCreateResp
 	ECertReadReq
@@ -79,6 +80,34 @@ var CryptoType_value = map[string]int32{
 
 func (x CryptoType) String() string {
 	return proto.EnumName(CryptoType_name, int32(x))
+}
+
+// User registration.
+//
+type Role int32
+
+const (
+	Role_NONE      Role = 0
+	Role_CLIENT    Role = 1
+	Role_PEER      Role = 2
+	Role_VALIDATOR Role = 4
+)
+
+var Role_name = map[int32]string{
+	0: "NONE",
+	1: "CLIENT",
+	2: "PEER",
+	4: "VALIDATOR",
+}
+var Role_value = map[string]int32{
+	"NONE":      0,
+	"CLIENT":    1,
+	"PEER":      2,
+	"VALIDATOR": 4,
+}
+
+func (x Role) String() string {
+	return proto.EnumName(Role_name, int32(x))
 }
 
 type CAStatus_StatusCode int32
@@ -175,6 +204,22 @@ type Signature struct {
 func (m *Signature) Reset()         { *m = Signature{} }
 func (m *Signature) String() string { return proto.CompactTextString(m) }
 func (*Signature) ProtoMessage()    {}
+
+type RegisterUserReq struct {
+	Id   *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Role Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+}
+
+func (m *RegisterUserReq) Reset()         { *m = RegisterUserReq{} }
+func (m *RegisterUserReq) String() string { return proto.CompactTextString(m) }
+func (*RegisterUserReq) ProtoMessage()    {}
+
+func (m *RegisterUserReq) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
 
 // Certificate requests.
 //
@@ -712,6 +757,7 @@ func (*CertPair) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("protos.CryptoType", CryptoType_name, CryptoType_value)
+	proto.RegisterEnum("protos.Role", Role_name, Role_value)
 	proto.RegisterEnum("protos.CAStatus_StatusCode", CAStatus_StatusCode_name, CAStatus_StatusCode_value)
 }
 
@@ -887,7 +933,7 @@ var _ECAP_serviceDesc = grpc.ServiceDesc{
 // Client API for ECAA service
 
 type ECAAClient interface {
-	RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Token, error)
+	RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error)
 	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 	PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -900,7 +946,7 @@ func NewECAAClient(cc *grpc.ClientConn) ECAAClient {
 	return &eCAAClient{cc}
 }
 
-func (c *eCAAClient) RegisterUser(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*Token, error) {
+func (c *eCAAClient) RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error) {
 	out := new(Token)
 	err := grpc.Invoke(ctx, "/protos.ECAA/RegisterUser", in, out, c.cc, opts...)
 	if err != nil {
@@ -930,7 +976,7 @@ func (c *eCAAClient) PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...gr
 // Server API for ECAA service
 
 type ECAAServer interface {
-	RegisterUser(context.Context, *Identity) (*Token, error)
+	RegisterUser(context.Context, *RegisterUserReq) (*Token, error)
 	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
 	PublishCRL(context.Context, *ECertCRLReq) (*CAStatus, error)
 }
@@ -940,7 +986,7 @@ func RegisterECAAServer(s *grpc.Server, srv ECAAServer) {
 }
 
 func _ECAA_RegisterUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(Identity)
+	in := new(RegisterUserReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}

@@ -31,6 +31,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strconv"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -76,7 +77,7 @@ func NewCA(name string) *CA {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), token BLOB, state INTEGER)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER)"); err != nil {
 		Panic.Panicln(err)
 	}
 	ca.db = db
@@ -294,8 +295,8 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) registerUser(id string, opt ...string) (string, error) {
-	Trace.Println("Registering user "+id+".")
+func (ca *CA) registerUser(id string, role int, opt ...string) (string, error) {
+	Trace.Println("Registering user "+id+" as "+strconv.FormatInt(int64(role), 2)+".")
 
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
@@ -310,7 +311,7 @@ func (ca *CA) registerUser(id string, opt ...string) (string, error) {
 		tok = randomString(12)
 	}
 
-	_, err = ca.db.Exec("INSERT INTO Users (id, token, state) VALUES (?, ?, ?)", id, tok, 0)
+	_, err = ca.db.Exec("INSERT INTO Users (id, role, token, state) VALUES (?, ?, ?, ?)", id, role, tok, 0)
 	if err != nil {
 		Error.Println(err)
 
@@ -343,4 +344,16 @@ func (ca *CA) readToken(id string) *sql.Row {
 	Trace.Println("Reading token for "+id+".")
 
 	return ca.db.QueryRow("SELECT token, state FROM Users WHERE id=?", id)
+}
+
+func (ca *CA) readRole(id string) int {
+	Trace.Println("Reading role for "+id+".")
+
+	var role int
+	err := ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
+	if err != nil {
+		Panic.Panicln(err)
+	}
+	
+	return role
 }
