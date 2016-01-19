@@ -1,7 +1,8 @@
 ---
 server:
         version: "0.1"
-        rootpath: ".obc-ca"
+        rootpath: "."
+        cadir: ".obcca"
         port: ":50051"
         
         tls:
@@ -331,10 +332,8 @@ hosts:
 
 eca:
         users:
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
-                system_chaincode_invoker: DRJ20pEql15a
+                system_chaincode_invoker: 1 DRJ20pEql15a
+                diego: 2 DRJ23pEQl16a
 
 pki:
         validity-period:

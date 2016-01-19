@@ -36,12 +36,12 @@ type PeerChaincodeStream interface {
 }
 
 type nextStateInfo struct {
-	msg	*pb.ChaincodeMessage
-	sendToCC	bool
+	msg      *pb.ChaincodeMessage
+	sendToCC bool
 }
 
 func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
-	handler.nextState <- &nextStateInfo{ msg, send }
+	handler.nextState <- &nextStateInfo{msg, send}
 }
 
 // Handler handler implementation for shim side of chaincode.
@@ -56,7 +56,7 @@ type Handler struct {
 	responseChannel map[string]chan pb.ChaincodeMessage
 	// Track which UUIDs are transactions and which are queries, to decide whether get/put state and invoke chaincode are allowed.
 	isTransaction map[string]bool
-	nextState	chan *nextStateInfo
+	nextState     chan *nextStateInfo
 }
 
 func (handler *Handler) createChannel(uuid string) error {
@@ -137,7 +137,7 @@ func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincod
 			"enter_init":                                     func(e *fsm.Event) { v.enterInitState(e) },
 			"enter_transaction":                              func(e *fsm.Event) { v.enterTransactionState(e) },
 			//"enter_ready":                                     func(e *fsm.Event) { v.enterReadyState(e) },
-			"before_" + pb.ChaincodeMessage_QUERY.String():    func(e *fsm.Event) { v.beforeQuery(e) }, //only checks for QUERY
+			"before_" + pb.ChaincodeMessage_QUERY.String(): func(e *fsm.Event) { v.beforeQuery(e) }, //only checks for QUERY
 		},
 	)
 	return v
@@ -519,6 +519,58 @@ func (handler *Handler) handleDelState(key string, uuid string) error {
 	chaincodeLogger.Debug("Incorrect chaincode message %s recieved. Expecting %s or %s", responseMsg.Type, pb.ChaincodeMessage_RESPONSE, pb.ChaincodeMessage_ERROR)
 	handler.deleteChannel(uuid)
 	return errors.New("Incorrect chaincode message received")
+}
+
+func (handler *Handler) handleRangeQueryState(startKey, endKey string, limit uint32, uuid string) (*pb.RangeQueryStateResponse, error) {
+	// Create the channel on which to communicate the response from validating peer
+	uniqueReqErr := handler.createChannel(uuid)
+	if uniqueReqErr != nil {
+		chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
+		return nil, uniqueReqErr
+	}
+
+	// Send RANGE_QUERY_STATE message to validator chaincode support
+	payload := &pb.RangeQueryStateInfo{StartKey: startKey, EndKey: endKey, Limit: limit}
+	payloadBytes, err := proto.Marshal(payload)
+	if err != nil {
+		return nil, errors.New("Failed to process range query state request")
+	}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE, Payload: payloadBytes, Uuid: uuid}
+	handler.ChatStream.Send(msg)
+	chaincodeLogger.Debug("Sending %s", pb.ChaincodeMessage_RANGE_QUERY_STATE)
+
+	// Wait on responseChannel for response
+	responseMsg, ok := <-handler.responseChannel[uuid]
+	if !ok {
+		chaincodeLogger.Debug("Received unexpected message type")
+		handler.deleteChannel(uuid)
+		return nil, errors.New("Received unexpected message type")
+	}
+
+	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
+		// Success response
+		chaincodeLogger.Debug("Received %s. Payload: %s, Uuid %s", pb.ChaincodeMessage_RESPONSE, responseMsg.Payload, responseMsg.Uuid)
+		handler.deleteChannel(uuid)
+
+		rangeQueryResponse := &pb.RangeQueryStateResponse{}
+		unmarshalErr := proto.Unmarshal(responseMsg.Payload, rangeQueryResponse)
+		if unmarshalErr != nil {
+			return nil, errors.New("Error unmarshalling RangeQueryStateResponse.")
+		}
+
+		return rangeQueryResponse, nil
+	}
+	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
+		// Error response
+		chaincodeLogger.Debug("Received %s. Payload: %s, Uuid %s", pb.ChaincodeMessage_ERROR, responseMsg.Payload, responseMsg.Uuid)
+		handler.deleteChannel(uuid)
+		return nil, errors.New(string(responseMsg.Payload[:]))
+	}
+
+	// Incorrect chaincode message received
+	chaincodeLogger.Debug("Incorrect chaincode message %s recieved. Expecting %s or %s", responseMsg.Type, pb.ChaincodeMessage_RESPONSE, pb.ChaincodeMessage_ERROR)
+	handler.deleteChannel(uuid)
+	return nil, errors.New("Incorrect chaincode message received")
 }
 
 // handleInvokeChaincode communicates with the validator to invoke another chaincode.
