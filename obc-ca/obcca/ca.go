@@ -54,12 +54,12 @@ type CA struct {
 //
 func NewCA(name string) *CA {
 	ca := new(CA)
-	ca.path = viper.GetString("server.rootpath")
+	ca.path = viper.GetString("server.rootpath")+"/"+viper.GetString("server.cadir")
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
 
-		if err := os.Mkdir(ca.path, 0755); err != nil {
+		if err := os.MkdirAll(ca.path, 0755); err != nil {
 			Panic.Panicln(err)
 		}
 	}

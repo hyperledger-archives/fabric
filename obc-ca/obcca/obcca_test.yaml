@@ -1,7 +1,8 @@
 ---
 server:
         version: "0.1"
-        rootpath: ".obc-ca"
+        rootpath: "."
+        cadir: ".obcca"
         port: ":50051"
         
         tls:
