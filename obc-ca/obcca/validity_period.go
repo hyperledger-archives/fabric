@@ -41,7 +41,8 @@ const (
 
 var (
 	chaincodeInvocation *obc.ChaincodeInvocationSpec
-	initialized 		= false
+	invocationErrorAlreadyReported = false
+	initialized 				   = false
 )
 
 func initialize() {
@@ -62,8 +63,11 @@ func updateValidityPeriod() {
 		chaincodeInvocation.ChaincodeSpec.CtorMsg.Args[0] = strconv.FormatInt(time.Now().Unix(), 10)
 		
 		err := invokeChaincode(chaincodeInvocation)
-		if(err != nil){
+		if(err != nil && !invocationErrorAlreadyReported){
 			Error.Printf("Error while updating validity period. Error was: %s", err)
+			invocationErrorAlreadyReported = true
+		} else {
+			invocationErrorAlreadyReported = false
 		}
 		
 		time.Sleep(time.Second * drjTime)
