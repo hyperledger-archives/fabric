@@ -306,9 +306,11 @@ ledger:
 ###############################################################################
 security:
     enabled: false
-    # To enroll NVP or VP with Member Services PKI. These parameters are for
-    # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: donq
+    # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
+    # They will not be valid the subsequent times without un-enroll.
+    # The values come from off-line registration with obc-ca. For testing, make
+    # sure the values are in obc-ca/obcca.yaml file eca.users
+    enrollID: binhn
     enrollSecret: 7avZQLwcUe9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false
