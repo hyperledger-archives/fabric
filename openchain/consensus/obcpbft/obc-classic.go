@@ -42,6 +42,11 @@ func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassi
 	return op
 }
 
+// TTD
+func (op *obcClassic) getCPI() consensus.CPI {
+   return op.cpi
+}
+
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
@@ -49,7 +54,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.verify(ocMsg.Payload); err != nil {
+		if err := op.validate(ocMsg.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -114,23 +119,14 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 }
 
 // verify checks whether the request is valid
-func (op *obcClassic) verify(txRaw []byte) error {
-	// TODO verify transaction
-	/* tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
-	}
-	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		logger.Warning("Invalid request");
-		return err
-	} */
+func (op *obcClassic) validate(txRaw []byte) error {
+	// TODO verify message syntax/semantics
 	return nil
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
-	if err := op.verify(txRaw); err != nil {
+	if err := op.validate(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
 	}

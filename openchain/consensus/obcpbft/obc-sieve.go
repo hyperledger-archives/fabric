@@ -58,6 +58,11 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	return op
 }
 
+// TTD
+func (op *obcSieve) getCPI() consensus.CPI {
+   return op.cpi
+}
+
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
@@ -358,7 +363,7 @@ func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
 }
 
 // verify checks whether the request is valid
-func (op *obcSieve) verify(rawReq []byte) error {
+func (op *obcSieve) validate(rawReq []byte) error {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(rawReq, req)
 	if err != nil {

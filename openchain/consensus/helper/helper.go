@@ -29,16 +29,41 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
+   crypto "github.com/openblockchain/obc-peer/openchain/crypto"   //TTD
 )
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
+   secHelper   crypto.Peer     //TTD
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
-	return &Helper{coordinator: mhc}
+	return &Helper{coordinator: mhc, secHelper: mhc.GetSecHelper()} //TTD
+}
+
+// TTD
+func (h *Helper) Sign(msg []byte) ([]byte, error) {
+   return h.secHelper.Sign(msg)
+}
+
+// TTD
+func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
+   // check that sender is a valid replica
+   _, peerIDs, err := h.GetNetworkHandles()
+   if err != nil {
+      return fmt.Errorf("Could not verify message from %v : %v", replicaID.Name, err)
+   }
+
+   for _, peerID := range peerIDs {
+      if peerID.Name == replicaID.Name {
+         // if it's a valid peer, let crypto do its function
+         cryptoID := peerID.PkiID ;
+         return h.secHelper.Verify(cryptoID, signature, message)
+      }
+   }
+   return fmt.Errorf("Could not verify message from %s. Unknown peer.", replicaID.Name)
 }
 
 // GetNetworkHandles returns the peer handles of the current validator and VP network

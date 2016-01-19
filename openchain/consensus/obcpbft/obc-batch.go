@@ -60,6 +60,11 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	return op
 }
 
+// TTD
+func (op *obcBatch) getCPI() consensus.CPI {
+   return op.cpi
+}
+
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
@@ -67,7 +72,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.verify(ocMsg.Payload); err != nil {
+		if err := op.validate(ocMsg.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -98,7 +103,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	}
 
 	if req := pbftMsg.GetRequest(); req != nil {
-		if err = op.verify(req.Payload); err != nil {
+		if err = op.validate(req.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -158,17 +163,8 @@ func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
 }
 
 // verify checks whether the request is valid
-func (op *obcBatch) verify(txRaw []byte) error {
-	// TODO verify transaction
-	/* tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
-	}
-	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		logger.Warning("Invalid request");
-		return err
-	} */
+func (op *obcBatch) validate(txRaw []byte) error {
+	// TODO verify message syntax/semantics
 	return nil
 }
 
@@ -185,7 +181,7 @@ func (op *obcBatch) execute(tbRaw []byte, rawMetadata []byte) {
 
 	for i, tx := range txs {
 		txRaw, _ := proto.Marshal(tx)
-		if err = op.verify(txRaw); err != nil {
+		if err = op.validate(txRaw); err != nil {
 			logger.Error("Request in transaction %d from batch %s did not verify: %s", i, txBatchID, err)
 			return
 		}
