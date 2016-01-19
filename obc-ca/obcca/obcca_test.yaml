@@ -126,6 +126,8 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
+        validity-period: 
+            verification: false
 
     # TLS Settings for p2p communications
     tls:
@@ -214,9 +216,6 @@ validator:
 
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
-
-    validity-period: 
-        verification: true
 
 ###############################################################################
 #
