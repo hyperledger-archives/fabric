@@ -74,11 +74,6 @@ func GetNoops(c consensus.CPI) consensus.Consenter {
 	return iNoops
 }
 
-// TTD
-func (op *Noops) getCPI() consensus.CPI {
-   return op.cpi
-}
-
 // RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
 func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)

@@ -42,11 +42,6 @@ func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassi
 	return op
 }
 
-// TTD
-func (op *obcClassic) getCPI() consensus.CPI {
-   return op.cpi
-}
-
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
@@ -116,6 +111,19 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 		return
 	}
 	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
+// TTD
+func (op *obcClassic) sign(msg []byte) ([]byte, error) {
+   return op.cpi.Sign(msg)
+}
+
+func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
+   senderHandle, err := getValidatorHandle(senderID)
+   if err != nil {
+      return fmt.Errorf("Could not verify message from %v : %v", senderHandle.Name, err)
+   }
+   return op.cpi.Verify(senderHandle, signature, message)
 }
 
 // verify checks whether the request is valid

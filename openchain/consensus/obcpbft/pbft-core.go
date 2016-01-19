@@ -56,7 +56,9 @@ type innerCPI interface {
 	execute(txRaw []byte, rawMetadata []byte)
 	viewChange(curView uint64)
 
-   getCPI() (cpi consensus.CPI) // TTD
+   // TTD
+   sign(msg []byte) ([]byte, error)
+   verify(senderID uint64, signature []byte, message []byte) error
 }
 
 type pbftCore struct {

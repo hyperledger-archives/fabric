@@ -43,7 +43,7 @@ func (instance *pbftCore) sign(s signable) error {
 	if err != nil {
 		return err
 	}
-   signedRaw, err := instance.consumer.getCPI().Sign(raw)
+   signedRaw, err := instance.consumer.sign(raw)
    if err != nil {
       return err  // TTD TODO: what should happen is we have an error in sign() ?
    }
@@ -61,8 +61,7 @@ func (instance *pbftCore) verify(s signable) error {
 	if err != nil {
 		return err
 	}
-	senderHandle, err := getValidatorHandle(s.getID())
-   return instance.consumer.getCPI().Verify(senderHandle, origSig, raw) // TTD
+   return instance.consumer.verify(s.getID(), origSig, raw) // TTD
 
 	// XXX check that s.Id() is a valid replica
 	// instance.cpi.Verify(s.Id(), origSig, raw)
