@@ -397,6 +397,11 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
 		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
+		var err error
+		if msg.Payload, err = handler.encrypt(msg.Uuid, msg.Payload); nil != err {
+			msg.Payload = []byte(err.Error())
+			msg.Type = pb.ChaincodeMessage_QUERY_ERROR
+		}
 		tctx.responseNotifier <- msg
 	}
 }
