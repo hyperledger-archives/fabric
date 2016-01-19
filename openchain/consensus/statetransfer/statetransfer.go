@@ -28,6 +28,7 @@ import (
 
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 )
@@ -122,7 +123,7 @@ func (sts *StateTransferState) AsynchronousStateTransfer(lowBlock uint64, peerID
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
 // If the peerIDs are nil, then all peers are assumed to have the given block
 func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) {
-	logger.Debug("%v informed of a new block hash for block number %d", sts.id, blockNumber)
+	logger.Debug("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
 
 	sts.blockHashReceiver <- &blockHashReply{
 		syncMark: syncMark{
@@ -182,6 +183,7 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, led
 
 	sts.asynchronousTransferInProgress = false
 
+	logger.Debug("%v assigning %v to defaultPeerIDs", id, defaultPeerIDs)
 	sts.defaultPeerIDs = defaultPeerIDs
 
 	sts.RecoverDamage = config.GetBool("statetransfer.recoverdamage")
@@ -293,14 +295,20 @@ func (a blockRangeSlice) Delete(i int) {
 
 // Executes a func trying each peer included in peerIDs until successful
 // Attempts to execute over all peers if peerIDs is nil
-func (sts *StateTransferState) tryOverReplicas(peerIDs []*protos.PeerID, do func(peerID *protos.PeerID) error) (err error) {
+func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do func(peerID *protos.PeerID) error) (err error) {
 
-	if nil == peerIDs {
-		logger.Debug("tryOverReplicas, no peerIDs given, using default")
+	peerIDs := passedPeerIDs
+
+	if nil == passedPeerIDs {
+		logger.Debug("tryOverPeers, no peerIDs given, using default")
 		peerIDs = sts.defaultPeerIDs
 	}
 
-	logger.Debug("%v in tryOverReplicas, using peerIDs: %v", sts.id, peerIDs)
+	logger.Debug("%v in tryOverPeers, using peerIDs: %v", sts.id, peerIDs)
+
+	if 0 == len(peerIDs) {
+		return fmt.Errorf("Cannot tryOverPeers with no peers specified")
+	}
 
 	numReplicas := len(peerIDs)
 	startIndex := rand.Int() % numReplicas
@@ -311,7 +319,7 @@ func (sts *StateTransferState) tryOverReplicas(peerIDs []*protos.PeerID, do func
 		if err == nil {
 			break
 		} else {
-			logger.Warning("%v in tryOverReplicas loop trying %v : %s", sts.id, peerIDs[index], err)
+			logger.Warning("%v in tryOverPeers loop trying %v : %s", sts.id, peerIDs[index], err)
 		}
 	}
 
@@ -328,7 +336,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	blockCursor := highBlock
 	var block *protos.Block
 
-	err := sts.tryOverReplicas(peerIDs, func(peerID *protos.PeerID) error {
+	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 		blockChan, err := sts.ledger.GetRemoteBlocks(peerID, blockCursor, lowBlock)
 		if nil != err {
 			logger.Warning("%v failed to get blocks from %d to %d from %v: %s",
@@ -657,14 +665,12 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		}
 
 		*blockHReply = <-replyChan
+		logger.Debug("%v received a block hash reply with sync sources %v", sts.id, (*blockHReply).syncMark.peerIDs)
 		*blocksValid = false // If we retrieve a new hash, we will need to sync to a new block
 	}
 
 	if !*blocksValid {
-		(*mark) = &syncMark{ // We now know of a more recent block hash
-			blockNumber: (*blockHReply).blockNumber,
-			peerIDs:     (*blockHReply).peerIDs,
-		}
+		(*mark) = &((*blockHReply).syncMark) // We now know of a more recent block hash
 
 		blockReplyChannel := make(chan error)
 
@@ -761,8 +767,9 @@ func (sts *StateTransferState) stateThread() {
 }
 
 func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
+	logger.Debug("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
 	currentBlock := fromBlockNumber
-	err := sts.tryOverReplicas(peerIDs, func(peerID *protos.PeerID) error {
+	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 
 		deltaMessages, err := sts.ledger.GetRemoteStateDeltas(peerID, currentBlock, toBlockNumber)
 		if err != nil {
@@ -782,8 +789,13 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 				if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
 					continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
 				}
+
 				for _, delta := range deltaMessage.Deltas {
-					sts.ledger.ApplyStateDelta(delta, false)
+					umDelta := &statemgmt.StateDelta{}
+					if err := umDelta.Unmarshal(delta); nil != err {
+						return fmt.Errorf("%v received a corrupt state delta from %v : %s", sts.id, peerID, err)
+					}
+					sts.ledger.ApplyStateDelta(deltaMessage, umDelta)
 				}
 
 				success := false
@@ -807,14 +819,19 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 				}
 
 				if !success {
-					for _, delta := range deltaMessage.Deltas {
-						sts.ledger.ApplyStateDelta(delta, true)
+					if nil != sts.ledger.RollbackStateDelta(deltaMessage) {
+						sts.InvalidateState()
+						return fmt.Errorf("%v played state forward according to %v, but the state hash did not match, failed to roll back, invalidated state", sts.id, peerID)
+					} else {
+						return fmt.Errorf("%v played state forward according to %v, but the state hash did not match, rolled back", sts.id, peerID)
 					}
 
-					// TODO, this is wrong, our state might not rewind correctly, change to the new commit/rollback API
-					return fmt.Errorf("%v played state forward according to %v, but the state hash did not match", sts.id, peerID)
 				} else {
 					currentBlock++
+					if nil != sts.ledger.CommitStateDelta(deltaMessage) {
+						sts.InvalidateState()
+						return fmt.Errorf("%v played state forward according to %v, hashes matched, but failed to commit, invalidated state", sts.id, peerID)
+					}
 				}
 			case <-time.After(sts.StateDeltaRequestTimeout):
 				logger.Warning("%v timed out during state delta recovery from %v", sts.id, peerID)
@@ -835,7 +852,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 
 	currentStateBlock := uint64(0)
 
-	ok := sts.tryOverReplicas(peerIDs, func(peerID *protos.PeerID) error {
+	ok := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 		logger.Debug("%v is initiating state recovery from %v", sts.id, peerID)
 
 		sts.ledger.EmptyState()
@@ -855,10 +872,16 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 				if !ok {
 					return nil
 				}
-				sts.ledger.ApplyStateDelta(piece.Delta, false)
+				umDelta := &statemgmt.StateDelta{}
+				if err := umDelta.Unmarshal(piece.Delta); nil != err {
+					return fmt.Errorf("%v received a corrupt delta from %v : %s", sts.id, peerID, err)
+				}
+				sts.ledger.ApplyStateDelta(piece, umDelta)
 				currentStateBlock = piece.BlockNumber
+				if nil != sts.ledger.CommitStateDelta(piece) {
+					return fmt.Errorf("%v could not commit state delta from %v", sts.id, peerID)
+				}
 			case <-timer.C:
-				logger.Warning("%v timed out during state recovery from %v", sts.id, peerID)
 				return fmt.Errorf("%v timed out during state recovery from %v", sts.id, peerID)
 			}
 		}

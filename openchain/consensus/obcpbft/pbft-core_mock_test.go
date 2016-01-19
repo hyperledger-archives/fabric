@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -222,8 +223,14 @@ func (inst *instance) HashBlock(block *pb.Block) ([]byte, error) {
 func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return inst.ledger.PutBlock(blockNumber, block)
 }
-func (inst *instance) ApplyStateDelta(delta []byte, unapply bool) error {
-	return inst.ledger.ApplyStateDelta(delta, unapply)
+func (inst *instance) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	return inst.ledger.ApplyStateDelta(id, delta)
+}
+func (inst *instance) CommitStateDelta(id interface{}) error {
+	return inst.ledger.CommitStateDelta(id)
+}
+func (inst *instance) RollbackStateDelta(id interface{}) error {
+	return inst.ledger.RollbackStateDelta(id)
 }
 func (inst *instance) EmptyState() error {
 	return inst.ledger.EmptyState()

@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/protos"
 )
 
@@ -60,6 +61,8 @@ func (r mockResponse) String() string {
 	return "ERROR"
 }
 
+const MAGIC_DELTA_KEY string = "The only key/string we ever use for deltas"
+
 type MockLedger struct {
 	cleanML       *MockLedger
 	blocks        map[uint64]*protos.Block
@@ -72,6 +75,9 @@ type MockLedger struct {
 
 	txID     interface{}
 	curBatch []*protos.Transaction
+
+	deltaID       interface{}
+	preDeltaValue uint64
 
 	inst *instance // To support the ExecTX stuff
 }
@@ -163,7 +169,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 		}
 	}
 
-	mock.ApplyStateDelta(buffer, false)
+	mock.ApplyStateDelta(id, SimpleBytesToStateDelta(buffer))
 
 	stateHash, _ := mock.GetCurrentStateHash()
 
@@ -175,8 +181,13 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 	}
 
 	if preview {
-		mock.ApplyStateDelta(buffer, true)
+		if nil != mock.RollbackStateDelta(id) {
+			panic("Error in delta rollback")
+		}
 	} else {
+		if nil != mock.CommitStateDelta(id) {
+			panic("Error in delta construction/application")
+		}
 		fmt.Printf("Debug: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
@@ -347,7 +358,7 @@ func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finis
 					if remoteBlock, err := (*mock.remoteLedgers)[*peerID].GetBlock(current); nil == err {
 						deltas := make([][]byte, len(remoteBlock.Transactions))
 						for i, transaction := range remoteBlock.Transactions {
-							deltas[i] = transaction.Payload
+							deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
 						}
 						res <- &protos.SyncStateDeltas{
 							Range: &protos.SyncBlockRange{
@@ -404,20 +415,51 @@ func (mock *MockLedger) PutBlock(blockNumber uint64, block *protos.Block) error 
 	return nil
 }
 
-func (mock *MockLedger) ApplyStateDelta(delta []byte, unapply bool) error {
+func (mock *MockLedger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	mock.mutex.Lock()
 	defer func() {
 		mock.mutex.Unlock()
 	}()
-	d, r := binary.Uvarint(delta)
+
+	if nil != mock.deltaID {
+		if !reflect.DeepEqual(id, mock.deltaID) {
+			return fmt.Errorf("A different state delta is already being applied")
+		}
+	} else {
+		mock.deltaID = id
+		mock.preDeltaValue = mock.state
+	}
+
+	d, r := binary.Uvarint(SimpleStateDeltaToBytes(delta))
 	if r <= 0 {
 		return fmt.Errorf("State delta could not be applied, was not a uint64, %x", delta)
 	}
-	if !unapply {
+	if !delta.RollBackwards {
 		mock.state += d
 	} else {
 		mock.state -= d
 	}
+	return nil
+}
+
+func (mock *MockLedger) CommitStateDelta(id interface{}) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
+
+	mock.deltaID = nil
+	return nil
+}
+
+func (mock *MockLedger) RollbackStateDelta(id interface{}) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
+	mock.deltaID = nil
+
+	mock.state = mock.preDeltaValue
 	return nil
 }
 
@@ -545,6 +587,21 @@ func SimpleGetTransactions(blockNumber uint64) []*protos.Transaction {
 	}}
 }
 
+func SimpleBytesToStateDelta(bDelta []byte) *statemgmt.StateDelta {
+	mDelta := &statemgmt.StateDelta{
+		RollBackwards: false,
+	}
+	mDelta.ChaincodeStateDeltas = make(map[string]*statemgmt.ChaincodeStateDelta)
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY] = &statemgmt.ChaincodeStateDelta{}
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs = make(map[string]*statemgmt.UpdatedValue)
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY] = &statemgmt.UpdatedValue{Value: bDelta}
+	return mDelta
+}
+
+func SimpleStateDeltaToBytes(sDelta *statemgmt.StateDelta) []byte {
+	return sDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY].Value
+}
+
 func SimpleGetConsensusMetadata(blockNumber uint64) []byte {
 	return []byte(fmt.Sprintf("ConsensusMetaData:%d", blockNumber))
 }
@@ -631,8 +688,17 @@ func TestMockLedger(t *testing.T) {
 
 	_ = ml.EmptyState() // Never fails
 	for syncStateMessage := range syncStateMessages {
-		if err := ml.ApplyStateDelta(syncStateMessage.Delta, false); err != nil {
+		delta := &statemgmt.StateDelta{}
+		if err := delta.Unmarshal(syncStateMessage.Delta); nil != err {
+			t.Fatalf("Error unmarshaling state delta : %s", err)
+		}
+
+		if err := ml.ApplyStateDelta(blockNumber, delta); err != nil {
 			t.Fatalf("Error applying state delta : %s", err)
+		}
+
+		if err := ml.CommitStateDelta(blockNumber); err != nil {
+			t.Fatalf("Error committing state delta : %s", err)
 		}
 	}
 

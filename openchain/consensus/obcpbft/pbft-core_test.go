@@ -36,9 +36,13 @@ import (
 )
 
 func makeTestnetPbftCore(inst *instance) {
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	defer func() {
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+	}()
 	config := readConfig()
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
-	inst.pbft.replicaCount = len(inst.net.replicas)
+	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
 	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -184,9 +185,30 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 }
 
 // ApplyStateDelta ....
-// TODO, waiting to see the streaming implementation to define this API nicely
-func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) error {
-	return nil // TODO implement
+func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.ApplyStateDelta(id, delta)
+}
+
+// CommitStateDelta ....
+func (h *Helper) CommitStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.CommitStateDelta(id)
+}
+
+// RollbackStateDelta ....
+func (h *Helper) RollbackStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.RollbackStateDelta(id)
 }
 
 // EmptyState completely empties the state and prepares it to restore a snapshot

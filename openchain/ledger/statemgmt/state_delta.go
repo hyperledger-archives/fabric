@@ -290,41 +290,43 @@ func (chaincodeStateDelta *ChaincodeStateDelta) marshal(buffer *proto.Buffer) {
 }
 
 // Unmarshal deserializes StateDelta
-func (stateDelta *StateDelta) Unmarshal(bytes []byte) {
+func (stateDelta *StateDelta) Unmarshal(bytes []byte) error {
 	buffer := proto.NewBuffer(bytes)
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		panic(fmt.Errorf("This error should not occure: %s", err))
+		return fmt.Errorf("Error unmarashaling size: %s", err)
 	}
 	stateDelta.ChaincodeStateDeltas = make(map[string]*ChaincodeStateDelta, size)
 	for i := uint64(0); i < size; i++ {
 		chaincodeID, err := buffer.DecodeStringBytes()
 		if err != nil {
-			panic(fmt.Errorf("This error should not occure: %s", err))
+			return fmt.Errorf("Error unmarshaling chaincodeID : %s", err)
 		}
 		chaincodeStateDelta := newChaincodeStateDelta(chaincodeID)
 		err = chaincodeStateDelta.unmarshal(buffer)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occure: %s", err))
+			return fmt.Errorf("Error unmarshalling chaincodeStateDelta : %s", err)
 		}
 		stateDelta.ChaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
 	}
+
+	return nil
 }
 
 func (chaincodeStateDelta *ChaincodeStateDelta) unmarshal(buffer *proto.Buffer) error {
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		panic(fmt.Errorf("This error should not occur: %s", err))
+		return fmt.Errorf("Error unmarshaling state delta: %s", err)
 	}
 	chaincodeStateDelta.UpdatedKVs = make(map[string]*UpdatedValue, size)
 	for i := uint64(0); i < size; i++ {
 		key, err := buffer.DecodeStringBytes()
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
 		value, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
 
 		// protobuff does not differentiate between an empty []byte or a nil
@@ -339,7 +341,7 @@ func (chaincodeStateDelta *ChaincodeStateDelta) unmarshal(buffer *proto.Buffer) 
 
 		previousValue, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarhsaling state delta : %s", err)
 		}
 		if len(previousValue) == 0 {
 			previousValue = nil

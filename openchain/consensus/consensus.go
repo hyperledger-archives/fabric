@@ -19,7 +19,10 @@ under the License.
 
 package consensus
 
-import pb "github.com/openblockchain/obc-peer/protos"
+import (
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	pb "github.com/openblockchain/obc-peer/protos"
+)
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
@@ -50,7 +53,9 @@ type UtilLedger interface {
 // WritableLedger is useful for updating the blockchain during state transfer
 type WritableLedger interface {
 	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(delta []byte, unapply bool) error
+	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
+	CommitStateDelta(id interface{}) error
+	RollbackStateDelta(id interface{}) error
 	EmptyState() error
 }
 

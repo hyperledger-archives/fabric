@@ -193,14 +193,17 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 				panic(fmt.Errorf("Cannot retrieve handle for peer which must exist : %s", err))
 			}
 			if i < instance.id {
-				fmt.Printf("Assigning to index %d for replicaCount %d and id %d\n", i, instance.replicaCount, instance.id)
+				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i, instance.replicaCount, instance.id)
 				defaultPeerIDs[i] = handle
 			} else if i > instance.id {
+				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i-1, instance.replicaCount, instance.id)
 				defaultPeerIDs[i-1] = handle
 			} else {
 				// This is our ID, do not add it to the list of default peers
 			}
 		}
+	} else {
+		logger.Debug("Replica %d not initializing defaultPeerIDs, as replicaCount is %d", instance.id, instance.replicaCount)
 	}
 	instance.sts = statetransfer.NewStateTransferState(&protos.PeerID{fmt.Sprintf("Replica %d", instance.id)}, config, ledger, defaultPeerIDs)
 
@@ -825,6 +828,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 			var err error
 			if checkpointMembers[i], err = getValidatorHandle(testChkpt.ReplicaId); err != nil {
 				panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
+			} else {
+				logger.Debug("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
 			}
 			i++
 		}
@@ -835,8 +840,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
 		return
 	}
-	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d", instance.id, chkpt.SequenceNumber, i, instance.replicaCount)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i-1])
+	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
+	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i])
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {

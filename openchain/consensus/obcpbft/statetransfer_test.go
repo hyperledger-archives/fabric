@@ -125,7 +125,7 @@ func makeSimpleFilter(failureTrigger mockRequest, failureType mockResponse) (fun
 		}
 
 		if *peerID == *res.peerID {
-			//fmt.Println("Failing it with", failureType)
+			fmt.Println("Failing it with", failureType)
 			return failureType
 		}
 		return Normal
