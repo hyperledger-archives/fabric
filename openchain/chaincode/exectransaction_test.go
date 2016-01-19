@@ -221,6 +221,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	time.Sleep(time.Second)
 
 	fmt.Printf("Going to invoke\n")
+
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
@@ -835,5 +836,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	SetupTestConfig()
+	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+	viper.Set("validator.validity-period.verification", "false")
 	os.Exit(m.Run())
 }

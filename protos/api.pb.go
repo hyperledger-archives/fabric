@@ -27,6 +27,9 @@ It has these top-level messages:
 	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
+	RangeQueryStateInfo
+	RangeQueryStateKeyValue
+	RangeQueryStateResponse
 	Secret
 	BuildResult
 	Interest

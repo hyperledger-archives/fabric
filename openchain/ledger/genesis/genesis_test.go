@@ -91,6 +91,7 @@ func TestGenesis(t *testing.T) {
 func setupTestConfig() {
 	viper.AddConfigPath(".")
 	viper.SetConfigName("genesis_test")
+	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 	err := viper.ReadInConfig()
 	if err != nil { // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
