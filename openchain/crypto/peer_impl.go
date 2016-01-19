@@ -55,7 +55,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		return nil, utils.ErrNotInitialized
 	}
 
-	peer.node.log.Debug("Pre validating [%s].", tx.String())
+	//	peer.node.log.Debug("Pre validating [%s].", tx.String())
 	peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	if tx.Cert != nil && tx.Signature != nil {
