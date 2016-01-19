@@ -188,7 +188,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
 		}
-		sec, err := crypto.InitClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
+		sec, err = crypto.InitClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
 		defer crypto.CloseClient(sec)
 		// remove the security context since we are no longer need it down stream
 		chaincodeInvocationSpec.ChaincodeSpec.SecureContext = ""
@@ -209,7 +209,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else if nil != sec {
 		if viper.GetBool("security.privacy") {
 			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
-				devopsLogger.Debug("Error decrypting query transaction result %v", resp.Msg)
+				devopsLogger.Debug("Failed decrypting query transaction result %s", string(resp.Msg[:]))
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			}
 		}
