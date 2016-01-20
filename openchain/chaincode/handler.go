@@ -397,11 +397,6 @@ func (handler *Handler) notify(msg *pb.ChaincodeMessage) {
 		chaincodeLogger.Debug("notifier Uuid:%s does not exist", msg.Uuid)
 	} else {
 		chaincodeLogger.Debug("notifying Uuid:%s", msg.Uuid)
-		var err error
-		if msg.Payload, err = handler.encrypt(msg.Uuid, msg.Payload); nil != err {
-			msg.Payload = []byte(err.Error())
-			msg.Type = pb.ChaincodeMessage_QUERY_ERROR
-		}
 		tctx.responseNotifier <- msg
 	}
 }
@@ -970,6 +965,12 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	if msg.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
 		chaincodeLogger.Debug("HandleMessage- QUERY_COMPLETED for uuid:%s. Notify", msg.Uuid)
 		handler.deleteIsTransaction(msg.Uuid)
+		var err error
+		if msg.Payload, err = handler.encrypt(msg.Uuid, msg.Payload); nil != err {
+			chaincodeLogger.Debug("Failed to encrypt query result %s", string(msg.Payload))
+			msg.Payload = []byte(fmt.Sprintf("Failed to encrypt query result %s", err.Error()))
+			msg.Type = pb.ChaincodeMessage_QUERY_ERROR
+		}
 		handler.notify(msg)
 		return nil
 	} else if msg.Type == pb.ChaincodeMessage_QUERY_ERROR {

@@ -206,8 +206,8 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
-	} else if nil != sec {
-		if viper.GetBool("security.privacy") {
+	} else {
+		if !invoke && nil != sec && viper.GetBool("security.privacy") {
 			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
 				devopsLogger.Debug("Failed decrypting query transaction result %s", string(resp.Msg[:]))
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
