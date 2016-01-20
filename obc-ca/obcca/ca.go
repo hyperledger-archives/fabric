@@ -77,7 +77,7 @@ func NewCA(name string) *CA {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
 	ca.db = db
@@ -343,7 +343,7 @@ func (ca *CA) deleteUser(id string) (error) {
 func (ca *CA) readToken(id string) *sql.Row {
 	Trace.Println("Reading token for "+id+".")
 
-	return ca.db.QueryRow("SELECT token, state FROM Users WHERE id=?", id)
+	return ca.db.QueryRow("SELECT token, state, key FROM Users WHERE id=?", id)
 }
 
 func (ca *CA) readRole(id string) int {
