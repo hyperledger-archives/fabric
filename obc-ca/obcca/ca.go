@@ -74,7 +74,7 @@ func NewCA(name string) *CA {
 	if err := db.Ping(); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB, kdfkey BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
@@ -192,7 +192,7 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 	return block.Bytes, nil
 }
 
-func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, opt ...pkix.Extension) ([]byte, error) {
+func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
 	Trace.Println("Creating certificate for "+id+".")
 
 	raw, err := ca.newCertificate(pub, usage, opt)
@@ -203,7 +203,7 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 
 	hash := sha3.New384()
 	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash) VALUES (?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil)); err != nil {
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)
 	}
 
@@ -279,10 +279,10 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificatess for "+id+".")
 
 	if len(opt) > 0 && opt[0] != 0 {
-		return ca.db.Query("SELECT cert FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
+		return ca.db.Query("SELECT cert, kdfkey FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
 	}
 
-	return ca.db.Query("SELECT cert FROM Certificates WHERE id=?", id)
+	return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=?", id)
 }
 
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {

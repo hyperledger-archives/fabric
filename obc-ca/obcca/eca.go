@@ -206,13 +206,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 		// create new certificate pair
 		ts := time.Now().UnixNano()
 
-		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)
