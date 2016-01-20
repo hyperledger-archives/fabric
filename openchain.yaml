@@ -20,7 +20,7 @@ rest:
 
     # Enable/disable setting for the REST service. It is recommended to disable
     # REST service on validators in production deployment and use non-validating
-    # nodes to host REST service 
+    # nodes to host REST service
     enabled: true
 
     # The address that the REST service will listen on for incoming requests.
@@ -285,12 +285,16 @@ ledger:
       #         - bob
       #         - "10"
 
-    state:
+    # Setting the deploy-system-chaincode property to false will prevent the
+    # deploying of system chaincode at genesis time.
+    deploy-system-chaincode: false
 
-      # Control the number state deltas that are maintained. This takes additional
-      # disk space, but allow the state to be rolled backwards and forwards
-      # without the need to replay transactions.
-      deltaHistorySize: 500
+  state:
+
+    # Control the number state deltas that are maintained. This takes additional
+    # disk space, but allow the state to be rolled backwards and forwards
+    # without the need to replay transactions.
+    deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
     # structures may offer different performance characteristics. Options are
@@ -298,9 +302,6 @@ ledger:
     # 'buckettree'. This CANNOT be changed after the DB has been created.
     dataStructure: buckettree
 
-    # Setting the deploy-system-chaincode property to false will prevent the
-    # deploying of system chaincode at genesis time.
-    deploy-system-chaincode: false
 ###############################################################################
 #
 #    Security section -
