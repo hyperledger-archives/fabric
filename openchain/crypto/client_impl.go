@@ -179,7 +179,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
-
+	
 	client.node.log.Info("Getting a CertificateHandler for TCert [%s]", utils.EncodeBase64(tCertDER))
 
 	// Validate the transaction certificate
@@ -201,16 +201,16 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	return handler, nil
 }
 
-func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
+func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		client.node.log.Error("Registering [%s]...done! Initialization already performed", id)
+		client.node.log.Error("Registering [%s]...done! Initialization already performed", name)
 
 		return nil
 	}
 
 	// Register node
 	node := new(nodeImpl)
-	if err := node.register("client", id, pwd, enrollID, enrollPWD); err != nil {
+	if err := node.register("client", name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
 		return err
 	}
