@@ -18,7 +18,9 @@ cli:
 ###############################################################################
 rest:
 
-    # Enable/disable setting for the REST service.
+    # Enable/disable setting for the REST service. It is recommended to disable
+    # REST service on validators in production deployment and use non-validating
+    # nodes to host REST service 
     enabled: true
 
     # The address that the REST service will listen on for incoming requests.
@@ -127,8 +129,9 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification of the validity period in the validator    
-        validity-period: 
+        # Setting the validity-period.verification to false will disable the verification
+        # of the validity period in the validator
+        validity-period:
             verification: false
 
     # TLS Settings for p2p communications
@@ -195,30 +198,6 @@ peer:
     # Path on the file system where peer will store data
     fileSystemPath: /var/openchain/production
 
-### NOTE: The validator section below is not needed and will be removed - BN
-###############################################################################
-#
-#    Validator section
-#
-###############################################################################
-validator:
-    enabled: false
-    address: 0.0.0.0:30304
-    # TLS Settings for p2p communications
-    tls:
-        enabled:  false
-        cert:
-            file: testdata/server1.pem
-        key:
-            file: testdata/server1.key
-        # The server name use to verify the hostname returned by TLS handshake
-        server-host-override:
-    # Peer discovery settings.  Controls how this peer discovers other peers
-    discovery:
-
-        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
-        rootnode:
-
 ###############################################################################
 #
 #    VM section
@@ -231,7 +210,7 @@ vm:
     # http://localhost:4243
     # tcp://localhost:2376
     endpoint: unix:///var/run/docker.sock
-        
+
     # settings for docker vms
     docker:
         tls:
@@ -280,7 +259,7 @@ chaincode:
     mode: net
 
     installpath: /go/bin/
-    
+
 ###############################################################################
 #
 #    Ledger section - ledger configuration encompases both the blockchain
@@ -319,7 +298,8 @@ ledger:
     # 'buckettree'. This CANNOT be changed after the DB has been created.
     dataStructure: buckettree
 
-    # Setting the deploy-system-chaincode property to false will prevent the deploying of system chaincode at genesis time.
+    # Setting the deploy-system-chaincode property to false will prevent the
+    # deploying of system chaincode at genesis time.
     deploy-system-chaincode: false
 ###############################################################################
 #
@@ -328,9 +308,11 @@ ledger:
 ###############################################################################
 security:
     enabled: false
-    # To enroll NVP or VP with Member Services PKI. These parameters are for
-    # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: donq
+    # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
+    # They will not be valid the subsequent times without un-enroll.
+    # The values come from off-line registration with obc-ca. For testing, make
+    # sure the values are in obc-ca/obcca.yaml file eca.users
+    enrollID: binhn
     enrollSecret: 7avZQLwcUe9q
     # To enable privacy and confidentiality of transactions (requires security to be enabled)
     privacy: false
