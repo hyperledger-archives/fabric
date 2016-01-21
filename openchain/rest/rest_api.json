@@ -201,7 +201,7 @@
         },
         "/registrar": {
            "post": {
-              "summary": "Service endpoint for registering a user with the certificate authority",
+              "summary": "Register a user with the certificate authority",
               "description": "The /registrar endpoint receives requests to register a user with the certificate authority. The request must supply the registration id and password within the payload. If the registration is successful, the required transaction certificates are received and stored locally. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Registrar"
@@ -232,16 +232,16 @@
               }
            }
         },
-        "/registrar/{userID}": {
+        "/registrar/{enrollmentID}": {
             "get": {
                 "summary": "Confirm the user has registered with the certificate authority",
-                "description": "The /registrar/{userID} endpoint confirms whether the specified user has registered with the certificate authority. If the user has registered, a confirmation message will be returned. Otherwise, an authorization failure will result.",
+                "description": "The /registrar/{enrollmentID} endpoint confirms whether the specified user has registered with the certificate authority. If the user has registered, a confirmation message will be returned. Otherwise, an authorization failure will result.",
                 "tags": [
                     "Registrar"
                 ],
                 "operationId": "getUserRegistration",
                 "parameters": [{
-                    "name": "userID",
+                    "name": "enrollmentID",
                     "in": "path",
                     "description": "Username for which registration is to be confirmed",
                     "type": "string",
@@ -264,13 +264,13 @@
             },
             "delete": {
               "summary": "Delete user login tokens from local storage",
-              "description": "The /registrar/{userID} endpoint deletes any existing client login tokens from local storage. After the completion of this request, the target user will no longer be able to execute transactions.",
+              "description": "The /registrar/{enrollmentID} endpoint deletes any existing client login tokens from local storage. After the completion of this request, the target user will no longer be able to execute transactions.",
               "tags": [
                   "Registrar"
               ],
                 "operationId": "deleteUserRegistration",
                 "parameters": [{
-                    "name": "userID",
+                    "name": "enrollmentID",
                     "in": "path",
                     "description": "Username for which login tokens are to be deleted",
                     "type": "string",
@@ -279,6 +279,37 @@
                 "responses": {
                     "200": {
                         "description": "Confirm deletion of user login tokens",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/registrar/{enrollmentID}/ecert": {
+            "get": {
+                "summary": "Retrieve user enrollment certificate",
+                "description": "The /registrar/{enrollmentID}/ecert endpoint retrieves the enrollment certificate for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing the URL-encoded enrollment certificate. Otherwise, an error will result.",
+                "tags": [
+                    "Registrar"
+                ],
+                "operationId": "getUserEnrollmentCertificate",
+                "parameters": [{
+                    "name": "enrollmentID",
+                    "in": "path",
+                    "description": "EnrollmentID for which the certificate is requested",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm registration for target user and return the URL-encoded enrollment certificate",
                         "schema": {
                            "$ref": "#/definitions/OK"
                         }
