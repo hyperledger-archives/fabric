@@ -54,10 +54,19 @@ type nodeImpl struct {
 
 	// Enrollment Chain
 	enrollChainKey []byte
+
+	// TLS
+	tlsCert *x509.Certificate
 }
 
 func (node *nodeImpl) GetName() string {
 	return node.conf.name
+}
+
+func (node *nodeImpl) isRegistered() bool {
+	missing, _ := utils.FileMissing(node.conf.getRawsPath(), node.conf.getEnrollmentIDFilename())
+
+	return !missing
 }
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
