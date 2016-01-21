@@ -34,21 +34,47 @@ import (
 	"time"
 )
 
-func (node *nodeImpl) loadTLSCertificate() error {
- 	node.log.Debug("Loading tls certificate...")
- 
- 	cert, _, err := node.ks.loadCertX509AndDer(node.conf.getTLSCertFilename())
- 	if err != nil {
- 		node.log.Error("Failed parsing tls certificate [%s].", err.Error())
- 
- 		return err
- 	}
- 	node.tlsCert = cert
- 
- 	return nil
+func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
+	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
+	if err != nil {
+		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
+
+		return err
+	}
+	node.log.Debug("TLS Cert [%s]", utils.EncodeBase64(tlsCertRaw))
+
+	node.log.Info("Storing TLS key and certificate for user [%s]...", id)
+
+	// Store tls key.
+	if err := node.ks.storePrivateKeyInClear(node.conf.getTLSKeyFilename(), key); err != nil {
+		node.log.Error("Failed storing tls key [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls cert
+	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), tlsCertRaw); err != nil {
+		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+
+	return nil
 }
 
-func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, []byte, error) {
+func (node *nodeImpl) loadTLSCertificate() error {
+	node.log.Debug("Loading tls certificate...")
+
+	cert, _, err := node.ks.loadCertX509AndDer(node.conf.getTLSCertFilename())
+	if err != nil {
+		node.log.Error("Failed parsing tls certificate [%s].", err.Error())
+
+		return err
+	}
+	node.tlsCert = cert
+
+	return nil
+}
+
+func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
 	node.log.Info("getTLSCertificate...")
 
 	priv, err := utils.NewECDSAKey()
@@ -56,14 +82,14 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	if err != nil {
 		node.log.Error("Failed generating key: %s", err)
 
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		node.log.Error("Failed generating uuid: %s", err)
 
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Prepare the request
@@ -91,7 +117,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	if err != nil {
 		node.log.Error("Failed requesting tls certificate: %s", err)
 
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	node.log.Info("Verifing tls certificate...")
@@ -102,7 +128,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	node.log.Info("Verifing tls certificate...done!")
 
-	return priv, pbCert.Cert.Cert, pbCert.RootCert.Cert, nil
+	return priv, pbCert.Cert.Cert, nil
 }
 
 func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.TLSCertCreateResp, error) {
