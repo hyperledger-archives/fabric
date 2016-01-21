@@ -151,14 +151,15 @@ You can experiment with the Openchain REST API through any tool of your choice. 
   * POST /devops/query
 * [Registrar](#registrar)
   * POST /registrar
-  * GET /registrar/{userID}
-  * DELETE /registrar/{userID}
+  * GET /registrar/{enrollmentID}
+  * DELETE /registrar/{enrollmentID}
+  * GET /registrar/{enrollmentID}/ecert
 
 #### Block
 
 * **GET /chain/blocks/{Block}**
 
-Use the Block API to retrieve the contents of various blocks from the blockchain data structure. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
+Use the Block API to retrieve the contents of various blocks from the blockchain. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
 
 ```
 message Block {
@@ -220,7 +221,7 @@ message Transaction {
 * **POST /devops/invoke**
 * **POST /devops/query**
 
-Use the Devops APIs to deploy, invoke, or query chaincodes. The required ChaincodeSpec and ChaincodeInvocationSpec payloads are defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+Use the Devops APIs to deploy, invoke, and query chaincodes. The required ChaincodeSpec and ChaincodeInvocationSpec payloads are defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
 
 ```
 message ChaincodeSpec {
@@ -247,7 +248,7 @@ message ChaincodeInvocationSpec {
 }
 ```
 
-**Note:** The deploy transaction requires a 'path' parameter to locate, build, and deploy the chaincode. On the other hand, invoke and query transactions require a 'name' parameter. These parameters are specified in the ChaincodeID, defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+**Note:** The deploy transaction requires a 'path' parameter to locate, build, and deploy the chaincode. On the other hand, invoke and query transactions require a 'name' parameter. These parameters are specified in the ChaincodeID, defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto). The only exception to this rule is if the peer is running in development mode, i.e. the user deploys the chaincode themselves. In that case, the deploy transaction also requires a 'name' parameter.
 
 ```
 message ChaincodeID {
@@ -260,7 +261,7 @@ message ChaincodeID {
 }
 ```
 
-The response to deploy and invoke requests is either a message containing a confirmation of successful execution or an error, containing a reason for the failure. The response to a query request depends on the chaincode implementation.
+The response to deploy and invoke requests is either a message containing a confirmation of successful execution or an error, containing a reason for the failure. The response to a deployment request also contains the assigned chaincode name, which is to be used in subsequent invocation and query transactions. The response to a query request depends on the chaincode implementation.
 
 An example of a valid ChaincodeSpec message is shown below. The 'path' parameter specifies the location of the chaincode in the filesystem. Eventually, we imagine that the 'path' will represent a location on GitHub.
 
@@ -290,7 +291,7 @@ An example of a valid ChaincodeInvocationSpec message is shown below. Consult [c
 }
 ```
 
-With security enabled, modify the payload to include the secureContext element passing the username of a logged in user as follows:
+With security enabled, modify the payload to include the secureContext element passing the enrollmentID of a logged in user as follows:
 
 ```
 {
@@ -313,10 +314,11 @@ With security enabled, modify the payload to include the secureContext element p
 #### Registrar
 
 * **POST /registrar**
-* **GET /registrar/{userID}**
-* **DELETE /registrar/{userID}**
+* **GET /registrar/{enrollmentID}**
+* **DELETE /registrar/{enrollmentID}**
+* **GET /registrar/{enrollmentID}/ecert**
 
-Use the Registrar APIs to manage end user registration with the CA. These API endpoints are used to register a user with the CA, determine whether a given user is registered, and to remove any login tokens for a target user preventing them from executing any further transactions.
+Use the Registrar APIs to manage end user registration with the CA. These API endpoints are used to register a user with the CA, determine whether a given user is registered, and to remove any login tokens for a target user preventing them from executing any further transactions. The Registrar APIs are also used to retrieve user enrollment certificates from the system.
 
 The /registrar enpoint is used to register a user with the CA. The required Secret payload is defined in [devops.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/devops.proto).
 
@@ -336,7 +338,9 @@ The response to the registration request is either a confirmation of successful 
 }
 ```
 
-The GET /registrar/{userID} endpoint is used to confirm whether a given user is registered with the CA. If so, a confirmation will be returned. Otherwise, an authorization error will result. The DELETE /registrar/{userID} endpoint is used to delete login tokens for a target user. If the login tokens are deleted successfully, a confirmation will be returned. Otherwise, an authorization error will result. No payload is required for this endpoint.
+The GET /registrar/{enrollmentID} endpoint is used to confirm whether a given user is registered with the CA. If so, a confirmation will be returned. Otherwise, an authorization error will result. The DELETE /registrar/{enrollmentID} endpoint is used to delete login tokens for a target user. If the login tokens are deleted successfully, a confirmation will be returned. Otherwise, an authorization error will result. No payload is required for this endpoint.
+
+The GET /registrar/{enrollmentID}/ecert endpoint is used to retrieve the enrollment certificate of a given user from local storage. If the target user has already registered with the CA, the response will include a URL-encoded version of the enrollment certificate. If the target user has not yet registered, an error will be returned. If the client wishes to use the returned enrollment certificate after retrieval, keep in mind that it must be URl-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
 ### To set up Swagger-UI
 
