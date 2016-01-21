@@ -153,6 +153,16 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	// Store the PeerEndpoint
 	d.ToPeerEndpoint = helloMessage.PeerEndpoint
 	peerLogger.Debug("Received %s from endpoint=%s", e.Event, helloMessage)
+
+	// If security enabled, need to verify the signature on the hello message
+	if viper.GetBool("security.enabled") {
+		if err := d.Coordinator.GetSecHelper().Verify(helloMessage.PeerEndpoint.PkiID, msg.Signature, msg.Payload); err != nil {
+			e.Cancel(fmt.Errorf("Error Verifying signature for received HelloMessage: %s", err))
+			return
+		}
+		peerLogger.Debug("Verified signature for %s", e.Event)
+	}
+
 	if d.initiatedStream == false {
 		// Did NOT intitiate the stream, need to send back HELLO
 		peerLogger.Debug("Received %s, sending back %s", e.Event, pb.OpenchainMessage_DISC_HELLO.String())
