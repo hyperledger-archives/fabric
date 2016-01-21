@@ -28,7 +28,7 @@ import (
 )
 
 func makeTestnetBatch(inst *instance, batchSize int) {
-	config := loadConfig()
+	config := readConfig()
 	inst.consenter = newObcBatch(uint64(inst.id), config, inst)
 	batch := inst.consenter.(*obcBatch)
 	batch.batchSize = batchSize

@@ -31,7 +31,7 @@ import (
 )
 
 func makeTestnetSieve(inst *instance) {
-	config := loadConfig()
+	config := readConfig()
 	inst.consenter = newObcSieve(uint64(inst.id), config, inst)
 	sieve := inst.consenter.(*obcSieve)
 	sieve.pbft.replicaCount = len(inst.net.replicas)

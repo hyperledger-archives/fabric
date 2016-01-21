@@ -47,9 +47,9 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	var err error
 	op := &obcBatch{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op, cpi)
-	op.batchSize = config.GetInt("batchSize")
+	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
-	op.batchTimeout, err = time.ParseDuration(config.GetString("timeout.batch"))
+	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}

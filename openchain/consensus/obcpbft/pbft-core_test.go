@@ -36,11 +36,11 @@ import (
 )
 
 func makeTestnetPbftCore(inst *instance) {
-	os.Setenv("OPENCHAIN_CONSENSUS_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
 	defer func() {
-		os.Unsetenv("OPENCHAIN_CONSENSUS_N")
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
 	}()
-	config := loadConfig()
+	config := readConfig()
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
 	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
@@ -48,14 +48,14 @@ func makeTestnetPbftCore(inst *instance) {
 }
 
 func TestEnvOverride(t *testing.T) {
-	config := loadConfig()
+	config := readConfig()
 
-	key := "mode"                       // for a key that exists
-	envName := "OPENCHAIN_OBCPBFT_MODE" // env override name
-	overrideValue := "overide_test"     // value to override default value with
+	key := "general.name"                       // for a key that exists
+	envName := "OPENCHAIN_OBCPBFT_GENERAL_NAME" // env override name
+	overrideValue := "overide_test"             // value to override default value with
 
 	// test key
-	if ok := config.IsSet("mode"); !ok {
+	if ok := config.IsSet("general.name"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
@@ -65,12 +65,12 @@ func TestEnvOverride(t *testing.T) {
 		os.Unsetenv(envName)
 	}()
 
-	if ok := config.IsSet("mode"); !ok {
+	if ok := config.IsSet("general.name"); !ok {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
 	// read key
-	configVal := config.GetString("mode")
+	configVal := config.GetString("general.name")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
@@ -79,7 +79,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	instance := newPbftCore(1, readConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -105,7 +105,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	instance := newPbftCore(1, readConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -124,7 +124,6 @@ func TestIncompletePayload(t *testing.T) {
 
 func TestNetwork(t *testing.T) {
 	net := makeTestnet(7, makeTestnetPbftCore)
-	fmt.Printf("HELLO\n")
 	defer net.close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
@@ -636,7 +635,7 @@ func TestCatchupFromPBFT(t *testing.T) {
 	// Test from blockheight of 1, with valid genesis block
 	ml := NewMockLedger(&rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
-	config := loadConfig()
+	config := readConfig()
 	pbft := newPbftCore(0, config, nil, ml)
 	pbft.K = 2
 	pbft.L = 4
