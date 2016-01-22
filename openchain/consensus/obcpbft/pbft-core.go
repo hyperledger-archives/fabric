@@ -57,7 +57,6 @@ type innerCPI interface {
 	execute(txRaw []byte, rawMetadata []byte)
 	viewChange(curView uint64)
 
-   // TTD
    sign(msg []byte) ([]byte, error)
    verify(senderID uint64, signature []byte, message []byte) error
 }

@@ -37,7 +37,6 @@ type Communicator interface {
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
-//TTD
 type SecurityUtils interface {
    Sign(msg []byte) ([]byte, error)                                    // sign a msg with this replica's signing key.
    Verify(peerID *pb.PeerID, signature []byte, message []byte) error   // verify that given signature is valid under the given replicaID's verification key. If replicaID is nil,
@@ -96,10 +95,16 @@ type LedgerStack interface {
 	RemoteLedgers
 }
 
+// BlockchainPackage serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
+type BlockchainPackage interface {
+	Executor
+	Ledger
+	RemoteLedgers
+}
+
 // CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
 type CPI interface {
 	Communicator
-   SecurityUtils //TTD
+   SecurityUtils
 	BlockchainPackage
-	LedgerStack
 }

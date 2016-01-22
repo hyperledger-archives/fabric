@@ -113,7 +113,6 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 	return op.cpi.Unicast(ocMsg, receiverHandle)
 }
 
-// TTD
 func (op *obcClassic) sign(msg []byte) ([]byte, error) {
    return op.cpi.Sign(msg)
 }

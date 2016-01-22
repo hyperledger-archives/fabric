@@ -37,7 +37,7 @@ type signable interface {
 
 func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
-	// TTD id := []byte("XXX ID")
+	// id := []byte("XXX ID")
 	// s.setID(instance.id)
 	raw, err := s.serialize()
 	if err != nil {
@@ -45,7 +45,7 @@ func (instance *pbftCore) sign(s signable) error {
 	}
    signedRaw, err := instance.consumer.sign(raw)
    if err != nil {
-      return err  // TTD TODO: what should happen is we have an error in sign() ?
+      return err  // TODO: what should happen is we have an error in sign() ?
    }
    s.setSignature(signedRaw)
 	// s.setSignature(instance.cpi.Sign(raw))
@@ -61,7 +61,7 @@ func (instance *pbftCore) verify(s signable) error {
 	if err != nil {
 		return err
 	}
-   return instance.consumer.verify(s.getID(), origSig, raw) // TTD
+   return instance.consumer.verify(s.getID(), origSig, raw)
 
 	// XXX check that s.Id() is a valid replica
 	// instance.cpi.Verify(s.Id(), origSig, raw)

@@ -157,7 +157,6 @@ func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
 	return op.cpi.Unicast(ocMsg, receiverHandle)
 }
 
-// TTD
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
    return op.cpi.Sign(msg)
 }
