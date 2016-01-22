@@ -67,7 +67,7 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 		remoteLedger.blockHeight = blockNumber + 1
 	}
 
-	result := sts.AsynchronousStateTransfer(blockNumber-3, peerIDs)
+	result := sts.AsynchronousStateTransfer(peerIDs)
 
 	blockHash := SimpleGetBlockHash(blockNumber)
 	sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, peerIDs)

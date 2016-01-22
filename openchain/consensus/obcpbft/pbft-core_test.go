@@ -622,7 +622,7 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 	return nil
 }
 
-func TestCatchupFromPBFT(t *testing.T) {
+func TestCatchupFromPBFTSimple(t *testing.T) {
 	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	for i := uint64(0); i <= 3; i++ {
@@ -640,8 +640,33 @@ func TestCatchupFromPBFT(t *testing.T) {
 	pbft.K = 2
 	pbft.L = 4
 	pbft.replicaCount = 4
+
 	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
-		t.Fatalf("Simplest case: %s", err)
+		t.Fatalf("TestCatchupFromPBFT simple case: %s", err)
+	}
+}
+
+func TestCatchupFromPBFTDivergentSeqBlock(t *testing.T) {
+	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	for i := uint64(0); i <= 3; i++ {
+		peerID, _ := getValidatorHandle(i)
+		l := &MockRemoteLedger{}
+		rols[*peerID] = l
+		mrls[*peerID] = l
 	}
 
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(&rols, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	config := loadConfig()
+	pbft := newPbftCore(0, config, nil, ml)
+	pbft.K = 2
+	pbft.L = 4
+	pbft.replicaCount = 4
+
+	// Test to make sure that the block number and sequence number can diverge
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 100, &mrls); nil != err {
+		t.Fatalf("TestCatchupFromPBFTDivergentSeqBlock separated block/seqnumber: %s", err)
+	}
 }

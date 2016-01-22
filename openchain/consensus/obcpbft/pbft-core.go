@@ -85,7 +85,7 @@ type pbftCore struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
-	ledger  consensus.BlockchainPackage       // Used for blockchain related queries
+	ledger  consensus.LedgerStack             // Used for blockchain related queries
 	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
 	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
 
@@ -145,7 +145,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.BlockchainPackage) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -205,7 +205,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	} else {
 		logger.Debug("Replica %d not initializing defaultPeerIDs, as replicaCount is %d", instance.id, instance.replicaCount)
 	}
-	instance.sts = statetransfer.NewStateTransferState(&protos.PeerID{fmt.Sprintf("Replica %d", instance.id)}, config, ledger, defaultPeerIDs)
+
+	if myHandle, err := getValidatorHandle(instance.id); err != nil {
+		panic("Could not retrieve own handle")
+	} else {
+		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
+	}
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
@@ -401,7 +406,7 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 		block, err := instance.ledger.GetBlock(blockNumber)
 		if err != nil {
 			logger.Error("Replica %d just returned from state transfer, which claims to have syned to %d, but could not retrieve that block, retrying", instance.id, blockNumber)
-			instance.sts.AsynchronousStateTransfer(blockNumber, nil)
+			instance.sts.AsynchronousStateTransfer(nil)
 		} else {
 			metadata := &Metadata{}
 			if err := proto.Unmarshal(block.ConsensusMetadata, metadata); nil == err {
@@ -762,10 +767,6 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 }
 
 func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
-	if instance.sts.AsynchronousStateTransferInProgress() {
-		// State transfer is already going on, no need to track this
-		return
-	}
 
 	H := instance.h + instance.L
 
@@ -811,7 +812,10 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 					}
 				}
 
-				instance.sts.AsynchronousStateTransfer(m, furthestReplicaIds)
+				// Make sure we don't try to start a second state transfer while one is going on
+				if !instance.sts.AsynchronousStateTransferInProgress() {
+					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				}
 			}
 
 			return

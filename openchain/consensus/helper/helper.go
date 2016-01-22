@@ -172,7 +172,10 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatchBlock TODO
+// PreviewCommitTxBatchBlock retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
+// As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
+// this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
+// The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
 func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -226,7 +229,10 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return ledger.PutRawBlock(block, blockNumber)
 }
 
-// ApplyStateDelta TODO
+// ApplyStateDelta applies a state delta to the current state
+// The result of this function can be retrieved using GetCurrentStateDelta
+// To commit the result, call CommitStateDelta, or to roll it back
+// call RollbackStateDelta
 func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -235,7 +241,8 @@ func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) er
 	return ledger.ApplyStateDelta(id, delta)
 }
 
-// CommitStateDelta TODO
+// CommitStateDelta makes the result of ApplyStateDelta permanent
+// and releases the resources necessary to rollback the delta
 func (h *Helper) CommitStateDelta(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -244,7 +251,8 @@ func (h *Helper) CommitStateDelta(id interface{}) error {
 	return ledger.CommitStateDelta(id)
 }
 
-// RollbackStateDelta TODO
+// RollbackStateDelta undoes the results of ApplyStateDelta to revert
+// the current state back to the state before ApplyStateDelta was invoked
 func (h *Helper) RollbackStateDelta(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {

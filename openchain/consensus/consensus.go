@@ -89,8 +89,8 @@ type RemoteLedgers interface {
 	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
-// BlockchainPackage serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
-type BlockchainPackage interface {
+// LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
+type LedgerStack interface {
 	Executor
 	Ledger
 	RemoteLedgers
@@ -101,4 +101,5 @@ type CPI interface {
 	Communicator
    SecurityUtils //TTD
 	BlockchainPackage
+	LedgerStack
 }
