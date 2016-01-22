@@ -210,10 +210,13 @@ func (node *nodeImpl) loadECACertsChain() error {
 }
 
 func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
+	node.log.Debug("Getting ECA client...")
+
 	var conn *grpc.ClientConn
 	var err error
 
 	if node.conf.isTLSEnabled() {
+		node.log.Debug("TLS enabled...")
 
 		// setup tls options
 		var opts []grpc.DialOption
@@ -231,6 +234,8 @@ func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error)
 
 		conn, err = grpc.Dial(node.conf.getECAPAddr(), opts...)
 	} else {
+		node.log.Debug("TLS enabled...")
+
 		conn, err = grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
 	}
 
@@ -241,6 +246,8 @@ func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error)
 	}
 
 	client := obcca.NewECAPClient(conn)
+
+	node.log.Debug("Getting ECA client...done")
 
 	return conn, client, nil
 }

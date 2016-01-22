@@ -109,6 +109,12 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 	node.log.Info("Init keystore...done.")
 
+	if err := node.initTLS(); err != nil {
+		node.log.Error("Failed initliazing TLS [%s].", err.Error())
+
+		return err
+	}
+
 	// Retrieve keys and certificates
 
 	if err := node.retrieveECACertsChain(enrollID); err != nil {

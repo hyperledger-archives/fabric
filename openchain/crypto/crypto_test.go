@@ -37,7 +37,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-	_ "time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -66,7 +65,8 @@ func TestMain(m *testing.M) {
 	setup()
 
 	// Init PKI
-	go initPKI()
+	initPKI()
+	go startPKI()
 	defer cleanup()
 
 	// Init clients
@@ -830,8 +830,10 @@ func initPKI() {
 	tlsca = obcca.NewTLSCA(eca)
 
 	tlscaCertsChain, _ = ioutil.ReadFile(filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"))
-	fmt.Printf("tlscaCertsChain = [%s] \n", utils.EncodeBase64(tlscaCertsChain))
+	fmt.Printf("tlscaCertsChain = [%s] \n", tlscaCertsChain)
+}
 
+func startPKI() {
 	// TLS configuration
 	var opts []grpc.ServerOption
 	creds, err := credentials.NewServerTLSFromFile(

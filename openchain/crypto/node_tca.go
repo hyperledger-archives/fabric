@@ -82,10 +82,13 @@ func (node *nodeImpl) loadTCACertsChain() error {
 }
 
 func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
+	node.log.Debug("Getting TCA client...")
+
 	var conn *grpc.ClientConn
 	var err error
 
 	if node.conf.isTLSEnabled() {
+		node.log.Debug("TLS enabled...")
 
 		// setup tls options
 		var opts []grpc.DialOption
@@ -103,6 +106,8 @@ func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error)
 
 		conn, err = grpc.Dial(node.conf.getTCAPAddr(), opts...)
 	} else {
+		node.log.Debug("TLS disabled...")
+
 		conn, err = grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
 	}
 
@@ -113,6 +118,8 @@ func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error)
 	}
 
 	client := obcca.NewTCAPClient(conn)
+
+	node.log.Debug("Getting TCA client...done")
 
 	return conn, client, nil
 }
