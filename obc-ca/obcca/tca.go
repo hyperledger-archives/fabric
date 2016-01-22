@@ -169,7 +169,7 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, req *pb.TCertCreateReq)
 		return nil, errors.New("signature does not verify")
 	}
 
-	if raw, err = tcap.tca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, req.Ts.Seconds); err != nil {
+	if raw, err = tcap.tca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, req.Ts.Seconds, nil); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 			return nil, err
 		}
 
-		if raw, err = tcap.tca.createCertificate(id, &txPub, x509.KeyUsageDigitalSignature, req.Ts.Seconds, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
+		if raw, err = tcap.tca.createCertificate(id, &txPub, x509.KeyUsageDigitalSignature, req.Ts.Seconds, kdfKey, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
@@ -298,10 +298,54 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, req *pb.TCertReadReq) (*p
 
 // ReadCertificateSet reads a transaction certificate set from the TCA.  Not yet implemented.
 //
-func (tcap *TCAP) ReadCertificateSet(context.Context, *pb.TCertReadSetReq) (*pb.CertSet, error) {
+func (tcap *TCAP) ReadCertificateSet(ctx context.Context, req *pb.TCertReadSetReq) (*pb.CertSet, error) {
 	Trace.Println("grpc TCAP:ReadCertificateSet")
 
-	return nil, errors.New("not yet implemented")
+	id := req.Id.Id
+	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	sig := req.Sig
+	req.Sig = nil
+
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	hash := sha3.New384()
+	raw, _ = proto.Marshal(req)
+	hash.Write(raw)
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		return nil, errors.New("signature does not verify")
+	}
+
+	rows, err := tcap.tca.readCertificates(id, req.Ts.Seconds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var certs [][]byte
+	var kdfKey []byte	
+	for rows.Next() {
+            var raw []byte
+            if err := rows.Scan(&raw, &kdfKey); err != nil {
+                    return nil, err
+            }
+            
+            certs = append(certs, raw)
+    	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+    
+	return &pb.CertSet{kdfKey, certs}, nil
 }
 
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
