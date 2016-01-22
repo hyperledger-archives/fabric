@@ -293,12 +293,12 @@ func serve(args []string) error {
 
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		grpclog.Fatalf("failed to listen: %v", err)
+		grpclog.Fatalf("Failed to listen: %v", err)
 	}
 
 	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
-		grpclog.Fatalf("failed to create ehub server: %v", err)
+		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
 	if chaincodeDevMode {
@@ -330,8 +330,6 @@ func serve(args []string) error {
 
 	grpcServer := grpc.NewServer(opts...)
 
-	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
@@ -341,6 +339,9 @@ func serve(args []string) error {
 		logger.Debug("Running as non-validating peer")
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 	}
+
+	// Register the Peer server
+	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -397,11 +398,11 @@ func serve(args []string) error {
 		serve <- true
 	}()
 
-	// Deploy the geneis block if needed.
+	// Deploy the genesis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis()
-		if makeGeneisError != nil {
-			return makeGeneisError
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
 		}
 	}
 

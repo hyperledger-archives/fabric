@@ -38,7 +38,7 @@ type obcClassic struct {
 
 func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
 	op := &obcClassic{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = newPbftCore(id, config, op, cpi)
 	return op
 }
 
@@ -100,6 +100,19 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(ocMsg)
 }
 
+// send a message to a specific replica
+func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := getValidatorHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
 // verify checks whether the request is valid
 func (op *obcClassic) verify(txRaw []byte) error {
 	// TODO verify transaction
@@ -116,7 +129,7 @@ func (op *obcClassic) verify(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(txRaw []byte) {
+func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
 	if err := op.verify(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
@@ -139,14 +152,14 @@ func (op *obcClassic) execute(txRaw []byte) {
 
 	_, errs := op.cpi.ExecTXs(txs)
 	if errs[len(txs)] != nil {
-		logger.Error("Fail to execute transaction %s: %v", txBatchID, errs)
+		logger.Error("Failed to execute transaction %s: %v", txBatchID, errs)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, rawMetadata); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
@@ -158,22 +171,4 @@ func (op *obcClassic) execute(txRaw []byte) {
 // called when a view-change happened in the underlying PBFT
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
-}
-
-// returns the state hash that corresponds to a specific block in the chain
-// if called with no arguments, it returns the latest/temp state hash
-func (op *obcClassic) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	if len(blockNumber) == 0 {
-		return op.cpi.GetCurrentStateHash()
-	}
-
-	block, err := op.cpi.GetBlock(blockNumber[0])
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
-	}
-	stateHash, err = block.GetHash()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
-	}
-	return
 }

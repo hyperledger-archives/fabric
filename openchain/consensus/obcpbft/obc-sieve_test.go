@@ -31,7 +31,7 @@ import (
 )
 
 func makeTestnetSieve(inst *instance) {
-	config := readConfig()
+	config := loadConfig()
 	inst.consenter = newObcSieve(uint64(inst.id), config, inst)
 	sieve := inst.consenter.(*obcSieve)
 	sieve.pbft.replicaCount = len(inst.net.replicas)
@@ -42,7 +42,7 @@ func makeTestnetSieve(inst *instance) {
 }
 
 func TestSieveNetwork(t *testing.T) {
-	net := makeTestnet(1, makeTestnetSieve)
+	net := makeTestnet(4, makeTestnetSieve)
 	defer net.close()
 
 	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
@@ -56,9 +56,11 @@ func TestSieveNetwork(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 1 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 1 {
 			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 1)
+				inst.id, newBlocks, 1)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
@@ -69,11 +71,11 @@ func TestSieveNetwork(t *testing.T) {
 }
 
 func TestSieveNoDecision(t *testing.T) {
-	net := makeTestnet(1, func(i *instance) {
+	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
 		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 100 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -92,13 +94,15 @@ func TestSieveNoDecision(t *testing.T) {
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 	net.close()
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 1 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 1 {
 			t.Errorf("replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 1)
+				inst.id, newBlocks, 1)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 1 {
@@ -109,7 +113,7 @@ func TestSieveNoDecision(t *testing.T) {
 }
 
 func TestSieveReqBackToBack(t *testing.T) {
-	net := makeTestnet(1, makeTestnetSieve)
+	net := makeTestnet(4, makeTestnetSieve)
 	defer net.close()
 
 	var delayPkt []taggedMsg
@@ -139,9 +143,11 @@ func TestSieveReqBackToBack(t *testing.T) {
 	net.process()
 
 	for _, inst := range net.replicas {
-		if len(inst.blocks) != 2 {
+		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
+		newBlocks--
+		if newBlocks != 2 {
 			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, len(inst.blocks), 2)
+				inst.id, newBlocks, 2)
 		}
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
@@ -154,7 +160,7 @@ func TestSieveReqBackToBack(t *testing.T) {
 func TestSieveNonDeterministic(t *testing.T) {
 	var instResults []int
 
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetSieve(inst)
 		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
@@ -172,11 +178,12 @@ func TestSieveNonDeterministic(t *testing.T) {
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
 	net.process()
 
-	results := make([]int, len(net.replicas))
+	results := make([]uint64, len(net.replicas))
 	for _, inst := range net.replicas {
-		results[inst.id] = len(inst.blocks)
+		blockHeight, _ := inst.GetBlockchainSize() // Doesn't fail
+		results[inst.id] = blockHeight - 1
 	}
-	if !reflect.DeepEqual(results, []int{0, 0, 1, 1}) && !reflect.DeepEqual(results, []int{1, 1, 0, 0}) {
+	if !reflect.DeepEqual(results, []uint64{0, 0, 1, 1}) && !reflect.DeepEqual(results, []uint64{1, 1, 0, 0}) {
 		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
 	}
 }
@@ -195,8 +202,8 @@ func TestSieveRequestHash(t *testing.T) {
 	r0 := net.replicas[0]
 	r0.consenter.RecvMsg(msg)
 
-	txId := r0.txID.(string)
-	if len(txId) == 0 || len(txId) > 1000 {
-		t.Fatalf("invalid transaction id hash length %d", len(txId))
+	txID := r0.ledger.(*MockLedger).txID.(string)
+	if len(txID) == 0 || len(txID) > 1000 {
+		t.Fatalf("invalid transaction id hash length %d", len(txID))
 	}
 }

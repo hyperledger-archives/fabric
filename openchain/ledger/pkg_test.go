@@ -101,14 +101,14 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	var allBlocks []*protos.Block
 	var allHashes [][]byte
 
-	// -----------------------------<Genisis block>-------------------------------
+	// -----------------------------<Genesis block>-------------------------------
 	// Add the first (genesis block)
-	block1 := protos.NewBlock(nil)
+	block1 := protos.NewBlock(nil, nil)
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, []byte("stateHash1"))
 	testWrapper.addNewBlock(block1, []byte("stateHash1"))
 
-	// -----------------------------</Genisis block>------------------------------
+	// -----------------------------</Genesis block>------------------------------
 
 	// -----------------------------<Block 2>-------------------------------------
 	// Deploy a chaincode
@@ -118,7 +118,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	}
 	// Now we add the transaction to the block 2 and add the block to the chain
 	transactions2a := []*protos.Transaction{transaction2a}
-	block2 := protos.NewBlock(transactions2a)
+	block2 := protos.NewBlock(transactions2a, nil)
 
 	allBlocks = append(allBlocks, block2)
 	allHashes = append(allHashes, []byte("stateHash2"))
@@ -133,7 +133,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	}
 	// Create the third block and add it to the chain
 	transactions3a := []*protos.Transaction{transaction3a}
-	block3 := protos.NewBlock(transactions3a)
+	block3 := protos.NewBlock(transactions3a, nil)
 	allBlocks = append(allBlocks, block3)
 	allHashes = append(allHashes, []byte("stateHash3"))
 	testWrapper.addNewBlock(block3, []byte("stateHash3"))
@@ -153,7 +153,7 @@ func buildTestBlock(t *testing.T) (*protos.Block, error) {
 	transactions := []*protos.Transaction{}
 	tx, _ := buildTestTx(t)
 	transactions = append(transactions, tx)
-	block := protos.NewBlock(transactions)
+	block := protos.NewBlock(transactions, nil)
 	return block, nil
 }
 

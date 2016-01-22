@@ -28,7 +28,7 @@ import (
 )
 
 func makeTestnetBatch(inst *instance, batchSize int) {
-	config := readConfig()
+	config := loadConfig()
 	inst.consenter = newObcBatch(uint64(inst.id), config, inst)
 	batch := inst.consenter.(*obcBatch)
 	batch.batchSize = batchSize
@@ -52,7 +52,7 @@ func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
 }
 
 func TestNetworkBatch(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetBatch(inst, 2)
 	})
 	defer net.close()
@@ -82,9 +82,13 @@ func TestNetworkBatch(t *testing.T) {
 	}
 
 	for i, inst := range net.replicas {
-		if len(inst.blocks[0]) != net.replicas[i].consenter.(*obcBatch).batchSize {
+		block, err := inst.GetBlock(1)
+		if nil != err {
+			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", inst.id, err)
+		}
+		if numTrans := len(block.Transactions); numTrans != net.replicas[i].consenter.(*obcBatch).batchSize {
 			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, len(net.replicas[i].blocks[0]), net.replicas[i].consenter.(*obcBatch).batchSize)
+				inst.id, numTrans, net.replicas[i].consenter.(*obcBatch).batchSize)
 		}
 	}
 }

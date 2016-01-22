@@ -53,7 +53,7 @@ type obcSieve struct {
 func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	op := &obcSieve{cpi: cpi, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = newPbftCore(id, config, op, cpi)
 
 	return op
 }
@@ -62,27 +62,21 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
+
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		// TODO verify transaction
-		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
-
 		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
 		svMsgRaw, _ := proto.Marshal(svMsg)
-		op.recvRequest(svMsgRaw)
 		op.broadcastMsg(svMsg)
+		op.recvRequest(svMsgRaw)
 		return nil
 	}
 
 	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
-
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
 
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
@@ -117,6 +111,19 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 	op.broadcastMsg(svMsg)
 }
 
+// send a message to a specific replica
+func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := getValidatorHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
 // called by pbft-core to signal when a view change happened
 func (op *obcSieve) viewChange(newView uint64) {
 	logger.Info("Replica %d observing pbft view change to %d", op.id, newView)
@@ -135,24 +142,6 @@ func (op *obcSieve) viewChange(newView uint64) {
 		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{flush}}
 		op.invokePbft(req)
 	}
-}
-
-// returns the state hash that corresponds to a specific block in the chain
-// if called with no arguments, it returns the latest/temp state hash
-func (op *obcSieve) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	if len(blockNumber) == 0 {
-		return op.cpi.GetCurrentStateHash()
-	}
-
-	block, err := op.cpi.GetBlock(blockNumber[0])
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
-	}
-	stateHash, err = block.GetHash()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
-	}
-	return
 }
 
 func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
@@ -192,19 +181,6 @@ func (op *obcSieve) processRequest() {
 
 	txRaw := op.queuedTx[0]
 	op.queuedTx = op.queuedTx[1:]
-
-	// tx := &pb.Transaction{}
-	// err := proto.Unmarshal(txRaw, tx)
-	// if err != nil {
-	// 	return
-	// }
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
-
 	op.verifyStore = nil
 
 	exec := &Execute{
@@ -215,8 +191,8 @@ func (op *obcSieve) processRequest() {
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
 		op.id, exec.View, exec.BlockNumber)
-	op.recvExecute(exec)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
+	op.recvExecute(exec)
 }
 
 func (op *obcSieve) recvExecute(exec *Execute) {
@@ -264,18 +240,10 @@ func (op *obcSieve) processExecute() {
 	op.begin()
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
-
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
-
 	op.currentTx = []*pb.Transaction{tx}
 	hashes, _ := op.cpi.ExecTXs(op.currentTx)
 
-	// For simplicity's sake, we use the pbft timer
+	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
 
 	op.currentResult = hashes
@@ -290,8 +258,8 @@ func (op *obcSieve) processExecute() {
 
 	logger.Debug("Sieve replica %d sending verify blockNo=%d",
 		op.id, verify.BlockNumber)
-	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
+	op.recvVerify(verify)
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
@@ -444,7 +412,7 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
-func (op *obcSieve) execute(raw []byte) {
+func (op *obcSieve) execute(raw []byte, rawMetadata []byte) {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {
@@ -518,7 +486,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 			_ = dSet
 		} else {
 			logger.Debug("Decision successful, committing result")
-			if op.commit() != nil {
+			if op.commit(vset.BlockNumber) != nil {
 				op.rollback()
 				op.blockNumber--
 				op.currentReq = ""
@@ -571,8 +539,13 @@ func (op *obcSieve) rollback() error {
 	return nil
 }
 
-func (op *obcSieve) commit() error {
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, nil); err != nil {
+func (op *obcSieve) commit(seqNo uint64) error {
+	metadataMsg := &Metadata{SeqNo: seqNo}
+	rawMetadata, err := proto.Marshal(metadataMsg)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal consensus metadata before committing of transaction: %v", err)
+	}
+	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, rawMetadata); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil

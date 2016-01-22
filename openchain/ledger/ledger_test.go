@@ -368,7 +368,7 @@ func TestVerifyChain(t *testing.T) {
 	}
 
 	// Add bad blocks and test
-	badBlock := protos.NewBlock(nil)
+	badBlock := protos.NewBlock(nil, nil)
 	badBlock.PreviousBlockHash = []byte("evil")
 	for i := uint64(0); i < ledger.GetBlockchainSize(); i++ {
 		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)

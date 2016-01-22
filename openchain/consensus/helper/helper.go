@@ -22,103 +22,65 @@ package helper
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-// =============================================================================
-// Structure definitions go here
-// =============================================================================
-
-// Helper contains the reference to coordinator for broadcasts/unicasts.
+// Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 }
 
-// =============================================================================
-// Constructors go here
-// =============================================================================
-
-// NewHelper constructs the consensus helper object.
+// NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 	return &Helper{coordinator: mhc}
 }
 
-// =============================================================================
-// Stack-facing implementation goes here
-// =============================================================================
-
-// GetReplicaHash returns the crypto IDs of the current replica and the whole network
-// TODO func (h *Helper) GetReplicaHash() (self []byte, network [][]byte, err error) {
-// ATTN: Until the crypto package is integrated, this functions returns
-// the <IP:port>s of the current replica and the whole network instead
-func (h *Helper) GetReplicaHash() (self string, network []string, err error) {
-	// v, _ := h.coordinator.GetValidator()
-	// self = v.GetID()
-	peer, err := peer.GetPeerEndpoint()
+// GetNetworkHandles returns the peer handles of the current validator and VP network
+func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+	ep, err := h.coordinator.GetPeerEndpoint()
 	if err != nil {
-		return "", nil, err
+		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
 	}
-	self = peer.Address
+	self = ep.ID
 
-	config := viper.New()
-	config.SetConfigName("openchain")
-	config.AddConfigPath("./")
-	err = config.ReadInConfig()
+	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
-		err = fmt.Errorf("Fatal error reading root config: %s", err)
-		return self, nil, err
+		return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
 	}
-
-	// encodedHashes := config.GetStringSlice("peer.validator.replicas.hashes")
-	/* network = make([][]byte, len(encodedHashes))
-	for i, v := range encodedHashes {
-		network[i], _ = base64.StdEncoding.DecodeString(v)
-	} */
-	network = config.GetStringSlice("peer.validator.replicas.ips")
-
-	return self, network, nil
-}
-
-// GetReplicaID returns the uint handle corresponding to a replica address
-// TODO func (h *Helper) GetReplicaID(hash []byte) (id uint64, err error) {
-func (h *Helper) GetReplicaID(addr string) (id uint64, err error) {
-	_, network, err := h.GetReplicaHash()
-	if err != nil {
-		return uint64(0), err
-	}
-	for i, v := range network {
-		// if bytes.Equal(v, hash) {
-		if v == addr {
-			return uint64(i), nil
+	peers := peersMsg.GetPeers()
+	for _, endpoint := range peers {
+		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
+			network = append(network, endpoint.ID)
 		}
 	}
+	network = append(network, self)
 
-	//err = fmt.Errorf("Couldn't find crypto ID in list of VP IDs given in config")
-	err = fmt.Errorf("Couldn't find IP:port in list of VP addresses given in config")
-	return uint64(0), err
+	return
 }
 
-// Broadcast sends a message to all validating peers.
+// Broadcast sends a message to all validating peers
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-	_ = h.coordinator.Broadcast(msg) // TODO process the errors
+	errors := h.coordinator.Broadcast(msg)
+	if len(errors) > 0 {
+		return fmt.Errorf("Couldn't broadcast successfully")
+	}
 	return nil
 }
 
-// Unicast sends a message to a specified receiver.
-func (h *Helper) Unicast(msgPayload []byte, receiver string) error {
-	// TODO Call a function in the comms layer; wait for Jeff's implementation.
-	return nil
+// Unicast sends a message to a specified receiver
+func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
+	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
-// BeginTxBatch gets invoked when the next round of transaction-batch
-// execution begins.
+// BeginTxBatch gets invoked when the next round
+// of transaction-batch execution begins
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -144,19 +106,19 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
-func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, proof []byte) error {
+func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if err := ledger.CommitTxBatch(id, transactions, nil, proof); err != nil {
+	if err := ledger.CommitTxBatch(id, transactions, nil, metadata); err != nil {
 		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 	return nil
 }
 
 // RollbackTxBatch discards all the state changes that may have taken
-// place during the execution of current transaction-batch.
+// place during the execution of current transaction-batch
 func (h *Helper) RollbackTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -166,6 +128,22 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
 	return nil
+}
+
+// PreviewCommitTxBatchBlock retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
+// As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
+// this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
+// The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
+func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
+	}
+	if block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata); err != nil {
+		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+	} else {
+		return block, err
+	}
 }
 
 // GetBlock returns a block from the chain
@@ -184,4 +162,120 @@ func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 		return nil, fmt.Errorf("Failed to get the ledger :%v", err)
 	}
 	return ledger.GetTempStateHash()
+}
+
+// GetBlockchainSize returns the current size of the blockchain
+func (h *Helper) GetBlockchainSize() (uint64, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return 0, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.GetBlockchainSize(), nil
+}
+
+// HashBlock returns the hash of the included block, useful for mocking
+func (h *Helper) HashBlock(block *pb.Block) ([]byte, error) {
+	return block.GetHash()
+}
+
+// PutBlock inserts a raw block into the blockchain at the specified index, nearly no error checking is performed
+func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.PutRawBlock(block, blockNumber)
+}
+
+// ApplyStateDelta applies a state delta to the current state
+// The result of this function can be retrieved using GetCurrentStateDelta
+// To commit the result, call CommitStateDelta, or to roll it back
+// call RollbackStateDelta
+func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.ApplyStateDelta(id, delta)
+}
+
+// CommitStateDelta makes the result of ApplyStateDelta permanent
+// and releases the resources necessary to rollback the delta
+func (h *Helper) CommitStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.CommitStateDelta(id)
+}
+
+// RollbackStateDelta undoes the results of ApplyStateDelta to revert
+// the current state back to the state before ApplyStateDelta was invoked
+func (h *Helper) RollbackStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.RollbackStateDelta(id)
+}
+
+// EmptyState completely empties the state and prepares it to restore a snapshot
+func (h *Helper) EmptyState() error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.DeleteALLStateKeysAndValues()
+}
+
+// VerifyBlockchain checks the integrity of the blockchain between indices start and finish,
+// returning the first block who's PreviousBlockHash field does not match the hash of the previous block
+func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return finish, fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.VerifyChain(start, finish)
+}
+
+func (h *Helper) getRemoteLedger(peerID *pb.PeerID) (peer.RemoteLedger, error) {
+	remoteLedger, err := h.coordinator.GetRemoteLedger(peerID)
+	if nil != err {
+		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", peerID, err)
+	}
+
+	return remoteLedger, nil
+}
+
+// GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
+func (h *Helper) GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestBlocks(&pb.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
+}
+
+// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
+func (h *Helper) GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateSnapshot()
+}
+
+// GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
+func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	remoteLedger, err := h.getRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateDeltas(&pb.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
 }

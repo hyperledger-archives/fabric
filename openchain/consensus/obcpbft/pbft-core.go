@@ -22,10 +22,14 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -48,11 +52,10 @@ func init() {
 
 type innerCPI interface {
 	broadcast(msgPayload []byte)
+	unicast(msgPayload []byte, receiverID uint64) (err error)
 	verify(txRaw []byte) error
-	execute(txRaw []byte)
+	execute(txRaw []byte, rawMetadata []byte)
 	viewChange(curView uint64)
-
-	getStateHash(blockNumber ...uint64) (stateHash []byte, err error)
 }
 
 type pbftCore struct {
@@ -64,7 +67,8 @@ type pbftCore struct {
 	// PBFT data
 	activeView   bool              // view change happening
 	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int               // number of faults we can tolerate
+	f            int               // max. number of faults we can tolerate
+	N            int               // max.number of validators in the network
 	h            uint64            // low watermark
 	id           uint64            // replica ID; PBFT `i`
 	K            uint64            // checkpoint period
@@ -77,12 +81,18 @@ type pbftCore struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
+	ledger  consensus.LedgerStack             // Used for blockchain related queries
+	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
+	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
+
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+
+	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
 	// implementation of PBFT `in`
 	reqStore        map[string]*Request   // track requests
@@ -115,25 +125,35 @@ type vcidx struct {
 	id uint64
 }
 
+type sortableUint64Slice []uint64
+
+func (a sortableUint64Slice) Len() int {
+	return len(a)
+}
+func (a sortableUint64Slice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a sortableUint64Slice) Less(i, j int) bool {
+	return a[i] < a[j]
+}
+
 // =============================================================================
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
+	var err error
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
+	instance.ledger = ledger
 
-	// in dev/debugging mode you are expected to override the config values
-	// with the environment variable OPENCHAIN_OBCPBFT_X_Y
-
-	// read from the config file
-	// you can override the config values with the environment variable prefix
-	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
-	var err error
-	instance.byzantine = config.GetBool("replica.byzantine")
-	instance.f = config.GetInt("general.f")
+	instance.N = config.GetInt("general.N")
+	instance.f = instance.N / 3
 	instance.K = uint64(config.GetInt("general.K"))
+
+	instance.byzantine = config.GetBool("general.byzantine")
+
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
@@ -157,18 +177,54 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI) *pbftCore {
 	instance.qset = make(map[qidx]*ViewChange_PQ)
 	instance.newViewStore = make(map[uint64]*NewView)
 
+	// initialize state transfer
+	instance.hChkpts = make(map[uint64]uint64)
+
+	defaultPeerIDs := make([]*protos.PeerID, instance.replicaCount-1)
+	if instance.replicaCount > 1 {
+		// For some tests, only 1 replica will be present, and defaultPeerIDs makes no sense
+		for i := uint64(0); i < uint64(instance.replicaCount); i++ {
+			handle, err := getValidatorHandle(i)
+			if err != nil {
+				panic(fmt.Errorf("Cannot retrieve handle for peer which must exist : %s", err))
+			}
+			if i < instance.id {
+				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i, instance.replicaCount, instance.id)
+				defaultPeerIDs[i] = handle
+			} else if i > instance.id {
+				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i-1, instance.replicaCount, instance.id)
+				defaultPeerIDs[i-1] = handle
+			} else {
+				// This is our ID, do not add it to the list of default peers
+			}
+		}
+	} else {
+		logger.Debug("Replica %d not initializing defaultPeerIDs, as replicaCount is %d", instance.id, instance.replicaCount)
+	}
+
+	if myHandle, err := getValidatorHandle(instance.id); err != nil {
+		panic("Could not retrieve own handle")
+	} else {
+		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
+	}
+
 	// load genesis checkpoint
-	stateHash, err := instance.consumer.getStateHash(0)
+	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
 		panic(fmt.Errorf("Cannot load genesis block: %s", err))
 	}
-	instance.chkpts[0] = base64.StdEncoding.EncodeToString(stateHash)
+	genesisHash, err := ledger.HashBlock(genesisBlock)
+	if err != nil {
+		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
+	}
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(genesisHash)
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
+	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
 
@@ -181,6 +237,7 @@ func (instance *pbftCore) close() {
 	defer instance.lock.Unlock()
 	instance.closed = true
 	instance.newViewTimer.Reset(0)
+	instance.sts.StopThreads()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
@@ -331,6 +388,7 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
+
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
 	instance.recvMsgSync(msg)
@@ -339,6 +397,24 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
+	if blockNumber, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
+		logger.Debug("Replica %d state transfer completed to block %d, attempting to finish pbft sync.", instance.id, blockNumber)
+		block, err := instance.ledger.GetBlock(blockNumber)
+		if err != nil {
+			logger.Error("Replica %d just returned from state transfer, which claims to have syned to %d, but could not retrieve that block, retrying", instance.id, blockNumber)
+			instance.sts.AsynchronousStateTransfer(nil)
+		} else {
+			metadata := &Metadata{}
+			if err := proto.Unmarshal(block.ConsensusMetadata, metadata); nil == err {
+				logger.Debug("Replica %d completed state transfer to block %d at sequence number %d, about to execute outstanding requests", instance.id, blockNumber, metadata.SeqNo)
+				instance.lastExec = metadata.SeqNo
+				instance.executeOutstanding()
+			} else {
+				panic("Retrieved and validated block did not contain valid consensus metadata")
+			}
+		}
+	}
+
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
@@ -353,12 +429,16 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
 		err = instance.recvNewView(nv)
+	} else if fr := msg.GetFetchRequest(); fr != nil {
+		err = instance.recvFetchRequest(fr)
+	} else if req := msg.GetReturnRequest(); req != nil {
+		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
 		logger.Error("%s", err)
 	}
 
-	return err
+	return
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {
@@ -540,6 +620,11 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 }
 
 func (instance *pbftCore) executeOutstanding() error {
+	// Do not attempt to execute requests while we know we are in a bad state
+	if instance.sts.AsynchronousStateTransferInProgress() {
+		return nil
+	}
+
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -583,7 +668,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		instance.consumer.execute(req.Payload)
+		metadataMsg := &Metadata{SeqNo: idx.n}
+		rawMetadata, err := proto.Marshal(metadataMsg)
+		if err != nil {
+			logger.Error("Failed to marshal consensus metadata before executing transaction: %v", err)
+			return false
+		}
+
+		instance.consumer.execute(req.Payload, rawMetadata)
 		delete(instance.outstandingReqs, digest)
 	}
 
@@ -592,58 +684,45 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.lastExec%instance.K == 0 {
-		stateHashBytes, _ := instance.consumer.getStateHash()
-		stateHash := base64.StdEncoding.EncodeToString(stateHashBytes)
+		blockHeight, err := instance.ledger.GetBlockchainSize()
+		if nil != err {
+			panic("Could not determine block height, this is irrecoverable")
+		}
 
-		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and state digest %s",
-			instance.id, instance.view, instance.lastExec, stateHash)
+		lastBlock, err := instance.ledger.GetBlock(blockHeight - 1)
+		if nil != err {
+			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
+			panic(fmt.Errorf("Just committed a block, but could not retrieve it : %s", err))
+		}
+
+		blockHashBytes, err := instance.ledger.HashBlock(lastBlock)
+
+		if nil != err {
+			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
+			panic(fmt.Errorf("Replica %d could not compute its own state hash, this indicates an irrecoverable situation: %s", instance.id, err))
+		}
+
+		blockHashAsString := base64.StdEncoding.EncodeToString(blockHashBytes)
+
+		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 block hash %s",
+			instance.id, instance.view, instance.lastExec, blockHashAsString)
 
 		chkpt := &Checkpoint{
 			SequenceNumber: instance.lastExec,
-			StateDigest:    stateHash,
+			BlockHash:      blockHashAsString,
 			ReplicaId:      instance.id,
+			BlockNumber:    blockHeight - 1,
 		}
-		instance.chkpts[instance.lastExec] = stateHash
+		instance.chkpts[instance.lastExec] = chkpt.BlockHash
 		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
 	return true
 }
 
-func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
-	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
-		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.StateDigest)
-
-	if !instance.inW(chkpt.SequenceNumber) {
-		logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
-		return nil
-	}
-
-	instance.checkpointStore[*chkpt] = true
-
-	quorum := 0
-	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.StateDigest == chkpt.StateDigest {
-			quorum++
-		}
-	}
-
-	if quorum <= instance.f*2 {
-		return nil
-	}
-
-	// If we do not have this checkpoint locally, we should not clear our state.
-	// PBFT: This diverges from the paper.
-	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
-		// XXX fetch checkpoint from other replica
-		return nil
-	}
-
-	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
-		instance.id, chkpt.SequenceNumber, chkpt.StateDigest)
-
+func (instance *pbftCore) moveWatermarks(h uint64) {
 	for idx, cert := range instance.certStore {
-		if idx.n <= chkpt.SequenceNumber {
+		if idx.n <= h {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
 			delete(instance.reqStore, cert.prePrepare.RequestDigest)
@@ -652,39 +731,217 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	}
 
 	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber <= chkpt.SequenceNumber {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, state digest %s",
-				instance.id, testChkpt.ReplicaId,
-				testChkpt.SequenceNumber, testChkpt.StateDigest)
+		if testChkpt.SequenceNumber <= h {
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 block hash %s",
+				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.BlockHash)
 			delete(instance.checkpointStore, testChkpt)
 		}
 	}
 
 	for n := range instance.pset {
-		if n <= chkpt.SequenceNumber {
+		if n <= h {
 			delete(instance.pset, n)
 		}
 	}
 
 	for idx := range instance.qset {
-		if idx.n <= chkpt.SequenceNumber {
+		if idx.n <= h {
 			delete(instance.qset, idx)
 		}
 	}
 
-	instance.h = 0
 	for n := range instance.chkpts {
-		if n < chkpt.SequenceNumber {
+		if n < h {
 			delete(instance.chkpts, n)
-		} else {
-			if instance.h == 0 || n < instance.h {
-				instance.h = n
-			}
 		}
 	}
 
+	instance.h = h
+
 	logger.Debug("Replica %d updated low watermark to %d",
 		instance.id, instance.h)
+}
+
+func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
+
+	H := instance.h + instance.L
+
+	// Track the last observed checkpoint sequence number if it exceeds our high watermark, keyed by replica to prevent unbounded growth
+	if chkpt.SequenceNumber < H {
+		// For non-byzantine nodes, the checkpoint sequence number increases monotonically
+		delete(instance.hChkpts, chkpt.ReplicaId)
+	} else {
+		// We do not track the highest one, as a byzantine node could pick an arbitrarilly high sequence number
+		// and even if it recovered to be non-byzantine, we would still believe it to be far ahead
+		instance.hChkpts[chkpt.ReplicaId] = chkpt.SequenceNumber
+
+		// If f+1 other replicas have reported checkpoints that were (at one time) outside our watermarks
+		// we need to check to see if we have fallen behind.
+		if len(instance.hChkpts) >= instance.f+1 {
+			chkptSeqNumArray := make([]uint64, len(instance.hChkpts))
+			index := 0
+			for replicaID, hChkpt := range instance.hChkpts {
+				chkptSeqNumArray[index] = hChkpt
+				index++
+				if hChkpt < H {
+					delete(instance.hChkpts, replicaID)
+				}
+			}
+			sort.Sort(sortableUint64Slice(chkptSeqNumArray))
+
+			// If f+1 nodes have issued checkpoints above our high water mark, then
+			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
+			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
+			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
+				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
+				instance.moveWatermarks(m)
+
+				furthestReplicaIds := make([]*protos.PeerID, instance.f+1)
+				i := 0
+				for replicaID, hChkpt := range instance.hChkpts {
+					if hChkpt >= m {
+						var err error
+						if furthestReplicaIds[i], err = getValidatorHandle(replicaID); nil != err {
+							panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
+						}
+						i++
+					}
+				}
+
+				// Make sure we don't try to start a second state transfer while one is going on
+				if !instance.sts.AsynchronousStateTransferInProgress() {
+					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				}
+			}
+
+			return
+		}
+	}
+
+}
+
+func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
+	checkpointMembers := make([]*protos.PeerID, instance.replicaCount)
+	i := 0
+	for testChkpt := range instance.checkpointStore {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
+			var err error
+			if checkpointMembers[i], err = getValidatorHandle(testChkpt.ReplicaId); err != nil {
+				panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
+			} else {
+				logger.Debug("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
+			}
+			i++
+		}
+	}
+
+	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
+	if nil != err {
+		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		return
+	}
+	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
+	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i])
+}
+
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
+	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
+		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
+
+	instance.witnessCheckpoint(chkpt) // State transfer tracking
+
+	if !instance.inW(chkpt.SequenceNumber) {
+		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
+		if !instance.sts.AsynchronousStateTransferInProgress() {
+			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+		}
+		return nil
+	}
+
+	instance.checkpointStore[*chkpt] = true
+
+	matching := 0
+	for testChkpt := range instance.checkpointStore {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
+			matching++
+		}
+	}
+	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
+		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
+
+	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
+		// We do have a weak cert
+		instance.witnessCheckpointWeakCert(chkpt)
+	}
+
+	if matching <= instance.f*2 {
+		// We do not have a quorum yet
+		return nil
+	}
+
+	// It is actually just fine if we do not have this checkpoint
+	// and should not trigger a state transfer
+	// Imagine we are executing sequence number k-1 and we are slow for some reason
+	// then everyone else finishes executing k, and we receive a checkpoint quorum
+	// which we will agree with very shortly, but do not move our watermarks until
+	// we have reached this checkpoint
+	// Note, this is not divergent from the paper, as the paper requires that
+	// the quorum certificate must contain 2f+1 messages, including its own
+	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
+		logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
+			instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
+		return nil
+	}
+
+	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
+		instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
+
+	instance.moveWatermarks(chkpt.SequenceNumber)
+
+	return instance.processNewView()
+}
+
+// used in view-change to fetch missing assigned, non-checkpointed requests
+func (instance *pbftCore) fetchRequests() (err error) {
+	var msg *Message
+	for digest := range instance.missingReqs {
+		msg = &Message{&Message_FetchRequest{&FetchRequest{
+			RequestDigest: digest,
+			ReplicaId:     instance.id,
+		}}}
+		instance.innerBroadcast(msg, false)
+	}
+
+	return
+}
+
+func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
+	digest := fr.RequestDigest
+	if _, ok := instance.reqStore[digest]; !ok {
+		return nil // we don't have it either
+	}
+
+	req := instance.reqStore[digest]
+	msg := &Message{&Message_ReturnRequest{ReturnRequest: req}}
+	msgPacked, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshalling return-request message: %v", err)
+	}
+
+	receiver := fr.ReplicaId
+	err = instance.consumer.unicast(msgPacked, receiver)
+
+	return
+}
+
+func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
+	digest := hashReq(req)
+	if _, ok := instance.missingReqs[digest]; !ok {
+		return nil // either the wrong digest, or we got it already from someone else
+	}
+
+	instance.reqStore[digest] = req
+	delete(instance.missingReqs, digest)
 
 	return instance.processNewView()
 }

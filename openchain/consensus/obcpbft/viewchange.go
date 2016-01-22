@@ -260,6 +260,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 }
 
 func (instance *pbftCore) processNewView() error {
+	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
@@ -311,12 +312,26 @@ func (instance *pbftCore) processNewView() error {
 			if _, ok := instance.reqStore[d]; !ok {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
-				// XXX fetch request
-				return nil
+				if _, ok := instance.missingReqs[d]; !ok {
+					logger.Warning("replica %v requesting to fetch %s",
+						instance.id, d)
+					newRequestMissing = true
+					instance.missingReqs[d] = true
+				}
 			}
 		}
 	}
 
+	if len(instance.missingReqs) == 0 {
+		return instance.processNewView2(nv)
+	} else if newRequestMissing {
+		go instance.fetchRequests()
+	}
+
+	return nil
+}
+
+func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
@@ -382,6 +397,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
 			checkpoints[*c] = append(checkpoints[*c], vc)
+			logger.Debug("Appending checkpoint with sequence number %d and digest %s", c.SequenceNumber, c.Digest)
 		}
 	}
 
@@ -394,8 +410,8 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
 		if len(vcList) <= instance.f { // type casting necessary to match types
-			logger.Debug("no weak certificate for n:%d",
-				idx.SequenceNumber)
+			logger.Debug("no weak certificate for n:%d, vcList was %d long",
+				idx.SequenceNumber, len(vcList))
 			continue
 		}
 

@@ -89,12 +89,12 @@ func TestIndexes_GetTransactionByUUID(t *testing.T) {
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	tx1, uuid1 := buildTestTx(t)
 	tx2, uuid2 := buildTestTx(t)
-	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2})
+	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2}, nil)
 	testBlockchainWrapper.addNewBlock(block1, []byte("stateHash1"))
 
 	tx3, uuid3 := buildTestTx(t)
 	tx4, uuid4 := buildTestTx(t)
-	block2 := protos.NewBlock([]*protos.Transaction{tx3, tx4})
+	block2 := protos.NewBlock([]*protos.Transaction{tx3, tx4}, nil)
 	testBlockchainWrapper.addNewBlock(block2, []byte("stateHash2"))
 
 	testutil.AssertEquals(t, testBlockchainWrapper.getTransactionByUUID(uuid1), tx1)

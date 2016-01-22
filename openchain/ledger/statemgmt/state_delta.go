@@ -31,7 +31,7 @@ import (
 // StateDelta holds the changes to existing state. This struct is used for holding the uncommited changes during execution of a tx-batch
 // Also, to be used for transferring the state to another peer in chunks
 type StateDelta struct {
-	chaincodeStateDeltas map[string]*chaincodeStateDelta
+	ChaincodeStateDeltas map[string]*ChaincodeStateDelta
 	// RollBackwards allows one to contol whether this delta will roll the state
 	// forwards or backwards.
 	RollBackwards bool
@@ -39,13 +39,13 @@ type StateDelta struct {
 
 // NewStateDelta constructs an empty StateDelta struct
 func NewStateDelta() *StateDelta {
-	return &StateDelta{make(map[string]*chaincodeStateDelta), false}
+	return &StateDelta{make(map[string]*ChaincodeStateDelta), false}
 }
 
 // Get get the state from delta if exists
 func (stateDelta *StateDelta) Get(chaincodeID string, key string) *UpdatedValue {
 	// TODO Cache?
-	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
+	chaincodeStateDelta, ok := stateDelta.ChaincodeStateDeltas[chaincodeID]
 	if ok {
 		return chaincodeStateDelta.get(key)
 	}
@@ -69,11 +69,11 @@ func (stateDelta *StateDelta) Delete(chaincodeID string, key string, previousVal
 // IsUpdatedValueSet returns true if a update value is already set for
 // the given chaincode ID and key.
 func (stateDelta *StateDelta) IsUpdatedValueSet(chaincodeID, key string) bool {
-	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
+	chaincodeStateDelta, ok := stateDelta.ChaincodeStateDeltas[chaincodeID]
 	if !ok {
 		return false
 	}
-	if _, ok := chaincodeStateDelta.updatedKVs[key]; ok {
+	if _, ok := chaincodeStateDelta.UpdatedKVs[key]; ok {
 		return true
 	}
 	return false
@@ -81,28 +81,28 @@ func (stateDelta *StateDelta) IsUpdatedValueSet(chaincodeID, key string) bool {
 
 // ApplyChanges merges another delta - if a key is present in both, the value of the existing key is overwritten
 func (stateDelta *StateDelta) ApplyChanges(anotherStateDelta *StateDelta) {
-	for chaincodeID, chaincodeStateDelta := range anotherStateDelta.chaincodeStateDeltas {
-		existingChaincodeStateDelta, existingChaincode := stateDelta.chaincodeStateDeltas[chaincodeID]
-		for key, valueHolder := range chaincodeStateDelta.updatedKVs {
+	for chaincodeID, chaincodeStateDelta := range anotherStateDelta.ChaincodeStateDeltas {
+		existingChaincodeStateDelta, existingChaincode := stateDelta.ChaincodeStateDeltas[chaincodeID]
+		for key, valueHolder := range chaincodeStateDelta.UpdatedKVs {
 			var previousValue []byte
 			if existingChaincode {
-				existingUpdateValue, existingUpdate := existingChaincodeStateDelta.updatedKVs[key]
+				existingUpdateValue, existingUpdate := existingChaincodeStateDelta.UpdatedKVs[key]
 				if existingUpdate {
 					// The existing state delta already has an updated value for this key.
-					previousValue = existingUpdateValue.previousValue
+					previousValue = existingUpdateValue.PreviousValue
 				} else {
 					// Use the previous value set in the new state delta
-					previousValue = valueHolder.previousValue
+					previousValue = valueHolder.PreviousValue
 				}
 			} else {
 				// Use the previous value set in the new state delta
-				previousValue = valueHolder.previousValue
+				previousValue = valueHolder.PreviousValue
 			}
 
 			if valueHolder.IsDelete() {
 				stateDelta.Delete(chaincodeID, key, previousValue)
 			} else {
-				stateDelta.Set(chaincodeID, key, valueHolder.value, previousValue)
+				stateDelta.Set(chaincodeID, key, valueHolder.Value, previousValue)
 			}
 		}
 	}
@@ -110,15 +110,15 @@ func (stateDelta *StateDelta) ApplyChanges(anotherStateDelta *StateDelta) {
 
 // IsEmpty checks whether StateDelta contains any data
 func (stateDelta *StateDelta) IsEmpty() bool {
-	return len(stateDelta.chaincodeStateDeltas) == 0
+	return len(stateDelta.ChaincodeStateDeltas) == 0
 }
 
 // GetUpdatedChaincodeIds return the chaincodeIDs that are prepsent in the delta
 // If sorted is true, the method return chaincodeIDs in lexicographical sorted order
 func (stateDelta *StateDelta) GetUpdatedChaincodeIds(sorted bool) []string {
-	updatedChaincodeIds := make([]string, len(stateDelta.chaincodeStateDeltas))
+	updatedChaincodeIds := make([]string, len(stateDelta.ChaincodeStateDeltas))
 	i := 0
-	for k := range stateDelta.chaincodeStateDeltas {
+	for k := range stateDelta.ChaincodeStateDeltas {
 		updatedChaincodeIds[i] = k
 		i++
 	}
@@ -130,18 +130,18 @@ func (stateDelta *StateDelta) GetUpdatedChaincodeIds(sorted bool) []string {
 
 // GetUpdates returns changes associated with given chaincodeId
 func (stateDelta *StateDelta) GetUpdates(chaincodeID string) map[string]*UpdatedValue {
-	chaincodeStateDelta := stateDelta.chaincodeStateDeltas[chaincodeID]
+	chaincodeStateDelta := stateDelta.ChaincodeStateDeltas[chaincodeID]
 	if chaincodeStateDelta == nil {
 		return nil
 	}
-	return chaincodeStateDelta.updatedKVs
+	return chaincodeStateDelta.UpdatedKVs
 }
 
-func (stateDelta *StateDelta) getOrCreateChaincodeStateDelta(chaincodeID string) *chaincodeStateDelta {
-	chaincodeStateDelta, ok := stateDelta.chaincodeStateDeltas[chaincodeID]
+func (stateDelta *StateDelta) getOrCreateChaincodeStateDelta(chaincodeID string) *ChaincodeStateDelta {
+	chaincodeStateDelta, ok := stateDelta.ChaincodeStateDeltas[chaincodeID]
 	if !ok {
 		chaincodeStateDelta = newChaincodeStateDelta(chaincodeID)
-		stateDelta.chaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
+		stateDelta.ChaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
 	}
 	return chaincodeStateDelta
 }
@@ -156,13 +156,13 @@ func (stateDelta *StateDelta) ComputeCryptoHash() []byte {
 	sortedChaincodeIds := stateDelta.GetUpdatedChaincodeIds(true)
 	for _, chaincodeID := range sortedChaincodeIds {
 		buffer.WriteString(chaincodeID)
-		chaincodeStateDelta := stateDelta.chaincodeStateDeltas[chaincodeID]
+		chaincodeStateDelta := stateDelta.ChaincodeStateDeltas[chaincodeID]
 		sortedKeys := chaincodeStateDelta.getSortedKeys()
 		for _, key := range sortedKeys {
 			buffer.WriteString(key)
 			updatedValue := chaincodeStateDelta.get(key)
 			if !updatedValue.IsDelete() {
-				buffer.Write(updatedValue.value)
+				buffer.Write(updatedValue.Value)
 			}
 		}
 	}
@@ -172,49 +172,49 @@ func (stateDelta *StateDelta) ComputeCryptoHash() []byte {
 }
 
 // Code below is for maintaining state for a chaincode
-type chaincodeStateDelta struct {
-	chaincodeID string
-	updatedKVs  map[string]*UpdatedValue
+type ChaincodeStateDelta struct {
+	ChaincodeID string
+	UpdatedKVs  map[string]*UpdatedValue
 }
 
-func newChaincodeStateDelta(chaincodeID string) *chaincodeStateDelta {
-	return &chaincodeStateDelta{chaincodeID, make(map[string]*UpdatedValue)}
+func newChaincodeStateDelta(chaincodeID string) *ChaincodeStateDelta {
+	return &ChaincodeStateDelta{chaincodeID, make(map[string]*UpdatedValue)}
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) get(key string) *UpdatedValue {
+func (chaincodeStateDelta *ChaincodeStateDelta) get(key string) *UpdatedValue {
 	// TODO Cache?
-	return chaincodeStateDelta.updatedKVs[key]
+	return chaincodeStateDelta.UpdatedKVs[key]
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) set(key string, updatedValue, previousValue []byte) {
-	updatedKV, ok := chaincodeStateDelta.updatedKVs[key]
+func (chaincodeStateDelta *ChaincodeStateDelta) set(key string, updatedValue, previousValue []byte) {
+	updatedKV, ok := chaincodeStateDelta.UpdatedKVs[key]
 	if ok {
 		// Key already exists, just set the updated value
-		updatedKV.value = updatedValue
+		updatedKV.Value = updatedValue
 	} else {
 		// New key. Create a new entry in the map
-		chaincodeStateDelta.updatedKVs[key] = &UpdatedValue{updatedValue, previousValue}
+		chaincodeStateDelta.UpdatedKVs[key] = &UpdatedValue{updatedValue, previousValue}
 	}
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) remove(key string, previousValue []byte) {
-	updatedKV, ok := chaincodeStateDelta.updatedKVs[key]
+func (chaincodeStateDelta *ChaincodeStateDelta) remove(key string, previousValue []byte) {
+	updatedKV, ok := chaincodeStateDelta.UpdatedKVs[key]
 	if ok {
 		// Key already exists, just set the previous value
-		updatedKV.value = nil
+		updatedKV.Value = nil
 	} else {
 		// New key. Create a new entry in the map
-		chaincodeStateDelta.updatedKVs[key] = &UpdatedValue{nil, previousValue}
+		chaincodeStateDelta.UpdatedKVs[key] = &UpdatedValue{nil, previousValue}
 	}
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) hasChanges() bool {
-	return len(chaincodeStateDelta.updatedKVs) > 0
+func (chaincodeStateDelta *ChaincodeStateDelta) hasChanges() bool {
+	return len(chaincodeStateDelta.UpdatedKVs) > 0
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
+func (chaincodeStateDelta *ChaincodeStateDelta) getSortedKeys() []string {
 	updatedKeys := []string{}
-	for k := range chaincodeStateDelta.updatedKVs {
+	for k := range chaincodeStateDelta.UpdatedKVs {
 		updatedKeys = append(updatedKeys, k)
 	}
 	sort.Strings(updatedKeys)
@@ -224,23 +224,23 @@ func (chaincodeStateDelta *chaincodeStateDelta) getSortedKeys() []string {
 
 // UpdatedValue holds the value for a key
 type UpdatedValue struct {
-	value         []byte
-	previousValue []byte
+	Value         []byte
+	PreviousValue []byte
 }
 
 // IsDelete checks whether the key was deleted
 func (updatedValue *UpdatedValue) IsDelete() bool {
-	return updatedValue.value == nil
+	return updatedValue.Value == nil
 }
 
 // GetValue returns the value
 func (updatedValue *UpdatedValue) GetValue() []byte {
-	return updatedValue.value
+	return updatedValue.Value
 }
 
 // GetPreviousValue returns the previous value
 func (updatedValue *UpdatedValue) GetPreviousValue() []byte {
-	return updatedValue.previousValue
+	return updatedValue.PreviousValue
 }
 
 // marshalling / Unmarshalling code
@@ -251,12 +251,12 @@ func (updatedValue *UpdatedValue) GetPreviousValue() []byte {
 // Marshal serializes the StateDelta
 func (stateDelta *StateDelta) Marshal() (b []byte) {
 	buffer := proto.NewBuffer([]byte{})
-	err := buffer.EncodeVarint(uint64(len(stateDelta.chaincodeStateDeltas)))
+	err := buffer.EncodeVarint(uint64(len(stateDelta.ChaincodeStateDeltas)))
 	if err != nil {
 		// in protobuf code the error return is always nil
 		panic(fmt.Errorf("This error should not occure: %s", err))
 	}
-	for chaincodeID, chaincodeStateDelta := range stateDelta.chaincodeStateDeltas {
+	for chaincodeID, chaincodeStateDelta := range stateDelta.ChaincodeStateDeltas {
 		buffer.EncodeStringBytes(chaincodeID)
 		chaincodeStateDelta.marshal(buffer)
 	}
@@ -264,23 +264,23 @@ func (stateDelta *StateDelta) Marshal() (b []byte) {
 	return
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) {
-	err := buffer.EncodeVarint(uint64(len(chaincodeStateDelta.updatedKVs)))
+func (chaincodeStateDelta *ChaincodeStateDelta) marshal(buffer *proto.Buffer) {
+	err := buffer.EncodeVarint(uint64(len(chaincodeStateDelta.UpdatedKVs)))
 	if err != nil {
 		// in protobuf code the error return is always nil
 		panic(fmt.Errorf("This error should not occur: %s", err))
 	}
-	for key, valueHolder := range chaincodeStateDelta.updatedKVs {
+	for key, valueHolder := range chaincodeStateDelta.UpdatedKVs {
 		err = buffer.EncodeStringBytes(key)
 		if err != nil {
 			return
 		}
-		err = buffer.EncodeRawBytes(valueHolder.value)
+		err = buffer.EncodeRawBytes(valueHolder.Value)
 		if err != nil {
 			// in protobuf code the error return is always nil
 			panic(fmt.Errorf("This error should not occur: %s", err))
 		}
-		err = buffer.EncodeRawBytes(valueHolder.previousValue)
+		err = buffer.EncodeRawBytes(valueHolder.PreviousValue)
 		if err != nil {
 			// in protobuf code the error return is always nil
 			panic(fmt.Errorf("This error should not occur: %s", err))
@@ -290,41 +290,43 @@ func (chaincodeStateDelta *chaincodeStateDelta) marshal(buffer *proto.Buffer) {
 }
 
 // Unmarshal deserializes StateDelta
-func (stateDelta *StateDelta) Unmarshal(bytes []byte) {
+func (stateDelta *StateDelta) Unmarshal(bytes []byte) error {
 	buffer := proto.NewBuffer(bytes)
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		panic(fmt.Errorf("This error should not occure: %s", err))
+		return fmt.Errorf("Error unmarashaling size: %s", err)
 	}
-	stateDelta.chaincodeStateDeltas = make(map[string]*chaincodeStateDelta, size)
+	stateDelta.ChaincodeStateDeltas = make(map[string]*ChaincodeStateDelta, size)
 	for i := uint64(0); i < size; i++ {
 		chaincodeID, err := buffer.DecodeStringBytes()
 		if err != nil {
-			panic(fmt.Errorf("This error should not occure: %s", err))
+			return fmt.Errorf("Error unmarshaling chaincodeID : %s", err)
 		}
 		chaincodeStateDelta := newChaincodeStateDelta(chaincodeID)
 		err = chaincodeStateDelta.unmarshal(buffer)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occure: %s", err))
+			return fmt.Errorf("Error unmarshalling chaincodeStateDelta : %s", err)
 		}
-		stateDelta.chaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
+		stateDelta.ChaincodeStateDeltas[chaincodeID] = chaincodeStateDelta
 	}
+
+	return nil
 }
 
-func (chaincodeStateDelta *chaincodeStateDelta) unmarshal(buffer *proto.Buffer) error {
+func (chaincodeStateDelta *ChaincodeStateDelta) unmarshal(buffer *proto.Buffer) error {
 	size, err := buffer.DecodeVarint()
 	if err != nil {
-		panic(fmt.Errorf("This error should not occur: %s", err))
+		return fmt.Errorf("Error unmarshaling state delta: %s", err)
 	}
-	chaincodeStateDelta.updatedKVs = make(map[string]*UpdatedValue, size)
+	chaincodeStateDelta.UpdatedKVs = make(map[string]*UpdatedValue, size)
 	for i := uint64(0); i < size; i++ {
 		key, err := buffer.DecodeStringBytes()
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
 		value, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
 
 		// protobuff does not differentiate between an empty []byte or a nil
@@ -339,13 +341,13 @@ func (chaincodeStateDelta *chaincodeStateDelta) unmarshal(buffer *proto.Buffer) 
 
 		previousValue, err := buffer.DecodeRawBytes(false)
 		if err != nil {
-			panic(fmt.Errorf("This error should not occur: %s", err))
+			return fmt.Errorf("Error unmarhsaling state delta : %s", err)
 		}
 		if len(previousValue) == 0 {
 			previousValue = nil
 		}
 
-		chaincodeStateDelta.updatedKVs[key] = &UpdatedValue{value, previousValue}
+		chaincodeStateDelta.UpdatedKVs[key] = &UpdatedValue{value, previousValue}
 	}
 	return nil
 }

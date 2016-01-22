@@ -95,7 +95,7 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 // by a transaction between these two calls, the hash will be different. The
 // preview block does not include non-hashed data such as the local timestamp.
 func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
-	transactions []*protos.Transaction, proof []byte) (*protos.Block, error) {
+	transactions []*protos.Transaction, metadata []byte) (*protos.Block, error) {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return nil, err
@@ -104,13 +104,13 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock(transactions), stateHash), nil
+	return ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash), nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
-func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, transactionResults []*protos.TransactionResult, proof []byte) error {
+func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, transactionResults []*protos.TransactionResult, metadata []byte) error {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock(transactions)
+	block := protos.NewBlock(transactions, metadata)
 	block.NonHashData = &protos.NonHashData{TransactionResults: transactionResults}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {

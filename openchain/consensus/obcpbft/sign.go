@@ -37,9 +37,7 @@ type signable interface {
 
 func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
-	// TODO once the crypto package is integrated
-	// cryptoID, _, _ := instance.cpi.GetReplicaID()
-	// s.setID(cryptoID)
+	// TODO s.setID(cryptoID)
 	id := []byte("XXX ID")
 	s.setID(id)
 	raw, err := s.serialize()
