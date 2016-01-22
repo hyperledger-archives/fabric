@@ -21,8 +21,8 @@ package helper
 
 import (
 	"fmt"
-
 	"golang.org/x/net/context"
+   "github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
@@ -35,34 +35,51 @@ import (
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
+   bSecurity   bool
    secHelper   crypto.Peer     //TTD
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
-	return &Helper{coordinator: mhc, secHelper: mhc.GetSecHelper()} //TTD
+   bSecurityOn := viper.GetBool("security.enabled")
+	return &Helper{coordinator: mhc, bSecurity: bSecurityOn, secHelper: mhc.GetSecHelper()} //TTD
 }
 
 // TTD
 func (h *Helper) Sign(msg []byte) ([]byte, error) {
-   return h.secHelper.Sign(msg)
+   if h.bSecurity {
+      logger.Info("+++++++++ signing ++++++++++")
+      return h.secHelper.Sign(msg)   //TTD
+   }
+   logger.Info("+++++++++ not +++++++++ signing ++++++++++")
+   return msg, nil
 }
 
 // TTD
 func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
-   // check that sender is a valid replica
-   _, peerIDs, err := h.GetNetworkHandles()
-   if err != nil {
-      return fmt.Errorf("Could not verify message from %v : %v", replicaID.Name, err)
+   if !h.bSecurity {
+      logger.Info("+++++++++ not +++++++++ verifying ++++++++++")
+      return nil     //TTD
    }
 
-   for _, peerID := range peerIDs {
-      if peerID.Name == replicaID.Name {
-         // if it's a valid peer, let crypto do its function
-         cryptoID := peerID.PkiID ;
+   logger.Info("+++++++++ Verify() ++++++++++ msg from %v  ++++++++++", replicaID.Name)
+   peersMsg, err := h.coordinator.GetPeers()
+	if err != nil {
+      logger.Info("+++++++++ Verify() getPeers failed %v ++++++++++", err)
+		return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+	}
+	peers := peersMsg.GetPeers()
+	for _, endpoint := range peers {
+      // check that sender is a valid replica, if so, call crypto verify() with that endpoint's pkiID
+      logger.Info("+++++++++ Verify() next endpoint name: %v type: %v ++++++++++", endpoint.ID.Name, endpoint.Type)
+		if endpoint.Type == pb.PeerEndpoint_VALIDATOR &&
+         endpoint.ID.Name == replicaID.Name            {
+         cryptoID := endpoint.PkiID ;
          return h.secHelper.Verify(cryptoID, signature, message)
       }
-   }
+	}
+
+   logger.Info("+++++++++ Verify() failed ++++++++++ no peers  ++++++++++")
    return fmt.Errorf("Could not verify message from %s. Unknown peer.", replicaID.Name)
 }
 
