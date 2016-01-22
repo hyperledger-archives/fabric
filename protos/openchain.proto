@@ -68,6 +68,7 @@ message TransactionResult {
 }
 
 // Block carries The data that describes a block in the blockchain.
+// version - Version used to track any protocol changes.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -79,6 +80,7 @@ message TransactionResult {
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 message Block {
+    uint32 version = 1;
     google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
