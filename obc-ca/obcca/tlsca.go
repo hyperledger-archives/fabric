@@ -115,7 +115,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 		return nil, errors.New("signature does not verify")
 	}
 
-	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, req.Ts.Seconds); err != nil {
+	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, req.Ts.Seconds, nil); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
