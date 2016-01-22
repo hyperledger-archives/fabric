@@ -399,24 +399,29 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 }
 
 func (client *clientImpl) validateTCert(tCertDER []byte) (*x509.Certificate, error) {
-	opts := x509.VerifyOptions{
-		//		DNSName: "test.example.com",
-		Roots: client.node.rootsCertPool,
-	}
+	client.node.log.Debug("Validating TCert [%s]", utils.EncodeBase64(tCertDER))
 
-	certificate, err := utils.DERToX509Certificate(tCertDER)
+	// DER to x509
+	x509Cert, err := utils.DERToX509Certificate(tCertDER)
 	if err != nil {
 		client.node.log.Debug("Failed parsing certificate: [%s].", err)
 
 		return nil, err
 	}
 
-	// TODO: Verify certificate against root certs
-	_, err = certificate.Verify(opts)
-	// TODO: verify that the root of the chain refers to the tca
-	if err != nil {
-		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
+	// Handle Critical Extension TCertEncTCertIndex
+	if _, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex); err != nil {
+		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+
+		return nil, err
 	}
 
-	return certificate, nil
+	// Verify certificate against root
+	if _, err := utils.CheckCertAgainRoot(x509Cert, client.node.tcaCertPool); err != nil {
+		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
+
+		return nil, err
+	}
+
+	return x509Cert, nil
 }

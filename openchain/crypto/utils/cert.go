@@ -28,7 +28,6 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -214,8 +213,6 @@ func CheckCertAgainRoot(x509Cert *x509.Certificate, certPool *x509.CertPool) ([]
 		// TODO		DNSName: "test.example.com",
 		Roots: certPool,
 	}
-
-	fmt.Printf("issuer common name : [%s]\n", x509Cert.Issuer.CommonName)
 
 	return x509Cert.Verify(opts)
 }

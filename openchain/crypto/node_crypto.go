@@ -5,7 +5,11 @@ import "crypto/x509"
 func (node *nodeImpl) initCryptoEngine() error {
 	node.log.Info("Initializing node crypto engine...")
 
+	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()
+	node.tlsCertPool = x509.NewCertPool()
+	node.ecaCertPool = x509.NewCertPool()
+	node.tcaCertPool = x509.NewCertPool()
 
 	// Load ECA certs chain
 	if err := node.loadECACertsChain(); err != nil {

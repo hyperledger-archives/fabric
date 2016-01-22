@@ -199,7 +199,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 		return err
 	}
 
-	ok := node.rootsCertPool.AppendCertsFromPEM(pem)
+	ok := node.ecaCertPool.AppendCertsFromPEM(pem)
 	if !ok {
 		node.log.Error("Failed appending ECA certificates chain.")
 

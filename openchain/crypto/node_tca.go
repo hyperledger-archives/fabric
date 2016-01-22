@@ -23,7 +23,6 @@ import (
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
@@ -71,7 +70,8 @@ func (node *nodeImpl) loadTCACertsChain() error {
 		return err
 	}
 
-	ok := node.rootsCertPool.AppendCertsFromPEM(cert)
+	// Prepare ecaCertPool
+	ok := node.tcaCertPool.AppendCertsFromPEM(cert)
 	if !ok {
 		node.log.Error("Failed appending TCA certificates chain.")
 
@@ -134,24 +134,14 @@ func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	responce, err := node.callTCAReadCACertificate(context.Background())
+	response, err := node.callTCAReadCACertificate(context.Background())
 	if err != nil {
 		node.log.Error("Failed requesting TCA certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// TODO: check responce.Cert against rootCA
-	cert, err := utils.DERToX509Certificate(responce.Cert)
-	if err != nil {
-		node.log.Error("Failed parsing TCA certificate [%s].", err.Error())
+	// TODO: check response.Cert against rootCA
 
-		return nil, err
-	}
-
-	// Prepare ecaCertPool
-	node.tcaCertPool = x509.NewCertPool()
-	node.tcaCertPool.AddCert(cert)
-
-	return responce.Cert, nil
+	return response.Cert, nil
 }
