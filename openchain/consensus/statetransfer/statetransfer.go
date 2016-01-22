@@ -104,16 +104,16 @@ func (sts *StateTransferState) SynchronousStateTransfer(blockNumber uint64, bloc
 	return sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid)
 }
 
-// Syncs to at least the block number specified, without blocking
+// Starts the state sync process, without blocking
 // For the sync to complete, a call to AsynchronousStateTransferValidHash(hash, peerIDs) must be made
-// This call should be made any time a new valid block hash above lowBlock is discovered
+// This call should be made any time a new valid block hash for a possibly valid sync target is observed
 // If peerIDs is nil, all peer will be considered sync candidates
 // The channel returned may be blocked on, returning the block number synced to,
 // or alternatively, the calling thread may invoke AsynchronousStateTransferJustCompleted() which
 // will check the channel in a non-blocking way
-func (sts *StateTransferState) AsynchronousStateTransfer(lowBlock uint64, peerIDs []*protos.PeerID) chan uint64 {
+func (sts *StateTransferState) AsynchronousStateTransfer(peerIDs []*protos.PeerID) chan uint64 {
 	sts.initiateStateSync <- &syncMark{
-		blockNumber: lowBlock,
+		blockNumber: 0,
 		peerIDs:     peerIDs,
 	}
 	sts.asynchronousTransferInProgress = true
