@@ -81,7 +81,7 @@ type pbftCore struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
-	ledger  consensus.BlockchainPackage       // Used for blockchain related queries
+	ledger  consensus.LedgerStack             // Used for blockchain related queries
 	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
 	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
 
@@ -141,7 +141,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.BlockchainPackage) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id

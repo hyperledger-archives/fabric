@@ -86,7 +86,7 @@ type instance struct {
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
-	ledger    consensus.BlockchainPackage
+	ledger    consensus.LedgerStack
 
 	deliver      func([]byte)
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
