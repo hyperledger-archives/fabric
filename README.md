@@ -6,7 +6,7 @@ This project contains the core blockchain fabric.
 
 ## Building the project
 
-Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md)
+Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md)
 
 To access your VM, run
 ```
