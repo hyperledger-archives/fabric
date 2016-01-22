@@ -71,7 +71,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	return handler, nil
 }
 
-// HandleMessage handles the incoming Openchain messages for the Peer.
+// HandleMessage handles the incoming Openchain messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		return handler.consenter.RecvMsg(msg)
@@ -164,7 +164,7 @@ func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// SendMessage sends a message to the remote Peer through the stream.
+// SendMessage sends a message to the remote Peer through the stream
 func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 	logger.Debug("Sending to stream a message of type: %s", msg.Type)
 	err := handler.chatStream.Send(msg)
@@ -174,7 +174,7 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-// Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer).
+// Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer)
 func (handler *ConsensusHandler) Stop() error {
 	err := handler.peerHandler.Stop() // deregister the handler
 	handler.done <- struct{}{}
@@ -194,7 +194,7 @@ func (handler *ConsensusHandler) RequestBlocks(syncBlockRange *pb.SyncBlockRange
 	return handler.peerHandler.RequestBlocks(syncBlockRange)
 }
 
-// RequestStateeSnapshot returns the current state
+// RequestStateSnapshot returns the current state
 func (handler *ConsensusHandler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
 	return handler.peerHandler.RequestStateSnapshot()
 }

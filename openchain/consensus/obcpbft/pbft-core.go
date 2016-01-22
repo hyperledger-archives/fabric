@@ -142,22 +142,18 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // =============================================================================
 
 func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.BlockchainPackage) *pbftCore {
+	var err error
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
 	instance.ledger = ledger
 
-	// in dev/debugging mode you are expected to override the config values
-	// with the environment variable OPENCHAIN_OBCPBFT_X_Y
-
-	// read from the config file
-	// you can override the config values with the environment variable prefix
-	// OPENCHAIN_OBCPBFT, e.g. OPENCHAIN_OBCPBFT_BYZANTINE
-	var err error
-	instance.byzantine = config.GetBool("replica.byzantine")
 	instance.N = config.GetInt("general.N")
 	instance.f = instance.N / 3
 	instance.K = uint64(config.GetInt("general.K"))
+
+	instance.byzantine = config.GetBool("general.byzantine")
+
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))

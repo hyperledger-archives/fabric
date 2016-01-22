@@ -79,8 +79,8 @@ func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) er
 	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
-// BeginTxBatch gets invoked when the next round of transaction-batch
-// execution begins.
+// BeginTxBatch gets invoked when the next round
+// of transaction-batch execution begins
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -118,7 +118,7 @@ func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, t
 }
 
 // RollbackTxBatch discards all the state changes that may have taken
-// place during the execution of current transaction-batch.
+// place during the execution of current transaction-batch
 func (h *Helper) RollbackTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -130,7 +130,7 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatchBlock ...
+// PreviewCommitTxBatchBlock TODO
 func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -184,7 +184,7 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return ledger.PutRawBlock(block, blockNumber)
 }
 
-// ApplyStateDelta ....
+// ApplyStateDelta TODO
 func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -193,7 +193,7 @@ func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) er
 	return ledger.ApplyStateDelta(id, delta)
 }
 
-// CommitStateDelta ....
+// CommitStateDelta TODO
 func (h *Helper) CommitStateDelta(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -202,7 +202,7 @@ func (h *Helper) CommitStateDelta(id interface{}) error {
 	return ledger.CommitStateDelta(id)
 }
 
-// RollbackStateDelta ....
+// RollbackStateDelta TODO
 func (h *Helper) RollbackStateDelta(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {

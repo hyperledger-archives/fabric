@@ -41,7 +41,7 @@ func newTestStateTransfer(ml *MockLedger, defaultPeerIDs []*protos.PeerID) *Stat
 		Name: "State Transfer Test",
 	}
 
-	return NewStateTransferState(peerID, readConfig(), ml, defaultPeerIDs)
+	return NewStateTransferState(peerID, loadConfig(), ml, defaultPeerIDs)
 }
 
 func createRemoteLedgers(low, high uint64) (*map[protos.PeerID]consensus.ReadOnlyLedger, *map[protos.PeerID]*MockRemoteLedger, []*protos.PeerID) {
@@ -257,7 +257,7 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 
 func executeBlockRecovery(ml *MockLedger, millisTimeout int, defaultPeerIDs []*protos.PeerID) error {
 
-	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, readConfig(), ml, defaultPeerIDs)
+	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, defaultPeerIDs)
 	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
 	sts.RecoverDamage = true
 
@@ -285,7 +285,7 @@ func executeBlockRecovery(ml *MockLedger, millisTimeout int, defaultPeerIDs []*p
 
 func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int, defaultPeerIDs []*protos.PeerID) error {
 
-	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, readConfig(), ml, defaultPeerIDs)
+	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, defaultPeerIDs)
 	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
 	sts.RecoverDamage = false
 

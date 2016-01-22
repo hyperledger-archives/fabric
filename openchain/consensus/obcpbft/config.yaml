@@ -9,13 +9,10 @@
 ################################################################################
 general:
 
-    # Consensus plugin package name goes here
-    name: obc-pbft
-
     # Operational mode: batch, classic, or sieve
     mode: classic
 
-    # Maximum number of validators/replicas we expect in the network.
+    # Maximum number of validators/replicas we expect in the network
     N: 4
 
     # Checkpoint period
@@ -23,6 +20,9 @@ general:
 
     # How many requests should the primary send per pre-prepare when in "batch" mode
     batchsize: 2
+
+    # Whether the replica should act as a byzantine one; useful for debugging on testnets
+    byzantine: false
 
     # Timeouts
     timeout:
@@ -71,16 +71,3 @@ statetransfer:
 
         # How long may transferring the complete state take
         fullstate: 60s
-################################################################################
-#
-#   SECTION: REPLICA
-#
-#   - This applies to all validating peers.
-#
-################################################################################
-replica:
-
-    # Whether the replica should act as a byzantine one
-    # Useful for debugging on the live network
-    byzantine: false
-...

@@ -35,7 +35,7 @@ const configPrefix = "OPENCHAIN_OBCPBFT"
 var pluginInstance consensus.Consenter // singleton service
 var config *viper.Viper
 
-// GetPlugin returns the handle to the consenter singleton
+// GetPlugin returns the handle to the Consenter singleton
 func GetPlugin(c consensus.CPI) consensus.Consenter {
 	if pluginInstance == nil {
 		pluginInstance = New(c)
@@ -46,7 +46,7 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // New creates a new Obc* instance that provides the Consenter interface.
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
-	config = readConfig()
+	config = loadConfig()
 	handle, _, _ := cpi.GetNetworkHandles()
 	id, _ := getValidatorID(handle)
 
@@ -62,7 +62,7 @@ func New(cpi consensus.CPI) consensus.Consenter {
 	}
 }
 
-func readConfig() (config *viper.Viper) {
+func loadConfig() (config *viper.Viper) {
 	config = viper.New()
 
 	// for environment variables
@@ -76,7 +76,7 @@ func readConfig() (config *viper.Viper) {
 	config.AddConfigPath("./openchain/consensus/obcpbft/")
 	err := config.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error reading consensus algo config: %s", err))
+		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))
 	}
 	return
 }

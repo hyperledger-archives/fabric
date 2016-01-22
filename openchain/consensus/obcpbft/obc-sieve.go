@@ -67,12 +67,6 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		// TODO verify transaction
-		// if _, err := op.cpi.TransactionPreValidation(...); err != nil {
-		//   logger.Warning("Invalid request");
-		//   return err
-		// }
-
 		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
 		svMsgRaw, _ := proto.Marshal(svMsg)
 		op.broadcastMsg(svMsg)
@@ -187,19 +181,6 @@ func (op *obcSieve) processRequest() {
 
 	txRaw := op.queuedTx[0]
 	op.queuedTx = op.queuedTx[1:]
-
-	// tx := &pb.Transaction{}
-	// err := proto.Unmarshal(txRaw, tx)
-	// if err != nil {
-	// 	return
-	// }
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
-
 	op.verifyStore = nil
 
 	exec := &Execute{
@@ -259,18 +240,10 @@ func (op *obcSieve) processExecute() {
 	op.begin()
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
-
-	// TODO verify transaction
-	// if tx, err = op.cpi.TransactionPreExecution(...); err != nil {
-	//   logger.Error("Invalid request");
-	// } else {
-	// ...
-	// }
-
 	op.currentTx = []*pb.Transaction{tx}
 	hashes, _ := op.cpi.ExecTXs(op.currentTx)
 
-	// For simplicity's sake, we use the pbft timer
+	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
 
 	op.currentResult = hashes

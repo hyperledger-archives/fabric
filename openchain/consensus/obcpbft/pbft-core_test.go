@@ -40,7 +40,7 @@ func makeTestnetPbftCore(inst *instance) {
 	defer func() {
 		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
 	}()
-	config := readConfig()
+	config := loadConfig()
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
 	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
@@ -48,14 +48,14 @@ func makeTestnetPbftCore(inst *instance) {
 }
 
 func TestEnvOverride(t *testing.T) {
-	config := readConfig()
+	config := loadConfig()
 
-	key := "general.name"                       // for a key that exists
-	envName := "OPENCHAIN_OBCPBFT_GENERAL_NAME" // env override name
+	key := "general.mode"                       // for a key that exists
+	envName := "OPENCHAIN_OBCPBFT_GENERAL_MODE" // env override name
 	overrideValue := "overide_test"             // value to override default value with
 
 	// test key
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
@@ -65,12 +65,12 @@ func TestEnvOverride(t *testing.T) {
 		os.Unsetenv(envName)
 	}()
 
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
 	// read key
-	configVal := config.GetString("general.name")
+	configVal := config.GetString("general.mode")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
@@ -79,7 +79,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock, mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -105,7 +105,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock, mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -635,7 +635,7 @@ func TestCatchupFromPBFT(t *testing.T) {
 	// Test from blockheight of 1, with valid genesis block
 	ml := NewMockLedger(&rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
-	config := readConfig()
+	config := loadConfig()
 	pbft := newPbftCore(0, config, nil, ml)
 	pbft.K = 2
 	pbft.L = 4
