@@ -65,19 +65,19 @@ type pbftCore struct {
 	consumer innerCPI
 
 	// PBFT data
-	activeView   bool              // view change happening
-	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int               // max. number of faults we can tolerate
-	N            int               // max.number of validators in the network
-	h            uint64            // low watermark
-	id           uint64            // replica ID; PBFT `i`
-	K            uint64            // checkpoint period
-	L            uint64            // log size
-	lastExec     uint64            // last request we executed
-	replicaCount int               // number of replicas; PBFT `|R|`
-	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64            // current view
-	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
+	activeView   bool                   // view change happening
+	byzantine    bool                   // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
+	f            int                    // max. number of faults we can tolerate
+	N            int                    // max.number of validators in the network
+	h            uint64                 // low watermark
+	id           uint64                 // replica ID; PBFT `i`
+	K            uint64                 // checkpoint period
+	L            uint64                 // log size
+	lastExec     uint64                 // last request we executed
+	replicaCount int                    // number of replicas; PBFT `|R|`
+	seqNo        uint64                 // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64                 // current view
+	chkpts       map[uint64]*blockState // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
@@ -123,6 +123,11 @@ type msgCert struct {
 type vcidx struct {
 	v  uint64
 	id uint64
+}
+
+type blockState struct {
+	blockNumber uint64
+	blockHash   string
 }
 
 type sortableUint64Slice []uint64
@@ -171,7 +176,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.chkpts = make(map[uint64]string)
+	instance.chkpts = make(map[uint64]*blockState)
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
@@ -217,7 +222,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	if err != nil {
 		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
 	}
-	instance.chkpts[0] = base64.StdEncoding.EncodeToString(genesisHash)
+	instance.chkpts[0] = &blockState{
+		blockNumber: 0,
+		blockHash:   base64.StdEncoding.EncodeToString(genesisHash),
+	}
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -709,11 +717,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 		chkpt := &Checkpoint{
 			SequenceNumber: instance.lastExec,
-			BlockHash:      blockHashAsString,
 			ReplicaId:      instance.id,
 			BlockNumber:    blockHeight - 1,
+			BlockHash:      blockHashAsString,
 		}
-		instance.chkpts[instance.lastExec] = chkpt.BlockHash
+		instance.chkpts[instance.lastExec] = &blockState{
+			blockNumber: chkpt.BlockNumber,
+			blockHash:   chkpt.BlockHash,
+		}
 		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
@@ -845,6 +856,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
+
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
