@@ -55,12 +55,17 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	node.log.Debug("ECA certificate [%s].", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
-	_, err = utils.DERToX509Certificate(ecaCertRaw)
+	// TODO: check responce.Cert against rootCA
+	x509ECACert, err := utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
 		node.log.Error("Failed parsing ECA certificate [%s].", err.Error())
 
 		return err
 	}
+
+	// Prepare ecaCertPool
+	node.ecaCertPool = x509.NewCertPool()
+	node.ecaCertPool.AddCert(x509ECACert)
 
 	// Store ECA cert
 	node.log.Debug("Storing ECA certificate for [%s]...", userID)
@@ -439,18 +444,6 @@ func (node *nodeImpl) getECACertificate() ([]byte, error) {
 
 		return nil, err
 	}
-
-	// TODO: check responce.Cert against rootCA
-	cert, err := utils.DERToX509Certificate(responce.Cert)
-	if err != nil {
-		node.log.Error("Failed parsing ECA certificate [%s].", err.Error())
-
-		return nil, err
-	}
-
-	// Prepare ecaCertPool
-	node.ecaCertPool = x509.NewCertPool()
-	node.ecaCertPool.AddCert(cert)
 
 	return responce.Cert, nil
 }
