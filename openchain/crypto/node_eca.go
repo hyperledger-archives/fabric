@@ -33,7 +33,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"io/ioutil"
 )
 
 func (node *nodeImpl) retrieveECACertsChain(userID string) error {
@@ -57,8 +56,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	// Store ECA cert
 	node.log.Debug("Storing ECA certificate for [%s]...", userID)
 
-	err = ioutil.WriteFile(node.conf.getECACertsChainPath(), utils.DERCertToPEM(ecaCertRaw), 0700)
-	if err != nil {
+	if err := node.ks.storeCert(node.conf.getECACertsChainFilename(), ecaCertRaw); err != nil {
 		node.log.Error("Failed storing eca certificate [%s].", err.Error())
 		return err
 	}
@@ -67,16 +65,16 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) loadECACertsChain() error {
-	node.log.Debug("Loading ECA certificates chain at [%s]...", node.conf.getECACertsChainPath())
+	node.log.Debug("Loading ECA certificates chain...")
 
-	chain, err := ioutil.ReadFile(node.conf.getECACertsChainPath())
+	pem, err := node.ks.loadCert(node.conf.getECACertsChainFilename())
 	if err != nil {
 		node.log.Error("Failed loading ECA certificates chain [%s].", err.Error())
 
 		return err
 	}
 
-	ok := node.rootsCertPool.AppendCertsFromPEM(chain)
+	ok := node.rootsCertPool.AppendCertsFromPEM(pem)
 	if !ok {
 		node.log.Error("Failed appending ECA certificates chain.")
 

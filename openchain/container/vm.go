@@ -39,7 +39,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func NewDockerClient() (client *docker.Client, err error) {
+func newDockerClient() (client *docker.Client, err error) {
 	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
 	endpoint := viper.GetString("vm.endpoint")
 	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
@@ -61,7 +61,7 @@ type VM struct {
 
 // NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
-	client, err := NewDockerClient()
+	client, err := newDockerClient()
 	if err != nil {
 		return nil, err
 	}

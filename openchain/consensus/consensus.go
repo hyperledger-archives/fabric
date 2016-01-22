@@ -19,7 +19,10 @@ under the License.
 
 package consensus
 
-import pb "github.com/openblockchain/obc-peer/protos"
+import (
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	pb "github.com/openblockchain/obc-peer/protos"
+)
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
@@ -57,7 +60,9 @@ type UtilLedger interface {
 // WritableLedger is useful for updating the blockchain during state transfer
 type WritableLedger interface {
 	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(delta []byte, unapply bool) error
+	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
+	CommitStateDelta(id interface{}) error
+	RollbackStateDelta(id interface{}) error
 	EmptyState() error
 }
 
@@ -79,9 +84,9 @@ type Executor interface {
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
 type RemoteLedgers interface {
-	GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+	GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
+	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
+	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
 // BlockchainPackage serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger

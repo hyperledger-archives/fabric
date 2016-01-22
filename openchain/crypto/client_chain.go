@@ -8,7 +8,7 @@ import (
 
 func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 
-	if tx.Nonce == nil || len(tx.Nonce) == 0 {
+	if len(tx.Nonce) == 0 {
 		return errors.New("Failed encrypting payload. Invalid nonce.")
 	}
 
@@ -35,8 +35,19 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 	}
 	tx.ChaincodeID = encryptedChaincodeID
 
-	client.node.log.Debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.Payload))
+	// Encrypt Metadata
+	if len(tx.Metadata) != 0 {
+		metadataKey := utils.HMACTruncated(txKey, []byte{3}, utils.AESKeyLength)
+		encryptedMetadata, err := utils.CBCPKCS7Encrypt(metadataKey, tx.Metadata)
+		if err != nil {
+			return err
+		}
+		tx.Metadata = encryptedMetadata
+	}
+
 	client.node.log.Debug("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.ChaincodeID))
+	client.node.log.Debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.Payload))
+	client.node.log.Debug("Encrypted Metadata [%s].", utils.EncodeBase64(tx.Metadata))
 
 	return nil
 }

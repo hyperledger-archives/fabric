@@ -47,9 +47,10 @@ type nodeImpl struct {
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollID      string
-	enrollCert    *x509.Certificate
-	enrollPrivKey *ecdsa.PrivateKey
+	enrollID       string
+	enrollCert     *x509.Certificate
+	enrollPrivKey  *ecdsa.PrivateKey
+	enrollCertHash []byte
 
 	// Enrollment Chain
 	enrollChainKey []byte
@@ -81,12 +82,22 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 		return utils.ErrAlreadyRegistered
 	}
-	// TODO: handle the error in a better way
-	if err := node.createKeyStorage(); err != nil {
-		node.log.Error("Failed creating key storage [%s].", err.Error())
 
-		return err
+	// Initialize keystore
+	node.log.Info("Init keystore...")
+	err := node.initKeyStore(pwd)
+	if err != nil {
+		if err != utils.ErrKeyStoreAlreadyInitialized {
+			node.log.Error("Keystore already initialized.")
+		} else {
+			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+
+			return err
+		}
 	}
+	node.log.Info("Init keystore...done.")
+
+	// Retrieve keys and certificates
 
 	if err := node.retrieveECACertsChain(enrollID); err != nil {
 		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
@@ -137,8 +148,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 
 	// Initialize keystore
 	node.log.Info("Init keystore...")
-	// TODO: password support
-	err := node.initKeyStore()
+	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			node.log.Error("Keystore already initialized.")

@@ -31,26 +31,31 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 func makeTestnetPbftCore(inst *instance) {
-	config := readConfig()
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	defer func() {
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+	}()
+	config := loadConfig()
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
-	inst.pbft.replicaCount = len(inst.net.replicas)
+	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
 	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
 }
 
 func TestEnvOverride(t *testing.T) {
-	config := readConfig()
+	config := loadConfig()
 
-	key := "general.name"                       // for a key that exists
-	envName := "OPENCHAIN_OBCPBFT_GENERAL_NAME" // env override name
+	key := "general.mode"                       // for a key that exists
+	envName := "OPENCHAIN_OBCPBFT_GENERAL_MODE" // env override name
 	overrideValue := "overide_test"             // value to override default value with
 
 	// test key
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
@@ -60,12 +65,12 @@ func TestEnvOverride(t *testing.T) {
 		os.Unsetenv(envName)
 	}()
 
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
 	// read key
-	configVal := config.GetString("general.name")
+	configVal := config.GetString("general.mode")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
@@ -74,7 +79,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock, mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -100,7 +105,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock, mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -557,7 +562,7 @@ func TestFallBehind(t *testing.T) {
 	}
 }
 
-func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[uint64]*MockRemoteLedger) error {
+func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[pb.PeerID]*MockRemoteLedger) error {
 
 	var chkpt *Checkpoint
 
@@ -568,7 +573,8 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
 		}
-		(*mrls)[uint64(i)].blockHeight = blockNumber - 2
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber - 2
 		pbft.witnessCheckpoint(chkpt)
 	}
 
@@ -585,7 +591,8 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 			ReplicaId:      uint64(i),
 			BlockNumber:    blockNumber,
 		}
-		(*mrls)[uint64(i)].blockHeight = blockNumber + 1
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber + 1
 		pbft.checkpointStore[*chkpt] = true
 	}
 
@@ -616,17 +623,24 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 }
 
 func TestCatchupFromPBFT(t *testing.T) {
-	rols, mrls := createRemoteLedgers(1, 3)
+	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	for i := uint64(0); i <= 3; i++ {
+		peerID, _ := getValidatorHandle(i)
+		l := &MockRemoteLedger{}
+		rols[*peerID] = l
+		mrls[*peerID] = l
+	}
 
 	// Test from blockheight of 1, with valid genesis block
-	ml := NewMockLedger(rols, nil)
+	ml := NewMockLedger(&rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
-	config := readConfig()
+	config := loadConfig()
 	pbft := newPbftCore(0, config, nil, ml)
 	pbft.K = 2
 	pbft.L = 4
 	pbft.replicaCount = 4
-	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, mrls); nil != err {
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
 

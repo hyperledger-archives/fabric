@@ -30,7 +30,7 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-func (validator *validatorImpl) decryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
+func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
 		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
 	}
@@ -53,25 +53,32 @@ func (validator *validatorImpl) decryptTx(tx *obc.Transaction) (*obc.Transaction
 
 	// Decrypt Payload
 	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
-	encryptedPayload := make([]byte, len(clone.Payload))
-	copy(encryptedPayload, clone.Payload)
-	payload, err := utils.CBCPKCS7Decrypt(payloadKey, encryptedPayload)
+	payload, err := utils.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
 	if err != nil {
 		validator.peer.node.log.Error("Failed decrypting payload [%s].", err.Error())
 		return nil, err
 	}
 	clone.Payload = payload
 
+	// Decrypt ChaincodeID
 	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
-	encryptedChaincodeID := make([]byte, len(clone.ChaincodeID))
-	copy(encryptedChaincodeID, clone.ChaincodeID)
-	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, encryptedChaincodeID)
+	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
 	if err != nil {
 		validator.peer.node.log.Error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
-
 	clone.ChaincodeID = chaincodeID
+
+	// Decrypt metadata
+	if len(clone.Metadata) != 0 {
+		metadataKey := utils.HMACTruncated(key, []byte{3}, utils.AESKeyLength)
+		metadata, err := utils.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
+		if err != nil {
+			validator.peer.node.log.Error("Failed decrypting metadata [%s].", err.Error())
+			return nil, err
+		}
+		clone.Metadata = metadata
+	}
 
 	return clone, nil
 }

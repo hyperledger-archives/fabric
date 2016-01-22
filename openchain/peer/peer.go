@@ -402,6 +402,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -473,6 +474,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -623,6 +625,10 @@ func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	size := p.ledgerWrapper.ledger.GetBlockchainSize()
+	// Set the PkiID on the PeerEndpoint if security is enabled
+	if viper.GetBool("security.enabled") {
+		endpoint.PkiID = p.GetSecHelper().GetID()
+	}
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
 }
 
@@ -657,10 +663,26 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
 	}
-	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}, nil
+	// Need to sign the Discovery Hello message
+	newDiscoveryHelloMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}
+	p.signOpenchainMessageMutating(newDiscoveryHelloMsg)
+	return newDiscoveryHelloMsg, nil
 }
 
 // GetSecHelper returns the crypto.Peer
 func (p *PeerImpl) GetSecHelper() crypto.Peer {
 	return p.secHelper
+}
+
+// signOpenchainMessage modifies the passed in OpenchainMessage by setting the Signature based upon the Payload.
+func (p *PeerImpl) signOpenchainMessageMutating(msg *pb.OpenchainMessage) (*pb.OpenchainMessage, error) {
+	if viper.GetBool("security.enabled") {
+		sig, err := p.secHelper.Sign(msg.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("Error signing Openchain Message: %s", err)
+		}
+		// Set the signature in the message
+		msg.Signature = sig
+	}
+	return msg, nil
 }

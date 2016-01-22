@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/protos"
 )
 
@@ -60,23 +61,28 @@ func (r mockResponse) String() string {
 	return "ERROR"
 }
 
+const MAGIC_DELTA_KEY string = "The only key/string we ever use for deltas"
+
 type MockLedger struct {
 	cleanML       *MockLedger
 	blocks        map[uint64]*protos.Block
 	blockHeight   uint64
 	state         uint64
-	remoteLedgers *map[uint64]consensus.ReadOnlyLedger
-	filter        func(request mockRequest, replicaID uint64) mockResponse
+	remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger
+	filter        func(request mockRequest, peerID *protos.PeerID) mockResponse
 
 	mutex *sync.Mutex
 
 	txID     interface{}
 	curBatch []*protos.Transaction
 
+	deltaID       interface{}
+	preDeltaValue uint64
+
 	inst *instance // To support the ExecTX stuff
 }
 
-func NewMockLedger(remoteLedgers *map[uint64]consensus.ReadOnlyLedger, filter func(request mockRequest, replicaID uint64) mockResponse) *MockLedger {
+func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, filter func(request mockRequest, peerID *protos.PeerID) mockResponse) *MockLedger {
 	mock := &MockLedger{}
 	mock.mutex = &sync.Mutex{}
 	mock.blocks = make(map[uint64]*protos.Block)
@@ -84,7 +90,7 @@ func NewMockLedger(remoteLedgers *map[uint64]consensus.ReadOnlyLedger, filter fu
 	mock.blockHeight = 0
 
 	if nil == filter {
-		mock.filter = func(request mockRequest, replicaID uint64) mockResponse {
+		mock.filter = func(request mockRequest, peerID *protos.PeerID) mockResponse {
 			return Normal
 		}
 	} else {
@@ -163,7 +169,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 		}
 	}
 
-	mock.ApplyStateDelta(buffer, false)
+	mock.ApplyStateDelta(id, SimpleBytesToStateDelta(buffer))
 
 	stateHash, _ := mock.GetCurrentStateHash()
 
@@ -175,8 +181,13 @@ func (mock *MockLedger) commonCommitTx(id interface{}, txs []*protos.Transaction
 	}
 
 	if preview {
-		mock.ApplyStateDelta(buffer, true)
+		if nil != mock.RollbackStateDelta(id) {
+			panic("Error in delta rollback")
+		}
 	} else {
+		if nil != mock.CommitStateDelta(id) {
+			panic("Error in delta construction/application")
+		}
 		fmt.Printf("Debug: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
@@ -221,9 +232,9 @@ func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 	return SimpleHashBlock(block), nil
 }
 
-func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
+func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
 	res := make(chan *protos.SyncBlocks)
-	ft := mock.filter(SyncBlocks, replicaID)
+	ft := mock.filter(SyncBlocks, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
@@ -234,7 +245,7 @@ func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) 
 
 			for {
 				if ft != Corrupt || current != corruptBlock {
-					if block, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
+					if block, err := (*mock.remoteLedgers)[*peerID].GetBlock(current); nil == err {
 						res <- &protos.SyncBlocks{
 							Range: &protos.SyncBlockRange{
 								Start: current,
@@ -244,6 +255,7 @@ func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) 
 						}
 
 					} else {
+						fmt.Printf("%v could not retrieve block %d : %s", peerID, current, err)
 						break
 					}
 				} else {
@@ -284,19 +296,19 @@ func (mock *MockLedger) GetRemoteBlocks(replicaID uint64, start, finish uint64) 
 	return res, nil
 }
 
-func (mock *MockLedger) GetRemoteStateSnapshot(replicaID uint64) (<-chan *protos.SyncStateSnapshot, error) {
+func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
 	res := make(chan *protos.SyncStateSnapshot)
-	ft := mock.filter(SyncSnapshot, replicaID)
+	ft := mock.filter(SyncSnapshot, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
 	case Normal:
 
-		remoteBlockHeight, _ := (*mock.remoteLedgers)[replicaID].GetBlockchainSize()
+		remoteBlockHeight, _ := (*mock.remoteLedgers)[*peerID].GetBlockchainSize()
 		if remoteBlockHeight < 1 {
 			break
 		}
-		rds, err := mock.GetRemoteStateDeltas(replicaID, 0, remoteBlockHeight-1)
+		rds, err := mock.GetRemoteStateDeltas(peerID, 0, remoteBlockHeight-1)
 		if nil != err {
 			return nil, err
 		}
@@ -331,9 +343,9 @@ func (mock *MockLedger) GetRemoteStateSnapshot(replicaID uint64) (<-chan *protos
 	return res, nil
 }
 
-func (mock *MockLedger) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
 	res := make(chan *protos.SyncStateDeltas)
-	ft := mock.filter(SyncDeltas, replicaID)
+	ft := mock.filter(SyncDeltas, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
@@ -343,10 +355,10 @@ func (mock *MockLedger) GetRemoteStateDeltas(replicaID uint64, start, finish uin
 			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
 			for {
 				if ft != Corrupt || current != corruptBlock {
-					if remoteBlock, err := (*mock.remoteLedgers)[replicaID].GetBlock(current); nil == err {
+					if remoteBlock, err := (*mock.remoteLedgers)[*peerID].GetBlock(current); nil == err {
 						deltas := make([][]byte, len(remoteBlock.Transactions))
 						for i, transaction := range remoteBlock.Transactions {
-							deltas[i] = transaction.Payload
+							deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
 						}
 						res <- &protos.SyncStateDeltas{
 							Range: &protos.SyncBlockRange{
@@ -403,20 +415,51 @@ func (mock *MockLedger) PutBlock(blockNumber uint64, block *protos.Block) error 
 	return nil
 }
 
-func (mock *MockLedger) ApplyStateDelta(delta []byte, unapply bool) error {
+func (mock *MockLedger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	mock.mutex.Lock()
 	defer func() {
 		mock.mutex.Unlock()
 	}()
-	d, r := binary.Uvarint(delta)
+
+	if nil != mock.deltaID {
+		if !reflect.DeepEqual(id, mock.deltaID) {
+			return fmt.Errorf("A different state delta is already being applied")
+		}
+	} else {
+		mock.deltaID = id
+		mock.preDeltaValue = mock.state
+	}
+
+	d, r := binary.Uvarint(SimpleStateDeltaToBytes(delta))
 	if r <= 0 {
 		return fmt.Errorf("State delta could not be applied, was not a uint64, %x", delta)
 	}
-	if !unapply {
+	if !delta.RollBackwards {
 		mock.state += d
 	} else {
 		mock.state -= d
 	}
+	return nil
+}
+
+func (mock *MockLedger) CommitStateDelta(id interface{}) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
+
+	mock.deltaID = nil
+	return nil
+}
+
+func (mock *MockLedger) RollbackStateDelta(id interface{}) error {
+	mock.mutex.Lock()
+	defer func() {
+		mock.mutex.Unlock()
+	}()
+	mock.deltaID = nil
+
+	mock.state = mock.preDeltaValue
 	return nil
 }
 
@@ -544,6 +587,21 @@ func SimpleGetTransactions(blockNumber uint64) []*protos.Transaction {
 	}}
 }
 
+func SimpleBytesToStateDelta(bDelta []byte) *statemgmt.StateDelta {
+	mDelta := &statemgmt.StateDelta{
+		RollBackwards: false,
+	}
+	mDelta.ChaincodeStateDeltas = make(map[string]*statemgmt.ChaincodeStateDelta)
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY] = &statemgmt.ChaincodeStateDelta{}
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs = make(map[string]*statemgmt.UpdatedValue)
+	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY] = &statemgmt.UpdatedValue{Value: bDelta}
+	return mDelta
+}
+
+func SimpleStateDeltaToBytes(sDelta *statemgmt.StateDelta) []byte {
+	return sDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY].Value
+}
+
 func SimpleGetConsensusMetadata(blockNumber uint64) []byte {
 	return []byte(fmt.Sprintf("ConsensusMetaData:%d", blockNumber))
 }
@@ -570,14 +628,17 @@ func SimpleGetBlock(blockNumber uint64) *protos.Block {
 }
 
 func TestMockLedger(t *testing.T) {
-	remoteLedgers := make(map[uint64]consensus.ReadOnlyLedger)
+	remoteLedgers := make(map[protos.PeerID]consensus.ReadOnlyLedger)
 	rl := &MockRemoteLedger{11}
-	remoteLedgers[0] = rl
+	rlPeerID := &protos.PeerID{
+		Name: "TestMockLedger",
+	}
+	remoteLedgers[*rlPeerID] = rl
 
 	ml := NewMockLedger(&remoteLedgers, nil)
 	ml.GetCurrentStateHash()
 
-	blockMessages, err := ml.GetRemoteBlocks(0, 10, 0)
+	blockMessages, err := ml.GetRemoteBlocks(rlPeerID, 10, 0)
 
 	for blockMessage := range blockMessages {
 		current := blockMessage.Range.Start
@@ -619,7 +680,7 @@ func TestMockLedger(t *testing.T) {
 		t.Fatalf("Mangled blockchain did not detect the correct block with the wrong hash, error in mock ledger implementation.")
 	}
 
-	syncStateMessages, err := ml.GetRemoteStateSnapshot(0)
+	syncStateMessages, err := ml.GetRemoteStateSnapshot(rlPeerID)
 
 	if nil != err {
 		t.Fatalf("Remote state snapshot call failed, error in mock ledger implementation: %s", err)
@@ -627,8 +688,17 @@ func TestMockLedger(t *testing.T) {
 
 	_ = ml.EmptyState() // Never fails
 	for syncStateMessage := range syncStateMessages {
-		if err := ml.ApplyStateDelta(syncStateMessage.Delta, false); err != nil {
+		delta := &statemgmt.StateDelta{}
+		if err := delta.Unmarshal(syncStateMessage.Delta); nil != err {
+			t.Fatalf("Error unmarshaling state delta : %s", err)
+		}
+
+		if err := ml.ApplyStateDelta(blockNumber, delta); err != nil {
 			t.Fatalf("Error applying state delta : %s", err)
+		}
+
+		if err := ml.CommitStateDelta(blockNumber); err != nil {
+			t.Fatalf("Error committing state delta : %s", err)
 		}
 	}
 

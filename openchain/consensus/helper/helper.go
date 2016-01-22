@@ -27,6 +27,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
    crypto "github.com/openblockchain/obc-peer/openchain/crypto"   //TTD
@@ -120,8 +121,8 @@ func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) er
 	return h.coordinator.Unicast(msg, receiverHandle)
 }
 
-// BeginTxBatch gets invoked when the next round of transaction-batch
-// execution begins.
+// BeginTxBatch gets invoked when the next round
+// of transaction-batch execution begins
 func (h *Helper) BeginTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -159,7 +160,7 @@ func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, t
 }
 
 // RollbackTxBatch discards all the state changes that may have taken
-// place during the execution of current transaction-batch.
+// place during the execution of current transaction-batch
 func (h *Helper) RollbackTxBatch(id interface{}) error {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -171,7 +172,7 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatchBlock ...
+// PreviewCommitTxBatchBlock TODO
 func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -225,10 +226,31 @@ func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
 	return ledger.PutRawBlock(block, blockNumber)
 }
 
-// ApplyStateDelta ....
-// TODO, waiting to see the streaming implementation to define this API nicely
-func (h *Helper) ApplyStateDelta(delta []byte, unapply bool) error {
-	return nil // TODO implement
+// ApplyStateDelta TODO
+func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.ApplyStateDelta(id, delta)
+}
+
+// CommitStateDelta TODO
+func (h *Helper) CommitStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.CommitStateDelta(id)
+}
+
+// RollbackStateDelta TODO
+func (h *Helper) RollbackStateDelta(id interface{}) error {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return fmt.Errorf("Failed to get the ledger :%v", err)
+	}
+	return ledger.RollbackStateDelta(id)
 }
 
 // EmptyState completely empties the state and prepares it to restore a snapshot
@@ -250,26 +272,17 @@ func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	return ledger.VerifyChain(start, finish)
 }
 
-func (h *Helper) getRemoteLedger(replicaID uint64) (peer.RemoteLedger, error) {
-	// TODO adding this so that the code compiles without errors
-	var err error
-	receiverHandle := &pb.PeerID{}
-	// receiverHandle, err := h.GetReplicaHandle(replicaID)
-
+func (h *Helper) getRemoteLedger(peerID *pb.PeerID) (peer.RemoteLedger, error) {
+	remoteLedger, err := h.coordinator.GetRemoteLedger(peerID)
 	if nil != err {
-		return nil, fmt.Errorf("Error retrieving handle for given replicaID %d : %s", replicaID, err)
-	}
-
-	remoteLedger, err := h.coordinator.GetRemoteLedger(receiverHandle)
-	if nil != err {
-		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", receiverHandle, err)
+		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", peerID, err)
 	}
 
 	return remoteLedger, nil
 }
 
 // GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
-func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+func (h *Helper) GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -281,7 +294,7 @@ func (h *Helper) GetRemoteBlocks(replicaID uint64, start, finish uint64) (<-chan
 }
 
 // GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
-func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateSnapshot, error) {
+func (h *Helper) GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -290,7 +303,7 @@ func (h *Helper) GetRemoteStateSnapshot(replicaID uint64) (<-chan *pb.SyncStateS
 }
 
 // GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
-func (h *Helper) GetRemoteStateDeltas(replicaID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
 	remoteLedger, err := h.getRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err

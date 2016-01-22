@@ -231,14 +231,39 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 		select {
 		case ccMsg := <-notfy:
 			if ccMsg.Type == pb.ChaincodeMessage_ERROR {
-				return fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
+				err = fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
 			}
-			return nil
 		case <-time.After(timeout):
-			return fmt.Errorf("Timeout expired while executing send init message")
+			err = fmt.Errorf("Timeout expired while executing send init message")
 		}
 	}
+
+	//if initOrReady succeeded, our responsibility to delete the context
+	handler.deleteTxContext(uuid)
+
 	return err
+}
+
+//get args and env given chaincodeID
+func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
+	//openchain.yaml in the container likely will not have the right url:version. We know the right
+	//values, lets construct and pass as envs
+	toks := strings.Split(cID.Path, "/")
+	if toks == nil {
+		return nil, nil, fmt.Errorf("cannot get path components from %s", cID.Name)
+	}
+
+	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
+
+	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
+	//       need to revisit executable name assignment
+	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+	//     exec is "chaincode_example01 --peer.address=1.1.1.1:11111"
+	args = []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1], fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
+
+	chaincodeLog.Debug("Executable is %s", args[0])
+
+	return args, envs, nil
 }
 
 // launchAndWaitForRegister will launch container if not already running
@@ -261,10 +286,18 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	chaincodeSupport.handlerMap.Unlock()
 
 	//launch the chaincode
+
+	args, env, err := chaincodeSupport.getArgsAndEnv(cID)
+	if err != nil {
+		return alreadyRunning, err
+	}
+
 	//creat a StartImageReq obj and send it to VMCProcess
 	vmname := container.GetVMFromName(chaincode)
+
 	chaincodeLog.Debug("start container: %s", vmname)
-	sir := container.StartImageReq{ID: vmname, Detach: true}
+
+	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
 	resp, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
 		if err == nil {
@@ -439,25 +472,14 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	}
 	chaincodeSupport.handlerMap.Unlock()
 
-	//openchain.yaml in the container likely will not have the right url:version. We know the right
-	//values, lets construct and pass as envs
-	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + chaincode, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
-	toks := strings.Split(cID.Path, "/")
-	if toks == nil {
-		return cds, fmt.Errorf("cannot get path components from %s", chaincode)
+	args, envs, err := chaincodeSupport.getArgsAndEnv(cID)
+	if err != nil {
+		return cds, fmt.Errorf("error getting args for chaincode %s", err)
 	}
 
-	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
-	//       need to revisit executable name assignment
-	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-	//     exec is "chaincode_example01"
-	exec := []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
-	chaincodeLog.Debug("Executable is %s", exec[0])
-
 	vmname := container.GetVMFromName(chaincode)
-
-	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
+	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
+	cir := &container.CreateImageReq{ID: vmname, Args: args, Reader: targz, Env: envs}
 
 	chaincodeLog.Debug("deploying chaincode %s", vmname)
 	//create image and create container
@@ -510,17 +532,18 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 	if notfy, err = handler.sendExecuteMessage(msg, tx); err != nil {
 		return nil, fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
+	var ccresp *pb.ChaincodeMessage
 	select {
-	case ccresp := <-notfy:
-		//we delete the notifier now that it has been delivered
-		handler.deleteTxContext(msg.Uuid)
+	case ccresp = <-notfy:
 		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
-			return ccresp, fmt.Errorf(string(ccresp.Payload))
+			err = fmt.Errorf(string(ccresp.Payload))
 		}
-		return ccresp, nil
 	case <-time.After(timeout):
-		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)
-		handler.deleteTxContext(msg.Uuid)
-		return nil, fmt.Errorf("Timeout expired while executing transaction")
+		err = fmt.Errorf("Timeout expired while executing transaction")
 	}
+
+	//our responsibility to delete transaction context if sendExecuteMessage succeeded
+	handler.deleteTxContext(msg.Uuid)
+
+	return ccresp, err
 }

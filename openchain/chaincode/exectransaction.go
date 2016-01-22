@@ -105,7 +105,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			fmt.Printf("Got ERROR inside execute")
+			//fmt.Printf("Got ERROR inside execute %s\n", err)
 			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction
@@ -137,6 +137,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
 	var chain = GetChain(cname)
 	if chain == nil {
+		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	errs := make([]error, len(xacts)+1)

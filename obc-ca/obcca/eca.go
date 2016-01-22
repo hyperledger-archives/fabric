@@ -25,10 +25,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"errors"
 	"io/ioutil"
 	"math/big"
+	"strings"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -38,6 +42,12 @@ import (
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+)
+
+var (
+	// ECertSubjectRole is the ASN1 object identifier of the subject's role.
+	//
+	ECertSubjectRole = asn1.ObjectIdentifier{2, 1, 3, 4, 5, 6, 7}
 )
 
 // ECA is the enrollment certificate authority.
@@ -89,8 +99,13 @@ func NewECA() *ECA {
 
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
-	for id, tok := range users {
-		eca.registerUser(id, tok)
+	for id, flds := range users {
+		vals := strings.Fields(flds)
+		role, err := strconv.Atoi(vals[0])
+		if err != nil {
+			Panic.Panicln(err)
+		}
+		eca.registerUser(id, role, vals[1])
 	}
 
 	return eca
@@ -185,13 +200,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 		// create new certificate pair
 		ts := time.Now().UnixNano()
 
-		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts)
+		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts)
+		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)
@@ -259,10 +274,10 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 // RegisterUser registers a new user with the ECA.  If the user had been registered before
 // an error is returned.
 //
-func (ecaa *ECAA) RegisterUser(ctx context.Context, id *pb.Identity) (*pb.Token, error) {
+func (ecaa *ECAA) RegisterUser(ctx context.Context, req *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
-	tok, err := ecaa.eca.registerUser(id.Id)
+	tok, err := ecaa.eca.registerUser(req.Id.Id, int(req.Role))
 
 	return &pb.Token{[]byte(tok)}, err
 }
