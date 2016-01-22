@@ -165,11 +165,15 @@ func (conf *configuration) isTLSClientAuthEnabled() bool {
 }
 
 func (conf *configuration) getTCAServerName() string {
-	return "OBC"
+	return "tlsca"
 }
 
 func (conf *configuration) getECAServerName() string {
-	return "OBC"
+	return "tlsca"
+}
+
+func (conf *configuration) getTLSCAServerName() string {
+	return "tlsca"
 }
 
 func (conf *configuration) getTLSKeyFilename() string {

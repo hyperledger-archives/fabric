@@ -196,7 +196,7 @@ func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, er
 		config := tls.Config{
 			InsecureSkipVerify: false,
 			RootCAs:            node.tlsCertPool,
-			ServerName:         node.conf.getECAServerName(),
+			ServerName:         node.conf.getTLSCAServerName(),
 		}
 		if node.conf.isTLSClientAuthEnabled() {
 
