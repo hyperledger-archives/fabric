@@ -40,8 +40,11 @@ type nodeImpl struct {
 	// keyStore
 	ks *keyStore
 
-	// Certs
+	// Certs Pool
 	rootsCertPool *x509.CertPool
+	tlsCertPool   *x509.CertPool
+	ecaCertPool   *x509.CertPool
+	tcaCertPool   *x509.CertPool
 
 	// 48-bytes identifier
 	id []byte

@@ -22,10 +22,13 @@ package crypto
 import (
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
@@ -79,15 +82,39 @@ func (node *nodeImpl) loadTCACertsChain() error {
 }
 
 func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
-	socket, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
+	var conn *grpc.ClientConn
+	var err error
+
+	if node.conf.isTLSEnabled() {
+
+		// setup tls options
+		var opts []grpc.DialOption
+		config := tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            node.tlsCertPool,
+			ServerName:         node.conf.getTCAServerName(),
+		}
+		if node.conf.isTLSClientAuthEnabled() {
+
+		}
+
+		creds := credentials.NewTLS(&config)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+
+		conn, err = grpc.Dial(node.conf.getTCAPAddr(), opts...)
+	} else {
+		conn, err = grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
+	}
+
 	if err != nil {
 		node.log.Error("Failed dailing in [%s].", err.Error())
 
 		return nil, nil, err
 	}
-	tcaPClient := obcca.NewTCAPClient(socket)
 
-	return socket, tcaPClient, nil
+	client := obcca.NewTCAPClient(conn)
+
+	return conn, client, nil
 }
 
 func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
@@ -107,14 +134,24 @@ func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	pbCert, err := node.callTCAReadCACertificate(context.Background())
+	responce, err := node.callTCAReadCACertificate(context.Background())
 	if err != nil {
-		node.log.Error("Failed requesting tca certificate [%s].", err.Error())
+		node.log.Error("Failed requesting TCA certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// TODO Verify pbCert.Cert
+	// TODO: check responce.Cert against rootCA
+	cert, err := utils.DERToX509Certificate(responce.Cert)
+	if err != nil {
+		node.log.Error("Failed parsing TCA certificate [%s].", err.Error())
 
-	return pbCert.Cert, nil
+		return nil, err
+	}
+
+	// Prepare ecaCertPool
+	node.tcaCertPool = x509.NewCertPool()
+	node.tcaCertPool.AddCert(cert)
+
+	return responce.Cert, nil
 }

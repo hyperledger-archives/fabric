@@ -152,6 +152,22 @@ func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
 
+func (conf *configuration) isTLSEnabled() bool {
+	return false
+}
+
+func (conf *configuration) isTLSClientAuthEnabled() bool {
+	return false
+}
+
+func (conf *configuration) getTCAServerName() string {
+	return "OBC"
+}
+
+func (conf *configuration) getECAServerName() string {
+	return "OBC"
+}
+
 func (conf *configuration) getTLSKeyFilename() string {
 	return "tls.key"
 }

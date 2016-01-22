@@ -28,12 +28,20 @@ import (
 	"time"
 
 	"crypto/rsa"
+	"crypto/tls"
+	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io/ioutil"
+)
+
+var (
+	// ECertSubjectRole is the ASN1 object identifier of the subject's role.
+	ECertSubjectRole = asn1.ObjectIdentifier{2, 1, 3, 4, 5, 6, 7}
 )
 
 func (node *nodeImpl) retrieveECACertsChain(userID string) error {
@@ -202,15 +210,39 @@ func (node *nodeImpl) loadECACertsChain() error {
 }
 
 func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
-	socket, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
+	var conn *grpc.ClientConn
+	var err error
+
+	if node.conf.isTLSEnabled() {
+
+		// setup tls options
+		var opts []grpc.DialOption
+		config := tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            node.tlsCertPool,
+			ServerName:         node.conf.getECAServerName(),
+		}
+		if node.conf.isTLSClientAuthEnabled() {
+
+		}
+
+		creds := credentials.NewTLS(&config)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+
+		conn, err = grpc.Dial(node.conf.getECAPAddr(), opts...)
+	} else {
+		conn, err = grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
+	}
+
 	if err != nil {
 		node.log.Error("Failed dailing in [%s].", err.Error())
 
 		return nil, nil, err
 	}
-	ecaPClient := obcca.NewECAPClient(socket)
 
-	return socket, ecaPClient, nil
+	client := obcca.NewECAPClient(conn)
+
+	return conn, client, nil
 }
 
 func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
@@ -338,23 +370,80 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
+	// Verify responce
+
+	// Verify cert for signing
 	node.log.Debug("Enrollment certificate for signing [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Sign)))
+
+	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
+	if err != nil {
+		node.log.Error("Failed parsing signing enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	_, err = utils.GetCriticalExtension(x509SignCert, ECertSubjectRole)
+	if err != nil {
+		node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	err = utils.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
+	if err != nil {
+		node.log.Error("Failed checking signing enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	// Verify cert for encrypting
 	node.log.Debug("Enrollment certificate for encrypting [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Enc)))
 
-	// Verify pbCert.Cert
+	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
+	if err != nil {
+		node.log.Error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	_, err = utils.GetCriticalExtension(x509EncCert, ECertSubjectRole)
+	if err != nil {
+		node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	err = utils.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
+	if err != nil {
+		node.log.Error("Failed checking signing enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	// END
 
 	return signPriv, resp.Certs.Sign, resp.Chain.Tok, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {
-	// Call eca.ReadCACertificate
-	pbCert, err := node.callECAReadCACertificate(context.Background())
+	responce, err := node.callECAReadCACertificate(context.Background())
 	if err != nil {
-		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
+		node.log.Error("Failed requesting ECA certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// TODO Verify pbCert.Cert
-	return pbCert.Cert, nil
+	// TODO: check responce.Cert against rootCA
+	cert, err := utils.DERToX509Certificate(responce.Cert)
+	if err != nil {
+		node.log.Error("Failed parsing ECA certificate [%s].", err.Error())
+
+		return nil, err
+	}
+
+	// Prepare ecaCertPool
+	node.ecaCertPool = x509.NewCertPool()
+	node.ecaCertPool.AddCert(cert)
+
+	return responce.Cert, nil
 }
