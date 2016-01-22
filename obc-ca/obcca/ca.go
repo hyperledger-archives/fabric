@@ -162,7 +162,7 @@ func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 	Trace.Println("Creating CA certificate.")
 
-	raw, err := ca.newCertificate(pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
+	raw, err := ca.newCertificate(name, pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
 	if err != nil {
 		Panic.Panicln(err)
 	}
@@ -195,7 +195,7 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
 	Trace.Println("Creating certificate for "+id+".")
 
-	raw, err := ca.newCertificate(pub, usage, opt)
+	raw, err := ca.newCertificate(id, pub, usage, opt)
 	if err != nil {
 		Error.Println(err)
 		return nil, err
@@ -210,7 +210,7 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 	return raw, err
 }
 
-func (ca *CA) newCertificate(pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
+func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
 
@@ -220,7 +220,7 @@ func (ca *CA) newCertificate(pub interface{}, usage x509.KeyUsage, ext []pkix.Ex
 	tmpl := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "OBC",
+			CommonName:   id,
 			Organization: []string{"IBM"},
 			Country:      []string{"US"},
 		},
