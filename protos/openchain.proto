@@ -38,14 +38,15 @@ message Transaction {
     //store ChaincodeID as bytes so its encrypted value can be stored
     bytes chaincodeID = 2;
     bytes payload = 3;
-    string uuid = 4;
-    google.protobuf.Timestamp timestamp = 5;
+    bytes metadata = 4;
+    string uuid = 5;
+    google.protobuf.Timestamp timestamp = 6;
 
-    ConfidentialityLevel confidentialityLevel = 6;
-    bytes nonce = 7;
+    ConfidentialityLevel confidentialityLevel = 7;
+    bytes nonce = 8;
 
-    bytes cert = 8;
-    bytes signature = 9;
+    bytes cert = 9;
+    bytes signature = 10;
 }
 
 // TransactionBlock carries a batch of transactions.
@@ -118,6 +119,7 @@ message PeerEndpoint {
       NON_VALIDATOR = 2;
     }
     Type type = 3;
+    bytes pkiID = 4;
 }
 message PeersMessage {
     repeated PeerEndpoint peers = 1;
@@ -156,6 +158,7 @@ message OpenchainMessage {
     Type type = 1;
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
+    bytes signature = 4;
 }
 message Response {
     enum StatusCode {

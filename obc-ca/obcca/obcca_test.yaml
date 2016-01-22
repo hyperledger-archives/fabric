@@ -1,7 +1,8 @@
 ---
 server:
         version: "0.1"
-        rootpath: ".obc-ca"
+        rootpath: "."
+        cadir: ".obcca"
         port: ":50051"
         
         tls:
@@ -125,6 +126,8 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
+        validity-period: 
+            verification: false
 
     # TLS Settings for p2p communications
     tls:
@@ -213,9 +216,6 @@ validator:
 
         # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
         rootnode:
-
-    validity-period: 
-        verification: true
 
 ###############################################################################
 #
@@ -332,10 +332,8 @@ hosts:
 
 eca:
         users:
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
-                system_chaincode_invoker: DRJ20pEql15a
+                system_chaincode_invoker: 1 DRJ20pEql15a
+                diego: 2 DRJ23pEQl16a
 
 pki:
         validity-period:

@@ -302,10 +302,19 @@ func serve(args []string) error {
 	}
 
 	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Running in chaincode development mode")
+		logger.Info("Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Disable loading validity system chaincode")
+
 		viper.Set("peer.validator.enabled", "true")
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+
+		// Disable validity system chaincode in dev mode. Also if security is enabled,
+		// in obcca.yaml, manually set pki.validity-period.update to false to prevent
+		// obcca from calling validity system chaincode -- though no harm otherwise
+		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+		viper.Set("validator.validity-period.verification", "false")
 	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
@@ -624,6 +633,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 			// If privacy is enabled, mark chaincode as confidential
 			if viper.GetBool("security.privacy") {
+				logger.Info("Set confidentiality level to CONFIDENTIAL.\n")
 				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 			}
 		} else {
@@ -708,6 +718,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 
 			// If privacy is enabled, mark chaincode as confidential
 			if viper.GetBool("security.privacy") {
+				logger.Info("Set confidentiality level to CONFIDENTIAL.\n")
 				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 			}
 		} else {

@@ -6,11 +6,11 @@
 eca:
 
     users:
-        user1: 9gvZQRwhUq9q
-        user2: 9gvZQRwhUq9q
-        validator: 9gvZQRwhUq9q
-        peer: 9gvZQRwhUq9q
-        TestRegistrationSameEnrollIDDifferentRole: 9gvZQRwhUq9q
+        user1: 1 9gvZQRwhUq9q
+        user2: 1 9gvZQRwhUq9q
+        validator: 2 9gvZQRwhUq9q
+        peer: 3 9gvZQRwhUq9q
+        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
 
 server:
         version: "0.1"
@@ -36,6 +36,10 @@ peer:
               paddr: localhost:50051
 
     fileSystemPath: .obc-peer
+    validator:
+        enabled: true
+        validity-period:
+            verification: false
 
 ###############################################################################
 #
