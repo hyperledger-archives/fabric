@@ -350,10 +350,7 @@ func (ca *CA) readRole(id string) int {
 	Trace.Println("Reading role for "+id+".")
 
 	var role int
-	err := ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
-	if err != nil {
-		Panic.Panicln(err)
-	}
+	ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
 	
 	return role
 }
