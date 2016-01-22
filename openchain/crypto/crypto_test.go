@@ -30,9 +30,11 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	_ "time"
@@ -827,19 +829,36 @@ func initPKI() {
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
 
+	tlscaCertsChain, _ = ioutil.ReadFile(filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"))
+	fmt.Printf("tlscaCertsChain = [%s] \n", utils.EncodeBase64(tlscaCertsChain))
+
+	// TLS configuration
+	var opts []grpc.ServerOption
+	creds, err := credentials.NewServerTLSFromFile(
+		filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"),
+		filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
+	)
+	if err != nil {
+		panic("Failed creating credentials for OBC-CA: " + err.Error())
+	}
+	opts = []grpc.ServerOption{grpc.Creds(creds)}
+
+	fmt.Printf("open socket...\n")
 	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {
 		panic("Cannot open port: " + err.Error())
 	}
+	fmt.Printf("open socket...done\n")
 
-	server = grpc.NewServer()
+	server = grpc.NewServer(opts...)
 
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
 
+	fmt.Printf("start serving...\n")
 	server.Serve(sockp)
-
+	fmt.Printf("start serving...done\n")
 }
 
 func initClients() error {

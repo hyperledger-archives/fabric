@@ -25,6 +25,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
+	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
@@ -32,6 +33,10 @@ import (
 	"google.golang.org/grpc"
 	"google/protobuf"
 	"time"
+)
+
+var (
+	tlscaCertsChain []byte
 )
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
@@ -70,6 +75,27 @@ func (node *nodeImpl) loadTLSCertificate() error {
 		return err
 	}
 	node.tlsCert = cert
+
+	return nil
+}
+
+func (node *nodeImpl) loadTLSCACertsChain() error {
+	node.log.Debug("Loading TLSCA certificates chain...")
+
+	//	pem, err := node.ks.loadCert(node.conf.getTLSCACertsChainFilename())
+	//	if err != nil {
+	//		node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
+	//
+	//		return err
+	//	}
+	pem := tlscaCertsChain
+
+	ok := node.tlsCertPool.AppendCertsFromPEM(pem)
+	if !ok {
+		node.log.Error("Failed appending TLSCA certificates chain.")
+
+		return errors.New("Failed appending TLSCA certificates chain.")
+	}
 
 	return nil
 }

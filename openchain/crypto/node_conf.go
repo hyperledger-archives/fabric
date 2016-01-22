@@ -152,8 +152,12 @@ func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
 
+func (conf *configuration) getTLSCACertsChainFilename() string {
+	return "tlsca.cert.chain"
+}
+
 func (conf *configuration) isTLSEnabled() bool {
-	return false
+	return true
 }
 
 func (conf *configuration) isTLSClientAuthEnabled() bool {
