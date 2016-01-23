@@ -95,7 +95,7 @@ func startTLSCA(t *testing.T) {
 func requestTLSCertificate(t *testing.T) {
 	var opts []grpc.DialOption
 
-	creds, err := credentials.NewClientTLSFromFile(viper.GetString("server.tls.certfile"), "OBC")
+	creds, err := credentials.NewClientTLSFromFile(viper.GetString("server.tls.certfile"), "tlsca")
 	if err != nil {
 		t.Logf("Failed creating credentials for TLS-CA client: %s", err)
 		t.Fail()

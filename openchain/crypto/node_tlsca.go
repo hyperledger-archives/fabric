@@ -34,7 +34,7 @@ import (
 	"time"
 )
 
-func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
+func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, []byte, error) {
 	node.log.Info("getTLSCertificate...")
 
 	priv, err := utils.NewECDSAKey()
@@ -42,14 +42,14 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	if err != nil {
 		node.log.Error("Failed generating key: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	uuid, err := util.GenerateUUID()
 	if err != nil {
 		node.log.Error("Failed generating uuid: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Prepare the request
@@ -77,7 +77,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	if err != nil {
 		node.log.Error("Failed requesting tls certificate: %s", err)
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	node.log.Info("Verifing tls certificate...")
@@ -88,7 +88,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	node.log.Info("Verifing tls certificate...done!")
 
-	return priv, pbCert.Cert.Cert, nil
+	return priv, pbCert.Cert.Cert, pbCert.RootCert.Cert, nil
 }
 
 func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.TLSCertCreateResp, error) {
