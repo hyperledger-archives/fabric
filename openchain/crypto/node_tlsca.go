@@ -34,6 +34,20 @@ import (
 	"time"
 )
 
+func (node *nodeImpl) loadTLSCertificate() error {
+ 	node.log.Debug("Loading tls certificate...")
+ 
+ 	cert, _, err := node.ks.loadCertX509AndDer(node.conf.getTLSCertFilename())
+ 	if err != nil {
+ 		node.log.Error("Failed parsing tls certificate [%s].", err.Error())
+ 
+ 		return err
+ 	}
+ 	node.tlsCert = cert
+ 
+ 	return nil
+}
+
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, []byte, error) {
 	node.log.Info("getTLSCertificate...")
 
