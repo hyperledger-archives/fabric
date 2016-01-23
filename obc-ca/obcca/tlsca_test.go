@@ -30,8 +30,16 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
-
+	
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/x509"
+	"github.com/golang/protobuf/proto"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/util"
+	"google/protobuf"
+	"path/filepath"
+	
 	_ "fmt"
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 )
@@ -43,16 +51,19 @@ var (
 )
 
 func TestTLS(t *testing.T) {
-	go startTLSCA()
+	// Skipping test for now, this is just to try tls connections
+	t.Skip()
+	
+	go startTLSCA(t)
 
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 10)
 
-	requestTLSCertificate()
+	requestTLSCertificate(t)
 
-	stopTLSCA()
+	stopTLSCA(t)
 }
 
-func startTLSCA() {
+func startTLSCA(t *testing.T) {
 	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	eca_s = NewECA()
@@ -61,7 +72,8 @@ func startTLSCA() {
 	var opts []grpc.ServerOption
 	creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
 	if err != nil {
-		panic("Failed creating credentials for TLS-CA service: " + err.Error())
+		t.Logf("Failed creating credentials for TLS-CA service: %s", err)
+		t.Fail()
 	}
 
 	opts = []grpc.ServerOption{grpc.Creds(creds)}
@@ -73,36 +85,106 @@ func startTLSCA() {
 
 	sock, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {
-		panic(err)
+		t.Logf("Failed to start TLS-CA service: %s", err)
+		t.Fail()
 	}
 
 	srv.Serve(sock)
 }
 
-func requestTLSCertificate() {
+func requestTLSCertificate(t *testing.T) {
 	var opts []grpc.DialOption
 
 	creds, err := credentials.NewClientTLSFromFile(viper.GetString("server.tls.certfile"), "OBC")
 	if err != nil {
-		grpclog.Fatalf("Failed to create TLS credentials %v", err)
+		t.Logf("Failed creating credentials for TLS-CA client: %s", err)
+		t.Fail()
 	}
 
 	opts = append(opts, grpc.WithTransportCredentials(creds))
 	sockP, err := grpc.Dial(viper.GetString("peer.pki.tlsca.paddr"), opts...)
 	if err != nil {
-		grpclog.Fatalf("Failed dialing in: %s", err)
+		t.Logf("Failed dialing in: %s", err)
+		t.Fail()
 	}
 
 	defer sockP.Close()
 
 	tlscaP := obcca.NewTLSCAPClient(sockP)
+	
+	// Prepare the request
+	id := "peer"
+	priv, err := utils.NewECDSAKey()
 
-	_, err = tlscaP.CreateCertificate(context.Background(), nil)
 	if err != nil {
-		grpclog.Fatalf("Failed requesting tls certificate: %s", err)
+		t.Logf("Failed generating key: %s", err)
+		t.Fail()
+	}
+
+	uuid, err := util.GenerateUUID()
+	if err != nil {
+		t.Logf("Failed generating uuid: %s", err)
+		t.Fail()
+	}
+	
+	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	now := time.Now()
+	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
+
+	req := &obcca.TLSCertCreateReq{
+		&timestamp,
+		&obcca.Identity{Id: id + "-" + uuid},
+		&obcca.PublicKey{
+			Type: obcca.CryptoType_ECDSA,
+			Key:  pubraw,
+		}, nil}
+	
+	rawreq, _ := proto.Marshal(req)
+	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
+	
+	if err != nil {
+		t.Logf("Failed signing the request: %s", err)
+		t.Fail()
+	}
+	
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	
+
+	resp, err := tlscaP.CreateCertificate(context.Background(), req)
+	if err != nil {
+		t.Logf("Failed requesting tls certificate: %s", err)
+		t.Fail()
+	}
+	
+	storePrivateKeyInClear("tls_peer.priv", priv, t)
+	storeCert("tls_peer.cert", resp.Cert.Cert, t) 
+	storeCert("tls_peer.ca", resp.RootCert.Cert, t)
+}
+
+func stopTLSCA(t *testing.T) {
+	srv.Stop()
+}
+
+func storePrivateKeyInClear(alias string, privateKey interface{}, t *testing.T) {
+	rawKey, err := utils.PrivateKeyToPEM(privateKey, nil)
+	if err != nil {
+		t.Logf("Failed converting private key to PEM [%s]: [%s]", alias, err)
+		t.Fail()
+	}
+
+	err = ioutil.WriteFile(filepath.Join(".obcca/", alias), rawKey, 0700)
+	if err != nil {
+		t.Logf("Failed storing private key [%s]: [%s]", alias, err)
+		t.Fail()
 	}
 }
 
-func stopTLSCA() {
-	srv.Stop()
+func storeCert(alias string, der []byte, t *testing.T) {
+	err := ioutil.WriteFile(filepath.Join(".obcca/", alias), utils.DERCertToPEM(der), 0700)
+	if err != nil {
+		t.Logf("Failed storing certificate [%s]: [%s]", alias, err)
+		t.Fail()
+	}
 }
