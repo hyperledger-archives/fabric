@@ -32,9 +32,15 @@ type Consenter interface {
 
 // Communicator is used to send messages to other validators
 type Communicator interface {
-	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
+	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)  //TODO: should network be a map rather than an array ?
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+}
+
+type SecurityUtils interface {
+   Sign(msg []byte) ([]byte, error)                                    // sign a msg with this replica's signing key.
+   Verify(peerID *pb.PeerID, signature []byte, message []byte) error   // verify that given signature is valid under the given replicaID's verification key. If replicaID is nil,
+                                                                       //  use this replica's verification key. If signature is valid, function return nil
 }
 
 // ReadOnlyLedger is used for interrogating the blockchain
@@ -89,8 +95,16 @@ type LedgerStack interface {
 	RemoteLedgers
 }
 
+// BlockchainPackage serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
+type BlockchainPackage interface {
+	Executor
+	Ledger
+	RemoteLedgers
+}
+
 // CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
 type CPI interface {
 	Communicator
-	LedgerStack
+   SecurityUtils
+	BlockchainPackage
 }

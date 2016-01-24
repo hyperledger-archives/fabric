@@ -55,6 +55,8 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op, cpi)
 
+   logger.Info("creating pbft plugin: sieve")
+
 	return op
 }
 
@@ -122,6 +124,18 @@ func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
 		return
 	}
 	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
+func (op *obcSieve) sign(msg []byte) ([]byte, error) {
+   return op.cpi.Sign(msg)
+}
+
+func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
+   senderHandle, err := getValidatorHandle(senderID)
+   if err != nil {
+      return fmt.Errorf("Could not verify message from %v : %v", senderHandle.Name, err)
+   }
+   return op.cpi.Verify(senderHandle, signature, message)
 }
 
 // called by pbft-core to signal when a view change happened
@@ -331,7 +345,7 @@ func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
 }
 
 // verify checks whether the request is valid
-func (op *obcSieve) verify(rawReq []byte) error {
+func (op *obcSieve) validate(rawReq []byte) error {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(rawReq, req)
 	if err != nil {
