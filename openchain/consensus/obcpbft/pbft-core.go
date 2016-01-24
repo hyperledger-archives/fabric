@@ -53,12 +53,12 @@ func init() {
 type innerCPI interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	validate(txRaw []byte) error //TTD
+	validate(txRaw []byte) error
 	execute(txRaw []byte, rawMetadata []byte)
 	viewChange(curView uint64)
 
-   sign(msg []byte) ([]byte, error)
-   verify(senderID uint64, signature []byte, message []byte) error
+	sign(msg []byte) ([]byte, error)
+	verify(senderID uint64, signature []byte, message []byte) error
 }
 
 type pbftCore struct {

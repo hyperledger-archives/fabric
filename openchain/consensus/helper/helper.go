@@ -21,61 +21,64 @@ package helper
 
 import (
 	"fmt"
+
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-   "github.com/spf13/viper"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	crypto "github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
-   crypto "github.com/openblockchain/obc-peer/openchain/crypto"
 )
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
-   bSecurity   bool
-   secHelper   crypto.Peer
+	bSecurity   bool
+	secHelper   crypto.Peer
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
-   bSecurityOn := viper.GetBool("security.enabled")
+	bSecurityOn := viper.GetBool("security.enabled")
 	return &Helper{coordinator: mhc, bSecurity: bSecurityOn, secHelper: mhc.GetSecHelper()}
 }
 
+// Sign TODO add description here
 func (h *Helper) Sign(msg []byte) ([]byte, error) {
-   if h.bSecurity {
-      return h.secHelper.Sign(msg)
-   }
-   logger.Debug("CPI Sign(): security disabled")
-   return msg, nil
+	if h.bSecurity {
+		return h.secHelper.Sign(msg)
+	}
+	logger.Debug("CPI Sign(): security disabled")
+	return msg, nil
 }
 
+// Verify TODO add description here
 func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
-   if !h.bSecurity {
-      logger.Debug("CPI Verify() security disabled")
-      return nil
-   }
+	if !h.bSecurity {
+		logger.Debug("CPI Verify() security disabled")
+		return nil
+	}
 
-   logger.Debug("CPI Verify msg from %v ", replicaID.Name)
-   peersMsg, err := h.coordinator.GetPeers()
+	logger.Debug("CPI Verify msg from %v", replicaID.Name)
+	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
 		return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
 	}
 	peers := peersMsg.GetPeers()
 	for _, endpoint := range peers {
-      // check that sender is a valid replica, if so, call crypto verify() with that endpoint's pkiID
-      logger.Debug("CPI Verify() next endpoint name: %v type: %v ", endpoint.ID.Name, endpoint.Type)
+		// check that sender is a valid replica, if so, call crypto verify() with that endpoint's pkiID
+		logger.Debug("CPI Verify() next endpoint name: %v type: %v", endpoint.ID.Name, endpoint.Type)
 		if endpoint.Type == pb.PeerEndpoint_VALIDATOR &&
-         endpoint.ID.Name == replicaID.Name            {
-         cryptoID := endpoint.PkiID ;
-         return h.secHelper.Verify(cryptoID, signature, message)
-      }
+			endpoint.ID.Name == replicaID.Name {
+			cryptoID := endpoint.PkiID
+			return h.secHelper.Verify(cryptoID, signature, message)
+		}
 	}
-   return fmt.Errorf("Could not verify message from %s. Unknown peer.", replicaID.Name)
+	return fmt.Errorf("Could not verify message from %s. Unknown peer.", replicaID.Name)
 }
 
 // GetNetworkHandles returns the peer handles of the current validator and VP network

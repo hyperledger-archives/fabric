@@ -57,7 +57,6 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	op.batchTimer = time.NewTimer(100 * time.Hour)
 	op.batchTimer.Stop()
 	go op.batchTimerHander()
-   logger.Info("creating pbft plugin: batch")
 	return op
 }
 
@@ -159,20 +158,19 @@ func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
 }
 
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
-   return op.cpi.Sign(msg)
+	return op.cpi.Sign(msg)
 }
 
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
-   senderHandle, err := getValidatorHandle(senderID)
-   if err != nil {
-      return fmt.Errorf("Could not verify message from %v : %v", senderHandle.Name, err)
-   }
-   return op.cpi.Verify(senderHandle, signature, message)
+	senderHandle, err := getValidatorHandle(senderID)
+	if err != nil {
+		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
+	}
+	return op.cpi.Verify(senderHandle, signature, message)
 }
 
 // verify checks whether the request is valid
 func (op *obcBatch) validate(txRaw []byte) error {
-	// TODO verify message syntax/semantics
 	return nil
 }
 
