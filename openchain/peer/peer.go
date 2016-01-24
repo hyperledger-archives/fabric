@@ -193,10 +193,12 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 			creds = credentials.NewClientTLSFromCert(nil, sn)
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		// No security, disable in grpc
+		opts = append(opts, grpc.WithInsecure())
 	}
 	opts = append(opts, grpc.WithTimeout(defaultTimeout))
 	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithInsecure())
 	conn, err := grpc.Dial(peerAddress, opts...)
 	if err != nil {
 		return nil, err
