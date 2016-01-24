@@ -39,6 +39,7 @@ type obcClassic struct {
 func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
 	op := &obcClassic{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op, cpi)
+   logger.Info("creating pbft plugin: classic")
 	return op
 }
 

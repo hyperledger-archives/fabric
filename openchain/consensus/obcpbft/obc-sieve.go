@@ -55,6 +55,8 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op, cpi)
 
+   logger.Info("creating pbft plugin: sieve")
+
 	return op
 }
 

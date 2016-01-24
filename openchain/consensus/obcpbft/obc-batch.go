@@ -57,6 +57,7 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	op.batchTimer = time.NewTimer(100 * time.Hour)
 	op.batchTimer.Stop()
 	go op.batchTimerHander()
+   logger.Info("creating pbft plugin: batch")
 	return op
 }
 
