@@ -118,7 +118,7 @@ def step_impl(context, chaincodePath, ctor, containerName):
     chaincodeName = resp.json()['message']
     chaincodeSpec['chaincodeID']['name'] = chaincodeName
     context.chaincodeSpec = chaincodeSpec
-    #print(json.dumps(chaincodeSpec, indent=4))
+    print(json.dumps(chaincodeSpec, indent=4))
     print("")
 
 @then(u'I should have received a chaincode name')
@@ -160,3 +160,31 @@ def step_impl(context):
     #assert 'transactionID' in context, 'transactionID not found in context'
     #assert context.transactionID != ""
     pass
+
+@when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, containerName):
+    invokeChaincode(context, "query", containerName)
+    print(json.dumps(context.response.json(), indent = 4))
+    print("")
+    #raise NotImplementedError(u'STEP: When I query chaincode "example2" function name "query" with "a" on "vp0":')
+
+def invokeChaincode(context, functionName, containerName):
+    assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
+    # Update hte chaincodeSpec ctorMsg for invoke
+    args = []
+    if 'table' in context:
+       # There is ctor arguments
+       args = context.table[0].cells
+    context.chaincodeSpec['ctorMsg']['function'] = functionName
+    context.chaincodeSpec['ctorMsg']['args'] = args
+    # Invoke the POST
+    chaincodeInvocationSpec = {
+        "chaincodeSpec" : context.chaincodeSpec
+    }
+    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    request_url = buildUrl(ipAddress, "/devops/{0}".format(functionName))
+    print("POSTing path = {0}".format(request_url))
+
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+    context.response = resp

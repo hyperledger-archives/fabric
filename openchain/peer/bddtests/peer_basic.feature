@@ -19,8 +19,8 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
-		     |  a    |  b   |
-		     | 100   | 200  |
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
 	    Then I wait "5" seconds
 	    When requesting "/chain" from "vp0"
@@ -34,11 +34,14 @@ Feature: lanching 3 peers
 	    Then I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "3"
-
-        When I query chaincode "example2" function name "query" with "a":
-	    Then I should have received value "90"
-        When I query chaincode "example2" function name "query" with "b":
-	    Then I should have received a query result of "210"
+        When I query chaincode "example2" function name "query" on "vp0":
+            |arg1|
+            |  a |
+	    Then I should get a JSON response with "OK" = "90"
+        When I query chaincode "example2" function name "query" on "vp0":
+            |arg1|
+            |  b |
+	    Then I should get a JSON response with "OK" = "210"
 
 
 #   @doNotDecompose
