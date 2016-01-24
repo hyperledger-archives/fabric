@@ -64,17 +64,16 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
     go test -test.v -run=TestGetFoo
 
 ## Writing Chaincode
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Setting Up a Network
 
-To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/DevnetSetup.md)
-page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
+To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/DevnetSetup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
 
 ## Working with CLI, REST, and Node.js
 
-When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20API.md) page.
+When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20API.md) page.
 
 ## Configuration
 
