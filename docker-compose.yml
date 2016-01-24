@@ -1,89 +1,35 @@
-obcca:
-   image: obcca
-   command: obc-ca
-
-cli:
-  image:
-     obcpeer
-  command:
-     ./infiniteloop.sh
-  environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_SECURITY_ENABLED=true
-  links:
-    - obcca
-    - vp0
-    - vp1
-    - vp2
-    - vp3
-
 vp0:
-  image:
-     obcpeer
-  command: obc-peer peer
+  extends:
+    file: compose-defaults.yml
+    service: vp
   environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_SECURITY_ENABLED=true
     - OPENCHAIN_PEER_ID=vp0
     - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=classic
-    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
     - OPENCHAIN_PEER_VALIDATOR_REPLICAS_IPS=vp0:30303 vp1:30303 vp2:30303 vp3:30303
-    - OPENCHAIN_SECURITY_ENROLLID=lukas
-    - OPENCHAIN_SECURITY_ENROLLSECRET=NPKYL39uKbkj
-  links:
-    - obcca
 
 vp1:
-  image:
-     obcpeer
-  command: obc-peer peer
+  extends:
+    service: vp0
   environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_SECURITY_ENABLED=true
     - OPENCHAIN_PEER_ID=vp1
-    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=classic
-    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
-    - OPENCHAIN_SECURITY_ENROLLID=diego
-    - OPENCHAIN_SECURITY_ENROLLSECRET=DRJ23pEQl16a
   links:
     - vp0
-    - obcca
 
 vp2:
-  image:
-     obcpeer
-  command: obc-peer peer
+  extends:
+    service: vp0
   environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_SECURITY_ENABLED=true
     - OPENCHAIN_PEER_ID=vp2
-    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=classic
-    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
-    - OPENCHAIN_SECURITY_ENROLLID=binhn
-    - OPENCHAIN_SECURITY_ENROLLSECRET=7avZQLwcUe9q
   links:
     - vp0
-    - obcca
 
 vp3:
-  image:
-     obcpeer
-  command: obc-peer peer
+  extends:
+    service: vp0
   environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_SECURITY_ENABLED=true
     - OPENCHAIN_PEER_ID=vp3
-    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=classic
-    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
-    - OPENCHAIN_SECURITY_ENROLLID=jim
-    - OPENCHAIN_SECURITY_ENROLLSECRET=6avZQLwcUe9b
   links:
     - vp0
-    - obcca
