@@ -43,11 +43,11 @@ func (instance *pbftCore) sign(s signable) error {
 	if err != nil {
 		return err
 	}
-   signedRaw, err := instance.consumer.sign(raw)
-   if err != nil {
-      return err  // TODO: what should happen is we have an error in sign() ?
-   }
-   s.setSignature(signedRaw)
+	signedRaw, err := instance.consumer.sign(raw)
+	if err != nil {
+		return err // TODO: what should happen is we have an error in sign() ?
+	}
+	s.setSignature(signedRaw)
 	// s.setSignature(instance.cpi.Sign(raw))
 	// s.setSignature(util.ComputeCryptoHash(append(id, raw...)))
 	return nil
@@ -61,7 +61,7 @@ func (instance *pbftCore) verify(s signable) error {
 	if err != nil {
 		return err
 	}
-   return instance.consumer.verify(s.getID(), origSig, raw)
+	return instance.consumer.verify(s.getID(), origSig, raw)
 
 	// XXX check that s.Id() is a valid replica
 	// instance.cpi.Verify(s.Id(), origSig, raw)

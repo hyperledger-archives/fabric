@@ -47,11 +47,11 @@ func newMock() *mockCPI {
 }
 
 func (mock *mockCPI) sign(msg []byte) ([]byte, error) {
-   return msg, nil
+	return msg, nil
 }
 
-func (moc *mockCPI) verify(senderID uint64, signature []byte, message []byte) error {
-   return nil
+func (mock *mockCPI) verify(senderID uint64, signature []byte, message []byte) error {
+	return nil
 }
 
 func (mock *mockCPI) broadcast(msg []byte) {
@@ -101,18 +101,18 @@ type instance struct {
 }
 
 func (inst *instance) Sign(msg []byte) ([]byte, error) {
-   return msg, nil
+	return msg, nil
 }
 func (inst *instance) Verify(peerID *pb.PeerID, signature []byte, message []byte) error {
-   return nil
+	return nil
 }
 
 func (inst *instance) sign(msg []byte) ([]byte, error) {
-   return msg, nil
+	return msg, nil
 }
 
 func (inst *instance) verify(replicaID uint64, signature []byte, message []byte) error {
-   return nil
+	return nil
 }
 
 func (inst *instance) broadcast(payload []byte) {

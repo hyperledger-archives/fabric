@@ -39,7 +39,6 @@ type obcClassic struct {
 func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
 	op := &obcClassic{cpi: cpi}
 	op.pbft = newPbftCore(id, config, op, cpi)
-   logger.Info("creating pbft plugin: classic")
 	return op
 }
 
@@ -115,20 +114,19 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 }
 
 func (op *obcClassic) sign(msg []byte) ([]byte, error) {
-   return op.cpi.Sign(msg)
+	return op.cpi.Sign(msg)
 }
 
 func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
-   senderHandle, err := getValidatorHandle(senderID)
-   if err != nil {
-      return fmt.Errorf("Could not verify message from %v : %v", senderHandle.Name, err)
-   }
-   return op.cpi.Verify(senderHandle, signature, message)
+	senderHandle, err := getValidatorHandle(senderID)
+	if err != nil {
+		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
+	}
+	return op.cpi.Verify(senderHandle, signature, message)
 }
 
 // verify checks whether the request is valid
 func (op *obcClassic) validate(txRaw []byte) error {
-	// TODO verify message syntax/semantics
 	return nil
 }
 
