@@ -161,6 +161,7 @@ func (op *obcBatch) sign(msg []byte) ([]byte, error) {
 	return op.cpi.Sign(msg)
 }
 
+// verify message signature
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
 	senderHandle, err := getValidatorHandle(senderID)
 	if err != nil {
@@ -169,7 +170,8 @@ func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) er
 	return op.cpi.Verify(senderHandle, signature, message)
 }
 
-// verify checks whether the request is valid
+// validate checks whether the request is valid syntactically and semantically.
+// currently, we only need to do this for the obc-sieve verify/verify-set and flush messages. Thus, for obc-batch, this is a no-op
 func (op *obcBatch) validate(txRaw []byte) error {
 	return nil
 }

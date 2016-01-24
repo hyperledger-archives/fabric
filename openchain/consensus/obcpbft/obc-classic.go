@@ -125,7 +125,8 @@ func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) 
 	return op.cpi.Verify(senderHandle, signature, message)
 }
 
-// verify checks whether the request is valid
+// validate checks whether the request is valid syntactically and semantically.
+// currently, we only need to do this for the obc-sieve verify/verify-set and flush messages. Thus, for obc-classic, this is a no-op
 func (op *obcClassic) validate(txRaw []byte) error {
 	return nil
 }

@@ -37,14 +37,9 @@ type Communicator interface {
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
-// SecurityUtils TODO add description for the interface
-// TODO Move the function descriptions below to the file where the functions are defined
+// SecurityUtils is used to access the sign/verify methods from the crypto package
 type SecurityUtils interface {
-	// sign a msg with this validator's signing key
 	Sign(msg []byte) ([]byte, error)
-	// verify that given signature is valid under the given replicaID's verification key
-	// if replicaID is nil, use this replica's verification key
-	// if signature is valid, function return nil
 	Verify(peerID *pb.PeerID, signature []byte, message []byte) error
 }
 

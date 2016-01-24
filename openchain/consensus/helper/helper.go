@@ -47,7 +47,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 	return &Helper{coordinator: mhc, bSecurity: bSecurityOn, secHelper: mhc.GetSecHelper()}
 }
 
-// Sign TODO add description here
+// sign a msg with this validator's signing key
 func (h *Helper) Sign(msg []byte) ([]byte, error) {
 	if h.bSecurity {
 		return h.secHelper.Sign(msg)
@@ -56,7 +56,9 @@ func (h *Helper) Sign(msg []byte) ([]byte, error) {
 	return msg, nil
 }
 
-// Verify TODO add description here
+// verify that given signature is valid under the given replicaID's verification key
+// if replicaID is nil, use this replica's verification key
+// if signature is valid, function return nil
 func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
 	if !h.bSecurity {
 		logger.Debug("CPI Verify() security disabled")

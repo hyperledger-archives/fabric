@@ -37,8 +37,6 @@ type signable interface {
 
 func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
-	// id := []byte("XXX ID")
-	// s.setID(instance.id)
 	raw, err := s.serialize()
 	if err != nil {
 		return err
@@ -48,8 +46,7 @@ func (instance *pbftCore) sign(s signable) error {
 		return err // TODO: what should happen is we have an error in sign() ?
 	}
 	s.setSignature(signedRaw)
-	// s.setSignature(instance.cpi.Sign(raw))
-	// s.setSignature(util.ComputeCryptoHash(append(id, raw...)))
+
 	return nil
 }
 
@@ -62,13 +59,6 @@ func (instance *pbftCore) verify(s signable) error {
 		return err
 	}
 	return instance.consumer.verify(s.getID(), origSig, raw)
-
-	// XXX check that s.Id() is a valid replica
-	// instance.cpi.Verify(s.Id(), origSig, raw)
-	//if !reflect.DeepEqual(util.ComputeCryptoHash(append(id, raw...)), origSig) {
-	//	return fmt.Errorf("invalid signature")
-	//}
-	//return nil
 }
 
 func (vc *ViewChange) getSignature() []byte {
@@ -84,7 +74,7 @@ func (vc *ViewChange) getID() uint64 {
 }
 
 func (vc *ViewChange) setID(id uint64) {
-	// XXX set id
+	vc.ReplicaId = id
 }
 
 func (vc *ViewChange) serialize() ([]byte, error) {
@@ -104,7 +94,7 @@ func (v *Verify) getID() uint64 {
 }
 
 func (v *Verify) setID(id uint64) {
-	// XXX set ID
+	v.ReplicaId = id
 }
 
 func (v *Verify) serialize() ([]byte, error) {
@@ -124,7 +114,7 @@ func (msg *VerifySet) getID() uint64 {
 }
 
 func (msg *VerifySet) setID(id uint64) {
-	// XXX set ID
+	msg.ReplicaId = id
 }
 
 func (msg *VerifySet) serialize() ([]byte, error) {
@@ -144,7 +134,7 @@ func (msg *Flush) getID() uint64 {
 }
 
 func (msg *Flush) setID(id uint64) {
-	// XXX set ID
+	msg.ReplicaId = id
 }
 
 func (msg *Flush) serialize() ([]byte, error) {

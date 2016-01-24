@@ -342,7 +342,7 @@ func (op *obcSieve) verifyDset(inDset []*Verify) (dSet []*Verify, ok bool) {
 	return
 }
 
-// validate checks whether the request is valid
+// validate checks whether the request is valid syntactically and semantically
 func (op *obcSieve) validate(rawReq []byte) error {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(rawReq, req)
