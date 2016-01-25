@@ -145,12 +145,12 @@ func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber ui
 
 }
 
-func (sts *StateTransferState) AsynchronousStateTransferJustCompleted() (uint64, bool) {
+func (sts *StateTransferState) AsynchronousStateTransferJustCompleted() (interface{}, bool) {
 	select {
-	case blockNumber := <-sts.completeStateSync:
-		return blockNumber.blockNumber, true
+	case blockHashReply := <-sts.completeStateSync:
+		return blockHashReply.metadata, true
 	default:
-		return uint64(0), false
+		return nil, false
 	}
 }
 

@@ -308,7 +308,7 @@ func (instance *pbftCore) processNewView() error {
 		}
 
 		// TODO, if we know what replicas generated the view change, we could be more specific about who to retrieve from instead of nil, still, this should succeed eventually
-		instance.sts.AsynchronousStateTransferValidHash(cp.BlockNumber, blockHashBytes, nil, cp.SequenceNumber)
+		instance.sts.AsynchronousStateTransferValidHash(cp.BlockNumber, blockHashBytes, nil, &stateTransferMetadata{cp.SequenceNumber})
 	}
 
 	for n, d := range nv.Xset {

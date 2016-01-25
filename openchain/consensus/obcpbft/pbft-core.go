@@ -125,6 +125,10 @@ type vcidx struct {
 	id uint64
 }
 
+type stateTransferMetadata struct {
+	sequenceNumber uint64
+}
+
 type blockState struct {
 	blockNumber uint64
 	blockHash   string
@@ -405,22 +409,10 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
-	if blockNumber, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
-		logger.Debug("Replica %d state transfer completed to block %d, attempting to finish pbft sync.", instance.id, blockNumber)
-		block, err := instance.ledger.GetBlock(blockNumber)
-		if err != nil {
-			logger.Error("Replica %d just returned from state transfer, which claims to have syned to %d, but could not retrieve that block, retrying", instance.id, blockNumber)
-			instance.sts.AsynchronousStateTransfer(nil)
-		} else {
-			metadata := &Metadata{}
-			if err := proto.Unmarshal(block.ConsensusMetadata, metadata); nil == err {
-				logger.Debug("Replica %d completed state transfer to block %d at sequence number %d, about to execute outstanding requests", instance.id, blockNumber, metadata.SeqNo)
-				instance.lastExec = metadata.SeqNo
-				instance.executeOutstanding()
-			} else {
-				panic("Retrieved and validated block did not contain valid consensus metadata")
-			}
-		}
+	if metadata, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
+		instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
+		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+		instance.executeOutstanding()
 	}
 
 	if req := msg.GetRequest(); req != nil {
@@ -852,7 +844,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], chkpt.SequenceNumber)
+	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
