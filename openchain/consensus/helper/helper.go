@@ -198,11 +198,11 @@ func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata); err != nil {
+	block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata)
+	if err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
-	} else {
-		return block, err
 	}
+	return block, err
 }
 
 // GetBlock returns a block from the chain
