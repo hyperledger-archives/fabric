@@ -165,7 +165,7 @@ func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
 // SendMessage sends a message to the remote Peer through the stream
 func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 	logger.Debug("Sending to stream a message of type: %s", msg.Type)
-	//hand over the message to the peerHandler to serialize 
+	// hand over the message to the peerHandler to serialize
 	err := handler.peerHandler.SendMessage(msg)
 	if err != nil {
 		return fmt.Errorf("Error sending message through ChatStream: %s", err)

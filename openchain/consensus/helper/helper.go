@@ -74,7 +74,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 
 	// check that sender is a valid replica
 	// if so, call crypto verify() with that endpoint's pkiID
-	for _, endpoint := range netowrk {
+	for _, endpoint := range network {
 		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
 		if replicaID == endpoint.ID {
 			cryptoID := endpoint.PkiID
