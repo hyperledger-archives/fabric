@@ -67,16 +67,16 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 	}
 
 	logger.Debug("Verify message from: %v", replicaID.Name)
-	peersMsg, err := h.coordinator.GetPeers()
+	_, network, err := h.GetNetworkInfo()
 	if err != nil {
-		return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
 	}
-	peers := peersMsg.GetPeers()
-	for _, endpoint := range peers {
-		// check that sender is a valid replica, if so, call crypto verify() with that endpoint's pkiID
-		logger.Debug("CPI Verify() next endpoint name: %v type: %v", endpoint.ID.Name, endpoint.Type)
-		if endpoint.Type == pb.PeerEndpoint_VALIDATOR &&
-			endpoint.ID.Name == replicaID.Name {
+
+	// check that sender is a valid replica
+	// if so, call crypto verify() with that endpoint's pkiID
+	for _, endpoint := range netowrk {
+		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
+		if replicaID == endpoint.ID {
 			cryptoID := endpoint.PkiID
 			return h.secHelper.Verify(cryptoID, signature, message)
 		}
