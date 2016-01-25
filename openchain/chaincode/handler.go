@@ -586,7 +586,7 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		chaincodeID := handler.ChaincodeID.Name
-		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryStateInfo.StartKey, rangeQueryStateInfo.EndKey)
+		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryStateInfo.StartKey, rangeQueryStateInfo.EndKey, true)
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())

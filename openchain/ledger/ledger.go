@@ -193,8 +193,11 @@ func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) (
 
 // GetStateRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
 // (assuming lexical order of the keys) for a chaincodeID.
-func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
-	return ledger.state.GetRangeScanIterator(chaincodeID, startKey, endKey)
+// If committed is true, the key-values are retrived only from the db. If committed is false, the results from db
+// are mergerd with the results in memory (giving preference to in-memory data)
+// The key-values in the returned iterator are not guaranteed to be in any specific order
+func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey string, endKey string, committed bool) (statemgmt.RangeScanIterator, error) {
+	return ledger.state.GetRangeScanIterator(chaincodeID, startKey, endKey, committed)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
