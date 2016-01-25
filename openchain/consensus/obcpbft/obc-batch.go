@@ -170,8 +170,9 @@ func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) er
 	return op.cpi.Verify(senderHandle, signature, message)
 }
 
-// validate checks whether the request is valid syntactically and semantically.
-// currently, we only need to do this for the obc-sieve verify/verify-set and flush messages. Thus, for obc-batch, this is a no-op
+// validate checks whether the request is valid syntactically.
+// For now, we only need this for the obc-sieve verify/verify-set and flush messages.
+// Thus, for obc-batch, this is a no-op.
 func (op *obcBatch) validate(txRaw []byte) error {
 	return nil
 }

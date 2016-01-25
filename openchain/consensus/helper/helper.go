@@ -37,35 +37,36 @@ import (
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
-	bSecurity   bool
+	secOn       bool
 	secHelper   crypto.Peer
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
-	bSecurityOn := viper.GetBool("security.enabled")
-	return &Helper{coordinator: mhc, bSecurity: bSecurityOn, secHelper: mhc.GetSecHelper()}
+	return &Helper{coordinator: mhc,
+		secOn:     viper.GetBool("security.enabled"),
+		secHelper: mhc.GetSecHelper()}
 }
 
-// sign a msg with this validator's signing key
+// Sign a message with this validator's signing key
 func (h *Helper) Sign(msg []byte) ([]byte, error) {
-	if h.bSecurity {
+	if h.secOn {
 		return h.secHelper.Sign(msg)
 	}
-	logger.Debug("CPI Sign(): security disabled")
+	logger.Debug("Security is disabled")
 	return msg, nil
 }
 
-// verify that given signature is valid under the given replicaID's verification key
-// if replicaID is nil, use this replica's verification key
-// if signature is valid, function return nil
+// Verify that the given signature is valid under the given replicaID's verification key
+// If replicaID is nil, use this validator's verification key
+// If the signature is valid, the function should return nil
 func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
-	if !h.bSecurity {
-		logger.Debug("CPI Verify() security disabled")
+	if !h.secOn {
+		logger.Debug("Security is disabled")
 		return nil
 	}
 
-	logger.Debug("CPI Verify msg from %v", replicaID.Name)
+	logger.Debug("Verify message from: %v", replicaID.Name)
 	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
 		return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
@@ -80,7 +81,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 			return h.secHelper.Verify(cryptoID, signature, message)
 		}
 	}
-	return fmt.Errorf("Could not verify message from %s. Unknown peer.", replicaID.Name)
+	return fmt.Errorf("Could not verify message from %s - unknown peer", replicaID.Name)
 }
 
 // GetNetworkHandles returns the peer handles of the current validator and VP network
