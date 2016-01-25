@@ -564,27 +564,25 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 func (sts *StateTransferState) blockHashReceiverThread() {
 	var lastHashReceived *blockHashReply
 	for {
-		//logger.Debug("%s block hash request thread looping", sts.id)
+		logger.Debug("%s block hash request thread looping", sts.id)
 		select {
 		case request := <-sts.blockHashReq:
 			logger.Debug("%v block hash request thread received a block hash request for block greater than %d", sts.id, request.blockNumber)
-			for {
-				if nil == lastHashReceived {
-					logger.Debug("%v block hash request thread waiting for new block hash", sts.id)
-					lastHashReceived = <-sts.blockHashReceiver
-				}
-
-				if request.blockNumber > lastHashReceived.blockNumber {
-					logger.Debug("%v block hash request thread did not received an appropriate block hash, block number was %d", sts.id, request.blockNumber)
-					// The hash is not for a sufficiently high block number
-					lastHashReceived = nil
-					continue
-				}
-
-				logger.Debug("%v replying to block hash request with block %d and hash (%x)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
-				request.replyChan <- lastHashReceived
-				lastHashReceived = nil
+			if nil == lastHashReceived {
+				logger.Debug("%v block hash request thread waiting for new block hash", sts.id)
+				lastHashReceived = <-sts.blockHashReceiver
 			}
+
+			if request.blockNumber > lastHashReceived.blockNumber {
+				logger.Debug("%v block hash request thread did not received an appropriate block hash, block number was %d", sts.id, request.blockNumber)
+				// The hash is not for a sufficiently high block number
+				lastHashReceived = nil
+				continue
+			}
+
+			logger.Debug("%v replying to block hash request with block %d and hash (%x)", sts.id, lastHashReceived.blockNumber, lastHashReceived.blockHash)
+			request.replyChan <- lastHashReceived
+			lastHashReceived = nil
 		case lastHashReceived = <-sts.blockHashReceiver:
 		case <-sts.blockHashReceiverThreadExit:
 			logger.Debug("Received request for block hash receiver thread to exit")
