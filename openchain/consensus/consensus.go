@@ -30,10 +30,14 @@ type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
-// Communicator is used to send messages to other validators
-type Communicator interface {
+// Inquirer is used to retrieve info about the validating network
+type Inquirer interface {
 	GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error)
 	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
+}
+
+// Communicator is used to send messages to other validators
+type Communicator interface {
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
@@ -98,6 +102,7 @@ type LedgerStack interface {
 
 // CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
 type CPI interface {
+	Inquirer
 	Communicator
 	SecurityUtils
 	LedgerStack
