@@ -34,6 +34,7 @@ import (
 
 // Handler peer handler implementation.
 type Handler struct {
+	chatMutex	               sync.Mutex
 	ToPeerEndpoint                *pb.PeerEndpoint
 	Coordinator                   MessageHandlerCoordinator
 	ChatStream                    ChatStream
@@ -96,7 +97,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 		if err != nil {
 			return nil, fmt.Errorf("Error getting new HelloMessage: %s", err)
 		}
-		if err := d.ChatStream.Send(helloMessage); err != nil {
+		if err := d.SendMessage(helloMessage); err != nil {
 			return nil, fmt.Errorf("Error creating new Peer Handler, error returned sending %s: %s", pb.OpenchainMessage_DISC_HELLO, err)
 		}
 	}
@@ -172,7 +173,7 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 			e.Cancel(fmt.Errorf("Error getting new HelloMessage: %s", err))
 			return
 		}
-		if err := d.ChatStream.Send(helloMessage); err != nil {
+		if err := d.SendMessage(helloMessage); err != nil {
 			e.Cancel(fmt.Errorf("Error sending response to %s:  %s", e.Event, err))
 			return
 		}
@@ -200,7 +201,7 @@ func (d *Handler) beforeGetPeers(e *fsm.Event) {
 		return
 	}
 	peerLogger.Debug("Sending back %s", pb.OpenchainMessage_DISC_PEERS.String())
-	if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_PEERS, Payload: data}); err != nil {
+	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_PEERS, Payload: data}); err != nil {
 		e.Cancel(err)
 	}
 }
@@ -265,6 +266,10 @@ func (d *Handler) HandleMessage(msg *pb.OpenchainMessage) error {
 
 // SendMessage sends a message to the remote PEER through the stream
 func (d *Handler) SendMessage(msg *pb.OpenchainMessage) error {
+	//make sure Sends are serialized. Also make sure everyone uses SendMessage
+	//instead of calling Send directly on the grpc stream
+	d.chatMutex.Lock()
+	defer d.chatMutex.Unlock()
 	peerLogger.Debug("Sending message to stream of type: %s ", msg.Type)
 	err := d.ChatStream.Send(msg)
 	if err != nil {
@@ -281,7 +286,7 @@ func (d *Handler) start() error {
 	for {
 		select {
 		case <-tickChan:
-			if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS}); err != nil {
+			if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS}); err != nil {
 				peerLogger.Error(fmt.Sprintf("Error sending %s during handler discovery tick: %s", pb.OpenchainMessage_DISC_GET_PEERS, err))
 			}
 			// // TODO: For testing only, remove eventually.  Test the blocks transfer functionality.
@@ -362,7 +367,7 @@ func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.S
 		return nil, fmt.Errorf("Error marshaling syncBlockRange during GetBlocks: %s", err)
 	}
 	peerLogger.Debug("Sending %s with Range %s", pb.OpenchainMessage_SYNC_GET_BLOCKS.String(), syncBlockRange)
-	if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
+	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
 		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.OpenchainMessage_SYNC_GET_BLOCKS, err)
 	}
 	return d.syncBlocks, nil
@@ -475,7 +480,7 @@ func (d *Handler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
 		return nil, fmt.Errorf("Error marshaling syncStateSnapshotRequest during GetStateSnapshot: %s", err)
 	}
 	peerLogger.Debug("Sending %s with syncStateSnapshotRequest = %s", pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT.String(), syncStateSnapshotRequest)
-	if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT, Payload: syncStateSnapshotRequestBytes}); err != nil {
+	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT, Payload: syncStateSnapshotRequestBytes}); err != nil {
 		return nil, fmt.Errorf("Error sending %s during GetStateSnapshot: %s", pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT, err)
 	}
 
@@ -616,7 +621,7 @@ func (d *Handler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan 
 		return nil, fmt.Errorf("Error marshaling syncStateDeltasRequest during RequestStateDeltas: %s", err)
 	}
 	peerLogger.Debug("Sending %s with syncStateDeltasRequest = %s", pb.OpenchainMessage_SYNC_STATE_GET_DELTAS.String(), syncStateDeltasRequest)
-	if err := d.ChatStream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_DELTAS, Payload: syncStateDeltasRequestBytes}); err != nil {
+	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_DELTAS, Payload: syncStateDeltasRequestBytes}); err != nil {
 		return nil, fmt.Errorf("Error sending %s during RequestStateDeltas: %s", pb.OpenchainMessage_SYNC_STATE_GET_DELTAS, err)
 	}
 

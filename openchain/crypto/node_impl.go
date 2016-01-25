@@ -54,6 +54,9 @@ type nodeImpl struct {
 
 	// Enrollment Chain
 	enrollChainKey []byte
+	
+	// TLS
+ 	tlsCert *x509.Certificate
 }
 
 func (node *nodeImpl) GetName() string {
