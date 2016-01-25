@@ -667,7 +667,8 @@ func (m *TLSCertCreateReq) GetSig() *Signature {
 }
 
 type TLSCertCreateResp struct {
-	Cert *Cert `protobuf:"bytes,1,opt,name=cert" json:"cert,omitempty"`
+	Cert     *Cert `protobuf:"bytes,1,opt,name=cert" json:"cert,omitempty"`
+	RootCert *Cert `protobuf:"bytes,2,opt,name=rootCert" json:"rootCert,omitempty"`
 }
 
 func (m *TLSCertCreateResp) Reset()         { *m = TLSCertCreateResp{} }
@@ -677,6 +678,13 @@ func (*TLSCertCreateResp) ProtoMessage()    {}
 func (m *TLSCertCreateResp) GetCert() *Cert {
 	if m != nil {
 		return m.Cert
+	}
+	return nil
+}
+
+func (m *TLSCertCreateResp) GetRootCert() *Cert {
+	if m != nil {
+		return m.RootCert
 	}
 	return nil
 }
