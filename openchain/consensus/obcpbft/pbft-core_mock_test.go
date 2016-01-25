@@ -179,6 +179,10 @@ func (inst *instance) execute(payload []byte, metadata []byte) {
 func (inst *instance) viewChange(uint64) {
 }
 
+func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
+	panic("Not implemented yet")
+}
+
 func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
 	self = inst.handle
 	network = inst.net.handles

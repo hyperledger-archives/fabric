@@ -81,16 +81,16 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 			return h.secHelper.Verify(cryptoID, signature, message)
 		}
 	}
-	return fmt.Errorf("Could not verify message from %s - unknown peer", replicaID.Name)
+	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
 }
 
-// GetNetworkHandles returns the peer handles of the current validator and VP network
-func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+// GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
+func (h *Helper) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
 	ep, err := h.coordinator.GetPeerEndpoint()
 	if err != nil {
 		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
 	}
-	self = ep.ID
+	self = ep
 
 	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
@@ -99,8 +99,25 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 	peers := peersMsg.GetPeers()
 	for _, endpoint := range peers {
 		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-			network = append(network, endpoint.ID)
+			network = append(network, endpoint)
 		}
+	}
+	network = append(network, self)
+
+	return
+}
+
+// GetNetworkHandles returns the PeerIDs of the current validator and the entire validating network
+func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+	selfEP, networkEP, err := h.GetNetworkInfo()
+	if err != nil {
+		return self, network, fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
+	}
+
+	self = selfEP.ID
+
+	for _, endpoint := range networkEP {
+		network = append(network, endpoint.ID)
 	}
 	network = append(network, self)
 
