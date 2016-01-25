@@ -412,7 +412,7 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
-func (op *obcSieve) execute(raw []byte, rawMetadata []byte) {
+func (op *obcSieve) execute(raw []byte) {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {
@@ -540,12 +540,7 @@ func (op *obcSieve) rollback() error {
 }
 
 func (op *obcSieve) commit(seqNo uint64) error {
-	metadataMsg := &Metadata{SeqNo: seqNo}
-	rawMetadata, err := proto.Marshal(metadataMsg)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal consensus metadata before committing of transaction: %v", err)
-	}
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, rawMetadata); err != nil {
+	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, nil); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil
