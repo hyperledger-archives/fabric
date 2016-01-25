@@ -1,17 +1,18 @@
 #
 # Test openchain Peers
 #
-# Tags that can be used:
+# Tags that can be used and will affect test internals:
 #   
-#  @DoNotDecompose will NOT decompose the named compose_yaml after scenario ends.  Useful for setting up environment and reviewing after scenario.
+#  @doNotDecompose will NOT decompose the named compose_yaml after scenario ends.  Useful for setting up environment and reviewing after scenario.
 #
-#
+#  @chaincodeImagesUpToDate use this if all scenarios chaincode images are up to date, and do NOT require building.  BE SURE!!! 
 
+#@chaincodeImagesUpToDate
 Feature: lanching 3 peers
     As an openchain developer
     I want to be able to launch a 3 peers
 
-    @doNotDecompose
+#    @doNotDecompose
     @wip
 	Scenario: chaincode example 02 single peer 
 	    Given we compose "docker-compose-1.yml"
@@ -22,7 +23,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
-	    Then I wait "5" seconds
+	    Then I wait "20" seconds for chaincode to build
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "2"
 #	    And The deployment was recorded to the blockchain 

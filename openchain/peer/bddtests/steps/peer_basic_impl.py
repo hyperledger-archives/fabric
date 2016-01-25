@@ -188,3 +188,15 @@ def invokeChaincode(context, functionName, containerName):
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
     context.response = resp
+
+@then(u'I wait "{seconds}" seconds for chaincode to build')
+def step_impl(context, seconds):
+    """ This step takes into account the chaincodeImagesUpToDate tag, in which case the wait is reduce to some default seconds"""
+    reducedWaitTime = 4
+    if 'chaincodeImagesUpToDate' in context.tags:
+        print("Assuming images are up to date, sleeping for {0} seconds instead of {1} in scenario {2}".format(reducedWaitTime, seconds, context.scenario.name))
+        time.sleep(float(reducedWaitTime))
+    else:
+        time.sleep(float(seconds))
+
+    
