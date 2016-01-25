@@ -74,10 +74,10 @@ func NewCA(name string) *CA {
 	if err := db.Ping(); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB, kdfkey BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
 	ca.db = db
@@ -162,7 +162,7 @@ func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 	Trace.Println("Creating CA certificate.")
 
-	raw, err := ca.newCertificate(pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
+	raw, err := ca.newCertificate(name, pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
 	if err != nil {
 		Panic.Panicln(err)
 	}
@@ -192,10 +192,10 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 	return block.Bytes, nil
 }
 
-func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, opt ...pkix.Extension) ([]byte, error) {
+func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
 	Trace.Println("Creating certificate for "+id+".")
 
-	raw, err := ca.newCertificate(pub, usage, opt)
+	raw, err := ca.newCertificate(id, pub, usage, opt)
 	if err != nil {
 		Error.Println(err)
 		return nil, err
@@ -203,14 +203,14 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 
 	hash := sha3.New384()
 	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash) VALUES (?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil)); err != nil {
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)
 	}
 
 	return raw, err
 }
 
-func (ca *CA) newCertificate(pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
+func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
 
@@ -220,7 +220,7 @@ func (ca *CA) newCertificate(pub interface{}, usage x509.KeyUsage, ext []pkix.Ex
 	tmpl := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "OBC",
+			CommonName:   id,
 			Organization: []string{"IBM"},
 			Country:      []string{"US"},
 		},
@@ -279,10 +279,10 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificatess for "+id+".")
 
 	if len(opt) > 0 && opt[0] != 0 {
-		return ca.db.Query("SELECT cert FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
+		return ca.db.Query("SELECT cert, kdfkey FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
 	}
 
-	return ca.db.Query("SELECT cert FROM Certificates WHERE id=?", id)
+	return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=?", id)
 }
 
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
@@ -343,17 +343,14 @@ func (ca *CA) deleteUser(id string) (error) {
 func (ca *CA) readToken(id string) *sql.Row {
 	Trace.Println("Reading token for "+id+".")
 
-	return ca.db.QueryRow("SELECT token, state FROM Users WHERE id=?", id)
+	return ca.db.QueryRow("SELECT token, state, key FROM Users WHERE id=?", id)
 }
 
 func (ca *CA) readRole(id string) int {
 	Trace.Println("Reading role for "+id+".")
 
 	var role int
-	err := ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
-	if err != nil {
-		Panic.Panicln(err)
-	}
+	ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
 	
 	return role
 }

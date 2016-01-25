@@ -142,11 +142,11 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 	Trace.Println("grpc ECAP:CreateCertificate")
 
 	// validate token
-	var tok []byte
+	var tok, prev []byte
 	var state int
 
 	id := req.Id.Id
-	err := ecap.eca.readToken(id).Scan(&tok, &state)
+	err := ecap.eca.readToken(id).Scan(&tok, &state, &prev)
 	if err != nil || !bytes.Equal(tok, req.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
 	}
@@ -161,8 +161,9 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 		// initial request, create encryption challenge
 		tok = []byte(randomString(12))
 
-		_, err = ecap.eca.db.Exec("UPDATE Users SET token=?, state=? WHERE id=?", tok, 1, id)
+		_, err = ecap.eca.db.Exec("UPDATE Users SET token=?, state=?, key=? WHERE id=?", tok, 1, req.Enc.Key, id)
 		if err != nil {
+			Error.Println(err)
 			return nil, err
 		}
 
@@ -174,6 +175,11 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 		return &pb.ECertCreateResp{nil, nil, &pb.Token{out}}, nil
 
 	case state == 1:
+		// ensure that the same encryption key is signed that has been used for the challenge
+		if bytes.Compare(req.Enc.Key, prev) != 0 {
+			return nil, errors.New("encryption keys don't match")
+		}
+		
 		// validate request signature
 		sig := req.Sig
 		req.Sig = nil
@@ -200,13 +206,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, req *pb.ECertCreate
 		// create new certificate pair
 		ts := time.Now().UnixNano()
 
-		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)

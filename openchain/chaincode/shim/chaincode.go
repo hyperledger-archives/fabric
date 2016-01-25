@@ -154,38 +154,47 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	}
 	// Register on the stream
 	chaincodeLogger.Debug("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
-	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
+	handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
 		defer close(waitc)
 		msgAvail := make(chan *pb.ChaincodeMessage)
 		var nsInfo *nextStateInfo
 		var in *pb.ChaincodeMessage
+		recv := true
 		for {
 			in = nil
 			err = nil
 			nsInfo = nil
-			go func() {
-				var in2 *pb.ChaincodeMessage
-				in2, err = stream.Recv()
-				msgAvail <- in2
-			}()
+			if recv {
+				recv = false
+				go func() {
+					var in2 *pb.ChaincodeMessage
+					in2, err = stream.Recv()
+					msgAvail <- in2
+				}()
+			}
 			select {
 			case in = <-msgAvail:
-				// Defer the deregistering of the this handler.
-				if in == nil || err == io.EOF {
-					if err == nil {
-						err = fmt.Errorf("Error received nil message")
-					} else {
-						err = fmt.Errorf("Error sending transactions to peer address=%s, received EOF", getPeerAddress())
-					}
+				if err == io.EOF {
+					chaincodeLogger.Debug("Received EOF, ending chaincode stream, %s", err)
+					return
+				} else if err != nil {
+					chaincodeLogger.Error(fmt.Sprintf("Received error from server: %s, ending chaincode stream", err))
+					return
+				} else if in == nil {
+					err = fmt.Errorf("Received nil message, ending chaincode stream")
+					chaincodeLogger.Debug("Received nil message, ending chaincode stream")
 					return
 				}
-				if err != nil {
-					grpclog.Fatalf("Received error from server : %v", err)
-				}
+				chaincodeLogger.Debug("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
+				recv = true
 			case nsInfo = <-handler.nextState:
 				in = nsInfo.msg
+				if in == nil {
+					panic("nil msg")
+				}
+				chaincodeLogger.Debug("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
 			}
 
 			// Call FSM.handleMessage()
@@ -195,7 +204,8 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 				return
 			}
 			if nsInfo != nil && nsInfo.sendToCC {
-				if err = stream.Send(in); err != nil {
+				chaincodeLogger.Debug("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
+				if err = handler.serialSend(in); err != nil {
 					err = fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
 					return
 				}

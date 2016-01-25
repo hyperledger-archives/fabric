@@ -39,6 +39,10 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+func getNowMillis() int64 {
+	nanos := time.Now().UnixNano()
+	return nanos / 1000000
+}
 // Build a chaincode.
 func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	fmt.Printf("getting deployment spec for chaincode spec: %v\n", spec)
@@ -172,8 +176,6 @@ func checkFinalState(uuid string, chaincodeID string) error {
 		return fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
 	}
 
-	fmt.Printf("found delta for transaction <%s>\n", uuid)
-
 	// Invoke ledger to get state
 	var Aval, Bval int
 	resbytes, resErr := ledgerObj.GetState(chaincodeID, "a", false)
@@ -219,8 +221,6 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	}
 
 	time.Sleep(time.Second)
-
-	fmt.Printf("Going to invoke\n")
 
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
@@ -313,15 +313,11 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 			args := []string{"a", "b", "10"}
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-
-			fmt.Printf("Going to invoke TRANSACTION num %d\n", qnum)
 		} else {
 			f := "query"
 			args := []string{"a"}
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-
-			fmt.Printf("Going to invoke QUERY num %d\n", qnum)
 		}
 
 		uuid, _, err := invoke(ctxt, spec, typ)
@@ -342,7 +338,6 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 				errs[qnum] = fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
 				return
 			}
-			fmt.Printf("found delta for transaction <%s>\n", uuid)
 		}
 
 		if err != nil {
@@ -365,7 +360,6 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 	}
 
 	wg.Wait()
-	fmt.Printf("EXEC DONE\n")
 	return errs
 }
 
@@ -422,8 +416,10 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	time.Sleep(time.Second)
+	time.Sleep(2*time.Second)
 
+	//start := getNowMillis()
+	//fmt.Fprintf(os.Stderr, "Starting: %d\n", start)
 	numTrans := 2
 	numQueries := 10
 	errs := exec(ctxt, chaincodeID, numTrans, numQueries)
@@ -437,13 +433,15 @@ func TestExecuteQuery(t *testing.T) {
 	}
 
 	if numerrs == 0 {
-		fmt.Printf("Query test passed\n")
 		t.Logf("Query test passed")
 	} else {
 		t.Logf("Query test failed(total errors %d)", numerrs)
 		t.Fail()
 	}
 
+	//end := getNowMillis()
+	//fmt.Fprintf(os.Stderr, "Ending: %d\n", end)
+	//fmt.Fprintf(os.Stderr, "Elapsed : %d millis\n", end-start)
 	GetChain(DefaultChain).stopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
 }
