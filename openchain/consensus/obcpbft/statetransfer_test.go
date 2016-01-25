@@ -70,7 +70,7 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 	result := sts.AsynchronousStateTransfer(peerIDs)
 
 	blockHash := SimpleGetBlockHash(blockNumber)
-	sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, peerIDs)
+	sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, peerIDs, nil)
 
 	select {
 	case <-time.After(time.Second * 2):
