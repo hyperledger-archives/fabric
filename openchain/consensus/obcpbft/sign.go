@@ -19,13 +19,7 @@ under the License.
 
 package obcpbft
 
-import (
-	//"fmt"
-	//"reflect"
-
-	"github.com/golang/protobuf/proto"
-	//"github.com/openblockchain/obc-peer/openchain/util"
-)
+import pb "github.com/golang/protobuf/proto"
 
 type signable interface {
 	getSignature() []byte
@@ -43,7 +37,7 @@ func (instance *pbftCore) sign(s signable) error {
 	}
 	signedRaw, err := instance.consumer.sign(raw)
 	if err != nil {
-		return err // TODO: what should happen is we have an error in sign() ?
+		return err // TODO What should happen if we have an error in sign()?
 	}
 	s.setSignature(signedRaw)
 
@@ -78,7 +72,7 @@ func (vc *ViewChange) setID(id uint64) {
 }
 
 func (vc *ViewChange) serialize() ([]byte, error) {
-	return proto.Marshal(vc)
+	return pb.Marshal(vc)
 }
 
 func (v *Verify) getSignature() []byte {
@@ -98,7 +92,7 @@ func (v *Verify) setID(id uint64) {
 }
 
 func (v *Verify) serialize() ([]byte, error) {
-	return proto.Marshal(v)
+	return pb.Marshal(v)
 }
 
 func (msg *VerifySet) getSignature() []byte {
@@ -118,7 +112,7 @@ func (msg *VerifySet) setID(id uint64) {
 }
 
 func (msg *VerifySet) serialize() ([]byte, error) {
-	return proto.Marshal(msg)
+	return pb.Marshal(msg)
 }
 
 func (msg *Flush) getSignature() []byte {
@@ -138,5 +132,5 @@ func (msg *Flush) setID(id uint64) {
 }
 
 func (msg *Flush) serialize() ([]byte, error) {
-	return proto.Marshal(msg)
+	return pb.Marshal(msg)
 }
