@@ -57,7 +57,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
-	Scenario: chaincode example02 with 5 peers 
+	Scenario: chaincode example02 with 5 peers, issue #520 
 	    Given we compose "docker-compose-5.yml"
 	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
