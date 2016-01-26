@@ -13,7 +13,7 @@ Feature: lanching 3 peers
     I want to be able to launch a 3 peers
 
 #    @doNotDecompose
-    @wip
+#    @wip
 	Scenario: chaincode example 02 single peer 
 	    Given we compose "docker-compose-1.yml"
 	    And I wait "1" seconds
@@ -23,26 +23,65 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
-	    Then I wait "20" seconds for chaincode to build
+	    Then I wait "25" seconds for transaction to be committed to all peers
+	    
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "2"
-#	    And The deployment was recorded to the blockchain 
+
+        When I query chaincode "example2" function name "query" on "vp0":
+            |arg1|
+            |  a |
+	    Then I should get a JSON response with "OK" = "100"
 
         When I invoke chaincode "example2" function name "invoke" on "vp0"
 			|arg1|arg2|arg3| 
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
-	    Then I wait "1" seconds
+	    Then I wait "25" seconds for transaction to be committed to all peers
+
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "3"
+        
         When I query chaincode "example2" function name "query" on "vp0":
             |arg1|
             |  a |
 	    Then I should get a JSON response with "OK" = "90"
+        
         When I query chaincode "example2" function name "query" on "vp0":
             |arg1|
             |  b |
 	    Then I should get a JSON response with "OK" = "210"
+
+#    @doNotDecompose
+    @wip
+	Scenario: chaincode example02 with 5 peers 
+	    Given we compose "docker-compose-5.yml"
+	    And I wait "1" seconds
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    
+	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name 
+	    Then I wait "25" seconds for transaction to be committed to all peers
+
+        When I query chaincode "example2" function name "query" on all peers:
+            |arg1|
+            |  a |
+	    Then I should get a JSON response from all peers with "OK" = "100"
+
+        When I invoke chaincode "example2" function name "invoke" on "vp0"
+			|arg1|arg2|arg3| 
+			| a  | b  | 20 |
+	    Then I should have received a transactionID
+	    Then I wait "20" seconds for transaction to be committed to all peers
+ 
+        When I query chaincode "example2" function name "query" on all peers:
+            |arg1|
+            |  a |
+	    Then I should get a JSON response from all peers with "OK" = "80"
+
 
 
 #   @doNotDecompose

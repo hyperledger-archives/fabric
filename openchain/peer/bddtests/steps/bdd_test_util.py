@@ -1,9 +1,6 @@
 import os
 import subprocess
 
-# To test against a built-from-source `cf`,
-# export OPENCHAIN_EXECUTABLE=$GOPATH/src/github.com/cloudfoundry/cli/out/cf 
-OPENCHAIN_EXECUTABLE = os.getenv("OPENCHAIN_EXECUTABLE", "docker-compose")
 
 def cli_call(context, arg_list, expect_success=True):
     """Executes a CLI command in a subprocess and return the results.

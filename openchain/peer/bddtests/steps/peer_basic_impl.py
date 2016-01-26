@@ -1,6 +1,7 @@
 import os
 import re
 import time 
+from datetime import datetime, timedelta
 
 import sys, requests, json
 
@@ -125,6 +126,8 @@ def step_impl(context, chaincodePath, ctor, containerName):
 def step_impl(context):
     if 'chaincodeSpec' in context:
         assert context.chaincodeSpec['chaincodeID']['name'] != ""
+        # Set the current transactionID to the name passed back
+        context.transactionID = context.chaincodeSpec['chaincodeID']['name']
     else:
         fail('chaincodeSpec not in context')
 
@@ -150,7 +153,8 @@ def step_impl(context, chaincodeName, functionName, containerName):
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
     context.response = resp
     print(json.dumps(resp.json(), indent = 4))
-    print("")
+    print("RESULT from invokde o fchaincode ")
+    print("RESULT from invokde o fchaincode ")
     #transactionID = resp.json()['message']
     #context.transactionID = transactionID
 
@@ -199,4 +203,98 @@ def step_impl(context, seconds):
     else:
         time.sleep(float(seconds))
 
+@then(u'I wait "{seconds}" seconds for transaction to be committed to block on "{containerName}"')
+def step_impl(context, seconds, containerName):
+    assert 'transactionID' in context, "transactionID not found in context"
+    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+    print("GETing path = {0}".format(request_url))
+
+    resp = requests.get(request_url, headers={'Accept': 'application/json'})
+    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+    context.response = resp
+
+def multiRequest(context, seconds, containerDataList, pathBuilderFunc):
+    """Perform a multi request against the system"""
+    # Build map of "containerName" : response
+    respMap = {container.containerName:None for container in containerDataList}
+    # Set the max time before stopping attempts
+    maxTime = datetime.now() + timedelta(seconds = int(seconds))
+    for container in containerDataList:
+        ipAddress = container.ipAddress
+        request_url = buildUrl(ipAddress, pathBuilderFunc(context, container))
+
+        # Loop unless failure or time exceeded
+        while (datetime.now() < maxTime):
+            print("GETing path = {0}".format(request_url))
+            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            respMap[container.containerName] = resp 
+        else:
+            raise Exception("Max time exceeded waiting for multiRequest with current response map = {0}".format(respMap))
     
+@then(u'I wait "{seconds}" seconds for transaction to be committed to all peers')
+def step_impl(context, seconds):
+    assert 'transactionID' in context, "transactionID not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+
+    # Build map of "containerName" : resp.statusCode
+    respMap = {container.containerName:0 for container in context.compose_containers}
+
+    # Set the max time before stopping attempts
+    maxTime = datetime.now() + timedelta(seconds = int(seconds))
+    for container in context.compose_containers:
+        ipAddress = container.ipAddress
+        request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+
+        # Loop unless failure or time exceeded
+        while (datetime.now() < maxTime):
+            print("GETing path = {0}".format(request_url))
+            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            if resp.status_code == 404:
+                # Pause then try again
+                respMap[container.containerName] = 404
+                time.sleep(1)
+                continue
+            elif resp.status_code == 200:
+                # Success, continue
+                respMap[container.containerName] = 200
+                break
+            else:
+                raise Exception("Error requesting {0}, returned result code = {1}".format(request_url, resp.status_code))
+        else:
+            raise Exception("Max time exceeded waiting for transactions with current response map = {0}".format(respMap))
+    print("Result of request to all peers = {0}".format(respMap))
+    print("")
+
+@when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on all peers')
+def step_impl(context, chaincodeName, functionName):
+    assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    # Update the chaincodeSpec ctorMsg for invoke
+    args = []
+    if 'table' in context:
+       # There is ctor arguments
+       args = context.table[0].cells
+    context.chaincodeSpec['ctorMsg']['function'] = functionName
+    context.chaincodeSpec['ctorMsg']['args'] = args #context.table[0].cells if ('table' in context) else []
+    # Invoke the POST
+    chaincodeInvocationSpec = {
+        "chaincodeSpec" : context.chaincodeSpec
+    }
+    responses = []
+    for container in context.compose_containers:
+        request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
+        print("POSTing path = {0}".format(request_url))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+        responses.append(resp)
+    context.responses = responses
+
+
+@then(u'I should get a JSON response from all peers with "{attribute}" = "{expectedValue}"')
+def step_impl(context, attribute, expectedValue):
+    assert 'responses' in context, "responses not found in context"
+    for resp in context.responses:
+        assert attribute in resp.json(), "Attribute not found in response (%s)" %(attribute)
+        foundValue = resp.json()[attribute]
+        assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
