@@ -134,7 +134,7 @@ func (node *nodeImpl) loadEnrollmentID() error {
 }
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
-	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
+	key, tlsCertRaw, tlsRootCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
 		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
 
@@ -151,8 +151,14 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	}
 
 	// Store tls cert
-	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), utils.DERCertToPEM(tlsCertRaw)); err != nil {
+	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), tlsCertRaw); err != nil {
 		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls root ca certificate
+	if err := node.ks.storeCert(node.conf.getTLSRootCertFilename(), tlsRootCertRaw); err != nil {
+		node.log.Error("Failed storing tls root certificate [id=%s]: %s", id, err)
 		return err
 	}
 

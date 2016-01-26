@@ -49,7 +49,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.verify(ocMsg.Payload); err != nil {
+		if err := op.validate(ocMsg.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -113,24 +113,28 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 	return op.cpi.Unicast(ocMsg, receiverHandle)
 }
 
-// verify checks whether the request is valid
-func (op *obcClassic) verify(txRaw []byte) error {
-	// TODO verify transaction
-	/* tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
+func (op *obcClassic) sign(msg []byte) ([]byte, error) {
+	return op.cpi.Sign(msg)
+}
+
+func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
+	senderHandle, err := getValidatorHandle(senderID)
 	if err != nil {
-		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
+		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
 	}
-	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		logger.Warning("Invalid request");
-		return err
-	} */
+	return op.cpi.Verify(senderHandle, signature, message)
+}
+
+// validate checks whether the request is valid syntactically.
+// For now, we only need this for the obc-sieve verify/verify-set and flush messages.
+// Thus, for obc-classic, this is a no-op.
+func (op *obcClassic) validate(txRaw []byte) error {
 	return nil
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
-	if err := op.verify(txRaw); err != nil {
+	if err := op.validate(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
 	}

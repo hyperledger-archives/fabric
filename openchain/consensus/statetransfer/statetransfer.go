@@ -41,7 +41,7 @@ import (
 var logger *logging.Logger // package-level logger
 
 func init() {
-	logger = logging.MustGetLogger("consensus/obcpbft")
+	logger = logging.MustGetLogger("consensus/statetransfer")
 }
 
 // =============================================================================
