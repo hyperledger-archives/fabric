@@ -328,7 +328,7 @@ func TestCatchupLaggingChains(t *testing.T) {
 	}
 
 	ml = NewMockLedger(rols, nil)
-	ml.PutBlock(700, SimpleGetBlock(700))
+	ml.PutBlock(200, SimpleGetBlock(200))
 	// Use a large timeout here because the mock ledger is slow for large blocks
 	if err := executeBlockRecovery(ml, 1000, dps); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)

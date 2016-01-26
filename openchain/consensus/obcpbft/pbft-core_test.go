@@ -583,8 +583,12 @@ func TestNewViewTimeout(t *testing.T) {
 
 	net.close()
 	for i, inst := range net.replicas {
-		if inst.pbft.view != 3 {
-			t.Fatalf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		if inst.pbft.view < 3 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		}
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight != 2 {
+			t.Errorf("Should have executed 1, got %d instead for replica %d", blockHeight, i)
 		}
 	}
 }
