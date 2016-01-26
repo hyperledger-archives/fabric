@@ -48,42 +48,6 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
 		secHelper: mhc.GetSecHelper()}
 }
 
-// Sign a message with this validator's signing key
-func (h *Helper) Sign(msg []byte) ([]byte, error) {
-	if h.secOn {
-		return h.secHelper.Sign(msg)
-	}
-	logger.Debug("Security is disabled")
-	return msg, nil
-}
-
-// Verify that the given signature is valid under the given replicaID's verification key
-// If replicaID is nil, use this validator's verification key
-// If the signature is valid, the function should return nil
-func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
-	if !h.secOn {
-		logger.Debug("Security is disabled")
-		return nil
-	}
-
-	logger.Debug("Verify message from: %v", replicaID.Name)
-	_, network, err := h.GetNetworkInfo()
-	if err != nil {
-		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
-	}
-
-	// check that sender is a valid replica
-	// if so, call crypto verify() with that endpoint's pkiID
-	for _, endpoint := range network {
-		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
-		if replicaID.Name == endpoint.ID.Name {
-			cryptoID := endpoint.PkiID
-			return h.secHelper.Verify(cryptoID, signature, message)
-		}
-	}
-	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
-}
-
 // GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
 func (h *Helper) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
 	ep, err := h.coordinator.GetPeerEndpoint()
@@ -136,6 +100,42 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 // Unicast sends a message to a specified receiver
 func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	return h.coordinator.Unicast(msg, receiverHandle)
+}
+
+// Sign a message with this validator's signing key
+func (h *Helper) Sign(msg []byte) ([]byte, error) {
+	if h.secOn {
+		return h.secHelper.Sign(msg)
+	}
+	logger.Debug("Security is disabled")
+	return msg, nil
+}
+
+// Verify that the given signature is valid under the given replicaID's verification key
+// If replicaID is nil, use this validator's verification key
+// If the signature is valid, the function should return nil
+func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
+	if !h.secOn {
+		logger.Debug("Security is disabled")
+		return nil
+	}
+
+	logger.Debug("Verify message from: %v", replicaID.Name)
+	_, network, err := h.GetNetworkInfo()
+	if err != nil {
+		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
+	}
+
+	// check that the sender is a valid replica
+	// if so, call crypto verify() with that endpoint's pkiID
+	for _, endpoint := range network {
+		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
+		if *replicaID == *endpoint.ID {
+			cryptoID := endpoint.PkiID
+			return h.secHelper.Verify(cryptoID, signature, message)
+		}
+	}
+	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
 }
 
 // BeginTxBatch gets invoked when the next round
