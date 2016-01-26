@@ -45,7 +45,7 @@ func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassi
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -54,9 +54,9 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 			return err
 		}
 
-		op.pbft.request(ocMsg.Payload)
+		op.pbft.request(ocMsg.Payload, op.pbft.id)
 
-		req := &Request{Payload: ocMsg.Payload}
+		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
 		msg := &Message{&Message_Request{req}}
 		msgRaw, _ := proto.Marshal(msg)
 		op.broadcast(msgRaw)
@@ -68,15 +68,25 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
+	senderID, err := getValidatorID(senderHandle)
+	if err != nil {
+		panic("Cannot map sender's PeerID to a valid replica ID")
+	}
+
 	pbftMsg := &Message{}
 	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
 	if err != nil {
 		return err
 	}
 	if req := pbftMsg.GetRequest(); req != nil {
-		op.pbft.request(req.Payload)
+		if senderID != req.ReplicaId {
+			err := fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return err
+		}
+		op.pbft.request(req.Payload, senderID)
 	} else {
-		op.pbft.receive(ocMsg.Payload)
+		op.pbft.receive(ocMsg.Payload, senderID)
 	}
 
 	return nil

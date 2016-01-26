@@ -27,7 +27,7 @@ import (
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error
+	RecvMsg(msg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
 }
 
 // Inquirer is used to retrieve info about the validating network

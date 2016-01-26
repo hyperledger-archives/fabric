@@ -375,17 +375,18 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // =============================================================================
 
 // handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload}}}
+func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
+		ReplicaId: senderID}}}
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
 // handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte) error {
+func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
@@ -394,12 +395,12 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
-func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
+func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
 	if blockNumber, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
 		logger.Debug("Replica %d state transfer completed to block %d, attempting to finish pbft sync.", instance.id, blockNumber)
 		block, err := instance.ledger.GetBlock(blockNumber)
@@ -419,22 +420,55 @@ func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
 	}
 
 	if req := msg.GetRequest(); req != nil {
+		// sender ID already checked in RecvMsg()
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
+		if senderID != preprep.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
+		if senderID != prep.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
+		if senderID != commit.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
+		if senderID != chkpt.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvCheckpoint(chkpt)
 	} else if vc := msg.GetViewChange(); vc != nil {
+		if senderID != vc.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
+		if senderID != nv.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvNewView(nv)
 	} else if fr := msg.GetFetchRequest(); fr != nil {
+		if senderID != fr.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvFetchRequest(fr)
 	} else if req := msg.GetReturnRequest(); req != nil {
+		if senderID != req.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			return
+		}
 		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
