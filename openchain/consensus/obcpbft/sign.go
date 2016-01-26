@@ -20,11 +20,7 @@ under the License.
 package obcpbft
 
 import (
-	//"fmt"
-	//"reflect"
-
 	"github.com/golang/protobuf/proto"
-	//"github.com/openblockchain/obc-peer/openchain/util"
 )
 
 type signable interface {
