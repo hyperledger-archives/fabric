@@ -155,8 +155,9 @@ def step_impl(context, chaincodeName, functionName, containerName):
     print(json.dumps(resp.json(), indent = 4))
     print("RESULT from invokde o fchaincode ")
     print("RESULT from invokde o fchaincode ")
-    #transactionID = resp.json()['message']
-    #context.transactionID = transactionID
+    # TODO: Put these back in once TX id is available in message field of JSON response for invoke.
+    # transactionID = resp.json()['message']
+    # context.transactionID = transactionID
 
 @then(u'I should have received a transactionID')
 def step_impl(context):

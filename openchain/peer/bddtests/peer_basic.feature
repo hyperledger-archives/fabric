@@ -33,11 +33,14 @@ Feature: lanching 3 peers
             |  a |
 	    Then I should get a JSON response with "OK" = "100"
 
+
         When I invoke chaincode "example2" function name "invoke" on "vp0"
 			|arg1|arg2|arg3| 
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
-	    Then I wait "25" seconds for transaction to be committed to all peers
+	    #Then I wait "25" seconds for transaction to be committed to all peers
+	    # TODO:Replace this wait when TX id available on invoke responseJSON
+	    And I wait "3" seconds
 
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "3"
@@ -53,7 +56,7 @@ Feature: lanching 3 peers
 	    Then I should get a JSON response with "OK" = "210"
 
 #    @doNotDecompose
-    @wip
+#    @wip
 	Scenario: chaincode example02 with 5 peers 
 	    Given we compose "docker-compose-5.yml"
 	    And I wait "1" seconds
@@ -75,7 +78,9 @@ Feature: lanching 3 peers
 			|arg1|arg2|arg3| 
 			| a  | b  | 20 |
 	    Then I should have received a transactionID
-	    Then I wait "20" seconds for transaction to be committed to all peers
+	    #Then I wait "20" seconds for transaction to be committed to all peers
+	    # TODO:Replace this wait when TX id available on invoke responseJSON
+	    And I wait "3" seconds
  
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
