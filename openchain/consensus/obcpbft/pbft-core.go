@@ -217,6 +217,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
+	instance.sts.AsynchronousStateTransferRegisterListener(instance.stateTransferListener)
+
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
@@ -379,6 +381,22 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f+1
 }
 
+// Handles finishing the state transfer by executing outstanding transactions
+func (instance *pbftCore) stateTransferListener(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, update statetransfer.StateTransferUpdate) {
+
+	if update != statetransfer.Completed {
+		return
+	}
+
+	// Make sure the message thread is not currently modifying pbft
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+
+	instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
+	logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+	instance.executeOutstanding()
+}
+
 // =============================================================================
 // receive methods
 // =============================================================================
@@ -409,11 +427,6 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
-	if metadata, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
-		instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
-		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
-		instance.executeOutstanding()
-	}
 
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)

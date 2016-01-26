@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/op/go-logging"
@@ -65,7 +66,6 @@ type StateTransferState struct {
 	initiateStateSync chan *syncMark       // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
 	blockHashReceiver chan *blockHashReply // Used to process incoming valid block hashes, write only from the state thread
 	blockSyncReq      chan *blockSyncReq   // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
-	completeStateSync chan *blockHashReply // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 
 	blockThreadExit chan struct{} // Used to inform the block thread that we are shutting down
 	stateThreadExit chan struct{} // Used to inform the state thread that we are shutting down
@@ -74,6 +74,8 @@ type StateTransferState struct {
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
 	StateSnapshotRequestTimeout time.Duration // How long to wait for a peer to respond to a state snapshot request
 
+	stateTransferListeners     []func(uint64, []byte, []*protos.PeerID, interface{}, StateTransferUpdate) // A list of functions to call when state transfer is initiated/completed
+	stateTransferListenersLock *sync.Mutex                                                                // Used to lock the above list when adding a listener
 }
 
 // Syncs to the block number specified, blocking until success
@@ -109,13 +111,14 @@ func (sts *StateTransferState) SynchronousStateTransfer(blockNumber uint64, bloc
 // The channel returned may be blocked on, returning the block number synced to,
 // or alternatively, the calling thread may invoke AsynchronousStateTransferJustCompleted() which
 // will check the channel in a non-blocking way
-func (sts *StateTransferState) AsynchronousStateTransfer(peerIDs []*protos.PeerID) chan *blockHashReply {
+func (sts *StateTransferState) AsynchronousStateTransfer(peerIDs []*protos.PeerID) {
 	sts.initiateStateSync <- &syncMark{
 		blockNumber: 0,
 		peerIDs:     peerIDs,
 	}
 	sts.asynchronousTransferInProgress = true
-	return sts.completeStateSync
+
+	sts.informListeners(0, nil, peerIDs, nil, Initiated)
 }
 
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
@@ -145,17 +148,31 @@ func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber ui
 
 }
 
-func (sts *StateTransferState) AsynchronousStateTransferJustCompleted() (interface{}, bool) {
-	select {
-	case blockHashReply := <-sts.completeStateSync:
-		return blockHashReply.metadata, true
-	default:
-		return nil, false
-	}
+// The registered function will be invoked whenever state transfer is initiated or completed
+// On initiation, only the StateTransferUpdate is guaranteed to be set, and will be set to Initiated
+// On completion, all fields will be set, according to the block hash which was synced to, and StateTransferUpdate will be set to Completed
+func (sts *StateTransferState) AsynchronousStateTransferRegisterListener(listener func(uint64, []byte, []*protos.PeerID, interface{}, StateTransferUpdate)) {
+	sts.stateTransferListenersLock.Lock()
+	defer func() {
+		sts.stateTransferListenersLock.Unlock()
+	}()
+
+	sts.stateTransferListeners = append(sts.stateTransferListeners, listener)
 }
 
-func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan *blockHashReply {
-	return sts.completeStateSync
+func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan struct{} {
+	result := make(chan struct{})
+	sts.AsynchronousStateTransferRegisterListener(func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, update StateTransferUpdate) {
+		if update != Completed {
+			return
+		}
+
+		select {
+		case result <- struct{}{}:
+		default:
+		}
+	})
+	return result
 }
 
 func (sts *StateTransferState) AsynchronousStateTransferInProgress() bool {
@@ -188,6 +205,8 @@ outer:
 func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, ledger consensus.LedgerStack, defaultPeerIDs []*protos.PeerID) *StateTransferState {
 	sts := &StateTransferState{}
 
+	sts.stateTransferListenersLock = &sync.Mutex{}
+
 	sts.ledger = ledger
 	sts.id = id
 
@@ -209,7 +228,6 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, led
 	sts.initiateStateSync = make(chan *syncMark)
 	sts.blockHashReceiver = make(chan *blockHashReply, 1)
 	sts.blockSyncReq = make(chan *blockSyncReq)
-	sts.completeStateSync = make(chan *blockHashReply)
 
 	sts.blockThreadExit = make(chan struct{}, 1)
 	sts.stateThreadExit = make(chan struct{}, 1)
@@ -244,6 +262,13 @@ func NewStateTransferState(id *protos.PeerID, config *viper.Viper, ledger consen
 // =============================================================================
 // custom interfaces and structure definitions
 // =============================================================================
+
+type StateTransferUpdate int
+
+const (
+	Initiated StateTransferUpdate = iota
+	Completed
+)
 
 type syncMark struct {
 	blockNumber uint64
@@ -728,12 +753,24 @@ func (sts *StateTransferState) stateThread() {
 			logger.Debug("%v is completing state transfer", sts.id)
 
 			sts.asynchronousTransferInProgress = false
-			sts.completeStateSync <- blockHReply
+
+			sts.informListeners(blockHReply.blockNumber, blockHReply.blockHash, blockHReply.peerIDs, blockHReply.metadata, Completed)
 
 		case <-sts.stateThreadExit:
 			logger.Debug("Received request for state thread to exit")
 			return
 		}
+	}
+}
+
+func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, update StateTransferUpdate) {
+	sts.stateTransferListenersLock.Lock()
+	defer func() {
+		sts.stateTransferListenersLock.Unlock()
+	}()
+
+	for _, listener := range sts.stateTransferListeners {
+		listener(blockNumber, blockHash, peerIDs, metadata, update)
 	}
 }
 
