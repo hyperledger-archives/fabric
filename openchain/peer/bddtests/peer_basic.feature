@@ -23,7 +23,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
-	    Then I wait "25" seconds for transaction to be committed to all peers
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
 	    
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "2"
@@ -38,9 +38,7 @@ Feature: lanching 3 peers
 			|arg1|arg2|arg3| 
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
-	    #Then I wait "25" seconds for transaction to be committed to all peers
-	    # TODO:Replace this wait when TX id available on invoke responseJSON
-	    And I wait "3" seconds
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
 
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "3"
@@ -67,7 +65,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
-	    Then I wait "25" seconds for transaction to be committed to all peers
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
 
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
@@ -78,9 +76,7 @@ Feature: lanching 3 peers
 			|arg1|arg2|arg3| 
 			| a  | b  | 20 |
 	    Then I should have received a transactionID
-	    #Then I wait "20" seconds for transaction to be committed to all peers
-	    # TODO:Replace this wait when TX id available on invoke responseJSON
-	    And I wait "3" seconds
+	    Then I wait up to "20" seconds for transaction to be committed to all peers
  
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
