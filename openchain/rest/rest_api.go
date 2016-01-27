@@ -716,7 +716,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Invoke the chainCode
-	_, err = s.devops.Invoke(context.Background(), &spec)
+	resp, err := s.devops.Invoke(context.Background(), &spec)
 	if err != nil {
 		// Replace " characters with '
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
@@ -728,9 +728,12 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
+	// Clients will need the txuuid in order to track it after invocation
+	txuuid := resp.Msg
+
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked chainCode.\"}")
-	restLogger.Info("Successfuly invoked chainCode.\n")
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked chainCode.\",\"message\": \"%s\"}", string(txuuid))
+	restLogger.Info("Successfuly invoked chainCode with txuuid (%s)\n", string(txuuid))
 }
 
 // Query performs the requested query on the target Chaincode.
