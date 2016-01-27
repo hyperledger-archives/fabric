@@ -24,6 +24,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
@@ -129,4 +130,52 @@ func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets 
 	stateDelta := statemgmt.NewStateDelta()
 	conf = initConfig(numBuckets, maxGroupingAtEachLevel, testHasher.getHashFunction())
 	return testHasher, stateImplTestWrapper, stateDelta
+}
+
+func expectedBucketHashForTest(data ...[]string) []byte {
+	return testutil.ComputeCryptoHash(expectedBucketHashContentForTest(data...))
+}
+
+func expectedBucketHashContentForTest(data ...[]string) []byte {
+	expectedContent := []byte{}
+	for _, chaincodeData := range data {
+		expectedContent = append(expectedContent, encodeNumberForTest(len(chaincodeData[0]))...)
+		expectedContent = append(expectedContent, chaincodeData[0]...)
+		expectedContent = append(expectedContent, encodeNumberForTest((len(chaincodeData)-1)/2)...)
+		for i := 1; i < len(chaincodeData); i++ {
+			expectedContent = append(expectedContent, encodeNumberForTest(len(chaincodeData[i]))...)
+			expectedContent = append(expectedContent, chaincodeData[i]...)
+		}
+	}
+	return expectedContent
+}
+
+func encodeNumberForTest(i int) []byte {
+	return proto.EncodeVarint(uint64(i))
+}
+
+func TestExpectedBucketHashContentForTest(t *testing.T) {
+	expectedHashContent1 := expectedBucketHashContentForTest(
+		[]string{"chaincodeID1", "key1", "value1"},
+		[]string{"chaincodeID_2", "key_1", "value_1", "key_2", "value_2"},
+		[]string{"chaincodeID3", "key1", "value1", "key2", "value2", "key3", "value3"},
+	)
+
+	expectedHashContent2 := testutil.AppendAll(
+		encodeNumberForTest(len("chaincodeID1")), []byte("chaincodeID1"),
+		encodeNumberForTest(1),
+		encodeNumberForTest(len("key1")), []byte("key1"), encodeNumberForTest(len("value1")), []byte("value1"),
+
+		encodeNumberForTest(len("chaincodeID_2")), []byte("chaincodeID_2"),
+		encodeNumberForTest(2),
+		encodeNumberForTest(len("key_1")), []byte("key_1"), encodeNumberForTest(len("value_1")), []byte("value_1"),
+		encodeNumberForTest(len("key_2")), []byte("key_2"), encodeNumberForTest(len("value_2")), []byte("value_2"),
+
+		encodeNumberForTest(len("chaincodeID3")), []byte("chaincodeID3"),
+		encodeNumberForTest(3),
+		encodeNumberForTest(len("key1")), []byte("key1"), encodeNumberForTest(len("value1")), []byte("value1"),
+		encodeNumberForTest(len("key2")), []byte("key2"), encodeNumberForTest(len("value2")), []byte("value2"),
+		encodeNumberForTest(len("key3")), []byte("key3"), encodeNumberForTest(len("value3")), []byte("value3"),
+	)
+	testutil.AssertEquals(t, expectedHashContent1, expectedHashContent2)
 }

@@ -128,11 +128,15 @@ func AssertPanic(t *testing.T, msg string) {
 }
 
 func ComputeCryptoHash(content ...[]byte) []byte {
+	return util.ComputeCryptoHash(AppendAll(content...))
+}
+
+func AppendAll(content ...[]byte) []byte {
 	combinedContent := []byte{}
 	for _, b := range content {
 		combinedContent = append(combinedContent, b...)
 	}
-	return util.ComputeCryptoHash(combinedContent)
+	return combinedContent
 }
 
 func GenerateUUID(t *testing.T) string {
