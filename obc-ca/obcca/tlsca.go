@@ -87,35 +87,35 @@ func (tlscap *TLSCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.
 
 // CreateCertificate requests the creation of a new enrollment certificate by the TLSCA.
 //
-func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCreateReq) (*pb.TLSCertCreateResp, error) {
+func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreateReq) (*pb.TLSCertCreateResp, error) {
 	Trace.Println("grpc TLSCAP:CreateCertificate")
 
-	id := req.Id.Id
+	id := in.Id.Id
 
-	sig := req.Sig
-	req.Sig = nil
+	sig := in.Sig
+	in.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	raw := req.Pub.Key
-	if req.Pub.Type != pb.CryptoType_ECDSA {
+	raw := in.Pub.Key
+	if in.Pub.Type != pb.CryptoType_ECDSA {
 		return nil, errors.New("unsupported key type")
 	}
-	pub, err := x509.ParsePKIXPublicKey(req.Pub.Key)
+	pub, err := x509.ParsePKIXPublicKey(in.Pub.Key)
 	if err != nil {
 		return nil, err
 	}
 
 	hash := sha3.New384()
-	raw, _ = proto.Marshal(req)
+	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
 		return nil, errors.New("signature does not verify")
 	}
 
-	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, req.Ts.Seconds, nil); err != nil {
+	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, in.Ts.Seconds, nil); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
@@ -125,10 +125,10 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, req *pb.TLSCertCrea
 
 // ReadCertificate reads an enrollment certificate from the TLSCA.
 //
-func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, req *pb.TLSCertReadReq) (*pb.Cert, error) {
+func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, in *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
-	raw, err := tlscap.tlsca.readCertificate(req.Id.Id, x509.KeyUsageKeyAgreement)
+	raw, err := tlscap.tlsca.readCertificate(in.Id.Id, x509.KeyUsageKeyAgreement)
 	if err != nil {
 		return nil, err
 	}

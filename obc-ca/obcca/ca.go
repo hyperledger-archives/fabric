@@ -285,6 +285,12 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 	return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=?", id)
 }
 
+func (ca *CA) readCertificateSets(id string, start, end int64) (*sql.Rows, error) {
+	Trace.Println("Reading certificate sets for "+id+".")
+	
+	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates ORDER BY timestamp WHERE id=? AND timestamp >= ? AND timestamp =< ?", id, start, end)
+}
+
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 	Trace.Println("Reading certificate for hash "+string(hash)+".")
 
@@ -338,6 +344,12 @@ func (ca *CA) deleteUser(id string) (error) {
 	}
 	
 	return err
+}
+
+func (ca *CA) readUsers(id string, role int) (*sql.Rows, error) {
+	Trace.Println("Reading users matching "+id+" and role "+strconv.FormatInt(int64(role), 2)+".")
+	
+	return ca.db.Query("SELECT id, role FROM Users WHERE id REGEXP ? AND role & ? != 0", id, role)
 }
 
 func (ca *CA) readToken(id string) *sql.Row {
