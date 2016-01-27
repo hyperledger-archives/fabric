@@ -22,10 +22,12 @@ package helper
 import (
 	"fmt"
 
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	crypto "github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/peer"
@@ -35,20 +37,24 @@ import (
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
+	secOn       bool
+	secHelper   crypto.Peer
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
-	return &Helper{coordinator: mhc}
+	return &Helper{coordinator: mhc,
+		secOn:     viper.GetBool("security.enabled"),
+		secHelper: mhc.GetSecHelper()}
 }
 
-// GetNetworkHandles returns the peer handles of the current validator and VP network
-func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+// GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
+func (h *Helper) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
 	ep, err := h.coordinator.GetPeerEndpoint()
 	if err != nil {
 		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
 	}
-	self = ep.ID
+	self = ep
 
 	peersMsg, err := h.coordinator.GetPeers()
 	if err != nil {
@@ -57,8 +63,25 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 	peers := peersMsg.GetPeers()
 	for _, endpoint := range peers {
 		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-			network = append(network, endpoint.ID)
+			network = append(network, endpoint)
 		}
+	}
+	network = append(network, self)
+
+	return
+}
+
+// GetNetworkHandles returns the PeerIDs of the current validator and the entire validating network
+func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+	selfEP, networkEP, err := h.GetNetworkInfo()
+	if err != nil {
+		return self, network, fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
+	}
+
+	self = selfEP.ID
+
+	for _, endpoint := range networkEP {
+		network = append(network, endpoint.ID)
 	}
 	network = append(network, self)
 
@@ -77,6 +100,42 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
 // Unicast sends a message to a specified receiver
 func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	return h.coordinator.Unicast(msg, receiverHandle)
+}
+
+// Sign a message with this validator's signing key
+func (h *Helper) Sign(msg []byte) ([]byte, error) {
+	if h.secOn {
+		return h.secHelper.Sign(msg)
+	}
+	logger.Debug("Security is disabled")
+	return msg, nil
+}
+
+// Verify that the given signature is valid under the given replicaID's verification key
+// If replicaID is nil, use this validator's verification key
+// If the signature is valid, the function should return nil
+func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
+	if !h.secOn {
+		logger.Debug("Security is disabled")
+		return nil
+	}
+
+	logger.Debug("Verify message from: %v", replicaID.Name)
+	_, network, err := h.GetNetworkInfo()
+	if err != nil {
+		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
+	}
+
+	// check that the sender is a valid replica
+	// if so, call crypto verify() with that endpoint's pkiID
+	for _, endpoint := range network {
+		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
+		if *replicaID == *endpoint.ID {
+			cryptoID := endpoint.PkiID
+			return h.secHelper.Verify(cryptoID, signature, message)
+		}
+	}
+	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
 }
 
 // BeginTxBatch gets invoked when the next round
@@ -139,11 +198,11 @@ func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata); err != nil {
+	block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata)
+	if err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
-	} else {
-		return block, err
 	}
+	return block, err
 }
 
 // GetBlock returns a block from the chain

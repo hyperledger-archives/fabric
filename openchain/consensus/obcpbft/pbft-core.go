@@ -53,9 +53,12 @@ func init() {
 type innerCPI interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	verify(txRaw []byte) error
-	execute(txRaw []byte, rawMetadata []byte)
+	execute(txRaw []byte)
+	validate(txRaw []byte) error
 	viewChange(curView uint64)
+
+	sign(msg []byte) ([]byte, error)
+	verify(senderID uint64, signature []byte, message []byte) error
 }
 
 type pbftCore struct {
@@ -65,19 +68,19 @@ type pbftCore struct {
 	consumer innerCPI
 
 	// PBFT data
-	activeView   bool              // view change happening
-	byzantine    bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int               // max. number of faults we can tolerate
-	N            int               // max.number of validators in the network
-	h            uint64            // low watermark
-	id           uint64            // replica ID; PBFT `i`
-	K            uint64            // checkpoint period
-	L            uint64            // log size
-	lastExec     uint64            // last request we executed
-	replicaCount int               // number of replicas; PBFT `|R|`
-	seqNo        uint64            // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64            // current view
-	chkpts       map[uint64]string // state checkpoints; map lastExec to global hash
+	activeView   bool                   // view change happening
+	byzantine    bool                   // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
+	f            int                    // max. number of faults we can tolerate
+	N            int                    // max.number of validators in the network
+	h            uint64                 // low watermark
+	id           uint64                 // replica ID; PBFT `i`
+	K            uint64                 // checkpoint period
+	L            uint64                 // log size
+	lastExec     uint64                 // last request we executed
+	replicaCount int                    // number of replicas; PBFT `|R|`
+	seqNo        uint64                 // PBFT "n", strictly monotonic increasing sequence number
+	view         uint64                 // current view
+	chkpts       map[uint64]*blockState // state checkpoints; map lastExec to global hash
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
@@ -123,6 +126,15 @@ type msgCert struct {
 type vcidx struct {
 	v  uint64
 	id uint64
+}
+
+type stateTransferMetadata struct {
+	sequenceNumber uint64
+}
+
+type blockState struct {
+	blockNumber uint64
+	blockHash   string
 }
 
 type sortableUint64Slice []uint64
@@ -171,7 +183,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.chkpts = make(map[uint64]string)
+	instance.chkpts = make(map[uint64]*blockState)
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
@@ -208,6 +220,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
+	instance.sts.AsynchronousStateTransferRegisterListener(instance.stateTransferListener)
+
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
@@ -217,7 +231,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	if err != nil {
 		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
 	}
-	instance.chkpts[0] = base64.StdEncoding.EncodeToString(genesisHash)
+	instance.chkpts[0] = &blockState{
+		blockNumber: 0,
+		blockHash:   base64.StdEncoding.EncodeToString(genesisHash),
+	}
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -367,6 +384,22 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f+1
 }
 
+// Handles finishing the state transfer by executing outstanding transactions
+func (instance *pbftCore) stateTransferListener(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, update statetransfer.StateTransferUpdate) {
+
+	if update != statetransfer.Completed {
+		return
+	}
+
+	// Make sure the message thread is not currently modifying pbft
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+
+	instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
+	logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+	instance.executeOutstanding()
+}
+
 // =============================================================================
 // receive methods
 // =============================================================================
@@ -397,23 +430,6 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
-	if blockNumber, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
-		logger.Debug("Replica %d state transfer completed to block %d, attempting to finish pbft sync.", instance.id, blockNumber)
-		block, err := instance.ledger.GetBlock(blockNumber)
-		if err != nil {
-			logger.Error("Replica %d just returned from state transfer, which claims to have syned to %d, but could not retrieve that block, retrying", instance.id, blockNumber)
-			instance.sts.AsynchronousStateTransfer(nil)
-		} else {
-			metadata := &Metadata{}
-			if err := proto.Unmarshal(block.ConsensusMetadata, metadata); nil == err {
-				logger.Debug("Replica %d completed state transfer to block %d at sequence number %d, about to execute outstanding requests", instance.id, blockNumber, metadata.SeqNo)
-				instance.lastExec = metadata.SeqNo
-				instance.executeOutstanding()
-			} else {
-				panic("Retrieved and validated block did not contain valid consensus metadata")
-			}
-		}
-	}
 
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
@@ -445,7 +461,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	if err := instance.consumer.verify(req.Payload); err != nil {
+	if err := instance.consumer.validate(req.Payload); err != nil {
 		logger.Warning("Request %s did not verify: %s", digest, err)
 		return err
 	}
@@ -524,7 +540,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
-		if err := instance.consumer.verify(preprep.Request.Payload); err != nil {
+		if err := instance.consumer.validate(preprep.Request.Payload); err != nil {
 			logger.Warning("Request %s did not verify: %s", digest, err)
 			return err
 		}
@@ -668,14 +684,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		metadataMsg := &Metadata{SeqNo: idx.n}
-		rawMetadata, err := proto.Marshal(metadataMsg)
-		if err != nil {
-			logger.Error("Failed to marshal consensus metadata before executing transaction: %v", err)
-			return false
-		}
-
-		instance.consumer.execute(req.Payload, rawMetadata)
+		instance.consumer.execute(req.Payload)
 		delete(instance.outstandingReqs, digest)
 	}
 
@@ -709,11 +718,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 		chkpt := &Checkpoint{
 			SequenceNumber: instance.lastExec,
-			BlockHash:      blockHashAsString,
 			ReplicaId:      instance.id,
 			BlockNumber:    blockHeight - 1,
+			BlockHash:      blockHashAsString,
 		}
-		instance.chkpts[instance.lastExec] = chkpt.BlockHash
+		instance.chkpts[instance.lastExec] = &blockState{
+			blockNumber: chkpt.BlockNumber,
+			blockHash:   chkpt.BlockHash,
+		}
 		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
@@ -841,10 +853,11 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i])
+	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
+
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
