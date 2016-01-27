@@ -48,11 +48,14 @@ func TestStateImpl_ComputeHash_AllInMemory_1(t *testing.T) {
 
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 
-	expectedHashBucket3_1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
-		statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
-		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3"))
-	expectedHashBucket3_4 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"))
-
+	expectedHashBucket3_1 := expectedBucketHashForTest(
+		[]string{"chaincodeID1", "key1", "value1"},
+		[]string{"chaincodeID2", "key2", "value2"},
+		[]string{"chaincodeID3", "key3", "value3"},
+	)
+	expectedHashBucket3_4 := expectedBucketHashForTest(
+		[]string{"chaincodeID4", "key4", "value4"},
+	)
 	expectedHash := testutil.ComputeCryptoHash(expectedHashBucket3_1, expectedHashBucket3_4)
 	testutil.AssertEquals(t, rootHash, expectedHash)
 }
@@ -81,12 +84,12 @@ func TestStateImpl_ComputeHash_AllInMemory_2(t *testing.T) {
 
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 
-	expectedHashBucket5_1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"))
-	expectedHashBucket5_2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"))
-	expectedHashBucket5_6 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3"))
-	expectedHashBucket5_10 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"))
-	expectedHashBucket5_25 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"))
-	expectedHashBucket5_26 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6"))
+	expectedHashBucket5_1 := expectedBucketHashForTest([]string{"chaincodeID1", "key1", "value1"})
+	expectedHashBucket5_2 := expectedBucketHashForTest([]string{"chaincodeID2", "key2", "value2"})
+	expectedHashBucket5_6 := expectedBucketHashForTest([]string{"chaincodeID3", "key3", "value3"})
+	expectedHashBucket5_10 := expectedBucketHashForTest([]string{"chaincodeID4", "key4", "value4"})
+	expectedHashBucket5_25 := expectedBucketHashForTest([]string{"chaincodeID5", "key5", "value5"})
+	expectedHashBucket5_26 := expectedBucketHashForTest([]string{"chaincodeID6", "key6", "value6"})
 
 	expectedHashBucket4_1 := testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
 	expectedHashBucket4_13 := testutil.ComputeCryptoHash(expectedHashBucket5_25, expectedHashBucket5_26)
@@ -119,10 +122,12 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	rootHash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 
-	expectedHash1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
-		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3"),
-		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
-		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6"))
+	expectedHash1 := expectedBucketHashForTest(
+		[]string{"chaincodeID2", "key2", "value2"},
+		[]string{"chaincodeID3", "key3", "value3"},
+		[]string{"chaincodeID5", "key5", "value5"},
+		[]string{"chaincodeID6", "key6", "value6"},
+	)
 	testutil.AssertEquals(t, rootHash, expectedHash1)
 
 	// modify boundary keys and a middle key
@@ -132,10 +137,12 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	stateDelta.Set("chaincodeID6", "key6", []byte("value6_new"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
-	expectedHash2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
-		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3_new"),
-		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
-		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6_new"))
+	expectedHash2 := expectedBucketHashForTest(
+		[]string{"chaincodeID2", "key2", "value2_new"},
+		[]string{"chaincodeID3", "key3", "value3_new"},
+		[]string{"chaincodeID5", "key5", "value5"},
+		[]string{"chaincodeID6", "key6", "value6_new"},
+	)
 	testutil.AssertEquals(t, rootHash, expectedHash2)
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID2", "key2"), []byte("value2_new"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID3", "key3"), []byte("value3_new"))
@@ -148,13 +155,15 @@ func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	stateDelta.Set("chaincodeID7", "key7", []byte("value7"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
-	expectedHash3 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
-		statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2_new"),
-		statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3_new"),
-		statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"),
-		statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"),
-		statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6_new"),
-		statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7"))
+	expectedHash3 := expectedBucketHashForTest(
+		[]string{"chaincodeID1", "key1", "value1"},
+		[]string{"chaincodeID2", "key2", "value2_new"},
+		[]string{"chaincodeID3", "key3", "value3_new"},
+		[]string{"chaincodeID4", "key4", "value4"},
+		[]string{"chaincodeID5", "key5", "value5"},
+		[]string{"chaincodeID6", "key6", "value6_new"},
+		[]string{"chaincodeID7", "key7", "value7"},
+	)
 	testutil.AssertEquals(t, rootHash, expectedHash3)
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID1", "key1"), []byte("value1"))
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID4", "key4"), []byte("value4"))
@@ -205,12 +214,12 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	25	13	7	4	2	1
 	26	13	7	4	2	1
 	*******************************************************************/
-	expectedHashBucket5_1 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"))
-	expectedHashBucket5_2 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"))
-	expectedHashBucket5_6 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID3", "key3"), []byte("value3"))
-	expectedHashBucket5_10 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"))
-	expectedHashBucket5_25 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID5", "key5"), []byte("value5"))
-	expectedHashBucket5_26 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID6", "key6"), []byte("value6"))
+	expectedHashBucket5_1 := expectedBucketHashForTest([]string{"chaincodeID1", "key1", "value1"})
+	expectedHashBucket5_2 := expectedBucketHashForTest([]string{"chaincodeID2", "key2", "value2"})
+	expectedHashBucket5_6 := expectedBucketHashForTest([]string{"chaincodeID3", "key3", "value3"})
+	expectedHashBucket5_10 := expectedBucketHashForTest([]string{"chaincodeID4", "key4", "value4"})
+	expectedHashBucket5_25 := expectedBucketHashForTest([]string{"chaincodeID5", "key5", "value5"})
+	expectedHashBucket5_26 := expectedBucketHashForTest([]string{"chaincodeID6", "key6", "value6"})
 	expectedHashBucket4_1 := testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
 	expectedHashBucket4_13 := testutil.ComputeCryptoHash(expectedHashBucket5_25, expectedHashBucket5_26)
 	expectedHashBucket2_1 := testutil.ComputeCryptoHash(expectedHashBucket4_1, expectedHashBucket5_6)
@@ -241,12 +250,14 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	26	13	7	4	2	1
 	***********************************************************************************/
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedHashBucket5_2 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
-		statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7"))
-	expectedHashBucket5_8 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID8", "key8"), []byte("value8"))
-	expectedHashBucket5_10 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID4", "key4"), []byte("value4"),
-		statemgmt.ConstructCompositeKey("chaincodeID9", "key9"), []byte("value9"))
-	expectedHashBucket5_21 := testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID10", "key10"), []byte("value10"))
+	expectedHashBucket5_2 = expectedBucketHashForTest(
+		[]string{"chaincodeID2", "key2", "value2"},
+		[]string{"chaincodeID7", "key7", "value7"},
+	)
+	expectedHashBucket5_8 := expectedBucketHashForTest([]string{"chaincodeID8", "key8", "value8"})
+	expectedHashBucket5_10 = expectedBucketHashForTest([]string{"chaincodeID4", "key4", "value4"},
+		[]string{"chaincodeID9", "key9", "value9"})
+	expectedHashBucket5_21 := expectedBucketHashForTest([]string{"chaincodeID10", "key10", "value10"})
 	expectedHashBucket4_1 = testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
 	expectedHashBucket3_2 := testutil.ComputeCryptoHash(expectedHashBucket5_6, expectedHashBucket5_8)
 	expectedHashBucket2_1 = testutil.ComputeCryptoHash(expectedHashBucket4_1, expectedHashBucket3_2)
@@ -261,8 +272,10 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("chaincodeID7", "key7", []byte("value7_new"), nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedHashBucket5_2 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key2"), []byte("value2"),
-		statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7_new"))
+	expectedHashBucket5_2 = expectedBucketHashForTest(
+		[]string{"chaincodeID2", "key2", "value2"},
+		[]string{"chaincodeID7", "key7", "value7_new"},
+	)
 	expectedHashBucket4_1 = testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
 	expectedHashBucket2_1 = testutil.ComputeCryptoHash(expectedHashBucket4_1, expectedHashBucket3_2)
 	expectedHashBucket1_1 = testutil.ComputeCryptoHash(expectedHashBucket2_1, expectedHashBucket5_10)
@@ -271,11 +284,11 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
 	testutil.AssertEquals(t, stateImplTestWrapper.get("chaincodeID7", "key7"), []byte("value7_new"))
 
-	//////////////	Test - delete an existing key /////////////////////
+	// //////////////	Test - delete an existing key /////////////////////
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Delete("chaincodeID2", "key2", nil)
 	rootHash = stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedHashBucket5_2 = testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID7", "key7"), []byte("value7_new"))
+	expectedHashBucket5_2 = expectedBucketHashForTest([]string{"chaincodeID7", "key7", "value7_new"})
 	expectedHashBucket4_1 = testutil.ComputeCryptoHash(expectedHashBucket5_1, expectedHashBucket5_2)
 	expectedHashBucket2_1 = testutil.ComputeCryptoHash(expectedHashBucket4_1, expectedHashBucket3_2)
 	expectedHashBucket1_1 = testutil.ComputeCryptoHash(expectedHashBucket2_1, expectedHashBucket5_10)
@@ -359,11 +372,10 @@ func TestStateImpl_DB_Changes(t *testing.T) {
 	testutil.AssertEquals(t, bucketNodeFromDB.bucketKey, newBucketKey(2, 1))
 	//check childrenCryptoHash entries in the bucket node from DB
 	testutil.AssertEquals(t, bucketNodeFromDB.childrenCryptoHash[0],
-		testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID1", "key1"), []byte("value1"),
-			statemgmt.ConstructCompositeKey("chaincodeID1", "key2"), []byte("value2")))
+		expectedBucketHashForTest([]string{"chaincodeID1", "key1", "value1", "key2", "value2"}))
 
 	testutil.AssertEquals(t, bucketNodeFromDB.childrenCryptoHash[1],
-		testutil.ComputeCryptoHash(statemgmt.ConstructCompositeKey("chaincodeID2", "key1"), []byte("value3")))
+		expectedBucketHashForTest([]string{"chaincodeID2", "key1", "value3"}))
 
 	testutil.AssertNil(t, bucketNodeFromDB.childrenCryptoHash[2])
 

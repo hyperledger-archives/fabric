@@ -21,6 +21,8 @@ package buckettree
 
 import (
 	"fmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/ledger/util"
 )
 
 type dataNode struct {
@@ -42,6 +44,14 @@ func unmarshalDataNode(dataKey *dataKey, serializedBytes []byte) *dataNode {
 
 func (dataNode *dataNode) getCompositeKey() []byte {
 	return dataNode.dataKey.compositeKey
+}
+
+func (dataNode *dataNode) isDelete() bool {
+	return util.IsNil(dataNode.value)
+}
+
+func (dataNode *dataNode) getKeyElements() (string, string) {
+	return statemgmt.DecodeCompositeKey(dataNode.getCompositeKey())
 }
 
 func (dataNode *dataNode) getValue() []byte {
