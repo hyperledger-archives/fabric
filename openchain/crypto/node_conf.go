@@ -160,6 +160,10 @@ func (conf *configuration) getTLSCertFilename() string {
 	return "tls.cert"
 }
 
+func (conf *configuration) getTLSRootCertFilename() string {
+	return "tls.cert.chain"
+}
+
 func (conf *configuration) getEnrollmentChainKeyFilename() string {
 	return "chain.key"
 }

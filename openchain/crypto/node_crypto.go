@@ -36,6 +36,11 @@ func (node *nodeImpl) initCryptoEngine() error {
 	if err := node.loadEnrollmentChainKey(); err != nil {
 		return err
 	}
+	
+	// Load tls certificate
+ 	if err := node.loadTLSCertificate(); err != nil {
+ 		return err
+ 	}
 
 	node.log.Info("Initializing node crypto engine...done!")
 

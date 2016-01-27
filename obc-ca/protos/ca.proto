@@ -269,6 +269,7 @@ message TLSCertCreateReq {
 
 message TLSCertCreateResp {
     Cert cert = 1;
+    Cert rootCert = 2;
 }
 
 message TLSCertReadReq {

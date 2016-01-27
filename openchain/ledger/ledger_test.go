@@ -740,21 +740,25 @@ func TestTransactionResult(t *testing.T) {
 func TestRangeScanIterator(t *testing.T) {
 	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
 	ledger := ledgerTestWrapper.ledger
+
+	///////// Test with an empty Ledger //////////
+	//////////////////////////////////////////////
+	itr, _ := ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", false)
+	statemgmt.AssertIteratorContains(t, itr, map[string][]byte{})
+	itr.Close()
+
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", true)
+	statemgmt.AssertIteratorContains(t, itr, map[string][]byte{})
+	itr.Close()
+
+	// Commit initial data to ledger
 	ledger.BeginTxBatch(0)
 	ledger.TxBegin("txUuid1")
-	ledger.SetState("chaincode1", "key1", []byte("value1A"))
-	ledger.SetState("chaincode2", "key2", []byte("value2A"))
-	ledger.SetState("chaincode3", "key3", []byte("value3A"))
-
 	ledger.SetState("chaincodeID1", "key1", []byte("value1"))
 
 	ledger.SetState("chaincodeID2", "key1", []byte("value1"))
 	ledger.SetState("chaincodeID2", "key2", []byte("value2"))
 	ledger.SetState("chaincodeID2", "key3", []byte("value3"))
-	ledger.SetState("chaincodeID2", "key4", []byte("value4"))
-	ledger.SetState("chaincodeID2", "key5", []byte("value5"))
-	ledger.SetState("chaincodeID2", "key6", []byte("value6"))
-	ledger.SetState("chaincodeID2", "key7", []byte("value7"))
 
 	ledger.SetState("chaincodeID3", "key1", []byte("value1"))
 
@@ -773,68 +777,86 @@ func TestRangeScanIterator(t *testing.T) {
 	transaction, _ := buildTestTx(t)
 	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
 
-	// test range scan for chaincodeID2
-	rangeScanItr, _ := ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5")
+	// Add new keys and modify existing keys in on-going tx-batch
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid1")
+	ledger.SetState("chaincodeID4", "key2", []byte("value2_new"))
+	ledger.DeleteState("chaincodeID4", "key3")
+	ledger.SetState("chaincodeID4", "key8", []byte("value8_new"))
 
-	var results = make(map[string][]byte)
-	for rangeScanItr.Next() {
-		key, value := rangeScanItr.GetKeyValue()
-		results[key] = value
-	}
-	t.Logf("Results = %s", results)
-	testutil.AssertEquals(t, len(results), 4)
-	testutil.AssertEquals(t, results["key2"], []byte("value2"))
-	testutil.AssertEquals(t, results["key3"], []byte("value3"))
-	testutil.AssertEquals(t, results["key4"], []byte("value4"))
-	testutil.AssertEquals(t, results["key5"], []byte("value5"))
-	rangeScanItr.Close()
-
+	///////////////////// Test with committed=true ///////////
+	//////////////////////////////////////////////////////////
 	// test range scan for chaincodeID4
-	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "key3", "key6")
-	results = make(map[string][]byte)
-	for rangeScanItr.Next() {
-		key, value := rangeScanItr.GetKeyValue()
-		results[key] = value
-	}
-	t.Logf("Results = %s", results)
-	testutil.AssertEquals(t, len(results), 4)
-	testutil.AssertEquals(t, results["key3"], []byte("value3"))
-	testutil.AssertEquals(t, results["key4"], []byte("value4"))
-	testutil.AssertEquals(t, results["key5"], []byte("value5"))
-	testutil.AssertEquals(t, results["key6"], []byte("value6"))
-	rangeScanItr.Close()
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", true)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key2": []byte("value2"),
+			"key3": []byte("value3"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+		})
+	itr.Close()
 
-	// test range scan for chaincodeID2 starting from first key
-	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "", "key5")
-	results = make(map[string][]byte)
-	for rangeScanItr.Next() {
-		key, value := rangeScanItr.GetKeyValue()
-		results[key] = value
-	}
-	t.Logf("Results = %s", results)
-	testutil.AssertEquals(t, len(results), 5)
-	testutil.AssertEquals(t, results["key1"], []byte("value1"))
-	testutil.AssertEquals(t, results["key2"], []byte("value2"))
-	testutil.AssertEquals(t, results["key3"], []byte("value3"))
-	testutil.AssertEquals(t, results["key4"], []byte("value4"))
-	testutil.AssertEquals(t, results["key5"], []byte("value5"))
-	rangeScanItr.Close()
+	// test with empty start-key
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "key5", true)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key1": []byte("value1"),
+			"key2": []byte("value2"),
+			"key3": []byte("value3"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+		})
+	itr.Close()
 
-	// test range scan for all the keys in chaincodeID2 starting from first key
-	rangeScanItr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "", "")
-	results = make(map[string][]byte)
-	for rangeScanItr.Next() {
-		key, value := rangeScanItr.GetKeyValue()
-		results[key] = value
-	}
-	t.Logf("Results = %s", results)
-	testutil.AssertEquals(t, len(results), 7)
-	testutil.AssertEquals(t, results["key1"], []byte("value1"))
-	testutil.AssertEquals(t, results["key2"], []byte("value2"))
-	testutil.AssertEquals(t, results["key3"], []byte("value3"))
-	testutil.AssertEquals(t, results["key4"], []byte("value4"))
-	testutil.AssertEquals(t, results["key5"], []byte("value5"))
-	testutil.AssertEquals(t, results["key6"], []byte("value6"))
-	testutil.AssertEquals(t, results["key7"], []byte("value7"))
-	rangeScanItr.Close()
+	// test with empty end-key
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "", true)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key1": []byte("value1"),
+			"key2": []byte("value2"),
+			"key3": []byte("value3"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+			"key6": []byte("value6"),
+			"key7": []byte("value7"),
+		})
+	itr.Close()
+
+	///////////////////// Test with committed=false ///////////
+	//////////////////////////////////////////////////////////
+	// test range scan for chaincodeID4
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", false)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key2": []byte("value2_new"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+		})
+	itr.Close()
+
+	// test with empty start-key
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "key5", false)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key1": []byte("value1"),
+			"key2": []byte("value2_new"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+		})
+	itr.Close()
+
+	// test with empty end-key
+	itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "", false)
+	statemgmt.AssertIteratorContains(t, itr,
+		map[string][]byte{
+			"key1": []byte("value1"),
+			"key2": []byte("value2_new"),
+			"key4": []byte("value4"),
+			"key5": []byte("value5"),
+			"key6": []byte("value6"),
+			"key7": []byte("value7"),
+			"key8": []byte("value8_new"),
+		})
+	itr.Close()
 }

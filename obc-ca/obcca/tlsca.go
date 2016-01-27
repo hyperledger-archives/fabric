@@ -115,12 +115,12 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 		return nil, errors.New("signature does not verify")
 	}
 
-	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageKeyAgreement, in.Ts.Seconds, nil); err != nil {
+	if raw, err = tlscap.tlsca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, in.Ts.Seconds, nil); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
 
-	return &pb.TLSCertCreateResp{&pb.Cert{raw}}, nil
+	return &pb.TLSCertCreateResp{&pb.Cert{raw}, &pb.Cert{tlscap.tlsca.raw}}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the TLSCA.
