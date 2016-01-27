@@ -161,7 +161,7 @@ func (sts *StateTransferState) AsynchronousStateTransferRegisterListener(listene
 }
 
 func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan struct{} {
-	result := make(chan struct{})
+	result := make(chan struct{}, 1)
 	sts.AsynchronousStateTransferRegisterListener(func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, update StateTransferUpdate) {
 		if update != Completed {
 			return
