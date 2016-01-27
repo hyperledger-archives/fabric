@@ -63,7 +63,7 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -91,6 +91,11 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
+	senderID, err := getValidatorID(senderHandle)
+	if err != nil {
+		panic("Cannot map sender's PeerID to a valid replica ID")
+	}
+
 	pbftMsg := &Message{}
 	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
 	if err != nil {
@@ -103,11 +108,17 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 			return err
 		}
 
+		if senderID != req.ReplicaId {
+			err := fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return err
+		}
+
 		switch req.ReplicaId {
 		case op.pbft.primary(op.pbft.view):
 			// a request sent by the primary; primary should ignore this
 			if op.pbft.primary(op.pbft.view) != op.pbft.id {
-				op.pbft.request(req.Payload)
+				op.pbft.request(req.Payload, senderID)
 			}
 		default:
 			// a request sent by a backup; backups should ignore this
@@ -119,7 +130,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 			}
 		}
 	} else {
-		op.pbft.receive(ocMsg.Payload)
+		op.pbft.receive(ocMsg.Payload, senderID)
 	}
 
 	return nil
@@ -269,9 +280,9 @@ func (op *obcBatch) sendBatch() error {
 		return err
 	}
 	// process internally
-	op.pbft.request(tbPacked)
+	op.pbft.request(tbPacked, op.pbft.id)
 	// broadcast
-	batchReq := &Request{Payload: tbPacked}
+	batchReq := &Request{Payload: tbPacked, ReplicaId: op.pbft.id}
 	msg := &Message{&Message_Request{batchReq}}
 	msgRaw, _ := proto.Marshal(msg)
 	op.broadcast(msgRaw)
