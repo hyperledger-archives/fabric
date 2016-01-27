@@ -52,6 +52,9 @@ var (
 	// ErrInvalidReference Invalid reference
 	ErrInvalidReference = errors.New("Invalid reference.")
 
+	// ErrInvalidReference Invalid reference
+	ErrNilArgument = errors.New("Nil argument.")
+
 	// ErrNotImplemented Not implemented
 	ErrNotImplemented = errors.New("Not implemented.")
 

@@ -51,7 +51,7 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 
 	validator := new(validatorImpl)
 	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
-		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
@@ -124,6 +124,10 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func closeValidatorInternal(peer Peer) error {
+	if peer == nil {
+		return utils.ErrNilArgument
+	}
+
 	name := peer.GetName()
 	log.Info("Closing validator [%s]...", name)
 	if _, ok := validators[name]; !ok {
