@@ -143,7 +143,7 @@ func (op *obcClassic) validate(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
+func (op *obcClassic) execute(txRaw []byte) {
 	if err := op.validate(txRaw); err != nil {
 		logger.Error("Request in transaction did not verify: %s", err)
 		return
@@ -173,7 +173,7 @@ func (op *obcClassic) execute(txRaw []byte, rawMetadata []byte) {
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, rawMetadata); err != nil {
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))

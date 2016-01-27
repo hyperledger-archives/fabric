@@ -189,7 +189,7 @@ func (op *obcBatch) validate(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcBatch) execute(tbRaw []byte, rawMetadata []byte) {
+func (op *obcBatch) execute(tbRaw []byte) {
 	tb := &pb.TransactionBlock{}
 	err := proto.Unmarshal(tbRaw, tb)
 	if err != nil {
@@ -221,7 +221,7 @@ func (op *obcBatch) execute(tbRaw []byte, rawMetadata []byte) {
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, rawMetadata); err != nil {
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
 		logger.Error("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))

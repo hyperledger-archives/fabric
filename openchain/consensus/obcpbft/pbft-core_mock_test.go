@@ -136,7 +136,7 @@ func (inst *instance) validate(payload []byte) error {
 	return nil
 }
 
-func (inst *instance) execute(payload []byte, metadata []byte) {
+func (inst *instance) execute(payload []byte) {
 
 	tx := &pb.Transaction{
 		Payload: payload,
@@ -166,7 +166,7 @@ func (inst *instance) execute(payload []byte, metadata []byte) {
 		},
 	}
 
-	if err := inst.CommitTxBatch(txBatchID, txs, txResult, metadata); err != nil {
+	if err := inst.CommitTxBatch(txBatchID, txs, txResult, nil); err != nil {
 		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))

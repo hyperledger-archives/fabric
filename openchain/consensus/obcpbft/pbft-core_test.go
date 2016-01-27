@@ -349,12 +349,12 @@ func TestViewChange(t *testing.T) {
 	}
 
 	cp, ok := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
-	if !ok || cp != 2 {
+	if !ok || cp.SequenceNumber != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].pbft.viewChangeStore)
 	}
 
-	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp)
+	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp.SequenceNumber)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
@@ -415,8 +415,116 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	// XXX once state transfer works, make sure that a request
-	// was executed by all replicas.
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 1 {
+			t.Errorf("Expected execution")
+			continue
+		}
+	}
+}
+
+func TestViewChangeWithStateTransfer(t *testing.T) {
+	net := makeTestnet(4, makeTestnetPbftCore)
+	defer net.close()
+
+	var err error
+
+	for _, inst := range net.replicas {
+		inst.pbft.K = 2
+		inst.pbft.L = 4
+	}
+
+	stsrc := net.replicas[3].pbft.sts.AsynchronousStateTransferResultChannel()
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	makePP := func(iter int64) *PrePrepare {
+		req := &Request{
+			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
+			Payload:   txPacked,
+		}
+		preprep := &PrePrepare{
+			View:           0,
+			SequenceNumber: uint64(iter),
+			RequestDigest:  hashReq(req),
+			Request:        req,
+			ReplicaId:      0,
+		}
+		return preprep
+	}
+
+	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
+	for i := int64(1); i <= 3; i++ {
+		_ = net.replicas[0].pbft.recvRequest(makePP(i).Request)
+
+		// clear all messages sent by primary
+		net.msgs = net.msgs[:0]
+
+		_ = net.replicas[0].pbft.recvPrePrepare(makePP(i))
+		_ = net.replicas[1].pbft.recvPrePrepare(makePP(i))
+		_ = net.replicas[2].pbft.recvPrePrepare(makePP(i))
+
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	fmt.Println("Done with stage 1")
+
+	// Have primary now deliberately skip a sequence number to deadlock until viewchange
+	_ = net.replicas[0].pbft.recvRequest(makePP(4).Request)
+
+	// clear all messages sent by primary
+	net.msgs = net.msgs[:0]
+
+	// replace with fake messages
+	_ = net.replicas[1].pbft.recvPrePrepare(makePP(5))
+	_ = net.replicas[2].pbft.recvPrePrepare(makePP(5))
+	_ = net.replicas[3].pbft.recvPrePrepare(makePP(4))
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	fmt.Println("Done with stage 2")
+
+	for _, inst := range net.replicas {
+		inst.pbft.sendViewChange()
+	}
+
+	fmt.Println("Done with stage 3")
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	select {
+	case <-stsrc:
+		// State transfer for replica 3 is complete
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Timed out waiting for state transfer to complete")
+	}
+	fmt.Println("Done with stage 4")
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+	fmt.Println("Done with stage 5")
+
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 4 {
+			t.Errorf("Expected execution for inst %d, got blockheight of %d", inst.pbft.id, blockHeight)
+			continue
+		}
+	}
+	fmt.Println("Done with stage 6")
 }
 
 func TestNewViewTimeout(t *testing.T) {
@@ -569,9 +677,9 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 	for i := uint64(1); i <= 3; i++ {
 		chkpt = &Checkpoint{
 			SequenceNumber: sequenceNumber - i,
-			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber - i)),
 			ReplicaId:      i,
 			BlockNumber:    blockNumber - i,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber - i)),
 		}
 		handle, _ := getValidatorHandle(uint64(i))
 		(*mrls)[*handle].blockHeight = blockNumber - 2
@@ -587,9 +695,9 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 	for i := 1; i < pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{
 			SequenceNumber: sequenceNumber,
-			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber)),
 			ReplicaId:      uint64(i),
 			BlockNumber:    blockNumber,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber)),
 		}
 		handle, _ := getValidatorHandle(uint64(i))
 		(*mrls)[*handle].blockHeight = blockNumber + 1
