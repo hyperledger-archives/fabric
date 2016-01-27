@@ -511,18 +511,20 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	}
 	fmt.Println("Done with stage 4")
 
-	// The contents of this message are not important, just need to run the thread to execute outstanding requests
-	_ = net.replicas[3].pbft.recvMsgSync(&Message{&Message_Request{&Request{}}})
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
 	fmt.Println("Done with stage 5")
 
 	for _, inst := range net.replicas {
 		blockHeight, _ := inst.ledger.GetBlockchainSize()
 		if blockHeight <= 4 {
-			t.Errorf("Expected execution")
+			t.Errorf("Expected execution for inst %d, got blockheight of %d", inst.pbft.id, blockHeight)
 			continue
 		}
 	}
-	fmt.Println("Done with stage 5")
+	fmt.Println("Done with stage 6")
 }
 
 func TestNewViewTimeout(t *testing.T) {
