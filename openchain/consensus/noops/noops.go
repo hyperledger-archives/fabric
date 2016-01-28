@@ -204,6 +204,12 @@ func (i *Noops) notifyBlockAdded() error {
 		return err
 	}
 
+	//make Payload nil to reduce block size..
+	//anything else to remove .. do we need StateDelta ?
+	for _,tx := range block.Transactions {
+		tx.Payload = nil
+	}
+
 	logger.Debug("Got the delta state of block number %v", blockHeight)
 	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
