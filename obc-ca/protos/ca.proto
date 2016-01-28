@@ -142,6 +142,7 @@ enum Role {
     PEER = 2;
     VALIDATOR = 4;
     AUDITOR = 8;
+    ALL = 0xFFFF;
 }
 
 message RegisterUserReq {
@@ -150,8 +151,10 @@ message RegisterUserReq {
 }
 
 message ReadUserSetReq {
-    Identity id = 1; // regex filter
-    Role role = 2; // bitmask
+    Identity req = 1;
+    Identity id = 2; // regex filter
+    Role role = 3; // bitmask
+    Signature sig = 4; // sign(priv, req | id | role)
 }
 
 message User {
@@ -172,7 +175,7 @@ message ECertCreateReq {
     Token tok = 3;
     PublicKey sign = 4;
     PublicKey enc = 5;
-    Signature sig = 6; // sign(privS, ts | id | tok | sign | enc)
+    Signature sig = 6; // sign(priv, ts | id | tok | sign | enc)
 }
 
 message ECertCreateResp {

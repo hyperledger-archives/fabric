@@ -285,6 +285,36 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 //
 func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.UserSet, error) {
 	Trace.Println("grpc ECAA:ReadUserSet")
+
+	req := in.Req.Id
+	id := in.Id.Id
+	
+	if req != id && ecaa.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
+		return nil, errors.New("access denied")
+	}
+	
+	raw, err := ecaa.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	sig := in.Sig
+	in.Sig = nil
+
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	hash := sha3.New384()
+	raw, _ = proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		return nil, errors.New("signature does not verify")
+	}
 	
 	rows, err := ecaa.eca.readUsers(in.Id.Id, int(in.Role))
 	if err != nil {

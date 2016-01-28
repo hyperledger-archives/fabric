@@ -97,14 +97,16 @@ const (
 	Role_PEER      Role = 2
 	Role_VALIDATOR Role = 4
 	Role_AUDITOR   Role = 8
+	Role_ALL       Role = 65535
 )
 
 var Role_name = map[int32]string{
-	0: "NONE",
-	1: "CLIENT",
-	2: "PEER",
-	4: "VALIDATOR",
-	8: "AUDITOR",
+	0:     "NONE",
+	1:     "CLIENT",
+	2:     "PEER",
+	4:     "VALIDATOR",
+	8:     "AUDITOR",
+	65535: "ALL",
 }
 var Role_value = map[string]int32{
 	"NONE":      0,
@@ -112,6 +114,7 @@ var Role_value = map[string]int32{
 	"PEER":      2,
 	"VALIDATOR": 4,
 	"AUDITOR":   8,
+	"ALL":       65535,
 }
 
 func (x Role) String() string {
@@ -230,17 +233,33 @@ func (m *RegisterUserReq) GetId() *Identity {
 }
 
 type ReadUserSetReq struct {
-	Id   *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Role Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Req  *Identity  `protobuf:"bytes,1,opt,name=req" json:"req,omitempty"`
+	Id   *Identity  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Role Role       `protobuf:"varint,3,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Sig  *Signature `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *ReadUserSetReq) Reset()         { *m = ReadUserSetReq{} }
 func (m *ReadUserSetReq) String() string { return proto.CompactTextString(m) }
 func (*ReadUserSetReq) ProtoMessage()    {}
 
+func (m *ReadUserSetReq) GetReq() *Identity {
+	if m != nil {
+		return m.Req
+	}
+	return nil
+}
+
 func (m *ReadUserSetReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *ReadUserSetReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
 	}
 	return nil
 }
