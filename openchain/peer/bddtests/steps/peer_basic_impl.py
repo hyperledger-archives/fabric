@@ -156,14 +156,13 @@ def step_impl(context, chaincodeName, functionName, containerName):
     print("RESULT from invokde o fchaincode ")
     print("RESULT from invokde o fchaincode ")
     # TODO: Put these back in once TX id is available in message field of JSON response for invoke.
-    # transactionID = resp.json()['message']
-    # context.transactionID = transactionID
+    transactionID = resp.json()['message']
+    context.transactionID = transactionID
 
 @then(u'I should have received a transactionID')
 def step_impl(context):
-    #TODO: Put this test back in
-    #assert 'transactionID' in context, 'transactionID not found in context'
-    #assert context.transactionID != ""
+    assert 'transactionID' in context, 'transactionID not found in context'
+    assert context.transactionID != ""
     pass
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
@@ -233,7 +232,7 @@ def multiRequest(context, seconds, containerDataList, pathBuilderFunc):
         else:
             raise Exception("Max time exceeded waiting for multiRequest with current response map = {0}".format(respMap))
     
-@then(u'I wait "{seconds}" seconds for transaction to be committed to all peers')
+@then(u'I wait up to "{seconds}" seconds for transaction to be committed to all peers')
 def step_impl(context, seconds):
     assert 'transactionID' in context, "transactionID not found in context"
     assert 'compose_containers' in context, "compose_containers not found in context"
