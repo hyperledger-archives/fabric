@@ -176,7 +176,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	return priv, pbCert.Cert.Cert, nil
 }
 
-func (node *nodeImpl) getClientConn(serverName string) (*grpc.ClientConn, error) {
+func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
 	node.log.Debug("Getting Client Connection to [%s]...", serverName)
 
 	var conn *grpc.ClientConn
@@ -199,11 +199,11 @@ func (node *nodeImpl) getClientConn(serverName string) (*grpc.ClientConn, error)
 		creds := credentials.NewTLS(&config)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 
-		conn, err = grpc.Dial(node.conf.getTLSCAPAddr(), opts...)
+		conn, err = grpc.Dial(address, opts...)
 	} else {
 		node.log.Debug("TLS disabled...")
 
-		conn, err = grpc.Dial(node.conf.getTLSCAPAddr(), grpc.WithInsecure())
+		conn, err = grpc.Dial(address, grpc.WithInsecure())
 	}
 
 	if err != nil {
@@ -220,7 +220,7 @@ func (node *nodeImpl) getClientConn(serverName string) (*grpc.ClientConn, error)
 func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, error) {
 	node.log.Debug("Getting TLSCA client...")
 
-	conn, err := node.getClientConn(node.conf.getTLSCAServerName())
+	conn, err := node.getClientConn(node.conf.getTLSCAPAddr(), node.conf.getTLSCAServerName())
 	if err != nil {
 		node.log.Error("Failed getting client connection: [%s]", err)
 	}

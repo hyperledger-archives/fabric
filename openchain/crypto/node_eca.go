@@ -215,7 +215,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
 	node.log.Debug("Getting ECA client...")
 
-	conn, err := node.getClientConn(node.conf.getECAServerName())
+	conn, err := node.getClientConn(node.conf.getECAPAddr(), node.conf.getECAServerName())
 	if err != nil {
 		node.log.Error("Failed getting client connection: [%s]", err)
 	}
