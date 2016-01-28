@@ -29,16 +29,22 @@ eca:
 #
 ###############################################################################
 peer:
-
     pki:
-          eca:
-              paddr: localhost:50051
+        eca:
+            paddr: localhost:50051
 
-          tca:
-              paddr: localhost:50051
+        tca:
+            paddr: localhost:50051
 
-          tlsca:
-              paddr: localhost:50051
+        tlsca:
+            paddr: localhost:50051
+
+        tls:
+            enabled: true
+            rootcert:
+                file: ./.obc-ca/tlsca.cert
+            # The server name use to verify the hostname returned by TLS handshake
+            server-host-override:
 
     fileSystemPath: .obc-peer
     validator:

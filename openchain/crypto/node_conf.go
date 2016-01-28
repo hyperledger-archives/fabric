@@ -160,12 +160,16 @@ func (conf *configuration) getTLSCACertsChainFilename() string {
 	return TLSCA_CERT_CHAIN
 }
 
+func (conf *configuration) getTLSCACertsExternalPath() string {
+	return viper.GetString("peer.pki.tls.rootcert.file")
+}
+
 func (conf *configuration) isTLSEnabled() bool {
-	return true
+	return viper.GetBool("peer.pki.tls.enabled")
 }
 
 func (conf *configuration) isTLSClientAuthEnabled() bool {
-	return false
+	return viper.GetBool("peer.pki.tls.client.auth.enabled")
 }
 
 func (conf *configuration) getTCAServerName() string {

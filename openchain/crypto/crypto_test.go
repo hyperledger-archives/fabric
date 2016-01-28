@@ -828,27 +828,21 @@ func initPKI() {
 	eca = obcca.NewECA()
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
-
-	// Hack to enable TLS connections:
-	// 1. Read the TLSCA certificate tlsca.cert
-	// 2. Enable TLSCA fake mode
-	tlscaCertsChain, _ := ioutil.ReadFile(filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"))
-	if err := addDefaultCert(TLSCA_CERT_CHAIN, tlscaCertsChain); err != nil {
-		panic(err)
-	}
 }
 
 func startPKI() {
-	// TLS configuration
 	var opts []grpc.ServerOption
-	creds, err := credentials.NewServerTLSFromFile(
-		filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"),
-		filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
-	)
-	if err != nil {
-		panic("Failed creating credentials for OBC-CA: " + err.Error())
+	if viper.GetBool("peer.pki.tls.enabled") {
+		// TLS configuration
+		creds, err := credentials.NewServerTLSFromFile(
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"),
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
+		)
+		if err != nil {
+			panic("Failed creating credentials for OBC-CA: " + err.Error())
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
-	opts = []grpc.ServerOption{grpc.Creds(creds)}
 
 	fmt.Printf("open socket...\n")
 	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
@@ -1413,8 +1407,8 @@ func stopPKI() {
 	eca.Close()
 	tca.Close()
 	tlsca.Close()
-	server.Stop()
 
+	server.Stop()
 }
 
 func removeFolders() {

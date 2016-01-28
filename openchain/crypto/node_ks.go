@@ -33,6 +33,7 @@ import (
 	"io/ioutil"
 )
 
+/*
 var (
 	defaultCerts = make(map[string][]byte)
 )
@@ -51,6 +52,7 @@ func addDefaultCert(key string, cert []byte) error {
 
 	return nil
 }
+*/
 
 func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	ks := keyStore{}
@@ -59,11 +61,13 @@ func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	}
 	node.ks = &ks
 
-	// Add default certs
-	for key, value := range defaultCerts {
-		node.log.Debug("Adding Default Cert to the keystore [%s][%s]", key, utils.EncodeBase64(value))
-		ks.storeCert(key, value)
-	}
+	/*
+		// Add default certs
+		for key, value := range defaultCerts {
+			node.log.Debug("Adding Default Cert to the keystore [%s][%s]", key, utils.EncodeBase64(value))
+			ks.storeCert(key, value)
+		}
+	*/
 
 	return nil
 }
