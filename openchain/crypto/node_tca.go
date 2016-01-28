@@ -22,12 +22,10 @@ package crypto
 import (
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 
-	"crypto/tls"
 	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
@@ -84,37 +82,9 @@ func (node *nodeImpl) loadTCACertsChain() error {
 func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
 	node.log.Debug("Getting TCA client...")
 
-	var conn *grpc.ClientConn
-	var err error
-
-	if node.conf.isTLSEnabled() {
-		node.log.Debug("TLS enabled...")
-
-		// setup tls options
-		var opts []grpc.DialOption
-		config := tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            node.tlsCertPool,
-			ServerName:         node.conf.getTCAServerName(),
-		}
-		if node.conf.isTLSClientAuthEnabled() {
-
-		}
-
-		creds := credentials.NewTLS(&config)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-
-		conn, err = grpc.Dial(node.conf.getTCAPAddr(), opts...)
-	} else {
-		node.log.Debug("TLS disabled...")
-
-		conn, err = grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
-	}
-
+	conn, err := node.getClientConn(node.conf.getTCAServerName())
 	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, nil, err
+		node.log.Error("Failed getting client connection: [%s]", err)
 	}
 
 	client := obcca.NewTCAPClient(conn)

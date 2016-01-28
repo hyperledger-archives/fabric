@@ -26,6 +26,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
+)
+
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
@@ -153,7 +157,7 @@ func (conf *configuration) getECACertsChainFilename() string {
 }
 
 func (conf *configuration) getTLSCACertsChainFilename() string {
-	return "tlsca.cert.chain"
+	return TLSCA_CERT_CHAIN
 }
 
 func (conf *configuration) isTLSEnabled() bool {

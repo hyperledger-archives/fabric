@@ -28,14 +28,12 @@ import (
 	"time"
 
 	"crypto/rsa"
-	"crypto/tls"
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 )
 
@@ -217,37 +215,9 @@ func (node *nodeImpl) loadECACertsChain() error {
 func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
 	node.log.Debug("Getting ECA client...")
 
-	var conn *grpc.ClientConn
-	var err error
-
-	if node.conf.isTLSEnabled() {
-		node.log.Debug("TLS enabled...")
-
-		// setup tls options
-		var opts []grpc.DialOption
-		config := tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            node.tlsCertPool,
-			ServerName:         node.conf.getECAServerName(),
-		}
-		if node.conf.isTLSClientAuthEnabled() {
-
-		}
-
-		creds := credentials.NewTLS(&config)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-
-		conn, err = grpc.Dial(node.conf.getECAPAddr(), opts...)
-	} else {
-		node.log.Debug("TLS enabled...")
-
-		conn, err = grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
-	}
-
+	conn, err := node.getClientConn(node.conf.getECAServerName())
 	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, nil, err
+		node.log.Error("Failed getting client connection: [%s]", err)
 	}
 
 	client := obcca.NewECAPClient(conn)

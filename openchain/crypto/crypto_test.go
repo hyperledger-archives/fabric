@@ -829,8 +829,13 @@ func initPKI() {
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
 
-	tlscaCertsChain, _ = ioutil.ReadFile(filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"))
-	fmt.Printf("tlscaCertsChain = [%s] \n", tlscaCertsChain)
+	// Hack to enable TLS connections:
+	// 1. Read the TLSCA certificate tlsca.cert
+	// 2. Enable TLSCA fake mode
+	tlscaCertsChain, _ := ioutil.ReadFile(filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"))
+	if err := addDefaultCert(TLSCA_CERT_CHAIN, tlscaCertsChain); err != nil {
+		panic(err)
+	}
 }
 
 func startPKI() {

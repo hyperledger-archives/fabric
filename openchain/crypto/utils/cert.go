@@ -62,6 +62,20 @@ func PEMtoCertificate(raw []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// PEMtoDER converts pem to der
+func PEMtoDER(raw []byte) ([]byte, error) {
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, errors.New("No PEM block available")
+	}
+
+	if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+		return nil, errors.New("Not a valid CERTIFICATE PEM block")
+	}
+
+	return block.Bytes, nil
+}
+
 // PEMtoCertificateAndDER converts pem to x509 and der
 func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 	block, _ := pem.Decode(raw)
