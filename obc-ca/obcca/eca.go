@@ -287,9 +287,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	Trace.Println("grpc ECAA:ReadUserSet")
 
 	req := in.Req.Id
-	id := in.Id.Id
-	
-	if req != id && ecaa.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
+	if ecaa.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
 		return nil, errors.New("access denied")
 	}
 	
@@ -316,7 +314,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 		return nil, errors.New("signature does not verify")
 	}
 	
-	rows, err := ecaa.eca.readUsers(in.Id.Id, int(in.Role))
+	rows, err := ecaa.eca.readUsers(int(in.Role))
 	if err != nil {
 		return nil, err
 	}

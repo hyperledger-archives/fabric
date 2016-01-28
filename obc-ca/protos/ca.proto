@@ -152,9 +152,8 @@ message RegisterUserReq {
 
 message ReadUserSetReq {
     Identity req = 1;
-    Identity id = 2; // regex filter
-    Role role = 3; // bitmask
-    Signature sig = 4; // sign(priv, req | id | role)
+    Role role = 2; // bitmask
+    Signature sig = 3; // sign(priv, req | id | role)
 }
 
 message User {
@@ -241,9 +240,8 @@ message TCertReadSetsReq {
     google.protobuf.Timestamp begin = 1;
     google.protobuf.Timestamp end = 2;
     Identity req = 3; // corresponding ECert retrieved from ECA
-    Identity id = 4; // regex filter
-    Role role = 5; // bitmask
-    Signature sig = 6; // sign(priv, begin | end | req | id | role)
+    Role role = 4; // bitmask
+    Signature sig = 5; // sign(priv, begin | end | req | id | role)
 }
 
 message TCertRevokeReq {

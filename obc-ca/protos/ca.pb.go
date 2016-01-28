@@ -234,9 +234,8 @@ func (m *RegisterUserReq) GetId() *Identity {
 
 type ReadUserSetReq struct {
 	Req  *Identity  `protobuf:"bytes,1,opt,name=req" json:"req,omitempty"`
-	Id   *Identity  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Role Role       `protobuf:"varint,3,opt,name=role,enum=protos.Role" json:"role,omitempty"`
-	Sig  *Signature `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
+	Role Role       `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Sig  *Signature `protobuf:"bytes,3,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *ReadUserSetReq) Reset()         { *m = ReadUserSetReq{} }
@@ -246,13 +245,6 @@ func (*ReadUserSetReq) ProtoMessage()    {}
 func (m *ReadUserSetReq) GetReq() *Identity {
 	if m != nil {
 		return m.Req
-	}
-	return nil
-}
-
-func (m *ReadUserSetReq) GetId() *Identity {
-	if m != nil {
-		return m.Id
 	}
 	return nil
 }
@@ -644,9 +636,8 @@ type TCertReadSetsReq struct {
 	Begin *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=begin" json:"begin,omitempty"`
 	End   *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=end" json:"end,omitempty"`
 	Req   *Identity                  `protobuf:"bytes,3,opt,name=req" json:"req,omitempty"`
-	Id    *Identity                  `protobuf:"bytes,4,opt,name=id" json:"id,omitempty"`
-	Role  Role                       `protobuf:"varint,5,opt,name=role,enum=protos.Role" json:"role,omitempty"`
-	Sig   *Signature                 `protobuf:"bytes,6,opt,name=sig" json:"sig,omitempty"`
+	Role  Role                       `protobuf:"varint,4,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Sig   *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TCertReadSetsReq) Reset()         { *m = TCertReadSetsReq{} }
@@ -670,13 +661,6 @@ func (m *TCertReadSetsReq) GetEnd() *google_protobuf.Timestamp {
 func (m *TCertReadSetsReq) GetReq() *Identity {
 	if m != nil {
 		return m.Req
-	}
-	return nil
-}
-
-func (m *TCertReadSetsReq) GetId() *Identity {
-	if m != nil {
-		return m.Id
 	}
 	return nil
 }

@@ -414,7 +414,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		return nil, errors.New("signature does not verify")
 	}
 
-	users, err := tcaa.tca.eca.readUsers(in.Id.Id, int(in.Role))
+	users, err := tcaa.tca.eca.readUsers(int(in.Role))
 	if err != nil {
 		return nil, err
 	}
