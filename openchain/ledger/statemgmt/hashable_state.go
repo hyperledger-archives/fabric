@@ -29,7 +29,7 @@ import (
 type HashableState interface {
 
 	// Initialize this gives a chance to initialize. For instance, state implementation can load some data from DB
-	Initialize() error
+	Initialize(configs map[string]interface{}) error
 
 	// Get get the value from DB
 	Get(chaincodeID string, key string) ([]byte, error)

@@ -20,12 +20,13 @@ under the License.
 package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 )
 
 func TestBucketTreeDeltaBasic(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketTreeDelta := newBucketTreeDelta()
 	b1 := bucketTreeDelta.getOrCreateBucketNode(newBucketKey(2, 1))
 	testutil.AssertSame(t, bucketTreeDelta.getOrCreateBucketNode(newBucketKey(2, 1)), b1)
@@ -50,7 +51,7 @@ func TestBucketTreeDeltaBasic(t *testing.T) {
 }
 
 func TestBucketTreeDeltaGetRootWithoutProcessing(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketTreeDelta := newBucketTreeDelta()
 	bucketKey1 := newBucketKey(2, 1)
 	bucketTreeDelta.getOrCreateBucketNode(bucketKey1)

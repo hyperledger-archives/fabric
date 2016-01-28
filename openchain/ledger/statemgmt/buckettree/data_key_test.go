@@ -20,12 +20,13 @@ under the License.
 package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 )
 
 func TestDataKey(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	dataKey := newDataKey("chaincodeID", "key")
 	encodedBytes := dataKey.getEncodedBytes()
 	dataKeyFromEncodedBytes := newDataKeyFromEncodedBytes(encodedBytes)
@@ -33,7 +34,7 @@ func TestDataKey(t *testing.T) {
 }
 
 func TestDataKeyGetBucketKey(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	newDataKey("chaincodeID1", "key1").getBucketKey()
 	newDataKey("chaincodeID1", "key2").getBucketKey()
 	newDataKey("chaincodeID2", "key1").getBucketKey()
