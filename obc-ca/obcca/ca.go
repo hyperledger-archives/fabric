@@ -279,7 +279,7 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificatess for "+id+".")
 
 	if len(opt) > 0 && opt[0] != 0 {
-		return ca.db.Query("SELECT cert, kdfkey FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
+		return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=? AND timestamp=? ORDER BY usage", id, opt[0])
 	}
 
 	return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=?", id)
@@ -288,7 +288,7 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 func (ca *CA) readCertificateSets(id string, start, end int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificate sets for "+id+".")
 	
-	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates ORDER BY timestamp WHERE id=? AND timestamp BETWEEN ? AND ?", id, start, end)
+	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates WHERE id=? AND timestamp BETWEEN ? AND ? ORDER BY timestamp", id, start, end)
 }
 
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
@@ -349,7 +349,7 @@ func (ca *CA) deleteUser(id string) (error) {
 func (ca *CA) readUsers(role int) (*sql.Rows, error) {
 	Trace.Println("Reading users matching role "+strconv.FormatInt(int64(role), 2)+".")
 	
-	return ca.db.Query("SELECT id, role FROM Users WHERE role & ? != 0", role)
+	return ca.db.Query("SELECT id, role FROM Users WHERE role&?!=0", role)
 }
 
 func (ca *CA) readToken(id string) *sql.Row {

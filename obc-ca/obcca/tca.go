@@ -30,6 +30,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"strconv"
 
@@ -419,15 +420,25 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		return nil, err
 	}
 	defer users.Close()
+	
+	begin := int64(0)
+	end := int64(math.MaxInt64)
+	if in.Begin != nil {
+		begin = in.Begin.Seconds;
+	}
+	if in.End != nil {
+		end = in.End.Seconds;
+	}
 
 	var sets []*pb.CertSet
 	for users.Next() {
 		var id string
-		if err = users.Scan(&id); err != nil {
+		var role int
+		if err = users.Scan(&id, &role); err != nil {
 			return nil, err
 		}
 
-		rows, err := tcaa.tca.eca.readCertificateSets(id, in.Begin.Seconds, in.End.Seconds)
+		rows, err := tcaa.tca.eca.readCertificateSets(id, begin, end)
 		if err != nil {
 			return nil, err
 		}
