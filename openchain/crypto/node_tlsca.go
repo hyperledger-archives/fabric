@@ -198,12 +198,17 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 
 		creds := credentials.NewTLS(&config)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
+		opts = append(opts, grpc.WithTimeout(time.Second*3))
 
 		conn, err = grpc.Dial(address, opts...)
 	} else {
 		node.log.Debug("TLS disabled...")
 
-		conn, err = grpc.Dial(address, grpc.WithInsecure())
+		var opts []grpc.DialOption
+		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTimeout(time.Second*3))
+
+		conn, err = grpc.Dial(address, opts...)
 	}
 
 	if err != nil {

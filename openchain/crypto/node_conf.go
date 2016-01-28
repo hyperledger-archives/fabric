@@ -51,6 +51,8 @@ type configuration struct {
 	ecaPAddressProperty       string
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
+
+	tlsServerName string
 }
 
 func (conf *configuration) init() error {
@@ -84,6 +86,15 @@ func (conf *configuration) init() error {
 
 	// Set raws path
 	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
+
+	// Set TLS host override
+	conf.tlsServerName = "tlsca"
+	if viper.IsSet("peer.pki.tls.server-host-override") {
+		ovveride := viper.GetString("peer.pki.tls.server-host-override")
+		if ovveride != "" {
+			conf.tlsServerName = ovveride
+		}
+	}
 
 	return nil
 }
@@ -173,15 +184,15 @@ func (conf *configuration) isTLSClientAuthEnabled() bool {
 }
 
 func (conf *configuration) getTCAServerName() string {
-	return "tlsca"
+	return conf.tlsServerName
 }
 
 func (conf *configuration) getECAServerName() string {
-	return "tlsca"
+	return conf.tlsServerName
 }
 
 func (conf *configuration) getTLSCAServerName() string {
-	return "tlsca"
+	return conf.tlsServerName
 }
 
 func (conf *configuration) getTLSKeyFilename() string {
