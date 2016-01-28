@@ -20,7 +20,6 @@ under the License.
 package trie
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -48,31 +47,31 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 
-	hash1 := computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1"))
-	hash2 := computeTestHash(newTrieKey("chaincodeID1", "key2").getEncodedBytes(), []byte("value2"))
-	hash3 := computeTestHash(newTrieKey("chaincodeID2", "key3").getEncodedBytes(), []byte("value3"))
-	hash4 := computeTestHash(newTrieKey("chaincodeID2", "key4").getEncodedBytes(), []byte("value4"))
+	hash1 := expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key1"), []byte("value1"))
+	hash2 := expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key2"), []byte("value2"))
+	hash3 := expectedCryptoHashForTest(newTrieKey("chaincodeID2", "key3"), []byte("value3"))
+	hash4 := expectedCryptoHashForTest(newTrieKey("chaincodeID2", "key4"), []byte("value4"))
 
-	hash1_hash2 := computeTestHash(hash1, hash2)
-	hash3_hash4 := computeTestHash(hash3, hash4)
-	expectedRootHash1 := computeTestHash(hash1_hash2, hash3_hash4)
+	hash1_hash2 := expectedCryptoHashForTest(nil, nil, hash1, hash2)
+	hash3_hash4 := expectedCryptoHashForTest(nil, nil, hash3, hash4)
+	expectedRootHash1 := expectedCryptoHashForTest(nil, nil, hash1_hash2, hash3_hash4)
 	testutil.AssertEquals(t, rootHash1, expectedRootHash1)
 	stateTrie.ClearWorkingSet(true)
 
 	// Test2 - Add one more key
-	fmt.Println("\n-- Add one more key exiting key --- ")
+	t.Logf("-- Add one more key exiting key --- ")
 	stateDelta.Set("chaincodeID3", "key5", []byte("value5"), nil)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	hash5 := computeTestHash(newTrieKey("chaincodeID3", "key5").getEncodedBytes(), []byte("value5"))
-	expectedRootHash2 := computeTestHash(hash1_hash2, hash3_hash4, hash5)
+	hash5 := expectedCryptoHashForTest(newTrieKey("chaincodeID3", "key5"), []byte("value5"))
+	expectedRootHash2 := expectedCryptoHashForTest(nil, nil, hash1_hash2, hash3_hash4, hash5)
 	testutil.AssertEquals(t, rootHash2, expectedRootHash2)
 	stateTrie.ClearWorkingSet(true)
 
 	// Test3 - Remove one of the existing keys
-	fmt.Println("\n-- Remove an exiting key --- ")
+	t.Logf("-- Remove an exiting key --- ")
 	stateDelta.Delete("chaincodeID2", "key4", nil)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedRootHash3 := computeTestHash(hash1_hash2, hash3, hash5)
+	expectedRootHash3 := expectedCryptoHashForTest(nil, nil, hash1_hash2, hash3, hash5)
 	testutil.AssertEquals(t, rootHash3, expectedRootHash3)
 	stateTrie.ClearWorkingSet(true)
 }
@@ -111,14 +110,14 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("chaincodeID3", "key5", []byte("value5"), nil)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expected_hash1 := computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1"))
-	expected_hash2 := computeTestHash(newTrieKey("chaincodeID1", "key2").getEncodedBytes(), []byte("value2"))
-	expected_hash3 := computeTestHash(newTrieKey("chaincodeID2", "key3").getEncodedBytes(), []byte("value3"))
-	expected_hash4 := computeTestHash(newTrieKey("chaincodeID2", "key4").getEncodedBytes(), []byte("value4"))
-	expected_hash1_hash2 := computeTestHash(expected_hash1, expected_hash2)
-	expected_hash3_hash4 := computeTestHash(expected_hash3, expected_hash4)
-	expected_hash5 := computeTestHash(newTrieKey("chaincodeID3", "key5").getEncodedBytes(), []byte("value5"))
-	expectedRootHash1 := computeTestHash(expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
+	expected_hash1 := expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key1"), []byte("value1"))
+	expected_hash2 := expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key2"), []byte("value2"))
+	expected_hash3 := expectedCryptoHashForTest(newTrieKey("chaincodeID2", "key3"), []byte("value3"))
+	expected_hash4 := expectedCryptoHashForTest(newTrieKey("chaincodeID2", "key4"), []byte("value4"))
+	expected_hash1_hash2 := expectedCryptoHashForTest(nil, nil, expected_hash1, expected_hash2)
+	expected_hash3_hash4 := expectedCryptoHashForTest(nil, nil, expected_hash3, expected_hash4)
+	expected_hash5 := expectedCryptoHashForTest(newTrieKey("chaincodeID3", "key5"), []byte("value5"))
+	expectedRootHash1 := expectedCryptoHashForTest(nil, nil, expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
 	testutil.AssertEquals(t, rootHash1, expectedRootHash1)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 
@@ -128,9 +127,9 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("chaincodeID2", "key4", []byte("value4-new"), nil)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expected_hash4 = computeTestHash(newTrieKey("chaincodeID2", "key4").getEncodedBytes(), []byte("value4-new"))
-	expected_hash3_hash4 = computeTestHash(expected_hash3, expected_hash4)
-	expectedRootHash2 := computeTestHash(expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
+	expected_hash4 = expectedCryptoHashForTest(newTrieKey("chaincodeID2", "key4"), []byte("value4-new"))
+	expected_hash3_hash4 = expectedCryptoHashForTest(nil, nil, expected_hash3, expected_hash4)
+	expectedRootHash2 := expectedCryptoHashForTest(nil, nil, expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
 	testutil.AssertEquals(t, rootHash2, expectedRootHash2)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 
@@ -140,20 +139,20 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("chaincodeID1", "key1", []byte("value1-new"), nil)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expected_hash1 = computeTestHash(newTrieKey("chaincodeID1", "key1").getEncodedBytes(), []byte("value1-new"))
-	expected_hash1_hash2 = computeTestHash(expected_hash1, expected_hash2)
-	expectedRootHash3 := computeTestHash(expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
+	expected_hash1 = expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key1"), []byte("value1-new"))
+	expected_hash1_hash2 = expectedCryptoHashForTest(nil, nil, expected_hash1, expected_hash2)
+	expectedRootHash3 := expectedCryptoHashForTest(nil, nil, expected_hash1_hash2, expected_hash3_hash4, expected_hash5)
 	testutil.AssertEquals(t, rootHash3, expectedRootHash3)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 
 	/////////////////////////////////////////////////////////
 	// Test4 - Delete an existing existing key
 	/////////////////////////////////////////////////////////
-	fmt.Println("\n -- Delete an existing key --- ")
+	t.Logf("-- Delete an existing key ---")
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Delete("chaincodeID3", "key5", nil)
 	rootHash4 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedRootHash4 := computeTestHash(expected_hash1_hash2, expected_hash3_hash4)
+	expectedRootHash4 := expectedCryptoHashForTest(nil, nil, expected_hash1_hash2, expected_hash3_hash4)
 	testutil.AssertEquals(t, rootHash4, expectedRootHash4)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 	// Delete should remove the key from db because, this key has no value and no children
@@ -165,7 +164,7 @@ func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Delete("chaincodeID2", "key4", nil)
 	rootHash5 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
-	expectedRootHash5 := computeTestHash(expected_hash1_hash2, expected_hash3)
+	expectedRootHash5 := expectedCryptoHashForTest(nil, nil, expected_hash1_hash2, expected_hash3)
 	testutil.AssertEquals(t, rootHash5, expectedRootHash5)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 	testutil.AssertNil(t, testDBWrapper.GetFromStateCF(t, newTrieKey("chaincodeID2", "key4").getEncodedBytes()))
@@ -183,9 +182,9 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	stateDelta.Set("ID", "key1", []byte("value_key1"), nil)
 	stateDelta.Set("ID", "key", []byte("value_key"), nil)
 	stateDelta.Set("ID", "k", []byte("value_k"), nil)
-	expectedHash_key1 := computeTestHash(newTrieKey("ID", "key1").getEncodedBytes(), []byte("value_key1"))
-	expectedHash_key := computeTestHash(newTrieKey("ID", "key").getEncodedBytes(), []byte("value_key"), expectedHash_key1)
-	expectedHash_k := computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_key)
+	expectedHash_key1 := expectedCryptoHashForTest(newTrieKey("ID", "key1"), []byte("value_key1"))
+	expectedHash_key := expectedCryptoHashForTest(newTrieKey("ID", "key"), []byte("value_key"), expectedHash_key1)
+	expectedHash_k := expectedCryptoHashForTest(newTrieKey("ID", "k"), []byte("value_k"), expectedHash_key)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash1, expectedHash_k)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
@@ -193,11 +192,11 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	/////////////////////////////////////////////////////////
 	// Test2 - Add a new key in path of existing staggered keys
 	/////////////////////////////////////////////////////////
-	fmt.Println("- Add a new key in path of existing staggered keys -")
+	t.Logf("- Add a new key in path of existing staggered keys -")
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("ID", "ke", []byte("value_ke"), nil)
-	expectedHash_ke := computeTestHash(newTrieKey("ID", "ke").getEncodedBytes(), []byte("value_ke"), expectedHash_key)
-	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)
+	expectedHash_ke := expectedCryptoHashForTest(newTrieKey("ID", "ke"), []byte("value_ke"), expectedHash_key)
+	expectedHash_k = expectedCryptoHashForTest(newTrieKey("ID", "k"), []byte("value_k"), expectedHash_ke)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash2, expectedHash_k)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
@@ -207,8 +206,8 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("ID", "ke", []byte("value_ke_new"), nil)
-	expectedHash_ke = computeTestHash(newTrieKey("ID", "ke").getEncodedBytes(), []byte("value_ke_new"), expectedHash_key)
-	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)
+	expectedHash_ke = expectedCryptoHashForTest(newTrieKey("ID", "ke"), []byte("value_ke_new"), expectedHash_key)
+	expectedHash_k = expectedCryptoHashForTest(newTrieKey("ID", "k"), []byte("value_k"), expectedHash_ke)
 	rootHash3 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash3, expectedHash_k)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
@@ -218,7 +217,7 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	/////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Delete("ID", "ke", nil)
-	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_key)
+	expectedHash_k = expectedCryptoHashForTest(newTrieKey("ID", "k"), []byte("value_k"), expectedHash_key)
 	rootHash4 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash4, expectedHash_k)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
@@ -231,9 +230,9 @@ func TestStateTrie_ComputeHash_WithDB_Staggered_Keys(t *testing.T) {
 	//////////////////////////////////////////////////////////////
 	stateDelta = statemgmt.NewStateDelta()
 	stateDelta.Set("ID", "kez", []byte("value_kez"), nil)
-	expectedHash_kez := computeTestHash(newTrieKey("ID", "kez").getEncodedBytes(), []byte("value_kez"))
-	expectedHash_ke = computeTestHash(expectedHash_key, expectedHash_kez)
-	expectedHash_k = computeTestHash(newTrieKey("ID", "k").getEncodedBytes(), []byte("value_k"), expectedHash_ke)
+	expectedHash_kez := expectedCryptoHashForTest(newTrieKey("ID", "kez"), []byte("value_kez"))
+	expectedHash_ke = expectedCryptoHashForTest(nil, nil, expectedHash_key, expectedHash_kez)
+	expectedHash_k = expectedCryptoHashForTest(newTrieKey("ID", "k"), []byte("value_k"), expectedHash_ke)
 	rootHash5 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	testutil.AssertEquals(t, rootHash5, expectedHash_k)
 }
