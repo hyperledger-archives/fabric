@@ -51,7 +51,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	client := new(clientImpl)
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
-		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
@@ -124,6 +124,10 @@ func CloseAllClients() (bool, []error) {
 // Private Methods
 
 func closeClientInternal(client Client) error {
+	if client == nil {
+		return utils.ErrNilArgument
+	}
+
 	name := client.GetName()
 	log.Info("Closing client [%s]...", name)
 	if _, ok := clients[name]; !ok {
