@@ -234,6 +234,19 @@ func (ks *keyStore) loadCert(alias string) ([]byte, error) {
 	return pem, nil
 }
 
+func (ks *keyStore) loadExternalCert(path string) ([]byte, error) {
+	ks.log.Debug("Loading external certificate at [%s]...", path)
+
+	pem, err := ioutil.ReadFile(path)
+	if err != nil {
+		ks.log.Error("Failed loading external certificate: [%s].", err.Error())
+
+		return nil, err
+	}
+
+	return pem, nil
+}
+
 func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte, error) {
 	path := ks.conf.getPathForAlias(alias)
 	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)

@@ -40,7 +40,7 @@ import (
 func (node *nodeImpl) initTLS() error {
 	node.log.Debug("Initiliazing TLS...")
 
-	pem, err := node.ks.loadCert(node.conf.getTLSCACertsChainFilename())
+	pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsChainFilename())
 	if err != nil {
 		node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
 
