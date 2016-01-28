@@ -288,7 +288,7 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 func (ca *CA) readCertificateSets(id string, start, end int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificate sets for "+id+".")
 	
-	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates ORDER BY timestamp WHERE id=? AND timestamp >= ? AND timestamp =< ?", id, start, end)
+	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates ORDER BY timestamp WHERE id=? AND timestamp BETWEEN ? AND ?", id, start, end)
 }
 
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
