@@ -26,7 +26,7 @@ import (
 )
 
 func TestBucketKeyGetParentKey(t *testing.T) {
-	conf = initConfig(26, 2, fnvHash)
+	conf = newConfig(26, 2, fnvHash)
 	bucketKey := newBucketKey(5, 24)
 	parentKey := bucketKey.getParentKey()
 	testutil.AssertEquals(t, parentKey.level, 4)
@@ -37,7 +37,7 @@ func TestBucketKeyGetParentKey(t *testing.T) {
 	testutil.AssertEquals(t, parentKey.level, 4)
 	testutil.AssertEquals(t, parentKey.bucketNumber, 13)
 
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketKey = newBucketKey(3, 24)
 	parentKey = bucketKey.getParentKey()
 	testutil.AssertEquals(t, parentKey.level, 2)
@@ -50,7 +50,7 @@ func TestBucketKeyGetParentKey(t *testing.T) {
 }
 
 func TestBucketKeyEqual(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketKey1 := newBucketKey(1, 2)
 	bucketKey2 := newBucketKey(1, 2)
 	testutil.AssertEquals(t, bucketKey1.equals(bucketKey2), true)
@@ -63,31 +63,31 @@ func TestBucketKeyEqual(t *testing.T) {
 }
 
 func TestBucketKeyWrongLevelCausePanic(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	defer testutil.AssertPanic(t, "A panic should occur when asking for a level beyond a valid range")
 	newBucketKey(4, 1)
 }
 
 func TestBucketKeyWrongBucketNumberCausePanic_1(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	defer testutil.AssertPanic(t, "A panic should occur when asking for a level beyond a valid range")
 	newBucketKey(1, 4)
 }
 
 func TestBucketKeyWrongBucketNumberCausePanic_2(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	defer testutil.AssertPanic(t, "A panic should occur when asking for a level beyond a valid range")
 	newBucketKey(3, 27)
 }
 
 func TestBucketKeyWrongBucketNumberCausePanic_3(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	defer testutil.AssertPanic(t, "A panic should occur when asking for a level beyond a valid range")
 	newBucketKey(0, 2)
 }
 
 func TestBucketKeyGetChildIndex(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketKey := newBucketKey(3, 22)
 	testutil.AssertEquals(t, bucketKey.getParentKey().getChildIndex(bucketKey), 0)
 

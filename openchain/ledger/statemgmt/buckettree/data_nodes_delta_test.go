@@ -42,7 +42,7 @@ func TestDataNodesSort(t *testing.T) {
 }
 
 func TestDataNodesDelta(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	stateDelta := statemgmt.NewStateDelta()
 	stateDelta.Set("chaincodeID1", "key1", []byte("value1_1"), nil)
 	stateDelta.Set("chaincodeID1", "key2", []byte("value1_2"), nil)

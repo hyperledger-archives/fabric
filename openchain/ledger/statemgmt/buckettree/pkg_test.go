@@ -34,7 +34,9 @@ import (
 var testDBWrapper = db.NewTestDBWrapper()
 
 func TestMain(m *testing.M) {
+	fmt.Println("Setting up test config...")
 	testutil.SetupTestConfig()
+	initConfig(nil)
 	os.Exit(m.Run())
 }
 
@@ -64,20 +66,38 @@ func (testHasher *testHasher) getHashFunction() hashFunc {
 }
 
 type stateImplTestWrapper struct {
+	configMap map[string]interface{}
 	stateImpl *StateImpl
 	t         *testing.T
 }
 
 func newStateImplTestWrapper(t *testing.T) *stateImplTestWrapper {
+	var configMap map[string]interface{}
 	stateImpl := NewStateImpl()
-	err := stateImpl.Initialize()
+	err := stateImpl.Initialize(configMap)
 	testutil.AssertNoError(t, err, "Error while constrcuting stateImpl")
-	return &stateImplTestWrapper{stateImpl, t}
+	return &stateImplTestWrapper{configMap, stateImpl, t}
+}
+
+func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {
+	testHasher := newTestHasher()
+	configMap := map[string]interface{}{
+		ConfigNumBuckets:             numBuckets,
+		ConfigMaxGroupingAtEachLevel: maxGroupingAtEachLevel,
+		ConfigHashFunction:           testHasher.getHashFunction(),
+	}
+
+	testDBWrapper.CreateFreshDB(t)
+	stateImpl := NewStateImpl()
+	stateImpl.Initialize(configMap)
+	stateImplTestWrapper := &stateImplTestWrapper{configMap, stateImpl, t}
+	stateDelta := statemgmt.NewStateDelta()
+	return testHasher, stateImplTestWrapper, stateDelta
 }
 
 func (testWrapper *stateImplTestWrapper) constructNewStateImpl() {
 	stateImpl := NewStateImpl()
-	err := stateImpl.Initialize()
+	err := stateImpl.Initialize(testWrapper.configMap)
 	testutil.AssertNoError(testWrapper.t, err, "Error while constructing new state tree")
 	testWrapper.stateImpl = stateImpl
 }
@@ -121,15 +141,6 @@ func (testWrapper *stateImplTestWrapper) getRangeScanIterator(chaincodeID string
 	itr, err := testWrapper.stateImpl.GetRangeScanIterator(chaincodeID, startKey, endKey)
 	testutil.AssertNoError(testWrapper.t, err, "Error while getting iterator")
 	return itr
-}
-
-func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {
-	testDBWrapper.CreateFreshDB(t)
-	testHasher := newTestHasher()
-	stateImplTestWrapper := newStateImplTestWrapper(t)
-	stateDelta := statemgmt.NewStateDelta()
-	conf = initConfig(numBuckets, maxGroupingAtEachLevel, testHasher.getHashFunction())
-	return testHasher, stateImplTestWrapper, stateDelta
 }
 
 func expectedBucketHashForTest(data ...[]string) []byte {

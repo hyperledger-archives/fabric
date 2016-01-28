@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
@@ -90,10 +91,16 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func computeTestHash(content ...[]byte) []byte {
-	combinedContent := []byte{}
-	for _, b := range content {
-		combinedContent = append(combinedContent, b...)
+func expectedCryptoHashForTest(key *trieKey, value []byte, childrenHashes ...[]byte) []byte {
+	expectedHash := []byte{}
+	if key != nil {
+		keyBytes := key.getEncodedBytes()
+		expectedHash = append(expectedHash, proto.EncodeVarint(uint64(len(keyBytes)))...)
+		expectedHash = append(expectedHash, keyBytes...)
+		expectedHash = append(expectedHash, value...)
 	}
-	return util.ComputeCryptoHash(combinedContent)
+	for _, b := range childrenHashes {
+		expectedHash = append(expectedHash, b...)
+	}
+	return util.ComputeCryptoHash(expectedHash)
 }
