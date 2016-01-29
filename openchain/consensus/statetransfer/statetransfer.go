@@ -78,10 +78,13 @@ type StateTransferState struct {
 	stateTransferListenersLock *sync.Mutex                                                                // Used to lock the above list when adding a listener
 }
 
-// Syncs to the block number specified, blocking until success
+// Adds a target and blocks until that target's success or failure
 // If peerIDs is nil, all peers will be considered sync candidates
 // The function returns nil on success or error
-func (sts *StateTransferState) SynchronousStateTransfer(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) error {
+// If state sync completes, but to a different target, this is still considered an error
+func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) error {
+
+	// TODO, this implementation is incorrect according to the new name/description
 	blockHeight, err := sts.ledger.GetBlockchainSize()
 	if nil != err {
 		return err
@@ -105,13 +108,13 @@ func (sts *StateTransferState) SynchronousStateTransfer(blockNumber uint64, bloc
 }
 
 // Starts the state sync process, without blocking
-// For the sync to complete, a call to AsynchronousStateTransferValidHash(hash, peerIDs) must be made
+// For the sync to complete, a call to AddTarget(hash, peerIDs) must be made
 // This call should be made any time a new valid block hash for a possibly valid sync target is observed
 // If peerIDs is nil, all peer will be considered sync candidates
 // The channel returned may be blocked on, returning the block number synced to,
 // or alternatively, the calling thread may invoke AsynchronousStateTransferJustCompleted() which
 // will check the channel in a non-blocking way
-func (sts *StateTransferState) AsynchronousStateTransfer(peerIDs []*protos.PeerID) {
+func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
 	sts.initiateStateSync <- &syncMark{
 		blockNumber: 0,
 		peerIDs:     peerIDs,
@@ -123,7 +126,7 @@ func (sts *StateTransferState) AsynchronousStateTransfer(peerIDs []*protos.PeerI
 
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
 // If the peerIDs are nil, then all peers are assumed to have the given block
-func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
+func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 	logger.Debug("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
 	blockHashReply := &blockHashReply{
 		syncMark: syncMark{
@@ -151,7 +154,7 @@ func (sts *StateTransferState) AsynchronousStateTransferValidHash(blockNumber ui
 // The registered function will be invoked whenever state transfer is initiated or completed
 // On initiation, only the StateTransferUpdate is guaranteed to be set, and will be set to Initiated
 // On completion, all fields will be set, according to the block hash which was synced to, and StateTransferUpdate will be set to Completed
-func (sts *StateTransferState) AsynchronousStateTransferRegisterListener(listener func(uint64, []byte, []*protos.PeerID, interface{}, StateTransferUpdate)) {
+func (sts *StateTransferState) RegisterListener(listener func(uint64, []byte, []*protos.PeerID, interface{}, StateTransferUpdate)) {
 	sts.stateTransferListenersLock.Lock()
 	defer func() {
 		sts.stateTransferListenersLock.Unlock()
@@ -160,9 +163,11 @@ func (sts *StateTransferState) AsynchronousStateTransferRegisterListener(listene
 	sts.stateTransferListeners = append(sts.stateTransferListeners, listener)
 }
 
-func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan struct{} {
+// This is a simple convenience method, for listeners who wish only to be notified that the state transfer has completed, without any additional information
+// For more sophisticated information, use the RegisterListener call
+func (sts *StateTransferState) CompletionChannel() chan struct{} {
 	result := make(chan struct{}, 1)
-	sts.AsynchronousStateTransferRegisterListener(func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, update StateTransferUpdate) {
+	sts.RegisterListener(func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, update StateTransferUpdate) {
 		if update != Completed {
 			return
 		}
@@ -175,10 +180,14 @@ func (sts *StateTransferState) AsynchronousStateTransferResultChannel() chan str
 	return result
 }
 
-func (sts *StateTransferState) AsynchronousStateTransferInProgress() bool {
+// Whether state transfer is currently occuring.  Note, this is not a thread safe call, it is expected
+// that the caller synchronizes around state transfer if it is to be accessed in a non-serial fashion
+func (sts *StateTransferState) InProgress() bool {
 	return sts.asynchronousTransferInProgress
 }
 
+// Inform state transfer that the current state is invalid.  This will trigger an immediate full state snapshot sync
+// when state transfer is initiated
 func (sts *StateTransferState) InvalidateState() {
 	sts.stateValid = false
 }
@@ -186,7 +195,7 @@ func (sts *StateTransferState) InvalidateState() {
 // This will send a signal to any running threads to stop, regardless of whether they are stopped
 // It will never block, and if called before threads start, they will exit at startup
 // Attempting to start threads after this call may fail once
-func (sts *StateTransferState) StopThreads() {
+func (sts *StateTransferState) Stop() {
 outer:
 	for {
 		select {
@@ -487,6 +496,8 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 	}
 }
 
+// This function should never be called directly, its public visibility is purely a side effect
+// of the package scoping of go test
 func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 
 	if 0 == len(sts.validBlockRanges) {

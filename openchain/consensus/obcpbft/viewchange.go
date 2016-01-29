@@ -299,7 +299,7 @@ func (instance *pbftCore) processNewView() error {
 	if instance.h < cp.SequenceNumber {
 		logger.Warning("missing base checkpoint %d", cp)
 		instance.moveWatermarks(cp.SequenceNumber)
-		instance.sts.AsynchronousStateTransfer(nil)
+		instance.sts.Initiate(nil)
 
 		blockHashBytes, err := base64.StdEncoding.DecodeString(cp.BlockHash)
 		if nil != err {
@@ -308,7 +308,7 @@ func (instance *pbftCore) processNewView() error {
 		}
 
 		// TODO, if we know what replicas generated the view change, we could be more specific about who to retrieve from instead of nil, still, this should succeed eventually
-		instance.sts.AsynchronousStateTransferValidHash(cp.BlockNumber, blockHashBytes, nil, &stateTransferMetadata{cp.SequenceNumber})
+		instance.sts.AddTarget(cp.BlockNumber, blockHashBytes, nil, &stateTransferMetadata{cp.SequenceNumber})
 	}
 
 	for n, d := range nv.Xset {

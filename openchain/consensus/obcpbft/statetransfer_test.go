@@ -67,11 +67,11 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 		remoteLedger.blockHeight = blockNumber + 1
 	}
 
-	sts.AsynchronousStateTransfer(peerIDs)
-	result := sts.AsynchronousStateTransferResultChannel()
+	sts.Initiate(peerIDs)
+	result := sts.CompletionChannel()
 
 	blockHash := SimpleGetBlockHash(blockNumber)
-	sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, peerIDs, nil)
+	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
 
 	select {
 	case <-time.After(time.Second * 2):
@@ -143,7 +143,7 @@ func TestCatchupSimple(t *testing.T) {
 
 	sts := newTestStateTransfer(ml, dps)
 	defer func() {
-		sts.StopThreads()
+		sts.Stop()
 	}()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 		t.Fatalf("Simplest case: %s", err)
@@ -163,7 +163,7 @@ func TestCatchupSyncBlocksErrors(t *testing.T) {
 		ml.PutBlock(0, SimpleGetBlock(0))
 		sts := newTestStateTransfer(ml, dps)
 		defer func() {
-			sts.StopThreads()
+			sts.Stop()
 		}()
 		sts.BlockRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
@@ -183,7 +183,7 @@ func TestCatchupMissingEarlyChain(t *testing.T) {
 	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml, dps)
 	defer func() {
-		sts.StopThreads()
+		sts.Stop()
 	}()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
@@ -201,7 +201,7 @@ func TestCatchupSyncSnapshotError(t *testing.T) {
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml, dps)
 		defer func() {
-			sts.StopThreads()
+			sts.Stop()
 		}()
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
@@ -224,7 +224,7 @@ func TestCatchupSyncDeltasError(t *testing.T) {
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml, dps)
 		defer func() {
-			sts.StopThreads()
+			sts.Stop()
 		}()
 		sts.StateDeltaRequestTimeout = 10 * time.Millisecond
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
@@ -249,9 +249,9 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml, dps)
 	defer func() {
-		sts.StopThreads()
+		sts.Stop()
 	}()
-	if err := sts.SynchronousStateTransfer(7, SimpleGetBlockHash(7), dps); nil != err {
+	if err := sts.BlockingAddTarget(7, SimpleGetBlockHash(7), dps); nil != err {
 		t.Fatalf("SimpleSynchronous state transfer failed : %s", err)
 	}
 }

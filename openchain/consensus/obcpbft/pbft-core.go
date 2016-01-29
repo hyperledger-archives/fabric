@@ -223,7 +223,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
-	instance.sts.AsynchronousStateTransferRegisterListener(instance.stateTransferListener)
+	instance.sts.RegisterListener(instance.stateTransferListener)
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
@@ -257,7 +257,7 @@ func (instance *pbftCore) close() {
 	instance.lock.Lock()
 	close(instance.closed)
 	instance.newViewTimer.Reset(0)
-	instance.sts.StopThreads()
+	instance.sts.Stop()
 	instance.lock.Unlock()
 }
 
@@ -664,7 +664,7 @@ func (instance *pbftCore) executeRoutine() {
 
 func (instance *pbftCore) executeOutstanding() {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.AsynchronousStateTransferInProgress() {
+	if instance.sts.InProgress() {
 		return
 	}
 
@@ -848,8 +848,8 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				}
 
 				// Make sure we don't try to start a second state transfer while one is going on
-				if !instance.sts.AsynchronousStateTransferInProgress() {
-					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				if !instance.sts.InProgress() {
+					instance.sts.Initiate(furthestReplicaIds)
 				}
 			}
 
@@ -880,7 +880,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
+	instance.sts.AddTarget(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
@@ -892,7 +892,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.AsynchronousStateTransferInProgress() {
+		if !instance.sts.InProgress() {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -909,7 +909,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
+	if instance.sts.InProgress() && matching >= instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
