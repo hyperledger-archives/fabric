@@ -105,6 +105,11 @@ func (op *obcSieve) Close() {
 	op.pbft.close()
 }
 
+// Drain will block until all remaining execution has been handled.
+func (op *obcSieve) Drain() {
+	op.pbft.drain()
+}
+
 // called by pbft-core to multicast a message to all replicas
 func (op *obcSieve) broadcast(msgPayload []byte) {
 	svMsg := &SieveMessage{&SieveMessage_PbftMessage{msgPayload}}
@@ -413,6 +418,8 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(raw []byte) {
+	// called with pbft lock held
+
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {

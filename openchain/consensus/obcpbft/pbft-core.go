@@ -60,9 +60,10 @@ type innerCPI interface {
 
 type pbftCore struct {
 	// internal data
-	lock     sync.Mutex
-	closed   bool
-	consumer innerCPI
+	lock         sync.Mutex
+	closed       chan bool
+	consumer     innerCPI
+	notifyCommit chan bool
 
 	// PBFT data
 	activeView   bool                   // view change happening
@@ -156,6 +157,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.id = id
 	instance.consumer = consumer
 	instance.ledger = ledger
+	instance.closed = make(chan bool)
+	instance.notifyCommit = make(chan bool, 1)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = instance.N / 3
@@ -239,29 +242,36 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
+	go instance.executeRoutine()
 
 	return instance
 }
 
-// tear down resources opened by newPbftCore
+// close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
 	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.closed = true
+	close(instance.closed)
 	instance.newViewTimer.Reset(0)
 	instance.sts.StopThreads()
+	instance.lock.Unlock()
+}
+
+// drain remaining requests
+func (instance *pbftCore) drain() {
+	instance.lock.Lock()
+	instance.executeOutstanding()
+	instance.lock.Unlock()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) timerHander() {
 	for {
 		select {
+		case <-instance.closed:
+			return
+
 		case <-instance.newViewTimer.C:
 			instance.lock.Lock()
-			if instance.closed {
-				instance.lock.Unlock()
-				return
-			}
 			logger.Info("Replica %d view change timeout expired", instance.id)
 			instance.sendViewChange()
 			instance.lock.Unlock()
@@ -610,7 +620,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 		// note that we can reach this point without
 		// broadcasting a commit ourselves
-		instance.executeOutstanding()
+		select { // non-blocking channel send
+		case instance.notifyCommit <- true:
+		default:
+		}
 	} else {
 		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
@@ -619,10 +632,24 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *pbftCore) executeOutstanding() error {
+func (instance *pbftCore) executeRoutine() {
+	for {
+		select {
+		case <-instance.notifyCommit:
+			instance.lock.Lock()
+			instance.executeOutstanding()
+			instance.lock.Unlock()
+
+		case <-instance.closed:
+			return
+		}
+	}
+}
+
+func (instance *pbftCore) executeOutstanding() {
 	// Do not attempt to execute requests while we know we are in a bad state
 	if instance.sts.AsynchronousStateTransferInProgress() {
-		return nil
+		return
 	}
 
 	for retry := true; retry; {
@@ -636,7 +663,7 @@ func (instance *pbftCore) executeOutstanding() error {
 		}
 	}
 
-	return nil
+	return
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
@@ -976,8 +1003,10 @@ func (instance *pbftCore) stopTimer() {
 	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping new view timer", instance.id)
 	instance.timerActive = false
-	if instance.closed {
+	select {
+	case <-instance.closed:
 		return
+	default:
 	}
 	// XXX draining here does not help completely, because the
 	// timer handler goroutine may already have consumed the

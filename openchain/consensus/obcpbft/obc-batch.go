@@ -131,6 +131,14 @@ func (op *obcBatch) Close() {
 	op.batchTimer.Reset(0)
 }
 
+// Drain will block until all remaining execution has been handled.
+func (op *obcBatch) Drain() {
+	op.pbft.lock.Lock()
+	op.sendBatch()
+	op.pbft.lock.Unlock()
+	op.pbft.drain()
+}
+
 // =============================================================================
 // innerCPI interface (functions called by pbft-core)
 // =============================================================================
