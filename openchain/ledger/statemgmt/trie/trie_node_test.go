@@ -88,8 +88,7 @@ func TestTrieNode_ComputeCryptoHash_NoValue_ManyChildren(t *testing.T) {
 	trieNode.setChildCryptoHash(5, child_5_CryptoHash)
 	trieNode.setChildCryptoHash(15, child_15_CryptoHash)
 	hash := trieNode.computeCryptoHash()
-
-	expectedHashContent := computeTestHash(child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
+	expectedHashContent := expectedCryptoHashForTest(nil, nil, child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHashContent)
 }
 
@@ -99,8 +98,7 @@ func TestTrieNode_ComputeCryptoHash_WithValue_NoChild(t *testing.T) {
 
 	trieNode := newTrieNode(trieKey, value, false)
 	hash := trieNode.computeCryptoHash()
-
-	expectedHash := computeTestHash(trieKey.getEncodedBytes(), value)
+	expectedHash := expectedCryptoHashForTest(trieKey, value)
 	testutil.AssertEquals(t, hash, expectedHash)
 }
 
@@ -112,8 +110,7 @@ func TestTrieNode_ComputeCryptoHash_WithValue_SingleChild(t *testing.T) {
 	trieNode := newTrieNode(trieKey, value, false)
 	trieNode.setChildCryptoHash(0, child_0_CryptoHash)
 	hash := trieNode.computeCryptoHash()
-
-	expectedHash := computeTestHash(trieKey.getEncodedBytes(), value, child_0_CryptoHash)
+	expectedHash := expectedCryptoHashForTest(trieKey, value, child_0_CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHash)
 }
 
@@ -130,7 +127,7 @@ func TestTrieNode_ComputeCryptoHash_WithValue_ManyChildren(t *testing.T) {
 	trieNode.setChildCryptoHash(15, child_15_CryptoHash)
 	hash := trieNode.computeCryptoHash()
 
-	expectedHash := computeTestHash(trieKey.getEncodedBytes(), value, child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
+	expectedHash := expectedCryptoHashForTest(trieKey, value, child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHash)
 }
 

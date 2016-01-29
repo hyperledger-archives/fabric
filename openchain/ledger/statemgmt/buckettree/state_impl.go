@@ -45,8 +45,8 @@ func NewStateImpl() *StateImpl {
 }
 
 // Initialize - method implementation for interface 'statemgmt.HashableState'
-func (stateImpl *StateImpl) Initialize() error {
-	logger.Info("Initializing bucket tree state implemetation with configurations %+v", conf)
+func (stateImpl *StateImpl) Initialize(configs map[string]interface{}) error {
+	initConfig(configs)
 	rootBucketNode, err := fetchBucketNodeFromDB(constructRootBucketKey())
 	if err != nil {
 		return err

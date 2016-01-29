@@ -300,7 +300,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 
 func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 	// simple test... not using custom hasher
-	conf = initConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
+	conf = newConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
 	testDBWrapper.CreateFreshDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl

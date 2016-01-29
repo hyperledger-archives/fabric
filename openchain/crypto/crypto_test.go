@@ -118,6 +118,38 @@ func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
 	}
 }
 
+func TestInitialization(t *testing.T) {
+	// Init fake client
+	client, err := InitClient("", nil)
+	if err == nil || client != nil {
+		t.Fatal("Init should fail")
+	}
+	err = CloseClient(client)
+	if err == nil {
+		t.Fatal("Close should fail")
+	}
+
+	// Init fake peer
+	peer, err := InitPeer("", nil)
+	if err == nil || peer != nil {
+		t.Fatal("Init should fail")
+	}
+	err = ClosePeer(peer)
+	if err == nil {
+		t.Fatal("Close should fail")
+	}
+
+	// Init fake validator
+	validator, err := InitValidator("", nil)
+	if err == nil || validator != nil {
+		t.Fatal("Init should fail")
+	}
+	err = CloseValidator(validator)
+	if err == nil {
+		t.Fatal("Close should fail")
+	}
+}
+
 func TestClientDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestClientDeployTransaction with [%d]", i)

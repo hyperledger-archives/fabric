@@ -293,7 +293,21 @@ ledger:
     # structures may offer different performance characteristics. Options are
     # 'buckettree' and 'trie'. If not set, the default data structure is the
     # 'buckettree'. This CANNOT be changed after the DB has been created.
-    dataStructure: buckettree
+    dataStructure:
+      # The name of the data structure is for storing the state
+      name: buckettree
+      # The data structure specific configurations
+      configs:
+        # configurations for 'bucketree'. These CANNOT be changed after the DB has been created.
+        # 'numBuckets' defines the number of bins that the state key-values are to be divided
+        numBuckets: 10009
+        # 'maxGroupingAtEachLevel' defines the number of bins that are grouped together to construct
+        # next level of the merkle-tree (this is applied repeatedly for constructing the entire tree).
+        maxGroupingAtEachLevel: 10
+
+        # configurations for 'trie'
+        # 'tire' has no additional configurations exposed as yet
+
 
 ###############################################################################
 #
