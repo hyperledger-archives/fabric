@@ -84,7 +84,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 	}
 
 	svMsg := &SieveMessage{}
-	err := proto.Unmarshal(ocMsg.Payload, svMsg)
+	err = proto.Unmarshal(ocMsg.Payload, svMsg)
 	if err != nil {
 		logger.Error("Could not unmarshal sieve message: %v", ocMsg)
 		return err

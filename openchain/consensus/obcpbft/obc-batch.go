@@ -97,7 +97,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 	}
 
 	pbftMsg := &Message{}
-	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
+	err = proto.Unmarshal(ocMsg.Payload, pbftMsg)
 	if err != nil {
 		return err
 	}
