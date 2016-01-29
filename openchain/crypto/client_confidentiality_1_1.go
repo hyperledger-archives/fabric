@@ -1,17 +1,11 @@
 package crypto
 
 import (
-	"errors"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
-
-	if len(tx.Nonce) == 0 {
-		return errors.New("Failed encrypting payload. Invalid nonce.")
-	}
-
+func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 	// Derive key
 	txKey := utils.HMAC(client.node.enrollChainKey, tx.Nonce)
 

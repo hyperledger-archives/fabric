@@ -23,63 +23,19 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/binary"
-	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
 func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc.Transaction, error) {
-	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
+	switch tx.ConfidentialityProtocolVersion {
+	case "1.1":
+		return validator.deepCloneAndDecryptTx1_1(tx)
+	case "1.2":
+		return validator.deepCloneAndDecryptTx1_2(tx)
 	}
-
-	// clone tx
-	clone, err := validator.deepCloneTransaction(tx)
-	if err != nil {
-		validator.peer.node.error("Failed deep cloning [%s].", err.Error())
-		return nil, err
-	}
-
-	// Derive root key
-	key := utils.HMAC(validator.peer.node.enrollChainKey, clone.Nonce)
-
-	//	validator.peer.node.info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
-	//	validator.peer.node.info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	validator.peer.node.info("Derived key  ", utils.EncodeBase64(key))
-	//	validator.peer.node.info("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
-	//	validator.peer.node.info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
-
-	// Decrypt Payload
-	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
-	payload, err := utils.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
-	if err != nil {
-		validator.peer.node.error("Failed decrypting payload [%s].", err.Error())
-		return nil, err
-	}
-	clone.Payload = payload
-
-	// Decrypt ChaincodeID
-	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
-	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
-	if err != nil {
-		validator.peer.node.error("Failed decrypting chaincode [%s].", err.Error())
-		return nil, err
-	}
-	clone.ChaincodeID = chaincodeID
-
-	// Decrypt metadata
-	if len(clone.Metadata) != 0 {
-		metadataKey := utils.HMACTruncated(key, []byte{3}, utils.AESKeyLength)
-		metadata, err := utils.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
-		if err != nil {
-			validator.peer.node.error("Failed decrypting metadata [%s].", err.Error())
-			return nil, err
-		}
-		clone.Metadata = metadata
-	}
-
-	return clone, nil
+	return nil, utils.ErrInvalidProtocolVersion
 }
 
 func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.Transaction, error) {

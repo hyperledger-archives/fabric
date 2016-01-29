@@ -42,7 +42,10 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
 			client.node.error("Failed encrypting payload [%s].", err.Error())
@@ -80,7 +83,10 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
 			client.node.error("Failed encrypting payload [%s].", err.Error())
@@ -118,7 +124,10 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
 			client.node.error("Failed encrypting payload [%s].", err.Error())

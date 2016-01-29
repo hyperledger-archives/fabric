@@ -72,6 +72,9 @@ var (
 
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidConfidentialityLevel = errors.New("Invalid confidentiality level")
+
+	// ErrInvalidConfidentialityLevel Invalid confidentiality level
+	ErrInvalidProtocolVersion = errors.New("Invalid protocol version")
 )
 
 func ErrToString(err error) string {
