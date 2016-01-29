@@ -90,13 +90,14 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 		if i.canProcess(txarr) {
 			i.txQ.Push(txarr)
-			if err:=i.doTransactions(msg); err == nil {
+			if err=i.doTransactions(msg); err == nil {
 				//transactions succeeed, broadcast
 				//spin the broadcast in go routine so
 				//(a)we make RecvMsg light and
 				//(b)we separate send from receive 
 				go i.notifyBlockAdded()
 			}
+			return err
 		}
 		i.queueTransactions(txarr)
 	}
