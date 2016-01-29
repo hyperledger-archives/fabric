@@ -385,7 +385,7 @@ func (p *PeerImpl) cloneHandlerMap() map[pb.PeerID]MessageHandler {
 func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	cloneMap := p.cloneHandlerMap()
 	var errorsFromHandlers []error
-	for _, msgHandler := cloneMap {
+	for _, msgHandler := range cloneMap {
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()
