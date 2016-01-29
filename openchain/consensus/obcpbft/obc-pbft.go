@@ -35,6 +35,10 @@ const configPrefix = "OPENCHAIN_OBCPBFT"
 var pluginInstance consensus.Consenter // singleton service
 var config *viper.Viper
 
+func init() {
+	config = loadConfig()
+}
+
 // GetPlugin returns the handle to the Consenter singleton
 func GetPlugin(c consensus.CPI) consensus.Consenter {
 	if pluginInstance == nil {
@@ -46,7 +50,6 @@ func GetPlugin(c consensus.CPI) consensus.Consenter {
 // New creates a new Obc* instance that provides the Consenter interface.
 // Internally, it uses an opaque pbft-core instance.
 func New(cpi consensus.CPI) consensus.Consenter {
-	config = loadConfig()
 	handle, _, _ := cpi.GetNetworkHandles()
 	id, _ := getValidatorID(handle)
 
