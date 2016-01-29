@@ -314,7 +314,7 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	}
 	for _, peerEndpoint := range peersMessage.Peers {
 		// Filter out THIS Peer's endpoint
-		if getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == getHandlerKeyFromPeerEndpoint(peerEndpoint) {
+		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// NOOP
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// Start chat with Peer
