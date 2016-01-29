@@ -28,11 +28,18 @@ import (
 	"time"
 
 	"crypto/rsa"
+	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"io/ioutil"
+)
+
+var (
+	// ECertSubjectRole is the ASN1 object identifier of the subject's role.
+	ECertSubjectRole = asn1.ObjectIdentifier{2, 1, 3, 4, 5, 6, 7}
 )
 
 func (node *nodeImpl) retrieveECACertsChain(userID string) error {
@@ -46,12 +53,17 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	node.log.Debug("ECA certificate [%s].", utils.EncodeBase64(ecaCertRaw))
 
 	// TODO: Test ECA cert againt root CA
-	_, err = utils.DERToX509Certificate(ecaCertRaw)
+	// TODO: check responce.Cert against rootCA
+	x509ECACert, err := utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
 		node.log.Error("Failed parsing ECA certificate [%s].", err.Error())
 
 		return err
 	}
+
+	// Prepare ecaCertPool
+	node.ecaCertPool = x509.NewCertPool()
+	node.ecaCertPool.AddCert(x509ECACert)
 
 	// Store ECA cert
 	node.log.Debug("Storing ECA certificate for [%s]...", userID)
@@ -60,6 +72,122 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 		node.log.Error("Failed storing eca certificate [%s].", err.Error())
 		return err
 	}
+
+	return nil
+}
+
+func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
+	key, enrollCertRaw, enrollChainKey, err := node.getEnrollmentCertificateFromECA(enrollID, enrollPWD)
+	if err != nil {
+		node.log.Error("Failed getting enrollment certificate [id=%s]: [%s]", enrollID, err)
+
+		return err
+	}
+	node.log.Debug("Enrollment certificate [%s].", utils.EncodeBase64(enrollCertRaw))
+
+	node.log.Debug("Storing enrollment data for user [%s]...", enrollID)
+
+	// Store enrollment id
+	err = ioutil.WriteFile(node.conf.getEnrollmentIDPath(), []byte(enrollID), 0700)
+	if err != nil {
+		node.log.Error("Failed storing enrollment certificate [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+
+	// Store enrollment key
+	if err := node.ks.storePrivateKey(node.conf.getEnrollmentKeyFilename(), key); err != nil {
+		node.log.Error("Failed storing enrollment key [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+
+	// Store enrollment cert
+	if err := node.ks.storeCert(node.conf.getEnrollmentCertFilename(), enrollCertRaw); err != nil {
+		node.log.Error("Failed storing enrollment certificate [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+
+	// Store enrollment chain key
+	if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
+		node.log.Error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+
+	return nil
+}
+
+func (node *nodeImpl) loadEnrollmentKey() error {
+	node.log.Debug("Loading enrollment key...")
+
+	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename())
+	if err != nil {
+		node.log.Error("Failed loading enrollment private key [%s].", err.Error())
+
+		return err
+	}
+
+	node.enrollPrivKey = enrollPrivKey.(*ecdsa.PrivateKey)
+
+	return nil
+}
+
+func (node *nodeImpl) loadEnrollmentCertificate() error {
+	node.log.Debug("Loading enrollment certificate...")
+
+	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentCertFilename())
+	if err != nil {
+		node.log.Error("Failed parsing enrollment certificate [%s].", err.Error())
+
+		return err
+	}
+	node.enrollCert = cert
+
+	// TODO: move this to retrieve
+	pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
+	err = utils.VerifySignCapability(node.enrollPrivKey, pk)
+	if err != nil {
+		node.log.Error("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
+
+		return err
+	}
+
+	// Set node ID
+	node.id = utils.Hash(der)
+	node.log.Debug("Setting id to [%s].", utils.EncodeBase64(node.id))
+
+	// Set eCertHash
+	node.enrollCertHash = utils.Hash(der)
+	node.log.Debug("Setting enrollCertHash to [%s].", utils.EncodeBase64(node.enrollCertHash))
+
+	return nil
+}
+
+func (node *nodeImpl) loadEnrollmentID() error {
+	node.log.Debug("Loading enrollment id at [%s]...", node.conf.getEnrollmentIDPath())
+
+	enrollID, err := ioutil.ReadFile(node.conf.getEnrollmentIDPath())
+	if err != nil {
+		node.log.Error("Failed loading enrollment id [%s].", err.Error())
+
+		return err
+	}
+
+	// Set enrollment ID
+	node.enrollID = string(enrollID)
+	node.log.Debug("Setting enrollment id to [%s].", node.enrollID)
+
+	return nil
+}
+
+func (node *nodeImpl) loadEnrollmentChainKey() error {
+	node.log.Debug("Loading enrollment chain key...")
+
+	enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
+	if err != nil {
+		node.log.Error("Failed loading enrollment chain key [%s].", err.Error())
+
+		return err
+	}
+	node.enrollChainKey = enrollChainKey
 
 	return nil
 }
@@ -74,7 +202,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 		return err
 	}
 
-	ok := node.rootsCertPool.AppendCertsFromPEM(pem)
+	ok := node.ecaCertPool.AppendCertsFromPEM(pem)
 	if !ok {
 		node.log.Error("Failed appending ECA certificates chain.")
 
@@ -85,15 +213,18 @@ func (node *nodeImpl) loadECACertsChain() error {
 }
 
 func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
-	socket, err := grpc.Dial(node.conf.getECAPAddr(), grpc.WithInsecure())
+	node.log.Debug("Getting ECA client...")
+
+	conn, err := node.getClientConn(node.conf.getECAPAddr(), node.conf.getECAServerName())
 	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, nil, err
+		node.log.Error("Failed getting client connection: [%s]", err)
 	}
-	ecaPClient := obcca.NewECAPClient(socket)
 
-	return socket, ecaPClient, nil
+	client := obcca.NewECAPClient(conn)
+
+	node.log.Debug("Getting ECA client...done")
+
+	return conn, client, nil
 }
 
 func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
@@ -221,23 +352,68 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
+	// Verify responce
+
+	// Verify cert for signing
 	node.log.Debug("Enrollment certificate for signing [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Sign)))
+
+	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
+	if err != nil {
+		node.log.Error("Failed parsing signing enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	_, err = utils.GetCriticalExtension(x509SignCert, ECertSubjectRole)
+	if err != nil {
+		node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	err = utils.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
+	if err != nil {
+		node.log.Error("Failed checking signing enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	// Verify cert for encrypting
 	node.log.Debug("Enrollment certificate for encrypting [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Enc)))
 
-	// Verify pbCert.Cert
+	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
+	if err != nil {
+		node.log.Error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	_, err = utils.GetCriticalExtension(x509EncCert, ECertSubjectRole)
+	if err != nil {
+		node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	err = utils.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
+	if err != nil {
+		node.log.Error("Failed checking signing enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	// END
 
 	return signPriv, resp.Certs.Sign, resp.Chain.Tok, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {
-	// Call eca.ReadCACertificate
-	pbCert, err := node.callECAReadCACertificate(context.Background())
+	responce, err := node.callECAReadCACertificate(context.Background())
 	if err != nil {
-		node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
+		node.log.Error("Failed requesting ECA certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// TODO Verify pbCert.Cert
-	return pbCert.Cert, nil
+	return responce.Cert, nil
 }
