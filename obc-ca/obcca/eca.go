@@ -22,12 +22,13 @@ package obcca
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"io/ioutil"
 	"math/big"
@@ -38,7 +39,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/spf13/viper"
-//	nacl "golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -54,7 +54,7 @@ var (
 //
 type ECA struct {
 	*CA
-	obcKey          []byte
+	obcPriv, obcPub	[]byte
 }
 
 // ECAP serves the public GRPC interface of the ECA.
@@ -72,30 +72,42 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	var cooked string
+	eca := &ECA{NewCA("eca"), nil, nil}
 
-	eca := &ECA{NewCA("eca"), nil}
-
-	// read or create global symmetric encryption key
-	raw, err := ioutil.ReadFile(eca.path+"/obc.key")
-	if err != nil {
-		rand := rand.Reader
-		key := make([]byte, 32) // AES-256
-		rand.Read(key)
-		cooked = base64.StdEncoding.EncodeToString(key)
-
-		err = ioutil.WriteFile(eca.path+"/obc.key", []byte(cooked), 0644)
+	// read or create global ECDSA key pair for ECIES
+	var priv *ecdsa.PrivateKey
+	cooked, err := ioutil.ReadFile(eca.path+"/obc.key")
+	if err == nil {		
+		block, _ := pem.Decode(cooked)
+		priv, err = x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
 			Panic.Panicln(err)
 		}
 	} else {
-		cooked = string(raw)
-	}
+		priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		if err != nil {
+			Panic.Panicln(err)
+		}
 
-	eca.obcKey, err = base64.StdEncoding.DecodeString(cooked)
-	if err != nil {
-		Panic.Panicln(err)
+		raw, _ := x509.MarshalECPrivateKey(priv)
+		cooked = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "ECDSA PRIVATE KEY",
+				Bytes: raw,
+			})
+		err := ioutil.WriteFile(eca.path+"/obc.key", cooked, 0644)
+		if err != nil {
+			Panic.Panicln(err)
+		}
 	}
+	
+	eca.obcPriv = cooked
+	raw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	eca.obcPub = pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "ECDSA PUBLIC KEY",
+			Bytes: raw,
+		})
 
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
@@ -143,10 +155,10 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	// validate token
 	var tok, prev []byte
-	var state int
+	var role, state int
 
 	id := in.Id.Id
-	err := ecap.eca.readToken(id).Scan(&tok, &state, &prev)
+	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev)
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
 	}
@@ -226,7 +238,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, nil}, nil
+		var obcKey []byte
+		if role & (int(pb.Role_VALIDATOR) | int(pb.Role_AUDITOR)) != 0 {
+			obcKey = ecap.eca.obcPriv
+		} else {
+			obcKey = ecap.eca.obcPub
+		}
+		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, obcKey, nil}, nil
 	}
 
 	return nil, errors.New("certificate creation token expired")

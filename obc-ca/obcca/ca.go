@@ -346,16 +346,16 @@ func (ca *CA) deleteUser(id string) (error) {
 	return err
 }
 
+func (ca *CA) readUser(id string) *sql.Row {
+	Trace.Println("Reading token for "+id+".")
+
+	return ca.db.QueryRow("SELECT role, token, state, key FROM Users WHERE id=?", id)
+}
+
 func (ca *CA) readUsers(role int) (*sql.Rows, error) {
 	Trace.Println("Reading users matching role "+strconv.FormatInt(int64(role), 2)+".")
 	
 	return ca.db.Query("SELECT id, role FROM Users WHERE role&?!=0", role)
-}
-
-func (ca *CA) readToken(id string) *sql.Row {
-	Trace.Println("Reading token for "+id+".")
-
-	return ca.db.QueryRow("SELECT token, state, key FROM Users WHERE id=?", id)
 }
 
 func (ca *CA) readRole(id string) int {

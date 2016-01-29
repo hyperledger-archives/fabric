@@ -346,7 +346,7 @@ func (m *ECertCreateReq) GetSig() *Signature {
 
 type ECertCreateResp struct {
 	Certs *CertPair `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
-	Chain *Token    `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
+	Chain []byte    `protobuf:"bytes,2,opt,name=chain,proto3" json:"chain,omitempty"`
 	Tok   *Token    `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
 }
 
@@ -357,13 +357,6 @@ func (*ECertCreateResp) ProtoMessage()    {}
 func (m *ECertCreateResp) GetCerts() *CertPair {
 	if m != nil {
 		return m.Certs
-	}
-	return nil
-}
-
-func (m *ECertCreateResp) GetChain() *Token {
-	if m != nil {
-		return m.Chain
 	}
 	return nil
 }
