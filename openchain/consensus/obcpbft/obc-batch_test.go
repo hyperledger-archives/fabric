@@ -62,20 +62,14 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
+	net.processWithoutDrain()
 
 	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 1 {
 		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
 	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2))
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
+	net.process()
 
 	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 0 {
 		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, len(net.replicas[0].consenter.(*obcBatch).batchStore))
@@ -84,7 +78,7 @@ func TestNetworkBatch(t *testing.T) {
 	for i, inst := range net.replicas {
 		block, err := inst.GetBlock(1)
 		if nil != err {
-			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", inst.id, err)
+			t.Fatalf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", inst.id, err)
 		}
 		if numTrans := len(block.Transactions); numTrans != net.replicas[i].consenter.(*obcBatch).batchSize {
 			t.Errorf("Replica %d executed %d requests, expected %d",
