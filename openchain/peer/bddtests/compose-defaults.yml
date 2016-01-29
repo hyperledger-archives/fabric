@@ -3,6 +3,4 @@ vp:
   environment:
     - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
     - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
-    - OPENCHAIN_PEER_MODE=dev
-    - OPENCHAIN_CHAINCODE_CHAINCODERUNMODE=net_mode
   command: obc-peer peer
