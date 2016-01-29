@@ -7,7 +7,7 @@ import (
 
 func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 	// Derive key
-	txKey := utils.HMAC(client.node.enrollChainKey, tx.Nonce)
+	txKey := utils.HMAC(client.enrollChainKey, tx.Nonce)
 
 	//	client.node.info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
 	//	client.node.info("Nonce  ", utils.EncodeBase64(tx.Nonce))

@@ -75,7 +75,11 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		if nonce == nil {
 			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 			if err != nil {
+<<<<<<< HEAD
 				client.node.error("Failed creating nonce [%s].", err.Error())
+=======
+				client.log.Error("Failed creating nonce [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 				return nil, err
 			}
 		} else {
@@ -89,7 +93,11 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
+<<<<<<< HEAD
 			client.node.error("Failed encrypting payload [%s].", err.Error())
+=======
+			client.log.Error("Failed encrypting payload [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 			return nil, err
 
 		}
@@ -271,15 +279,26 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
+<<<<<<< HEAD
 		client.node.error("Failed marshaling tx [%s].", err.Error())
+=======
+		client.log.Error("Failed marshaling tx [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
+<<<<<<< HEAD
 	client.node.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
 	if err != nil {
 		client.node.error("Failed creating signature [%s].", err.Error())
+=======
+	client.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	rawSignature, err := client.signWithEnrollmentKey(rawTx)
+	if err != nil {
+		client.log.Error("Failed creating signature [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 		return nil, err
 	}
 
@@ -400,7 +419,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 		tx.Signature = signature
 
 		// 2. Verify signature
-		ver, err := client.node.verify(cert.PublicKey, rawTx, tx.Signature)
+		ver, err := client.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
 			client.node.error("Failed marshaling tx [%s].", err.Error())
 			return err

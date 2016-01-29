@@ -27,21 +27,13 @@ import (
 )
 
 type clientImpl struct {
-	node *nodeImpl
+	*nodeImpl
 
 	isInitialized bool
 
 	// TCert related fields
 	tCertOwnerKDFKey []byte
 	tCertPool        tCertPool
-}
-
-func (client *clientImpl) GetType() Entity_Type {
-	return client.node.eType
-}
-
-func (client *clientImpl) GetName() string {
-	return client.node.GetName()
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
@@ -105,8 +97,8 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 		return nil, utils.ErrNotInitialized
 	}
 
-	queryKey := utils.HMACTruncated(client.node.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-	//	client.node.info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
+	queryKey := utils.HMACTruncated(client.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
+	//	client.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
 
 	if len(ct) <= utils.NonceSize {
 		return nil, utils.ErrDecrypt
@@ -169,7 +161,11 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
+<<<<<<< HEAD
 		client.node.error("Failed getting handler [%s].", err.Error())
+=======
+		client.log.Error("Failed getting handler [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 		return nil, err
 	}
 
@@ -195,14 +191,18 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
+<<<<<<< HEAD
 		client.node.error("Failed getting handler [%s].", err.Error())
+=======
+		client.log.Error("Failed getting handler [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 		return nil, err
 	}
 
 	return handler, nil
 }
 
-func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD string) error {
+func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
 		client.node.error("Registering [%s]...done! Initialization already performed", name)
 
@@ -210,37 +210,32 @@ func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD 
 	}
 
 	// Register node
-	node := new(nodeImpl)
-	if err := node.register(Entity_Client, name, pwd, enrollID, enrollPWD); err != nil {
+	if err := client.nodeImpl.register(Entity_Client, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
 		return err
 	}
-
-	client.node = node
 
 	return nil
 }
 
 func (client *clientImpl) init(id string, pwd []byte) error {
 	if client.isInitialized {
+<<<<<<< HEAD
 		client.node.info("Already initializaed.")
+=======
+		client.log.Info("Already initializaed.")
+>>>>>>> new inheritance structure for the client
 
 		return nil
 	}
 
 	// Register node
-	var node *nodeImpl
-	if client.node != nil {
-		node = client.node
-	} else {
-		node = new(nodeImpl)
-	}
-	if err := node.init(Entity_Client, id, pwd); err != nil {
+	if err := client.nodeImpl.init(Entity_Client, id, pwd); err != nil {
 		return err
 	}
-	client.node = node
 
 	// Initialize keystore
+<<<<<<< HEAD
 	client.node.debug("Init keystore...")
 	err := client.initKeyStore()
 	if err != nil {
@@ -248,27 +243,49 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 			client.node.error("Keystore already initialized.")
 		} else {
 			client.node.error("Failed initiliazing keystore [%s].", err.Error())
+=======
+	client.log.Info("Init keystore...")
+	err := client.initKeyStore()
+	if err != nil {
+		if err != utils.ErrKeyStoreAlreadyInitialized {
+			client.log.Error("Keystore already initialized.")
+		} else {
+			client.log.Error("Failed initiliazing keystore [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 
 			return err
 		}
 	}
+<<<<<<< HEAD
 	client.node.debug("Init keystore...done.")
+=======
+	client.log.Info("Init keystore...done.")
+>>>>>>> new inheritance structure for the client
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
 	if err != nil {
+<<<<<<< HEAD
 		client.node.error("Failed initiliazing crypto engine [%s].", err.Error())
+=======
+		client.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
+>>>>>>> new inheritance structure for the client
 		return err
 	}
 
 	// initialized
 	client.isInitialized = true
 
+<<<<<<< HEAD
 	client.node.debug("Initialization...done.")
+=======
+	client.log.Info("Initialization...done.")
+>>>>>>> new inheritance structure for the client
 
 	return nil
 }
 
+<<<<<<< HEAD
 func (client *clientImpl) close() (err error) {
 	if client.tCertPool != nil {
 		if err = client.tCertPool.Stop(); err != nil {
@@ -282,4 +299,8 @@ func (client *clientImpl) close() (err error) {
 		}
 	}
 	return
+=======
+func (client *clientImpl) close() error {
+	return client.nodeImpl.close()
+>>>>>>> new inheritance structure for the client
 }

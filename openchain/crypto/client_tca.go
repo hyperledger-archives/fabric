@@ -65,8 +65,8 @@ func (client *clientImpl) initTCertEngine() (err error) {
 }
 
 func (client *clientImpl) storeTCertOwnerKDFKey() error {
-	if err := client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey); err != nil {
-		client.node.error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
+	if err := client.ks.storeKey(client.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey); err != nil {
+		client.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 
 		return err
 	}
@@ -83,7 +83,7 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 		return nil
 	}
 
-	tCertOwnerKDFKey, err := client.node.ks.loadKey(client.node.conf.getTCertOwnerKDFKeyFilename())
+	tCertOwnerKDFKey, err := client.ks.loadKey(client.conf.getTCertOwnerKDFKeyFilename())
 	if err != nil {
 		client.node.error("Failed parsing TCertOwnerKDFKey [%s].", err.Error())
 
@@ -187,7 +187,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	// Compute temporary secret key
 	tempSK := &ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
-			Curve: client.node.enrollPrivKey.Curve,
+			Curve: client.enrollPrivKey.Curve,
 			X:     new(big.Int),
 			Y:     new(big.Int),
 		},
@@ -196,18 +196,18 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 
 	var k = new(big.Int).SetBytes(ExpansionValue)
 	var one = new(big.Int).SetInt64(1)
-	n := new(big.Int).Sub(client.node.enrollPrivKey.Params().N, one)
+	n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
 	k.Mod(k, n)
 	k.Add(k, one)
 
-	tempSK.D.Add(client.node.enrollPrivKey.D, k)
-	tempSK.D.Mod(tempSK.D, client.node.enrollPrivKey.PublicKey.Params().N)
+	tempSK.D.Add(client.enrollPrivKey.D, k)
+	tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
 
 	// Compute temporary public key
-	tempX, tempY := client.node.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
+	tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
 	tempSK.PublicKey.X, tempSK.PublicKey.Y =
 		tempSK.PublicKey.Add(
-			client.node.enrollPrivKey.PublicKey.X, client.node.enrollPrivKey.PublicKey.Y,
+			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
 			tempX, tempY,
 		)
 
@@ -353,7 +353,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		// Compute temporary secret key
 		tempSK := &ecdsa.PrivateKey{
 			PublicKey: ecdsa.PublicKey{
-				Curve: client.node.enrollPrivKey.Curve,
+				Curve: client.enrollPrivKey.Curve,
 				X:     new(big.Int),
 				Y:     new(big.Int),
 			},
@@ -362,18 +362,18 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 
 		var k = new(big.Int).SetBytes(ExpansionValue)
 		var one = new(big.Int).SetInt64(1)
-		n := new(big.Int).Sub(client.node.enrollPrivKey.Params().N, one)
+		n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
 		k.Mod(k, n)
 		k.Add(k, one)
 
-		tempSK.D.Add(client.node.enrollPrivKey.D, k)
-		tempSK.D.Mod(tempSK.D, client.node.enrollPrivKey.PublicKey.Params().N)
+		tempSK.D.Add(client.enrollPrivKey.D, k)
+		tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
 
 		// Compute temporary public key
-		tempX, tempY := client.node.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
+		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
 		tempSK.PublicKey.X, tempSK.PublicKey.Y =
 			tempSK.PublicKey.Add(
-				client.node.enrollPrivKey.PublicKey.X, client.node.enrollPrivKey.PublicKey.Y,
+				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
 				tempX, tempY,
 			)
 
@@ -439,7 +439,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 
 func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte, error) {
 	// Get a TCA Client
-	sock, tcaP, err := client.node.getTCAClient()
+	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
 
 	// Execute the protocol
@@ -447,7 +447,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 	req := &obcca.TCertCreateSetReq{
 		&timestamp,
-		&obcca.Identity{Id: client.node.enrollID},
+		&obcca.Identity{Id: client.enrollID},
 		uint32(num),
 		nil,
 	}

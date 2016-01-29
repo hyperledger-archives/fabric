@@ -54,7 +54,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 		return nil
 	}
 
-	client := new(clientImpl)
+	client := newClient()
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
@@ -88,7 +88,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 		return clients[name].client, nil
 	}
 
-	client := new(clientImpl)
+	client := newClient()
 	if err := client.init(name, pwd); err != nil {
 		log.Error("Failed client initialization [%s]: [%s].", name, err)
 
@@ -129,6 +129,10 @@ func CloseAllClients() (bool, []error) {
 }
 
 // Private Methods
+
+func newClient() *clientImpl {
+	return &clientImpl{&nodeImpl{}, false, nil}
+}
 
 func closeClientInternal(client Client, force bool) error {
 	if client == nil {
