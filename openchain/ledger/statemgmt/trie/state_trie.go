@@ -21,6 +21,7 @@ package trie
 
 import (
 	"fmt"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -41,7 +42,7 @@ func NewStateTrie() *StateTrie {
 	return &StateTrie{}
 }
 
-func (stateTrie *StateTrie) Initialize() error {
+func (stateTrie *StateTrie) Initialize(configs map[string]interface{}) error {
 	rootNode, err := fetchTrieNodeFromDB(rootTrieKey)
 	if err != nil {
 		panic(fmt.Errorf("Error in fetching root node from DB while initializing state trie: %s", err))

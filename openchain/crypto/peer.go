@@ -51,7 +51,7 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	peer := new(peerImpl)
 	if err := peer.register("peer", name, pwd, enrollID, enrollPWD); err != nil {
-		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
 		}
@@ -124,6 +124,10 @@ func CloseAllPeers() (bool, []error) {
 // Private Methods
 
 func closePeerInternal(peer Peer) error {
+	if peer == nil {
+		return utils.ErrNilArgument
+	}
+
 	id := peer.GetName()
 	log.Info("Closing peer [%s]...", id)
 	if _, ok := peers[id]; !ok {
