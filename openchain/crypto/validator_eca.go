@@ -24,6 +24,7 @@ import (
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
+	"strconv"
 )
 
 func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
@@ -61,15 +62,43 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 	validator.peer.node.log.Debug("Reading certificate for hash [%s]", utils.EncodeBase64(id))
 
 	req := &obcca.Hash{Hash: id}
-	resp, err := validator.peer.node.callECAReadCertificateByHash(context.Background(), req)
+	responce, err := validator.peer.node.callECAReadCertificateByHash(context.Background(), req)
 	if err != nil {
 		validator.peer.node.log.Error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, nil, err
 	}
 
-	validator.peer.node.log.Debug("Certificate for hash [%s] = [%s][%s]", utils.EncodeBase64(id), utils.EncodeBase64(resp.Sign), utils.EncodeBase64(resp.Enc))
+	validator.peer.node.log.Debug("Certificate for hash [%s] = [%s][%s]", utils.EncodeBase64(id), utils.EncodeBase64(responce.Sign), utils.EncodeBase64(responce.Enc))
 
-	// TODO Verify pbCert.Cert
-	return resp.Sign, resp.Enc, nil
+	// Verify responce.Sign
+	x509Cert, err := utils.DERToX509Certificate(responce.Sign)
+	if err != nil {
+		validator.peer.node.log.Error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
+
+		return nil, nil, err
+	}
+
+	// Check role
+	roleRaw, err := utils.GetCriticalExtension(x509Cert, ECertSubjectRole)
+	if err != nil {
+		validator.peer.node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, err
+	}
+
+	role, err := strconv.ParseInt(string(roleRaw), 10, len(roleRaw)*8)
+	if err != nil {
+		validator.peer.node.log.Error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, err
+	}
+
+	if obcca.Role(role) != obcca.Role_VALIDATOR {
+		validator.peer.node.log.Error("Invalid ECertSubjectRole in enrollment certificate for signing. Not a validator: [%s]", err)
+
+		return nil, nil, err
+	}
+
+	return responce.Sign, responce.Enc, nil
 }

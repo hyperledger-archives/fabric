@@ -20,12 +20,13 @@ under the License.
 package buckettree
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"testing"
+
+	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 )
 
 func TestBucketNodeComputeHash(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketNode := newBucketNode(newBucketKey(2, 7))
 	testutil.AssertEquals(t, bucketNode.computeCryptoHash(), nil)
 
@@ -43,7 +44,7 @@ func TestBucketNodeComputeHash(t *testing.T) {
 }
 
 func TestBucketNodeMerge(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketNode := newBucketNode(newBucketKey(2, 7))
 	bucketNode.childrenCryptoHash[0] = []byte("cryptoHashChild1")
 	bucketNode.childrenCryptoHash[2] = []byte("cryptoHashChild3")
@@ -59,7 +60,7 @@ func TestBucketNodeMerge(t *testing.T) {
 }
 
 func TestBucketNodeMarshalUnmarshal(t *testing.T) {
-	conf = initConfig(26, 3, fnvHash)
+	conf = newConfig(26, 3, fnvHash)
 	bucketNode := newBucketNode(newBucketKey(2, 7))
 	childKey1 := newBucketKey(3, 19)
 	bucketNode.setChildCryptoHash(childKey1, []byte("cryptoHashChild1"))

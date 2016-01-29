@@ -28,8 +28,6 @@ import (
 	"errors"
 )
 
-// TODO: does EncryptPEMBlock support authentication?
-
 // PrivateKeyToDER marshals a private key to der
 func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalECPrivateKey(privateKey)

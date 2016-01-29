@@ -37,7 +37,7 @@ func (instance *pbftCore) sign(s signable) error {
 	}
 	signedRaw, err := instance.consumer.sign(raw)
 	if err != nil {
-		return err // TODO What should happen if we have an error in sign()?
+		return err
 	}
 	s.setSignature(signedRaw)
 

@@ -53,9 +53,12 @@ type State struct {
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
-	stateImplName := viper.GetString("ledger.state.dataStructure")
+	stateImplName := viper.GetString("ledger.state.dataStructure.name")
+	stateImplConfigs := viper.GetStringMap("ledger.state.dataStructure.configs")
+
 	if len(stateImplName) == 0 {
 		stateImplName = detaultStateImpl
+		stateImplConfigs = nil
 	}
 
 	switch stateImplName {
@@ -67,7 +70,7 @@ func NewState() *State {
 		panic(fmt.Errorf("Error during initialization of state implementation. State data structure '%s' is not valid.", stateImplName))
 	}
 
-	err := stateImpl.Initialize()
+	err := stateImpl.Initialize(stateImplConfigs)
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))
 	}

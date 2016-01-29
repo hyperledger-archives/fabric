@@ -68,7 +68,8 @@ func (node *nodeImpl) loadTCACertsChain() error {
 		return err
 	}
 
-	ok := node.rootsCertPool.AppendCertsFromPEM(cert)
+	// Prepare ecaCertPool
+	ok := node.tcaCertPool.AppendCertsFromPEM(cert)
 	if !ok {
 		node.log.Error("Failed appending TCA certificates chain.")
 
@@ -79,15 +80,18 @@ func (node *nodeImpl) loadTCACertsChain() error {
 }
 
 func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
-	socket, err := grpc.Dial(node.conf.getTCAPAddr(), grpc.WithInsecure())
+	node.log.Debug("Getting TCA client...")
+
+	conn, err := node.getClientConn(node.conf.getTCAPAddr(), node.conf.getTCAServerName())
 	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, nil, err
+		node.log.Error("Failed getting client connection: [%s]", err)
 	}
-	tcaPClient := obcca.NewTCAPClient(socket)
 
-	return socket, tcaPClient, nil
+	client := obcca.NewTCAPClient(conn)
+
+	node.log.Debug("Getting TCA client...done")
+
+	return conn, client, nil
 }
 
 func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
@@ -107,14 +111,14 @@ func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc
 }
 
 func (node *nodeImpl) getTCACertificate() ([]byte, error) {
-	pbCert, err := node.callTCAReadCACertificate(context.Background())
+	response, err := node.callTCAReadCACertificate(context.Background())
 	if err != nil {
-		node.log.Error("Failed requesting tca certificate [%s].", err.Error())
+		node.log.Error("Failed requesting TCA certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// TODO Verify pbCert.Cert
+	// TODO: check response.Cert against rootCA
 
-	return pbCert.Cert, nil
+	return response.Cert, nil
 }

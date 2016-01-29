@@ -104,8 +104,6 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 			return nil, err
 		}
 
-		// TODO: Validate confidentiality level. Must be the same on tx and newTx.Spec
-
 		return newTx, nil
 	default:
 		return nil, utils.ErrInvalidConfidentialityLevel
