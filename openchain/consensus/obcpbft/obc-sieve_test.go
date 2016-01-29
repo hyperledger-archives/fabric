@@ -36,16 +36,17 @@ func makeTestnetSieve(inst *instance) {
 	sieve := inst.consenter.(*obcSieve)
 	sieve.pbft.replicaCount = len(inst.net.replicas)
 	sieve.pbft.f = inst.net.f
-	inst.deliver = func(msg []byte) {
-		sieve.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg})
+	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
+		sieve.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}, senderHandle)
 	}
 }
 
 func TestSieveNetwork(t *testing.T) {
-	net := makeTestnet(4, makeTestnetSieve)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetSieve)
 	defer net.close()
 
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -71,7 +72,8 @@ func TestSieveNetwork(t *testing.T) {
 }
 
 func TestSieveNoDecision(t *testing.T) {
-	net := makeTestnet(4, func(i *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(i *instance) {
 		makeTestnetSieve(i)
 		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
 		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
@@ -89,11 +91,12 @@ func TestSieveNoDecision(t *testing.T) {
 		return raw
 	}
 
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	broadcaster := net.handles[generateBroadcaster(validatorCount)]
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), broadcaster)
 
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
-	net.replicas[3].consenter.RecvMsg(createExternalRequest(1))
+	net.replicas[3].consenter.RecvMsg(createExternalRequest(1), broadcaster)
 	time.Sleep(3 * time.Second)
 	net.close()
 
@@ -113,7 +116,8 @@ func TestSieveNoDecision(t *testing.T) {
 }
 
 func TestSieveReqBackToBack(t *testing.T) {
-	net := makeTestnet(4, makeTestnetSieve)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetSieve)
 	defer net.close()
 
 	var delayPkt []taggedMsg
@@ -137,8 +141,8 @@ func TestSieveReqBackToBack(t *testing.T) {
 		return payload
 	}
 
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(2), net.handles[generateBroadcaster(validatorCount)])
 
 	net.process()
 
@@ -159,8 +163,8 @@ func TestSieveReqBackToBack(t *testing.T) {
 
 func TestSieveNonDeterministic(t *testing.T) {
 	var instResults []int
-
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetSieve(inst)
 		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
@@ -171,11 +175,11 @@ func TestSieveNonDeterministic(t *testing.T) {
 	defer net.close()
 
 	instResults = []int{1, 2, 3, 4}
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
 	instResults = []int{5, 5, 6, 6}
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
+	net.replicas[1].consenter.RecvMsg(createExternalRequest(2), net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
 	results := make([]uint64, len(net.replicas))
@@ -189,7 +193,8 @@ func TestSieveNonDeterministic(t *testing.T) {
 }
 
 func TestSieveRequestHash(t *testing.T) {
-	net := makeTestnet(1, makeTestnetSieve)
+	validatorCount := 1
+	net := makeTestnet(validatorCount, makeTestnetSieve)
 	defer net.close()
 
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Payload: make([]byte, 1000)}
@@ -200,7 +205,7 @@ func TestSieveRequestHash(t *testing.T) {
 	}
 
 	r0 := net.replicas[0]
-	r0.consenter.RecvMsg(msg)
+	r0.consenter.RecvMsg(msg, r0.handle)
 
 	txID := r0.ledger.(*MockLedger).txID.(string)
 	if len(txID) == 0 || len(txID) > 1000 {

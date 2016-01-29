@@ -22,9 +22,13 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
+	gp "google/protobuf"
+	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/util"
@@ -62,10 +66,6 @@ func (mock *mockCPI) unicast(msg []byte, receiverID uint64) (err error) {
 	panic("not implemented")
 }
 
-// =============================================================================
-// Fake network structures
-// =============================================================================
-
 type closableConsenter interface {
 	consensus.Consenter
 	Close()
@@ -96,7 +96,7 @@ type instance struct {
 	net       *testnet
 	ledger    consensus.LedgerStack
 
-	deliver      func([]byte)
+	deliver      func([]byte, *pb.PeerID)
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
 }
 
@@ -291,7 +291,8 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 	}
 }
 
-func (net *testnet) deliverFilter(msg taggedMsg) {
+func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
+	senderHandle := net.handles[senderID]
 	if msg.dst == -1 {
 		for id, inst := range net.replicas {
 			payload := msg.msg
@@ -299,11 +300,11 @@ func (net *testnet) deliverFilter(msg taggedMsg) {
 				payload = net.filterFn(msg.src, id, payload)
 			}
 			if payload != nil {
-				inst.deliver(msg.msg)
+				inst.deliver(msg.msg, senderHandle)
 			}
 		}
 	} else {
-		net.replicas[msg.dst].deliver(msg.msg)
+		net.replicas[msg.dst].deliver(msg.msg, senderHandle)
 	}
 }
 
@@ -313,10 +314,9 @@ func (net *testnet) process() error {
 
 	for len(net.msgs) > 0 {
 		msg := net.msgs[0]
-		fmt.Printf("Debug: process iteration (%d messages to go, delivering now to destination %v)\n", len(net.msgs), msg.dst)
 		net.msgs = net.msgs[1:]
 		net.cond.L.Unlock()
-		net.deliverFilter(msg)
+		net.deliverFilter(msg, msg.src)
 		net.cond.L.Lock()
 	}
 
@@ -385,4 +385,23 @@ func (net *testnet) close() {
 	net.closed = true
 	net.cond.Signal()
 	net.cond.L.Unlock()
+}
+
+// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
+	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+	msg = &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
+	}
+	return
+}
+
+func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rndm := rand.New(seed)
+	requestBroadcaster = rndm.Intn(validatorCount)
+	return
 }

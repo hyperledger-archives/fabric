@@ -44,7 +44,10 @@ func makeTestnetPbftCore(inst *instance) {
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
 	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
-	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
+	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
+		senderID, _ := getValidatorID(senderHandle)
+		inst.pbft.receive(msg, senderID)
+	}
 }
 
 func TestEnvOverride(t *testing.T) {
@@ -84,7 +87,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	instance.replicaCount = 5
 
 	digest1 := "hi there"
-	request2 := &Request{Payload: []byte("other")}
+	request2 := &Request{Payload: []byte("other"), ReplicaId: uint64(generateBroadcaster(instance.replicaCount))}
 
 	nestedMsg := &Message{&Message_PrePrepare{&PrePrepare{
 		View:           0,
@@ -93,7 +96,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 		Request:        request2,
 		ReplicaId:      0,
 	}}}
-	err := instance.recvMsgSync(nestedMsg)
+	err := instance.recvMsgSync(nestedMsg, 0)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
@@ -109,31 +112,34 @@ func TestIncompletePayload(t *testing.T) {
 	defer instance.close()
 	instance.replicaCount = 5
 
+	broadcaster := uint64(generateBroadcaster(instance.replicaCount))
+
 	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
-		_ = instance.recvMsgSync(msg)
+		_ = instance.recvMsgSync(msg, broadcaster)
 		if len(mock.broadcasted) != 0 {
 			t.Errorf(errMsg, args...)
 		}
 	}
 
 	checkMsg(&Message{}, "Expected to reject empty message")
-	checkMsg(&Message{&Message_Request{&Request{}}}, "Expected to reject empty request")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{}}}, "Expected to reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1}}}, "Expected to reject incomplete pre-prepare")
+	checkMsg(&Message{&Message_Request{&Request{ReplicaId: broadcaster}}}, "Expected to reject empty request")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{ReplicaId: broadcaster}}}, "Expected to reject empty pre-prepare")
+	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1, ReplicaId: broadcaster}}}, "Expected to reject incomplete pre-prepare")
 }
 
 func TestNetwork(t *testing.T) {
-	net := makeTestnet(7, makeTestnetPbftCore)
+	validatorCount := 7
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
-	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+	// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = net.replicas[0].pbft.request(txPacked)
+	err = net.replicas[0].pbft.request(txPacked, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -164,7 +170,8 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 	})
@@ -177,8 +184,8 @@ func TestCheckpoint(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
-		err = net.replicas[0].pbft.recvMsgSync(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
+		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -211,7 +218,8 @@ func TestCheckpoint(t *testing.T) {
 }
 
 func TestLostPrePrepare(t *testing.T) {
-	net := makeTestnet(4, makeTestnetPbftCore)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -221,6 +229,7 @@ func TestLostPrePrepare(t *testing.T) {
 	req := &Request{
 		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
 		Payload:   txPacked,
+		ReplicaId: uint64(generateBroadcaster(validatorCount)),
 	}
 
 	_ = net.replicas[0].pbft.recvRequest(req)
@@ -236,7 +245,7 @@ func TestLostPrePrepare(t *testing.T) {
 		if err != nil {
 			t.Fatal("Could not unmarshal message")
 		}
-		inst.pbft.recvMsgSync(msgReq)
+		inst.pbft.recvMsgSync(msgReq, uint64(msg.src))
 	}
 
 	err := net.process()
@@ -258,7 +267,8 @@ func TestLostPrePrepare(t *testing.T) {
 }
 
 func TestInconsistentPrePrepare(t *testing.T) {
-	net := makeTestnet(4, makeTestnetPbftCore)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -269,6 +279,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		req := &Request{
 			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
 			Payload:   txPacked,
+			ReplicaId: uint64(generateBroadcaster(validatorCount)),
 		}
 		preprep := &PrePrepare{
 			View:           0,
@@ -305,7 +316,8 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = inst.pbft.K * 2
@@ -319,8 +331,8 @@ func TestViewChange(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
-		err = net.replicas[0].pbft.recvMsgSync(msg)
+		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
+		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -361,7 +373,8 @@ func TestViewChange(t *testing.T) {
 }
 
 func TestInconsistentDataViewChange(t *testing.T) {
-	net := makeTestnet(4, makeTestnetPbftCore)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -372,6 +385,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		req := &Request{
 			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
 			Payload:   txPacked,
+			ReplicaId: uint64(generateBroadcaster(validatorCount)),
 		}
 		preprep := &PrePrepare{
 			View:           0,
@@ -425,7 +439,8 @@ func TestInconsistentDataViewChange(t *testing.T) {
 }
 
 func TestViewChangeWithStateTransfer(t *testing.T) {
-	net := makeTestnet(4, makeTestnetPbftCore)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
 	var err error
@@ -441,10 +456,13 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
+	broadcaster := uint64(generateBroadcaster(validatorCount))
+
 	makePP := func(iter int64) *PrePrepare {
 		req := &Request{
 			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
 			Payload:   txPacked,
+			ReplicaId: broadcaster,
 		}
 		preprep := &PrePrepare{
 			View:           0,
@@ -532,7 +550,8 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.newViewTimeout = 100 * time.Millisecond
 		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
@@ -548,17 +567,19 @@ func TestNewViewTimeout(t *testing.T) {
 		return msg
 	}
 
+	broadcaster := uint64(generateBroadcaster(validatorCount))
+
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
-	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+	msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: broadcaster}}}
 	msgPacked, _ := proto.Marshal(msg)
 
 	go net.processContinually()
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.replicas[1].pbft.receive(msgPacked)
+	net.replicas[1].pbft.receive(msgPacked, broadcaster)
 	time.Sleep(1 * time.Second)
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
@@ -569,7 +590,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// the replicas that never saw the request (e.g. 0)
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
-	net.replicas[3].pbft.receive(msgPacked)
+	net.replicas[3].pbft.receive(msgPacked, broadcaster)
 	time.Sleep(1 * time.Second)
 
 	net.close()
@@ -581,7 +602,8 @@ func TestNewViewTimeout(t *testing.T) {
 }
 
 func TestFallBehind(t *testing.T) {
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = 2 * inst.pbft.K
@@ -589,7 +611,7 @@ func TestFallBehind(t *testing.T) {
 	defer net.close()
 
 	execReq := func(iter int64, skipThree bool) {
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -597,9 +619,9 @@ func TestFallBehind(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 
-		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 
-		err = net.replicas[0].pbft.recvMsgSync(msg)
+		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}

@@ -20,10 +20,8 @@ under the License.
 package obcpbft
 
 import (
-	gp "google/protobuf"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -34,30 +32,20 @@ func makeTestnetBatch(inst *instance, batchSize int) {
 	batch.batchSize = batchSize
 	batch.pbft.replicaCount = len(inst.net.replicas)
 	batch.pbft.f = inst.net.f
-	inst.deliver = func(msg []byte) {
-		batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg})
+	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
+		batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}, senderHandle)
 	}
-}
-
-// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
-func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
-	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
-	txPacked, _ := proto.Marshal(tx)
-	msg = &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	return
 }
 
 func TestNetworkBatch(t *testing.T) {
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetBatch(inst, 2)
 	})
 	defer net.close()
 
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	broadcaster := net.handles[generateBroadcaster(validatorCount)]
+	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -71,7 +59,7 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2))
+	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2), broadcaster)
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
