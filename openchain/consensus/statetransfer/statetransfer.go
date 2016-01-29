@@ -48,10 +48,36 @@ func init() {
 // public methods and structure definitions
 // =============================================================================
 
-type StateTransferListener interface {
+type Listener interface {
 	Initiated()                                                   // Called when the state transfer thread starts a new state transfer
 	Errored(uint64, []byte, []*protos.PeerID, interface{}, error) // Called when an error is encountered during state transfer, only the error is guaranteed to be set, other fields will be set on a best effort basis
 	Completed(uint64, []byte, []*protos.PeerID, interface{})      // Called when the state transfer is completed
+}
+
+// This provides a simple base implementation of a state transfer listener which implementors can extend anonymously
+// Unset fields result in no action for that event
+type ProtoListener struct {
+	InitiatedImpl func()
+	ErroredImpl   func(uint64, []byte, []*protos.PeerID, interface{}, error)
+	CompletedImpl func(uint64, []byte, []*protos.PeerID, interface{})
+}
+
+func (pstl *ProtoListener) Initiated() {
+	if nil != pstl.InitiatedImpl {
+		pstl.InitiatedImpl()
+	}
+}
+
+func (pstl *ProtoListener) Errored(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}, e error) {
+	if nil != pstl.ErroredImpl {
+		pstl.ErroredImpl(bn, bh, pids, m, e)
+	}
+}
+
+func (pstl *ProtoListener) Completed(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}) {
+	if nil != pstl.CompletedImpl {
+		pstl.CompletedImpl(bn, bh, pids, m)
+	}
 }
 
 type StateTransferState struct {
@@ -80,8 +106,8 @@ type StateTransferState struct {
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
 	StateSnapshotRequestTimeout time.Duration // How long to wait for a peer to respond to a state snapshot request
 
-	stateTransferListeners     []StateTransferListener // A list of listeners to call when state transfer is initiated/errored/completed
-	stateTransferListenersLock *sync.Mutex             // Used to lock the above list when adding a listener
+	stateTransferListeners     []Listener  // A list of listeners to call when state transfer is initiated/errored/completed
+	stateTransferListenersLock *sync.Mutex // Used to lock the above list when adding a listener
 }
 
 // Adds a target and blocks until that target's success or failure
@@ -89,28 +115,25 @@ type StateTransferState struct {
 // The function returns nil on success or error
 // If state sync completes, but to a different target, this is still considered an error
 func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) error {
+	result := make(chan error)
 
-	// TODO, this implementation is incorrect according to the new name/description
-	blockHeight, err := sts.ledger.GetBlockchainSize()
-	if nil != err {
-		return err
+	listener := struct{ ProtoListener }{}
+
+	listener.ErroredImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
+		result <- err
 	}
 
-	currentStateBlockNumber := blockHeight - 1
-	blockHReply := &blockHashReply{
-		syncMark: syncMark{
-			blockNumber: blockNumber,
-			peerIDs:     peerIDs,
-		},
-		blockHash: blockHash,
+	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
+		result <- nil
 	}
-	mark := &syncMark{
-		blockNumber: blockNumber,
-		peerIDs:     peerIDs,
-	}
-	blocksValid := false
 
-	return sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid)
+	sts.RegisterListener(&listener)
+	defer sts.UnregisterListener(&listener)
+
+	sts.Initiate(peerIDs)
+	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
+
+	return <-result
 }
 
 // Starts the state sync process, without blocking
@@ -151,7 +174,7 @@ func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, p
 }
 
 // The registered interface implementation will be invoked whenever state transfer is initiated or completed, or encounters an error
-func (sts *StateTransferState) RegisterListener(listener StateTransferListener) {
+func (sts *StateTransferState) RegisterListener(listener Listener) {
 	sts.stateTransferListenersLock.Lock()
 	defer func() {
 		sts.stateTransferListenersLock.Unlock()
@@ -161,7 +184,8 @@ func (sts *StateTransferState) RegisterListener(listener StateTransferListener) 
 }
 
 // No longer receive state transfer updates sent to the given function.
-func (sts *StateTransferState) UnregisterListener(listener StateTransferListener) {
+// Listeners must be comparable in order to be unregistered
+func (sts *StateTransferState) UnregisterListener(listener Listener) {
 	sts.stateTransferListenersLock.Lock()
 	defer func() {
 		sts.stateTransferListenersLock.Unlock()
@@ -178,27 +202,19 @@ func (sts *StateTransferState) UnregisterListener(listener StateTransferListener
 	}
 }
 
-// This provides a simple implementation for listeners who only wish to know when transfer completes
-type completionChannelHelper struct {
-	channel chan struct{}
-}
-
-func (cc *completionChannelHelper) Initiated() {}
-func (cc *completionChannelHelper) Errored(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
-}
-func (cc *completionChannelHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
-	select {
-	case cc.channel <- struct{}{}:
-	default:
-	}
-}
-
 // This is a simple convenience method, for listeners who wish only to be notified that the state transfer has completed, without any additional information
-// For more sophisticated information, use the RegisterListener call
+// For more sophisticated information, use the RegisterListener call.  This channel never closes but receives a message every time transfer completes
 func (sts *StateTransferState) CompletionChannel() chan struct{} {
-	helper := &completionChannelHelper{channel: make(chan struct{}, 1)}
-	sts.RegisterListener(helper)
-	return helper.channel
+	complete := make(chan struct{}, 1)
+	listener := struct{ ProtoListener }{}
+	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
+		select {
+		case complete <- struct{}{}:
+		default:
+		}
+	}
+	sts.RegisterListener(&listener)
+	return complete
 }
 
 // Whether state transfer is currently occuring.  Note, this is not a thread safe call, it is expected

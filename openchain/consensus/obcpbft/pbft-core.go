@@ -85,10 +85,9 @@ type pbftCore struct {
 	pset         map[uint64]*ViewChange_PQ
 	qset         map[qidx]*ViewChange_PQ
 
-	ledger  consensus.LedgerStack               // Used for blockchain related queries
-	hChkpts map[uint64]uint64                   // highest checkpoint sequence number observed for each replica
-	sts     *statetransfer.StateTransferState   // Data structure which handles state transfer
-	stl     statetransfer.StateTransferListener // Helper struct which implements the state transfer listener interface
+	ledger  consensus.LedgerStack             // Used for blockchain related queries
+	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
+	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -149,17 +148,6 @@ func (a sortableUint64Slice) Swap(i, j int) {
 }
 func (a sortableUint64Slice) Less(i, j int) bool {
 	return a[i] < a[j]
-}
-
-type stateTransferListener struct {
-	pbft *pbftCore
-}
-
-func (stl *stateTransferListener) Initiated() {}
-func (stl *stateTransferListener) Errored(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
-}
-func (stl *stateTransferListener) Completed(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
-	stl.pbft.stateTransferCompleted(bn, bh, pids, md)
 }
 
 // =============================================================================
@@ -235,8 +223,9 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
-	instance.stl = &stateTransferListener{instance}
-	instance.sts.RegisterListener(instance.stl)
+	listener := struct{ statetransfer.ProtoListener }{}
+	listener.CompletedImpl = instance.stateTransferCompleted
+	instance.sts.RegisterListener(&listener)
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
