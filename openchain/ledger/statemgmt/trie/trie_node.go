@@ -97,7 +97,9 @@ func (trieNode *trieNode) computeCryptoHash() []byte {
 	var cryptoHashContent []byte
 	if trieNode.containsValue() {
 		stateTrieLogger.Debug("Adding value to hash computation for trieNode [%s]", trieNode)
-		cryptoHashContent = append(cryptoHashContent, trieNode.trieKey.getEncodedBytes()...)
+		key := trieNode.trieKey.getEncodedBytes()
+		cryptoHashContent = append(cryptoHashContent, proto.EncodeVarint(uint64(len(key)))...)
+		cryptoHashContent = append(cryptoHashContent, key...)
 		cryptoHashContent = append(cryptoHashContent, trieNode.value...)
 	}
 

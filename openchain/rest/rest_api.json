@@ -69,65 +69,26 @@
                 }
             }
         },
-        "/state/{chaincodeID}/{key}": {
+        "/transactions/{UUID}": {
             "get": {
-                "summary": "State information for unique chaincodeID and key",
-                "description": "The {chaincodeID}/{key} endpoint returns state information matching a specific chaincodeID and key. If there is no match on either the chaincodeID or the key, a \"null\" value is returned for the state.",
+                "summary": "Individual Transaction Contents",
+                "description": "The /transactions/{UUID} endpoint returns the transaction matching the specified UUID.",
                 "tags": [
-                    "State"
+                    "Transaction"
                 ],
-                "operationId": "getChaincodeState",
+                "operationId": "getTransaction",
                 "parameters": [{
-                    "name": "chaincodeID",
+                    "name": "UUID",
                     "in": "path",
-                    "description": "Unique Chaincode identifier",
-                    "type": "string",
-                    "required": true
-                }, {
-                    "name": "key",
-                    "in": "path",
-                    "description": "Key to match within the Chaincode",
+                    "description": "Transaction to retrieve from the blockchain.",
                     "type": "string",
                     "required": true
                 }],
                 "responses": {
                     "200": {
-                        "description": "Retrieved state value",
+                        "description": "Individual Transaction contents",
                         "schema": {
-                           "$ref": "#/definitions/State"
-                        }
-                    },
-                    "default": {
-                        "description": "Unexpected error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/devops/build": {
-            "post": {
-                "summary": "Service endpoint for building Chaincode",
-                "description": "The /devops/build endpoint receives Chaincode build requests for existing Chaincodes. The Chaincode and the required entities are packaged into a container upon receipt of the request. If the build is successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
-                "tags": [
-                    "Devops"
-                ],
-                "operationId": "chaincodeBuild",
-                "parameters": [{
-                    "name": "ChaincodeSpec",
-                    "in": "body",
-                    "description": "Chaincode specification message",
-                    "required": true,
-                    "schema": {
-                       "$ref": "#/definitions/ChaincodeSpec"
-                    }
-                }],
-                "responses": {
-                    "200": {
-                        "description": "Successfully built chainCode",
-                        "schema": {
-                           "$ref": "#/definitions/OK"
+                           "$ref": "#/definitions/Transaction"
                         }
                     },
                     "default": {
@@ -142,7 +103,7 @@
         "/devops/deploy": {
            "post": {
               "summary": "Service endpoint for deploying Chaincode",
-              "description": "The /devops/deploy endpoint receives Chaincode deployment requests for existing Chaincodes. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, an encoded codePackage is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, a confirmation message is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -174,8 +135,8 @@
         },
         "/devops/invoke": {
            "post": {
-              "summary": "Service endpoint for invoking Chaincode",
-              "description": "The /devops/invoke endpoint receives requests to invoke functions for existing Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for invoking Chaincode functions",
+              "description": "The /devops/invoke endpoint receives requests for invoking functions in deployed Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -207,8 +168,8 @@
         },
         "/devops/query": {
            "post": {
-              "summary": "Service endpoint for querying Chaincode",
-              "description": "The /devops/query endpoint receives requests to query existing Chaincodes. The request triggers the query method on the target Chaincode, both specified in the required payload. If the Chaincode query is successful, the response defined within the Chaincode is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "Service endpoint for querying Chaincode state",
+              "description": "The /devops/query endpoint receives requests to query Chaincode state. The request triggers a query method on the target Chaincode, both identified in the required payload. If the query method is successful, the response defined within the method is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
               "tags": [
                   "Devops"
               ],
@@ -237,6 +198,130 @@
                   }
               }
            }
+        },
+        "/registrar": {
+           "post": {
+              "summary": "Register a user with the certificate authority",
+              "description": "The /registrar endpoint receives requests to register a user with the certificate authority. The request must supply the registration id and password within the payload. If the registration is successful, the required transaction certificates are received and stored locally. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "tags": [
+                  "Registrar"
+              ],
+              "operationId": "registerUser",
+              "parameters": [{
+                 "name": "Secret",
+                 "in": "body",
+                 "description": "User enrollment credentials",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/Secret"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Successfully registered user with the certificate authority",
+                      "schema": {
+                         "$ref": "#/definitions/OK"
+                      }
+                  },
+                  "default": {
+                      "description": "Unexpected error",
+                      "schema": {
+                          "$ref": "#/definitions/Error"
+                      }
+                  }
+              }
+           }
+        },
+        "/registrar/{enrollmentID}": {
+            "get": {
+                "summary": "Confirm the user has registered with the certificate authority",
+                "description": "The /registrar/{enrollmentID} endpoint confirms whether the specified user has registered with the certificate authority. If the user has registered, a confirmation message will be returned. Otherwise, an authorization failure will result.",
+                "tags": [
+                    "Registrar"
+                ],
+                "operationId": "getUserRegistration",
+                "parameters": [{
+                    "name": "enrollmentID",
+                    "in": "path",
+                    "description": "Username for which registration is to be confirmed",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm registration for target user",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+              "summary": "Delete user login tokens from local storage",
+              "description": "The /registrar/{enrollmentID} endpoint deletes any existing client login tokens from local storage. After the completion of this request, the target user will no longer be able to execute transactions.",
+              "tags": [
+                  "Registrar"
+              ],
+                "operationId": "deleteUserRegistration",
+                "parameters": [{
+                    "name": "enrollmentID",
+                    "in": "path",
+                    "description": "Username for which login tokens are to be deleted",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm deletion of user login tokens",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/registrar/{enrollmentID}/ecert": {
+            "get": {
+                "summary": "Retrieve user enrollment certificate",
+                "description": "The /registrar/{enrollmentID}/ecert endpoint retrieves the enrollment certificate for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing the URL-encoded enrollment certificate. Otherwise, an error will result.",
+                "tags": [
+                    "Registrar"
+                ],
+                "operationId": "getUserEnrollmentCertificate",
+                "parameters": [{
+                    "name": "enrollmentID",
+                    "in": "path",
+                    "description": "EnrollmentID for which the certificate is requested",
+                    "type": "string",
+                    "required": true
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm registration for target user and return the URL-encoded enrollment certificate",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -267,9 +352,9 @@
                     "type": "string",
                     "description": "Creator/originator of the block."
                 },
-                "Timestamp": {
-                    "type": "string",
-                    "description": "Time of block creation."
+                "timestamp": {
+                  "$ref": "#/definitions/Timestamp",
+                  "description": "Time of block creation."
                 },
                 "transactions": {
                     "type": "array",
@@ -286,6 +371,16 @@
                     "type": "string",
                     "format": "bytes",
                     "description": "Hash of the previous block in the blockchain."
+                },
+                "consensusMetadata": {
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Metadata required for consensus."
+                },
+                "nonHashData": {
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Data stored in the block, but excluded from the computation of block hash."
                 }
             }
         },
@@ -301,24 +396,15 @@
                         "CHAINCODE_NEW",
                         "CHAINCODE_UPDATE",
                         "CHAINCODE_EXECUTE",
+                        "CHAINCODE_QUERY",
                         "CHAINCODE_TERMINATE"
                     ],
                     "description": "Transaction type."
                 },
                 "chaincodeID": {
-                    "$ref": "#/definitions/ChaincodeID",
-                    "description": "Unique Chaincode identifier."
-                },
-                "function": {
-                    "type": "string",
-                    "description": "Function to execute within a Chaincode."
-                },
-                "args": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "Arguments supplied to the Chaincode function."
+                  "type": "string",
+                  "format": "bytes",
+                  "description": "Chaincode identifier as bytes."
                 },
                 "payload": {
                     "type": "string",
@@ -328,28 +414,42 @@
                 "uuid": {
                    "type": "string",
                    "description": "Unique transaction identifier."
+                },
+                "timestamp": {
+                  "$ref": "#/definitions/Timestamp",
+                  "description": "Time at which the chanincode becomes executable."
+                },
+                "confidentialityLevel": {
+                    "$ref": "#/definitions/ConfidentialityLevel",
+                    "description": "Confidentiality level of the Chaincode."
+                },
+                "nonce": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Nonce value generated for this transaction."
+                },
+                "cert": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Certificate of client sending the transaction."
+                },
+                "signature": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "Signature of client sending the transaction."
                 }
             }
         },
         "ChaincodeID": {
             "type": "object",
             "properties": {
-                "url": {
+                "path": {
                     "type": "string",
-                    "description": "URL for accessing the Chaincode."
+                    "description": "Chaincode location in the file system. This value is required by the deploy transaction."
                 },
-                "version": {
+                "name": {
                     "type": "string",
-                    "description": "Current version of a Chaincode."
-                }
-            }
-        },
-        "State": {
-            "type": "object",
-            "properties": {
-                "State": {
-                    "type": "string",
-                    "description": "State value matching the chaincodeId and key parameters."
+                    "description": "Chaincode name identifier. This value is required by the invoke and query transactions."
                 }
             }
         },
@@ -372,26 +472,16 @@
                     "description": "Unique Chaincode identifier."
                 },
                 "ctorMsg": {
-                    "$ref": "#/definitions/ChaincodeMessage",
+                    "$ref": "#/definitions/ChaincodeInput",
                     "description": "Specific function to execute within the Chaincode."
-                }
-            }
-        },
-        "ChaincodeDeploymentSpec": {
-            "type": "object",
-            "properties": {
-                "chaincodeSpec": {
-                    "$ref": "#/definitions/ChaincodeSpec",
-                    "description": "Chaincode specification message."
                 },
-                "effectiveDate": {
+                "secureContext": {
                     "type": "string",
-                    "description": "Time of Chaincode creation/activation."
+                    "description": "Username when security is enabled."
                 },
-                "codePackage": {
-                    "type": "string",
-                    "format": "bytes",
-                    "description": "Compiled Chaincode package."
+                "confidentialityLevel": {
+                    "$ref": "#/definitions/ConfidentialityLevel",
+                    "description": "Confidentiality level of the Chaincode."
                 }
             }
         },
@@ -404,12 +494,22 @@
                 }
             }
         },
-        "ChaincodeMessage": {
+        "ConfidentialityLevel":{
+            "type": "string",
+            "default": "PUBLIC",
+            "example": "PUBLIC",
+            "enum":[
+                "PUBLIC",
+                "CONFIDENTIAL"
+              ],
+            "description": "Confidentiality level of the Chaincode."
+        },
+        "ChaincodeInput": {
             "type": "object",
             "properties": {
                 "function": {
                     "type": "string",
-                    "description": "Function to execute within a Chaincode."
+                    "description": "Function to execute within the Chaincode."
                 },
                 "args": {
                     "type": "array",
@@ -417,6 +517,34 @@
                         "type": "string"
                     },
                     "description": "Arguments supplied to the Chaincode function."
+                }
+            }
+        },
+        "Secret": {
+            "type": "object",
+            "properties": {
+                "enrollId": {
+                    "type": "string",
+                    "description": "User enrollment id registered with the certificate authority."
+                },
+                "enrollSecret": {
+                    "type": "string",
+                    "description": "User enrollment password registered with the certificate authority."
+                }
+            }
+        },
+        "Timestamp": {
+            "type": "object",
+            "properties": {
+                "seconds": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must be from from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive."
+                },
+                "nanos": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Non-negative fractions of a second at nanosecond resolution. Negative second values with fractions must still have non-negative nanos values that count forward in time. Must be from 0 to 999,999,999 inclusive."
                 }
             }
         },
@@ -435,6 +563,10 @@
                 "OK": {
                     "type": "string",
                     "description": "A descriptive message confirming a successful request."
+                },
+                "message": {
+                    "type": "string",
+                    "description": "An optional parameter containing additional information about the request."
                 }
             }
         }

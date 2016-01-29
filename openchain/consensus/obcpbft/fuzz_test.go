@@ -41,9 +41,11 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	primary := newPbftCore(0, readConfig(), newMock())
+	mock := newMock()
+	primary := newPbftCore(0, loadConfig(), mock, mock)
 	defer primary.close()
-	backup := newPbftCore(1, readConfig(), newMock())
+	mock = newMock()
+	backup := newPbftCore(1, loadConfig(), mock, mock)
 	defer backup.close()
 
 	f := fuzz.New()
@@ -100,9 +102,10 @@ func TestMinimalFuzz(t *testing.T) {
 		t.Skip("Skipping fuzz test")
 	}
 
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
+	net.filterFn = fuzzer.fuzzPacket
 
 	noExec := 0
 	for reqid := 1; reqid < 30; reqid++ {
@@ -126,16 +129,19 @@ func TestMinimalFuzz(t *testing.T) {
 			t.Fatalf("Request failed: %s", err)
 		}
 
-		err = net.process(fuzzer.fuzzPacket)
+		err = net.process()
 		if err != nil {
 			t.Fatalf("Processing failed: %s", err)
 		}
 
 		quorum := 0
 		for _, r := range net.replicas {
-			if len(r.executed) > 0 {
+			blockHeight, _ := r.pbft.ledger.GetBlockchainSize()
+			if blockHeight > 1 {
 				quorum++
-				r.executed = nil
+				// We don't have a delete API yet, so, just create a new one
+				r.pbft.ledger = NewMockLedger(nil, nil)
+				r.pbft.ledger.PutBlock(0, SimpleGetBlock(0))
 			}
 		}
 		if quorum < len(net.replicas)/3 {
@@ -146,7 +152,7 @@ func TestMinimalFuzz(t *testing.T) {
 			for _, r := range net.replicas {
 				r.pbft.sendViewChange()
 			}
-			err = net.process(fuzzer.fuzzPacket)
+			err = net.process()
 			if err != nil {
 				t.Fatalf("Processing failed: %s", err)
 			}
@@ -159,8 +165,8 @@ type protoFuzzer struct {
 	r        *rand.Rand
 }
 
-func (f *protoFuzzer) fuzzPacket(outgoing bool, node int, msgOuter []byte) []byte {
-	if !outgoing || node != f.fuzzNode {
+func (f *protoFuzzer) fuzzPacket(src int, dst int, msgOuter []byte) []byte {
+	if dst != -1 || src != f.fuzzNode {
 		return msgOuter
 	}
 

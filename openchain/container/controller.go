@@ -23,13 +23,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"sync"
 
-	"github.com/blang/semver"
 	"github.com/fsouza/go-dockerclient"
-	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
@@ -37,7 +34,7 @@ import (
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
 	build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error
+	start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
 	stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
 
@@ -48,13 +45,19 @@ type dockerVM struct {
 
 //create a docker client given endpoint to communicate with docker host
 func (vm *dockerVM) newClient() (*docker.Client, error) {
-	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
-	endpoint := viper.GetString("vm.endpoint")
-	client, err := docker.NewClient(endpoint)
+	return newDockerClient()
+}
+
+func (vm *dockerVM) createContainer(ctxt context.Context, client *docker.Client, id string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
+	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
+	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
+	vmLogger.Debug("Create container: %s", containerID)
+	_, err := client.CreateContainer(copts)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return client, nil
+	vmLogger.Debug("Created container: %s", id)
+	return nil
 }
 
 //for docker inputbuf is tar reader ready for use by docker.Client
@@ -79,29 +82,34 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
-	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
 	containerID := strings.Replace(id, ":", "_", -1)
-	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
-	vmLogger.Debug("Create container: %s", containerID)
-	_, err = client.CreateContainer(copts)
-	if err != nil {
-		return err
-	}
-	vmLogger.Debug("Created container: %s", id)
-	return nil
+	return vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
 }
 
-func (vm *dockerVM) start(ctxt context.Context, id string, args []string, detach bool, instream io.Reader, outstream io.Writer) error {
+func (vm *dockerVM) start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	client, err := vm.newClient()
 	if err != nil {
 		vmLogger.Debug("start - cannot create client %s", err)
 		return err
 	}
-	id = strings.Replace(id, ":", "_", -1)
-	err = client.StartContainer(id, &docker.HostConfig{NetworkMode: "host"})
+	containerID := strings.Replace(id, ":", "_", -1)
+	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
-		vmLogger.Debug("start-could not start container %s", err)
-		return err
+		errMsg := "start"
+		if nscErr, ok := err.(*docker.NoSuchContainer); ok && nscErr != nil {
+			errMsg = "restart"
+			vmLogger.Debug("start-container does not exist, attempting to create %s", err)
+			err = vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
+			if err != nil {
+				vmLogger.Debug("start-could not recreate container %s", err)
+				return err
+			}
+			err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
+		}
+		if err != nil {
+			vmLogger.Debug("start-could not %s container %s", errMsg, err)
+			return err
+		}
 	}
 	vmLogger.Debug("Started container %s", id)
 	return nil
@@ -266,16 +274,16 @@ func (bp CreateImageReq) getID() string {
 
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
-	ID        string
-	Args      []string
-	Detach    bool
-	Instream  io.Reader
-	Outstream io.Writer
+	ID           string
+	Args         []string
+	Env          []string
+	AttachStdin  bool
+	AttachStdout bool
 }
 
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.start(ctxt, si.ID, si.Args, si.Detach, si.Instream, si.Outstream); err != nil {
+	if err := v.start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -348,24 +356,11 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	}
 }
 
-// GetVMName gets the container name given the chaincode name and version
-func GetVMName(chaincodeID *pb.ChaincodeID) (string, error) {
-	// Make sure version is specfied correctly
-	version, err := semver.Make(chaincodeID.Version)
-	if err != nil {
-		return "", fmt.Errorf("Error building VM name: %s", err)
-	}
-
-	var urlLocation string
-	if strings.HasPrefix(chaincodeID.Url, "http://") {
-		urlLocation = chaincodeID.Url[7:]
-	} else if strings.HasPrefix(chaincodeID.Url, "https://") {
-		urlLocation = chaincodeID.Url[8:]
-	} else {
-		urlLocation = chaincodeID.Url
-	}
-	vmName := fmt.Sprintf("%s-%s-%s:%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), strings.Replace(urlLocation, string(os.PathSeparator), ".", -1), version)
-	return vmName, nil
+//GetVMFromName generates the docker image from peer information given the hashcode. This is needed to
+//keep image name's unique in a single host, multi-peer environment (such as a development environment)
+func GetVMFromName(name string) string {
+	vmName := fmt.Sprintf("%s-%s-%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), name)
+	return vmName
 }
 
 /*******************

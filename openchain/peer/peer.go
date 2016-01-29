@@ -39,6 +39,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -54,7 +55,19 @@ type Peer interface {
 
 // BlocksRetriever interface for retrieving blocks .
 type BlocksRetriever interface {
-	GetBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+	RequestBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
+}
+
+// StateRetriever interface for retrieving state deltas, etc.
+type StateRetriever interface {
+	RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error)
+	RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncStateDeltas, error)
+}
+
+// RemoteLedger interface for retrieving remote ledger data.
+type RemoteLedger interface {
+	BlocksRetriever
+	StateRetriever
 }
 
 // BlockChainAccessor interface for retreiving blocks by block number
@@ -65,11 +78,12 @@ type BlockChainAccessor interface {
 // StateAccessor interface for retreiving blocks by block number
 type StateAccessor interface {
 	GetStateSnapshot() (*state.StateSnapshot, error)
+	GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error)
 }
 
 // MessageHandler standard interface for handling Openchain messages.
 type MessageHandler interface {
-	BlocksRetriever
+	RemoteLedger
 	HandleMessage(msg *pb.OpenchainMessage) error
 	SendMessage(msg *pb.OpenchainMessage) error
 	To() (pb.PeerEndpoint, error)
@@ -85,7 +99,9 @@ type MessageHandlerCoordinator interface {
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.OpenchainMessage) []error
+	Unicast(*pb.OpenchainMessage, *pb.PeerID) error
 	GetPeers() (*pb.PeersMessage, error)
+	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
 }
@@ -115,7 +131,7 @@ func GetLocalIP() string {
 		return ""
 	}
 	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
+		// check the address type and if it is not a loopback then display it
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
@@ -125,20 +141,30 @@ func GetLocalIP() string {
 	return ""
 }
 
-// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
-func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	var peerAddress string
-	var peerType pb.PeerEndpoint_Type
+// GetLocalAddress returns the address:port the local peer is operating on.  Affected by env:peer.addressAutoDetect
+func GetLocalAddress() (peerAddress string, err error) {
 	if viper.GetBool("peer.addressAutoDetect") {
 		// Need to get the port from the peer.address setting, and append to the determined host IP
 		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
 		if err != nil {
-			return nil, fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			err = fmt.Errorf("Error auto detecting Peer's address: %s", err)
+			return "", err
 		}
 		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		peerLogger.Warning("AutoDetected Peer address: %s", peerAddress)
+		peerLogger.Info("Auto detected peer address: %s", peerAddress)
 	} else {
 		peerAddress = viper.GetString("peer.address")
+	}
+	return
+}
+
+// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
+func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
+	var peerAddress string
+	var peerType pb.PeerEndpoint_Type
+	peerAddress, err := GetLocalAddress()
+	if err != nil {
+		return nil, err
 	}
 	if viper.GetBool("peer.validator.enabled") {
 		peerType = pb.PeerEndpoint_VALIDATOR
@@ -146,7 +172,6 @@ func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 		peerType = pb.PeerEndpoint_NON_VALIDATOR
 	}
 	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
-
 }
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -168,10 +193,12 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 			creds = credentials.NewClientTLSFromCert(nil, sn)
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		// No security, disable in grpc
+		opts = append(opts, grpc.WithInsecure())
 	}
 	opts = append(opts, grpc.WithTimeout(defaultTimeout))
 	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithInsecure())
 	conn, err := grpc.Dial(peerAddress, opts...)
 	if err != nil {
 		return nil, err
@@ -186,25 +213,27 @@ type ledgerWrapper struct {
 
 type handlerMap struct {
 	sync.RWMutex
-	m map[string]MessageHandler
+	m map[pb.PeerID]MessageHandler
 }
+
+type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
 // PeerImpl implementation of the Peer service
 type PeerImpl struct {
-	handlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
+	handlerFactory HandlerFactory
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)) (*PeerImpl, error) {
+func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
 	peer.handlerFactory = handlerFact
-	peer.handlerMap = &handlerMap{m: make(map[string]MessageHandler)}
+	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
 	// Install security object for peer
 	if viper.GetBool("security.enabled") {
@@ -256,7 +285,7 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	for _, msgHandler := range p.handlerMap.m {
 		peerEndpoint, err := msgHandler.To()
 		if err != nil {
-			return nil, fmt.Errorf("Error Getting Peers: %s", err)
+			return nil, fmt.Errorf("Error getting peers: %s", err)
 		}
 		peers = append(peers, &peerEndpoint)
 	}
@@ -264,7 +293,18 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	return peersMessage, nil
 }
 
-// PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints.  May include this Peer's PeerEndpoint.
+// GetRemoteLedger returns the RemoteLedger interface for the remote Peer Endpoint
+func (p *PeerImpl) GetRemoteLedger(receiverHandle *pb.PeerID) (RemoteLedger, error) {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	remoteLedger, ok := p.handlerMap.m[*receiverHandle]
+	if !ok {
+		return nil, fmt.Errorf("Remote ledger not found for receiver %s", receiverHandle.Name)
+	}
+	return remoteLedger, nil
+}
+
+// PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints. May include this Peer's PeerEndpoint.
 func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
@@ -276,7 +316,7 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 		// Filter out THIS Peer's endpoint
 		if getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// NOOP
-		} else if _, ok := p.handlerMap.m[getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
+		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// Start chat with Peer
 			go p.chatWithPeer(peerEndpoint.Address)
 		}
@@ -284,16 +324,16 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	return nil
 }
 
-func getHandlerKey(peerMessageHandler MessageHandler) (string, error) {
+func getHandlerKey(peerMessageHandler MessageHandler) (*pb.PeerID, error) {
 	peerEndpoint, err := peerMessageHandler.To()
 	if err != nil {
-		return "", fmt.Errorf("Error getting messageHandler key: %s", err)
+		return &pb.PeerID{}, fmt.Errorf("Error getting messageHandler key: %s", err)
 	}
-	return peerEndpoint.ID.Name, nil
+	return peerEndpoint.ID, nil
 }
 
-func getHandlerKeyFromPeerEndpoint(peerEndpoint *pb.PeerEndpoint) string {
-	return peerEndpoint.ID.Name
+func getHandlerKeyFromPeerEndpoint(peerEndpoint *pb.PeerEndpoint) *pb.PeerID {
+	return peerEndpoint.ID
 }
 
 // RegisterHandler register a MessageHandler with this coordinator
@@ -304,11 +344,11 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 	}
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
-	if _, ok := p.handlerMap.m[key]; ok == true {
+	if _, ok := p.handlerMap.m[*key]; ok == true {
 		// Duplicate, return error
 		return newDuplicateHandlerError(messageHandler)
 	}
-	p.handlerMap.m[key] = messageHandler
+	p.handlerMap.m[*key] = messageHandler
 	peerLogger.Debug("registered handler with key: %s", key)
 	return nil
 }
@@ -321,16 +361,16 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 	}
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
-	if _, ok := p.handlerMap.m[key]; !ok {
+	if _, ok := p.handlerMap.m[*key]; !ok {
 		// Handler NOT found
 		return fmt.Errorf("Error deregistering handler, could not find handler with key: %s", key)
 	}
-	delete(p.handlerMap.m, key)
+	delete(p.handlerMap.m, *key)
 	peerLogger.Debug("Deregistered handler with key: %s", key)
 	return nil
 }
 
-// Broadcast broadcast a message to each of the currently registered PeerEndpoints.
+// Broadcast broadcast a message to each of the currently registered PeerEndpoints
 func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
@@ -345,12 +385,26 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 	return errorsFromHandlers
 }
 
+// Unicast sends a message to a specific peer.
+func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	msgHandler := p.handlerMap.m[*receiverHandle]
+	err := msgHandler.SendMessage(msg)
+	if err != nil {
+		toPeerEndpoint, _ := msgHandler.To()
+		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+	}
+	return nil
+}
+
 // SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
 func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -416,12 +470,13 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	return response
 }
 
-// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
+// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator
 func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
@@ -483,23 +538,27 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
 	}
-	peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
-	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
-	if err != nil {
-		e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
-		peerLogger.Error(e.Error())
-		return e
+	for {
+		time.Sleep(1 * time.Second)
+		peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
+		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
+		if err != nil {
+			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error(e.Error())
+			continue
+		}
+		serverClient := pb.NewPeerClient(conn)
+		ctx := context.Background()
+		stream, err := serverClient.Chat(ctx)
+		if err != nil {
+			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
+			peerLogger.Error(fmt.Sprintf("%s", e.Error()))
+			continue
+		}
+		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
+		p.handleChat(ctx, stream, true)
+		stream.CloseSend()
 	}
-	serverClient := pb.NewPeerClient(conn)
-	ctx := context.Background()
-	stream, err := serverClient.Chat(ctx)
-	if err != nil {
-		return fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-	}
-	defer stream.CloseSend()
-	peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
-	p.handleChat(ctx, stream, true)
-	return nil
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
@@ -530,9 +589,9 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 	}
 }
 
-//The address to stream requests to
+// The address to stream requests to
 func getValidatorStreamAddress() string {
-	var localaddr = viper.GetString("peer.address")
+	localaddr, _ := GetLocalAddress()
 	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
 		return localaddr
 	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
@@ -568,6 +627,10 @@ func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	size := p.ledgerWrapper.ledger.GetBlockchainSize()
+	// Set the PkiID on the PeerEndpoint if security is enabled
+	if viper.GetBool("security.enabled") {
+		endpoint.PkiID = p.GetSecHelper().GetID()
+	}
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
 }
 
@@ -578,10 +641,18 @@ func (p *PeerImpl) GetBlockByNumber(blockNumber uint64) (*pb.Block, error) {
 	return p.ledgerWrapper.ledger.GetBlockByNumber(blockNumber)
 }
 
+// GetStateSnapshot return the state snapshot
 func (p *PeerImpl) GetStateSnapshot() (*state.StateSnapshot, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	return p.ledgerWrapper.ledger.GetStateSnapshot()
+}
+
+// GetStateDelta return the state delta for the requested block number
+func (p *PeerImpl) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetStateDelta(blockNumber)
 }
 
 // NewOpenchainDiscoveryHello constructs a new HelloMessage for sending
@@ -594,10 +665,26 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.OpenchainMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error marshalling HelloMessage: %s", err)
 	}
-	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}, nil
+	// Need to sign the Discovery Hello message
+	newDiscoveryHelloMsg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}
+	p.signOpenchainMessageMutating(newDiscoveryHelloMsg)
+	return newDiscoveryHelloMsg, nil
 }
 
 // GetSecHelper returns the crypto.Peer
 func (p *PeerImpl) GetSecHelper() crypto.Peer {
 	return p.secHelper
+}
+
+// signOpenchainMessage modifies the passed in OpenchainMessage by setting the Signature based upon the Payload.
+func (p *PeerImpl) signOpenchainMessageMutating(msg *pb.OpenchainMessage) (*pb.OpenchainMessage, error) {
+	if viper.GetBool("security.enabled") {
+		sig, err := p.secHelper.Sign(msg.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("Error signing Openchain Message: %s", err)
+		}
+		// Set the signature in the message
+		msg.Signature = sig
+	}
+	return msg, nil
 }

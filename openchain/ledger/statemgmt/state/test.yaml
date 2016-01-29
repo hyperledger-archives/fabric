@@ -15,3 +15,8 @@ ledger:
     # disk space, but allow the state to be rolled backwards and forwards
     # without the need to replay transactions.
     deltaHistorySize: 500
+    dataStructure:
+      name: buckettree
+      configs:
+      numBuckets: 10009
+      maxGroupingAtEachLevel: 10

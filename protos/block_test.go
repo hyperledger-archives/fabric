@@ -31,11 +31,10 @@ import (
 func Test_Block_CreateNew(t *testing.T) {
 
 	chaincodePath := "contract_001"
-	chaincodeVersion := "0.0.1"
 	/*
 		input := &pb.ChaincodeInput{Function: "invoke", Args: {"arg1","arg2"}}
 		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-			ChaincodeID: &pb.ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, CtorMsg: input}
+			ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: input}
 
 		// Build the ChaincodeInvocationSpec message
 		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
@@ -43,13 +42,17 @@ func Test_Block_CreateNew(t *testing.T) {
 		data, err := proto.Marshal(chaincodeInvocationSpec)
 	*/
 	var data []byte
-	transaction := &Transaction{Type: 2, ChaincodeID: &ChaincodeID{Url: chaincodePath, Version: chaincodeVersion}, Payload: data, Uuid: "001"}
+	cidBytes, err := proto.Marshal(&ChaincodeID{Path: chaincodePath})
+	if err != nil {
+		t.Fatalf("Could not marshal chaincode: %s", err)
+	}
+	transaction := &Transaction{Type: 2, ChaincodeID: cidBytes, Payload: data, Uuid: "001"}
 	t.Logf("Transaction: %v", transaction)
 
-	block := NewBlock("proposer1", []*Transaction{transaction})
+	block := NewBlock([]*Transaction{transaction}, nil)
 	t.Logf("Block: %v", block)
 
-	data, err := proto.Marshal(block)
+	data, err = proto.Marshal(block)
 	if err != nil {
 		t.Errorf("Error marshalling block: %s", err)
 	}
@@ -63,8 +66,8 @@ func Test_Block_CreateNew(t *testing.T) {
 }
 
 func TestBlockNonHashData(t *testing.T) {
-	block1 := NewBlock("proposer1", nil)
-	block2 := NewBlock("proposer1", nil)
+	block1 := NewBlock(nil, nil)
+	block2 := NewBlock(nil, nil)
 	time1 := util.CreateUtcTimestamp()
 	time.Sleep(100 * time.Millisecond)
 	time2 := util.CreateUtcTimestamp()

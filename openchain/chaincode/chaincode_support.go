@@ -35,6 +35,7 @@ import (
 	google_protobuf "google/protobuf"
 
 	"github.com/openblockchain/obc-peer/openchain/container"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -68,7 +69,7 @@ type handlerMap struct {
 	chaincodeMap map[string]*Handler
 }
 
-// GetChain returns the name of the chain to which this chaincode support belongs
+// GetChain returns the chaincode support for a given chain
 func GetChain(name ChainName) *ChaincodeSupport {
 	return chains[name]
 }
@@ -90,12 +91,11 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 }
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
-func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration) *ChaincodeSupport {
-	//we need to pass chainname when we do multiple chains...till then use DefaultChain
-	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}}
+func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer) *ChaincodeSupport {
+	s := &ChaincodeSupport{name: chainname, handlerMap: &handlerMap{chaincodeMap: make(map[string]*Handler)}, secHelper: secHelper}
 
 	//initialize global chain
-	chains[DefaultChain] = s
+	chains[chainname] = s
 
 	peerEndpoint, err := getPeerEndpoint()
 	if err != nil {
@@ -106,14 +106,13 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 	}
 	chaincodeLog.Info("Chaincode support using peerAddress: %s\n", s.peerAddress)
 	//peerAddress = viper.GetString("peer.address")
-	// peerAddress = viper.GetString("peer.address")
 	if s.peerAddress == "" {
 		s.peerAddress = peerAddressDefault
 	}
 
 	s.userRunsCC = userrunsCC
 
-	s.ccStartupTimeout = ccstartuptimeout
+	s.ccStartupTimeout = ccstartuptimeout * time.Millisecond
 
 	//TODO I'm not sure if this needs to be on a per chain basis... too lowel and just needs to be a global default ?
 	s.chaincodeInstallPath = chaincodeInstallPathDefault
@@ -135,6 +134,7 @@ type ChaincodeSupport struct {
 	ccStartupTimeout     time.Duration
 	chaincodeInstallPath string
 	userRunsCC           bool
+	secHelper            crypto.Peer
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -150,28 +150,9 @@ func newDuplicateChaincodeHandlerError(chaincodeHandler *Handler) error {
 	return &DuplicateChaincodeHandlerError{ChaincodeID: chaincodeHandler.ChaincodeID}
 }
 
-// getChaincodeID constructs the ID from pb.ChaincodeID; used by handlerMap
-func getChaincodeID(cID *pb.ChaincodeID) (string, error) {
-	if cID == nil {
-		return "", fmt.Errorf("Cannot construct chaincodeID, got nil object")
-	}
-	var urlLocation string
-	if strings.HasPrefix(cID.Url, "http://") {
-		urlLocation = cID.Url[7:]
-	} else if strings.HasPrefix(cID.Url, "https://") {
-		urlLocation = cID.Url[8:]
-	} else {
-		urlLocation = cID.Url
-	}
-	return urlLocation + ":" + cID.Version, nil
-}
-
 func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Handler) error {
-	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
+	key := chaincodehandler.ChaincodeID.Name
 
-	if err != nil {
-		return fmt.Errorf("Error registering handler: %s", err)
-	}
 	chaincodeSupport.handlerMap.Lock()
 	defer chaincodeSupport.handlerMap.Unlock()
 
@@ -193,7 +174,8 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 	chaincodehandler.registered = true
 
 	//now we are ready to receive messages and send back responses
-	chaincodehandler.responseNotifiers = make(map[string]chan *pb.ChaincodeMessage)
+	chaincodehandler.txCtxs = make(map[string]*transactionContext)
+	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
@@ -203,10 +185,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 }
 
 func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Handler) error {
-	key, err := getChaincodeID(chaincodehandler.ChaincodeID)
-	if err != nil {
-		return fmt.Errorf("Error deregistering handler: %s", err)
-	}
+	key := chaincodehandler.ChaincodeID.Name
 	chaincodeLogger.Debug("Deregister handler: %s", key)
 	chaincodeSupport.handlerMap.Lock()
 	defer chaincodeSupport.handlerMap.Unlock()
@@ -231,7 +210,7 @@ func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Co
 }
 
 // Based on state of chaincode send either init or ready to move to ready state
-func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration) error {
+func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction) error {
 	chaincodeSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -245,32 +224,53 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.initOrReady(uuid, f, initArgs); err != nil {
+	if notfy, err = handler.initOrReady(uuid, f, initArgs, tx); err != nil {
 		return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
 	if notfy != nil {
 		select {
 		case ccMsg := <-notfy:
 			if ccMsg.Type == pb.ChaincodeMessage_ERROR {
-				return fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
+				err = fmt.Errorf("Error initializing container %s: %s", chaincode, string(ccMsg.Payload))
 			}
-			return nil
 		case <-time.After(timeout):
-			return fmt.Errorf("Timeout expired while executing send init message")
+			err = fmt.Errorf("Timeout expired while executing send init message")
 		}
 	}
+
+	//if initOrReady succeeded, our responsibility to delete the context
+	handler.deleteTxContext(uuid)
+
 	return err
+}
+
+//get args and env given chaincodeID
+func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
+	//openchain.yaml in the container likely will not have the right url:version. We know the right
+	//values, lets construct and pass as envs
+	toks := strings.Split(cID.Path, "/")
+	if toks == nil {
+		return nil, nil, fmt.Errorf("cannot get path components from %s", cID.Name)
+	}
+
+	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
+
+	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
+	//       need to revisit executable name assignment
+	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+	//     exec is "chaincode_example01 --peer.address=1.1.1.1:11111"
+	args = []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1], fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
+
+	chaincodeLog.Debug("Executable is %s", args[0])
+
+	return args, envs, nil
 }
 
 // launchAndWaitForRegister will launch container if not already running
 func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cID *pb.ChaincodeID, uuid string) (bool, error) {
-	vmname, err := container.GetVMName(cID)
-	if err != nil {
-		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting vm name: %s", err)
-	}
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return false, fmt.Errorf("[launchAndWaitForRegister]Error getting chaincode: %s", err)
+	chaincode := cID.Name
+	if chaincode == "" {
+		return false, fmt.Errorf("chaincode name not set")
 	}
 
 	chaincodeSupport.handlerMap.Lock()
@@ -286,9 +286,18 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	chaincodeSupport.handlerMap.Unlock()
 
 	//launch the chaincode
+
+	args, env, err := chaincodeSupport.getArgsAndEnv(cID)
+	if err != nil {
+		return alreadyRunning, err
+	}
+
 	//creat a StartImageReq obj and send it to VMCProcess
-	chaincodeLog.Debug("start container: %s", chaincode)
-	sir := container.StartImageReq{ID: vmname, Detach: true}
+	vmname := container.GetVMFromName(chaincode)
+
+	chaincodeLog.Debug("start container: %s", vmname)
+
+	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
 	resp, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
 		if err == nil {
@@ -321,20 +330,17 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 }
 
 func (chaincodeSupport *ChaincodeSupport) stopChaincode(context context.Context, cID *pb.ChaincodeID) error {
-	vmname, err := container.GetVMName(cID)
-	if err != nil {
-		return fmt.Errorf("[stopChaincode]Error getting vm name: %s", err)
+	chaincode := cID.Name
+	if chaincode == "" {
+		return fmt.Errorf("chaincode name not set")
 	}
 
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return fmt.Errorf("[stopChaincode]Error getting chaincode: %s", err)
-	}
+	vmname := container.GetVMFromName(chaincode)
 
 	//stop the chaincode
 	sir := container.StopImageReq{ID: vmname, Timeout: 0}
 
-	_, err = container.VMCProcess(context, "Docker", sir)
+	_, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil {
 		err = fmt.Errorf("Error stopping container: %s", err)
 		//but proceed to cleanup
@@ -361,6 +367,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var cMsg *pb.ChaincodeInput
 	var f *string
 	var initargs []string
+
 	if t.Type == pb.Transaction_CHAINCODE_NEW {
 		cds := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
@@ -383,14 +390,11 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		chaincodeSupport.handlerMap.Unlock()
 		return nil, nil, fmt.Errorf("invalid transaction type: %d", t.Type)
 	}
-	chaincode, err := getChaincodeID(cID)
-	if err != nil {
-		return cID, cMsg, err
-	}
-
+	chaincode := cID.Name
 	chaincodeSupport.handlerMap.Lock()
 	var handler *Handler
 	var ok bool
+	var err error
 	//if its in the map, there must be a connected stream...nothing to do
 	if handler, ok = chaincodeSupport.chaincodeHasBeenLaunched(chaincode); ok {
 		if !handler.registered {
@@ -419,7 +423,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout)
+		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t)
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
@@ -436,6 +440,11 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	return cID, cMsg, err
 }
 
+// getSecHelper returns the security help set from NewChaincodeSupport
+func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
+	return chaincodeSupport.secHelper
+}
+
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
 func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	if chaincodeSupport.userRunsCC {
@@ -450,7 +459,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 		return nil, err
 	}
 	cID := cds.ChaincodeSpec.ChaincodeID
-	chaincode, err := getChaincodeID(cID)
+	chaincode := cID.Name
 	if err != nil {
 		return cds, err
 	}
@@ -463,33 +472,16 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	}
 	chaincodeSupport.handlerMap.Unlock()
 
-	//create build request ...
-	vmname, err := container.GetVMName(cds.ChaincodeSpec.ChaincodeID)
+	args, envs, err := chaincodeSupport.getArgsAndEnv(cID)
+	if err != nil {
+		return cds, fmt.Errorf("error getting args for chaincode %s", err)
+	}
 
-	//openchain.yaml in the container likely will not have the right url:version. We know the right
-	//values, lets construct and pass as envs
+	vmname := container.GetVMFromName(chaincode)
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	envs := []string{"OPENCHAIN_CHAINCODE_ID_URL=" + cID.Url, "OPENCHAIN_CHAINCODE_ID_VERSION=" + cID.Version, "OPENCHAIN_PEER_ADDRESS=" + chaincodeSupport.peerAddress}
-	toks := strings.Split(vmname, ":")
-	if toks == nil {
-		return cds, fmt.Errorf("cannot get version from %s", vmname)
-	}
+	cir := &container.CreateImageReq{ID: vmname, Args: args, Reader: targz, Env: envs}
 
-	toks = strings.Split(toks[0], ".")
-	if toks == nil {
-		return cds, fmt.Errorf("cannot get path components from %s", vmname)
-	}
-
-	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
-	//       need to revisit executable name assignment
-	//e.g, for path github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-	//     exec is "chaincode_example01"
-	exec := []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1]}
-	chaincodeLog.Debug("Executable is %s", exec[0])
-
-	cir := &container.CreateImageReq{ID: vmname, Args: exec, Reader: targz, Env: envs}
-
-	chaincodeLog.Debug("deploying vmname %s", vmname)
+	chaincodeLog.Debug("deploying chaincode %s", vmname)
 	//create image and create container
 	_, err = container.VMCProcess(context, "Docker", cir)
 	if err != nil {
@@ -524,7 +516,7 @@ func createQueryMessage(uuid string, cMsg *pb.ChaincodeInput) (*pb.ChaincodeMess
 }
 
 // Execute executes a transaction and waits for it to complete until a timeout value.
-func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration) (*pb.ChaincodeMessage, error) {
+func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincode string, msg *pb.ChaincodeMessage, timeout time.Duration, tx *pb.Transaction) (*pb.ChaincodeMessage, error) {
 	chaincodeSupport.handlerMap.Lock()
 	//we expect the chaincode to be running... sanity check
 	handler, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode)
@@ -537,20 +529,21 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.sendExecuteMessage(msg); err != nil {
+	if notfy, err = handler.sendExecuteMessage(msg, tx); err != nil {
 		return nil, fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
+	var ccresp *pb.ChaincodeMessage
 	select {
-	case ccresp := <-notfy:
-		//we delete the notifier now that it has been delivered
-		handler.deleteNotifier(msg.Uuid)
+	case ccresp = <-notfy:
 		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
-			return ccresp, fmt.Errorf(string(ccresp.Payload))
+			err = fmt.Errorf(string(ccresp.Payload))
 		}
-		return ccresp, nil
 	case <-time.After(timeout):
-		//we delete the now that we are going away (under lock, in case chaincode comes back JIT)
-		handler.deleteNotifier(msg.Uuid)
-		return nil, fmt.Errorf("Timeout expired while executing transaction")
+		err = fmt.Errorf("Timeout expired while executing transaction")
 	}
+
+	//our responsibility to delete transaction context if sendExecuteMessage succeeded
+	handler.deleteTxContext(msg.Uuid)
+
+	return ccresp, err
 }

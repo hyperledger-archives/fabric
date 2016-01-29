@@ -19,7 +19,10 @@ under the License.
 
 package obcpbft
 
-import "reflect"
+import (
+	"encoding/base64"
+	"reflect"
+)
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
@@ -121,10 +124,11 @@ func (instance *pbftCore) sendViewChange() error {
 		ReplicaId: instance.id,
 	}
 
-	for n, state := range instance.chkpts {
+	for n, blockState := range instance.chkpts {
 		vc.Cset = append(vc.Cset, &ViewChange_C{
 			SequenceNumber: n,
-			Digest:         state,
+			BlockNumber:    blockState.blockNumber,
+			BlockHash:      blockState.blockHash,
 		})
 	}
 
@@ -215,7 +219,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 		return
 	}
 
-	msgList := instance.assignSequenceNumbers(vset, cp)
+	msgList := instance.assignSequenceNumbers(vset, cp.SequenceNumber)
 	if msgList == nil {
 		return
 	}
@@ -260,6 +264,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 }
 
 func (instance *pbftCore) processNewView() error {
+	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		return nil
@@ -278,7 +283,7 @@ func (instance *pbftCore) processNewView() error {
 		return instance.sendViewChange()
 	}
 
-	msgList := instance.assignSequenceNumbers(nv.Vset, cp)
+	msgList := instance.assignSequenceNumbers(nv.Vset, cp.SequenceNumber)
 	if msgList == nil {
 		logger.Warning("could not assign sequence numbers: %+v",
 			instance.viewChangeStore)
@@ -291,10 +296,19 @@ func (instance *pbftCore) processNewView() error {
 		return instance.sendViewChange()
 	}
 
-	if instance.h < cp {
+	if instance.h < cp.SequenceNumber {
 		logger.Warning("missing base checkpoint %d", cp)
-		// XXX fetch checkpoint
-		return nil
+		instance.moveWatermarks(cp.SequenceNumber)
+		instance.sts.AsynchronousStateTransfer(nil)
+
+		blockHashBytes, err := base64.StdEncoding.DecodeString(cp.BlockHash)
+		if nil != err {
+			logger.Error("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.BlockHash)
+			return nil
+		}
+
+		// TODO, if we know what replicas generated the view change, we could be more specific about who to retrieve from instead of nil, still, this should succeed eventually
+		instance.sts.AsynchronousStateTransferValidHash(cp.BlockNumber, blockHashBytes, nil, &stateTransferMetadata{cp.SequenceNumber})
 	}
 
 	for n, d := range nv.Xset {
@@ -311,12 +325,26 @@ func (instance *pbftCore) processNewView() error {
 			if _, ok := instance.reqStore[d]; !ok {
 				logger.Warning("missing assigned, non-checkpointed request %s",
 					d)
-				// XXX fetch request
-				return nil
+				if _, ok := instance.missingReqs[d]; !ok {
+					logger.Warning("Replica %v requesting to fetch %s",
+						instance.id, d)
+					newRequestMissing = true
+					instance.missingReqs[d] = true
+				}
 			}
 		}
 	}
 
+	if len(instance.missingReqs) == 0 {
+		return instance.processNewView2(nv)
+	} else if newRequestMissing {
+		go instance.fetchRequests()
+	}
+
+	return nil
+}
+
+func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.activeView = true
@@ -377,11 +405,12 @@ func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 	return
 }
 
-func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint uint64, ok bool) {
+func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint ViewChange_C, ok bool) {
 	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
 			checkpoints[*c] = append(checkpoints[*c], vc)
+			logger.Debug("Appending checkpoint with sequence number %d, block number %d, and block hash %s", c.SequenceNumber, c.BlockNumber, c.BlockHash)
 		}
 	}
 
@@ -394,8 +423,8 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
 		if len(vcList) <= instance.f { // type casting necessary to match types
-			logger.Debug("no weak certificate for n:%d",
-				idx.SequenceNumber)
+			logger.Debug("no weak certificate for n:%d, vcList was %d long",
+				idx.SequenceNumber, len(vcList))
 			continue
 		}
 
@@ -412,8 +441,8 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 			continue
 		}
 
-		if checkpoint <= idx.SequenceNumber {
-			checkpoint = idx.SequenceNumber
+		if checkpoint.SequenceNumber <= idx.SequenceNumber {
+			checkpoint = idx
 			ok = true
 		}
 	}

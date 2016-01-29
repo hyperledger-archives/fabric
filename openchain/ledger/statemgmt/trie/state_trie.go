@@ -21,6 +21,7 @@ package trie
 
 import (
 	"fmt"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
@@ -32,6 +33,7 @@ var logHashOfEveryNode = false
 
 type StateTrie struct {
 	trieDelta              *trieDelta
+	persistedStateHash     []byte
 	lastComputedCryptoHash []byte
 	recomputeCryptoHash    bool
 }
@@ -40,13 +42,14 @@ func NewStateTrie() *StateTrie {
 	return &StateTrie{}
 }
 
-func (stateTrie *StateTrie) Initialize() error {
+func (stateTrie *StateTrie) Initialize(configs map[string]interface{}) error {
 	rootNode, err := fetchTrieNodeFromDB(rootTrieKey)
 	if err != nil {
 		panic(fmt.Errorf("Error in fetching root node from DB while initializing state trie: %s", err))
 	}
 	if rootNode != nil {
-		stateTrie.lastComputedCryptoHash = rootNode.computeCryptoHash()
+		stateTrie.persistedStateHash = rootNode.computeCryptoHash()
+		stateTrie.lastComputedCryptoHash = stateTrie.persistedStateHash
 	}
 	return nil
 }
@@ -68,9 +71,15 @@ func (stateTrie *StateTrie) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 	return nil
 }
 
-func (stateTrie *StateTrie) ClearWorkingSet() {
+func (stateTrie *StateTrie) ClearWorkingSet(changesPersisted bool) {
 	stateTrie.trieDelta = nil
 	stateTrie.recomputeCryptoHash = false
+
+	if changesPersisted {
+		stateTrie.persistedStateHash = stateTrie.lastComputedCryptoHash
+	} else {
+		stateTrie.lastComputedCryptoHash = stateTrie.persistedStateHash
+	}
 }
 
 func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
@@ -166,4 +175,8 @@ func (stateTrie *StateTrie) PerfHintKeyChanged(chaincodeID string, key string) {
 // GetStateSnapshotIterator - method implementation for interface 'statemgmt.HashableState'
 func (stateTrie *StateTrie) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
 	return newStateSnapshotIterator(snapshot)
+}
+
+func (stateTrie *StateTrie) GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
+	return newRangeScanIterator(chaincodeID, startKey, endKey)
 }

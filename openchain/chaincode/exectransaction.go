@@ -27,13 +27,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 //Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, secCxt crypto.Peer) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
 
 	// get a handle to ledger to mark the begin/finish of a tx
@@ -42,11 +41,10 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
-	// check security if enabled
-	if nil != secCxt {
-		t, err = secCxt.TransactionPreExecution(t)
-		// If confidential, t is now decrypted and should not be stored
-
+	if secHelper := chain.getSecHelper(); nil != secHelper {
+		var err error
+		t, err = secHelper.TransactionPreExecution(t)
+		// Note that t is now decrypted and is a deep clone of the original input t
 		if nil != err {
 			return nil, err
 		}
@@ -75,7 +73,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 		}
 
 		//this should work because it worked above...
-		chaincode, _ := getChaincodeID(cID)
+		chaincode := cID.Name
 
 		if err != nil {
 			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
@@ -103,11 +101,11 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 		}
 
 		markTxBegin(ledger, t)
-		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout)
+		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout, t)
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			fmt.Printf("Got ERROR inside execute")
+			//fmt.Printf("Got ERROR inside execute %s\n", err)
 			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction
@@ -136,14 +134,15 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, s
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns state hash
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction, secCxt crypto.Peer) ([]byte, []error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
 	var chain = GetChain(cname)
 	if chain == nil {
+		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	errs := make([]error, len(xacts)+1)
 	for i, t := range xacts {
-		_, errs[i] = Execute(ctxt, chain, t, secCxt)
+		_, errs[i] = Execute(ctxt, chain, t)
 	}
 	ledger, hasherr := ledger.GetLedger()
 	var statehash []byte
@@ -154,12 +153,26 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 	return statehash, errs
 }
 
+// GetSecureContext returns the security context from the context object or error
+// Security context is nil if security is off from openchain.yaml file
+// func GetSecureContext(ctxt context.Context) (crypto.Peer, error) {
+// 	var err error
+// 	temp := ctxt.Value("security")
+// 	if nil != temp {
+// 		if secCxt, ok := temp.(crypto.Peer); ok {
+// 			return secCxt, nil
+// 		}
+// 		err = errors.New("Failed to convert security context type")
+// 	}
+// 	return nil, err
+// }
+
 var errFailedToGetChainCodeSpecForTransaction = errors.New("Failed to get ChainCodeSpec from Transaction")
 
 func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 	ledger, err := ledger.GetLedger()
 	if err == nil {
-		chaincodeID, _ := getChaincodeID(cID)
+		chaincodeID := cID.Name
 		txUUID, err := ledger.GetState(chaincodeID, "github.com_openblockchain_obc-peer_chaincode_id", true)
 		if err == nil {
 			tx, err := ledger.GetTransactionByUUID(string(txUUID))

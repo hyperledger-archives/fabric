@@ -20,6 +20,9 @@ under the License.
 package obcpbft
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	gp "google/protobuf"
 	"os"
 	"reflect"
@@ -28,26 +31,31 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 func makeTestnetPbftCore(inst *instance) {
-	config := readConfig()
-	inst.pbft = newPbftCore(uint64(inst.id), config, inst)
-	inst.pbft.replicaCount = len(inst.net.replicas)
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	defer func() {
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+	}()
+	config := loadConfig()
+	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
+	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
 	inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
 }
 
 func TestEnvOverride(t *testing.T) {
-	config := readConfig()
+	config := loadConfig()
 
-	key := "general.name"                       // for a key that exists
-	envName := "OPENCHAIN_OBCPBFT_GENERAL_NAME" // env override name
+	key := "general.mode"                       // for a key that exists
+	envName := "OPENCHAIN_OBCPBFT_GENERAL_MODE" // env override name
 	overrideValue := "overide_test"             // value to override default value with
 
 	// test key
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Cannot test env override because \"%s\" does not seem to be set", key)
 	}
 
@@ -57,12 +65,12 @@ func TestEnvOverride(t *testing.T) {
 		os.Unsetenv(envName)
 	}()
 
-	if ok := config.IsSet("general.name"); !ok {
+	if ok := config.IsSet("general.mode"); !ok {
 		t.Fatalf("Env override in place, and key \"%s\" is not set", key)
 	}
 
 	// read key
-	configVal := config.GetString("general.name")
+	configVal := config.GetString("general.mode")
 	if configVal != overrideValue {
 		t.Fatalf("Env override in place, expected key \"%s\" to be \"%s\" but instead got \"%s\"", key, overrideValue, configVal)
 	}
@@ -71,7 +79,7 @@ func TestEnvOverride(t *testing.T) {
 
 func TestMaliciousPrePrepare(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -97,7 +105,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestIncompletePayload(t *testing.T) {
 	mock := newMock()
-	instance := newPbftCore(1, readConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -115,12 +123,12 @@ func TestIncompletePayload(t *testing.T) {
 }
 
 func TestNetwork(t *testing.T) {
-	net := makeTestnet(2, makeTestnetPbftCore)
+	net := makeTestnet(7, makeTestnetPbftCore)
 	defer net.close()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
@@ -138,23 +146,25 @@ func TestNetwork(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.executed) == 0 {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 1 {
 			t.Errorf("Instance %d did not execute transaction", inst.id)
 			continue
 		}
-		if len(inst.executed) != 1 {
+		if blockHeight != 2 {
 			t.Errorf("Instance %d executed more than one transaction", inst.id)
 			continue
 		}
-		if !reflect.DeepEqual(inst.executed[0], txPacked) {
-			t.Errorf("Instance %d executed wrong transaction, %s should be %s",
-				inst.id, inst.executed[0], txPacked)
+		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
+		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, txPacked) {
+			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
+				inst.id, highestBlock.Transactions[0].Payload, txPacked)
 		}
 	}
 }
 
 func TestCheckpoint(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 	})
@@ -201,7 +211,7 @@ func TestCheckpoint(t *testing.T) {
 }
 
 func TestLostPrePrepare(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -235,11 +245,12 @@ func TestLostPrePrepare(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if inst.id != 3 && len(inst.executed) != 1 {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if inst.id != 3 && blockHeight <= 1 {
 			t.Errorf("Expected execution")
 			continue
 		}
-		if inst.id == 3 && len(inst.executed) != 0 {
+		if inst.id == 3 && blockHeight > 1 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -247,7 +258,7 @@ func TestLostPrePrepare(t *testing.T) {
 }
 
 func TestInconsistentPrePrepare(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -285,7 +296,8 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.executed) != 0 {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight > 1 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -293,7 +305,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 func TestViewChange(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = inst.pbft.K * 2
@@ -337,19 +349,19 @@ func TestViewChange(t *testing.T) {
 	}
 
 	cp, ok := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
-	if !ok || cp != 2 {
+	if !ok || cp.SequenceNumber != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].pbft.viewChangeStore)
 	}
 
-	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp)
+	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp.SequenceNumber)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
 }
 
 func TestInconsistentDataViewChange(t *testing.T) {
-	net := makeTestnet(1, makeTestnetPbftCore)
+	net := makeTestnet(4, makeTestnetPbftCore)
 	defer net.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -387,7 +399,8 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		if len(inst.executed) != 0 {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight > 1 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -402,8 +415,116 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	// XXX once state transfer works, make sure that a request
-	// was executed by all replicas.
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 1 {
+			t.Errorf("Expected execution")
+			continue
+		}
+	}
+}
+
+func TestViewChangeWithStateTransfer(t *testing.T) {
+	net := makeTestnet(4, makeTestnetPbftCore)
+	defer net.close()
+
+	var err error
+
+	for _, inst := range net.replicas {
+		inst.pbft.K = 2
+		inst.pbft.L = 4
+	}
+
+	stsrc := net.replicas[3].pbft.sts.AsynchronousStateTransferResultChannel()
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	makePP := func(iter int64) *PrePrepare {
+		req := &Request{
+			Timestamp: &gp.Timestamp{Seconds: iter, Nanos: 0},
+			Payload:   txPacked,
+		}
+		preprep := &PrePrepare{
+			View:           0,
+			SequenceNumber: uint64(iter),
+			RequestDigest:  hashReq(req),
+			Request:        req,
+			ReplicaId:      0,
+		}
+		return preprep
+	}
+
+	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
+	for i := int64(1); i <= 3; i++ {
+		_ = net.replicas[0].pbft.recvRequest(makePP(i).Request)
+
+		// clear all messages sent by primary
+		net.msgs = net.msgs[:0]
+
+		_ = net.replicas[0].pbft.recvPrePrepare(makePP(i))
+		_ = net.replicas[1].pbft.recvPrePrepare(makePP(i))
+		_ = net.replicas[2].pbft.recvPrePrepare(makePP(i))
+
+		err = net.process()
+		if err != nil {
+			t.Fatalf("Processing failed: %s", err)
+		}
+	}
+
+	fmt.Println("Done with stage 1")
+
+	// Have primary now deliberately skip a sequence number to deadlock until viewchange
+	_ = net.replicas[0].pbft.recvRequest(makePP(4).Request)
+
+	// clear all messages sent by primary
+	net.msgs = net.msgs[:0]
+
+	// replace with fake messages
+	_ = net.replicas[1].pbft.recvPrePrepare(makePP(5))
+	_ = net.replicas[2].pbft.recvPrePrepare(makePP(5))
+	_ = net.replicas[3].pbft.recvPrePrepare(makePP(4))
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	fmt.Println("Done with stage 2")
+
+	for _, inst := range net.replicas {
+		inst.pbft.sendViewChange()
+	}
+
+	fmt.Println("Done with stage 3")
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	select {
+	case <-stsrc:
+		// State transfer for replica 3 is complete
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Timed out waiting for state transfer to complete")
+	}
+	fmt.Println("Done with stage 4")
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+	fmt.Println("Done with stage 5")
+
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 4 {
+			t.Errorf("Expected execution for inst %d, got blockheight of %d", inst.pbft.id, blockHeight)
+			continue
+		}
+	}
+	fmt.Println("Done with stage 6")
 }
 
 func TestNewViewTimeout(t *testing.T) {
@@ -411,7 +532,7 @@ func TestNewViewTimeout(t *testing.T) {
 		t.Skip("Skipping timeout test")
 	}
 
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.newViewTimeout = 100 * time.Millisecond
 		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
@@ -419,20 +540,21 @@ func TestNewViewTimeout(t *testing.T) {
 	})
 	defer net.close()
 
+	replica1Disabled := false
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if dst == -1 && src == 1 && replica1Disabled {
+			return nil
+		}
+		return msg
+	}
+
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 	msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
 	msgPacked, _ := proto.Marshal(msg)
 
-	replica1Disabled := false
-
-	go net.processContinually(func(out bool, replica int, msg []byte) []byte {
-		if out && replica == 1 && replica1Disabled {
-			return nil
-		}
-		return msg
-	})
+	go net.processContinually()
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
@@ -459,7 +581,7 @@ func TestNewViewTimeout(t *testing.T) {
 }
 
 func TestFallBehind(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
+	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
 		inst.pbft.L = 2 * inst.pbft.K
@@ -483,18 +605,19 @@ func TestFallBehind(t *testing.T) {
 		}
 
 		if skipThree {
-			// Send the request for consensus to everone but replica 0
-			err = net.process(func(all bool, replica int, msg []byte) []byte {
-				if !all && replica == 3 {
+			// Send the request for consensus to everone but replica 3
+			net.filterFn = func(src, replica int, msg []byte) []byte {
+				if src != -1 && replica == 3 {
 					return nil
 				}
 
 				return msg
-			})
+			}
 		} else {
 			// Send the request for consensus to everone
-			err = net.process()
+			net.filterFn = nil
 		}
+		err = net.process()
 
 		if err != nil {
 			t.Fatalf("Processing failed: %s", err)
@@ -509,7 +632,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.outOfDate {
+	if !inst.sts.AsynchronousStateTransferInProgress() {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -517,7 +640,141 @@ func TestFallBehind(t *testing.T) {
 		t.Fatalf("Expected no checkpoints, found %d", len(inst.chkpts))
 	}
 
-	if inst.h != inst.L+inst.K*2 {
-		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K*2, inst.h)
+	if inst.h != inst.L+inst.K {
+		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K, inst.h)
+	}
+
+	// Send enough requests to get to a weak checkpoint certificate certain with sequence number L+K*2
+	for request := int64(inst.L + inst.K + 1); uint64(request) <= inst.L+inst.K*2; request++ {
+		execReq(request, false)
+	}
+
+	success := false
+
+	for i := 0; i < 200; i++ { // Loops for up to 2 seconds waiting
+		time.Sleep(10 * time.Millisecond)
+		if !inst.sts.AsynchronousStateTransferInProgress() {
+			success = true
+			break
+		}
+	}
+
+	if !success {
+		t.Fatalf("Request failed to complete state transfer within 2 seconds")
+	}
+
+	execReq(int64(inst.L+inst.K*2+1), false)
+
+	if inst.lastExec != inst.L+inst.K*2+1 {
+		t.Fatalf("Replica did not begin participating normally after state transfer completed")
+	}
+}
+
+func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[pb.PeerID]*MockRemoteLedger) error {
+
+	var chkpt *Checkpoint
+
+	for i := uint64(1); i <= 3; i++ {
+		chkpt = &Checkpoint{
+			SequenceNumber: sequenceNumber - i,
+			ReplicaId:      i,
+			BlockNumber:    blockNumber - i,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber - i)),
+		}
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber - 2
+		pbft.witnessCheckpoint(chkpt)
+	}
+
+	if !pbft.sts.AsynchronousStateTransferInProgress() {
+		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
+	}
+
+	result := pbft.sts.AsynchronousStateTransferResultChannel()
+
+	for i := 1; i < pbft.replicaCount; i++ {
+		chkpt = &Checkpoint{
+			SequenceNumber: sequenceNumber,
+			ReplicaId:      uint64(i),
+			BlockNumber:    blockNumber,
+			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber)),
+		}
+		handle, _ := getValidatorHandle(uint64(i))
+		(*mrls)[*handle].blockHeight = blockNumber + 1
+		pbft.checkpointStore[*chkpt] = true
+	}
+
+	pbft.witnessCheckpointWeakCert(chkpt)
+
+	select {
+	case <-time.After(time.Second * 2):
+		return fmt.Errorf("Timed out waiting for state to catch up, error in state transfer")
+	case <-result:
+		// Do nothing, continue the test
+	}
+
+	if size, _ := pbft.ledger.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
+	}
+
+	block, err := pbft.ledger.GetBlock(blockNumber)
+
+	if nil != err {
+		return fmt.Errorf("Error retrieving last block in the mock chain.")
+	}
+
+	if stateHash, _ := pbft.ledger.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
+		return fmt.Errorf("Current state does not validate against the latest block.")
+	}
+
+	return nil
+}
+
+func TestCatchupFromPBFTSimple(t *testing.T) {
+	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	for i := uint64(0); i <= 3; i++ {
+		peerID, _ := getValidatorHandle(i)
+		l := &MockRemoteLedger{}
+		rols[*peerID] = l
+		mrls[*peerID] = l
+	}
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(&rols, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	config := loadConfig()
+	pbft := newPbftCore(0, config, nil, ml)
+	pbft.K = 2
+	pbft.L = 4
+	pbft.replicaCount = 4
+
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
+		t.Fatalf("TestCatchupFromPBFT simple case: %s", err)
+	}
+}
+
+func TestCatchupFromPBFTDivergentSeqBlock(t *testing.T) {
+	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	for i := uint64(0); i <= 3; i++ {
+		peerID, _ := getValidatorHandle(i)
+		l := &MockRemoteLedger{}
+		rols[*peerID] = l
+		mrls[*peerID] = l
+	}
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(&rols, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	config := loadConfig()
+	pbft := newPbftCore(0, config, nil, ml)
+	pbft.K = 2
+	pbft.L = 4
+	pbft.replicaCount = 4
+
+	// Test to make sure that the block number and sequence number can diverge
+	if err := executeStateTransferFromPBFT(pbft, ml, 7, 100, &mrls); nil != err {
+		t.Fatalf("TestCatchupFromPBFTDivergentSeqBlock separated block/seqnumber: %s", err)
 	}
 }

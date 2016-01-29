@@ -25,8 +25,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/util"
-	openchainUtil "github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -36,6 +34,7 @@ var logger = logging.MustGetLogger("buckettree")
 type StateImpl struct {
 	dataNodesDelta         *dataNodesDelta
 	bucketTreeDelta        *bucketTreeDelta
+	persistedStateHash     []byte
 	lastComputedCryptoHash []byte
 	recomputeCryptoHash    bool
 }
@@ -46,14 +45,15 @@ func NewStateImpl() *StateImpl {
 }
 
 // Initialize - method implementation for interface 'statemgmt.HashableState'
-func (stateImpl *StateImpl) Initialize() error {
-	logger.Info("Initializing bucket tree state implemetation with configurations %+v", conf)
+func (stateImpl *StateImpl) Initialize(configs map[string]interface{}) error {
+	initConfig(configs)
 	rootBucketNode, err := fetchBucketNodeFromDB(constructRootBucketKey())
 	if err != nil {
 		return err
 	}
 	if rootBucketNode != nil {
-		stateImpl.lastComputedCryptoHash = rootBucketNode.computeCryptoHash()
+		stateImpl.persistedStateHash = rootBucketNode.computeCryptoHash()
+		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
 	}
 	return nil
 
@@ -91,11 +91,16 @@ func (stateImpl *StateImpl) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 }
 
 // ClearWorkingSet - method implementation for interface 'statemgmt.HashableState'
-func (stateImpl *StateImpl) ClearWorkingSet() {
+func (stateImpl *StateImpl) ClearWorkingSet(changesPersisted bool) {
 	logger.Debug("Enter - ClearWorkingSet()")
 	stateImpl.dataNodesDelta = nil
 	stateImpl.bucketTreeDelta = nil
 	stateImpl.recomputeCryptoHash = false
+	if changesPersisted {
+		stateImpl.persistedStateHash = stateImpl.lastComputedCryptoHash
+	} else {
+		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
+	}
 }
 
 // ComputeCryptoHash - method implementation for interface 'statemgmt.HashableState'
@@ -169,7 +174,7 @@ func (stateImpl *StateImpl) computeRootNodeCryptoHash() []byte {
 
 func computeDataNodesCryptoHash(bucketKey *bucketKey, updatedNodes dataNodes, existingNodes dataNodes) []byte {
 	logger.Debug("Computing crypto-hash for bucket [%s]. numUpdatedNodes=[%d], numExistingNodes=[%d]", bucketKey, len(updatedNodes), len(existingNodes))
-	hashableContent := []byte{}
+	bucketHashCalculator := newBucketHashCalculator(bucketKey)
 	i := 0
 	j := 0
 	for i < len(updatedNodes) && j < len(existingNodes) {
@@ -189,7 +194,9 @@ func computeDataNodesCryptoHash(bucketKey *bucketKey, updatedNodes dataNodes, ex
 			nextNode = existingNode
 			j++
 		}
-		hashableContent = addNodeData(hashableContent, nextNode)
+		if !nextNode.isDelete() {
+			bucketHashCalculator.addNextNode(nextNode)
+		}
 	}
 
 	var remainingNodes dataNodes
@@ -200,21 +207,11 @@ func computeDataNodesCryptoHash(bucketKey *bucketKey, updatedNodes dataNodes, ex
 	}
 
 	for _, remainingNode := range remainingNodes {
-		hashableContent = addNodeData(hashableContent, remainingNode)
+		if !remainingNode.isDelete() {
+			bucketHashCalculator.addNextNode(remainingNode)
+		}
 	}
-	logger.Debug("Hashable content for bucket [%s] = [%s]", bucketKey, string(hashableContent))
-	if util.IsNil(hashableContent) {
-		return nil
-	}
-	return openchainUtil.ComputeCryptoHash(hashableContent)
-}
-
-func addNodeData(content []byte, node *dataNode) []byte {
-	if util.NotNil(node.value) {
-		content = append(content, node.dataKey.compositeKey...)
-		content = append(content, node.value...)
-	}
-	return content
+	return bucketHashCalculator.computeCryptoHash()
 }
 
 // AddChangesForPersistence - method implementation for interface 'statemgmt.HashableState'
@@ -241,7 +238,7 @@ func (stateImpl *StateImpl) addDataNodeChangesForPersistence(writeBatch *gorocks
 	for _, affectedBucket := range affectedBuckets {
 		dataNodes := stateImpl.dataNodesDelta.getSortedDataNodesFor(affectedBucket)
 		for _, dataNode := range dataNodes {
-			if util.IsNil(dataNode.value) {
+			if dataNode.isDelete() {
 				writeBatch.DeleteCF(openchainDB.StateCF, dataNode.dataKey.getEncodedBytes())
 			} else {
 				writeBatch.PutCF(openchainDB.StateCF, dataNode.dataKey.getEncodedBytes(), dataNode.value)
@@ -275,4 +272,9 @@ func (stateImpl *StateImpl) PerfHintKeyChanged(chaincodeID string, key string) {
 // GetStateSnapshotIterator - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) GetStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (statemgmt.StateSnapshotIterator, error) {
 	return newStateSnapshotIterator(snapshot)
+}
+
+// GetRangeScanIterator - method implementation for interface 'statemgmt.HashableState'
+func (stateImpl *StateImpl) GetRangeScanIterator(chaincodeID string, startKey string, endKey string) (statemgmt.RangeScanIterator, error) {
+	return newRangeScanIterator(chaincodeID, startKey, endKey)
 }

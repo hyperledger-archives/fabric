@@ -9,20 +9,20 @@
 ################################################################################
 general:
 
-    # Consensus plugin package name goes here
-    name: obc-pbft
-
     # Operational mode: batch, classic, or sieve
     mode: classic
 
-    # How many Byzantine nodes can we tolerate
-    f: 1
+    # Maximum number of validators/replicas we expect in the network
+    N: 4
 
     # Checkpoint period
     K: 10
 
     # How many requests should the primary send per pre-prepare when in "batch" mode
     batchsize: 2
+
+    # Whether the replica should act as a byzantine one; useful for debugging on testnets
+    byzantine: false
 
     # Timeouts
     timeout:
@@ -36,18 +36,38 @@ general:
 
         # How long may a view change take
         viewchange: 2s
-
-
 ################################################################################
 #
-#   SECTION: REPLICA
+#   SECTION: STATETRANSFER
 #
-#   - This applies to all validating peers.
+#   - This applies to recovery behavior when the replica has detected
+#     a state transfer is required
+#
+#   - This might happen:
+#     - During a view change in response to a faulty primary
+#     - After a network outage which has isolated the replica
+#     - If the current blockchain/state is determined to be corrupt
 #
 ################################################################################
-replica:
+statetransfer:
 
-    # Whether the replica should act as a byzantine one
-    # Useful for debugging on the live network
-    byzantine: false
-...
+    # Should a replica attempt to fix damaged blocks?
+    # In general, this should be set to true, setting to false will cause
+    # the replica to panic, and require a human's intervention to intervene
+    # and fix the corruption
+    recoverdamage: true
+
+    # The number of blocks to retrieve per sync request
+    blocksperrequest: 20
+
+    # Timeouts
+    timeout:
+
+        # How long may returning a single block take
+        singleblock: 2s
+
+        # How long may returning a single state delta take
+        singlestatedelta: 2s
+
+        # How long may transferring the complete state take
+        fullstate: 60s

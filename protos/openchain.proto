@@ -35,19 +35,18 @@ message Transaction {
         CHAINCODE_TERMINATE = 5;
     }
     Type type = 1;
-    ChaincodeID chaincodeID = 2;
+    //store ChaincodeID as bytes so its encrypted value can be stored
+    bytes chaincodeID = 2;
     bytes payload = 3;
-    string uuid = 4;
-    google.protobuf.Timestamp timestamp = 5;
+    bytes metadata = 4;
+    string uuid = 5;
+    google.protobuf.Timestamp timestamp = 6;
 
-    ConfidentialityLevel confidentialityLevel = 6;
-    bytes nonce = 7;
+    ConfidentialityLevel confidentialityLevel = 7;
+    bytes nonce = 8;
 
-    bytes encryptedChaincodeID = 8;
-    bytes encryptedPayload = 9;
-
-    bytes cert = 10;
-    bytes signature = 11;
+    bytes cert = 9;
+    bytes signature = 10;
 }
 
 // TransactionBlock carries a batch of transactions.
@@ -59,15 +58,17 @@ message TransactionBlock {
 // not track potential state changes that were a result of the transaction.
 // uuid - The unique identifier of this transaction.
 // result - The return value of the transaction.
-// error - Any errors that occured as a result of running the transaction.
+// errorCode - An error code. 5xx will be logged as a failure in the dashboard.
+// error - An error string for logging an issue.
 message TransactionResult {
   string uuid = 1;
   bytes result = 2;
-  string error = 3;
+  uint32 errorCode = 3;
+  string error = 4;
 }
 
 // Block carries The data that describes a block in the blockchain.
-// proposerID - The ID of the peer that proposed the Block.
+// version - Version used to track any protocol changes.
 // timestamp - The time at which the block or transaction order
 // was proposed. This may not be used by all consensus modules.
 // transactions - The ordered list of transactions in the block.
@@ -79,7 +80,7 @@ message TransactionResult {
 // hash. This allows this data to be different per peer or discarded without
 // impacting the blockchain.
 message Block {
-    string proposerID = 1;
+    uint32 version = 1;
     google.protobuf.Timestamp timestamp = 2;
     repeated Transaction transactions = 3;
     bytes stateHash = 4;
@@ -120,6 +121,7 @@ message PeerEndpoint {
       NON_VALIDATOR = 2;
     }
     Type type = 3;
+    bytes pkiID = 4;
 }
 message PeersMessage {
     repeated PeerEndpoint peers = 1;
@@ -131,18 +133,18 @@ message HelloMessage {
 message OpenchainMessage {
     enum Type {
         UNDEFINED = 0;
-        
+
         DISC_HELLO = 1;
         DISC_DISCONNECT = 2;
         DISC_GET_PEERS = 3;
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
-        
+
         CHAIN_STATUS = 6;
         CHAIN_TRANSACTION = 7;
         CHAIN_GET_TRANSACTIONS = 8;
         CHAIN_QUERY = 9;
-        
+
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;
         SYNC_BLOCK_ADDED = 13;
@@ -151,13 +153,14 @@ message OpenchainMessage {
         SYNC_STATE_SNAPSHOT = 15;
         SYNC_STATE_GET_DELTAS = 16;
         SYNC_STATE_DELTAS = 17;
-        
+
         RESPONSE = 20;
         CONSENSUS = 21;
     }
     Type type = 1;
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
+    bytes signature = 4;
 }
 message Response {
     enum StatusCode {
@@ -193,7 +196,7 @@ message SyncBlocks {
     repeated Block blocks = 2;
 }
 
-// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message. 
+// SyncSnapshotRequest Payload for the penchainMessage.SYNC_GET_SNAPSHOT message.
 message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
@@ -217,10 +220,9 @@ message SyncStateDeltasRequest {
     SyncBlockRange range = 1;
 }
 
-// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to 
+// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to
 // the OpenchainMessage.SYNC_GET_STATE message.
 message SyncStateDeltas {
     SyncBlockRange range = 1;
     repeated bytes deltas = 2;
 }
-

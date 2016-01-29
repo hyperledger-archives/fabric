@@ -46,7 +46,7 @@ type obcBatch struct {
 func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 	var err error
 	op := &obcBatch{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = newPbftCore(id, config, op, cpi)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = make(map[string]*Request)
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
@@ -67,7 +67,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.verify(ocMsg.Payload); err != nil {
+		if err := op.validate(ocMsg.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -98,7 +98,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	}
 
 	if req := pbftMsg.GetRequest(); req != nil {
-		if err = op.verify(req.Payload); err != nil {
+		if err = op.validate(req.Payload); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
@@ -144,18 +144,36 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(ocMsg)
 }
 
-// verify checks whether the request is valid
-func (op *obcBatch) verify(txRaw []byte) error {
-	// TODO verify transaction
-	/* tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
+// send a message to a specific replica
+func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
 	}
-	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		logger.Warning("Invalid request");
-		return err
-	} */
+	receiverHandle, err := getValidatorHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.cpi.Unicast(ocMsg, receiverHandle)
+}
+
+func (op *obcBatch) sign(msg []byte) ([]byte, error) {
+	return op.cpi.Sign(msg)
+}
+
+// verify message signature
+func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
+	senderHandle, err := getValidatorHandle(senderID)
+	if err != nil {
+		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
+	}
+	return op.cpi.Verify(senderHandle, signature, message)
+}
+
+// validate checks whether the request is valid syntactically.
+// For now, we only need this for the obc-sieve verify/verify-set and flush messages.
+// Thus, for obc-batch, this is a no-op.
+func (op *obcBatch) validate(txRaw []byte) error {
 	return nil
 }
 
@@ -172,7 +190,7 @@ func (op *obcBatch) execute(tbRaw []byte) {
 
 	for i, tx := range txs {
 		txRaw, _ := proto.Marshal(tx)
-		if err = op.verify(txRaw); err != nil {
+		if err = op.validate(txRaw); err != nil {
 			logger.Error("Request in transaction %d from batch %s did not verify: %s", i, txBatchID, err)
 			return
 		}
@@ -192,7 +210,7 @@ func (op *obcBatch) execute(tbRaw []byte) {
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil); err != nil {
+	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
 		logger.Error("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
