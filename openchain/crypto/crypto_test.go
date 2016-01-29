@@ -859,7 +859,6 @@ func startPKI() {
 
 	fmt.Printf("start serving...\n")
 	server.Serve(sockp)
-	fmt.Printf("start serving...done\n")
 }
 
 func initClients() error {
