@@ -47,6 +47,10 @@ type validatorImpl struct {
 	enrollCerts map[string]*x509.Certificate
 }
 
+func (validator *validatorImpl) GetType() Entity_Type {
+	return validator.peer.node.eType
+}
+
 func (validator *validatorImpl) GetName() string {
 	return validator.peer.GetName()
 }
@@ -301,7 +305,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 
 	// Register node
 	peer := new(peerImpl)
-	if err := peer.register("validator", id, pwd, enrollID, enrollPWD); err != nil {
+	if err := peer.register(Entity_Validator, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -320,7 +324,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 
 	// Register node
 	peer := new(peerImpl)
-	if err := peer.init("validator", name, pwd); err != nil {
+	if err := peer.init(Entity_Validator, name, pwd); err != nil {
 		return err
 	}
 	validator.peer = peer

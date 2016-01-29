@@ -33,6 +33,10 @@ type peerImpl struct {
 
 // Public methods
 
+func (peer *peerImpl) GetType() Entity_Type {
+	return peer.node.eType
+}
+
 func (peer *peerImpl) GetName() string {
 	return peer.node.GetName()
 }
@@ -129,7 +133,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 
 // Private methods
 
-func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
+func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
 		peer.node.error("Registering [%s]...done! Initialization already performed", enrollID)
 
@@ -138,7 +142,7 @@ func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 	// Register node
 	node := new(nodeImpl)
-	if err := node.register(prefix, name, pwd, enrollID, enrollPWD); err != nil {
+	if err := node.register(eType, name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -148,7 +152,7 @@ func (peer *peerImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	return nil
 }
 
-func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
+func (peer *peerImpl) init(eType Entity_Type, id string, pwd []byte) error {
 	if peer.isInitialized {
 		peer.node.error("Already initializaed.")
 
@@ -162,7 +166,7 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	} else {
 		node = new(nodeImpl)
 	}
-	if err := node.init(prefix, id, pwd); err != nil {
+	if err := node.init(eType, id, pwd); err != nil {
 		return err
 	}
 	peer.node = node

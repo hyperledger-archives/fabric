@@ -36,6 +36,10 @@ type clientImpl struct {
 	tCertPool        tCertPool
 }
 
+func (client *clientImpl) GetType() Entity_Type {
+	return client.node.eType
+}
+
 func (client *clientImpl) GetName() string {
 	return client.node.GetName()
 }
@@ -207,7 +211,7 @@ func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD 
 
 	// Register node
 	node := new(nodeImpl)
-	if err := node.register("client", name, pwd, enrollID, enrollPWD); err != nil {
+	if err := node.register(Entity_Client, name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
 		return err
 	}
@@ -231,7 +235,7 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	} else {
 		node = new(nodeImpl)
 	}
-	if err := node.init("client", id, pwd); err != nil {
+	if err := node.init(Entity_Client, id, pwd); err != nil {
 		return err
 	}
 	client.node = node

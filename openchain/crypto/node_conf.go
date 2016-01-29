@@ -29,7 +29,10 @@ const (
 	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
 )
 
-func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
+func (node *nodeImpl) initConfiguration(name string) (err error) {
+	// Set logger
+	prefix := eTypeToString(node.eType)
+
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
 	if err = node.conf.init(); err != nil {

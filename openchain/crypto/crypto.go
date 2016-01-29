@@ -6,8 +6,19 @@ import (
 
 // Public Interfaces
 
+type Entity_Type int32
+
+const (
+	Entity_Client    Entity_Type = 0
+	Entity_Peer      Entity_Type = 1
+	Entity_Validator Entity_Type = 2
+)
+
 // Entity represents a crypto object having a name
 type Entity interface {
+
+	// GetType returns this entity's name
+	GetType() Entity_Type
 
 	// GetName returns this entity's name
 	GetName() string
