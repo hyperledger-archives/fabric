@@ -122,8 +122,8 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 	}
 
 	// Pass the message to the plugin handler (ie PBFT)
-	from := handler.peerHandler.To().ID
-	return handler.consenter.RecvMsg(msg, from)
+	selfPE := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
+	return handler.consenter.RecvMsg(msg, selfPE.ID)
 }
 
 func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
