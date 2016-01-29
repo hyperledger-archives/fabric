@@ -69,6 +69,7 @@ func (mock *mockCPI) unicast(msg []byte, receiverID uint64) (err error) {
 type closableConsenter interface {
 	consensus.Consenter
 	Close()
+	Drain()
 }
 
 type taggedMsg struct {
@@ -307,10 +308,9 @@ func (net *testnet) deliverFilter(msg taggedMsg) {
 	}
 }
 
-func (net *testnet) process() error {
+func (net *testnet) processWithoutDrain() {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
-
 	for len(net.msgs) > 0 {
 		msg := net.msgs[0]
 		fmt.Printf("Debug: process iteration (%d messages to go, delivering now to destination %v)\n", len(net.msgs), msg.dst)
@@ -318,6 +318,31 @@ func (net *testnet) process() error {
 		net.cond.L.Unlock()
 		net.deliverFilter(msg)
 		net.cond.L.Lock()
+	}
+}
+
+func (net *testnet) drain() {
+	for _, inst := range net.replicas {
+		if inst.pbft != nil {
+			inst.pbft.drain()
+		}
+		if inst.consenter != nil {
+			inst.consenter.Drain()
+		}
+	}
+}
+
+func (net *testnet) process() error {
+	for retry := true; retry; {
+		retry = false
+		net.processWithoutDrain()
+		net.drain()
+		net.cond.L.Lock()
+		if len(net.msgs) > 0 {
+			fmt.Printf("Debug: new messages after executeOutstanding, retrying\n")
+			retry = true
+		}
+		net.cond.L.Unlock()
 	}
 
 	return nil
@@ -334,7 +359,7 @@ func (net *testnet) processContinually() {
 			net.cond.Wait()
 		}
 		net.cond.L.Unlock()
-		net.process()
+		net.processWithoutDrain()
 		net.cond.L.Lock()
 	}
 }
@@ -373,6 +398,7 @@ func (net *testnet) close() {
 	if net.closed {
 		return
 	}
+	net.drain()
 	for _, inst := range net.replicas {
 		if inst.pbft != nil {
 			inst.pbft.close()

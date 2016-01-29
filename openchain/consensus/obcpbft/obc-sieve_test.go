@@ -73,9 +73,9 @@ func TestSieveNetwork(t *testing.T) {
 func TestSieveNoDecision(t *testing.T) {
 	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
-		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.requestTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
