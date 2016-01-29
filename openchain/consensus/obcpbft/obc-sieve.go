@@ -61,7 +61,7 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	op.pbft.lock.Lock()
 	defer op.pbft.lock.Unlock()
 
@@ -78,6 +78,11 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
+	senderID, err := getValidatorID(senderHandle)
+	if err != nil {
+		panic("Cannot map sender's PeerID to a valid replica ID")
+	}
+
 	svMsg := &SieveMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, svMsg)
 	if err != nil {
@@ -87,12 +92,17 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 	if req := svMsg.GetRequest(); req != nil {
 		op.recvRequest(req)
 	} else if exec := svMsg.GetExecute(); exec != nil {
+		if senderID != exec.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
+			return nil
+		}
 		op.recvExecute(exec)
 	} else if verify := svMsg.GetVerify(); verify != nil {
+		// check for senderID not needed since verify messages are signed and will be verified
 		op.recvVerify(verify)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
 		op.pbft.lock.Unlock()
-		op.pbft.receive(pbftMsg)
+		op.pbft.receive(pbftMsg, senderID)
 		op.pbft.lock.Lock()
 	} else {
 		logger.Error("Received invalid sieve message: %v", svMsg)
@@ -168,7 +178,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 	raw, _ := proto.Marshal(msg)
 	op.pbft.lock.Unlock()
-	op.pbft.request(raw)
+	op.pbft.request(raw, op.id)
 	op.pbft.lock.Lock()
 }
 
