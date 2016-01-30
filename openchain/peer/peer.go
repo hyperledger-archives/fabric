@@ -98,7 +98,7 @@ type MessageHandlerCoordinator interface {
 	StateAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
-	Broadcast(*pb.OpenchainMessage) []error
+	Broadcast(*pb.OpenchainMessage, pb.PeerEndpoint_Type) []error
 	Unicast(*pb.OpenchainMessage, *pb.PeerID) error
 	GetPeers() (*pb.PeersMessage, error)
 	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
@@ -381,11 +381,23 @@ func (p *PeerImpl) cloneHandlerMap() map[pb.PeerID]MessageHandler {
 	return clone
 }
 
-// Broadcast broadcast a message to each of the currently registered PeerEndpoints
-func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
+// Broadcast broadcast a message to each of the currently registered PeerEndpoints of given type
+// Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
+func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) []error {
 	cloneMap := p.cloneHandlerMap()
 	var errorsFromHandlers []error
 	for _, msgHandler := range cloneMap {
+		if typ != pb.PeerEndpoint_UNDEFINED {
+			toPeerEndpoint, err := msgHandler.To()
+			if err != nil {
+				errorsFromHandlers = append(errorsFromHandlers, fmt.Errorf("Error broadcasting msg (%s) to invalid endpoint: %s", msg.Type, err))
+				continue
+			}
+			if typ != toPeerEndpoint.Type {
+				//skip this peer
+				continue
+			}
+		}	
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()

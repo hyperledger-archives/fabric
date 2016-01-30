@@ -162,7 +162,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg)
+	op.cpi.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
