@@ -371,11 +371,19 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 }
 
 //clone the handler so as to avoid lock across SendMessage
-func (p *PeerImpl) cloneHandlerMap() map[pb.PeerID]MessageHandler {
+func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]MessageHandler {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	clone := make(map[pb.PeerID]MessageHandler)
 	for id, msgHandler := range p.handlerMap.m {
+		//pb.PeerEndpoint_UNDEFINED collects all peers
+		if typ != pb.PeerEndpoint_UNDEFINED {
+			toPeerEndpoint, _ := msgHandler.To()
+			//ignore endpoints that don't match type filter
+			if typ != toPeerEndpoint.Type {
+				continue
+			}
+		}
 		clone[id] = msgHandler
 	}
 	return clone
@@ -384,20 +392,9 @@ func (p *PeerImpl) cloneHandlerMap() map[pb.PeerID]MessageHandler {
 // Broadcast broadcast a message to each of the currently registered PeerEndpoints of given type
 // Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
 func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) []error {
-	cloneMap := p.cloneHandlerMap()
+	cloneMap := p.cloneHandlerMap(typ)
 	var errorsFromHandlers []error
 	for _, msgHandler := range cloneMap {
-		if typ != pb.PeerEndpoint_UNDEFINED {
-			toPeerEndpoint, err := msgHandler.To()
-			if err != nil {
-				errorsFromHandlers = append(errorsFromHandlers, fmt.Errorf("Error broadcasting msg (%s) to invalid endpoint: %s", msg.Type, err))
-				continue
-			}
-			if typ != toPeerEndpoint.Type {
-				//skip this peer
-				continue
-			}
-		}	
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()
