@@ -46,6 +46,14 @@ func newMock() *mockCPI {
 	return mock
 }
 
+func (mock *mockCPI) sign(msg []byte) ([]byte, error) {
+	return msg, nil
+}
+
+func (mock *mockCPI) verify(senderID uint64, signature []byte, message []byte) error {
+	return nil
+}
+
 func (mock *mockCPI) broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
@@ -93,6 +101,21 @@ type instance struct {
 	execTxResult func([]*pb.Transaction) ([]byte, []error)
 }
 
+func (inst *instance) Sign(msg []byte) ([]byte, error) {
+	return msg, nil
+}
+func (inst *instance) Verify(peerID *pb.PeerID, signature []byte, message []byte) error {
+	return nil
+}
+
+func (inst *instance) sign(msg []byte) ([]byte, error) {
+	return msg, nil
+}
+
+func (inst *instance) verify(replicaID uint64, signature []byte, message []byte) error {
+	return nil
+}
+
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
@@ -110,7 +133,7 @@ func (inst *instance) unicast(payload []byte, receiverID uint64) error {
 	return nil
 }
 
-func (inst *instance) verify(payload []byte) error {
+func (inst *instance) validate(payload []byte) error {
 	return nil
 }
 
@@ -155,6 +178,10 @@ func (inst *instance) execute(payload []byte) {
 }
 
 func (inst *instance) viewChange(uint64) {
+}
+
+func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
+	panic("Not implemented yet")
 }
 
 func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {

@@ -53,9 +53,12 @@ func init() {
 type innerCPI interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	verify(txRaw []byte) error
 	execute(txRaw []byte)
+	validate(txRaw []byte) error
 	viewChange(curView uint64)
+
+	sign(msg []byte) ([]byte, error)
+	verify(senderID uint64, signature []byte, message []byte) error
 }
 
 type pbftCore struct {
@@ -221,6 +224,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
+	listener := struct{ statetransfer.ProtoListener }{}
+	listener.CompletedImpl = instance.stateTransferCompleted
+	instance.sts.RegisterListener(&listener)
+
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
@@ -253,7 +260,7 @@ func (instance *pbftCore) close() {
 	instance.lock.Lock()
 	close(instance.closed)
 	instance.newViewTimer.Reset(0)
-	instance.sts.StopThreads()
+	instance.sts.Stop()
 	instance.lock.Unlock()
 }
 
@@ -390,6 +397,18 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	return quorum >= 2*instance.f+1
 }
 
+// Handles finishing the state transfer by executing outstanding transactions
+func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
+
+	// Make sure the message thread is not currently modifying pbft
+	instance.lock.Lock()
+	defer instance.lock.Unlock()
+
+	instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
+	logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+	instance.executeOutstanding()
+}
+
 // =============================================================================
 // receive methods
 // =============================================================================
@@ -420,11 +439,6 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
-	if metadata, ok := instance.sts.AsynchronousStateTransferJustCompleted(); ok {
-		instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
-		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
-		instance.executeOutstanding()
-	}
 
 	if req := msg.GetRequest(); req != nil {
 		err = instance.recvRequest(req)
@@ -456,7 +470,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
 	logger.Debug("Replica %d received request: %s", instance.id, digest)
 
-	if err := instance.consumer.verify(req.Payload); err != nil {
+	if err := instance.consumer.validate(req.Payload); err != nil {
 		logger.Warning("Request %s did not verify: %s", digest, err)
 		return err
 	}
@@ -535,7 +549,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 				digest, preprep.RequestDigest)
 			return nil
 		}
-		if err := instance.consumer.verify(preprep.Request.Payload); err != nil {
+		if err := instance.consumer.validate(preprep.Request.Payload); err != nil {
 			logger.Warning("Request %s did not verify: %s", digest, err)
 			return err
 		}
@@ -649,7 +663,7 @@ func (instance *pbftCore) executeRoutine() {
 
 func (instance *pbftCore) executeOutstanding() {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.AsynchronousStateTransferInProgress() {
+	if instance.sts.InProgress() {
 		return
 	}
 
@@ -842,8 +856,8 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				}
 
 				// Make sure we don't try to start a second state transfer while one is going on
-				if !instance.sts.AsynchronousStateTransferInProgress() {
-					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				if !instance.sts.InProgress() {
+					instance.sts.Initiate(furthestReplicaIds)
 				}
 			}
 
@@ -874,7 +888,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
+	instance.sts.AddTarget(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
@@ -886,7 +900,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.AsynchronousStateTransferInProgress() {
+		if !instance.sts.InProgress() {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -903,7 +917,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
+	if instance.sts.InProgress() && matching >= instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}

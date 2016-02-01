@@ -30,11 +30,22 @@ type Consenter interface {
 	RecvMsg(msg *pb.OpenchainMessage) error
 }
 
+// Inquirer is used to retrieve info about the validating network
+type Inquirer interface {
+	GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error)
+	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
+}
+
 // Communicator is used to send messages to other validators
 type Communicator interface {
-	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
 	Broadcast(msg *pb.OpenchainMessage) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+}
+
+// SecurityUtils is used to access the sign/verify methods from the crypto package
+type SecurityUtils interface {
+	Sign(msg []byte) ([]byte, error)
+	Verify(peerID *pb.PeerID, signature []byte, message []byte) error
 }
 
 // ReadOnlyLedger is used for interrogating the blockchain
@@ -91,6 +102,8 @@ type LedgerStack interface {
 
 // CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
 type CPI interface {
+	Inquirer
 	Communicator
+	SecurityUtils
 	LedgerStack
 }

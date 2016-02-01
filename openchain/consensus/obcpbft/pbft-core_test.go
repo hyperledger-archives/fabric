@@ -433,6 +433,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		inst.pbft.L = 4
 	}
 
+	stsrc := net.replicas[3].pbft.sts.CompletionChannel()
+
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
@@ -499,39 +501,28 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	success := true
-	for i := 0; i < 20; i++ {
-		fmt.Println("Waiting for replica state sync to complete")
-		success = true
-		for _, inst := range net.replicas {
-			if inst.pbft.sts.AsynchronousStateTransferInProgress() {
-				success = false
-				break
-			}
-		}
-		if success {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	select {
+	case <-stsrc:
+		// State transfer for replica 3 is complete
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Timed out waiting for state transfer to complete")
 	}
 	fmt.Println("Done with stage 4")
 
-	if !success {
-		t.Errorf("State transfer did not complete in two seconds")
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
 	}
-
-	// The contents of this message are not important, just need to run the thread to execute outstanding requests
-	_ = net.replicas[3].pbft.recvMsgSync(&Message{&Message_Request{&Request{}}})
 	fmt.Println("Done with stage 5")
 
 	for _, inst := range net.replicas {
 		blockHeight, _ := inst.ledger.GetBlockchainSize()
 		if blockHeight <= 4 {
-			t.Errorf("Expected execution")
+			t.Errorf("Expected execution for inst %d, got blockheight of %d", inst.pbft.id, blockHeight)
 			continue
 		}
 	}
-	fmt.Println("Done with stage 5")
+	fmt.Println("Done with stage 6")
 }
 
 func TestNewViewTimeout(t *testing.T) {
@@ -643,7 +634,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.sts.AsynchronousStateTransferInProgress() {
+	if !inst.sts.InProgress() {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -664,7 +655,7 @@ func TestFallBehind(t *testing.T) {
 
 	for i := 0; i < 200; i++ { // Loops for up to 2 seconds waiting
 		time.Sleep(10 * time.Millisecond)
-		if !inst.sts.AsynchronousStateTransferInProgress() {
+		if !inst.sts.InProgress() {
 			success = true
 			break
 		}
@@ -697,11 +688,11 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 		pbft.witnessCheckpoint(chkpt)
 	}
 
-	if !pbft.sts.AsynchronousStateTransferInProgress() {
+	if !pbft.sts.InProgress() {
 		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
 	}
 
-	result := pbft.sts.AsynchronousStateTransferResultChannel()
+	result := pbft.sts.CompletionChannel()
 
 	for i := 1; i < pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{
