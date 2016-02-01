@@ -120,7 +120,7 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 		return err
 	}
 	msg.Payload = payload
-	if errs := i.cpi.Broadcast(msg, pb.PeerEndpoint_UNDEFINED); nil != errs {
+	if errs := i.cpi.Broadcast(msg, pb.PeerEndpoint_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
