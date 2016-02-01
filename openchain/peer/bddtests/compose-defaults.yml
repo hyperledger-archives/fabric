@@ -4,3 +4,9 @@ vp:
     - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
     - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
   command: obc-peer peer
+
+obcca:
+   image: obcca
+   environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+   command: obc-ca

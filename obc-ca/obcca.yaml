@@ -16,6 +16,19 @@ eca:
                 diego: 2 DRJ23pEQl16a
                 binhn: 3 7avZQLwcUe9q
                 jim: 4 6avZQLwcUe9b
+
+                test_vp0: 4 MwYpmSRjupbT
+                test_vp1: 4 5wgHK9qqYaPy
+                test_vp2: 4 vQelbRvja7cJ
+                test_vp3: 4 9LKqKH5peurL
+                test_vp4: 4 Pqh90CEW5juZ
+                
+                test_vp5: 4 FfdvDkAdY81P
+                test_vp6: 4 QiXJgHyV4t7A
+                test_vp7: 4 twoKZouEyLyB
+                test_vp8: 4 BxP7QNh778gI
+                test_vp9: 4 wu3F1EwJWHvQ
+
 tca:
 #         tls:
 #                certfile:

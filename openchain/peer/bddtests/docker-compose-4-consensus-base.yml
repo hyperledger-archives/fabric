@@ -1,0 +1,14 @@
+vpBase:
+  extends:
+    file: compose-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_SECURITY_ENABLED=true
+    - OPENCHAIN_PEER_PKI_ECA_PADDR=obcca0:50051
+    - OPENCHAIN_PEER_PKI_TCA_PADDR=obcca0:50051
+    - OPENCHAIN_PEER_PKI_TLSCA_PADDR=obcca0:50051
+    - OPENCHAIN_PEER_PKI_TLS_ROOTCERT_FILE=./openchain/peer/bddtests/tlsca.cert
+    # TODO: Currently required due to issue reading obbca configuration location
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_PEER_VALIDATOR_REPLICAS_IPS=vp0:30303 vp1:30303 vp2:30303 vp3:30303
+
