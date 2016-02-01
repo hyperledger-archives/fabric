@@ -144,8 +144,6 @@ func TestNetwork(t *testing.T) {
 		t.Fatalf("Request failed: %s", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
@@ -256,7 +254,7 @@ func TestLostPrePrepare(t *testing.T) {
 	for _, inst := range net.replicas {
 		blockHeight, _ := inst.ledger.GetBlockchainSize()
 		if inst.id != 3 && blockHeight <= 1 {
-			t.Errorf("Expected execution")
+			t.Errorf("Expected execution on replica %d", inst.id)
 			continue
 		}
 		if inst.id == 3 && blockHeight > 1 {
@@ -595,8 +593,12 @@ func TestNewViewTimeout(t *testing.T) {
 
 	net.close()
 	for i, inst := range net.replicas {
-		if inst.pbft.view != 3 {
-			t.Fatalf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		if inst.pbft.view < 3 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		}
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight != 2 {
+			t.Errorf("Should have executed 1, got %d instead for replica %d", blockHeight, i)
 		}
 	}
 }

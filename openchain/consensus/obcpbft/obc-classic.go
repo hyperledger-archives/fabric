@@ -50,7 +50,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerI
 		logger.Info("New consensus request received")
 
 		if err := op.validate(ocMsg.Payload); err != nil {
-			logger.Warning("Request did not verify: %s", err)
+			logger.Warning("Request did not validate: %s", err)
 			return err
 		}
 
@@ -145,7 +145,7 @@ func (op *obcClassic) validate(txRaw []byte) error {
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
 	if err := op.validate(txRaw); err != nil {
-		logger.Error("Request in transaction did not verify: %s", err)
+		logger.Error("Request in transaction did not validate: %s", err)
 		return
 	}
 
