@@ -418,7 +418,9 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(raw []byte) {
-	// called with pbft lock held
+	// called without pbft lock held
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
 
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
@@ -504,6 +506,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	}
 
 	op.currentReq = ""
+	op.currentResult = nil
 
 	if len(op.queuedTx) > 0 {
 		op.processRequest()
