@@ -448,7 +448,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		inst.pbft.L = 4
 	}
 
-	stsrc := net.replicas[3].pbft.sts.AsynchronousStateTransferResultChannel()
+	stsrc := net.replicas[3].pbft.sts.CompletionChannel()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -656,7 +656,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.sts.AsynchronousStateTransferInProgress() {
+	if !inst.sts.InProgress() {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -677,7 +677,7 @@ func TestFallBehind(t *testing.T) {
 
 	for i := 0; i < 200; i++ { // Loops for up to 2 seconds waiting
 		time.Sleep(10 * time.Millisecond)
-		if !inst.sts.AsynchronousStateTransferInProgress() {
+		if !inst.sts.InProgress() {
 			success = true
 			break
 		}
@@ -710,11 +710,11 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 		pbft.witnessCheckpoint(chkpt)
 	}
 
-	if !pbft.sts.AsynchronousStateTransferInProgress() {
+	if !pbft.sts.InProgress() {
 		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
 	}
 
-	result := pbft.sts.AsynchronousStateTransferResultChannel()
+	result := pbft.sts.CompletionChannel()
 
 	for i := 1; i < pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{
