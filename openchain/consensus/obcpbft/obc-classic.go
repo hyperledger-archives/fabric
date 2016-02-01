@@ -49,17 +49,12 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerI
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.validate(ocMsg.Payload); err != nil {
-			logger.Warning("Request did not validate: %s", err)
-			return err
-		}
-
 		op.pbft.request(ocMsg.Payload, op.pbft.id)
 
 		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
-		msg := &Message{&Message_Request{req}}
-		msgRaw, _ := proto.Marshal(msg)
-		op.broadcast(msgRaw)
+		pbftMsg := &Message{&Message_Request{req}}
+		packedPbftMsg, _ := proto.Marshal(pbftMsg)
+		op.broadcast(packedPbftMsg)
 
 		return nil
 	}
@@ -73,21 +68,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerI
 		panic("Cannot map sender's PeerID to a valid replica ID")
 	}
 
-	pbftMsg := &Message{}
-	err = proto.Unmarshal(ocMsg.Payload, pbftMsg)
-	if err != nil {
-		return err
-	}
-	if req := pbftMsg.GetRequest(); req != nil {
-		if senderID != req.ReplicaId {
-			err := fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return err
-		}
-		op.pbft.request(req.Payload, senderID)
-	} else {
-		op.pbft.receive(ocMsg.Payload, senderID)
-	}
+	op.pbft.receive(ocMsg.Payload, senderID)
 
 	return nil
 }
@@ -135,9 +116,8 @@ func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) 
 	return op.cpi.Verify(senderHandle, signature, message)
 }
 
-// validate checks whether the request is valid syntactically.
-// For now, we only need this for the obc-sieve verify/verify-set and flush messages.
-// Thus, for obc-classic, this is a no-op.
+// validate checks whether the request is valid syntactically
+// not used in obc-classic at the moment
 func (op *obcClassic) validate(txRaw []byte) error {
 	return nil
 }

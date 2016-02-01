@@ -280,7 +280,7 @@ func (instance *pbftCore) timerHander() {
 
 		case <-instance.newViewTimer.C:
 			instance.lock.Lock()
-			logger.Info("Replica %d view change timeout expired", instance.id)
+			logger.Info("Replica %d view change timer expired", instance.id)
 			instance.sendViewChange()
 			instance.lock.Unlock()
 		}
@@ -414,6 +414,7 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 // =============================================================================
 
 // handle new consensus requests
+
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}

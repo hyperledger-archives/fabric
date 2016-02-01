@@ -136,18 +136,6 @@ func (op *obcBatch) Drain() {
 // innerCPI interface (functions called by pbft-core)
 // =============================================================================
 
-// Wraps a payload into a batch message, packs it and wraps it into
-// an openchain message. Called by broadcast before transmission.
-func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
-	batchMsg := &BatchMessage{&BatchMessage_PbftMessage{msgPayload}}
-	packedBatchMsg, _ := proto.Marshal(batchMsg)
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: packedBatchMsg,
-	}
-	return ocMsg
-}
-
 // multicast a message to all replicas
 func (op *obcBatch) broadcast(msgPayload []byte) {
 	op.cpi.Broadcast(op.wrapMessage(msgPayload))
@@ -175,9 +163,8 @@ func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) er
 	return op.cpi.Verify(senderHandle, signature, message)
 }
 
-// validate checks whether the request is valid syntactically.
-// For now, we only need this for the obc-sieve verify/verify-set and flush messages.
-// Thus, for obc-batch, this is a no-op.
+// validate checks whether the request is valid syntactically
+// not used in obc-batch at the moment
 func (op *obcBatch) validate(txRaw []byte) error {
 	return nil
 }
@@ -291,7 +278,7 @@ func (op *obcBatch) batchTimerHander() {
 
 		case <-op.batchTimer.C:
 			op.pbft.lock.Lock()
-			logger.Info("Replica %d batch timeout expired", op.pbft.id)
+			logger.Info("Replica %d batch timer expired", op.pbft.id)
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
 			}
@@ -323,4 +310,16 @@ loopBatch:
 			break loopBatch
 		}
 	}
+}
+
+// Wraps a payload into a batch message, packs it and wraps it into
+// an openchain message. Called by broadcast before transmission.
+func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
+	batchMsg := &BatchMessage{&BatchMessage_PbftMessage{msgPayload}}
+	packedBatchMsg, _ := proto.Marshal(batchMsg)
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: packedBatchMsg,
+	}
+	return ocMsg
 }
