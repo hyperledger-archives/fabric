@@ -54,6 +54,7 @@ func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
 	op := &obcSieve{cpi: cpi, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op, cpi)
+	op.pbft.sts.RegisterListener(op)
 
 	return op
 }
@@ -225,6 +226,10 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 }
 
 func (op *obcSieve) processExecute() {
+	if op.pbft.sts.InProgress() {
+		return
+	}
+
 	if op.currentReq != "" {
 		return
 	}
@@ -251,6 +256,13 @@ func (op *obcSieve) processExecute() {
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
+	blockchainSize, _ := op.cpi.GetBlockchainSize()
+	blockchainSize--
+	if op.blockNumber != blockchainSize {
+		logger.Critical("Sieve replica %d block number and ledger blockchain size diverged: blockNo=%d, blockchainSize=%d", op.id, op.blockNumber, blockchainSize)
+		return
+	}
+
 	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
 	op.blockNumber++
 
@@ -258,12 +270,22 @@ func (op *obcSieve) processExecute() {
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
 	op.currentTx = []*pb.Transaction{tx}
-	hashes, _ := op.cpi.ExecTXs(op.currentTx)
+	op.cpi.ExecTXs(op.currentTx)
+	hash, err := op.previewCommit(op.blockNumber)
+	if err != nil {
+		logger.Error("Sieve replica %d ignoring execute: %s", op.id, err)
+		op.blockNumber--
+		op.currentReq = ""
+		return
+	}
+
+	op.currentResult = hash
+
+	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s, result=%s", op.id, op.blockNumber, op.currentReq, op.currentResult)
 
 	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
 
-	op.currentResult = hashes
 	verify := &Verify{
 		View:          exec.View,
 		BlockNumber:   exec.BlockNumber,
@@ -450,6 +472,8 @@ func (op *obcSieve) execute(raw []byte) {
 }
 
 func (op *obcSieve) executeVerifySet(vset *VerifySet) {
+	sync := false
+
 	logger.Debug("Replica %d received verify-set from pbft, view %d, block %d",
 		op.id, vset.View, vset.BlockNumber)
 
@@ -474,47 +498,43 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	if op.currentReq == "" {
 		logger.Debug("Replica %d received verify-set without pending execute",
 			op.id)
-		// XXX out of sync
-		return
+		sync = true
 	}
 
 	if vset.BlockNumber != op.blockNumber {
 		logger.Debug("Replica %d received verify-set for wrong block: expected %d, got %d",
 			op.id, op.blockNumber, vset.BlockNumber)
-		// XXX out of sync
-		return
+		sync = true
 	}
 
 	if vset.RequestDigest != op.currentReq {
 		logger.Debug("Replica %d received verify-set for different execute",
 			op.id)
-		// XXX out of sync
-		return
+		sync = true
 	}
 
 	dSet, shouldCommit := op.verifyDset(vset.Dset)
 
-	if !shouldCommit {
-		logger.Error("Execute vset: not deterministic")
-		op.rollback()
-	} else {
-		if !reflect.DeepEqual(op.currentResult, dSet[0].ResultDigest) {
-			logger.Warning("Decision successful, but our output does not match")
+	if !sync {
+		if !shouldCommit {
+			logger.Error("Execute vset: not deterministic")
 			op.rollback()
 			op.blockNumber--
-			op.currentReq = ""
-			// XXX now we're out of sync, fetch result from dSet
-			_ = dSet
 		} else {
-			logger.Debug("Decision successful, committing result")
-			if op.commit(vset.BlockNumber) != nil {
-				op.rollback()
-				op.blockNumber--
-				op.currentReq = ""
-				// we're out of sync
-				// XXX fetch result from dSet
+			if !reflect.DeepEqual(op.currentResult, dSet[0].ResultDigest) {
+				logger.Warning("Decision successful, but our output does not match")
+				sync = true
+			} else {
+				logger.Debug("Decision successful, committing result")
+				if op.commit(vset.BlockNumber) != nil {
+					sync = true
+				}
 			}
 		}
+	}
+
+	if sync {
+		op.sync(vset.BlockNumber, dSet[0].ResultDigest, dSet)
 	}
 
 	op.currentReq = ""
@@ -566,4 +586,50 @@ func (op *obcSieve) commit(seqNo uint64) error {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil
+}
+
+func (op *obcSieve) previewCommit(seqNo uint64) ([]byte, error) {
+	block, err := op.cpi.PreviewCommitTxBatchBlock(op.currentReq, op.currentTx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Fail to preview transaction: %v", err)
+	}
+	return op.cpi.HashBlock(block)
+}
+
+func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) {
+	op.pbft.lock.Unlock()
+	defer op.pbft.lock.Lock()
+
+	var peers []*pb.PeerID
+	for _, n := range nodes {
+		peer, err := getValidatorHandle(n.ReplicaId)
+		if err == nil {
+			peers = append(peers, peer)
+		}
+	}
+	err := op.pbft.sts.BlockingAddTarget(blockNumber, blockHash, peers)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// statetransfer Listener interface implementation
+func (op *obcSieve) Initiated() {}
+func (op *obcSieve) Errored(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta interface{}, err error) {
+}
+
+// Completed is a callback invoked when the statetransfer subsystem
+// succesfully synced to a new block
+// We are only interested in adjusting our idea of the sieve blockNumber, which tracks the ledger block height
+func (op *obcSieve) Completed(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta interface{}) {
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
+
+	if op.currentReq != "" {
+		op.rollback()
+	}
+
+	op.currentReq = ""
+	op.currentResult = nil
+	op.blockNumber = blockNumber
 }
