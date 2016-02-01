@@ -170,7 +170,7 @@ func (op *obcBatch) sign(msg []byte) ([]byte, error) {
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
 	senderHandle, err := getValidatorHandle(senderID)
 	if err != nil {
-		return fmt.Errorf("Could not map validator ID %v to its handle: %v", senderID, err)
+		return err
 	}
 	return op.cpi.Verify(senderHandle, signature, message)
 }
