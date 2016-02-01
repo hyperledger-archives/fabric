@@ -97,7 +97,7 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg)
+	op.cpi.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
 // send a message to a specific replica

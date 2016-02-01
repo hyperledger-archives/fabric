@@ -193,7 +193,7 @@ func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
+func (inst *instance) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error {
 	net := inst.net
 	net.cond.L.Lock()
 	net.broadcastFilter(inst, msg.Payload)

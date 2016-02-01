@@ -90,7 +90,14 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 		if i.canProcess(txarr) {
 			i.txQ.Push(txarr)
-			return i.doTransactions(msg)
+			if err=i.doTransactions(msg); err == nil {
+				//transactions succeeed, broadcast
+				//spin the broadcast in go routine so
+				//(a)we make RecvMsg light and
+				//(b)we separate send from receive 
+				go i.notifyBlockAdded()
+			}
+			return err
 		}
 		i.queueTransactions(txarr)
 	}
@@ -113,7 +120,7 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 		return err
 	}
 	msg.Payload = payload
-	if errs := i.cpi.Broadcast(msg); nil != errs {
+	if errs := i.cpi.Broadcast(msg, pb.PeerEndpoint_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
@@ -178,7 +185,7 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 		return err
 	}
 
-	return i.notifyBlockAdded()
+	return nil
 }
 
 func (i *Noops) notifyBlockAdded() error {
@@ -204,16 +211,22 @@ func (i *Noops) notifyBlockAdded() error {
 		return err
 	}
 
+	//make Payload nil to reduce block size..
+	//anything else to remove .. do we need StateDelta ?
+	for _,tx := range block.Transactions {
+		tx.Payload = nil
+	}
+
 	logger.Debug("Got the delta state of block number %v", blockHeight)
 	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}
 
-	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED")
+	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED to non-validators")
 	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED,
 		Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	if errs := i.cpi.Broadcast(msg); nil != errs {
+	if errs := i.cpi.Broadcast(msg, pb.PeerEndpoint_NON_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil

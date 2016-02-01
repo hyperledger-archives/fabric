@@ -98,7 +98,7 @@ type MessageHandlerCoordinator interface {
 	StateAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
-	Broadcast(*pb.OpenchainMessage) []error
+	Broadcast(*pb.OpenchainMessage, pb.PeerEndpoint_Type) []error
 	Unicast(*pb.OpenchainMessage, *pb.PeerID) error
 	GetPeers() (*pb.PeersMessage, error)
 	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
@@ -314,7 +314,7 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	}
 	for _, peerEndpoint := range peersMessage.Peers {
 		// Filter out THIS Peer's endpoint
-		if getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == getHandlerKeyFromPeerEndpoint(peerEndpoint) {
+		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// NOOP
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// Start chat with Peer
@@ -370,12 +370,31 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 	return nil
 }
 
-// Broadcast broadcast a message to each of the currently registered PeerEndpoints
-func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
+//clone the handler so as to avoid lock across SendMessage
+func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]MessageHandler {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
+	clone := make(map[pb.PeerID]MessageHandler)
+	for id, msgHandler := range p.handlerMap.m {
+		//pb.PeerEndpoint_UNDEFINED collects all peers
+		if typ != pb.PeerEndpoint_UNDEFINED {
+			toPeerEndpoint, _ := msgHandler.To()
+			//ignore endpoints that don't match type filter
+			if typ != toPeerEndpoint.Type {
+				continue
+			}
+		}
+		clone[id] = msgHandler
+	}
+	return clone
+}
+
+// Broadcast broadcast a message to each of the currently registered PeerEndpoints of given type
+// Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
+func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) []error {
+	cloneMap := p.cloneHandlerMap(typ)
 	var errorsFromHandlers []error
-	for _, msgHandler := range p.handlerMap.m {
+	for _, msgHandler := range cloneMap {
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()
@@ -388,8 +407,9 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 // Unicast sends a message to a specific peer.
 func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
 	msgHandler := p.handlerMap.m[*receiverHandle]
+	//don't lock across SendMessage
+	p.handlerMap.Unlock()
 	err := msgHandler.SendMessage(msg)
 	if err != nil {
 		toPeerEndpoint, _ := msgHandler.To()
