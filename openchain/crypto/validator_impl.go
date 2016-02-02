@@ -33,7 +33,7 @@ import (
 // Public Struct
 
 type validatorImpl struct {
-	peer *peerImpl
+	*peerImpl
 
 	isInitialized bool
 
@@ -41,24 +41,6 @@ type validatorImpl struct {
 
 	// Chain
 	chainPrivateKey ecies.PrivateKey
-}
-
-func (validator *validatorImpl) GetType() Entity_Type {
-	return validator.peer.node.eType
-}
-
-func (validator *validatorImpl) GetName() string {
-	return validator.peer.GetName()
-}
-
-// GetID returns this validator's identifier
-func (validator *validatorImpl) GetID() []byte {
-	return validator.peer.GetID()
-}
-
-// GetEnrollmentID returns this validator's enroolment id
-func (validator *validatorImpl) GetEnrollmentID() string {
-	return validator.peer.GetEnrollmentID()
 }
 
 // TransactionPreValidation verifies that the transaction is
@@ -69,7 +51,7 @@ func (validator *validatorImpl) TransactionPreValidation(tx *obc.Transaction) (*
 		return nil, utils.ErrNotInitialized
 	}
 
-	return validator.peer.TransactionPreValidation(tx)
+	return validator.peerImpl.TransactionPreValidation(tx)
 }
 
 // TransactionPreValidation verifies that the transaction is
@@ -81,13 +63,13 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		return nil, utils.ErrNotInitialized
 	}
 
-	//	validator.peer.node.debug("Pre executing [%s].", tx.String())
-	validator.peer.node.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	//	validator.debug("Pre executing [%s].", tx.String())
+	validator.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	if validityPeriodVerificationEnabled() {
 		tx, err := validator.verifyValidityPeriod(tx)
 		if err != nil {
-			validator.peer.node.error("TransactionPreExecution: error verifying certificate validity period %s:", err)
+			validator.error("TransactionPreExecution: error verifying certificate validity period %s:", err)
 			return tx, err
 		}
 	}
@@ -98,12 +80,12 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 		return tx, nil
 	case obc.ConfidentialityLevel_CONFIDENTIAL:
-		validator.peer.node.debug("Clone and Decrypt.")
+		validator.debug("Clone and Decrypt.")
 
 		// Clone the transaction and decrypt it
 		newTx, err := validator.deepCloneAndDecryptTx(tx)
 		if err != nil {
-			validator.peer.node.error("Failed decrypting [%s].", err.Error())
+			validator.error("Failed decrypting [%s].", err.Error())
 
 			return nil, err
 		}
@@ -117,7 +99,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 // Sign signs msg with this validator's signing key and outputs
 // the signature if no error occurred.
 func (validator *validatorImpl) Sign(msg []byte) ([]byte, error) {
-	return validator.peer.node.signWithEnrollmentKey(msg)
+	return validator.signWithEnrollmentKey(msg)
 }
 
 // Verify checks that signature if a valid signature of message under vkID's verification key.
@@ -136,7 +118,7 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	cert, err := validator.getEnrollmentCert(vkID)
 	if err != nil {
-		validator.peer.node.error("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
+		validator.error("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
 
 		return err
 	}
@@ -145,13 +127,13 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	ok, err := validator.verify(vk, message, signature)
 	if err != nil {
-		validator.peer.node.error("Failed verifying signature for [% x]: [%s]", vkID, err)
+		validator.error("Failed verifying signature for [% x]: [%s]", vkID, err)
 
 		return err
 	}
 
 	if !ok {
-		validator.peer.node.error("Failed invalid signature for [% x]", vkID)
+		validator.error("Failed invalid signature for [% x]", vkID)
 
 		return utils.ErrInvalidSignature
 	}
@@ -163,55 +145,50 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		validator.peer.node.error("Registering...done! Initialization already performed", enrollID)
+		validator.error("Registering...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
-	peer := new(peerImpl)
-	if err := peer.register(Entity_Validator, id, pwd, enrollID, enrollPWD); err != nil {
+	if err := validator.peerImpl.register(Entity_Validator, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
-
-	validator.peer = peer
 
 	return nil
 }
 
 func (validator *validatorImpl) init(name string, pwd []byte) error {
 	if validator.isInitialized {
-		validator.peer.node.error("Already initializaed.")
+		validator.error("Already initializaed.")
 
 		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
-	peer := new(peerImpl)
-	if err := peer.init(Entity_Validator, name, pwd); err != nil {
+	if err := validator.peerImpl.init(Entity_Validator, name, pwd); err != nil {
 		return err
 	}
-	validator.peer = peer
 
 	// Initialize keystore
-	validator.peer.node.debug("Init keystore...")
+	validator.debug("Init keystore...")
 	err := validator.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			validator.peer.node.error("Keystore already initialized.")
+			validator.error("Keystore already initialized.")
 		} else {
-			validator.peer.node.error("Failed initiliazing keystore [%s].", err.Error())
+			validator.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	validator.peer.node.debug("Init keystore...done.")
+	validator.debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = validator.initCryptoEngine()
 	if err != nil {
-		validator.peer.node.error("Failed initiliazing crypto engine [%s].", err.Error())
+		validator.error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
@@ -226,7 +203,7 @@ func (validator *validatorImpl) initCryptoEngine() (err error) {
 
 	// Init chain publicKey
 	validator.chainPrivateKey, err = generic.NewPrivateKeyFromECDSA(
-		validator.peer.node.enrollChainKey.(*ecdsa.PrivateKey),
+		validator.enrollChainKey.(*ecdsa.PrivateKey),
 	)
 	if err != nil {
 		return
@@ -236,9 +213,5 @@ func (validator *validatorImpl) initCryptoEngine() (err error) {
 }
 
 func (validator *validatorImpl) close() error {
-	if validator.peer != nil {
-		return validator.peer.close()
-	}
-
-	return nil
+	return validator.peerImpl.close()
 }

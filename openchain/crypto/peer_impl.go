@@ -26,29 +26,21 @@ import (
 )
 
 type peerImpl struct {
-	node *nodeImpl
+	*nodeImpl
 
 	isInitialized bool
 }
 
 // Public methods
 
-func (peer *peerImpl) GetType() Entity_Type {
-	return peer.node.eType
-}
-
-func (peer *peerImpl) GetName() string {
-	return peer.node.GetName()
-}
-
 // GetID returns this peer's identifier
 func (peer *peerImpl) GetID() []byte {
-	return utils.Clone(peer.node.id)
+	return utils.Clone(peer.id)
 }
 
-// GetEnrollmentID returns this peer's enroolment id
+// GetEnrollmentID returns this peer's enrollment id
 func (peer *peerImpl) GetEnrollmentID() string {
-	return peer.node.enrollID
+	return peer.enrollID
 }
 
 // TransactionPreValidation verifies that the transaction is
@@ -84,7 +76,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = signature
 
 		// 2. Verify signature
-		ok, err := peer.node.verify(cert.PublicKey, rawTx, tx.Signature)
+		ok, err := peer.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
 			peer.node.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
@@ -141,13 +133,10 @@ func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrol
 	}
 
 	// Register node
-	node := new(nodeImpl)
-	if err := node.register(eType, name, pwd, enrollID, enrollPWD); err != nil {
+	if err := peer.nodeImpl.register(eType, name, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
-
-	peer.node = node
 
 	return nil
 }
@@ -160,16 +149,9 @@ func (peer *peerImpl) init(eType Entity_Type, id string, pwd []byte) error {
 	}
 
 	// Register node
-	var node *nodeImpl
-	if peer.node != nil {
-		node = peer.node
-	} else {
-		node = new(nodeImpl)
-	}
-	if err := node.init(eType, id, pwd); err != nil {
+	if err := peer.nodeImpl.init(eType, id, pwd); err != nil {
 		return err
 	}
-	peer.node = node
 
 	// initialized
 	peer.isInitialized = true
@@ -178,8 +160,5 @@ func (peer *peerImpl) init(eType Entity_Type, id string, pwd []byte) error {
 }
 
 func (peer *peerImpl) close() error {
-	if peer.node != nil {
-		return peer.node.close()
-	}
-	return nil
+	return peer.nodeImpl.close()
 }

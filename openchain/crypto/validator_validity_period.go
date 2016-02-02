@@ -50,7 +50,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		// Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			validator.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err
 		}
 
@@ -58,19 +58,19 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		ledger, err := ledger.GetLedger()
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			validator.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
 			return tx, err
 		}
 
 		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			validator.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
 		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			validator.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
 		}
 
@@ -89,7 +89,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		}
 
 		if errMsg != "" {
-			validator.peer.node.log.Error(errMsg)
+			validator.log.Error(errMsg)
 			return tx, errors.New(errMsg)
 		}
 	}

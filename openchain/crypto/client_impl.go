@@ -162,20 +162,28 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	return handler, nil
 }
 
-func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
+func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
 	if client.isInitialized {
 		client.error("Registering [%s]...done! Initialization already performed", id)
 
-		return nil
+		return
 	}
 
 	// Register node
-	if err := client.nodeImpl.register(Entity_Client, id, pwd, enrollID, enrollPWD); err != nil {
+	if err = client.nodeImpl.register(Entity_Client, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
-		return err
+		return
 	}
 
-	return nil
+	client.log.Info("Register crypto engine...")
+	err = client.registerCryptoEngine()
+	if err != nil {
+		log.Error("Failed registering crypto engine [%s] [%s].", enrollID, err.Error())
+		return
+	}
+	client.log.Info("Register crypto engine...done.")
+
+	return
 }
 
 func (client *clientImpl) init(id string, pwd []byte) error {

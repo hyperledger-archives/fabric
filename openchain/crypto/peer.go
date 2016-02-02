@@ -54,7 +54,7 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 		return nil
 	}
 
-	peer := new(peerImpl)
+	peer := newPeer()
 	if err := peer.register(Entity_Peer, name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
@@ -88,7 +88,7 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 		return peers[name].peer, nil
 	}
 
-	peer := new(peerImpl)
+	peer := newPeer()
 	if err := peer.init(Entity_Peer, name, pwd); err != nil {
 		log.Error("Failed peer initialization [%s]: [%s]", name, err)
 
@@ -129,6 +129,10 @@ func CloseAllPeers() (bool, []error) {
 }
 
 // Private Methods
+
+func newPeer() *peerImpl {
+	return &peerImpl{&nodeImpl{}, false}
+}
 
 func closePeerInternal(peer Peer, force bool) error {
 	if peer == nil {

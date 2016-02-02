@@ -36,56 +36,56 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	// clone tx
 	clone, err := validator.deepCloneTransaction(tx)
 	if err != nil {
-		validator.peer.node.log.Error("Failed deep cloning [%s].", err.Error())
+		validator.log.Error("Failed deep cloning [%s].", err.Error())
 		return nil, err
 	}
 
 	var ccPrivateKey ecies.PrivateKey
 
-	validator.peer.node.log.Debug("Transaction type [%s].", tx.Type.String())
+	validator.log.Debug("Transaction type [%s].", tx.Type.String())
 
-	validator.peer.node.log.Debug("Extract transaction key...")
+	validator.log.Debug("Extract transaction key...")
 
 	// Derive transaction key
 	es, err := generic.NewEncryptionSchemeFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
-		validator.peer.node.log.Error("Failed init decryption engine [%s].", err.Error())
+		validator.log.Error("Failed init decryption engine [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.peer.node.log.Debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
+	validator.log.Debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
 
 	msgToValidatorsRaw, err := es.Process(tx.Key)
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting transaction key [%s].", err.Error())
+		validator.log.Error("Failed decrypting transaction key [%s].", err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.peer.node.log.Error("Failed unmarshalling message to validators [%s].", err.Error())
+		validator.log.Error("Failed unmarshalling message to validators [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.peer.node.log.Debug("Deserializing transaction key [%s].", utils.EncodeBase64(msgToValidators.PrivateKey))
+	validator.log.Debug("Deserializing transaction key [%s].", utils.EncodeBase64(msgToValidators.PrivateKey))
 	ccPrivateKey, err = generic.DeserializePrivateKey(msgToValidators.PrivateKey)
 	if err != nil {
-		validator.peer.node.log.Error("Failed deserializing transaction key [%s].", err.Error())
+		validator.log.Error("Failed deserializing transaction key [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.peer.node.log.Debug("Extract transaction key...done")
+	validator.log.Debug("Extract transaction key...done")
 
 	es, err = generic.NewEncryptionSchemeFromPrivateKey(ccPrivateKey)
 	if err != nil {
-		validator.peer.node.log.Error("Failed init transaction decryption engine [%s].", err.Error())
+		validator.log.Error("Failed init transaction decryption engine [%s].", err.Error())
 		return nil, err
 	}
 	// Decrypt Payload
 	payload, err := es.Process(clone.Payload)
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting payload [%s].", err.Error())
+		validator.log.Error("Failed decrypting payload [%s].", err.Error())
 		return nil, err
 	}
 	clone.Payload = payload
@@ -93,7 +93,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	// Decrypt ChaincodeID
 	chaincodeID, err := es.Process(clone.ChaincodeID)
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting chaincode [%s].", err.Error())
+		validator.log.Error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
 	clone.ChaincodeID = chaincodeID
@@ -102,7 +102,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	if len(clone.Metadata) != 0 {
 		metadata, err := es.Process(clone.Metadata)
 		if err != nil {
-			validator.peer.node.log.Error("Failed decrypting metadata [%s].", err.Error())
+			validator.log.Error("Failed decrypting metadata [%s].", err.Error())
 			return nil, err
 		}
 		clone.Metadata = metadata

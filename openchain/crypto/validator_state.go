@@ -64,13 +64,13 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.peer.node.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	// client.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := validator.peer.node.enrollChainKey.([]byte)
+	enrollChainKey := validator.enrollChainKey.([]byte)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.peer.node.log.Debug("Parsing Query transaction...")
+		validator.log.Debug("Parsing Query transaction...")
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
@@ -81,7 +81,7 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err := se.init(validator.peer.node.log, queryKey, deployTxKey)
+		err := se.init(validator.log, queryKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,7 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
-	err := se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	err := se.init(validator.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +134,12 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.peer.node.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	deployStateKey, err := validator.getStateKeyFromTransaction(deployTx)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.peer.node.log.Debug("Parsing Query transaction...")
+		validator.log.Debug("Parsing Query transaction...")
 
 		executeStateKey, err := validator.getStateKeyFromTransaction(executeTx)
 
@@ -152,7 +152,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err = se.init(validator.peer.node.log, executeStateKey, deployTxKey)
+		err = se.init(validator.log, executeStateKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
-	err = se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	err = se.init(validator.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -184,22 +184,22 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) ([]byte, error) {
 	es, err := generic.NewEncryptionSchemeFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
-		validator.peer.node.log.Error("Failed init decryption engine [%s].", err.Error())
+		validator.log.Error("Failed init decryption engine [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.peer.node.log.Debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
+	validator.log.Debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
 
 	msgToValidatorsRaw, err := es.Process(tx.Key)
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting transaction key [%s].", err.Error())
+		validator.log.Error("Failed decrypting transaction key [%s].", err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.peer.node.log.Error("Failed unmarshalling message to validators [%s].", err.Error())
+		validator.log.Error("Failed unmarshalling message to validators [%s].", err.Error())
 		return nil, err
 	}
 

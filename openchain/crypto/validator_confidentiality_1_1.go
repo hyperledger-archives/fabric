@@ -33,27 +33,27 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	// clone tx
 	clone, err := validator.deepCloneTransaction(tx)
 	if err != nil {
-		validator.peer.node.log.Error("Failed deep cloning [%s].", err.Error())
+		validator.log.Error("Failed deep cloning [%s].", err.Error())
 		return nil, err
 	}
 
 	// Derive root key
 	// client.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := validator.peer.node.enrollChainKey.([]byte)
+	enrollChainKey := validator.enrollChainKey.([]byte)
 
 	key := utils.HMAC(enrollChainKey, clone.Nonce)
 
-	//	validator.peer.node.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
-	//	validator.peer.node.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	validator.peer.node.log.Info("Derived key  ", utils.EncodeBase64(key))
-	//	validator.peer.node.log.Info("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
-	//	validator.peer.node.log.Info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
+	//	validator.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
+	//	validator.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
+	//	validator.log.Info("Derived key  ", utils.EncodeBase64(key))
+	//	validator.log.Info("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
+	//	validator.log.Info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
 
 	// Decrypt Payload
 	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
 	payload, err := utils.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting payload [%s].", err.Error())
+		validator.log.Error("Failed decrypting payload [%s].", err.Error())
 		return nil, err
 	}
 	clone.Payload = payload
@@ -62,7 +62,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
 	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
 	if err != nil {
-		validator.peer.node.log.Error("Failed decrypting chaincode [%s].", err.Error())
+		validator.log.Error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
 	clone.ChaincodeID = chaincodeID
@@ -72,7 +72,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 		metadataKey := utils.HMACTruncated(key, []byte{3}, utils.AESKeyLength)
 		metadata, err := utils.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
 		if err != nil {
-			validator.peer.node.log.Error("Failed decrypting metadata [%s].", err.Error())
+			validator.log.Error("Failed decrypting metadata [%s].", err.Error())
 			return nil, err
 		}
 		clone.Metadata = metadata

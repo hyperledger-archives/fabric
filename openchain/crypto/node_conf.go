@@ -195,6 +195,10 @@ func (conf *configuration) getPathForAlias(alias string) string {
 	return filepath.Join(conf.getRawsPath(), alias)
 }
 
+func (conf *configuration) getQueryStateKeyFilename() string {
+	return "query.key"
+}
+
 func (conf *configuration) getEnrollmentKeyFilename() string {
 	return "enrollment.key"
 }

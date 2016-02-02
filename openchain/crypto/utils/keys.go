@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 )
 
 // PrivateKeyToDER marshals a private key to der
@@ -89,12 +88,12 @@ func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error
 
 // DERToPrivateKey unmarshals a der to private key
 func DERToPrivateKey(der []byte) (key interface{}, err error) {
-	fmt.Printf("DER [%s]\n", EncodeBase64(der))
+	//fmt.Printf("DER [%s]\n", EncodeBase64(der))
 
 	if key, err = x509.ParsePKCS1PrivateKey(der); err == nil {
 		return key, nil
 	}
-	fmt.Printf("DERToPrivateKey Err [%s]\n", err)
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
 	if key, err = x509.ParsePKCS8PrivateKey(der); err == nil {
 		switch key.(type) {
 		case *rsa.PrivateKey, *ecdsa.PrivateKey:
@@ -103,11 +102,11 @@ func DERToPrivateKey(der []byte) (key interface{}, err error) {
 			return nil, errors.New("Found unknown private key type in PKCS#8 wrapping")
 		}
 	}
-	fmt.Printf("DERToPrivateKey Err [%s]\n", err)
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
 	if key, err = x509.ParseECPrivateKey(der); err == nil {
 		return
 	}
-	fmt.Printf("DERToPrivateKey Err [%s]\n", err)
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
 
 	return nil, errors.New("Failed to parse private key")
 }

@@ -41,7 +41,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx(tx *obc.Transaction) (*obc
 func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.Transaction, error) {
 	raw, err := proto.Marshal(tx)
 	if err != nil {
-		validator.peer.node.error("Failed cloning transaction [%s].", err.Error())
+		validator.error("Failed cloning transaction [%s].", err.Error())
 
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.
 	clone := &obc.Transaction{}
 	err = proto.Unmarshal(raw, clone)
 	if err != nil {
-		validator.peer.node.error("Failed cloning transaction [%s].", err.Error())
+		validator.error("Failed cloning transaction [%s].", err.Error())
 
 		return nil, err
 	}
