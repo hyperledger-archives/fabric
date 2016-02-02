@@ -41,7 +41,7 @@ func init() {
 
 // SetupTestLogging setup the logging during test execution
 func SetupTestLogging() {
-	level, err := logging.LogLevel(viper.GetString("peer.logging.level"))
+	level, err := logging.LogLevel(viper.GetString("logging.peer"))
 	if err == nil {
 		// No error, use the setting
 		logging.SetLevel(level, "main")
