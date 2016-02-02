@@ -48,7 +48,7 @@ func SetupTestLogging() {
 		logging.SetLevel(level, "server")
 		logging.SetLevel(level, "peer")
 	} else {
-		configLogger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
+		configLogger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.peer"), logging.ERROR, err)
 		logging.SetLevel(logging.ERROR, "main")
 		logging.SetLevel(logging.ERROR, "server")
 		logging.SetLevel(logging.ERROR, "peer")
