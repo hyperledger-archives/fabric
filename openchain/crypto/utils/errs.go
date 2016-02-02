@@ -49,6 +49,9 @@ var (
 	// ErrInvalidSignature Invalid Signature
 	ErrInvalidSignature = errors.New("Invalid Signature.")
 
+	// ErrInvalidKey Invalid key
+	ErrInvalidKey = errors.New("Invalid key.")
+
 	// ErrInvalidReference Invalid reference
 	ErrInvalidReference = errors.New("Invalid reference.")
 
@@ -67,11 +70,20 @@ var (
 	// ErrDecrypt Decryption failed
 	ErrDecrypt = errors.New("Decryption failed.")
 
-	// ErrDifferentChaincodeID ChaincodeIDs are different
+	// ErrDirrentChaincodeID ChaincodeIDs are different
 	ErrDifferentChaincodeID = errors.New("ChaincodeIDs are different.")
+
+	// ErrDirrentChaincodeID ChaincodeIDs are different
+	ErrDifferrentConfidentialityProtocolVersion = errors.New("Confidentiality protocol versions are different.")
 
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidConfidentialityLevel = errors.New("Invalid confidentiality level")
+
+	// ErrInvalidConfidentialityProtocol Invalid confidentiality level
+	ErrInvalidConfidentialityProtocol = errors.New("Invalid confidentiality protocol")
+
+	// ErrInvalidTransactionType Invalid transaction type
+	ErrInvalidTransactionType = errors.New("Invalid transaction type")
 
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidProtocolVersion = errors.New("Invalid protocol version")

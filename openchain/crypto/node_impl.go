@@ -60,7 +60,7 @@ type nodeImpl struct {
 	enrollCertHash []byte
 
 	// Enrollment Chain
-	enrollChainKey []byte
+	enrollChainKey interface{}
 
 	// TLS
 	tlsCert *x509.Certificate

@@ -171,6 +171,43 @@ func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 	return privateKey, nil
 }
 
+func (ks *keyStore) storePublicKey(alias string, publicKey interface{}) error {
+	rawKey, err := utils.PublicKeyToPEM(publicKey, ks.pwd)
+	if err != nil {
+		ks.log.Error("Failed converting public key to PEM [%s]: [%s]", alias, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	if err != nil {
+		ks.log.Error("Failed storing private key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadPublicKey(alias string) (interface{}, error) {
+	path := ks.conf.getPathForAlias(alias)
+	ks.log.Debug("Loading public key [%s] at [%s]...", alias, path)
+
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		ks.log.Error("Failed loading public key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	privateKey, err := utils.PEMtoPublicKey(raw, ks.pwd)
+	if err != nil {
+		ks.log.Error("Failed parsing private key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
 func (ks *keyStore) storeKey(alias string, key []byte) error {
 	pem, err := utils.AEStoEncryptedPEM(key, ks.pwd)
 	if err != nil {

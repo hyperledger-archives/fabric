@@ -6,8 +6,11 @@ import (
 )
 
 func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
+	// client.enrollChainKey is an AES key represented as byte array
+	enrollChainKey := client.enrollChainKey.([]byte)
+
 	// Derive key
-	txKey := utils.HMAC(client.enrollChainKey, tx.Nonce)
+	txKey := utils.HMAC(enrollChainKey, tx.Nonce)
 
 	//	client.node.info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
 	//	client.node.info("Nonce  ", utils.EncodeBase64(tx.Nonce))

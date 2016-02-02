@@ -38,7 +38,10 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	}
 
 	// Derive root key
-	key := utils.HMAC(validator.peer.node.enrollChainKey, clone.Nonce)
+	// client.enrollChainKey is an AES key represented as byte array
+	enrollChainKey := validator.peer.node.enrollChainKey.([]byte)
+
+	key := utils.HMAC(enrollChainKey, clone.Nonce)
 
 	//	validator.peer.node.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
 	//	validator.peer.node.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))

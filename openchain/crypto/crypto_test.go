@@ -706,6 +706,8 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			}
 
 			// First invokeTx
+			fmt.Printf("Getting state encryptor for deployTx and invokeTxOne...\n")
+			fmt.Printf("Deploy tx [%s]", deployTx.String())
 			seOne, err := validator.GetStateEncryptor(deployTx, invokeTxOne)
 			if err != nil {
 				t.Fatalf("Failed creating state encryptor [%s].", err)
@@ -724,6 +726,8 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			}
 
 			// Second invokeTx
+			fmt.Printf("Getting state encryptor for deployTx and invokeTxTwo...\n")
+			fmt.Printf("Deploy tx [%s]", deployTx.String())
 			seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
 			if err != nil {
 				t.Fatalf("Failed creating state encryptor [%s].", err)

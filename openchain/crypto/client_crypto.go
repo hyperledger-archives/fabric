@@ -19,11 +19,29 @@ under the License.
 
 package crypto
 
+import (
+	"crypto/ecdsa"
+	"github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+)
+
 func (client *clientImpl) initCryptoEngine() error {
 	// Init TCert Engine
 	if err := client.initTCertEngine(); err != nil {
 		return err
 	}
 
-	return nil
+	// Init query state key
+	client.queryStateKey, err = utils.GetRandomBytes(utils.NonceSize)
+	if err != nil {
+		return
+	}
+
+	// Init chain publicKey
+	client.chainPublicKey, err = generic.NewPublicKeyFromECDSA(client.enrollChainKey.(*ecdsa.PublicKey))
+	if err != nil {
+		return
+	}
+
+	return
 }

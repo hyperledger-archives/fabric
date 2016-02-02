@@ -77,7 +77,6 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-
 	eca := &ECA{NewCA("eca"), nil, nil, nil}
 
 	{

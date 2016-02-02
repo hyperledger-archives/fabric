@@ -20,8 +20,7 @@ under the License.
 package crypto
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
+	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
@@ -31,7 +30,11 @@ type clientImpl struct {
 
 	isInitialized bool
 
-	// TCert related fields
+	// Chain
+	chainPublicKey ecies.PublicKey
+	queryStateKey  []byte
+
+	// TCA KDFKey
 	tCertOwnerKDFKey []byte
 	tCertPool        tCertPool
 }
@@ -46,7 +49,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	// Get next available (not yet used) transaction certificate
 	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -64,7 +67,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	// Get next available (not yet used) transaction certificate
 	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -82,47 +85,12 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	// Get next available (not yet used) transaction certificate
 	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
 	// Create Transaction
 	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
-}
-
-// DecryptQueryResult is used to decrypt the result of a query transaction
-func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
-	queryKey := utils.HMACTruncated(client.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-	//	client.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
-
-	if len(ct) <= utils.NonceSize {
-		return nil, utils.ErrDecrypt
-	}
-
-	c, err := aes.NewCipher(queryKey)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(c)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	copy(nonce, ct)
-
-	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
-	if err != nil {
-		client.node.error("Failed decrypting query result [%s].", err.Error())
-		return nil, utils.ErrDecrypt
-	}
-	return out, nil
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
@@ -136,7 +104,7 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 	handler := &eCertHandlerImpl{}
 	err := handler.init(client)
 	if err != nil {
-		client.node.error("Failed getting handler [%s].", err.Error())
+		client.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -153,7 +121,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	// Get next TCert
 	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -161,11 +129,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
-<<<<<<< HEAD
-		client.node.error("Failed getting handler [%s].", err.Error())
-=======
-		client.log.Error("Failed getting handler [%s].", err.Error())
->>>>>>> new inheritance structure for the client
+		client.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -191,11 +155,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
-<<<<<<< HEAD
-		client.node.error("Failed getting handler [%s].", err.Error())
-=======
-		client.log.Error("Failed getting handler [%s].", err.Error())
->>>>>>> new inheritance structure for the client
+		client.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -204,7 +164,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		client.node.error("Registering [%s]...done! Initialization already performed", name)
+		client.error("Registering [%s]...done! Initialization already performed", id)
 
 		return nil
 	}
@@ -220,11 +180,7 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 
 func (client *clientImpl) init(id string, pwd []byte) error {
 	if client.isInitialized {
-<<<<<<< HEAD
-		client.node.info("Already initializaed.")
-=======
-		client.log.Info("Already initializaed.")
->>>>>>> new inheritance structure for the client
+		client.info("Already initializaed.")
 
 		return nil
 	}
@@ -235,72 +191,43 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	}
 
 	// Initialize keystore
-<<<<<<< HEAD
-	client.node.debug("Init keystore...")
+	client.debug("Init keystore...")
 	err := client.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			client.node.error("Keystore already initialized.")
+			client.error("Keystore already initialized.")
 		} else {
-			client.node.error("Failed initiliazing keystore [%s].", err.Error())
-=======
-	client.log.Info("Init keystore...")
-	err := client.initKeyStore()
-	if err != nil {
-		if err != utils.ErrKeyStoreAlreadyInitialized {
-			client.log.Error("Keystore already initialized.")
-		} else {
-			client.log.Error("Failed initiliazing keystore [%s].", err.Error())
->>>>>>> new inheritance structure for the client
+			client.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-<<<<<<< HEAD
-	client.node.debug("Init keystore...done.")
-=======
-	client.log.Info("Init keystore...done.")
->>>>>>> new inheritance structure for the client
+	client.debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
 	if err != nil {
-<<<<<<< HEAD
-		client.node.error("Failed initiliazing crypto engine [%s].", err.Error())
-=======
-		client.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
->>>>>>> new inheritance structure for the client
+		client.error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
 	// initialized
 	client.isInitialized = true
 
-<<<<<<< HEAD
-	client.node.debug("Initialization...done.")
-=======
-	client.log.Info("Initialization...done.")
->>>>>>> new inheritance structure for the client
+	client.debug("Initialization...done.")
 
 	return nil
 }
 
-<<<<<<< HEAD
 func (client *clientImpl) close() (err error) {
 	if client.tCertPool != nil {
 		if err = client.tCertPool.Stop(); err != nil {
-			client.node.debug("Failed closing TCertPool [%s]", err)
+			client.debug("Failed closing TCertPool [%s]", err)
 		}
 	}
 
-	if client.node != nil {
-		if err = client.node.close(); err != nil {
-			client.node.debug("Failed closing node [%s]", err)
-		}
+	if err = client.nodeImpl.close(); err != nil {
+		client.debug("Failed closing node [%s]", err)
 	}
 	return
-=======
-func (client *clientImpl) close() error {
-	return client.nodeImpl.close()
->>>>>>> new inheritance structure for the client
 }
