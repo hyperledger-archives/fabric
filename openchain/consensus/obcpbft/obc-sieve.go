@@ -258,7 +258,7 @@ func (op *obcSieve) processExecute() {
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
 	op.currentTx = []*pb.Transaction{tx}
-	hashes, _ := op.cpi.ExecTXs(op.currentTx)
+	hashes, _ := op.cpi.ExecTxs(op.currentReq, op.currentTx)
 
 	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
@@ -559,7 +559,7 @@ func (op *obcSieve) rollback() error {
 }
 
 func (op *obcSieve) commit(seqNo uint64) error {
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, nil); err != nil {
+	if _, err := op.cpi.CommitTxBatch(op.currentReq, nil); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil

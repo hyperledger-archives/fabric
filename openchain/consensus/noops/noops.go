@@ -160,7 +160,7 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	// Grab all transactions from the FIFO queue and run them in order
 	txarr := i.getTransactionsFromQueue()
 	logger.Debug("Executing batch of %d transactions", len(txarr))
-	_, errs := i.cpi.ExecTXs(txarr)
+	_, errs := i.cpi.ExecTxs(msg.Timestamp, txarr)
 
 	//there are n+1 elements of errors in this array. On complete success
 	//they'll all be nil. In particular, the last err will be error in
@@ -172,7 +172,7 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	}
 
 	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
-	if err := i.cpi.CommitTxBatch(msg.Timestamp, txarr, nil, nil); err != nil {
+	if _, err := i.cpi.CommitTxBatch(msg.Timestamp, nil); err != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
 		i.cpi.RollbackTxBatch(msg.Timestamp)
 		return err

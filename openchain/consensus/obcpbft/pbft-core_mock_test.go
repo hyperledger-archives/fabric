@@ -98,7 +98,7 @@ type instance struct {
 	ledger    consensus.LedgerStack
 
 	deliver      func([]byte)
-	execTxResult func([]*pb.Transaction) ([]byte, []error)
+	execTxResult func([]*pb.Transaction) ([]byte, error)
 }
 
 func (inst *instance) Sign(msg []byte) ([]byte, error) {
@@ -151,23 +151,15 @@ func (inst *instance) execute(payload []byte) {
 		return
 	}
 
-	result, errs := inst.ExecTXs(txs)
-
-	if errs[len(txs)] != nil {
-		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, errs)
+	if _, err := inst.ExecTxs(txBatchID, txs); nil != err {
+		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, err)
 		if err := inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	txResult := []*pb.TransactionResult{
-		&pb.TransactionResult{
-			Result: result,
-		},
-	}
-
-	if err := inst.CommitTxBatch(txBatchID, txs, txResult, nil); err != nil {
+	if _, err := inst.CommitTxBatch(txBatchID, nil); err != nil {
 		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = inst.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
@@ -220,16 +212,16 @@ func (inst *instance) BeginTxBatch(id interface{}) error {
 	return inst.ledger.BeginTxBatch(id)
 }
 
-func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	return inst.ledger.ExecTXs(txs)
+func (inst *instance) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) {
+	return inst.ledger.ExecTxs(id, txs)
 }
 
-func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, txResults []*pb.TransactionResult, metadata []byte) error {
-	return inst.ledger.CommitTxBatch(id, txs, txResults, metadata)
+func (inst *instance) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+	return inst.ledger.CommitTxBatch(id, metadata)
 }
 
-func (inst *instance) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
-	return inst.ledger.PreviewCommitTxBatchBlock(id, txs, metadata)
+func (inst *instance) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+	return inst.ledger.PreviewCommitTxBatch(id, metadata)
 }
 
 func (inst *instance) RollbackTxBatch(id interface{}) error {

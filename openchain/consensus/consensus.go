@@ -80,10 +80,10 @@ type Ledger interface {
 // Executor is used to invoke transactions, potentially modifying the backing ledger
 type Executor interface {
 	BeginTxBatch(id interface{}) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
-	CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error
+	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
+	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 }
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas

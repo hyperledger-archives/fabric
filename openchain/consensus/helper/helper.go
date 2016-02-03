@@ -151,13 +151,17 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
-// ExecTXs executes all the transactions listed in the txs array
+// ExecTxs executes all the transactions listed in the txs array
 // one-by-one. If all the executions are successful, it returns
 // the candidate global state hash, and nil error array.
-func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
+func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) {
+	// TODO id is currently ignored, fix once the underlying implementation accepts id
+
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
-	return chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	// TODO return directly once underlying implementation no longer returns []error
+	res, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	return res, nil
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -165,15 +169,23 @@ func (h *Helper) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
 // transactions details and state changes (that may have happened
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
-func (h *Helper) CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error {
+func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Failed to get the ledger: %v", err)
+		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	if err := ledger.CommitTxBatch(id, transactions, nil, metadata); err != nil {
-		return fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+	// TODO fix this one the ledger has been fixed to implement
+	if err := ledger.CommitTxBatch(id, nil, nil, metadata); err != nil {
+		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
-	return nil
+
+	size := ledger.GetBlockchainSize()
+
+	if block, err := ledger.GetBlockByNumber(size - 1); err != nil {
+		return nil, fmt.Errorf("Failed to get the block at the head of the chain: %v", err)
+	} else {
+		return block, nil
+	}
 }
 
 // RollbackTxBatch discards all the state changes that may have taken
@@ -193,12 +205,13 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 // As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
 // this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
 // The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
-func (h *Helper) PreviewCommitTxBatchBlock(id interface{}, txs []*pb.Transaction, metadata []byte) (*pb.Block, error) {
+func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	block, err := ledger.GetTXBatchPreviewBlock(id, txs, metadata)
+	// TODO fix this once the underlying API is fixed
+	block, err := ledger.GetTXBatchPreviewBlock(id, nil, metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}

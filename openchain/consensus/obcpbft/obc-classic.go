@@ -154,16 +154,15 @@ func (op *obcClassic) execute(txRaw []byte) {
 		return
 	}
 
-	_, errs := op.cpi.ExecTXs(txs)
-	if errs[len(txs)] != nil {
-		logger.Error("Failed to execute transaction %s: %v", txBatchID, errs)
+	if _, err := op.cpi.ExecTxs(txBatchID, txs); nil != err {
+		logger.Error("Failed to execute transaction %s: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
+	if _, err = op.cpi.CommitTxBatch(txBatchID, nil); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
 		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
