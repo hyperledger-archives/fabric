@@ -46,23 +46,38 @@ func TestSieveNetwork(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetSieve)
 	defer net.close()
 
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
-	if err != nil {
-		t.Fatalf("External request was not processed by backup: %v", err)
-	}
+	req1 := createExternalRequest(1)
+	net.replicas[1].consenter.RecvMsg(req1, net.handles[generateBroadcaster(validatorCount)])
+	net.process()
+	req0 := createExternalRequest(2)
+	net.replicas[0].consenter.RecvMsg(req0, net.handles[generateBroadcaster(validatorCount)])
+	net.process()
 
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
+	testblock := func(inst *instance, blockNo uint64, msg *pb.OpenchainMessage) {
+		block, err := inst.GetBlock(blockNo)
+		if err != nil {
+			t.Fatalf("Replica %d could not retrieve block %d: %s", inst.id, blockNo, err)
+		}
+		txs := block.GetTransactions()
+		if len(txs) != 1 {
+			t.Fatalf("Replica %d block 1 contains %d transactions, expected 1", inst.id, len(txs))
+		}
+
+		msgTx := &pb.Transaction{}
+		proto.Unmarshal(msg.Payload, msgTx)
+		if !reflect.DeepEqual(txs[0], msgTx) {
+			t.Errorf("Replica %d transaction does not match; is %+v, should be %+v", inst.id, txs[0], msgTx)
+		}
 	}
 
 	for _, inst := range net.replicas {
-		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
-		newBlocks--
-		if newBlocks != 1 {
-			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, newBlocks, 1)
+		blockchainSize, _ := inst.GetBlockchainSize()
+		blockchainSize--
+		if blockchainSize != 2 {
+			t.Errorf("Replica %d has incorrect blockchain size; is %d, should be 2", inst.id, blockchainSize)
 		}
+		testblock(inst, 1, req1)
+		testblock(inst, 2, req0)
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
 			t.Errorf("Replica %d in epoch %d, expected 0",
