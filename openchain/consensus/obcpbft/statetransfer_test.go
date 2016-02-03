@@ -67,11 +67,11 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 		remoteLedger.blockHeight = blockNumber + 1
 	}
 
-	sts.AsynchronousStateTransfer(peerIDs)
-	result := sts.AsynchronousStateTransferResultChannel()
+	sts.Initiate(peerIDs)
+	result := sts.CompletionChannel()
 
 	blockHash := SimpleGetBlockHash(blockNumber)
-	sts.AsynchronousStateTransferValidHash(blockNumber, blockHash, peerIDs, nil)
+	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
 
 	select {
 	case <-time.After(time.Second * 2):
@@ -142,9 +142,7 @@ func TestCatchupSimple(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 
 	sts := newTestStateTransfer(ml, dps)
-	defer func() {
-		sts.StopThreads()
-	}()
+	defer sts.Stop()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 		t.Fatalf("Simplest case: %s", err)
 	}
@@ -162,9 +160,7 @@ func TestCatchupSyncBlocksErrors(t *testing.T) {
 
 		ml.PutBlock(0, SimpleGetBlock(0))
 		sts := newTestStateTransfer(ml, dps)
-		defer func() {
-			sts.StopThreads()
-		}()
+		defer sts.Stop()
 		sts.BlockRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 			t.Fatalf("SyncBlocksErrors %s case: %s", failureType, err)
@@ -182,9 +178,7 @@ func TestCatchupMissingEarlyChain(t *testing.T) {
 	ml := NewMockLedger(rols, nil)
 	ml.PutBlock(4, SimpleGetBlock(4))
 	sts := newTestStateTransfer(ml, dps)
-	defer func() {
-		sts.StopThreads()
-	}()
+	defer sts.Stop()
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 		t.Fatalf("MissingEarlyChain case: %s", err)
 	}
@@ -200,9 +194,7 @@ func TestCatchupSyncSnapshotError(t *testing.T) {
 		ml := NewMockLedger(rols, filter)
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml, dps)
-		defer func() {
-			sts.StopThreads()
-		}()
+		defer sts.Stop()
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
 			t.Fatalf("SyncSnapshotError %s case: %s", failureType, err)
@@ -223,9 +215,7 @@ func TestCatchupSyncDeltasError(t *testing.T) {
 		ml := NewMockLedger(rols, filter)
 		ml.PutBlock(4, SimpleGetBlock(4))
 		sts := newTestStateTransfer(ml, dps)
-		defer func() {
-			sts.StopThreads()
-		}()
+		defer sts.Stop()
 		sts.StateDeltaRequestTimeout = 10 * time.Millisecond
 		sts.StateSnapshotRequestTimeout = 10 * time.Millisecond
 		if err := executeStateTransfer(sts, ml, 7, 10, mrls, dps); nil != err {
@@ -248,10 +238,8 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	ml := NewMockLedger(rols, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml, dps)
-	defer func() {
-		sts.StopThreads()
-	}()
-	if err := sts.SynchronousStateTransfer(7, SimpleGetBlockHash(7), dps); nil != err {
+	defer sts.Stop()
+	if err := sts.BlockingAddTarget(7, SimpleGetBlockHash(7), dps); nil != err {
 		t.Fatalf("SimpleSynchronous state transfer failed : %s", err)
 	}
 }
@@ -329,7 +317,7 @@ func TestCatchupLaggingChains(t *testing.T) {
 	}
 
 	ml = NewMockLedger(rols, nil)
-	ml.PutBlock(700, SimpleGetBlock(700))
+	ml.PutBlock(200, SimpleGetBlock(200))
 	// Use a large timeout here because the mock ledger is slow for large blocks
 	if err := executeBlockRecovery(ml, 1000, dps); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
@@ -381,4 +369,56 @@ func TestCatchupCorruptChains(t *testing.T) {
 	if err := executeBlockRecoveryWithPanic(ml, 10, dps); nil != err {
 		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
 	}
+}
+
+type listenerHelper struct {
+	resultChannel chan struct{}
+}
+
+func (lh *listenerHelper) Initiated() {}
+func (lh *listenerHelper) Errored(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
+	select {
+	case lh.resultChannel <- struct{}{}:
+	default:
+	}
+}
+func (lh *listenerHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
+}
+
+func TestRegisterUnregisterListener(t *testing.T) {
+	ml := NewMockLedger(nil, nil)
+	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, nil)
+	defer sts.Stop()
+
+	l1 := &listenerHelper{make(chan struct{})}
+	l2 := &listenerHelper{make(chan struct{})}
+
+	sts.RegisterListener(l1)
+	sts.RegisterListener(l2)
+
+	// Will cause an immediate error loop of errors on state sync, as there are no peerIDs
+	sts.InvalidateState()
+	sts.Initiate(nil)
+
+	select {
+	case <-l1.resultChannel:
+		// Everything is good
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Should have received a first notifaction but did not, timed out.")
+	}
+
+	sts.UnregisterListener(l1)
+
+	for i := 0; i < 20; i++ {
+		select {
+		case <-l1.resultChannel:
+			t.Fatalf("Should not have received a notification after deregistration.")
+		case <-l2.resultChannel:
+			// Everything is good
+		case <-time.After(2 * time.Second):
+			t.Fatalf("Should have received continuous notifications, but did not, timed out.")
+
+		}
+	}
+
 }

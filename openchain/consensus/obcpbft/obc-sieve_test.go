@@ -73,9 +73,9 @@ func TestSieveNetwork(t *testing.T) {
 func TestSieveNoDecision(t *testing.T) {
 	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
-		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.requestTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -162,7 +162,7 @@ func TestSieveNonDeterministic(t *testing.T) {
 
 	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetSieve(inst)
-		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
 			logger.Debug("State hash for %d: %s", inst.id, res)
 			return []byte(res), nil

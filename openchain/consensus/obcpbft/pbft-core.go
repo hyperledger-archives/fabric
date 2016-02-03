@@ -50,7 +50,7 @@ func init() {
 // custom interfaces and structure definitions
 // =============================================================================
 
-type innerCPI interface {
+type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(txRaw []byte)
@@ -63,9 +63,10 @@ type innerCPI interface {
 
 type pbftCore struct {
 	// internal data
-	lock     sync.Mutex
-	closed   bool
-	consumer innerCPI
+	lock         sync.Mutex
+	closed       chan bool
+	consumer     innerStack
+	notifyCommit chan bool
 
 	// PBFT data
 	activeView   bool                   // view change happening
@@ -153,12 +154,14 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger consensus.LedgerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
 	instance.ledger = ledger
+	instance.closed = make(chan bool)
+	instance.notifyCommit = make(chan bool, 1)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = instance.N / 3
@@ -220,7 +223,9 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
-	instance.sts.AsynchronousStateTransferRegisterListener(instance.stateTransferListener)
+	listener := struct{ statetransfer.ProtoListener }{}
+	listener.CompletedImpl = instance.stateTransferCompleted
+	instance.sts.RegisterListener(&listener)
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
@@ -244,29 +249,36 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
+	go instance.executeRoutine()
 
 	return instance
 }
 
-// tear down resources opened by newPbftCore
+// close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
 	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.closed = true
+	close(instance.closed)
 	instance.newViewTimer.Reset(0)
-	instance.sts.StopThreads()
+	instance.sts.Stop()
+	instance.lock.Unlock()
+}
+
+// drain remaining requests
+func (instance *pbftCore) drain() {
+	instance.lock.Lock()
+	instance.executeOutstanding()
+	instance.lock.Unlock()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) timerHander() {
 	for {
 		select {
+		case <-instance.closed:
+			return
+
 		case <-instance.newViewTimer.C:
 			instance.lock.Lock()
-			if instance.closed {
-				instance.lock.Unlock()
-				return
-			}
 			logger.Info("Replica %d view change timeout expired", instance.id)
 			instance.sendViewChange()
 			instance.lock.Unlock()
@@ -385,11 +397,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 }
 
 // Handles finishing the state transfer by executing outstanding transactions
-func (instance *pbftCore) stateTransferListener(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, update statetransfer.StateTransferUpdate) {
-
-	if update != statetransfer.Completed {
-		return
-	}
+func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 
 	// Make sure the message thread is not currently modifying pbft
 	instance.lock.Lock()
@@ -626,7 +634,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 		// note that we can reach this point without
 		// broadcasting a commit ourselves
-		instance.executeOutstanding()
+		select { // non-blocking channel send
+		case instance.notifyCommit <- true:
+		default:
+		}
 	} else {
 		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
@@ -635,10 +646,24 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *pbftCore) executeOutstanding() error {
+func (instance *pbftCore) executeRoutine() {
+	for {
+		select {
+		case <-instance.notifyCommit:
+			instance.lock.Lock()
+			instance.executeOutstanding()
+			instance.lock.Unlock()
+
+		case <-instance.closed:
+			return
+		}
+	}
+}
+
+func (instance *pbftCore) executeOutstanding() {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.AsynchronousStateTransferInProgress() {
-		return nil
+	if instance.sts.InProgress() {
+		return
 	}
 
 	for retry := true; retry; {
@@ -652,7 +677,7 @@ func (instance *pbftCore) executeOutstanding() error {
 		}
 	}
 
-	return nil
+	return
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
@@ -821,8 +846,8 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				}
 
 				// Make sure we don't try to start a second state transfer while one is going on
-				if !instance.sts.AsynchronousStateTransferInProgress() {
-					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				if !instance.sts.InProgress() {
+					instance.sts.Initiate(furthestReplicaIds)
 				}
 			}
 
@@ -853,7 +878,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
+	instance.sts.AddTarget(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
@@ -865,7 +890,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.AsynchronousStateTransferInProgress() {
+		if !instance.sts.InProgress() {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -882,7 +907,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
+	if instance.sts.InProgress() && matching >= instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
@@ -963,7 +988,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 // Misc. methods go here
 // =============================================================================
 
-// Marshals a Message and hands it to the CPI. If toSelf is true,
+// Marshals a Message and hands it to the Stack. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsgSync.
 func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	msgRaw, err := proto.Marshal(msg)
@@ -992,8 +1017,10 @@ func (instance *pbftCore) stopTimer() {
 	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping new view timer", instance.id)
 	instance.timerActive = false
-	if instance.closed {
+	select {
+	case <-instance.closed:
 		return
+	default:
 	}
 	// XXX draining here does not help completely, because the
 	// timer handler goroutine may already have consumed the
