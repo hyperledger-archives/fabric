@@ -21,6 +21,7 @@ package crypto
 
 import (
 	"crypto/x509"
+	"fmt"
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
@@ -28,18 +29,22 @@ import (
 )
 
 func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
+	if len(id) == 0 {
+		return nil, fmt.Errorf("Invalid peer id. It is empty.")
+	}
+
 	sid := utils.EncodeBase64(id)
 
-	validator.peer.node.log.Debug("Getting enrollment certificate for [%d]", sid)
+	validator.peer.node.log.Debug("Getting enrollment certificate for [%s]", sid)
 
 	if cert := validator.enrollCerts[sid]; cert != nil {
-		validator.peer.node.log.Debug("Enrollment certificate for [%d] already in memory.", sid)
+		validator.peer.node.log.Debug("Enrollment certificate for [%s] already in memory.", sid)
 
 		return cert, nil
 	}
 
 	// Retrieve from the DB or from the ECA in case
-	validator.peer.node.log.Debug("Retrieve Enrollment certificate for [%d]...", sid)
+	validator.peer.node.log.Debug("Retrieve Enrollment certificate for [%s]...", sid)
 	rawCert, err := validator.peer.node.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
 		validator.peer.node.log.Error("Failed getting enrollment certificate for [%s]: [%s]", sid, err)

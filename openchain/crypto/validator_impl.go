@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"time"
 
+	"fmt"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	obc "github.com/openblockchain/obc-peer/protos"
@@ -183,9 +184,21 @@ func (validator *validatorImpl) Sign(msg []byte) ([]byte, error) {
 // If the verification succeeded, Verify returns nil meaning no error occurred.
 // If vkID is nil, then the signature is verified against this validator's verification key.
 func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
+	if len(vkID) == 0 {
+		return fmt.Errorf("Invalid peer id. It is empty.")
+	}
+	if len(signature) == 0 {
+		return fmt.Errorf("Invalid signature. It is empty.")
+	}
+	if len(message) == 0 {
+		return fmt.Errorf("Invalid message. It is empty.")
+	}
+
 	cert, err := validator.getEnrollmentCert(vkID)
 	if err != nil {
 		validator.peer.node.log.Error("Failed getting enrollment cert ", utils.EncodeBase64(vkID), err)
+
+		return err
 	}
 
 	vk := cert.PublicKey.(*ecdsa.PublicKey)
@@ -193,6 +206,8 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 	ok, err := validator.verify(vk, message, signature)
 	if err != nil {
 		validator.peer.node.log.Error("Failed verifying signature for ", utils.EncodeBase64(vkID), err)
+
+		return err
 	}
 
 	if !ok {
