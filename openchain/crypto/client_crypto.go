@@ -21,7 +21,6 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
@@ -55,7 +54,7 @@ func (client *clientImpl) initCryptoEngine() (err error) {
 	}
 
 	// Init chain publicKey
-	client.chainPublicKey, err = generic.NewPublicKeyFromECDSA(client.enrollChainKey.(*ecdsa.PublicKey))
+	client.chainPublicKey, err = client.eciesCLI.NewPublicKey(nil, client.enrollChainKey.(*ecdsa.PublicKey))
 	if err != nil {
 		return
 	}

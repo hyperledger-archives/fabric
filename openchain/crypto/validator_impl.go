@@ -24,7 +24,6 @@ import (
 	"crypto/x509"
 
 	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 	"fmt"
@@ -202,8 +201,8 @@ func (validator *validatorImpl) initCryptoEngine() (err error) {
 	validator.enrollCerts = make(map[string]*x509.Certificate)
 
 	// Init chain publicKey
-	validator.chainPrivateKey, err = generic.NewPrivateKeyFromECDSA(
-		validator.enrollChainKey.(*ecdsa.PrivateKey),
+	validator.chainPrivateKey, err = validator.eciesCLI.NewPrivateKey(
+		nil, validator.enrollChainKey.(*ecdsa.PrivateKey),
 	)
 	if err != nil {
 		return

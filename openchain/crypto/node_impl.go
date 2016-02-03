@@ -22,6 +22,7 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
@@ -64,6 +65,9 @@ type nodeImpl struct {
 
 	// TLS
 	tlsCert *x509.Certificate
+
+	// Crypto CLI
+	eciesCLI ecies.CLI
 }
 
 func (node *nodeImpl) GetType() Entity_Type {

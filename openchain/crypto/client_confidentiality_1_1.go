@@ -42,9 +42,9 @@ func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 		tx.Metadata = encryptedMetadata
 	}
 
-	client.node.debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
-	client.node.debug("Encrypted Payload [% x].", tx.Payload)
-	client.node.debug("Encrypted Metadata [% x].", tx.Metadata)
+	client.debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
+	client.debug("Encrypted Payload [% x].", tx.Payload)
+	client.debug("Encrypted Metadata [% x].", tx.Metadata)
 
 	return nil
 }
