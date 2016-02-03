@@ -2,6 +2,7 @@ package generic
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
@@ -16,6 +17,21 @@ func TestCLI(t *testing.T) {
 	cli := NewCLI()
 
 	ecdsaKey, err := ecdsa.GenerateKey(utils.DefaultCurve, rand.Reader)
+
+	var a interface{}
+	a = ecdsaKey
+
+	switch t := a.(type) {
+	case *ecdsa.PrivateKey:
+		fmt.Printf("a2 [%s]\n", t)
+		break
+	case elliptic.Curve:
+		fmt.Printf("a1 [%s]\n", t)
+		break
+	default:
+		fmt.Printf("a3 [%s]\n", t)
+
+	}
 
 	fmt.Printf("[%s]\n", ecdsaKey)
 	if err != nil {
