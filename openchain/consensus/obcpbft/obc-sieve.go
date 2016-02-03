@@ -68,10 +68,8 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
-		svMsg := &SieveMessage{&SieveMessage_Request{ocMsg.Payload}}
-		svMsgRaw, _ := proto.Marshal(svMsg)
-		op.broadcastMsg(svMsg)
-		op.recvRequest(svMsgRaw)
+		op.broadcastMsg(&SieveMessage{&SieveMessage_Request{ocMsg.Payload}})
+		op.recvRequest(ocMsg.Payload)
 		return nil
 	}
 
