@@ -60,7 +60,7 @@ func TestSieveNetwork(t *testing.T) {
 		}
 		txs := block.GetTransactions()
 		if len(txs) != 1 {
-			t.Fatalf("Replica %d block 1 contains %d transactions, expected 1", inst.id, len(txs))
+			t.Fatalf("Replica %d block %v contains %d transactions, expected 1", inst.id, blockNo, len(txs))
 		}
 
 		msgTx := &pb.Transaction{}

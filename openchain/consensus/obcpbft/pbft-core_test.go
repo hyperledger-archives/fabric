@@ -132,14 +132,8 @@ func TestNetwork(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
-	// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
-	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
-	txPacked, err := proto.Marshal(tx)
-	if err != nil {
-		t.Fatalf("Failed to marshal TX block: %s", err)
-	}
-	err = net.replicas[0].pbft.request(txPacked, uint64(generateBroadcaster(validatorCount)))
+	msg := createExternalRequest(1)
+	err := net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -160,9 +154,9 @@ func TestNetwork(t *testing.T) {
 			continue
 		}
 		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
-		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, txPacked) {
+		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, msg.Payload) {
 			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
-				inst.id, highestBlock.Transactions[0].Payload, txPacked)
+				inst.id, highestBlock.Transactions[0].Payload, msg.Payload)
 		}
 	}
 }

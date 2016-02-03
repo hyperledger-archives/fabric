@@ -414,7 +414,6 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 // =============================================================================
 
 // handle new consensus requests
-
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}

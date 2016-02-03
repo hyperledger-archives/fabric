@@ -114,7 +114,7 @@ func (op *obcSieve) Close() {
 	op.pbft.close()
 }
 
-// Drain will block until all remaining execution has been handled.
+// Drain will block until all remaining execution has been handled
 func (op *obcSieve) Drain() {
 	op.pbft.drain()
 }
