@@ -239,6 +239,7 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml, dps)
 	defer sts.Stop()
+	sts.Initiate(dps)
 	if err := sts.BlockingAddTarget(7, SimpleGetBlockHash(7), dps); nil != err {
 		t.Fatalf("SimpleSynchronous state transfer failed : %s", err)
 	}

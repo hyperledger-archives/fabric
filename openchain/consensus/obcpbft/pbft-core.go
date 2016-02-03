@@ -400,13 +400,15 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // Handles finishing the state transfer by executing outstanding transactions
 func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 
-	// Make sure the message thread is not currently modifying pbft
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
+	if md, ok := metadata.(*stateTransferMetadata); ok {
+		// Make sure the message thread is not currently modifying pbft
+		instance.lock.Lock()
+		defer instance.lock.Unlock()
 
-	instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
-	logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
-	instance.executeOutstanding()
+		instance.lastExec = md.sequenceNumber
+		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+		instance.executeOutstanding()
+	}
 }
 
 // =============================================================================
