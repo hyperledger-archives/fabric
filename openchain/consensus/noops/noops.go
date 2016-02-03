@@ -167,15 +167,14 @@ func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	// Grab all transactions from the FIFO queue and run them in order
 	txarr := i.getTransactionsFromQueue()
 	logger.Debug("Executing batch of %d transactions", len(txarr))
-	_, errs := i.stack.ExecTxs(msg.Timestamp, txarr)
+	_, err := i.stack.ExecTxs(msg.Timestamp, txarr)
 
-	//there are n+1 elements of errors in this array. On complete success
-	//they'll all be nil. In particular, the last err will be error in
-	//producing the hash, if any. That's the only error we do want to check
-	if errs[len(txarr)] != nil {
+	//consensus does not need to understand transaction errors, errors here are
+	//actual ledger errors, and often irrecoverable
+	if err != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
 		i.stack.RollbackTxBatch(msg.Timestamp)
-		return fmt.Errorf("Fail to execute transactions: %v", errs)
+		return fmt.Errorf("Fail to execute transactions: %v", err)
 	}
 
 	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)

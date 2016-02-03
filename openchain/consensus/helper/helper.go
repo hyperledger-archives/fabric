@@ -160,7 +160,7 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
-	res, errs := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	res, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	return res, nil
 }
 
