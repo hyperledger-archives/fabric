@@ -130,7 +130,6 @@ func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash [
 	sts.RegisterListener(&listener)
 	defer sts.UnregisterListener(&listener)
 
-	sts.Initiate(peerIDs)
 	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
 
 	return <-result
@@ -618,22 +617,20 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 		targetBlock = lowBlock - sts.blockVerifyChunkSize
 	}
 
-	blockNumber, block, err1 := sts.syncBlocks(lowBlock-1, targetBlock, lowNextHash, nil)
-
-	if blockHash, err2 := sts.ledger.HashBlock(block); nil == err2 {
-		if nil == err1 {
-			sts.validBlockRanges[0].lowBlock = blockNumber
-			sts.validBlockRanges[0].lowNextHash = blockHash
+	if blockNumber, block, err1 := sts.syncBlocks(lowBlock-1, targetBlock, lowNextHash, nil); nil == err1 {
+		if blockHash, err2 := sts.ledger.HashBlock(block); nil == err2 {
+			if nil == err1 {
+				sts.validBlockRanges[0].lowBlock = blockNumber
+				sts.validBlockRanges[0].lowNextHash = blockHash
+			} else {
+				sts.validBlockRanges[0].lowBlock = blockNumber + 1
+				sts.validBlockRanges[0].lowNextHash = blockHash
+			}
 		} else {
-			sts.validBlockRanges[0].lowBlock = blockNumber + 1
-			sts.validBlockRanges[0].lowNextHash = blockHash
+			logger.Warning("%v just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber, err2)
 		}
 	} else {
-		if nil == err1 {
-			logger.Warning("%v just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber, err2)
-		} else {
-			logger.Warning("%v just recovered block %d but cannot compute its hash: %s", sts.id, blockNumber+1, err2)
-		}
+		logger.Warning("%v nuable to recover block %d : %s", sts.id, blockNumber+1, err1)
 	}
 
 	return false

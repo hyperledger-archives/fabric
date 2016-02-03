@@ -189,11 +189,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		Transactions:      mock.curBatch,
 	}
 
-	if preview {
-		if nil != mock.RollbackStateDelta(id) {
-			panic("Error in delta rollback")
-		}
-	} else {
+	if !preview {
 		if nil != mock.CommitStateDelta(id) {
 			panic("Error in delta construction/application")
 		}
