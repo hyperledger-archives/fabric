@@ -784,6 +784,39 @@ func TestValidatorSignVerify(t *testing.T) {
 	}
 }
 
+func TestValidatorVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed generating signature [%s].", err)
+	}
+
+	err = validator.Verify(nil, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an empty id.", err)
+	}
+
+	err = validator.Verify(msg, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid id.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), nil, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), msg, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), signature, nil)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid messahe.", err)
+	}
+}
+
 func setup() {
 	// Conf
 	viper.SetConfigName("crypto_test") // name of config file (without extension)

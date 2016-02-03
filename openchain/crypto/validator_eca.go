@@ -48,6 +48,8 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 	rawCert, err := validator.peer.node.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
 		validator.peer.node.log.Error("Failed getting enrollment certificate for [%s]: [%s]", sid, err)
+
+		return nil, err
 	}
 
 	validator.peer.node.log.Debug("Enrollment certificate for [%s] = [%s]", sid, utils.EncodeBase64(rawCert))
@@ -55,6 +57,8 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
 		validator.peer.node.log.Error("Failed parsing enrollment certificate for [%s]: [%s],[%s]", sid, utils.EncodeBase64(rawCert), err)
+
+		return nil, err
 	}
 
 	validator.enrollCerts[sid] = cert
