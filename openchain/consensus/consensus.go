@@ -38,7 +38,7 @@ type Inquirer interface {
 
 // Communicator is used to send messages to other validators
 type Communicator interface {
-	Broadcast(msg *pb.OpenchainMessage) error
+	Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
@@ -80,10 +80,10 @@ type Ledger interface {
 // Executor is used to invoke transactions, potentially modifying the backing ledger
 type Executor interface {
 	BeginTxBatch(id interface{}) error
-	ExecTXs(txs []*pb.Transaction) ([]byte, []error)
-	CommitTxBatch(id interface{}, transactions []*pb.Transaction, transactionsResults []*pb.TransactionResult, metadata []byte) error
+	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
+	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 }
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
@@ -100,8 +100,8 @@ type LedgerStack interface {
 	RemoteLedgers
 }
 
-// CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
-type CPI interface {
+// Stack is the set of stack-facing methods available to the consensus plugin
+type Stack interface {
 	Inquirer
 	Communicator
 	SecurityUtils

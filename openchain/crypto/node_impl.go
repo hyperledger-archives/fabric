@@ -40,8 +40,11 @@ type nodeImpl struct {
 	// keyStore
 	ks *keyStore
 
-	// Certs
+	// Certs Pool
 	rootsCertPool *x509.CertPool
+	tlsCertPool   *x509.CertPool
+	ecaCertPool   *x509.CertPool
+	tcaCertPool   *x509.CertPool
 
 	// 48-bytes identifier
 	id []byte
@@ -54,13 +57,19 @@ type nodeImpl struct {
 
 	// Enrollment Chain
 	enrollChainKey []byte
-	
+
 	// TLS
- 	tlsCert *x509.Certificate
+	tlsCert *x509.Certificate
 }
 
 func (node *nodeImpl) GetName() string {
 	return node.conf.name
+}
+
+func (node *nodeImpl) isRegistered() bool {
+	missing, _ := utils.FileMissing(node.conf.getRawsPath(), node.conf.getEnrollmentIDFilename())
+
+	return !missing
 }
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
@@ -100,29 +109,10 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 	node.log.Info("Init keystore...done.")
 
-	// Retrieve keys and certificates
-
-	if err := node.retrieveECACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveTCACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data: %s", err)
-
+	// Register crypto engine
+	err = node.registerCryptoEngine(enrollID, enrollPWD)
+	if err != nil {
+		node.log.Error("Failed registering crypto engine [%s].", err.Error())
 		return err
 	}
 

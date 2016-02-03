@@ -3,19 +3,24 @@
 #    CAs section
 #
 ###############################################################################
-eca:
-
-    users:
-        user1: 1 9gvZQRwhUq9q
-        user2: 1 9gvZQRwhUq9q
-        validator: 2 9gvZQRwhUq9q
-        peer: 3 9gvZQRwhUq9q
-        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
-
 server:
         version: "0.1"
         rootpath: ".obc-ca"
         port: ":50051"
+
+eca:
+
+    users:
+        # clients
+        user1: 1 9gvZQRwhUq9q
+        user2: 1 9gvZQRwhUq9q
+        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
+
+        # peers
+        peer: 2 9gvZQRwhUq9q
+
+        # validators
+        validator: 4 9gvZQRwhUq9q
 
 
 ###############################################################################
@@ -24,16 +29,22 @@ server:
 #
 ###############################################################################
 peer:
-
     pki:
-          eca:
-              paddr: localhost:50051
+        eca:
+            paddr: localhost:50051
 
-          tca:
-              paddr: localhost:50051
+        tca:
+            paddr: localhost:50051
 
-          tlsca:
-              paddr: localhost:50051
+        tlsca:
+            paddr: localhost:50051
+
+        tls:
+            enabled: true
+            rootcert:
+                file: ./.obc-ca/tlsca.cert
+            # The server name use to verify the hostname returned by TLS handshake
+            server-host-override:
 
     fileSystemPath: .obc-peer
     validator:

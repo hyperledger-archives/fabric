@@ -144,6 +144,7 @@ func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
 		blockNumber: 0,
 		peerIDs:     peerIDs,
 	}
+	sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
 }
 
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
@@ -783,7 +784,6 @@ func (sts *StateTransferState) stateThread() {
 		select {
 		// Wait for state sync to become necessary
 		case mark := <-sts.initiateStateSync:
-			sts.asynchronousTransferInProgress = true
 
 			sts.informListeners(0, nil, mark.peerIDs, nil, nil, Initiated)
 

@@ -338,7 +338,7 @@ func (instance *pbftCore) processNewView() error {
 	if len(instance.missingReqs) == 0 {
 		return instance.processNewView2(nv)
 	} else if newRequestMissing {
-		go instance.fetchRequests()
+		instance.fetchRequests()
 	}
 
 	return nil

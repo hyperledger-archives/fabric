@@ -30,12 +30,13 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
-	_ "time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -64,7 +65,8 @@ func TestMain(m *testing.M) {
 	setup()
 
 	// Init PKI
-	go initPKI()
+	initPKI()
+	go startPKI()
 	defer cleanup()
 
 	// Init clients
@@ -782,6 +784,39 @@ func TestValidatorSignVerify(t *testing.T) {
 	}
 }
 
+func TestValidatorVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed generating signature [%s].", err)
+	}
+
+	err = validator.Verify(nil, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an empty id.", err)
+	}
+
+	err = validator.Verify(msg, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid id.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), nil, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), msg, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), signature, nil)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid messahe.", err)
+	}
+}
+
 func setup() {
 	// Conf
 	viper.SetConfigName("crypto_test") // name of config file (without extension)
@@ -826,20 +861,37 @@ func initPKI() {
 	eca = obcca.NewECA()
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
+}
 
+func startPKI() {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.pki.tls.enabled") {
+		// TLS configuration
+		creds, err := credentials.NewServerTLSFromFile(
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"),
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
+		)
+		if err != nil {
+			panic("Failed creating credentials for OBC-CA: " + err.Error())
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+
+	fmt.Printf("open socket...\n")
 	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {
 		panic("Cannot open port: " + err.Error())
 	}
+	fmt.Printf("open socket...done\n")
 
-	server = grpc.NewServer()
+	server = grpc.NewServer(opts...)
 
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
 
+	fmt.Printf("start serving...\n")
 	server.Serve(sockp)
-
 }
 
 func initClients() error {
@@ -1387,8 +1439,8 @@ func stopPKI() {
 	eca.Close()
 	tca.Close()
 	tlsca.Close()
-	server.Stop()
 
+	server.Stop()
 }
 
 func removeFolders() {

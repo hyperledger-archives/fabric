@@ -181,7 +181,7 @@ func TestSieveNonDeterministic(t *testing.T) {
 	validatorCount := 4
 	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetSieve(inst)
-		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
 			logger.Debug("State hash for %d: %s", inst.id, res)
 			return []byte(res), nil

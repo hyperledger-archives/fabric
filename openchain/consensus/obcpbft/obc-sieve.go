@@ -33,8 +33,8 @@ import (
 )
 
 type obcSieve struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 
 	id            uint64
 	epoch         uint64
@@ -50,10 +50,10 @@ type obcSieve struct {
 	queuedTx   [][]byte
 }
 
-func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
-	op := &obcSieve{cpi: cpi, id: id}
+func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
+	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
-	op.pbft = newPbftCore(id, config, op, cpi)
+	op.pbft = newPbftCore(id, config, op, stack)
 	op.pbft.sts.RegisterListener(op)
 
 	return op
@@ -135,11 +135,11 @@ func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
 	if err != nil {
 		return
 	}
-	return op.cpi.Unicast(ocMsg, receiverHandle)
+	return op.stack.Unicast(ocMsg, receiverHandle)
 }
 
 func (op *obcSieve) sign(msg []byte) ([]byte, error) {
-	return op.cpi.Sign(msg)
+	return op.stack.Sign(msg)
 }
 
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
@@ -147,7 +147,7 @@ func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) er
 	if err != nil {
 		return err
 	}
-	return op.cpi.Verify(senderHandle, signature, message)
+	return op.stack.Verify(senderHandle, signature, message)
 }
 
 // called by pbft-core to signal when a view change happened
@@ -176,7 +176,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg)
+	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
@@ -264,7 +264,7 @@ func (op *obcSieve) processExecute() {
 	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 
-	blockchainSize, _ := op.cpi.GetBlockchainSize()
+	blockchainSize, _ := op.stack.GetBlockchainSize()
 	blockchainSize--
 	if op.blockNumber != blockchainSize {
 		logger.Critical("Sieve replica %d block number and ledger blockchain size diverged: blockNo=%d, blockchainSize=%d", op.id, op.blockNumber, blockchainSize)
@@ -278,7 +278,7 @@ func (op *obcSieve) processExecute() {
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
 	op.currentTx = []*pb.Transaction{tx}
-	op.cpi.ExecTXs(op.currentTx)
+	op.stack.ExecTxs(op.currentReq, op.currentTx)
 	hash, err := op.previewCommit(op.blockNumber)
 	if err != nil {
 		logger.Error("Sieve replica %d ignoring execute: %s", op.id, err)
@@ -576,32 +576,32 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 }
 
 func (op *obcSieve) begin() error {
-	if err := op.cpi.BeginTxBatch(op.currentReq); err != nil {
+	if err := op.stack.BeginTxBatch(op.currentReq); err != nil {
 		return fmt.Errorf("Fail to begin transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) rollback() error {
-	if err := op.cpi.RollbackTxBatch(op.currentReq); err != nil {
+	if err := op.stack.RollbackTxBatch(op.currentReq); err != nil {
 		return fmt.Errorf("Fail to rollback transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) commit(seqNo uint64) error {
-	if err := op.cpi.CommitTxBatch(op.currentReq, op.currentTx, nil, nil); err != nil {
+	if _, err := op.stack.CommitTxBatch(op.currentReq, nil); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) previewCommit(seqNo uint64) ([]byte, error) {
-	block, err := op.cpi.PreviewCommitTxBatchBlock(op.currentReq, op.currentTx, nil)
+	block, err := op.stack.PreviewCommitTxBatch(op.currentReq, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Fail to preview transaction: %v", err)
 	}
-	return op.cpi.HashBlock(block)
+	return op.stack.HashBlock(block)
 }
 
 func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) {
@@ -615,6 +615,7 @@ func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) 
 			peers = append(peers, peer)
 		}
 	}
+	op.pbft.sts.Initiate(peers)
 	err := op.pbft.sts.BlockingAddTarget(blockNumber, blockHash, peers)
 	if err != nil {
 		panic(err)
