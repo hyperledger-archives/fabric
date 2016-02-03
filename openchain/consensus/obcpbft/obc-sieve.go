@@ -33,8 +33,8 @@ import (
 )
 
 type obcSieve struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 
 	id            uint64
 	epoch         uint64
@@ -50,10 +50,10 @@ type obcSieve struct {
 	queuedTx   [][]byte
 }
 
-func newObcSieve(id uint64, config *viper.Viper, cpi consensus.CPI) *obcSieve {
-	op := &obcSieve{cpi: cpi, id: id}
+func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
+	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
-	op.pbft = newPbftCore(id, config, op, cpi)
+	op.pbft = newPbftCore(id, config, op, stack)
 
 	return op
 }
@@ -126,11 +126,11 @@ func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
 	if err != nil {
 		return
 	}
-	return op.cpi.Unicast(ocMsg, receiverHandle)
+	return op.stack.Unicast(ocMsg, receiverHandle)
 }
 
 func (op *obcSieve) sign(msg []byte) ([]byte, error) {
-	return op.cpi.Sign(msg)
+	return op.stack.Sign(msg)
 }
 
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
@@ -138,7 +138,7 @@ func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) er
 	if err != nil {
 		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
 	}
-	return op.cpi.Verify(senderHandle, signature, message)
+	return op.stack.Verify(senderHandle, signature, message)
 }
 
 // called by pbft-core to signal when a view change happened
@@ -167,7 +167,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg)
+	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
@@ -258,7 +258,7 @@ func (op *obcSieve) processExecute() {
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
 	op.currentTx = []*pb.Transaction{tx}
-	hashes, _ := op.cpi.ExecTxs(op.currentReq, op.currentTx)
+	hashes, _ := op.stack.ExecTxs(op.currentReq, op.currentTx)
 
 	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
@@ -545,21 +545,21 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 }
 
 func (op *obcSieve) begin() error {
-	if err := op.cpi.BeginTxBatch(op.currentReq); err != nil {
+	if err := op.stack.BeginTxBatch(op.currentReq); err != nil {
 		return fmt.Errorf("Fail to begin transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) rollback() error {
-	if err := op.cpi.RollbackTxBatch(op.currentReq); err != nil {
+	if err := op.stack.RollbackTxBatch(op.currentReq); err != nil {
 		return fmt.Errorf("Fail to rollback transaction: %v", err)
 	}
 	return nil
 }
 
 func (op *obcSieve) commit(seqNo uint64) error {
-	if _, err := op.cpi.CommitTxBatch(op.currentReq, nil); err != nil {
+	if _, err := op.stack.CommitTxBatch(op.currentReq, nil); err != nil {
 		return fmt.Errorf("Fail to commit transaction: %v", err)
 	}
 	return nil

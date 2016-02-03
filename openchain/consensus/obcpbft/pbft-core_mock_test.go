@@ -31,13 +31,13 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type mockCPI struct {
+type mockStack struct {
 	broadcasted [][]byte
 	*instance
 }
 
-func newMock() *mockCPI {
-	mock := &mockCPI{
+func newMock() *mockStack {
+	mock := &mockStack{
 		make([][]byte, 0),
 		&instance{},
 	}
@@ -46,19 +46,19 @@ func newMock() *mockCPI {
 	return mock
 }
 
-func (mock *mockCPI) sign(msg []byte) ([]byte, error) {
+func (mock *mockStack) sign(msg []byte) ([]byte, error) {
 	return msg, nil
 }
 
-func (mock *mockCPI) verify(senderID uint64, signature []byte, message []byte) error {
+func (mock *mockStack) verify(senderID uint64, signature []byte, message []byte) error {
 	return nil
 }
 
-func (mock *mockCPI) broadcast(msg []byte) {
+func (mock *mockStack) broadcast(msg []byte) {
 	mock.broadcasted = append(mock.broadcasted, msg)
 }
 
-func (mock *mockCPI) unicast(msg []byte, receiverID uint64) (err error) {
+func (mock *mockStack) unicast(msg []byte, receiverID uint64) (err error) {
 	panic("not implemented")
 }
 
@@ -186,7 +186,7 @@ func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
+func (inst *instance) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error {
 	net := inst.net
 	net.cond.L.Lock()
 	net.broadcastFilter(inst, msg.Payload)

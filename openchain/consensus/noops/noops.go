@@ -47,8 +47,8 @@ func init() {
 
 // Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
-	cpi consensus.CPI
-	txQ *util.Queue
+	stack consensus.Stack
+	txQ   *util.Queue
 }
 
 var iNoops consensus.Consenter
@@ -58,16 +58,16 @@ var iNoops consensus.Consenter
 // =============================================================================
 
 // NewNoops is a constructor returning a consensus.Consenter object.
-func NewNoops(c consensus.CPI) consensus.Consenter {
+func NewNoops(c consensus.Stack) consensus.Consenter {
 	logger.Debug("Creating a NOOPS object")
 	i := &Noops{}
-	i.cpi = c
+	i.stack = c
 	i.txQ = util.NewQueue()
 	return i
 }
 
 // GetNoops returns a singleton of NOOPS
-func GetNoops(c consensus.CPI) consensus.Consenter {
+func GetNoops(c consensus.Stack) consensus.Consenter {
 	if iNoops == nil {
 		iNoops = NewNoops(c)
 	}
@@ -90,7 +90,14 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 		if i.canProcess(txarr) {
 			i.txQ.Push(txarr)
-			return i.doTransactions(msg)
+			if err = i.doTransactions(msg); err == nil {
+				//transactions succeeed, broadcast
+				//spin the broadcast in go routine so
+				//(a)we make RecvMsg light and
+				//(b)we separate send from receive
+				go i.notifyBlockAdded()
+			}
+			return err
 		}
 		i.queueTransactions(txarr)
 	}
@@ -113,7 +120,7 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 		return err
 	}
 	msg.Payload = payload
-	if errs := i.cpi.Broadcast(msg); nil != errs {
+	if errs := i.stack.Broadcast(msg, pb.PeerEndpoint_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
@@ -153,32 +160,32 @@ func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
 func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
 	logger.Debug("Executing transactions")
 	logger.Debug("Starting TX batch with timestamp: %v", msg.Timestamp)
-	if err := i.cpi.BeginTxBatch(msg.Timestamp); err != nil {
+	if err := i.stack.BeginTxBatch(msg.Timestamp); err != nil {
 		return err
 	}
 
 	// Grab all transactions from the FIFO queue and run them in order
 	txarr := i.getTransactionsFromQueue()
 	logger.Debug("Executing batch of %d transactions", len(txarr))
-	_, errs := i.cpi.ExecTxs(msg.Timestamp, txarr)
+	_, errs := i.stack.ExecTxs(msg.Timestamp, txarr)
 
 	//there are n+1 elements of errors in this array. On complete success
 	//they'll all be nil. In particular, the last err will be error in
 	//producing the hash, if any. That's the only error we do want to check
 	if errs[len(txarr)] != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		i.cpi.RollbackTxBatch(msg.Timestamp)
+		i.stack.RollbackTxBatch(msg.Timestamp)
 		return fmt.Errorf("Fail to execute transactions: %v", errs)
 	}
 
 	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
-	if _, err := i.cpi.CommitTxBatch(msg.Timestamp, nil); err != nil {
+	if _, err := i.stack.CommitTxBatch(msg.Timestamp, nil); err != nil {
 		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		i.cpi.RollbackTxBatch(msg.Timestamp)
+		i.stack.RollbackTxBatch(msg.Timestamp)
 		return err
 	}
 
-	return i.notifyBlockAdded()
+	return nil
 }
 
 func (i *Noops) notifyBlockAdded() error {
@@ -204,16 +211,22 @@ func (i *Noops) notifyBlockAdded() error {
 		return err
 	}
 
+	//make Payload nil to reduce block size..
+	//anything else to remove .. do we need StateDelta ?
+	for _, tx := range block.Transactions {
+		tx.Payload = nil
+	}
+
 	logger.Debug("Got the delta state of block number %v", blockHeight)
 	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}
 
-	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED")
+	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED to non-validators")
 	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED,
 		Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	if errs := i.cpi.Broadcast(msg); nil != errs {
+	if errs := i.stack.Broadcast(msg, pb.PeerEndpoint_NON_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil

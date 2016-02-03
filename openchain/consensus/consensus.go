@@ -38,7 +38,7 @@ type Inquirer interface {
 
 // Communicator is used to send messages to other validators
 type Communicator interface {
-	Broadcast(msg *pb.OpenchainMessage) error
+	Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
@@ -100,8 +100,8 @@ type LedgerStack interface {
 	RemoteLedgers
 }
 
-// CPI (Consensus Programming Interface) is the set of stack-facing methods available to the consensus plugin
-type CPI interface {
+// Stack is the set of stack-facing methods available to the consensus plugin
+type Stack interface {
 	Inquirer
 	Communicator
 	SecurityUtils

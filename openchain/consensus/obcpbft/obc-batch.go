@@ -33,8 +33,8 @@ import (
 )
 
 type obcBatch struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 
 	batchSize        int
 	batchStore       [][]byte
@@ -43,10 +43,10 @@ type obcBatch struct {
 	batchTimeout     time.Duration
 }
 
-func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
+func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
-	op := &obcBatch{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op, cpi)
+	op := &obcBatch{stack: stack}
+	op.pbft = newPbftCore(id, config, op, stack)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
@@ -86,7 +86,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 				Type:    pb.OpenchainMessage_CONSENSUS,
 				Payload: wrapped,
 			}
-			op.cpi.Broadcast(ocMsg)
+			op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 		}
 		return nil
 	}
@@ -139,7 +139,7 @@ func (op *obcBatch) Drain() {
 }
 
 // =============================================================================
-// innerCPI interface (functions called by pbft-core)
+// innerStack interface (functions called by pbft-core)
 // =============================================================================
 
 func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
@@ -153,7 +153,7 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
 
 // multicast a message to all replicas
 func (op *obcBatch) broadcast(msgPayload []byte) {
-	op.cpi.Broadcast(op.wrapMessage(msgPayload))
+	op.stack.Broadcast(op.wrapMessage(msgPayload), pb.PeerEndpoint_UNDEFINED)
 }
 
 // send a message to a specific replica
@@ -162,11 +162,11 @@ func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
 	if err != nil {
 		return
 	}
-	return op.cpi.Unicast(op.wrapMessage(msgPayload), receiverHandle)
+	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
 }
 
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
-	return op.cpi.Sign(msg)
+	return op.stack.Sign(msg)
 }
 
 // verify message signature
@@ -175,7 +175,7 @@ func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) er
 	if err != nil {
 		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
 	}
-	return op.cpi.Verify(senderHandle, signature, message)
+	return op.stack.Verify(senderHandle, signature, message)
 }
 
 // validate checks whether the request is valid syntactically.
@@ -204,22 +204,22 @@ func (op *obcBatch) execute(tbRaw []byte) {
 		}
 	}
 
-	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
+	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
 		logger.Error("Failed to begin transaction batch %s: %v", txBatchID, err)
 		return
 	}
 
-	if _, err := op.cpi.ExecTxs(txBatchID, txs); nil != err {
+	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
 		logger.Error("Fail to execute transaction batch %s: %v", txBatchID, err)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if _, err = op.cpi.CommitTxBatch(txBatchID, nil); err != nil {
+	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
 		logger.Error("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
 		return

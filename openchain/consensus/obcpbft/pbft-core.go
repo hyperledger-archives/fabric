@@ -50,7 +50,7 @@ func init() {
 // custom interfaces and structure definitions
 // =============================================================================
 
-type innerCPI interface {
+type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(txRaw []byte)
@@ -65,7 +65,7 @@ type pbftCore struct {
 	// internal data
 	lock         sync.Mutex
 	closed       chan bool
-	consumer     innerCPI
+	consumer     innerStack
 	notifyCommit chan bool
 
 	// PBFT data
@@ -154,7 +154,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger consensus.LedgerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -988,7 +988,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 // Misc. methods go here
 // =============================================================================
 
-// Marshals a Message and hands it to the CPI. If toSelf is true,
+// Marshals a Message and hands it to the Stack. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsgSync.
 func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	msgRaw, err := proto.Marshal(msg)

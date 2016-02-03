@@ -42,7 +42,7 @@ type Helper struct {
 }
 
 // NewHelper constructs the consensus helper object
-func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.CPI {
+func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
 	return &Helper{coordinator: mhc,
 		secOn:     viper.GetBool("security.enabled"),
 		secHelper: mhc.GetSecHelper()}
@@ -89,8 +89,8 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 }
 
 // Broadcast sends a message to all validating peers
-func (h *Helper) Broadcast(msg *pb.OpenchainMessage) error {
-	errors := h.coordinator.Broadcast(msg)
+func (h *Helper) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error {
+	errors := h.coordinator.Broadcast(msg, typ)
 	if len(errors) > 0 {
 		return fmt.Errorf("Couldn't broadcast successfully")
 	}
