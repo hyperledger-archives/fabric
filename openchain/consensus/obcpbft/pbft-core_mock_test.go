@@ -287,6 +287,10 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 func (net *testnet) deliverFilter(msg taggedMsg) {
 	if msg.dst == -1 {
 		for id, inst := range net.replicas {
+			if msg.src == id {
+				// do not deliver to local replica
+				continue
+			}
 			payload := msg.msg
 			if net.filterFn != nil {
 				payload = net.filterFn(msg.src, id, payload)

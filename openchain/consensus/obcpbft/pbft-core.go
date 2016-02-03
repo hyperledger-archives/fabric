@@ -64,6 +64,7 @@ type innerStack interface {
 type pbftCore struct {
 	// internal data
 	lock         sync.Mutex
+	executing    bool // signals that application is executing
 	closed       chan bool
 	consumer     innerStack
 	notifyCommit chan bool
@@ -681,6 +682,13 @@ func (instance *pbftCore) executeOutstanding() {
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
+	if instance.executing {
+		return false
+	}
+
+	instance.executing = true
+	defer func() { instance.executing = false }()
+
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -708,9 +716,11 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
-
-		instance.consumer.execute(req.Payload)
 		delete(instance.outstandingReqs, digest)
+
+		instance.lock.Unlock()
+		instance.consumer.execute(req.Payload)
+		instance.lock.Lock()
 	}
 
 	if len(instance.outstandingReqs) > 0 {

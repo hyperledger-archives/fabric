@@ -20,6 +20,7 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
 	gp "google/protobuf"
 	"testing"
 
@@ -42,7 +43,10 @@ func makeTestnetBatch(inst *instance, batchSize int) {
 // Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
+		Timestamp: txTime,
+		Payload:   []byte(fmt.Sprint(iter)),
+	}
 	txPacked, _ := proto.Marshal(tx)
 	msg = &pb.OpenchainMessage{
 		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
