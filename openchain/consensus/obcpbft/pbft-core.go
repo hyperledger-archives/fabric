@@ -443,55 +443,64 @@ func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error)
 
 	if req := msg.GetRequest(); req != nil {
 		if senderID != req.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
 		if senderID != preprep.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
 		if senderID != prep.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
 		if senderID != commit.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		if senderID != chkpt.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvCheckpoint(chkpt)
 	} else if vc := msg.GetViewChange(); vc != nil {
 		if senderID != vc.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
 		if senderID != nv.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvNewView(nv)
 	} else if fr := msg.GetFetchRequest(); fr != nil {
 		if senderID != fr.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvFetchRequest(fr)
 	} else if req := msg.GetReturnRequest(); req != nil {
 		if senderID != req.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
 			return
 		}
 		err = instance.recvReturnRequest(req)

@@ -26,6 +26,7 @@ import (
 	gp "google/protobuf"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,20 +90,46 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	digest1 := "hi there"
 	request2 := &Request{Payload: []byte("other"), ReplicaId: uint64(generateBroadcaster(instance.replicaCount))}
 
-	nestedMsg := &Message{&Message_PrePrepare{&PrePrepare{
+	pbftMsg := &Message{&Message_PrePrepare{&PrePrepare{
 		View:           0,
 		SequenceNumber: 1,
 		RequestDigest:  digest1,
 		Request:        request2,
 		ReplicaId:      0,
 	}}}
-	err := instance.recvMsgSync(nestedMsg, 0)
+	err := instance.recvMsgSync(pbftMsg, 0)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
 	}
 
 	if len(mock.broadcasted) != 0 {
 		t.Fatalf("Expected to ignore malicious pre-prepare")
+	}
+}
+
+func TestWrongReplicaID(t *testing.T) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
+	defer net.close()
+
+	chainTxMsg := createExternalRequest(1)
+	req := &Request{
+		Timestamp: chainTxMsg.Timestamp,
+		Payload:   chainTxMsg.Payload,
+		ReplicaId: 1,
+	}
+	pbftMsg := &Message{&Message_Request{req}}
+	err := net.replicas[0].pbft.recvMsgSync(pbftMsg, 0)
+
+	if err == nil {
+		t.Fatalf("Shouldn't have processed message with incorrect replica ID")
+	}
+
+	if err != nil {
+		rightError := strings.HasPrefix(err.Error(), "Sender ID")
+		if !rightError {
+			t.Fatalf("Should have returned error about incorrect replica ID on the incoming message")
+		}
 	}
 }
 
