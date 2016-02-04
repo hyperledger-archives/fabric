@@ -75,6 +75,7 @@ type MockLedger struct {
 
 	txID          interface{}
 	curBatch      []*protos.Transaction
+	curResults    []byte
 	preBatchState uint64
 
 	deltaID       interface{}
@@ -120,6 +121,7 @@ func (mock *MockLedger) BeginTxBatch(id interface{}) error {
 	}
 	mock.txID = id
 	mock.curBatch = nil
+	mock.curResults = nil
 	mock.preBatchState = mock.state
 	return nil
 }
@@ -135,6 +137,7 @@ func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]by
 	if mock.inst.execTxResult != nil {
 		txResult, err = mock.inst.execTxResult(txs)
 	} else {
+		// This is basically a default fake default transaction execution
 		if nil == txs {
 			txs = []*protos.Transaction{&protos.Transaction{Payload: SimpleGetStateDelta(mock.blockHeight)}}
 		}
@@ -157,6 +160,8 @@ func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]by
 
 	mock.ApplyStateDelta(id, SimpleBytesToStateDelta(buffer))
 
+	mock.curResults = append(mock.curResults, txResult...)
+
 	return txResult, err
 }
 
@@ -165,6 +170,7 @@ func (mock *MockLedger) CommitTxBatch(id interface{}, metadata []byte) (*protos.
 	if nil == err {
 		mock.txID = nil
 		mock.curBatch = nil
+		mock.curResults = nil
 	}
 	return block, err
 }
@@ -187,13 +193,16 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		PreviousBlockHash: previousBlockHash,
 		StateHash:         stateHash,
 		Transactions:      mock.curBatch,
+		NonHashData: &protos.NonHashData{
+			TransactionResults: []*protos.TransactionResult{
+				&protos.TransactionResult{
+					Result: mock.curResults,
+				},
+			},
+		},
 	}
 
-	if preview {
-		if nil != mock.RollbackStateDelta(id) {
-			panic("Error in delta rollback")
-		}
-	} else {
+	if !preview {
 		if nil != mock.CommitStateDelta(id) {
 			panic("Error in delta construction/application")
 		}
@@ -213,6 +222,7 @@ func (mock *MockLedger) RollbackTxBatch(id interface{}) error {
 		return fmt.Errorf("Invalid batch ID")
 	}
 	mock.curBatch = nil
+	mock.curResults = nil
 	mock.txID = nil
 	mock.state = mock.preBatchState
 	return nil
@@ -564,9 +574,17 @@ func SimpleEncodeUint64(num uint64) []byte {
 
 func SimpleHashBlock(block *protos.Block) []byte {
 	buffer := make([]byte, binary.MaxVarintLen64)
-	for _, transaction := range block.Transactions {
-		for i, b := range transaction.Payload {
-			buffer[i%binary.MaxVarintLen64] += b
+	if nil != block.NonHashData && nil != block.NonHashData.TransactionResults {
+		for _, txResult := range block.NonHashData.TransactionResults {
+			for i, b := range txResult.Result {
+				buffer[i%binary.MaxVarintLen64] += b
+			}
+		}
+	} else {
+		for _, transaction := range block.Transactions {
+			for i, b := range transaction.Payload {
+				buffer[i%binary.MaxVarintLen64] += b
+			}
 		}
 	}
 	return []byte(fmt.Sprintf("BlockHash:%s-%s-%s", buffer, block.StateHash, block.ConsensusMetadata))
