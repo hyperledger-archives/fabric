@@ -110,10 +110,14 @@ func (d *Handler) enterState(e *fsm.Event) {
 }
 
 func (d *Handler) deregister() error {
+	var err error
 	if d.registered {
-		return d.Coordinator.DeregisterHandler(d)
+		err = d.Coordinator.DeregisterHandler(d)
+		//doneChan is created and waiting for registered handlers only
+		d.doneChan <- struct{}{}
+		d.registered = false
 	}
-	return nil
+	return err
 }
 
 // To return the PeerEndpoint this Handler is connected to.
@@ -128,8 +132,6 @@ func (d *Handler) To() (pb.PeerEndpoint, error) {
 func (d *Handler) Stop() error {
 	// Deregister the handler
 	err := d.deregister()
-	d.doneChan <- struct{}{}
-	d.registered = false
 	if err != nil {
 		return fmt.Errorf("Error stopping MessageHandler: %s", err)
 	}
