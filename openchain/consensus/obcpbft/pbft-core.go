@@ -68,6 +68,7 @@ type pbftCore struct {
 	closed       chan bool
 	consumer     innerStack
 	notifyCommit chan bool
+	notifyExec   *sync.Cond
 
 	// PBFT data
 	activeView   bool                   // view change happening
@@ -163,6 +164,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.ledger = ledger
 	instance.closed = make(chan bool)
 	instance.notifyCommit = make(chan bool, 1)
+	instance.notifyExec = sync.NewCond(&instance.lock)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = instance.N / 3
@@ -267,6 +269,9 @@ func (instance *pbftCore) close() {
 // drain remaining requests
 func (instance *pbftCore) drain() {
 	instance.lock.Lock()
+	for instance.executing {
+		instance.notifyExec.Wait()
+	}
 	instance.executeOutstanding()
 	instance.lock.Unlock()
 }
@@ -688,9 +693,6 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		return false
 	}
 
-	instance.executing = true
-	defer func() { instance.executing = false }()
-
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -720,9 +722,12 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 			instance.id, idx.v, idx.n, digest)
 		delete(instance.outstandingReqs, digest)
 
+		instance.executing = true
 		instance.lock.Unlock()
 		instance.consumer.execute(req.Payload)
 		instance.lock.Lock()
+		instance.executing = false
+		instance.notifyExec.Broadcast()
 	}
 
 	if len(instance.outstandingReqs) > 0 {
