@@ -45,23 +45,38 @@ func TestSieveNetwork(t *testing.T) {
 	net := makeTestnet(4, makeTestnetSieve)
 	defer net.close()
 
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
-	if err != nil {
-		t.Fatalf("External request was not processed by backup: %v", err)
-	}
+	req1 := createExternalRequest(1)
+	net.replicas[1].consenter.RecvMsg(req1)
+	net.process()
+	req0 := createExternalRequest(2)
+	net.replicas[0].consenter.RecvMsg(req0)
+	net.process()
 
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
+	testblock := func(inst *instance, blockNo uint64, msg *pb.OpenchainMessage) {
+		block, err := inst.GetBlock(blockNo)
+		if err != nil {
+			t.Fatalf("Replica %d could not retrieve block %d: %s", inst.id, blockNo, err)
+		}
+		txs := block.GetTransactions()
+		if len(txs) != 1 {
+			t.Fatalf("Replica %d block 1 contains %d transactions, expected 1", inst.id, len(txs))
+		}
+
+		msgTx := &pb.Transaction{}
+		proto.Unmarshal(msg.Payload, msgTx)
+		if !reflect.DeepEqual(txs[0], msgTx) {
+			t.Errorf("Replica %d transaction does not match; is %+v, should be %+v", inst.id, txs[0], msgTx)
+		}
 	}
 
 	for _, inst := range net.replicas {
-		newBlocks, _ := inst.GetBlockchainSize() // Doesn't fail
-		newBlocks--
-		if newBlocks != 1 {
-			t.Errorf("Replica %d executed %d requests, expected %d",
-				inst.id, newBlocks, 1)
+		blockchainSize, _ := inst.GetBlockchainSize()
+		blockchainSize--
+		if blockchainSize != 2 {
+			t.Errorf("Replica %d has incorrect blockchain size; is %d, should be 2", inst.id, blockchainSize)
 		}
+		testblock(inst, 1, req1)
+		testblock(inst, 2, req0)
 
 		if inst.consenter.(*obcSieve).epoch != 0 {
 			t.Errorf("Replica %d in epoch %d, expected 0",
@@ -73,9 +88,9 @@ func TestSieveNetwork(t *testing.T) {
 func TestSieveNoDecision(t *testing.T) {
 	net := makeTestnet(4, func(i *instance) {
 		makeTestnetSieve(i)
-		i.consenter.(*obcSieve).pbft.requestTimeout = 100 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.newViewTimeout = 200 * time.Millisecond
-		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.requestTimeout = 200 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
+		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
 	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -162,7 +177,7 @@ func TestSieveNonDeterministic(t *testing.T) {
 
 	net := makeTestnet(4, func(inst *instance) {
 		makeTestnetSieve(inst)
-		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, []error) {
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
 			res := fmt.Sprintf("%d %s", instResults[inst.id], tx)
 			logger.Debug("State hash for %d: %s", inst.id, res)
 			return []byte(res), nil
@@ -178,13 +193,19 @@ func TestSieveNonDeterministic(t *testing.T) {
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(2))
 	net.process()
 
-	results := make([]uint64, len(net.replicas))
+	results := make([][]byte, len(net.replicas))
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.GetBlockchainSize() // Doesn't fail
-		results[inst.id] = blockHeight - 1
+		block, err := inst.GetBlock(1)
+		if err != nil {
+			t.Fatalf("Expected replica %d to have one block", inst.id)
+		}
+		blockRaw, _ := proto.Marshal(block)
+		results[inst.id] = blockRaw
 	}
-	if !reflect.DeepEqual(results, []uint64{0, 0, 1, 1}) && !reflect.DeepEqual(results, []uint64{1, 1, 0, 0}) {
-		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
+	if !(reflect.DeepEqual(results[0], results[1]) &&
+		reflect.DeepEqual(results[0], results[2]) &&
+		reflect.DeepEqual(results[0], results[3])) {
+		t.Fatalf("Expected all replicas to reach the same block, got: %v", results)
 	}
 }
 

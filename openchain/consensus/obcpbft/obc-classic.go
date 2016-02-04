@@ -32,13 +32,13 @@ import (
 )
 
 type obcClassic struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 }
 
-func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
-	op := &obcClassic{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op, cpi)
+func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
+	op := &obcClassic{stack: stack}
+	op.pbft = newPbftCore(id, config, op, stack)
 	return op
 }
 
@@ -88,7 +88,7 @@ func (op *obcClassic) Close() {
 }
 
 // =============================================================================
-// innerCPI interface (functions called by pbft-core)
+// innerStack interface (functions called by pbft-core)
 // =============================================================================
 
 // multicast a message to all replicas
@@ -97,7 +97,7 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
+	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
 // send a message to a specific replica
@@ -110,11 +110,11 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 	if err != nil {
 		return
 	}
-	return op.cpi.Unicast(ocMsg, receiverHandle)
+	return op.stack.Unicast(ocMsg, receiverHandle)
 }
 
 func (op *obcClassic) sign(msg []byte) ([]byte, error) {
-	return op.cpi.Sign(msg)
+	return op.stack.Sign(msg)
 }
 
 func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
@@ -122,7 +122,7 @@ func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) 
 	if err != nil {
 		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
 	}
-	return op.cpi.Verify(senderHandle, signature, message)
+	return op.stack.Verify(senderHandle, signature, message)
 }
 
 // validate checks whether the request is valid syntactically.
@@ -149,23 +149,22 @@ func (op *obcClassic) execute(txRaw []byte) {
 	txs := []*pb.Transaction{tx}
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
 
-	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
+	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
 		logger.Error("Failed to begin transaction %s: %v", txBatchID, err)
 		return
 	}
 
-	_, errs := op.cpi.ExecTXs(txs)
-	if errs[len(txs)] != nil {
-		logger.Error("Failed to execute transaction %s: %v", txBatchID, errs)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
+		logger.Error("Failed to execute transaction %s: %v", txBatchID, err)
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
+	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
 		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
