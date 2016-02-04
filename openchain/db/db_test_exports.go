@@ -42,7 +42,7 @@ func NewTestDBWrapper() *TestDBWrapper {
 
 // CreateFreshDB This method closes existing db, remove the db dir and create db again.
 // Can be called before starting a test so that data from other tests does not interfere
-func (testDB *TestDBWrapper) CreateFreshDB(t *testing.T) {
+func (testDB *TestDBWrapper) CreateFreshDB(t testing.TB) {
 	// cleaning up test db here so that each test does not have to call it explicitly
 	// at the end of the test
 	testDB.cleanup()
@@ -68,7 +68,7 @@ func (testDB *TestDBWrapper) removeDBPath() {
 }
 
 // WriteToDB tests can use this method for persisting a given batch to db
-func (testDB *TestDBWrapper) WriteToDB(t *testing.T, writeBatch *gorocksdb.WriteBatch) {
+func (testDB *TestDBWrapper) WriteToDB(t testing.TB, writeBatch *gorocksdb.WriteBatch) {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
 	err := GetDBHandle().DB.Write(opt, writeBatch)
@@ -78,7 +78,7 @@ func (testDB *TestDBWrapper) WriteToDB(t *testing.T, writeBatch *gorocksdb.Write
 }
 
 // GetFromStateCF tests can use this method for getting value from StateCF column-family
-func (testDB *TestDBWrapper) GetFromStateCF(t *testing.T, key []byte) []byte {
+func (testDB *TestDBWrapper) GetFromStateCF(t testing.TB, key []byte) []byte {
 	openchainDB := GetDBHandle()
 	value, err := openchainDB.GetFromStateCF(key)
 	if err != nil {
@@ -88,7 +88,7 @@ func (testDB *TestDBWrapper) GetFromStateCF(t *testing.T, key []byte) []byte {
 }
 
 // GetFromStateDeltaCF tests can use this method for getting value from StateDeltaCF column-family
-func (testDB *TestDBWrapper) GetFromStateDeltaCF(t *testing.T, key []byte) []byte {
+func (testDB *TestDBWrapper) GetFromStateDeltaCF(t testing.TB, key []byte) []byte {
 	openchainDB := GetDBHandle()
 	value, err := openchainDB.GetFromStateDeltaCF(key)
 	if err != nil {
