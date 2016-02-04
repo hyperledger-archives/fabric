@@ -245,6 +245,34 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	}
 }
 
+func TestCatchupSimpleSynchronousSuccess(t *testing.T) {
+	rols, mrls, dps := createRemoteLedgers(1, 3)
+
+	for _, remoteLedger := range *mrls {
+		remoteLedger.blockHeight = 8
+	}
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(rols, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	sts := newTestStateTransfer(ml, dps)
+	defer sts.Stop()
+
+	done := make(chan struct{})
+
+	go func() {
+		sts.Initiate(dps)
+		sts.BlockingUntilSuccessAddTarget(7, SimpleGetBlockHash(7), dps)
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("SimpleSynchronousSuccess state transfer timed out")
+	}
+}
+
 func executeBlockRecovery(ml *MockLedger, millisTimeout int, defaultPeerIDs []*protos.PeerID) error {
 
 	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, defaultPeerIDs)
