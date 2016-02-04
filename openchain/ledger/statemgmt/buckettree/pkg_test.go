@@ -32,9 +32,11 @@ import (
 )
 
 var testDBWrapper = db.NewTestDBWrapper()
+var testParams map[string]interface{}
 
 func TestMain(m *testing.M) {
 	fmt.Println("Setting up test config...")
+	testParams = testutil.ParseTestParams()
 	testutil.SetupTestConfig()
 	initConfig(nil)
 	os.Exit(m.Run())
@@ -68,10 +70,10 @@ func (testHasher *testHasher) getHashFunction() hashFunc {
 type stateImplTestWrapper struct {
 	configMap map[string]interface{}
 	stateImpl *StateImpl
-	t         *testing.T
+	t         testing.TB
 }
 
-func newStateImplTestWrapper(t *testing.T) *stateImplTestWrapper {
+func newStateImplTestWrapper(t testing.TB) *stateImplTestWrapper {
 	var configMap map[string]interface{}
 	stateImpl := NewStateImpl()
 	err := stateImpl.Initialize(configMap)
@@ -79,7 +81,7 @@ func newStateImplTestWrapper(t *testing.T) *stateImplTestWrapper {
 	return &stateImplTestWrapper{configMap, stateImpl, t}
 }
 
-func createFreshDBAndInitTestStateImplWithCustomHasher(t *testing.T, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {
+func createFreshDBAndInitTestStateImplWithCustomHasher(t testing.TB, numBuckets int, maxGroupingAtEachLevel int) (*testHasher, *stateImplTestWrapper, *statemgmt.StateDelta) {
 	testHasher := newTestHasher()
 	configMap := map[string]interface{}{
 		ConfigNumBuckets:             numBuckets,

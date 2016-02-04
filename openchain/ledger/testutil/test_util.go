@@ -20,6 +20,8 @@ under the License.
 package testutil
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -44,26 +46,38 @@ func SetupTestConfig() {
 	logging.SetFormatter(formatter)
 }
 
-func AssertNil(t *testing.T, value interface{}) {
+func ParseTestParams() map[string]interface{} {
+	fmt.Println("parsing parameters for the test")
+	paramsJson := flag.String("testParams", "{}", "Test specific parameters")
+	flag.Parse()
+	var paramsMap map[string]interface{}
+	err := json.Unmarshal([]byte(*paramsJson), &paramsMap)
+	if err != nil {
+		panic(fmt.Errorf("Error while parsing test parameters: %s", err))
+	}
+	return paramsMap
+}
+
+func AssertNil(t testing.TB, value interface{}) {
 	if !isNil(value) {
 		t.Fatalf("Value not nil. value=[%#v]\n %s", value, getCallerInfo())
 	}
 }
 
-func AssertNotNil(t *testing.T, value interface{}) {
+func AssertNotNil(t testing.TB, value interface{}) {
 	if isNil(value) {
 		t.Fatalf("Values is nil. %s", getCallerInfo())
 	}
 }
 
-func AssertSame(t *testing.T, actual interface{}, expected interface{}) {
+func AssertSame(t testing.TB, actual interface{}, expected interface{}) {
 	t.Logf("%s: AssertSame [%#v] and [%#v]", getCallerInfo(), actual, expected)
 	if actual != expected {
 		t.Fatalf("Values actual=[%#v] and expected=[%#v] do not point to same object. %s", actual, expected, getCallerInfo())
 	}
 }
 
-func AssertEquals(t *testing.T, actual interface{}, expected interface{}) {
+func AssertEquals(t testing.TB, actual interface{}, expected interface{}) {
 	t.Logf("%s: AssertEquals [%#v] and [%#v]", getCallerInfo(), actual, expected)
 	if expected == nil && isNil(actual) {
 		return
@@ -73,25 +87,25 @@ func AssertEquals(t *testing.T, actual interface{}, expected interface{}) {
 	}
 }
 
-func AssertNotEquals(t *testing.T, actual interface{}, expected interface{}) {
+func AssertNotEquals(t testing.TB, actual interface{}, expected interface{}) {
 	if reflect.DeepEqual(actual, expected) {
 		t.Fatalf("Values are not supposed to be equal. Actual=[%#v], Expected=[%#v]\n %s", actual, expected, getCallerInfo())
 	}
 }
 
-func AssertError(t *testing.T, err error, message string) {
+func AssertError(t testing.TB, err error, message string) {
 	if err == nil {
 		t.Fatalf("%s\n %s", message, getCallerInfo())
 	}
 }
 
-func AssertNoError(t *testing.T, err error, message string) {
+func AssertNoError(t testing.TB, err error, message string) {
 	if err != nil {
 		t.Fatalf("%s - Error: %s\n %s", message, err, getCallerInfo())
 	}
 }
 
-func AssertContains(t *testing.T, slice interface{}, value interface{}) {
+func AssertContains(t testing.TB, slice interface{}, value interface{}) {
 	if reflect.TypeOf(slice).Kind() != reflect.Slice && reflect.TypeOf(slice).Kind() != reflect.Array {
 		t.Fatalf("Type of argument 'slice' is expected to be a slice/array, found =[%s]\n %s", reflect.TypeOf(slice), getCallerInfo())
 	}
@@ -101,7 +115,7 @@ func AssertContains(t *testing.T, slice interface{}, value interface{}) {
 	}
 }
 
-func AssertContainsAll(t *testing.T, sliceActual interface{}, sliceExpected interface{}) {
+func AssertContainsAll(t testing.TB, sliceActual interface{}, sliceExpected interface{}) {
 	if reflect.TypeOf(sliceActual).Kind() != reflect.Slice && reflect.TypeOf(sliceActual).Kind() != reflect.Array {
 		t.Fatalf("Type of argument 'sliceActual' is expected to be a slice/array, found =[%s]\n %s", reflect.TypeOf(sliceActual), getCallerInfo())
 	}
@@ -119,7 +133,7 @@ func AssertContainsAll(t *testing.T, sliceActual interface{}, sliceExpected inte
 	}
 }
 
-func AssertPanic(t *testing.T, msg string) {
+func AssertPanic(t testing.TB, msg string) {
 	x := recover()
 	if x == nil {
 		t.Fatal(msg)
