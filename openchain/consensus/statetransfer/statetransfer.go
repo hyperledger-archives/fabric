@@ -156,9 +156,13 @@ func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64,
 // For the sync to complete, a call to AddTarget(hash, peerIDs) must be made
 // If peerIDs is nil, all peer will be considered sync candidates
 func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
-	sts.initiateStateSync <- &syncMark{
+	select {
+	case sts.initiateStateSync <- &syncMark{
 		blockNumber: 0,
 		peerIDs:     peerIDs,
+	}:
+	default:
+		// If there is no room on the channel, then a request is already pending
 	}
 	sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
 }
@@ -288,7 +292,7 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, led
 		panic(fmt.Errorf("Must set statetransfer.blocksperrequest to be nonzero"))
 	}
 
-	sts.initiateStateSync = make(chan *syncMark)
+	sts.initiateStateSync = make(chan *syncMark, 1)
 	sts.blockHashReceiver = make(chan *blockHashReply, 1)
 	sts.blockSyncReq = make(chan *blockSyncReq)
 
@@ -399,7 +403,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 	logger.Debug("%v in tryOverPeers, using peerIDs: %v", sts.id, peerIDs)
 
 	if 0 == len(peerIDs) {
-		return fmt.Errorf("Cannot tryOverPeers with no peers specified")
+		panic("Cannot tryOverPeers with no peers specified")
 	}
 
 	numReplicas := len(peerIDs)
@@ -718,11 +722,19 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 			logger.Debug("%v already has valid blocks through %d but needs to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
 		}
 
+	outer:
 		for {
-			if *blockHReply = <-sts.blockHashReceiver; (*blockHReply).blockNumber < *currentStateBlockNumber {
-				logger.Debug("%v received a block hash reply for block number %d, which is not high enough", sts.id, (*blockHReply).blockNumber)
-			} else {
-				break
+			select {
+			case *blockHReply = <-sts.blockHashReceiver:
+				if (*blockHReply).blockNumber < *currentStateBlockNumber {
+					logger.Debug("%v received a block hash reply for block number %d, which is not high enough", sts.id, (*blockHReply).blockNumber)
+				} else {
+					break outer
+				}
+			case req := <-sts.stateThreadExit:
+				logger.Debug("Received request for state thread to exit while waiting for block hash")
+				sts.stateThreadExit <- req // This will be checked in the calling function as well, it is a buffered channel so it's okay
+				return fmt.Errorf("Interrupted with request to exit while in state transfer.")
 			}
 		}
 		logger.Debug("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
@@ -811,6 +823,14 @@ func (sts *StateTransferState) stateThread() {
 				if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
 					logger.Error("%s", err)
 					sts.informListeners(0, nil, mark.peerIDs, nil, err, Errored)
+					select {
+					case <-sts.stateThreadExit:
+						logger.Debug("Received request for state thread to exit, aborting state transfer")
+						return
+					default:
+						// Do nothing
+
+					}
 					continue
 				}
 

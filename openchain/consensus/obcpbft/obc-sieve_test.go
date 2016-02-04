@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -31,6 +32,11 @@ import (
 )
 
 func makeTestnetSieve(inst *instance) {
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	defer func() {
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+	}()
+
 	config := loadConfig()
 	inst.consenter = newObcSieve(uint64(inst.id), config, inst)
 	sieve := inst.consenter.(*obcSieve)

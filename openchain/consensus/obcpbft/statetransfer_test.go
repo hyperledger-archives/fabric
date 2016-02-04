@@ -416,7 +416,8 @@ func (lh *listenerHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID,
 
 func TestRegisterUnregisterListener(t *testing.T) {
 	ml := NewMockLedger(nil, nil)
-	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, []*protos.PeerID{&protos.PeerID{"nonsense"}})
 	defer sts.Stop()
 
 	l1 := &listenerHelper{make(chan struct{})}
