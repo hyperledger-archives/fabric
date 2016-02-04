@@ -135,6 +135,23 @@ func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash [
 	return <-result
 }
 
+func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) {
+	result := make(chan error)
+
+	listener := struct{ ProtoListener }{}
+
+	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
+		result <- nil
+	}
+
+	sts.RegisterListener(&listener)
+	defer sts.UnregisterListener(&listener)
+
+	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
+
+	<-result
+}
+
 // Starts the state sync process, without blocking
 // For the sync to complete, a call to AddTarget(hash, peerIDs) must be made
 // If peerIDs is nil, all peer will be considered sync candidates

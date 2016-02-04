@@ -616,10 +616,7 @@ func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) 
 		}
 	}
 	op.pbft.sts.Initiate(peers)
-	err := op.pbft.sts.BlockingAddTarget(blockNumber, blockHash, peers)
-	if err != nil {
-		panic(err)
-	}
+	op.pbft.sts.BlockingUntilSuccessAddTarget(blockNumber, blockHash, peers)
 }
 
 // statetransfer Listener interface implementation
