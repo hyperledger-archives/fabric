@@ -24,6 +24,13 @@ import (
 
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -31,12 +38,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
-	"reflect"
-	"testing"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -976,10 +977,7 @@ func initValidators() error {
 }
 
 func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1001,10 +999,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 }
 
 func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1024,10 +1019,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 }
 
 func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1047,10 +1039,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 }
 
 func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1097,10 +1086,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 }
 
 func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1145,10 +1131,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 }
 
 func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1193,10 +1176,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 }
 
 func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1243,10 +1223,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 }
 
 func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1291,10 +1268,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 }
 
 func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1339,10 +1313,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 }
 
 func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1364,10 +1335,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 }
 
 func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1387,10 +1355,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 }
 
 func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{

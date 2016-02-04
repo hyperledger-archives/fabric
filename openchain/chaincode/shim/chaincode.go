@@ -20,6 +20,7 @@ under the License.
 package shim
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -231,10 +232,56 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
+type StateRangeQueryIterator struct {
+	handler    *Handler
+	uuid       string
+	response   *pb.RangeQueryStateResponse
+	currentLoc int
+}
+
 // RangeQueryState function can be invoked by a chaincode to query of a range
 // of keys in the state.
-func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string, limit uint32) (*pb.RangeQueryStateResponse, error) {
-	return handler.handleRangeQueryState(startKey, endKey, limit, stub.UUID)
+func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error) {
+	response, err := handler.handleRangeQueryState(startKey, endKey, stub.UUID)
+	if err != nil {
+		return nil, err
+	}
+	return &StateRangeQueryIterator{handler, stub.UUID, response, 0}, nil
+}
+
+func (iter *StateRangeQueryIterator) HasNext() bool {
+	if iter.currentLoc < len(iter.response.KeysAndValues) || iter.response.HasMore {
+		return true
+	}
+	return false
+}
+
+func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
+	if iter.currentLoc < len(iter.response.KeysAndValues) {
+		keyValue := iter.response.KeysAndValues[iter.currentLoc]
+		iter.currentLoc++
+		return keyValue.Key, keyValue.Value, nil
+	} else if !iter.response.HasMore {
+		return "", nil, errors.New("No such key")
+	} else {
+		response, err := iter.handler.handleRangeQueryStateNext(iter.response.ID, iter.uuid)
+
+		if err != nil {
+			return "", nil, err
+		}
+
+		iter.currentLoc = 0
+		iter.response = response
+		keyValue := iter.response.KeysAndValues[iter.currentLoc]
+		iter.currentLoc++
+		return keyValue.Key, keyValue.Value, nil
+
+	}
+}
+
+func (iter *StateRangeQueryIterator) Close() error {
+	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
+	return err
 }
 
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.

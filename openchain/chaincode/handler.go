@@ -29,6 +29,8 @@ import (
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 
@@ -95,6 +97,9 @@ type Handler struct {
 
 	// used to do Send after making sure the state transition is complete
 	nextState chan *nextStateInfo
+
+	// tracks open iterators used for range queries
+	rangeQueryIteratorMap map[string]statemgmt.RangeScanIterator
 }
 
 func shortuuid(uuid string) string {
@@ -314,6 +319,16 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
 			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{transactionstate}, Dst: transactionstate},
 			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE.String(), Src: []string{busyxactstate}, Dst: busyxactstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String(), Src: []string{readystate}, Dst: readystate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String(), Src: []string{initstate}, Dst: initstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String(), Src: []string{transactionstate}, Dst: transactionstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String(), Src: []string{busyxactstate}, Dst: busyxactstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(), Src: []string{readystate}, Dst: readystate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(), Src: []string{initstate}, Dst: initstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(), Src: []string{busyinitstate}, Dst: busyinitstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(), Src: []string{transactionstate}, Dst: transactionstate},
+			{Name: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(), Src: []string{busyxactstate}, Dst: busyxactstate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{initstate}, Dst: endstate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{transactionstate}, Dst: readystate},
 			{Name: pb.ChaincodeMessage_ERROR.String(), Src: []string{busyinitstate}, Dst: initstate},
@@ -322,20 +337,22 @@ func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStre
 			{Name: pb.ChaincodeMessage_RESPONSE.String(), Src: []string{busyxactstate}, Dst: transactionstate},
 		},
 		fsm.Callbacks{
-			"before_" + pb.ChaincodeMessage_REGISTER.String():         func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_COMPLETED.String():        func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
-			"before_" + pb.ChaincodeMessage_INIT.String():             func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_GET_STATE.String():         func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_RANGE_QUERY_STATE.String(): func(e *fsm.Event) { v.afterRangeQueryState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_PUT_STATE.String():         func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_DEL_STATE.String():         func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
-			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String():  func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
-			"enter_" + establishedstate:                               func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
-			"enter_" + initstate:                                      func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
-			"enter_" + readystate:                                     func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
-			"enter_" + busyinitstate:                                  func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + busyxactstate:                                  func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
-			"enter_" + endstate:                                       func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_REGISTER.String():               func(e *fsm.Event) { v.beforeRegisterEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_COMPLETED.String():              func(e *fsm.Event) { v.beforeCompletedEvent(e, v.FSM.Current()) },
+			"before_" + pb.ChaincodeMessage_INIT.String():                   func(e *fsm.Event) { v.beforeInitState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_GET_STATE.String():               func(e *fsm.Event) { v.afterGetState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_RANGE_QUERY_STATE.String():       func(e *fsm.Event) { v.afterRangeQueryState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT.String():  func(e *fsm.Event) { v.afterRangeQueryStateNext(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE.String(): func(e *fsm.Event) { v.afterRangeQueryStateClose(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_PUT_STATE.String():               func(e *fsm.Event) { v.afterPutState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_DEL_STATE.String():               func(e *fsm.Event) { v.afterDelState(e, v.FSM.Current()) },
+			"after_" + pb.ChaincodeMessage_INVOKE_CHAINCODE.String():        func(e *fsm.Event) { v.afterInvokeChaincode(e, v.FSM.Current()) },
+			"enter_" + establishedstate:                                     func(e *fsm.Event) { v.enterEstablishedState(e, v.FSM.Current()) },
+			"enter_" + initstate:                                            func(e *fsm.Event) { v.enterInitState(e, v.FSM.Current()) },
+			"enter_" + readystate:                                           func(e *fsm.Event) { v.enterReadyState(e, v.FSM.Current()) },
+			"enter_" + busyinitstate:                                        func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + busyxactstate:                                        func(e *fsm.Event) { v.enterBusyState(e, v.FSM.Current()) },
+			"enter_" + endstate:                                             func(e *fsm.Event) { v.enterEndState(e, v.FSM.Current()) },
 		},
 	)
 
@@ -529,7 +546,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 	}()
 }
 
-const maxRangeQueryStateLimit = 100
+const maxRangeQueryStateLimit = 5
 
 // afterRangeQueryState handles a RANGE_QUERY_STATE request from the chaincode.
 func (handler *Handler) afterRangeQueryState(e *fsm.Event, state string) {
@@ -567,14 +584,18 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 			handler.serialSend(serialSendMsg)
 		}()
 
-		rangeQueryStateInfo := &pb.RangeQueryStateInfo{}
-		unmarshalErr := proto.Unmarshal(msg.Payload, rangeQueryStateInfo)
+		rangeQueryState := &pb.RangeQueryState{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, rangeQueryState)
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			chaincodeLogger.Debug("Failed to unmarshall range query request. Sending %s", pb.ChaincodeMessage_ERROR)
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
+
+		hasNext := true
+		handler.Lock()
+		defer handler.Unlock()
 
 		ledger, ledgerErr := ledger.GetLedger()
 		if ledgerErr != nil {
@@ -586,7 +607,8 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		chaincodeID := handler.ChaincodeID.Name
-		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryStateInfo.StartKey, rangeQueryStateInfo.EndKey, true)
+		var err error
+		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryState.StartKey, rangeQueryState.EndKey, true)
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -594,18 +616,15 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
-		defer rangeIter.Close()
 
-		var limit uint32
-		if rangeQueryStateInfo.Limit <= maxRangeQueryStateLimit {
-			limit = rangeQueryStateInfo.Limit
-		} else {
-			limit = maxRangeQueryStateLimit
-		}
+		iterID := util.GenerateUUID()
+		handler.rangeQueryIteratorMap[iterID] = rangeIter
+
+		hasNext = rangeIter.Next()
 
 		var keysAndValues []*pb.RangeQueryStateKeyValue
 		var i = uint32(0)
-		for ; rangeIter.Next() && i < limit; i++ {
+		for ; hasNext && i < maxRangeQueryStateLimit; i++ {
 			key, value := rangeIter.GetKeyValue()
 			// Decrypt the data if the confidential is enabled
 			decryptedValue, err := handler.decrypt(msg.Uuid, value)
@@ -613,17 +632,29 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 				payload := []byte(unmarshalErr.Error())
 				chaincodeLogger.Debug("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+
+				delete(handler.rangeQueryIteratorMap, iterID)
+				rangeIter.Close()
+
 				return
 			}
 			keyAndValue := pb.RangeQueryStateKeyValue{Key: key, Value: decryptedValue}
 			keysAndValues = append(keysAndValues, &keyAndValue)
+
+			hasNext = rangeIter.Next()
 		}
 
-		hasNext := i == limit && rangeIter.Next()
+		if !hasNext {
+			delete(handler.rangeQueryIteratorMap, iterID)
+			rangeIter.Close()
+		}
 
-		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext}
+		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext, ID: iterID}
 		payloadBytes, err := proto.Marshal(payload)
 		if err != nil {
+			delete(handler.rangeQueryIteratorMap, iterID)
+			rangeIter.Close()
+
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
 			chaincodeLogger.Debug("Failed marshall resopnse. Sending %s", pb.ChaincodeMessage_ERROR)
@@ -632,6 +663,180 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		chaincodeLogger.Debug("Got keys and values. Sending %s", pb.ChaincodeMessage_RESPONSE)
+		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: payloadBytes, Uuid: msg.Uuid}
+
+	}()
+}
+
+// afterRangeQueryState handles a RANGE_QUERY_STATE_NEXT request from the chaincode.
+func (handler *Handler) afterRangeQueryStateNext(e *fsm.Event, state string) {
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	chaincodeLogger.Debug("Received %s, invoking get state from ledger", pb.ChaincodeMessage_RANGE_QUERY_STATE)
+
+	// Query ledger for state
+	handler.handleRangeQueryStateNext(msg)
+	chaincodeLogger.Debug("Exiting RANGE_QUERY_STATE_NEXT")
+}
+
+// Handles query to ledger to rage query state nexy
+func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the afterRangeQueryState function is exited. Interesting bug fix!!
+	go func() {
+		// Check if this is the unique state request from this chaincode uuid
+		uniqueReq := handler.createUUIDEntry(msg.Uuid)
+		if !uniqueReq {
+			// Drop this request
+			chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
+			return
+		}
+
+		var serialSendMsg *pb.ChaincodeMessage
+
+		defer func() {
+			handler.deleteUUIDEntry(msg.Uuid)
+			chaincodeLogger.Debug("[%s]handleRangeQueryState serial send %s", shortuuid(serialSendMsg.Uuid), serialSendMsg.Type)
+			handler.serialSend(serialSendMsg)
+		}()
+
+		rangeQueryStateNext := &pb.RangeQueryStateNext{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, rangeQueryStateNext)
+		if unmarshalErr != nil {
+			payload := []byte(unmarshalErr.Error())
+			chaincodeLogger.Debug("Failed to unmarshall state range next query request. Sending %s", pb.ChaincodeMessage_ERROR)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			return
+		}
+
+		handler.Lock()
+		defer handler.Unlock()
+
+		rangeIter := handler.rangeQueryIteratorMap[rangeQueryStateNext.ID]
+
+		if rangeIter == nil {
+			payload := []byte("Range query iterator not found")
+			chaincodeLogger.Debug("Range query iterator not found. Sending %s", pb.ChaincodeMessage_ERROR)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			return
+		}
+
+		var keysAndValues []*pb.RangeQueryStateKeyValue
+		var i = uint32(0)
+		hasNext := true
+		for ; hasNext && i < maxRangeQueryStateLimit; i++ {
+			key, value := rangeIter.GetKeyValue()
+			// Decrypt the data if the confidential is enabled
+			decryptedValue, err := handler.decrypt(msg.Uuid, value)
+			if err != nil {
+				payload := []byte(unmarshalErr.Error())
+				chaincodeLogger.Debug("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
+				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+
+				delete(handler.rangeQueryIteratorMap, rangeQueryStateNext.ID)
+				rangeIter.Close()
+
+				return
+			}
+			keyAndValue := pb.RangeQueryStateKeyValue{Key: key, Value: decryptedValue}
+			keysAndValues = append(keysAndValues, &keyAndValue)
+
+			hasNext = rangeIter.Next()
+		}
+
+		if !hasNext {
+			delete(handler.rangeQueryIteratorMap, rangeQueryStateNext.ID)
+			rangeIter.Close()
+		}
+
+		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext, ID: rangeQueryStateNext.ID}
+		payloadBytes, err := proto.Marshal(payload)
+		if err != nil {
+			delete(handler.rangeQueryIteratorMap, rangeQueryStateNext.ID)
+			rangeIter.Close()
+
+			// Send error msg back to chaincode. GetState will not trigger event
+			payload := []byte(err.Error())
+			chaincodeLogger.Debug("Failed marshall resopnse. Sending %s", pb.ChaincodeMessage_ERROR)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			return
+		}
+
+		chaincodeLogger.Debug("Got keys and values. Sending %s", pb.ChaincodeMessage_RESPONSE)
+		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: payloadBytes, Uuid: msg.Uuid}
+
+	}()
+}
+
+// afterRangeQueryState handles a RANGE_QUERY_STATE_CLOSE request from the chaincode.
+func (handler *Handler) afterRangeQueryStateClose(e *fsm.Event, state string) {
+	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	if !ok {
+		e.Cancel(fmt.Errorf("Received unexpected message type"))
+		return
+	}
+	chaincodeLogger.Debug("Received %s, invoking get state from ledger", pb.ChaincodeMessage_RANGE_QUERY_STATE)
+
+	// Query ledger for state
+	handler.handleRangeQueryStateClose(msg)
+	chaincodeLogger.Debug("Exiting RANGE_QUERY_STATE_CLOSE")
+}
+
+// Handles the closing of a state iterator
+func (handler *Handler) handleRangeQueryStateClose(msg *pb.ChaincodeMessage) {
+	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
+	// is completed before the next one is triggered. The previous state transition is deemed complete only when
+	// the afterRangeQueryState function is exited. Interesting bug fix!!
+	go func() {
+		// Check if this is the unique state request from this chaincode uuid
+		uniqueReq := handler.createUUIDEntry(msg.Uuid)
+		if !uniqueReq {
+			// Drop this request
+			chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
+			return
+		}
+
+		var serialSendMsg *pb.ChaincodeMessage
+
+		defer func() {
+			handler.deleteUUIDEntry(msg.Uuid)
+			chaincodeLogger.Debug("[%s]handleRangeQueryState serial send %s", shortuuid(serialSendMsg.Uuid), serialSendMsg.Type)
+			handler.serialSend(serialSendMsg)
+		}()
+
+		rangeQueryStateClose := &pb.RangeQueryStateClose{}
+		unmarshalErr := proto.Unmarshal(msg.Payload, rangeQueryStateClose)
+		if unmarshalErr != nil {
+			payload := []byte(unmarshalErr.Error())
+			chaincodeLogger.Debug("Failed to unmarshall state range query close request. Sending %s", pb.ChaincodeMessage_ERROR)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			return
+		}
+
+		handler.Lock()
+		defer handler.Unlock()
+
+		iter := handler.rangeQueryIteratorMap[rangeQueryStateClose.ID]
+		if iter != nil {
+			iter.Close()
+		}
+
+		payload := &pb.RangeQueryStateResponse{HasMore: false, ID: rangeQueryStateClose.ID}
+		payloadBytes, err := proto.Marshal(payload)
+		if err != nil {
+
+			// Send error msg back to chaincode. GetState will not trigger event
+			payload := []byte(err.Error())
+			chaincodeLogger.Debug("Failed marshall resopnse. Sending %s", pb.ChaincodeMessage_ERROR)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			return
+		}
+
+		chaincodeLogger.Debug("Closed. Sending %s", pb.ChaincodeMessage_RESPONSE)
 		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: payloadBytes, Uuid: msg.Uuid}
 
 	}()
