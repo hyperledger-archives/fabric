@@ -197,13 +197,19 @@ func TestSieveNonDeterministic(t *testing.T) {
 	net.replicas[1].consenter.RecvMsg(createExternalRequest(2), net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
-	results := make([]uint64, len(net.replicas))
+	results := make([][]byte, len(net.replicas))
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.GetBlockchainSize() // Doesn't fail
-		results[inst.id] = blockHeight - 1
+		block, err := inst.GetBlock(1)
+		if err != nil {
+			t.Fatalf("Expected replica %d to have one block", inst.id)
+		}
+		blockRaw, _ := proto.Marshal(block)
+		results[inst.id] = blockRaw
 	}
-	if !reflect.DeepEqual(results, []uint64{0, 0, 1, 1}) && !reflect.DeepEqual(results, []uint64{1, 1, 0, 0}) {
-		t.Fatalf("Expected two replicas to execute one request, got: %v", results)
+	if !(reflect.DeepEqual(results[0], results[1]) &&
+		reflect.DeepEqual(results[0], results[2]) &&
+		reflect.DeepEqual(results[0], results[3])) {
+		t.Fatalf("Expected all replicas to reach the same block, got: %v", results)
 	}
 }
 
