@@ -284,9 +284,18 @@ func (instance *pbftCore) timerHander() {
 			return
 
 		case <-instance.newViewTimer.C:
+			logger.Debug("Replica %d view change timeout expired, waiting for lock", instance.id)
 			instance.lock.Lock()
-			logger.Info("Replica %d view change timeout expired", instance.id)
-			instance.sendViewChange()
+			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
+			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
+			// try to change views.  By calling Reset, we can see if someone has reset the timer since we fired
+			if instance.newViewTimer.Reset(instance.lastNewViewTimeout) {
+				// The timer was active, we are here via race
+				logger.Debug("Replica %d view change timeout expired, but was reset before the view change could be sent", instance.id)
+			} else {
+				logger.Info("Replica %d view change timeout expired, sending view change", instance.id)
+				instance.sendViewChange()
+			}
 			instance.lock.Unlock()
 		}
 	}
