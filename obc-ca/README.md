@@ -13,6 +13,8 @@ In the current version, these three services will be offered by the same server.
 
 For more information, read Section 4.2 of the [protocol-spec](https://github.com/openblockchain/obc-docs/blob/master/protocol-spec.md)
 
+Please, refer also to this tutorial [SandboxSetup.md](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) to learn how to write, build, and run chaincodes in a sandbox. The tutorial guides the developer through the process  of setting up a wallet service (Section 4.3.2 and 4.5 of the [protocol-spec](https://github.com/openblockchain/obc-docs/blob/master/protocol-spec.md)).
+
 ## Bootstrap OBC-CA
 
 The bootstrap the OBC Certificate Authority the following steps are needed:
