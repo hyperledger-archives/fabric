@@ -637,7 +637,7 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response 
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	ep, err := GetPeerEndpoint()
-	if viper.GetBool("security.enabled") {
+	if err == nil && viper.GetBool("security.enabled") {
 		// Set the PkiID on the PeerEndpoint if security is enabled
 		ep.PkiID = p.GetSecHelper().GetID()
 	}
