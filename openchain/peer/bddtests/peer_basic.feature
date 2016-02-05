@@ -86,9 +86,9 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
-	Scenario: chaincode example02 with 4 peers and 1 obcca, issue #567 
+	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567 
 
-	    Given we compose "docker-compose-4-consensus.yml"
+	    Given we compose "<ComposeFile>"
 	    And I wait "1" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  | 
@@ -106,7 +106,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name 
-	    Then I wait up to "25" seconds for transaction to be committed to peers:
+	    Then I wait up to "60" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | vp3 | 
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -125,7 +125,10 @@ Feature: lanching 3 peers
             | vp0  | vp1 | vp2 | vp3 | 
 	    Then I should get a JSON response from peers with "OK" = "80"
             | vp0  | vp1 | vp2 | vp3 | 
-
+    
+    Examples: Consensus Options
+        |          ComposeFile               |
+        |   docker-compose-4-consensus.yml   |
 
 
 #   @doNotDecompose
