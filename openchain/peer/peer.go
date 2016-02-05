@@ -636,21 +636,23 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response 
 
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	return GetPeerEndpoint()
+	ep, err := GetPeerEndpoint()
+	if viper.GetBool("security.enabled") {
+		// Set the PkiID on the PeerEndpoint if security is enabled
+		ep.PkiID = p.GetSecHelper().GetID()
+	}
+	return ep, err
 }
 
 func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
-	endpoint, err := GetPeerEndpoint()
+	endpoint, err := p.GetPeerEndpoint()
 	if err != nil {
 		return nil, fmt.Errorf("Error creating hello message: %s", err)
 	}
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	size := p.ledgerWrapper.ledger.GetBlockchainSize()
-	// Set the PkiID on the PeerEndpoint if security is enabled
-	if viper.GetBool("security.enabled") {
-		endpoint.PkiID = p.GetSecHelper().GetID()
-	}
+
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
 }
 
