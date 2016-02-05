@@ -112,7 +112,7 @@ func TestWrongReplicaID(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
-	chainTxMsg := createExternalRequest(1)
+	chainTxMsg := createOcMsgWithChainTx(1)
 	req := &Request{
 		Timestamp: chainTxMsg.Timestamp,
 		Payload:   chainTxMsg.Payload,
@@ -159,7 +159,7 @@ func TestNetwork(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
-	msg := createExternalRequest(1)
+	msg := createOcMsgWithChainTx(1)
 	err := net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)

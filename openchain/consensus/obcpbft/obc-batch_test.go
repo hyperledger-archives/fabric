@@ -52,7 +52,7 @@ func TestNetworkBatch(t *testing.T) {
 	defer net.close()
 
 	broadcaster := net.handles[generateBroadcaster(validatorCount)]
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1), broadcaster)
+	err := net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2), broadcaster)
+	err = net.replicas[2].consenter.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	net.process()
 
 	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 0 {

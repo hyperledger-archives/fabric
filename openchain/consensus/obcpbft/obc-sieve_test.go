@@ -52,10 +52,10 @@ func TestSieveNetwork(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetSieve)
 	defer net.close()
 
-	req1 := createExternalRequest(1)
+	req1 := createOcMsgWithChainTx(1)
 	net.replicas[1].consenter.RecvMsg(req1, net.handles[generateBroadcaster(validatorCount)])
 	net.process()
-	req0 := createExternalRequest(2)
+	req0 := createOcMsgWithChainTx(2)
 	net.replicas[0].consenter.RecvMsg(req0, net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
@@ -113,11 +113,11 @@ func TestSieveNoDecision(t *testing.T) {
 	}
 
 	broadcaster := net.handles[generateBroadcaster(validatorCount)]
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), broadcaster)
+	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
-	net.replicas[3].consenter.RecvMsg(createExternalRequest(1), broadcaster)
+	net.replicas[3].consenter.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	time.Sleep(3 * time.Second)
 	net.close()
 
@@ -162,8 +162,8 @@ func TestSieveReqBackToBack(t *testing.T) {
 		return payload
 	}
 
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(2), net.handles[generateBroadcaster(validatorCount)])
+	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(1), net.handles[generateBroadcaster(validatorCount)])
+	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(2), net.handles[generateBroadcaster(validatorCount)])
 
 	net.process()
 
@@ -196,11 +196,11 @@ func TestSieveNonDeterministic(t *testing.T) {
 	defer net.close()
 
 	instResults = []int{1, 2, 3, 4}
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(1), net.handles[generateBroadcaster(validatorCount)])
+	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(1), net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
 	instResults = []int{5, 5, 6, 6}
-	net.replicas[1].consenter.RecvMsg(createExternalRequest(2), net.handles[generateBroadcaster(validatorCount)])
+	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(2), net.handles[generateBroadcaster(validatorCount)])
 	net.process()
 
 	results := make([][]byte, len(net.replicas))
