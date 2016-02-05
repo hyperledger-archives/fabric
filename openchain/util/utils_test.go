@@ -35,17 +35,11 @@ func TestComputeCryptoHash(t *testing.T) {
 }
 
 func TestUUIDGeneration(t *testing.T) {
-	uuid, err := GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUID. Error: %s", err)
-	}
+	uuid := GenerateUUID()
 	if len(uuid) != 36 {
 		t.Fatalf("UUID length is not correct. Expected = 36, Got = %d", len(uuid))
 	}
-	uuid2, err2 := GenerateUUID()
-	if err2 != nil {
-		t.Fatalf("Error generating UUID. Error: %s", err)
-	}
+	uuid2 := GenerateUUID()
 	if uuid == uuid2 {
 		t.Fatalf("Two UUIDs are equal. This should never occur")
 	}

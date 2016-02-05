@@ -27,14 +27,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"google/protobuf"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google/protobuf"
-	"time"
 )
 
 func (node *nodeImpl) initTLS() error {
@@ -142,12 +143,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 		return nil, nil, err
 	}
 
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		node.log.Error("Failed generating uuid: %s", err)
-
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)

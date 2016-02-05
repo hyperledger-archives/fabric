@@ -25,8 +25,9 @@ import (
 	"io"
 	"time"
 
-	"golang.org/x/crypto/sha3"
 	gp "google/protobuf"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // ComputeCryptoHash should be used in openchain code so that we can change the actual algo used for crypto-hash at one place
@@ -37,11 +38,11 @@ func ComputeCryptoHash(data []byte) (hash []byte) {
 }
 
 // GenerateUUID returns a UUID based on RFC 4112
-func GenerateUUID() (string, error) {
+func GenerateUUID() string {
 	uuid := make([]byte, 16)
 	_, err := io.ReadFull(rand.Reader, uuid)
 	if err != nil {
-		return "", err
+		panic(fmt.Sprintf("Error generating UUID: %s", err))
 	}
 
 	// variant bits; see section 4.1.1
@@ -50,7 +51,7 @@ func GenerateUUID() (string, error) {
 	// version 4 (pseudo-random); see section 4.1.3
 	uuid[6] = uuid[6]&^0xf0 | 0x40
 
-	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:]), nil
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 }
 
 // CreateUtcTimestamp returns a google/protobuf/Timestamp in UTC
