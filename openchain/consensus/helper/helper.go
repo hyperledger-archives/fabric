@@ -91,7 +91,7 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 
 // Broadcast sends a message to all validating peers
 func (h *Helper) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
-	errors := h.coordinator.Broadcast(msg, typ)
+	errors := h.coordinator.Broadcast(msg, peerType)
 	if len(errors) > 0 {
 		return fmt.Errorf("Couldn't broadcast successfully")
 	}
