@@ -599,7 +599,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
 	net.replicas[1].pbft.receive(msgPacked, broadcaster)
-	time.Sleep(1 * time.Second)
+	time.Sleep(1000 * time.Millisecond)
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
 	// However, we disable 1, which will disable the new-view going through.
@@ -610,7 +610,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
 	net.replicas[3].pbft.receive(msgPacked, broadcaster)
-	time.Sleep(1 * time.Second)
+	time.Sleep(1000 * time.Millisecond)
 
 	net.close()
 	for i, inst := range net.replicas {
@@ -618,8 +618,9 @@ func TestNewViewTimeout(t *testing.T) {
 			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
 		}
 		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight != 2 {
-			t.Errorf("Should have executed 1, got %d instead for replica %d", blockHeight, i)
+		blockHeightExpected := uint64(2)
+		if blockHeight != blockHeightExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, i)
 		}
 	}
 }
