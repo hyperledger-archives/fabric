@@ -249,7 +249,7 @@ func main() {
 	chaincodeCmd.AddCommand(chaincodeQueryCmd)
 
 	mainCmd.AddCommand(chaincodeCmd)
-	
+
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if mainCmd.Execute() != nil {
@@ -623,7 +623,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		logger.Debug("Security is enabled. Include security context in deploy spec")
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
-			return 
+			return
 		}
 
 		// Retrieve the CLI data storage path
@@ -712,7 +712,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 	if viper.GetBool("security.enabled") {
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
-			return 
+			return
 		}
 
 		// Retrieve the CLI data storage path
@@ -767,9 +767,9 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		return
 	}
 	if invoke {
-		transactionId := string(resp.Msg)
-		logger.Info("Successfully invoked transaction: %s(%s)", invocation, transactionId)
-		fmt.Println(transactionId)
+		transactionID := string(resp.Msg)
+		logger.Info("Successfully invoked transaction: %s(%s)", invocation, transactionID)
+		fmt.Println(transactionID)
 	} else {
 		logger.Info("Successfully queried transaction: %s", invocation)
 		if resp != nil {
@@ -777,9 +777,8 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 				if chaincodeQueryHex {
 					err = errors.New("Options --raw (-r) and --hex (-x) are not compatible\n")
 					return
-				} else {
-					os.Stdout.Write(resp.Msg)
 				}
+				os.Stdout.Write(resp.Msg)
 			} else {
 				if chaincodeQueryHex {
 					fmt.Printf("%x\n", resp.Msg)
