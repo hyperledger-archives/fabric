@@ -145,7 +145,8 @@ func createChaincodeInvocation(validityPeriod string, token string) *obc.Chainco
 }
 
 func validityPeriodUpdateEnabled() bool {
-	
+
+	//We are disabling the validity period for now	
 	if(allowValidityPeriodEnablement){
 		
 		// If the update of the validity period is enabled in the configuration file return the configured value
