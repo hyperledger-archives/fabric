@@ -11,6 +11,8 @@ the different nodes forming the OBC network.
 
 In the current version, these three services will be offered by the same server.
 
+For more information, read Section 4.2 of the [protocol-spec](https://github.com/openblockchain/obc-docs/blob/master/protocol-spec.md)
+
 ## Bootstrap OBC-CA
 
 The bootstrap the OBC Certificate Authority the following steps are needed:
