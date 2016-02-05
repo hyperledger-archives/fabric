@@ -32,7 +32,7 @@ import (
 )
 
 var testDBWrapper = db.NewTestDBWrapper()
-var testParams map[string]interface{}
+var testParams []string
 
 func TestMain(m *testing.M) {
 	fmt.Println("Setting up test config...")

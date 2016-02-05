@@ -1,6 +1,8 @@
 package statemgmt
 
 import (
+	crand "crypto/rand"
+	"math/rand"
 	"testing"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
@@ -21,4 +23,25 @@ func AssertIteratorContains(t *testing.T, itr RangeScanIterator, expected map[st
 	for k, v := range expected {
 		testutil.AssertEquals(t, actual[k], v)
 	}
+}
+
+func ConstructRandomStateDelta(
+	t testing.TB,
+	chaincodeIDPrefix string,
+	numChaincodes int,
+	maxKeySuffix int,
+	numKeysToInsert int,
+	valueSize int) *StateDelta {
+	delta := NewStateDelta()
+	for i := 0; i < numKeysToInsert; i++ {
+		chaincodeID := chaincodeIDPrefix + "_" + string(rand.Intn(numChaincodes))
+		key := "key_" + string(rand.Intn(maxKeySuffix))
+		value := make([]byte, valueSize)
+		_, err := crand.Read(value)
+		if err != nil {
+			t.Fatalf("Error while generating random bytes: %s", err)
+		}
+		delta.Set(chaincodeID, key, value, nil)
+	}
+	return delta
 }
