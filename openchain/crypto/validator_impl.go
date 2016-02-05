@@ -34,6 +34,10 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
+
+//We are temporarily disabling the validity period functionality
+var allowValidityPeriodVerification = false
+
 // Public Struct
 
 type validatorImpl struct {
@@ -112,9 +116,6 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 }
 
 func validityPeriodVerificationEnabled() bool {
-	
-	//We are temporarily disabling the validity period functionality
-	allowValidityPeriodVerification := false
 	
 	if allowValidityPeriodVerification {
 		// If the verification of the validity period is enabled in the configuration file return the configured value

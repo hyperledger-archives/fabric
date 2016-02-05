@@ -146,7 +146,7 @@ func createChaincodeInvocation(validityPeriod string, token string) *obc.Chainco
 
 func validityPeriodUpdateEnabled() bool {
 	
-	if(allowValidityPeriodEnablement){
+	if allowValidityPeriodEnablement {
 		
 		// If the update of the validity period is enabled in the configuration file return the configured value
 		if viper.IsSet("pki.validity-period.update") {
