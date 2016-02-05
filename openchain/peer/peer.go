@@ -427,11 +427,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 
-	//cancel the context to free the waiting transport and clean up resources
-	ctx,cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	stream, err := serverClient.Chat(ctx)
+	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
@@ -504,11 +500,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 
-	//cancel the context to free the waiting transport and clean up resources
-	ctx,cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	stream, err := serverClient.Chat(ctx)
+	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
