@@ -26,7 +26,7 @@ The bootstrap the OBC Certificate Authority the following steps are needed:
 The OBC-CA configuration file is **obcca.yaml** and is included in the obc-ca folder. 
 
 
-**Configure the Server**:
+### Configure the Server
 
 The first step is to configure the server part.
 
@@ -43,12 +43,16 @@ server:
         port: ":50051"
 ```
 
-Notice that the server accepts only TLS connections with server-side authentication only.
-Before being able to establish a TLS connection to the server, a node has to receive, through an off-band channel, the TLSCA certificate. This allows the node to perform the server-side authentication.
+#### TLS Connection
 
-The TLSCA certificate is generated during boostratp by the TLS certificate authority. The file is called **tlsca.cert** and is stored under **<rootpath>/<cadir>**.
+Notice that the server accepts only TLS connections with **server-side authentication only**.
+Before being able to establish a TLS connection to the server, a node has to receive, through an off-band channel or 
+pre-installed, the TLSCA certificate. This allows the node to perform the server-side authentication.
 
-**Configure the ECA**: 
+The TLSCA certificate is generated during boostratp by the TLS certificate authority. 
+The file is called **tlsca.cert** and is stored under **rootpath/cadir**. 
+
+### Configure the ECA Service
 
 For **testing** purposes only, the ECA can be instructed to preload a set of enrollment tuples.
 An enrollment tuple consists of the following enrollment values:
@@ -86,7 +90,7 @@ enum Role {
 
 Finally, the enrollment ID must be unique among all IDs.
 
-**Launch the Server**:
+### Launch the Server
 
 The following commands builds and runs the server with the configuration defined in **obcca.yaml**.
 
