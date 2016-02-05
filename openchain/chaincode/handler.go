@@ -148,6 +148,25 @@ func (handler *Handler) deleteTxContext(uuid string) {
 	}
 }
 
+func (handler *Handler) putRangeQueryIterator(txContext *transactionContext, uuid string,
+	rangeScanIterator statemgmt.RangeScanIterator) {
+	handler.Lock()
+	defer handler.Unlock()
+	txContext.rangeQueryIteratorMap[uuid] = rangeScanIterator
+}
+
+func (handler *Handler) getRangeQueryIterator(txContext *transactionContext, uuid string) statemgmt.RangeScanIterator {
+	handler.Lock()
+	defer handler.Unlock()
+	return txContext.rangeQueryIteratorMap[uuid]
+}
+
+func (handler *Handler) deleteRangeQueryIterator(txContext *transactionContext, uuid string) {
+	handler.Lock()
+	defer handler.Unlock()
+	delete(txContext.rangeQueryIteratorMap, uuid)
+}
+
 func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []byte) ([]byte, error) {
 	secHelper := handler.chaincodeSupport.getSecHelper()
 	if secHelper == nil {
@@ -552,7 +571,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 	}()
 }
 
-const maxRangeQueryStateLimit = 5
+const maxRangeQueryStateLimit = 100
 
 // afterRangeQueryState handles a RANGE_QUERY_STATE request from the chaincode.
 func (handler *Handler) afterRangeQueryState(e *fsm.Event, state string) {
@@ -600,8 +619,6 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		hasNext := true
-		handler.Lock()
-		defer handler.Unlock()
 
 		ledger, ledgerErr := ledger.GetLedger()
 		if ledgerErr != nil {
@@ -624,8 +641,8 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		iterID := util.GenerateUUID()
-		txContext := handler.txCtxs[msg.Uuid]
-		txContext.rangeQueryIteratorMap[iterID] = rangeIter
+		txContext := handler.getTxContext(msg.Uuid)
+		handler.putRangeQueryIterator(txContext, iterID, rangeIter)
 
 		hasNext = rangeIter.Next()
 
@@ -640,8 +657,8 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 				chaincodeLogger.Debug("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 
-				delete(txContext.rangeQueryIteratorMap, iterID)
 				rangeIter.Close()
+				handler.deleteRangeQueryIterator(txContext, iterID)
 
 				return
 			}
@@ -652,15 +669,15 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		if !hasNext {
-			delete(txContext.rangeQueryIteratorMap, iterID)
 			rangeIter.Close()
+			handler.deleteRangeQueryIterator(txContext, iterID)
 		}
 
 		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext, ID: iterID}
 		payloadBytes, err := proto.Marshal(payload)
 		if err != nil {
-			delete(txContext.rangeQueryIteratorMap, iterID)
 			rangeIter.Close()
+			handler.deleteRangeQueryIterator(txContext, iterID)
 
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -720,11 +737,8 @@ func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 			return
 		}
 
-		handler.Lock()
-		defer handler.Unlock()
-
-		txContext := handler.txCtxs[msg.Uuid]
-		rangeIter := txContext.rangeQueryIteratorMap[rangeQueryStateNext.ID]
+		txContext := handler.getTxContext(msg.Uuid)
+		rangeIter := handler.getRangeQueryIterator(txContext, rangeQueryStateNext.ID)
 
 		if rangeIter == nil {
 			payload := []byte("Range query iterator not found")
@@ -745,8 +759,8 @@ func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 				chaincodeLogger.Debug("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 
-				delete(txContext.rangeQueryIteratorMap, rangeQueryStateNext.ID)
 				rangeIter.Close()
+				handler.deleteRangeQueryIterator(txContext, rangeQueryStateNext.ID)
 
 				return
 			}
@@ -757,15 +771,15 @@ func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 		}
 
 		if !hasNext {
-			delete(txContext.rangeQueryIteratorMap, rangeQueryStateNext.ID)
 			rangeIter.Close()
+			handler.deleteRangeQueryIterator(txContext, rangeQueryStateNext.ID)
 		}
 
 		payload := &pb.RangeQueryStateResponse{KeysAndValues: keysAndValues, HasMore: hasNext, ID: rangeQueryStateNext.ID}
 		payloadBytes, err := proto.Marshal(payload)
 		if err != nil {
-			delete(txContext.rangeQueryIteratorMap, rangeQueryStateNext.ID)
 			rangeIter.Close()
+			handler.deleteRangeQueryIterator(txContext, rangeQueryStateNext.ID)
 
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -825,13 +839,11 @@ func (handler *Handler) handleRangeQueryStateClose(msg *pb.ChaincodeMessage) {
 			return
 		}
 
-		handler.Lock()
-		defer handler.Unlock()
-
-		txContext := handler.txCtxs[msg.Uuid]
-		iter := txContext.rangeQueryIteratorMap[rangeQueryStateClose.ID]
+		txContext := handler.getTxContext(msg.Uuid)
+		iter := handler.getRangeQueryIterator(txContext, rangeQueryStateClose.ID)
 		if iter != nil {
 			iter.Close()
+			handler.deleteRangeQueryIterator(txContext, rangeQueryStateClose.ID)
 		}
 
 		payload := &pb.RangeQueryStateResponse{HasMore: false, ID: rangeQueryStateClose.ID}
