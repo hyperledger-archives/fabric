@@ -43,6 +43,8 @@ var (
 	chaincodeInvocation *obc.ChaincodeInvocationSpec
 	invocationErrorAlreadyReported = false
 	initialized 				   = false
+	//We are disabling the validity period for now
+	allowValidityPeriodEnablement = false
 )
 
 func initialize() {
@@ -143,11 +145,17 @@ func createChaincodeInvocation(validityPeriod string, token string) *obc.Chainco
 }
 
 func validityPeriodUpdateEnabled() bool {
-	// If the update of the validity period is enabled in the configuration file return the configured value
-	if viper.IsSet("pki.validity-period.update") {
-		return viper.GetBool("pki.validity-period.update")
-	}
 	
-	// Validity period update is enabled by default if no configuration was specified.
-	return true
+	if(allowValidityPeriodEnablement){
+		
+		// If the update of the validity period is enabled in the configuration file return the configured value
+		if viper.IsSet("pki.validity-period.update") {
+			return viper.GetBool("pki.validity-period.update")
+		}
+		
+		// Validity period update is enabled by default if no configuration was specified.
+		return true
+	}	
+	
+	return false
 }
