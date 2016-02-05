@@ -75,7 +75,7 @@ func GetNoops(c consensus.Stack) consensus.Consenter {
 }
 
 // RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
-func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
+func (i *Noops) RecvMsg(msg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 
 	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
