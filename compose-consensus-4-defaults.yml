@@ -1,0 +1,5 @@
+vp:
+  image:   openchain-peer
+  environment:
+    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
+  command: obc-peer peer

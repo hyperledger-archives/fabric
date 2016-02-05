@@ -99,18 +99,12 @@ func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, fi
 		mock.filter = filter
 	}
 
-	/* // This might be useful to add back
 	if nil == remoteLedgers {
-		mock.remoteLedgers = make(map[uint64]consensus.ReadOnlyLedger)
-		DummyLedger := &MockRemoteLedger{^uint64(0)}
-		for i := uint64(0); i < 100; i++ {
-			mock.remoteLedgers[i] = DummyLedger
-		}
+		tmp := make(map[protos.PeerID]consensus.ReadOnlyLedger)
+		mock.remoteLedgers = &tmp
 	} else {
 		mock.remoteLedgers = remoteLedgers
 	}
-	*/
-	mock.remoteLedgers = remoteLedgers
 
 	return mock
 }
@@ -253,6 +247,10 @@ func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 }
 
 func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
+	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
+		return nil, fmt.Errorf("Bad peer ID")
+	}
+
 	res := make(chan *protos.SyncBlocks)
 	ft := mock.filter(SyncBlocks, peerID)
 	switch ft {
@@ -317,6 +315,10 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 }
 
 func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
+	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
+		return nil, fmt.Errorf("Bad peer ID")
+	}
+
 	res := make(chan *protos.SyncStateSnapshot)
 	ft := mock.filter(SyncSnapshot, peerID)
 	switch ft {
@@ -364,6 +366,10 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 }
 
 func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
+		return nil, fmt.Errorf("Bad peer ID")
+	}
+
 	res := make(chan *protos.SyncStateDeltas)
 	ft := mock.filter(SyncDeltas, peerID)
 	switch ft {

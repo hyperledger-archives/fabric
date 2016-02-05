@@ -1,0 +1,65 @@
+obcca:
+   image: obcca
+   environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+   command: obc-ca
+
+cli:
+  image: openchain-peer
+  command: ./infiniteloop.sh
+  environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
+    - OPENCHAIN_SECURITY_ENABLED=false
+
+vp0:
+  extends:
+    file: compose-consensus-4-defaults.yml
+    service: vp
+  environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_SECURITY_ENABLED=false
+    - OPENCHAIN_PEER_ID=vp0
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_PEER_VALIDATOR_REPLICAS_IPS=vp0:30303 vp1:30303 vp2:30303 vp3:30303
+    - OPENCHAIN_SECURITY_ENROLLID=lukas
+    - OPENCHAIN_SECURITY_ENROLLSECRET=NPKYL39uKbkj
+
+
+vp1:
+  extends:
+    service: vp0
+  environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_SECURITY_ENABLED=false
+    - OPENCHAIN_PEER_ID=vp1
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=diego
+    - OPENCHAIN_SECURITY_ENROLLSECRET=DRJ23pEQl16a
+
+
+vp2:
+  extends:
+    service: vp0
+  environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_SECURITY_ENABLED=false
+    - OPENCHAIN_PEER_ID=vp2
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=binhn
+    - OPENCHAIN_SECURITY_ENROLLSECRET=7avZQLwcUe9q
+
+
+vp3:
+  extends:
+    service: vp0
+  environment:
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_SECURITY_ENABLED=false
+    - OPENCHAIN_PEER_ID=vp3
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=jim
+    - OPENCHAIN_SECURITY_ENROLLSECRET=6avZQLwcUe9b

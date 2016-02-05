@@ -43,9 +43,11 @@ func TestFuzz(t *testing.T) {
 
 	mock := newMock()
 	primary := newPbftCore(0, loadConfig(), mock, mock)
+	primary.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
 	defer primary.close()
 	mock = newMock()
 	backup := newPbftCore(1, loadConfig(), mock, mock)
+	backup.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
 	defer backup.close()
 
 	f := fuzz.New()

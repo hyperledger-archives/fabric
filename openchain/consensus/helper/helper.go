@@ -39,6 +39,7 @@ type Helper struct {
 	coordinator peer.MessageHandlerCoordinator
 	secOn       bool
 	secHelper   crypto.Peer
+	curBatch    []*pb.Transaction // TODO, remove after issue 579
 }
 
 // NewHelper constructs the consensus helper object
@@ -148,6 +149,7 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	if err := ledger.BeginTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
+	h.curBatch = nil // TODO, remove after issue 579
 	return nil
 }
 
@@ -161,6 +163,7 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
 	res, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
 	return res, nil
 }
 
@@ -175,11 +178,12 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this one the ledger has been fixed to implement
-	if err := ledger.CommitTxBatch(id, nil, nil, metadata); err != nil {
+	if err := ledger.CommitTxBatch(id, h.curBatch, nil, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 
 	size := ledger.GetBlockchainSize()
+	h.curBatch = nil // TODO, remove after issue 579
 
 	block, err := ledger.GetBlockByNumber(size - 1)
 	if err != nil {
@@ -199,6 +203,7 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	if err := ledger.RollbackTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
+	h.curBatch = nil // TODO, remove after issue 579
 	return nil
 }
 
@@ -212,7 +217,7 @@ func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Bloc
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this once the underlying API is fixed
-	block, err := ledger.GetTXBatchPreviewBlock(id, nil, metadata)
+	block, err := ledger.GetTXBatchPreviewBlock(id, h.curBatch, metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
