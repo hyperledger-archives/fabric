@@ -112,13 +112,21 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 }
 
 func validityPeriodVerificationEnabled() bool {
-	// If the verification of the validity period is enabled in the configuration file return the configured value
-	if viper.IsSet("peer.validator.validity-period.verification") {
-		return viper.GetBool("peer.validator.validity-period.verification")
-	}
+	
+	//We are temporarily disabling the validity period functionality
+	allowValidityPeriodVerification := false
+	
+	if allowValidityPeriodVerification {
+		// If the verification of the validity period is enabled in the configuration file return the configured value
+		if viper.IsSet("peer.validator.validity-period.verification") {
+			return viper.GetBool("peer.validator.validity-period.verification")
+		}
 
-	// Validity period verification is enabled by default if no configuration was specified.
-	return true
+		// Validity period verification is enabled by default if no configuration was specified.
+		return true
+	}
+	
+	return false	
 }
 
 func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {
