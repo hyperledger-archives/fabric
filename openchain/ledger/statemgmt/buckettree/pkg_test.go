@@ -35,10 +35,8 @@ var testDBWrapper = db.NewTestDBWrapper()
 var testParams []string
 
 func TestMain(m *testing.M) {
-	fmt.Println("Setting up test config...")
 	testParams = testutil.ParseTestParams()
 	testutil.SetupTestConfig()
-	initConfig(nil)
 	os.Exit(m.Run())
 }
 
@@ -75,6 +73,14 @@ type stateImplTestWrapper struct {
 
 func newStateImplTestWrapper(t testing.TB) *stateImplTestWrapper {
 	var configMap map[string]interface{}
+	stateImpl := NewStateImpl()
+	err := stateImpl.Initialize(configMap)
+	testutil.AssertNoError(t, err, "Error while constrcuting stateImpl")
+	return &stateImplTestWrapper{configMap, stateImpl, t}
+}
+
+func newStateImplTestWrapperWithCustomConfig(t testing.TB, numBuckets int, maxGroupingAtEachLevel int) *stateImplTestWrapper {
+	configMap := map[string]interface{}{ConfigNumBuckets: numBuckets, ConfigMaxGroupingAtEachLevel: maxGroupingAtEachLevel}
 	stateImpl := NewStateImpl()
 	err := stateImpl.Initialize(configMap)
 	testutil.AssertNoError(t, err, "Error while constrcuting stateImpl")
