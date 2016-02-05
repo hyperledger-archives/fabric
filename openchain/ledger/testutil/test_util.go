@@ -46,16 +46,18 @@ func SetupTestConfig() {
 	logging.SetFormatter(formatter)
 }
 
+func SetLogLevel(level logging.Level, module string) {
+	logging.SetLevel(level, module)
+}
+
 func ParseTestParams() []string {
 	testParams := flag.String("testParams", "", "Test specific parameters")
 	flag.Parse()
-	fmt.Printf("testParams=%s\n", *testParams)
 	regex, err := regexp.Compile(",(\\s+)?")
 	if err != nil {
 		panic(fmt.Errorf("err = %s\n", err))
 	}
 	paramsArray := regex.Split(*testParams, -1)
-	fmt.Printf("array=%q\n", paramsArray)
 	return paramsArray
 }
 

@@ -25,6 +25,7 @@ import (
 )
 
 func TestBucketHashCalculator(t *testing.T) {
+	initConfig(nil)
 	c := newBucketHashCalculator(newBucketKey(1, 1))
 
 	testutil.AssertEquals(t, c.computeCryptoHash(), nil)
