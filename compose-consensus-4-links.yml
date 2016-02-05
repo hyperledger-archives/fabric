@@ -1,0 +1,26 @@
+vp0:
+  links:
+    - obcca
+
+vp1:
+  links:
+    - vp0
+    - obcca
+
+vp2:
+  links:
+    - vp0
+    - obcca
+
+vp3:
+  links:
+    - vp0
+    - obcca
+
+cli:
+  links:
+    - obcca
+    - vp0
+    - vp1
+    - vp2
+    - vp3
