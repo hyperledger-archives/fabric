@@ -651,7 +651,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
-				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				err = fmt.Errorf("User '%s' not logged in. Use the 'login' command to obtain a security token.", chaincodeUsr)
 				return
 			}
 			// Unexpected error
@@ -740,7 +740,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
-				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				err = fmt.Errorf("User '%s' not logged in. Use the 'login' command to obtain a security token.", chaincodeUsr)
 				return
 			}
 			// Unexpected error
