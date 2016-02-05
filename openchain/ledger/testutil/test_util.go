@@ -20,10 +20,10 @@ under the License.
 package testutil
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"reflect"
+	"regexp"
 	"runtime"
 	"testing"
 
@@ -46,16 +46,17 @@ func SetupTestConfig() {
 	logging.SetFormatter(formatter)
 }
 
-func ParseTestParams() map[string]interface{} {
-	fmt.Println("parsing parameters for the test")
-	paramsJson := flag.String("testParams", "{}", "Test specific parameters")
+func ParseTestParams() []string {
+	testParams := flag.String("testParams", "", "Test specific parameters")
 	flag.Parse()
-	var paramsMap map[string]interface{}
-	err := json.Unmarshal([]byte(*paramsJson), &paramsMap)
+	fmt.Printf("testParams=%s\n", *testParams)
+	regex, err := regexp.Compile(",(\\s+)?")
 	if err != nil {
-		panic(fmt.Errorf("Error while parsing test parameters: %s", err))
+		panic(fmt.Errorf("err = %s\n", err))
 	}
-	return paramsMap
+	paramsArray := regex.Split(*testParams, -1)
+	fmt.Printf("array=%q\n", paramsArray)
+	return paramsArray
 }
 
 func AssertNil(t testing.TB, value interface{}) {
