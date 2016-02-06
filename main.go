@@ -287,7 +287,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 func serve(args []string) error {
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
+		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
 		return err
 	}
 
@@ -373,7 +373,7 @@ func serve(args []string) error {
 	// Register the ServerOpenchain server
 	serverOpenchain, err := openchain.NewOpenchainServer()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating OpenchainServer: %s", err))
+		err = fmt.Errorf("Error creating OpenchainServer: %s", err)
 		return err
 	}
 
@@ -395,14 +395,15 @@ func serve(args []string) error {
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
-	serve := make(chan bool)
+	serve := make(chan error)
 	go func() {
-		if grpcErr := grpcServer.Serve(lis); grpcErr != nil {
-			logger.Error(fmt.Sprintf("grpc server exited with error: %s", grpcErr))
+		var grpcErr error
+		if grpcErr = grpcServer.Serve(lis); grpcErr != nil {
+			grpcErr = fmt.Errorf("grpc server exited with error: %s", grpcErr)
 		} else {
 			logger.Info("grpc server exited")
 		}
-		serve <- true
+		serve <- grpcErr
 	}()
 
 	// Deploy the genesis block if needed.
@@ -419,15 +420,13 @@ func serve(args []string) error {
 	}
 
 	// Block until grpc server exits
-	<-serve
-
-	return nil
+	return <-serve
 }
 
 func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer:", err)
 		return
 	}
 
@@ -444,7 +443,7 @@ func status() (err error) {
 func stop() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer:", err)
 		return
 	}
 
@@ -497,7 +496,7 @@ func login(args []string) (err error) {
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		return
 	}
 	devopsClient := pb.NewDevopsClient(clientConn)
@@ -575,17 +574,47 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		}
 	}
 
+	// Check that non-empty chaincode parameters contain exactly 2 keys of the
+	// proper form. To better understand what's going on here with JSON
+	// parsing take a look at http://blog.golang.org/json-and-go - Generic
+	// JSON with interface{}
 	if chaincodeCtorJSON != "{}" {
-		// Check to ensure the JSON has "function" and "args" keys
-		input := &pb.ChaincodeMessage{}
-		jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input)
-		if jsonerr != nil {
-			err = fmt.Errorf("Must supply 'function' and 'args' keys in %s constructor parameter.\n", chainFuncName)
+		var f interface{}
+		err = json.Unmarshal([]byte(chaincodeCtorJSON), &f)
+		if err != nil {
+			err = fmt.Errorf("Chaincode argument error : %s", err)
 			return
+		}
+		m := f.(map[string]interface{})
+		if len(m) != 2 {
+			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - Function and Args")
+			return
+		}
+		for k, v := range m {
+			kl := strings.ToLower(k)
+			switch kl {
+			case "function":
+				switch v.(type) {
+				case string:
+				default:
+					err = fmt.Errorf("Chaincode argument error: The 'Function' parameter (%v) is not a string", v)
+					return
+				}
+			case "args":
+				switch v.(type) {
+				case []interface{}:
+				default:
+					err = fmt.Errorf("Chaincode argument error: The 'Args' parameter (%v) is not an array", v)
+					return
+				}
+			default:
+				err = fmt.Errorf("Chaincode argument error: This - '%s' - is neither 'Function' nor 'Args'", k)
+				return
+			}
 		}
 	}
 
-	return nil
+	return
 }
 
 func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
@@ -606,13 +635,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 	}
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		err = fmt.Errorf("Error building %s: %s", chainFuncName, err)
 		return
 	}
 	// Build the spec
 	input := &pb.ChaincodeInput{}
-	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+	if err = json.Unmarshal([]byte(chaincodeCtorJSON), &input); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
@@ -696,13 +725,13 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		err = fmt.Errorf("Error building %s: %s", chainFuncName, err)
 		return
 	}
 	// Build the spec
 	input := &pb.ChaincodeInput{}
-	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+	if err = json.Unmarshal([]byte(chaincodeCtorJSON), &input); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
