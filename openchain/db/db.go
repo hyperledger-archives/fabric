@@ -251,7 +251,9 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 		fmt.Println("Error while trying to retrieve key:", key)
 		return nil, err
 	}
-	return slice.Data(), nil
+	defer slice.Free()
+	data := append([]byte(nil), slice.Data()...)
+	return data, nil
 }
 
 func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
@@ -262,7 +264,9 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 		fmt.Println("Error while trying to retrieve key:", key)
 		return nil, err
 	}
-	return slice.Data(), nil
+	defer slice.Free()
+	data := append([]byte(nil), slice.Data()...)
+	return data, nil
 }
 
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
