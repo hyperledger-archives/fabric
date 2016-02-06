@@ -574,10 +574,11 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		}
 	}
 
-	// Check that non-empty chaincode parameters contain exactly 2 keys of the
-	// proper form. To better understand what's going on here with JSON
-	// parsing take a look at http://blog.golang.org/json-and-go - Generic
-	// JSON with interface{}
+	// Check that non-empty chaincode parameters contain only Function and
+	// Args keys. Type checking is done later when the JSON is actually
+	// unmarshaled into a pb.ChaincodeInput. To better understand what's going
+	// on here with JSON parsing see http://blog.golang.org/json-and-go -
+	// Generic JSON with interface{}
 	if chaincodeCtorJSON != "{}" {
 		var f interface{}
 		err = json.Unmarshal([]byte(chaincodeCtorJSON), &f)
@@ -587,28 +588,15 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		}
 		m := f.(map[string]interface{})
 		if len(m) != 2 {
-			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - Function and Args")
+			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 			return
 		}
-		for k, v := range m {
-			kl := strings.ToLower(k)
-			switch kl {
+		for k, _ := range m {
+			switch strings.ToLower(k) {
 			case "function":
-				switch v.(type) {
-				case string:
-				default:
-					err = fmt.Errorf("Chaincode argument error: The 'Function' parameter (%v) is not a string", v)
-					return
-				}
 			case "args":
-				switch v.(type) {
-				case []interface{}:
-				default:
-					err = fmt.Errorf("Chaincode argument error: The 'Args' parameter (%v) is not an array", v)
-					return
-				}
 			default:
-				err = fmt.Errorf("Chaincode argument error: This - '%s' - is neither 'Function' nor 'Args'", k)
+				err = fmt.Errorf("Illegal chaincode key '%s' - must be either 'Function' or 'Args'", k)
 				return
 			}
 		}
