@@ -413,12 +413,18 @@ func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
 	return true
 }
 
+func (handler *Handler) getIsTransaction(uuid string) bool {
+	handler.Lock()
+	defer handler.Unlock()
+	return handler.isTransaction[uuid]
+}
+
 func (handler *Handler) deleteIsTransaction(uuid string) {
 	handler.Lock()
+	defer handler.Unlock()
 	if handler.isTransaction != nil {
 		delete(handler.isTransaction, uuid)
 	}
-	handler.Unlock()
 }
 
 func (handler *Handler) notifyDuringStartup(val bool) {
@@ -904,7 +910,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 	go func() {
 		msg, _ := e.Args[0].(*pb.ChaincodeMessage)
 		// First check if this UUID is a transaction; error otherwise
-		if !handler.isTransaction[msg.Uuid] {
+		if !handler.getIsTransaction(msg.Uuid) {
 			payload := []byte(fmt.Sprintf("Cannot handle %s in query context", msg.Type.String()))
 			chaincodeLogger.Debug("[%s]Cannot handle %s in query context. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_ERROR)
 			errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
@@ -1200,7 +1206,7 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 		// Check if this is a request from validator in query context
 		if msg.Type.String() == pb.ChaincodeMessage_PUT_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() || msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() {
 			// Check if this UUID is a transaction
-			if !handler.isTransaction[msg.Uuid] {
+			if !handler.getIsTransaction(msg.Uuid) {
 				payload := []byte(fmt.Sprintf("[%s]Cannot handle %s in query context", msg.Uuid, msg.Type.String()))
 				chaincodeLogger.Debug("[%s]Cannot handle %s in query context. Sending %s", msg.Uuid, msg.Type.String(), pb.ChaincodeMessage_ERROR)
 				errMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
