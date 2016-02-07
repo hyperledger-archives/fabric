@@ -404,11 +404,11 @@ func (handler *Handler) deleteUUIDEntry(uuid string) {
 
 // markIsTransaction marks a UUID as a transaction or a query; true = transaction, false = query
 func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
+	handler.Lock()
+	defer handler.Unlock()
 	if handler.isTransaction == nil {
 		return false
 	}
-	handler.Lock()
-	defer handler.Unlock()
 	handler.isTransaction[uuid] = isTrans
 	return true
 }
@@ -416,6 +416,9 @@ func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
 func (handler *Handler) getIsTransaction(uuid string) bool {
 	handler.Lock()
 	defer handler.Unlock()
+	if handler.isTransaction == nil {
+		return false
+	}
 	return handler.isTransaction[uuid]
 }
 
