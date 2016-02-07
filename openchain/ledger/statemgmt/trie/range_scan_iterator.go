@@ -49,8 +49,13 @@ func (itr *RangeScanIterator) Next() bool {
 		return false
 	}
 	for ; itr.dbItr.Valid(); itr.dbItr.Next() {
-		trieKeyBytes := itr.dbItr.Key().Data()
-		trieNodeBytes := itr.dbItr.Value().Data()
+		trieKeySlice := itr.dbItr.Key()
+		defer trieKeySlice.Free()
+		trieNodeSlice := itr.dbItr.Value()
+		defer trieNodeSlice.Free()
+		// TODO Do we need to copy the key and value?
+		trieKeyBytes := trieKeySlice.Data()
+		trieNodeBytes := trieNodeSlice.Data()
 		value := unmarshalTrieNodeValue(trieNodeBytes)
 		if util.IsNil(value) {
 			continue

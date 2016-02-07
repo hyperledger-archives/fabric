@@ -56,8 +56,13 @@ func (itr *RangeScanIterator) Next() bool {
 	}
 
 	for itr.dbItr.Valid() {
-		keyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
-		valueBytes := itr.dbItr.Value().Data()
+		keySlice := itr.dbItr.Key()
+		defer keySlice.Free()
+		valueSlice := itr.dbItr.Value()
+		defer valueSlice.Free()
+		// TODO Why do we copy the key, but not the value?
+		keyBytes := statemgmt.Copy(keySlice.Data())
+		valueBytes := valueSlice.Data()
 
 		dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
 		dataKey := dataNode.dataKey
