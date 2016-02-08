@@ -422,13 +422,13 @@ func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) 
 func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error creating client to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error opening chat stream to peer address=%s:  %s", peerAddress, err))}
 	}
 
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
@@ -437,7 +437,10 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error creating new HelloMessage (%s):  %s", peerAddress, err))}
 	}
-	stream.Send(helloMessage)
+	if err = stream.Send(helloMessage); err != nil {
+		stream.CloseSend()
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending hello to peer address=%s:  %s", peerAddress, err))}
+	}
 
 	waitc := make(chan struct{})
 	var response *pb.Response
@@ -463,7 +466,6 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 				expectHello = false
 
 				peerLogger.Debug("Received %s message as expected, sending transaction...", in.Type)
-				fmt.Printf("Received %s message as expected, sending transaction...\n", in.Type)
 				payload, err := proto.Marshal(transaction)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error marshalling transaction to peer address=%s:  %s", peerAddress, err))}
@@ -479,13 +481,13 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 
 				msg := &pb.OpenchainMessage{Type: ttyp, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
 				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
-				stream.Send(msg)
-
+				if err = stream.Send(msg); err != nil {
+					peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
+				}
 				//we are done with all our sends.... trigger stream close
 				stream.CloseSend()
 			} else if in.Type == pb.OpenchainMessage_RESPONSE {
 				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
-				fmt.Printf("Received %s message as expected, will wait for EOF\n", in.Type)
 				response = &pb.Response{}
 				err = proto.Unmarshal(in.Payload, response)
 				if err != nil {
@@ -571,7 +573,9 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 
 	msg := &pb.OpenchainMessage{Type: ttyp, Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
-	stream.Send(msg)
+	if err = stream.Send(msg); err != nil {
+		peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
+	}
 
 	//we are done from client side.
 	stream.CloseSend()
