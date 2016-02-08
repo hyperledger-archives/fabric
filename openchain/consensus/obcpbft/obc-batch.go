@@ -64,8 +64,8 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
+	op.pbft.lock()
+	defer op.pbft.unlock()
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -114,9 +114,9 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 			}
 		}
 	} else if pbftMsg := msg.GetPbftMessage(); pbftMsg != nil {
-		op.pbft.lock.Unlock()
+		op.pbft.unlock()
 		op.pbft.receive(pbftMsg)
-		op.pbft.lock.Lock()
+		op.pbft.lock()
 	} else {
 		logger.Error("unknown request %+v", req)
 	}
@@ -132,9 +132,9 @@ func (op *obcBatch) Close() {
 
 // Drain will block until all remaining execution has been handled.
 func (op *obcBatch) Drain() {
-	op.pbft.lock.Lock()
+	op.pbft.lock()
 	op.sendBatch()
-	op.pbft.lock.Unlock()
+	op.pbft.unlock()
 	op.pbft.drain()
 }
 
@@ -275,9 +275,9 @@ func (op *obcBatch) sendBatch() error {
 		return err
 	}
 	// process internally
-	op.pbft.lock.Unlock()
+	op.pbft.unlock()
 	op.pbft.request(tbPacked)
-	op.pbft.lock.Lock()
+	op.pbft.lock()
 
 	return nil
 }
@@ -290,12 +290,12 @@ func (op *obcBatch) batchTimerHander() {
 			return
 
 		case <-op.batchTimer.C:
-			op.pbft.lock.Lock()
+			op.pbft.lock()
 			logger.Info("Replica %d batch timeout expired", op.pbft.id)
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
 			}
-			op.pbft.lock.Unlock()
+			op.pbft.unlock()
 		}
 	}
 }
