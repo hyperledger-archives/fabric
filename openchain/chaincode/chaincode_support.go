@@ -175,7 +175,6 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.txCtxs = make(map[string]*transactionContext)
-	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
@@ -185,6 +184,14 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 }
 
 func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Handler) error {
+
+	// clean up rangeQueryIteratorMap
+	for _, context := range chaincodehandler.txCtxs {
+		for _, v := range context.rangeQueryIteratorMap {
+			v.Close()
+		}
+	}
+
 	key := chaincodehandler.ChaincodeID.Name
 	chaincodeLogger.Debug("Deregister handler: %s", key)
 	chaincodeSupport.handlerMap.Lock()
