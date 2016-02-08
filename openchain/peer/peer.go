@@ -430,7 +430,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
-	defer stream.CloseSend()
+
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 
 	helloMessage, err := p.NewOpenchainDiscoveryHello()
@@ -444,11 +444,15 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	go func() {
 		// Make sure to close the wait channel
 		defer close(waitc)
+		expectHello := true
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
+				peerLogger.Debug("Received EOF")
 				// read done.
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))}
+				if response == nil {
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))}
+				}
 				return
 			}
 			if err != nil {
@@ -456,12 +460,16 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 				return
 			}
 			if in.Type == pb.OpenchainMessage_DISC_HELLO {
+				expectHello = false
+
 				peerLogger.Debug("Received %s message as expected, sending transaction...", in.Type)
+				fmt.Printf("Received %s message as expected, sending transaction...\n", in.Type)
 				payload, err := proto.Marshal(transaction)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error marshalling transaction to peer address=%s:  %s", peerAddress, err))}
 					return
 				}
+
 				var ttyp pb.OpenchainMessage_Type
 				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
 					ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
@@ -472,16 +480,27 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 				msg := &pb.OpenchainMessage{Type: ttyp, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
 				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
 				stream.Send(msg)
+
+				//we are done with all our sends.... trigger stream close
+				stream.CloseSend()
 			} else if in.Type == pb.OpenchainMessage_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
+				fmt.Printf("Received %s message as expected, will wait for EOF\n", in.Type)
 				response = &pb.Response{}
 				err = proto.Unmarshal(in.Payload, response)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
 				}
-				return
+
+				//this should never happen but has to be tested (perhaps panic ?).
+				//if we did get an out-of-band Response, CloseSend as we may not get a DISC_HELLO
+				if expectHello {
+					peerLogger.Error(fmt.Sprintf("Received unexpected %s message, will wait for EOF", in.Type))
+					stream.CloseSend()
+				}
+			} else {
+				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 			}
-			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 		}
 	}()
 
@@ -510,6 +529,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
+				peerLogger.Debug("Received EOF")
 				if response == nil {
 					// read done.
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
@@ -522,7 +542,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 			}
 			//receive response and wait for stream to be closed (triggered by CloseSend)
 			if in.Type == pb.OpenchainMessage_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
 				response = &pb.Response{}
 				err = proto.Unmarshal(in.Payload, response)
 				if err != nil {
