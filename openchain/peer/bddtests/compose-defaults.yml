@@ -3,6 +3,8 @@ vp:
   environment:
     - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
     - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    # TODO:  This is currently required due to BUG in variant logic based upon log level.
+    - OPENCHAIN_LOGGING_LEVEL=DEBUG
   command: obc-peer peer
 
 obcca:
