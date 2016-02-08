@@ -24,18 +24,20 @@ import (
 
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"io/ioutil"
-	"net"
-	"os"
-	"reflect"
-	"testing"
-	_ "time"
+	"google.golang.org/grpc/credentials"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -64,7 +66,8 @@ func TestMain(m *testing.M) {
 	setup()
 
 	// Init PKI
-	go initPKI()
+	initPKI()
+	go startPKI()
 	defer cleanup()
 
 	// Init clients
@@ -782,6 +785,39 @@ func TestValidatorSignVerify(t *testing.T) {
 	}
 }
 
+func TestValidatorVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed generating signature [%s].", err)
+	}
+
+	err = validator.Verify(nil, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an empty id.", err)
+	}
+
+	err = validator.Verify(msg, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid id.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), nil, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), msg, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = validator.Verify(validator.GetID(), signature, nil)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid messahe.", err)
+	}
+}
+
 func setup() {
 	// Conf
 	viper.SetConfigName("crypto_test") // name of config file (without extension)
@@ -826,20 +862,37 @@ func initPKI() {
 	eca = obcca.NewECA()
 	tca = obcca.NewTCA(eca)
 	tlsca = obcca.NewTLSCA(eca)
+}
 
+func startPKI() {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.pki.tls.enabled") {
+		// TLS configuration
+		creds, err := credentials.NewServerTLSFromFile(
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.cert"),
+			filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
+		)
+		if err != nil {
+			panic("Failed creating credentials for OBC-CA: " + err.Error())
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+
+	fmt.Printf("open socket...\n")
 	sockp, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {
 		panic("Cannot open port: " + err.Error())
 	}
+	fmt.Printf("open socket...done\n")
 
-	server = grpc.NewServer()
+	server = grpc.NewServer(opts...)
 
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
 
+	fmt.Printf("start serving...\n")
 	server.Serve(sockp)
-
 }
 
 func initClients() error {
@@ -924,10 +977,7 @@ func initValidators() error {
 }
 
 func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -949,10 +999,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 }
 
 func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -972,10 +1019,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 }
 
 func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -995,10 +1039,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 }
 
 func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1045,10 +1086,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 }
 
 func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1093,10 +1131,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 }
 
 func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1141,10 +1176,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 }
 
 func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1191,10 +1223,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 }
 
 func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1239,10 +1268,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 }
 
 func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1287,10 +1313,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 }
 
 func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cds := &obc.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1312,10 +1335,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 }
 
 func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1335,10 +1355,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 }
 
 func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transaction, error) {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
@@ -1387,8 +1404,8 @@ func stopPKI() {
 	eca.Close()
 	tca.Close()
 	tlsca.Close()
-	server.Stop()
 
+	server.Stop()
 }
 
 func removeFolders() {

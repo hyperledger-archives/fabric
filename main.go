@@ -71,6 +71,9 @@ var peerCmd = &cobra.Command{
 	Use:   "peer",
 	Short: "Run openchain peer.",
 	Long:  `Runs the openchain peer that interacts with the openchain network.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("peer")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		serve(args)
 	},
@@ -80,6 +83,9 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Status of the openchain peer.",
 	Long:  `Outputs the status of the currently running openchain peer.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("status")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		status()
 	},
@@ -89,6 +95,9 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop openchain peer.",
 	Long:  `Stops the currently running openchain Peer, disconnecting from the openchain network.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("stop")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
 	},
@@ -98,6 +107,9 @@ var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login user on CLI.",
 	Long:  `Login the local user on CLI. Must supply username parameter.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("login")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		login(args)
 	},
@@ -107,6 +119,9 @@ var vmCmd = &cobra.Command{
 	Use:   "vm",
 	Short: "VM functionality of openchain.",
 	Long:  `Interact with the VM functionality of openchain.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("vm")
+	},
 }
 
 var vmPrimeCmd = &cobra.Command{
@@ -132,6 +147,9 @@ var chaincodeCmd = &cobra.Command{
 	Use:   chainFuncName,
 	Short: fmt.Sprintf("%s specific commands.", chainFuncName),
 	Long:  fmt.Sprintf("%s specific commands.", chainFuncName),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit(chainFuncName)
+	},
 }
 
 var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(chainFuncName))
@@ -175,9 +193,14 @@ func main() {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Set the flags on the server command.
+	// Define command-line flags that are valid for all obc-peer commands and
+	// subcommands.
+	mainFlags := mainCmd.PersistentFlags()
+	mainFlags.String("logging-level", "", "Default logging level and overrides, see openchain.yaml for full syntax")
+	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
+
+	// Set the flags on the peer command.
 	flags := peerCmd.Flags()
-	flags.String("peer-logging-level", "error", "Logging level, can be one of [CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG]")
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
 	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
 	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
@@ -187,7 +210,6 @@ func main() {
 
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
-	viper.BindPFlag("peer_logging_level", flags.Lookup("peer-logging-level"))
 	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
 	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
@@ -201,31 +223,6 @@ func main() {
 	err := viper.ReadInConfig()  // Find and read the config file
 	if err != nil {              // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s \n", cmdRoot, err))
-	}
-
-	level, err := logging.LogLevel(viper.GetString("peer.logging.level"))
-	if err == nil {
-		// No error, use the setting.
-		logging.SetLevel(level, chainFuncName)
-		logging.SetLevel(level, "consensus")
-		logging.SetLevel(level, "consensus/controller")
-		logging.SetLevel(level, "consensus/helper")
-		logging.SetLevel(level, "consensus/noops")
-		logging.SetLevel(level, "consensus/pbft")
-		logging.SetLevel(level, "main")
-		logging.SetLevel(level, "peer")
-		logging.SetLevel(level, "server")
-	} else {
-		logger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
-		logging.SetLevel(logging.ERROR, chainFuncName)
-		logging.SetLevel(logging.ERROR, "consensus")
-		logging.SetLevel(logging.ERROR, "consensus/controller")
-		logging.SetLevel(logging.ERROR, "consensus/helper")
-		logging.SetLevel(logging.ERROR, "consensus/noops")
-		logging.SetLevel(logging.ERROR, "consensus/pbft")
-		logging.SetLevel(logging.ERROR, "main")
-		logging.SetLevel(logging.ERROR, "peer")
-		logging.SetLevel(logging.ERROR, "server")
 	}
 
 	mainCmd.AddCommand(peerCmd)

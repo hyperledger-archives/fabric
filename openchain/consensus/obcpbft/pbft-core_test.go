@@ -138,8 +138,6 @@ func TestNetwork(t *testing.T) {
 		t.Fatalf("Request failed: %s", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
@@ -247,7 +245,7 @@ func TestLostPrePrepare(t *testing.T) {
 	for _, inst := range net.replicas {
 		blockHeight, _ := inst.ledger.GetBlockchainSize()
 		if inst.id != 3 && blockHeight <= 1 {
-			t.Errorf("Expected execution")
+			t.Errorf("Expected execution on replica %d", inst.id)
 			continue
 		}
 		if inst.id == 3 && blockHeight > 1 {
@@ -435,7 +433,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		inst.pbft.L = 4
 	}
 
-	stsrc := net.replicas[3].pbft.sts.AsynchronousStateTransferResultChannel()
+	stsrc := net.replicas[3].pbft.sts.CompletionChannel()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -574,8 +572,12 @@ func TestNewViewTimeout(t *testing.T) {
 
 	net.close()
 	for i, inst := range net.replicas {
-		if inst.pbft.view != 3 {
-			t.Fatalf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		if inst.pbft.view < 3 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		}
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight != 2 {
+			t.Errorf("Should have executed 1, got %d instead for replica %d", blockHeight, i)
 		}
 	}
 }
@@ -632,7 +634,7 @@ func TestFallBehind(t *testing.T) {
 		execReq(request, false)
 	}
 
-	if !inst.sts.AsynchronousStateTransferInProgress() {
+	if !inst.sts.InProgress() {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -653,7 +655,7 @@ func TestFallBehind(t *testing.T) {
 
 	for i := 0; i < 200; i++ { // Loops for up to 2 seconds waiting
 		time.Sleep(10 * time.Millisecond)
-		if !inst.sts.AsynchronousStateTransferInProgress() {
+		if !inst.sts.InProgress() {
 			success = true
 			break
 		}
@@ -686,11 +688,11 @@ func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, s
 		pbft.witnessCheckpoint(chkpt)
 	}
 
-	if !pbft.sts.AsynchronousStateTransferInProgress() {
+	if !pbft.sts.InProgress() {
 		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
 	}
 
-	result := pbft.sts.AsynchronousStateTransferResultChannel()
+	result := pbft.sts.CompletionChannel()
 
 	for i := 1; i < pbft.replicaCount; i++ {
 		chkpt = &Checkpoint{

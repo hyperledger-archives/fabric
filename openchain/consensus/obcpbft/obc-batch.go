@@ -33,22 +33,22 @@ import (
 )
 
 type obcBatch struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 
 	batchSize        int
-	batchStore       map[string]*Request
+	batchStore       [][]byte
 	batchTimer       *time.Timer
 	batchTimerActive bool
 	batchTimeout     time.Duration
 }
 
-func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
+func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
-	op := &obcBatch{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op, cpi)
+	op := &obcBatch{stack: stack}
+	op.pbft = newPbftCore(id, config, op, stack)
 	op.batchSize = config.GetInt("general.batchSize")
-	op.batchStore = make(map[string]*Request)
+	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
@@ -64,6 +64,8 @@ func newObcBatch(id uint64, config *viper.Viper, cpi consensus.CPI) *obcBatch {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+	op.pbft.lock.Lock()
+	defer op.pbft.lock.Unlock()
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -72,17 +74,19 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 			return err
 		}
 
-		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
-
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
-			err := op.leaderProcReq(req)
+			err := op.leaderProcReq(ocMsg.Payload)
 			if err != nil {
 				return err
 			}
 		} else { // backup
-			msg := &Message{&Message_Request{req}}
-			msgRaw, _ := proto.Marshal(msg)
-			op.broadcast(msgRaw)
+			msg := &BatchMessage{&BatchMessage_Request{ocMsg.Payload}}
+			wrapped, _ := proto.Marshal(msg)
+			ocMsg := &pb.OpenchainMessage{
+				Type:    pb.OpenchainMessage_CONSENSUS,
+				Payload: wrapped,
+			}
+			op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 		}
 		return nil
 	}
@@ -91,35 +95,30 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	pbftMsg := &Message{}
-	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
+	msg := &BatchMessage{}
+	err := proto.Unmarshal(ocMsg.Payload, msg)
 	if err != nil {
 		return err
 	}
 
-	if req := pbftMsg.GetRequest(); req != nil {
-		if err = op.validate(req.Payload); err != nil {
+	if req := msg.GetRequest(); req != nil {
+		if err = op.validate(req); err != nil {
 			logger.Warning("Request did not verify: %s", err)
 			return err
 		}
 
-		switch req.ReplicaId {
-		case op.pbft.primary(op.pbft.view):
-			// a request sent by the primary; primary should ignore this
-			if op.pbft.primary(op.pbft.view) != op.pbft.id {
-				op.pbft.request(req.Payload)
-			}
-		default:
-			// a request sent by a backup; backups should ignore this
-			if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
-				err := op.leaderProcReq(req)
-				if err != nil {
-					return err
-				}
+		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
+			err := op.leaderProcReq(req)
+			if err != nil {
+				return err
 			}
 		}
+	} else if pbftMsg := msg.GetPbftMessage(); pbftMsg != nil {
+		op.pbft.lock.Unlock()
+		op.pbft.receive(pbftMsg)
+		op.pbft.lock.Lock()
 	} else {
-		op.pbft.receive(ocMsg.Payload)
+		logger.Error("unknown request %+v", req)
 	}
 
 	return nil
@@ -131,34 +130,43 @@ func (op *obcBatch) Close() {
 	op.batchTimer.Reset(0)
 }
 
+// Drain will block until all remaining execution has been handled.
+func (op *obcBatch) Drain() {
+	op.pbft.lock.Lock()
+	op.sendBatch()
+	op.pbft.lock.Unlock()
+	op.pbft.drain()
+}
+
 // =============================================================================
-// innerCPI interface (functions called by pbft-core)
+// innerStack interface (functions called by pbft-core)
 // =============================================================================
+
+func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
+	wrapped, _ := proto.Marshal(&BatchMessage{&BatchMessage_PbftMessage{msgPayload}})
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: wrapped,
+	}
+	return ocMsg
+}
 
 // multicast a message to all replicas
 func (op *obcBatch) broadcast(msgPayload []byte) {
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msgPayload,
-	}
-	op.cpi.Broadcast(ocMsg)
+	op.stack.Broadcast(op.wrapMessage(msgPayload), pb.PeerEndpoint_UNDEFINED)
 }
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
-		Payload: msgPayload,
-	}
 	receiverHandle, err := getValidatorHandle(receiverID)
 	if err != nil {
 		return
 	}
-	return op.cpi.Unicast(ocMsg, receiverHandle)
+	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
 }
 
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
-	return op.cpi.Sign(msg)
+	return op.stack.Sign(msg)
 }
 
 // verify message signature
@@ -167,7 +175,7 @@ func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) er
 	if err != nil {
 		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
 	}
-	return op.cpi.Verify(senderHandle, signature, message)
+	return op.stack.Verify(senderHandle, signature, message)
 }
 
 // validate checks whether the request is valid syntactically.
@@ -196,23 +204,22 @@ func (op *obcBatch) execute(tbRaw []byte) {
 		}
 	}
 
-	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
+	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
 		logger.Error("Failed to begin transaction batch %s: %v", txBatchID, err)
 		return
 	}
 
-	_, errs := op.cpi.ExecTXs(txs)
-	if errs[len(txs)] != nil {
-		logger.Error("Fail to execute transaction batch %s: %v", txBatchID, errs)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
+		logger.Error("Fail to execute transaction batch %s: %v", txBatchID, err)
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil, nil); err != nil {
+	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
 		logger.Error("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
 		return
@@ -230,9 +237,8 @@ func (op *obcBatch) viewChange(curView uint64) {
 // functions specific to batch mode
 // =============================================================================
 
-func (op *obcBatch) leaderProcReq(req *Request) error {
-	digest := hashReq(req)
-	op.batchStore[digest] = req
+func (op *obcBatch) leaderProcReq(req []byte) error {
+	op.batchStore = append(op.batchStore, req)
 
 	if !op.batchTimerActive {
 		op.startBatchTimer()
@@ -248,18 +254,18 @@ func (op *obcBatch) leaderProcReq(req *Request) error {
 func (op *obcBatch) sendBatch() error {
 	op.stopBatchTimer()
 	// assemble new Request message
-	txs := make([]*pb.Transaction, len(op.batchStore))
-	var i int
-	for d, req := range op.batchStore {
-		txs[i] = &pb.Transaction{}
-		err := proto.Unmarshal(req.Payload, txs[i])
+	var txs []*pb.Transaction
+	store := op.batchStore
+	op.batchStore = nil
+	for _, req := range store {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(req, tx)
 		if err != nil {
-			err = fmt.Errorf("Unable to unpack payload of request %d", i)
+			err = fmt.Errorf("Unable to unpack payload of request %v", req)
 			logger.Error("%s", err)
-			return err
+			continue
 		}
-		i++
-		delete(op.batchStore, d) // clean up
+		txs = append(txs, tx)
 	}
 	tb := &pb.TransactionBlock{Transactions: txs}
 	tbPacked, err := proto.Marshal(tb)
@@ -269,12 +275,9 @@ func (op *obcBatch) sendBatch() error {
 		return err
 	}
 	// process internally
+	op.pbft.lock.Unlock()
 	op.pbft.request(tbPacked)
-	// broadcast
-	batchReq := &Request{Payload: tbPacked}
-	msg := &Message{&Message_Request{batchReq}}
-	msgRaw, _ := proto.Marshal(msg)
-	op.broadcast(msgRaw)
+	op.pbft.lock.Lock()
 
 	return nil
 }
@@ -283,12 +286,11 @@ func (op *obcBatch) sendBatch() error {
 func (op *obcBatch) batchTimerHander() {
 	for {
 		select {
+		case <-op.pbft.closed:
+			return
+
 		case <-op.batchTimer.C:
 			op.pbft.lock.Lock()
-			if op.pbft.closed {
-				op.pbft.lock.Unlock()
-				return
-			}
 			logger.Info("Replica %d batch timeout expired", op.pbft.id)
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
@@ -308,8 +310,10 @@ func (op *obcBatch) stopBatchTimer() {
 	op.batchTimer.Stop()
 	logger.Debug("Replica %d stopped the batch timer", op.pbft.id)
 	op.batchTimerActive = false
-	if op.pbft.closed {
+	select {
+	case <-op.pbft.closed:
 		return
+	default:
 	}
 loopBatch:
 	for {

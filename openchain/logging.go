@@ -21,49 +21,78 @@ package openchain
 
 import (
 	"os"
+	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 )
 
-var format = logging.MustStringFormatter(
-	"%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}",
-)
+// A logger to log logging logs!
+var loggingLogger = logging.MustGetLogger("logging")
 
-// Password is just an example type implementing the Redactor interface. Any
-// time this is logged, the Redacted() function will be called.
-type Password string
+// The default logging level, in force until LoggingInit() is called or in
+// case of configuration errors.
+var loggingDefaultLevel = logging.INFO
 
-// Redacted for hiding the characers of password
-func (p Password) Redacted() interface{} {
-	return logging.Redact(string(p))
+// LoggingInit is a 'hook' called at the beginning of command processing to
+// parse logging-related options specified either on the command-line or in
+// config files.  Command-line options take precedence over config file
+// options, and can also be passed as suitably-named environment variables. To
+// change module logging levels at runtime call `logging.SetLevel(level,
+// module)`.  To debug this routine include logging=debug as the first
+// term of the logging specification.
+func LoggingInit(command string) {
+	// Parse the logging specification in the form
+	//     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
+	defaultLevel := loggingDefaultLevel
+	var err error
+	spec := viper.GetString("logging_level")
+	if spec == "" {
+		spec = viper.GetString("logging." + command)
+	}
+	if spec != "" {
+		fields := strings.Split(spec, ":")
+		for _, field := range fields {
+			split := strings.Split(field, "=")
+			switch len(split) {
+			case 1:
+				// Default level
+				defaultLevel, err = logging.LogLevel(field)
+				if err != nil {
+					loggingLogger.Warning("Logging level '%s' not recognized, defaulting to %s : %s", field, loggingDefaultLevel, err)
+					defaultLevel = loggingDefaultLevel // NB - 'defaultLevel' was overwritten
+				}
+			case 2:
+				// <module>[,<module>...]=<level>
+				if level, err := logging.LogLevel(split[1]); err != nil {
+					loggingLogger.Warning("Invalid logging level in '%s' ignored", field)
+				} else if split[0] == "" {
+					loggingLogger.Warning("Invalid logging override specification '%s' ignored - no module specified", field)
+				} else {
+					modules := strings.Split(split[0], ",")
+					for _, module := range modules {
+						logging.SetLevel(level, module)
+						loggingLogger.Debug("Setting logging level for module '%s' to %s", module, level)
+					}
+				}
+			default:
+				loggingLogger.Warning("Invalid logging override '%s' ignored; Missing ':' ?", field)
+			}
+		}
+	}
+	// Set the default logging level for all modules
+	logging.SetLevel(defaultLevel, "")
+	loggingLogger.Debug("Setting default logging level to %s for command '%s'", defaultLevel, command)
 }
 
+// Initiate 'leveled' logging to stderr.
 func init() {
 
-	// For demo purposes, create two backend for os.Stderr.
-	backend1 := logging.NewLogBackend(os.Stderr, "", 0)
-	backend2 := logging.NewLogBackend(os.Stdout, "", 0)
+	format := logging.MustStringFormatter(
+		"%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}",
+	)
 
-	// For messages written to backend2 we want to add some additional
-	// information to the output, including the used log level and the name of
-	// the function.
-	backend2Formatter := logging.NewBackendFormatter(backend2, format)
-
-	// Only errors and more severe messages should be sent to backend1
-	backend1Leveled := logging.AddModuleLevel(backend1)
-	backend1Leveled.SetLevel(logging.ERROR, "")
-
-	backend2Leveled := logging.AddModuleLevel(backend2Formatter)
-	backend2Leveled.SetLevel(logging.DEBUG, "")
-
-	// Set the backends to be used.
-	logging.SetBackend(backend2Leveled)
-
-	// log.Debug("debug %s", Password("secret"))
-	// log.Info("info")
-	// log.Notice("notice")
-	// log.Warning("warning")
-	// log.Error("err")
-	// log.Critical("crit")
-
+	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	logging.SetBackend(backendFormatter).SetLevel(loggingDefaultLevel, "")
 }

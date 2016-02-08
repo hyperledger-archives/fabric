@@ -66,6 +66,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 			peer.node.log.Error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
 			return tx, err
 		}
+
 		// TODO: verify cert
 
 		// 3. Marshall tx without signature

@@ -26,6 +26,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
+)
+
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
@@ -47,6 +51,8 @@ type configuration struct {
 	ecaPAddressProperty       string
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
+
+	tlsServerName string
 }
 
 func (conf *configuration) init() error {
@@ -80,6 +86,15 @@ func (conf *configuration) init() error {
 
 	// Set raws path
 	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
+
+	// Set TLS host override
+	conf.tlsServerName = "tlsca"
+	if viper.IsSet("peer.pki.tls.server-host-override") {
+		ovveride := viper.GetString("peer.pki.tls.server-host-override")
+		if ovveride != "" {
+			conf.tlsServerName = ovveride
+		}
+	}
 
 	return nil
 }
@@ -150,6 +165,34 @@ func (conf *configuration) getTCACertsChainFilename() string {
 
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
+}
+
+func (conf *configuration) getTLSCACertsChainFilename() string {
+	return TLSCA_CERT_CHAIN
+}
+
+func (conf *configuration) getTLSCACertsExternalPath() string {
+	return viper.GetString("peer.pki.tls.rootcert.file")
+}
+
+func (conf *configuration) isTLSEnabled() bool {
+	return viper.GetBool("peer.pki.tls.enabled")
+}
+
+func (conf *configuration) isTLSClientAuthEnabled() bool {
+	return viper.GetBool("peer.pki.tls.client.auth.enabled")
+}
+
+func (conf *configuration) getTCAServerName() string {
+	return conf.tlsServerName
+}
+
+func (conf *configuration) getECAServerName() string {
+	return conf.tlsServerName
+}
+
+func (conf *configuration) getTLSCAServerName() string {
+	return conf.tlsServerName
 }
 
 func (conf *configuration) getTLSKeyFilename() string {

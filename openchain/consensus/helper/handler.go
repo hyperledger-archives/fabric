@@ -39,7 +39,7 @@ func init() {
 }
 
 // ConsensusHandler handles consensus messages.
-// It also implements the CPI.
+// It also implements the Stack.
 type ConsensusHandler struct {
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
