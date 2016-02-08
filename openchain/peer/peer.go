@@ -521,6 +521,13 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
+
+	peerLogger.Debug("Marshalling transaction %s to send to self", transaction.Type)
+	data, err := proto.Marshal(transaction)
+	if err != nil {
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
+	}
+
 	waitc := make(chan struct{})
 	var response *pb.Response
 	go func() {
@@ -555,11 +562,6 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		}
 	}()
 
-	peerLogger.Debug("Sending transaction %s to self", transaction.Type)
-	data, err := proto.Marshal(transaction)
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
-	}
 	var ttyp pb.OpenchainMessage_Type
 	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
 		ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
