@@ -508,7 +508,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			instance.seqNo = n
 			preprep := &PrePrepare{
 				View:           instance.view,
-				SequenceNumber: instance.seqNo,
+				SequenceNumber: n,
 				RequestDigest:  digest,
 				Request:        req,
 				ReplicaId:      instance.id,
@@ -516,7 +516,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
-			return instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			return instance.maybeSendCommit(digest, instance.view, n)
 		}
 	}
 
@@ -607,14 +608,21 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 		}
 	}
 	cert.prepare = append(cert.prepare, prep)
-	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
+
+	return instance.maybeSendCommit(prep.RequestDigest, prep.View, prep.SequenceNumber)
+}
+
+func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) error {
+	cert := instance.getCert(v, n)
+
+	if instance.prepared(digest, v, n) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
-			instance.id, prep.View, prep.SequenceNumber)
+			instance.id, cert.prePrepare.View, cert.prePrepare.SequenceNumber)
 
 		commit := &Commit{
-			View:           prep.View,
-			SequenceNumber: prep.SequenceNumber,
-			RequestDigest:  prep.RequestDigest,
+			View:           v,
+			SequenceNumber: n,
+			RequestDigest:  digest,
 			ReplicaId:      instance.id,
 		}
 
