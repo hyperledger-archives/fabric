@@ -10,5 +10,27 @@ vpBase:
     - OPENCHAIN_PEER_PKI_TLS_ROOTCERT_FILE=./openchain/peer/bddtests/tlsca.cert
     # TODO: Currently required due to issue reading obbca configuration location
     - OPENCHAIN_OBCPBFT_GENERAL_N=4
-    - OPENCHAIN_PEER_VALIDATOR_REPLICAS_IPS=vp0:30303 vp1:30303 vp2:30303 vp3:30303
 
+vpSieve:
+  extends:
+    service: vpBase
+  environment:
+    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
+    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
+    - OPENCHAIN_OBCPBFT_GENERAL_MODE=sieve
+
+vpClassic:
+  extends:
+    service: vpBase
+  environment:
+    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
+    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
+    - OPENCHAIN_OBCPBFT_GENERAL_MODE=classic
+
+vpBatch:
+  extends:
+    service: vpBase
+  environment:
+    - OPENCHAIN_PEER_VALIDATOR_CONSENSUS=obcpbft
+    - OPENCHAIN_OBCPBFT_GENERAL_TIMEOUT_REQUEST=10s
+    - OPENCHAIN_OBCPBFT_GENERAL_MODE=batch

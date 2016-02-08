@@ -7,7 +7,7 @@ obcca0:
 vp0:
   extends:
     file: docker-compose-4-consensus-base.yml
-    service: vpBase
+    service: vpSieve
   environment:
     - OPENCHAIN_PEER_ID=vp0
     - OPENCHAIN_SECURITY_ENROLLID=test_vp0
@@ -18,7 +18,7 @@ vp0:
 vp1:
   extends:
     file: docker-compose-4-consensus-base.yml
-    service: vpBase
+    service: vpSieve
   environment:
     - OPENCHAIN_PEER_ID=vp1
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
@@ -31,7 +31,7 @@ vp1:
 vp2:
   extends:
     file: docker-compose-4-consensus-base.yml
-    service: vpBase
+    service: vpSieve
   environment:
     - OPENCHAIN_PEER_ID=vp2
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
@@ -44,25 +44,12 @@ vp2:
 vp3:
   extends:
     file: docker-compose-4-consensus-base.yml
-    service: vpBase
+    service: vpSieve
   environment:
     - OPENCHAIN_PEER_ID=vp3
     - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
     - OPENCHAIN_SECURITY_ENROLLID=test_vp3
     - OPENCHAIN_SECURITY_ENROLLSECRET=9LKqKH5peurL
-  links:
-    - obcca0
-    - vp0
-
-vp4:
-  extends:
-    file: docker-compose-4-consensus-base.yml
-    service: vpBase
-  environment:
-    - OPENCHAIN_PEER_ID=vp4
-    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
-    - OPENCHAIN_SECURITY_ENROLLID=test_vp4
-    - OPENCHAIN_SECURITY_ENROLLSECRET=Pqh90CEW5juZ
   links:
     - obcca0
     - vp0

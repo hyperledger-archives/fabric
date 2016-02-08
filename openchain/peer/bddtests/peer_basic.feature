@@ -84,8 +84,8 @@ Feature: lanching 3 peers
 	    Then I should get a JSON response from all peers with "OK" = "80"
 
 
-#    @doNotDecompose
-#    @wip
+    @doNotDecompose
+    @wip
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567 
 
 	    Given we compose "<ComposeFile>"
@@ -118,7 +118,7 @@ Feature: lanching 3 peers
 			|arg1|arg2|arg3| 
 			| a  | b  | 20 |
 	    Then I should have received a transactionID
-	    Then I wait up to "25" seconds for transaction to be committed to peers:
+	    Then I wait up to "10" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | vp3 | 
  
         When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -127,8 +127,11 @@ Feature: lanching 3 peers
             | vp0  | vp1 | vp2 | vp3 | 
     
     Examples: Consensus Options
-        |          ComposeFile               |
-        |   docker-compose-4-consensus.yml   |
+        |          ComposeFile                     |
+        |   docker-compose-4-consensus-noops.yml   |
+#        |   docker-compose-4-consensus-classic.yml |
+#        |   docker-compose-4-consensus-batch.yml   |
+#        |   docker-compose-4-consensus-sieve.yml   |
 
 
 #   @doNotDecompose
