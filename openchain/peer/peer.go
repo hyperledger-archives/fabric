@@ -426,7 +426,6 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
-
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
@@ -499,12 +498,43 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
-
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
-	defer stream.CloseSend()
+	waitc := make(chan struct{})
+	var response *pb.Response
+	go func() {
+		// Make sure to close the wait channel
+		defer close(waitc)
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				if response == nil {
+					// read done.
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
+				}
+				return
+			}
+			if err != nil {
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
+				return
+			}
+			//receive response and wait for stream to be closed (triggered by CloseSend)
+			if in.Type == pb.OpenchainMessage_RESPONSE {
+				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				response = &pb.Response{}
+				err = proto.Unmarshal(in.Payload, response)
+				if err != nil {
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
+				}
+			} else {
+				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
+			}
+		}
+	}()
+
 	peerLogger.Debug("Sending transaction %s to self", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
@@ -521,37 +551,11 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
 	stream.Send(msg)
 
-	waitc := make(chan struct{})
-	var response *pb.Response
-	go func() {
-		// Make sure to close the wait channel
-		defer close(waitc)
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
-				return
-			}
-			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
-				return
-			}
-			if in.Type == pb.OpenchainMessage_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
-				response = &pb.Response{}
-				err = proto.Unmarshal(in.Payload, response)
-				if err != nil {
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
-				}
-				return
-			}
-			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
-			return
-		}
-	}()
+	//we are done from client side.
+	stream.CloseSend()
+
 	<-waitc
+
 	return response
 }
 
