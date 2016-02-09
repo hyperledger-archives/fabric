@@ -45,8 +45,11 @@ func newStateSnapshotIterator(snapshot *gorocksdb.Snapshot) (*StateSnapshotItera
 func (snapshotItr *StateSnapshotIterator) Next() bool {
 	var available bool
 	for ; snapshotItr.dbItr.Valid(); snapshotItr.dbItr.Next() {
-		trieKeyBytes := snapshotItr.dbItr.Key().Data()
-		trieNodeBytes := snapshotItr.dbItr.Value().Data()
+
+		// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+		// no need to free slices as iterator frees memory when closed.
+		trieKeyBytes := statemgmt.Copy(snapshotItr.dbItr.Key().Data())
+		trieNodeBytes := statemgmt.Copy(snapshotItr.dbItr.Value().Data())
 		value := unmarshalTrieNodeValue(trieNodeBytes)
 		if util.NotNil(value) {
 			snapshotItr.currentKey = trieKeyEncoderImpl.decodeTrieKeyBytes(statemgmt.Copy(trieKeyBytes))
