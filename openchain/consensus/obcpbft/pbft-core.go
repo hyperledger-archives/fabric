@@ -170,7 +170,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.notifyExec = sync.NewCond(&instance.internalLock)
 
 	instance.N = config.GetInt("general.N")
-	instance.f = instance.N / 3
+	instance.f = config.GetInt("general.f")
+	if instance.f*3+1 > instance.N {
+		panic(fmt.Sprintf("need at least %d enough replicas to tolerate %d byzantine faults, but only %d replicas configured", instance.f*3+1, instance.f, instance.N))
+	}
+
 	instance.K = uint64(config.GetInt("general.K"))
 
 	instance.byzantine = config.GetBool("general.byzantine")
@@ -186,7 +190,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 
 	instance.activeView = true
 	instance.L = 2 * instance.K // log size
-	instance.replicaCount = 3*instance.f + 1
+	instance.replicaCount = instance.N
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -356,6 +360,18 @@ func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 // preprepare/prepare/commit quorum checks
 // =============================================================================
 
+// intersectionQuorum returns the number of replicas that have to
+// agree to guarantee that at least one correct replica is shared by
+// two intersection quora
+func (instance *pbftCore) intersectionQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
+
+// allCorrectReplicasQuorum returns the number of correct replicas (N-f)
+func (instance *pbftCore) allCorrectReplicasQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
+
 func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
@@ -403,7 +419,7 @@ func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f
+	return quorum >= instance.intersectionQuorum()-1
 }
 
 func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
@@ -426,7 +442,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f+1
+	return quorum >= instance.intersectionQuorum()
 }
 
 // Handles finishing the state transfer by executing outstanding transactions
@@ -577,7 +593,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			instance.seqNo = n
 			preprep := &PrePrepare{
 				View:           instance.view,
-				SequenceNumber: instance.seqNo,
+				SequenceNumber: n,
 				RequestDigest:  digest,
 				Request:        req,
 				ReplicaId:      instance.id,
@@ -585,7 +601,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
-			return instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			return instance.maybeSendCommit(digest, instance.view, n)
 		}
 	}
 
@@ -676,14 +693,21 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 		}
 	}
 	cert.prepare = append(cert.prepare, prep)
-	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
+
+	return instance.maybeSendCommit(prep.RequestDigest, prep.View, prep.SequenceNumber)
+}
+
+func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) error {
+	cert := instance.getCert(v, n)
+
+	if instance.prepared(digest, v, n) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
-			instance.id, prep.View, prep.SequenceNumber)
+			instance.id, cert.prePrepare.View, cert.prePrepare.SequenceNumber)
 
 		commit := &Commit{
-			View:           prep.View,
-			SequenceNumber: prep.SequenceNumber,
-			RequestDigest:  prep.RequestDigest,
+			View:           v,
+			SequenceNumber: n,
+			RequestDigest:  digest,
 			ReplicaId:      instance.id,
 		}
 
@@ -998,7 +1022,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
 
-	if matching <= instance.f*2 {
+	if matching < instance.intersectionQuorum() {
 		// We do not have a quorum yet
 		return nil
 	}

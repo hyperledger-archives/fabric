@@ -32,9 +32,11 @@ import (
 )
 
 func makeTestnetSieve(inst *instance) {
-	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N))       // TODO, a little hacky, but needed for state transfer not to get upset
+	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_F", fmt.Sprintf("%d", (inst.net.N-1)/3)) // TODO, a little hacky, but needed for state transfer not to get upset
 	defer func() {
 		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_F")
 	}()
 
 	config := loadConfig()

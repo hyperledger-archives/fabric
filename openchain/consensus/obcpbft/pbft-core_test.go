@@ -570,7 +570,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
-	millisUntilTimeout := time.Duration(10)
+	millisUntilTimeout := time.Duration(100)
 
 	if testing.Short() {
 		t.Skip("Skipping timeout test")
@@ -843,5 +843,57 @@ func TestCatchupFromPBFTDivergentSeqBlock(t *testing.T) {
 	// Test to make sure that the block number and sequence number can diverge
 	if err := executeStateTransferFromPBFT(pbft, ml, 7, 100, &mrls); nil != err {
 		t.Fatalf("TestCatchupFromPBFTDivergentSeqBlock separated block/seqnumber: %s", err)
+	}
+}
+
+func TestPbftF0(t *testing.T) {
+	net := makeTestnet(1, func(inst *instance) {
+		os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
+		os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_F", "0")                           // TODO, a little hacky, but needed for state transfer not to get upset
+		defer func() {
+			os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
+			os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_F")
+		}()
+		config := loadConfig()
+		inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
+		inst.pbft.replicaCount = inst.net.N
+		inst.pbft.f = inst.net.f
+		inst.deliver = func(msg []byte) { inst.pbft.receive(msg) }
+
+	})
+	defer net.close()
+
+	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
+	txPacked, err := proto.Marshal(tx)
+	if err != nil {
+		t.Fatalf("Failed to marshal TX block: %s", err)
+	}
+	err = net.replicas[0].pbft.request(txPacked)
+	if err != nil {
+		t.Fatalf("Request failed: %s", err)
+	}
+
+	err = net.process()
+	if err != nil {
+		t.Fatalf("Processing failed: %s", err)
+	}
+
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		if blockHeight <= 1 {
+			t.Errorf("Instance %d did not execute transaction", inst.id)
+			continue
+		}
+		if blockHeight != 2 {
+			t.Errorf("Instance %d executed more than one transaction", inst.id)
+			continue
+		}
+		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
+		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, txPacked) {
+			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
+				inst.id, highestBlock.Transactions[0].Payload, txPacked)
+		}
 	}
 }
