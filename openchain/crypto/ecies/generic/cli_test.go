@@ -14,7 +14,7 @@ import (
 
 func TestCLI(t *testing.T) {
 
-	cli := NewCLI()
+	cli := NewSPI()
 
 	ecdsaKey, err := ecdsa.GenerateKey(utils.DefaultCurve, rand.Reader)
 

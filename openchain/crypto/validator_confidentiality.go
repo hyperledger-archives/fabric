@@ -132,7 +132,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	validator.log.Debug("Extract transaction key...")
 
 	// Derive transaction key
-	cipher, err := validator.eciesCLI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
+	cipher, err := validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
 		validator.log.Error("Failed init decryption engine [%s].", err.Error())
 		return nil, err
@@ -154,7 +154,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	}
 
 	validator.log.Debug("Deserializing transaction key [%s].", utils.EncodeBase64(msgToValidators.PrivateKey))
-	ccPrivateKey, err = validator.eciesCLI.DeserializePrivateKey(msgToValidators.PrivateKey)
+	ccPrivateKey, err = validator.eciesSPI.DeserializePrivateKey(msgToValidators.PrivateKey)
 	if err != nil {
 		validator.log.Error("Failed deserializing transaction key [%s].", err.Error())
 		return nil, err
@@ -162,7 +162,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 
 	validator.log.Debug("Extract transaction key...done")
 
-	cipher, err = validator.eciesCLI.NewAsymmetricCipherFromPrivateKey(ccPrivateKey)
+	cipher, err = validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(ccPrivateKey)
 	if err != nil {
 		validator.log.Error("Failed init transaction decryption engine [%s].", err.Error())
 		return nil, err

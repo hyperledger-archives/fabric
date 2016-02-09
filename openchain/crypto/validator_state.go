@@ -185,7 +185,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 }
 
 func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) ([]byte, error) {
-	cipher, err := validator.eciesCLI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
+	cipher, err := validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
 		validator.log.Error("Failed init decryption engine [%s].", err.Error())
 		return nil, err

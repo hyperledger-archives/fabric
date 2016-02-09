@@ -79,7 +79,7 @@ type chainCodeValidatorMessage1_2 struct {
 
 func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Create (PK_C,SK_C) pair
-	ccPrivateKey, err := client.eciesCLI.NewPrivateKey(rand.Reader, utils.DefaultCurve)
+	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, utils.DefaultCurve)
 	if err != nil {
 		client.log.Error("Failed generate chaincode keypair: [%s]", err)
 
@@ -102,7 +102,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 			return err
 		}
 
-		privBytes, err = client.eciesCLI.SerializePrivateKey(ccPrivateKey)
+		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
 			client.log.Error("Failed serializing chaincode key: [%s]", err)
 
@@ -114,7 +114,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		// Prepare chaincode stateKey and privateKey
 		stateKey = utils.HMACTruncated(client.queryStateKey, append([]byte{6}, tx.Nonce...), utils.AESKeyLength)
 
-		privBytes, err = client.eciesCLI.SerializePrivateKey(ccPrivateKey)
+		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
 			client.log.Error("Failed serializing chaincode key: [%s]", err)
 
@@ -126,7 +126,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		// Prepare chaincode stateKey and privateKey
 		stateKey = make([]byte, 0)
 
-		privBytes, err = client.eciesCLI.SerializePrivateKey(ccPrivateKey)
+		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
 			client.log.Error("Failed serializing chaincode key: [%s]", err)
 
@@ -136,7 +136,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	}
 
 	// Encrypt message to the validators
-	cipher, err := client.eciesCLI.NewAsymmetricCipherFromPublicKey(client.chainPublicKey)
+	cipher, err := client.eciesSPI.NewAsymmetricCipherFromPublicKey(client.chainPublicKey)
 	if err != nil {
 		client.log.Error("Failed creating new encryption scheme: [%s]", err)
 
@@ -163,7 +163,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Encrypt the rest of the fields
 
 	// Init with chainccode pk
-	cipher, err = client.eciesCLI.NewAsymmetricCipherFromPublicKey(ccPrivateKey.GetPublicKey())
+	cipher, err = client.eciesSPI.NewAsymmetricCipherFromPublicKey(ccPrivateKey.GetPublicKey())
 	if err != nil {
 		client.log.Error("Failed initiliazing encryption scheme: [%s]", err)
 

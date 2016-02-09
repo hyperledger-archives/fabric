@@ -66,8 +66,8 @@ type nodeImpl struct {
 	// TLS
 	tlsCert *x509.Certificate
 
-	// Crypto CLI
-	eciesCLI ecies.CLI
+	// Crypto SPI
+	eciesSPI ecies.SPI
 }
 
 func (node *nodeImpl) GetType() Entity_Type {

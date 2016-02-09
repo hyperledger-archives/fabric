@@ -9,7 +9,7 @@ func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 	node.debug("Registering node crypto engine...")
 
 	// Init CLI
-	node.eciesCLI = generic.NewCLI()
+	node.eciesSPI = generic.NewSPI()
 
 	if err := node.initTLS(); err != nil {
 		node.error("Failed initliazing TLS [%s].", err.Error())
@@ -50,7 +50,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 	node.debug("Initializing node crypto engine...")
 
 	// Init CLI
-	node.eciesCLI = generic.NewCLI()
+	node.eciesSPI = generic.NewSPI()
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()

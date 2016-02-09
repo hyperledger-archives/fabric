@@ -54,7 +54,7 @@ func (client *clientImpl) initCryptoEngine() (err error) {
 	}
 
 	// Init chain publicKey
-	client.chainPublicKey, err = client.eciesCLI.NewPublicKey(nil, client.enrollChainKey.(*ecdsa.PublicKey))
+	client.chainPublicKey, err = client.eciesSPI.NewPublicKey(nil, client.enrollChainKey.(*ecdsa.PublicKey))
 	if err != nil {
 		return
 	}

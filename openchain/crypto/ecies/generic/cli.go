@@ -100,22 +100,22 @@ func newAsymmetricCipherFromPublicKey(pub ecies.PublicKey) (ecies.AsymmetricCiph
 	return es, nil
 }
 
-func NewCLI() ecies.CLI {
-	return &cliImpl{}
+func NewSPI() ecies.SPI {
+	return &spiImpl{}
 }
 
-type cliImpl struct {
+type spiImpl struct {
 }
 
-func (cli *cliImpl) NewAsymmetricCipherFromPrivateKey(priv ecies.PrivateKey) (ecies.AsymmetricCipher, error) {
+func (spi *spiImpl) NewAsymmetricCipherFromPrivateKey(priv ecies.PrivateKey) (ecies.AsymmetricCipher, error) {
 	return newAsymmetricCipherFromPrivateKey(priv)
 }
 
-func (cli *cliImpl) NewAsymmetricCipherFromPublicKey(pub ecies.PublicKey) (ecies.AsymmetricCipher, error) {
+func (spi *spiImpl) NewAsymmetricCipherFromPublicKey(pub ecies.PublicKey) (ecies.AsymmetricCipher, error) {
 	return newAsymmetricCipherFromPublicKey(pub)
 }
 
-func (cli *cliImpl) NewPrivateKey(r io.Reader, params interface{}) (ecies.PrivateKey, error) {
+func (spi *spiImpl) NewPrivateKey(r io.Reader, params interface{}) (ecies.PrivateKey, error) {
 	fmt.Printf("NewPrivateKey [%s]\n", params)
 
 	switch t := params.(type) {
@@ -133,7 +133,7 @@ func (cli *cliImpl) NewPrivateKey(r io.Reader, params interface{}) (ecies.Privat
 	}
 }
 
-func (cli *cliImpl) NewPublicKey(r io.Reader, params interface{}) (ecies.PublicKey, error) {
+func (spi *spiImpl) NewPublicKey(r io.Reader, params interface{}) (ecies.PublicKey, error) {
 
 	switch t := params.(type) {
 	case *ecdsa.PublicKey:
@@ -143,10 +143,10 @@ func (cli *cliImpl) NewPublicKey(r io.Reader, params interface{}) (ecies.PublicK
 	}
 }
 
-func (cli *cliImpl) SerializePrivateKey(priv ecies.PrivateKey) ([]byte, error) {
+func (spi *spiImpl) SerializePrivateKey(priv ecies.PrivateKey) ([]byte, error) {
 	return serializePrivateKey(priv)
 }
 
-func (cli *cliImpl) DeserializePrivateKey(bytes []byte) (ecies.PrivateKey, error) {
+func (spi *spiImpl) DeserializePrivateKey(bytes []byte) (ecies.PrivateKey, error) {
 	return deserializePrivateKey(bytes)
 }
