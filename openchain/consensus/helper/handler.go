@@ -43,7 +43,6 @@ func init() {
 type ConsensusHandler struct {
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
-	done        chan struct{}
 	peerHandler peer.MessageHandler
 }
 
@@ -64,7 +63,6 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	}
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
-	handler.done = make(chan struct{})
 
 	return handler, nil
 }
@@ -178,7 +176,6 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 // Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer)
 func (handler *ConsensusHandler) Stop() error {
 	err := handler.peerHandler.Stop() // deregister the handler
-	handler.done <- struct{}{}
 	if err != nil {
 		return fmt.Errorf("Error stopping ConsensusHandler: %s", err)
 	}
