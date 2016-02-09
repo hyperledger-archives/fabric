@@ -531,7 +531,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
-	millisUntilTimeout := time.Duration(10)
+	millisUntilTimeout := time.Duration(100)
 
 	if testing.Short() {
 		t.Skip("Skipping timeout test")
