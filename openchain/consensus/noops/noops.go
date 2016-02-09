@@ -21,7 +21,6 @@ package noops
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -44,7 +43,6 @@ func init() {
 type Noops struct {
 	stack    consensus.Stack
 	txQ      *txq
-	lock     *sync.Mutex
 	timer    *time.Timer
 	duration time.Duration
 	channel  chan *pb.Transaction
@@ -68,7 +66,6 @@ func newNoops(c consensus.Stack) consensus.Consenter {
 	}
 	i := &Noops{}
 	i.stack = c
-	i.lock = &sync.Mutex{}
 	config := loadConfig()
 	i.txQ = newTXQ(config.GetInt("block.size"))
 	i.duration = time.Second * time.Duration(config.GetInt("block.timeout"))
@@ -168,9 +165,7 @@ func (i *Noops) handleChannels() {
 }
 
 func (i *Noops) processBlock() error {
-	i.lock.Lock()
 	i.timer.Stop()
-	defer i.lock.Unlock()
 
 	if i.txQ.size() < 1 {
 		if logger.IsEnabledFor(logging.DEBUG) {
