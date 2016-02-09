@@ -176,11 +176,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
-		return nil, uuidErr
-	}
+	uuid := util.GenerateUUID()
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client

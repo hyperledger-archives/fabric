@@ -27,8 +27,8 @@ import (
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
-			logger.Debug("invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
-				vc.View, vc.H, p.View, p.SequenceNumber)
+			logger.Debug("Replica %d invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
+				instance.id, vc.View, vc.H, p.View, p.SequenceNumber)
 			return false
 		}
 	}
@@ -36,8 +36,8 @@ func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, c := range vc.Cset {
 		// PBFT: the paper says c.n > vc.h
 		if !(c.SequenceNumber >= vc.H && c.SequenceNumber <= vc.H+instance.L) {
-			logger.Debug("invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
-				vc.View, vc.H, c.SequenceNumber)
+			logger.Debug("Replica %d invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
+				instance.id, vc.View, vc.H, c.SequenceNumber)
 			return false
 		}
 	}
@@ -153,12 +153,12 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
 	if err := instance.verify(vc); err != nil {
-		logger.Warning("incorrect signature in view-change message: %s", err)
+		logger.Warning("Replica %d found incorrect signature in view-change message: %s", instance.id, err)
 		return nil
 	}
 
 	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
-		logger.Warning("View-change message incorrect")
+		logger.Warning("Replica %d found view-change message incorrect", instance.id)
 		return nil
 	}
 
@@ -195,6 +195,8 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 			quorum++
 		}
 	}
+	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
+
 	if vc.View == instance.view && quorum == 2*instance.f+1 {
 		instance.startTimer(instance.lastNewViewTimeout)
 		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
@@ -231,7 +233,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 		ReplicaId: instance.id,
 	}
 
-	logger.Info("New primary %d sending new-view, v:%d, X:%+v",
+	logger.Info("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
 	err = instance.innerBroadcast(&Message{&Message_NewView{nv}}, false)
@@ -254,7 +256,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 
 	for _, vc := range nv.Vset {
 		if err := instance.verify(vc); err != nil {
-			logger.Warning("incorrect view-change signature in new-view message: %s", err)
+			logger.Warning("Replica %d found incorrect view-change signature in new-view message: %s", instance.id, err)
 			return nil
 		}
 	}
@@ -267,6 +269,7 @@ func (instance *pbftCore) processNewView() error {
 	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
+		logger.Debug("Replica %d ignoring processNewView as it could not find view %d in its newViewStore", instance.id, instance.view)
 		return nil
 	}
 
@@ -278,26 +281,26 @@ func (instance *pbftCore) processNewView() error {
 
 	cp, ok := instance.selectInitialCheckpoint(nv.Vset)
 	if !ok {
-		logger.Warning("could not determine initial checkpoint: %+v",
-			instance.viewChangeStore)
+		logger.Warning("Replica %d could not determine initial checkpoint: %+v",
+			instance.id, instance.viewChangeStore)
 		return instance.sendViewChange()
 	}
 
 	msgList := instance.assignSequenceNumbers(nv.Vset, cp.SequenceNumber)
 	if msgList == nil {
-		logger.Warning("could not assign sequence numbers: %+v",
-			instance.viewChangeStore)
+		logger.Warning("Replica %d could not assign sequence numbers: %+v",
+			instance.id, instance.viewChangeStore)
 		return instance.sendViewChange()
 	}
 
 	if !(len(msgList) == 0 && len(nv.Xset) == 0) && !reflect.DeepEqual(msgList, nv.Xset) {
-		logger.Warning("failed to verify new-view Xset: computed %+v, received %+v",
-			msgList, nv.Xset)
+		logger.Warning("Replica %d failed to verify new-view Xset: computed %+v, received %+v",
+			instance.id, msgList, nv.Xset)
 		return instance.sendViewChange()
 	}
 
 	if instance.h < cp.SequenceNumber {
-		logger.Warning("missing base checkpoint %d", cp)
+		logger.Warning("Replica %d missing base checkpoint %d", instance.id, cp)
 		instance.moveWatermarks(cp.SequenceNumber)
 		instance.sts.Initiate(nil)
 
@@ -323,8 +326,8 @@ func (instance *pbftCore) processNewView() error {
 			}
 
 			if _, ok := instance.reqStore[d]; !ok {
-				logger.Warning("missing assigned, non-checkpointed request %s",
-					d)
+				logger.Warning("Replica %d missing assigned, non-checkpointed request %s",
+					instance.id, d)
 				if _, ok := instance.missingReqs[d]; !ok {
 					logger.Warning("Replica %v requesting to fetch %s",
 						instance.id, d)
@@ -392,6 +395,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		}
 	}
 
+	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
+
 	instance.consumer.viewChange(instance.view)
 
 	return nil
@@ -410,21 +415,21 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
 			checkpoints[*c] = append(checkpoints[*c], vc)
-			logger.Debug("Appending checkpoint with sequence number %d, block number %d, and block hash %s", c.SequenceNumber, c.BlockNumber, c.BlockHash)
+			logger.Debug("Replica %d appending checkpoint with sequence number %d, block number %d, and block hash %s", instance.id, c.SequenceNumber, c.BlockNumber, c.BlockHash)
 		}
 	}
 
 	if len(checkpoints) == 0 {
-		logger.Debug("no checkpoints to select from: %d %s",
-			len(instance.viewChangeStore), checkpoints)
+		logger.Debug("Replica %d has no checkpoints to select from: %d %s",
+			instance.id, len(instance.viewChangeStore), checkpoints)
 		return
 	}
 
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
 		if len(vcList) <= instance.f { // type casting necessary to match types
-			logger.Debug("no weak certificate for n:%d, vcList was %d long",
-				idx.SequenceNumber, len(vcList))
+			logger.Debug("Replica %d has no weak certificate for n:%d, vcList was %d long",
+				instance.id, idx.SequenceNumber, len(vcList))
 			continue
 		}
 
@@ -436,8 +441,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 		}
 
 		if quorum <= 2*instance.f {
-			logger.Debug("no quorum for n:%d",
-				idx.SequenceNumber)
+			logger.Debug("Replica %d has no quorum for n:%d", instance.id, idx.SequenceNumber)
 			continue
 		}
 

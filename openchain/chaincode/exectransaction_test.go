@@ -43,6 +43,7 @@ func getNowMillis() int64 {
 	nanos := time.Now().UnixNano()
 	return nanos / 1000000
 }
+
 // Build a chaincode.
 func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	fmt.Printf("getting deployment spec for chaincode spec: %v\n", spec)
@@ -80,10 +81,7 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		return "", nil, uuidErr
-	}
+	uuid := util.GenerateUUID()
 
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
@@ -416,7 +414,7 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 
 	//start := getNowMillis()
 	//fmt.Fprintf(os.Stderr, "Starting: %d\n", start)

@@ -415,9 +415,5 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 }
 
 func generateUUID(t *testing.T) string {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUID: %s", err)
-	}
-	return uuid
+	return util.GenerateUUID()
 }
