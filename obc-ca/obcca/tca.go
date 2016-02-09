@@ -98,9 +98,6 @@ func NewTCA(eca *ECA) *TCA {
 	return tca
 }
 
-
-
-
 // Start starts the TCA.
 //
 func (tca *TCA) Start(srv *grpc.Server) {
@@ -111,7 +108,7 @@ func (tca *TCA) Start(srv *grpc.Server) {
 	Info.Println("TCA started.")
 }
 
-func (tca *TCA) startValidityPeriodUpdate(){
+func (tca *TCA) startValidityPeriodUpdate() {
 	if validityPeriodUpdateEnabled() {
 		go updateValidityPeriod()
 	}
@@ -268,11 +265,11 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb
 
 	req := in.Req.Id
 	id := in.Id.Id
-	
-	if req != id && tcap.tca.eca.readRole(req) & (int(pb.Role_VALIDATOR) | int(pb.Role_AUDITOR)) == 0 {
+
+	if req != id && tcap.tca.eca.readRole(req)&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) == 0 {
 		return nil, errors.New("access denied")
 	}
-	
+
 	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
@@ -316,7 +313,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 	req := in.Req.Id
 	id := in.Id.Id
 
-	if req != id && tcap.tca.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
+	if req != id && tcap.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
 		return nil, errors.New("access denied")
 	}
 
@@ -350,19 +347,19 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 	defer rows.Close()
 
 	var certs [][]byte
-	var kdfKey []byte	
+	var kdfKey []byte
 	for rows.Next() {
 		var raw []byte
 		if err = rows.Scan(&raw, &kdfKey); err != nil {
 			return nil, err
 		}
-            
+
 		certs = append(certs, raw)
-    	}
+	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-    
+
 	return &pb.CertSet{in.Ts, in.Id, kdfKey, certs}, nil
 }
 
@@ -386,9 +383,9 @@ func (tcap *TCAP) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (
 //
 func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsReq) (*pb.CertSets, error) {
 	Trace.Println("grpc TCAA:ReadCertificateSets")
-	
+
 	req := in.Req.Id
-	if tcaa.tca.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
+	if tcaa.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
 		return nil, errors.New("access denied")
 	}
 
@@ -420,14 +417,14 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		return nil, err
 	}
 	defer users.Close()
-	
+
 	begin := int64(0)
 	end := int64(math.MaxInt64)
 	if in.Begin != nil {
-		begin = in.Begin.Seconds;
+		begin = in.Begin.Seconds
 	}
 	if in.End != nil {
-		end = in.End.Seconds;
+		end = in.End.Seconds
 	}
 
 	var sets []*pb.CertSet
@@ -448,18 +445,18 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		var kdfKey []byte
 		var timestamp int64
 		timestamp = 0
-		
+
 		for rows.Next() {
 			var cert []byte
 			var ts int64
-			
+
 			if err = rows.Scan(&cert, &kdfKey, &ts); err != nil {
 				return nil, err
 			}
-			
+
 			if ts != timestamp {
 				sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
-				
+
 				timestamp = ts
 				certs = nil
 			}
@@ -469,9 +466,9 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		if err = rows.Err(); err != nil {
 			return nil, err
 		}
-		
+
 		sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
-    	}
+	}
 	if err = users.Err(); err != nil {
 		return nil, err
 	}

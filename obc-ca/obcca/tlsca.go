@@ -36,7 +36,7 @@ import (
 //
 type TLSCA struct {
 	*CA
-	eca     *ECA
+	eca *ECA
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -67,7 +67,6 @@ func (tlsca *TLSCA) Start(srv *grpc.Server) {
 
 	Info.Println("TLSCA started.")
 }
-
 
 func (tlsca *TLSCA) startTLSCAP(srv *grpc.Server) {
 	pb.RegisterTLSCAPServer(srv, &TLSCAP{tlsca})

@@ -33,8 +33,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -55,8 +55,8 @@ var (
 //
 type ECA struct {
 	*CA
-	obcKey []byte
-	obcPriv, obcPub	[]byte
+	obcKey          []byte
+	obcPriv, obcPub []byte
 }
 
 // ECAP serves the public GRPC interface of the ECA.
@@ -74,14 +74,14 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	
+
 	eca := &ECA{NewCA("eca"), nil, nil, nil}
 
 	{
 		// read or create global symmetric encryption key
 		var cooked string
 
-		raw, err := ioutil.ReadFile(eca.path+"/obc.aes")
+		raw, err := ioutil.ReadFile(eca.path + "/obc.aes")
 		if err != nil {
 			rand := rand.Reader
 			key := make([]byte, 32) // AES-256
@@ -95,18 +95,18 @@ func NewECA() *ECA {
 		} else {
 			cooked = string(raw)
 		}
-	
+
 		eca.obcKey, err = base64.StdEncoding.DecodeString(cooked)
 		if err != nil {
 			Panic.Panicln(err)
 		}
 	}
-	
-	{	
-		// read or create global ECDSA key pair for ECIES			
+
+	{
+		// read or create global ECDSA key pair for ECIES
 		var priv *ecdsa.PrivateKey
-		cooked, err := ioutil.ReadFile(eca.path+"/obc.ecies")
-		if err == nil {		
+		cooked, err := ioutil.ReadFile(eca.path + "/obc.ecies")
+		if err == nil {
 			block, _ := pem.Decode(cooked)
 			priv, err = x509.ParseECPrivateKey(block.Bytes)
 			if err != nil {
@@ -129,7 +129,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		}
-	
+
 		eca.obcPriv = cooked
 		raw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 		eca.obcPub = pem.EncodeToMemory(
@@ -138,7 +138,7 @@ func NewECA() *ECA {
 				Bytes: raw,
 			})
 	}
-	
+
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
@@ -213,7 +213,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		if err != nil {
 			return nil, err
 		}
-		
+
 		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, nil
 
 	case state == 1:
@@ -221,7 +221,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		if bytes.Compare(in.Enc.Key, prev) != 0 {
 			return nil, errors.New("encryption keys don't match")
 		}
-		
+
 		// validate request signature
 		sig := in.Sig
 		in.Sig = nil
@@ -269,12 +269,12 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		var obcECKey []byte
-		if role & (int(pb.Role_VALIDATOR) | int(pb.Role_AUDITOR)) != 0 {
+		if role&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) != 0 {
 			obcECKey = ecap.eca.obcPriv
 		} else {
 			obcECKey = ecap.eca.obcPub
 		}
-		
+
 		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
 	}
 
@@ -306,7 +306,7 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 //
 func (ecap *ECAP) ReadCertificateByHash(ctx context.Context, hash *pb.Hash) (*pb.Cert, error) {
 	Trace.Println("grpc ECAP:ReadCertificateByHash")
-	
+
 	raw, err := ecap.eca.readCertificateByHash(hash.Hash)
 	return &pb.Cert{raw}, err
 }
@@ -336,10 +336,10 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	Trace.Println("grpc ECAA:ReadUserSet")
 
 	req := in.Req.Id
-	if ecaa.eca.readRole(req) & int(pb.Role_AUDITOR) == 0 {
+	if ecaa.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
 		return nil, errors.New("access denied")
 	}
-	
+
 	raw, err := ecaa.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
@@ -362,7 +362,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
 		return nil, errors.New("signature does not verify")
 	}
-	
+
 	rows, err := ecaa.eca.readUsers(int(in.Role))
 	if err != nil {
 		return nil, err
@@ -374,7 +374,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 		for rows.Next() {
 			var id string
 			var role int
-			
+
 			err = rows.Scan(&id, &role)
 			users = append(users, &pb.User{&pb.Identity{id}, pb.Role(role)})
 		}

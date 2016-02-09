@@ -20,7 +20,7 @@ under the License.
 package main
 
 import (
-//	"fmt"
+	//	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -43,8 +43,8 @@ func main() {
 
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-	obcca.Info.Println("CA Server ("+viper.GetString("server.version")+")")
-	
+	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
+
 	eca := obcca.NewECA()
 	defer eca.Close()
 
