@@ -119,17 +119,17 @@ func (inst *instance) verify(replicaID uint64, signature []byte, message []byte)
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.broadcastFilter(inst, payload)
 	net.cond.Signal()
-	net.cond.L.Unlock()
 }
 
 func (inst *instance) unicast(payload []byte, receiverID uint64) error {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), payload})
 	net.cond.Signal()
-	net.cond.L.Unlock()
 	return nil
 }
 
@@ -189,22 +189,22 @@ func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.broadcastFilter(inst, msg.Payload)
 	net.cond.Signal()
-	net.cond.L.Unlock()
 	return nil
 }
 
 func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	receiverID, err := getValidatorID(receiverHandle)
 	if err != nil {
 		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
 	}
 	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), msg.Payload})
 	net.cond.Signal()
-	net.cond.L.Unlock()
 	return nil
 }
 
@@ -307,13 +307,22 @@ func (net *testnet) deliverFilter(msg taggedMsg) {
 func (net *testnet) processWithoutDrain() {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
+
+	net.processWithoutDrainSync()
+}
+
+func (net *testnet) processWithoutDrainSync() {
+	doDeliver := func(msg taggedMsg) {
+		net.cond.L.Unlock()
+		defer net.cond.L.Lock()
+		net.deliverFilter(msg)
+	}
+
 	for len(net.msgs) > 0 {
 		msg := net.msgs[0]
 		fmt.Printf("Debug: process iteration (%d messages to go, delivering now to destination %v)\n", len(net.msgs), msg.dst)
 		net.msgs = net.msgs[1:]
-		net.cond.L.Unlock()
-		net.deliverFilter(msg)
-		net.cond.L.Lock()
+		doDeliver(msg)
 	}
 }
 
@@ -354,9 +363,7 @@ func (net *testnet) processContinually() {
 		if len(net.msgs) == 0 {
 			net.cond.Wait()
 		}
-		net.cond.L.Unlock()
-		net.processWithoutDrain()
-		net.cond.L.Lock()
+		net.processWithoutDrainSync()
 	}
 }
 
@@ -404,7 +411,7 @@ func (net *testnet) close() {
 		}
 	}
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.closed = true
 	net.cond.Signal()
-	net.cond.L.Unlock()
 }
