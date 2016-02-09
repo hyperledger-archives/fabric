@@ -170,7 +170,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.notifyExec = sync.NewCond(&instance.internalLock)
 
 	instance.N = config.GetInt("general.N")
-	instance.f = instance.N / 3
+	instance.f = config.GetInt("general.f")
+	if instance.f*3+1 > instance.N {
+		panic(fmt.Sprintf("need at least %d enough replicas to tolerate %d byzantine faults, but only %d replicas configured", instance.f*3+1, instance.f, instance.N))
+	}
+
 	instance.K = uint64(config.GetInt("general.K"))
 
 	instance.byzantine = config.GetBool("general.byzantine")
@@ -186,7 +190,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 
 	instance.activeView = true
 	instance.L = 2 * instance.K // log size
-	instance.replicaCount = 3*instance.f + 1
+	instance.replicaCount = instance.N
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -356,6 +360,18 @@ func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 // preprepare/prepare/commit quorum checks
 // =============================================================================
 
+// intersectionQuorum returns the number of replicas that have to
+// agree to guarantee that at least one correct replica is shared by
+// two intersection quora
+func (instance *pbftCore) intersectionQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
+
+// allCorrectReplicasQuorum returns the number of correct replicas (N-f)
+func (instance *pbftCore) allCorrectReplicasQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
+
 func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
 
@@ -403,7 +419,7 @@ func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f
+	return quorum >= instance.intersectionQuorum()-1
 }
 
 func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
@@ -426,7 +442,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f+1
+	return quorum >= instance.intersectionQuorum()
 }
 
 // Handles finishing the state transfer by executing outstanding transactions
@@ -964,7 +980,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
 
-	if matching <= instance.f*2 {
+	if matching < instance.intersectionQuorum() {
 		// We do not have a quorum yet
 		return nil
 	}
