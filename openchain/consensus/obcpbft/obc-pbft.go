@@ -77,6 +77,7 @@ func loadConfig() (config *viper.Viper) {
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
 	config.AddConfigPath("./openchain/consensus/obcpbft/")
+	config.AddConfigPath("../../openchain/consensus/obcpbft")
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))
