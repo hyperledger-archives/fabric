@@ -31,10 +31,15 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
+
+func init() {
+	logging.SetLevel(logging.DEBUG, "")
+}
 
 func makeTestnetPbftCore(inst *instance) {
 	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
@@ -565,6 +570,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
+	millisUntilTimeout := time.Duration(10)
+
 	if testing.Short() {
 		t.Skip("Skipping timeout test")
 	}
@@ -572,7 +579,7 @@ func TestNewViewTimeout(t *testing.T) {
 	validatorCount := 4
 	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
-		inst.pbft.newViewTimeout = 100 * time.Millisecond
+		inst.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
 		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
 		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
 	})
@@ -596,10 +603,17 @@ func TestNewViewTimeout(t *testing.T) {
 
 	go net.processContinually()
 
+	ticker := time.NewTicker(millisUntilTimeout * time.Millisecond)
+
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
 	net.replicas[1].pbft.receive(msgPacked, broadcaster)
-	time.Sleep(1000 * time.Millisecond)
+	fmt.Println("Debug: Sleeping 1")
+	for i := 0; i < 5; i++ {
+		<-ticker.C // Let the timeout interval pass twice to ensure it fires for replica 1
+		fmt.Println("Debug: (still) Sleeping 1")
+	}
+	fmt.Println("Debug: Waking 1")
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
 	// However, we disable 1, which will disable the new-view going through.
@@ -610,7 +624,14 @@ func TestNewViewTimeout(t *testing.T) {
 	// Finally, 3 will be new primary and pre-prepare the missing request.
 	replica1Disabled = true
 	net.replicas[3].pbft.receive(msgPacked, broadcaster)
-	time.Sleep(1000 * time.Millisecond)
+	fmt.Println("Debug: Sleeping 2")
+	for i := 0; i < 10; i++ {
+		fmt.Println("Debug: (still) Sleeping 2")
+		<-ticker.C // Let the timeout interval pass 10 times, but potentially much longer in a VM
+	}
+	fmt.Println("Debug: Waking 2")
+
+	ticker.Stop()
 
 	net.close()
 	for i, inst := range net.replicas {

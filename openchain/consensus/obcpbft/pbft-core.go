@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
@@ -63,7 +64,7 @@ type innerStack interface {
 
 type pbftCore struct {
 	// internal data
-	lock         sync.Mutex
+	internalLock sync.Mutex
 	executing    bool // signals that application is executing
 	closed       chan bool
 	consumer     innerStack
@@ -97,6 +98,8 @@ type pbftCore struct {
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+	timerExpiredCount  uint64              // How many times the newViewTimer has expired, used in conjuection with timerResetCount to prevent racing
+	timerResetCount    uint64              // How many times the newViewTimer has been reset, used in conjuection with timerExpiredCount to prevent racing
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -164,7 +167,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.ledger = ledger
 	instance.closed = make(chan bool)
 	instance.notifyCommit = make(chan bool, 1)
-	instance.notifyExec = sync.NewCond(&instance.lock)
+	instance.notifyExec = sync.NewCond(&instance.internalLock)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = instance.N / 3
@@ -247,6 +250,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
+	instance.timerResetCount = 1
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
@@ -257,23 +261,37 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	return instance
 }
 
+func (instance *pbftCore) lock() {
+	// Uncomment to debug races
+	//logger.Debug("Replica %d acquiring lock", instance.id)
+	instance.internalLock.Lock()
+	//logger.Debug("Replica %d acquired lock", instance.id)
+}
+
+func (instance *pbftCore) unlock() {
+	// Uncomment to debug races
+	//logger.Debug("Replica %d releasing lock", instance.id)
+	instance.internalLock.Unlock()
+	//logger.Debug("Replica %d released lock", instance.id)
+}
+
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.lock.Lock()
+	instance.lock()
 	close(instance.closed)
-	instance.newViewTimer.Reset(0)
+	instance.newViewTimer.Stop()
 	instance.sts.Stop()
-	instance.lock.Unlock()
+	instance.unlock()
 }
 
 // drain remaining requests
 func (instance *pbftCore) drain() {
-	instance.lock.Lock()
+	instance.lock()
 	for instance.executing {
 		instance.notifyExec.Wait()
 	}
 	instance.executeOutstanding()
-	instance.lock.Unlock()
+	instance.unlock()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
@@ -284,10 +302,19 @@ func (instance *pbftCore) timerHander() {
 			return
 
 		case <-instance.newViewTimer.C:
-			instance.lock.Lock()
-			logger.Info("Replica %d view change timer expired", instance.id)
-			instance.sendViewChange()
-			instance.lock.Unlock()
+			instance.timerExpiredCount++
+			logger.Debug("Replica %d view change timer expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
+			instance.lock()
+			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
+			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
+			// try to change views.
+			if instance.timerResetCount > instance.timerExpiredCount {
+				logger.Debug("Replica %d view change timeout has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
+			} else {
+				logger.Info("Replica %d view change timeout expired, sending view change", instance.id)
+				instance.sendViewChange()
+			}
+			instance.unlock()
 		}
 	}
 }
@@ -407,8 +434,8 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 
 	if md, ok := metadata.(*stateTransferMetadata); ok {
 		// Make sure the message thread is not currently modifying pbft
-		instance.lock.Lock()
-		defer instance.lock.Unlock()
+		instance.lock()
+		defer instance.unlock()
 
 		instance.lastExec = md.sequenceNumber
 		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
@@ -424,8 +451,8 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
+	instance.lock()
+	defer instance.unlock()
 	instance.recvMsgSync(msg, senderID)
 
 	return nil
@@ -439,8 +466,8 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
+	instance.lock()
+	defer instance.unlock()
 	instance.recvMsgSync(msg, senderID)
 
 	return nil
@@ -700,9 +727,9 @@ func (instance *pbftCore) executeRoutine() {
 	for {
 		select {
 		case <-instance.notifyCommit:
-			instance.lock.Lock()
+			instance.lock()
 			instance.executeOutstanding()
-			instance.lock.Unlock()
+			instance.unlock()
 
 		case <-instance.closed:
 			return
@@ -765,9 +792,9 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		delete(instance.outstandingReqs, digest)
 
 		instance.executing = true
-		instance.lock.Unlock()
+		instance.unlock()
 		instance.consumer.execute(req.Payload)
-		instance.lock.Lock()
+		instance.lock()
 		instance.executing = false
 		instance.notifyExec.Broadcast()
 	}
@@ -1064,33 +1091,32 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
-	instance.newViewTimer.Reset(timeout)
-	logger.Debug("Replica %d starting new view timer for %s",
-		instance.id, timeout)
+	if !instance.newViewTimer.Reset(timeout) && instance.timerActive {
+		// A false return from Reset indicates the timer fired or was stopped
+		// The instance.timerActive == true indicates that it was not stopped
+		// Therefore, the timer has already fired, so increment timerResetCount
+		// to prevent the view change thread from initiating a view change if
+		// it has not already done so
+		instance.timerResetCount++
+		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now", instance.id, timeout, instance.timerResetCount)
+	} else {
+		logger.Debug("Replica %d starting new view timer for %s", instance.id, timeout)
+	}
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
-	// remove timeouts that may have raced, to prevent additional view change
-	instance.newViewTimer.Stop()
-	logger.Debug("Replica %d stopping new view timer", instance.id)
+
+	// Stop the timer regardless
+	if !instance.newViewTimer.Stop() && instance.timerActive {
+		// See comment in startTimer for more detail, but this indicates our Stop is occurring
+		// after the view change thread has become active, so incremeent the reset count to prevent a race
+		instance.timerResetCount++
+		logger.Debug("Replica %d stopping an expired new view timer, reset count now %d", instance.id, instance.timerResetCount)
+	} else {
+		logger.Debug("Replica %d stopping a running new view timer", instance.id)
+	}
 	instance.timerActive = false
-	select {
-	case <-instance.closed:
-		return
-	default:
-	}
-	// XXX draining here does not help completely, because the
-	// timer handler goroutine may already have consumed the
-	// timeout and now is blocked on Lock()
-loopNewView:
-	for {
-		select {
-		case <-instance.newViewTimer.C:
-		default:
-			break loopNewView
-		}
-	}
 }
 
 func hashReq(req *Request) (digest string) {

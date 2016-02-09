@@ -143,7 +143,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 }
 
 func buildTestTx(t *testing.T) (*protos.Transaction, string) {
-	uuid, _ := util.GenerateUUID()
+	uuid := util.GenerateUUID()
 	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 	testutil.AssertNil(t, err)
 	return tx, uuid

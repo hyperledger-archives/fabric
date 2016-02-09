@@ -63,8 +63,8 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
+	op.pbft.lock()
+	defer op.pbft.unlock()
 
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
@@ -100,9 +100,9 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		// check for senderID not needed since verify messages are signed and will be verified
 		op.recvVerify(verify)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
-		op.pbft.lock.Unlock()
+		op.pbft.unlock()
 		op.pbft.receive(pbftMsg, senderID)
-		op.pbft.lock.Lock()
+		op.pbft.lock()
 	} else {
 		logger.Error("Received invalid sieve message: %v", svMsg)
 	}
@@ -181,9 +181,9 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 	raw, _ := proto.Marshal(msg)
-	op.pbft.lock.Unlock()
+	op.pbft.unlock()
 	op.pbft.request(raw, op.id)
-	op.pbft.lock.Lock()
+	op.pbft.lock()
 }
 
 func (op *obcSieve) recvRequest(txRaw []byte) {
@@ -461,8 +461,8 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(raw []byte) {
 	// called without pbft lock held
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
+	op.pbft.lock()
+	defer op.pbft.unlock()
 
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
@@ -605,8 +605,8 @@ func (op *obcSieve) previewCommit(seqNo uint64) ([]byte, error) {
 }
 
 func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) {
-	op.pbft.lock.Unlock()
-	defer op.pbft.lock.Lock()
+	op.pbft.unlock()
+	defer op.pbft.lock()
 
 	var peers []*pb.PeerID
 	for _, n := range nodes {
@@ -628,8 +628,8 @@ func (op *obcSieve) Errored(blockNumber uint64, hash []byte, peers []*pb.PeerID,
 // succesfully synced to a new block
 // We are only interested in adjusting our idea of the sieve blockNumber, which tracks the ledger block height
 func (op *obcSieve) Completed(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta interface{}) {
-	op.pbft.lock.Lock()
-	defer op.pbft.lock.Unlock()
+	op.pbft.lock()
+	defer op.pbft.unlock()
 
 	if op.currentReq != "" {
 		op.rollback()
