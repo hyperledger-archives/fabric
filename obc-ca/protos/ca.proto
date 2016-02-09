@@ -179,7 +179,8 @@ message ECertCreateReq {
 
 message ECertCreateResp {
     CertPair certs = 1;
-    bytes chain = 2;
+    Token chain = 2;
+    bytes pkchain = 4;
     Token tok = 3;
 }
 

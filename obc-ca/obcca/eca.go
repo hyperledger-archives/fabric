@@ -28,6 +28,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
@@ -54,6 +55,7 @@ var (
 //
 type ECA struct {
 	*CA
+	obcKey []byte
 	obcPriv, obcPub	[]byte
 }
 
@@ -72,43 +74,71 @@ type ECAA struct {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	eca := &ECA{NewCA("eca"), nil, nil}
+	
+	eca := &ECA{NewCA("eca"), nil, nil, nil}
 
-	// read or create global ECDSA key pair for ECIES
-	var priv *ecdsa.PrivateKey
-	cooked, err := ioutil.ReadFile(eca.path+"/obc.key")
-	if err == nil {		
-		block, _ := pem.Decode(cooked)
-		priv, err = x509.ParseECPrivateKey(block.Bytes)
-		if err != nil {
-			Panic.Panicln(err)
-		}
-	} else {
-		priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-		if err != nil {
-			Panic.Panicln(err)
-		}
+	{
+		// read or create global symmetric encryption key
+		var cooked string
 
-		raw, _ := x509.MarshalECPrivateKey(priv)
-		cooked = pem.EncodeToMemory(
-			&pem.Block{
-				Type:  "ECDSA PRIVATE KEY",
-				Bytes: raw,
-			})
-		err := ioutil.WriteFile(eca.path+"/obc.key", cooked, 0644)
+		raw, err := ioutil.ReadFile(eca.path+"/obc.aes")
+		if err != nil {
+			rand := rand.Reader
+			key := make([]byte, 32) // AES-256
+			rand.Read(key)
+			cooked = base64.StdEncoding.EncodeToString(key)
+
+			err = ioutil.WriteFile(eca.path+"/obc.aes", []byte(cooked), 0644)
+			if err != nil {
+				Panic.Panicln(err)
+			}
+		} else {
+			cooked = string(raw)
+		}
+	
+		eca.obcKey, err = base64.StdEncoding.DecodeString(cooked)
 		if err != nil {
 			Panic.Panicln(err)
 		}
 	}
 	
-	eca.obcPriv = cooked
-	raw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
-	eca.obcPub = pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "ECDSA PUBLIC KEY",
-			Bytes: raw,
-		})
+	{	
+		// read or create global ECDSA key pair for ECIES			
+		var priv *ecdsa.PrivateKey
+		cooked, err := ioutil.ReadFile(eca.path+"/obc.ecies")
+		if err == nil {		
+			block, _ := pem.Decode(cooked)
+			priv, err = x509.ParseECPrivateKey(block.Bytes)
+			if err != nil {
+				Panic.Panicln(err)
+			}
+		} else {
+			priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+			if err != nil {
+				Panic.Panicln(err)
+			}
 
+			raw, _ := x509.MarshalECPrivateKey(priv)
+			cooked = pem.EncodeToMemory(
+				&pem.Block{
+					Type:  "ECDSA PRIVATE KEY",
+					Bytes: raw,
+				})
+			err := ioutil.WriteFile(eca.path+"/obc.ecies", cooked, 0644)
+			if err != nil {
+				Panic.Panicln(err)
+			}
+		}
+	
+		eca.obcPriv = cooked
+		raw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+		eca.obcPub = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "ECDSA PUBLIC KEY",
+				Bytes: raw,
+			})
+	}
+	
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
@@ -184,7 +214,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 		
-		return &pb.ECertCreateResp{nil, nil, &pb.Token{out}}, nil
+		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, nil
 
 	case state == 1:
 		// ensure that the same encryption key is signed that has been used for the challenge
@@ -238,13 +268,14 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		var obcKey []byte
+		var obcECKey []byte
 		if role & (int(pb.Role_VALIDATOR) | int(pb.Role_AUDITOR)) != 0 {
-			obcKey = ecap.eca.obcPriv
+			obcECKey = ecap.eca.obcPriv
 		} else {
-			obcKey = ecap.eca.obcPub
+			obcECKey = ecap.eca.obcPub
 		}
-		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, obcKey, nil}, nil
+		
+		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
 	}
 
 	return nil, errors.New("certificate creation token expired")
