@@ -85,7 +85,8 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 	svMsg := &SieveMessage{}
 	err = proto.Unmarshal(ocMsg.Payload, svMsg)
 	if err != nil {
-		logger.Error("Could not unmarshal sieve message: %v", ocMsg)
+		err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
+		logger.Error(err.Error())
 		return err
 	}
 	if req := svMsg.GetRequest(); req != nil {
@@ -104,7 +105,8 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		op.pbft.receive(pbftMsg, senderID)
 		op.pbft.lock()
 	} else {
-		logger.Error("Received invalid sieve message: %v", svMsg)
+		err = fmt.Errorf("Received invalid sieve message: %v", svMsg)
+		logger.Error(err.Error())
 	}
 	return nil
 }
@@ -281,7 +283,8 @@ func (op *obcSieve) processExecute() {
 	op.stack.ExecTxs(op.currentReq, op.currentTx)
 	hash, err := op.previewCommit(op.blockNumber)
 	if err != nil {
-		logger.Error("Sieve replica %d ignoring execute: %s", op.id, err)
+		err = fmt.Errorf("Sieve replica %d ignoring execute: %s", op.id, err)
+		logger.Error(err.Error())
 		op.blockNumber--
 		op.currentReq = ""
 		return
@@ -427,7 +430,7 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	if len(vset.Dset) < op.pbft.f+1 {
 		err := fmt.Errorf("verify-set invalid: not enough verifies in vset: need at least %d, got %d",
 			op.pbft.f+1, len(vset.Dset))
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 		return err
 	}
 
@@ -435,7 +438,7 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	if !reflect.DeepEqual(dSet, vset.Dset) {
 		err := fmt.Errorf("verify-set invalid: d-set not coherent: received %v, calculated %v",
 			vset.Dset, dSet)
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 		return err
 	}
 

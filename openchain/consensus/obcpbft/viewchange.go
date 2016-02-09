@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"encoding/base64"
+	"fmt"
 	"reflect"
 )
 
@@ -306,7 +307,8 @@ func (instance *pbftCore) processNewView() error {
 
 		blockHashBytes, err := base64.StdEncoding.DecodeString(cp.BlockHash)
 		if nil != err {
-			logger.Error("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.BlockHash)
+			err = fmt.Errorf("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.BlockHash)
+			logger.Error(err.Error())
 			return nil
 		}
 

@@ -309,9 +309,9 @@ func (instance *pbftCore) timerHander() {
 			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
 			// try to change views.
 			if instance.timerResetCount > instance.timerExpiredCount {
-				logger.Debug("Replica %d view change timeout has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
+				logger.Debug("Replica %d view change timer has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
 			} else {
-				logger.Info("Replica %d view change timeout expired, sending view change", instance.id)
+				logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 				instance.sendViewChange()
 			}
 			instance.unlock()
@@ -536,7 +536,7 @@ func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error)
 		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 	}
 
 	return
@@ -960,7 +960,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 
 	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
 	if nil != err {
-		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		err = fmt.Errorf("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		logger.Error(err.Error())
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)

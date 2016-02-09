@@ -112,7 +112,8 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		op.pbft.receive(pbftMsg, senderID)
 		op.pbft.lock()
 	} else {
-		logger.Error("Unknown request: %+v", req)
+		err = fmt.Errorf("Unknown request: %+v", req)
+		logger.Error(err.Error())
 	}
 
 	return nil
@@ -183,18 +184,21 @@ func (op *obcBatch) execute(tbRaw []byte) {
 	for i, tx := range txs {
 		txRaw, _ := proto.Marshal(tx)
 		if err = op.validate(txRaw); err != nil {
-			logger.Error("Request in transaction %d from batch %s did not verify: %s", i, txBatchID, err)
+			err = fmt.Errorf("Request in transaction %d from batch %s did not verify: %s", i, txBatchID, err)
+			logger.Error(err.Error())
 			return
 		}
 	}
 
 	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
-		logger.Error("Failed to begin transaction batch %s: %v", txBatchID, err)
+		err = fmt.Errorf("Failed to begin transaction batch %s: %v", txBatchID, err)
+		logger.Error(err.Error())
 		return
 	}
 
 	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
-		logger.Error("Fail to execute transaction batch %s: %v", txBatchID, err)
+		err = fmt.Errorf("Fail to execute transaction batch %s: %v", txBatchID, err)
+		logger.Error(err.Error())
 		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
@@ -202,7 +206,8 @@ func (op *obcBatch) execute(tbRaw []byte) {
 	}
 
 	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
-		logger.Error("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
+		err = fmt.Errorf("Failed to commit transaction batch %s to the ledger: %v", txBatchID, err)
+		logger.Error(err.Error())
 		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction batch %s: %v", txBatchID, err))
 		}
@@ -247,7 +252,7 @@ func (op *obcBatch) sendBatch() error {
 		err := proto.Unmarshal(req, tx)
 		if err != nil {
 			err = fmt.Errorf("Unable to unpack payload of request %v", req)
-			logger.Error("%s", err)
+			logger.Error(err.Error())
 			continue
 		}
 		txs = append(txs, tx)
@@ -256,7 +261,7 @@ func (op *obcBatch) sendBatch() error {
 	tbPacked, err := proto.Marshal(tb)
 	if err != nil {
 		err = fmt.Errorf("Unable to pack transaction block for new batch request")
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 		return err
 	}
 

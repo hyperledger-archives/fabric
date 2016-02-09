@@ -125,14 +125,16 @@ func (op *obcClassic) validate(txRaw []byte) error {
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
 	if err := op.validate(txRaw); err != nil {
-		logger.Error("Request in transaction did not validate: %s", err)
+		err = fmt.Errorf("Request in transaction did not validate: %s", err)
+		logger.Error(err.Error())
 		return
 	}
 
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
-		logger.Error("Unable to unmarshal transaction: %v", err)
+		err = fmt.Errorf("Unable to unmarshal transaction: %v", err)
+		logger.Error(err.Error())
 		return
 	}
 
@@ -140,12 +142,14 @@ func (op *obcClassic) execute(txRaw []byte) {
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
 
 	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
-		logger.Error("Failed to begin transaction %s: %v", txBatchID, err)
+		err = fmt.Errorf("Failed to begin transaction %s: %v", txBatchID, err)
+		logger.Error(err.Error())
 		return
 	}
 
 	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
-		logger.Error("Failed to execute transaction %s: %v", txBatchID, err)
+		err = fmt.Errorf("Failed to execute transaction %s: %v", txBatchID, err)
+		logger.Error(err.Error())
 		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
@@ -153,7 +157,8 @@ func (op *obcClassic) execute(txRaw []byte) {
 	}
 
 	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
-		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		err = fmt.Errorf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		logger.Error(err.Error())
 		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
