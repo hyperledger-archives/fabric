@@ -200,10 +200,10 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	if vc.View == instance.view && quorum == 2*instance.f+1 {
 		instance.startTimer(instance.lastNewViewTimeout)
 		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
-	}
 
-	if instance.primary(instance.view) == instance.id {
-		return instance.sendNewView()
+		if instance.primary(instance.view) == instance.id {
+			return instance.sendNewView()
+		}
 	}
 
 	return instance.processNewView()
