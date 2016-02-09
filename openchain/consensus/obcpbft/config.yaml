@@ -13,7 +13,8 @@ general:
     mode: classic
 
     # Maximum number of validators/replicas we expect in the network
-    N: 4
+    # Keep the "N" in quotes, or it will be interpreted as "false".
+    "N": 4
 
     # Checkpoint period
     K: 10
