@@ -70,6 +70,7 @@ func (q *Queue) Push(item interface{}) {
 }
 
 // Pop returns the data item at the head of the queue
+// Example e := q.Pop().(T)  -- cast e to type T
 func (q *Queue) Pop() interface{} {
 	q.lock.Lock()
 	defer q.lock.Unlock()

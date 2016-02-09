@@ -43,11 +43,11 @@ func init() {
 // Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
 	stack    consensus.Stack
-	txQ      *util.Queue
+	txQ      *txq
 	lock     *sync.Mutex
 	timer    *time.Timer
-	size     int
 	duration time.Duration
+	channel  chan *pb.Transaction
 }
 
 // Setting up a singleton NOOPS consenter
@@ -68,13 +68,14 @@ func newNoops(c consensus.Stack) consensus.Consenter {
 	}
 	i := &Noops{}
 	i.stack = c
-	i.txQ = util.NewQueue()
 	i.lock = &sync.Mutex{}
 	config := loadConfig()
-	i.size = config.GetInt("block.size")
+	i.txQ = newTXQ(config.GetInt("block.size"))
 	i.duration = time.Second * time.Duration(config.GetInt("block.timeout"))
-	i.timer = time.NewTimer(i.duration)
-	go i.handleTimer()
+	i.channel = make(chan *pb.Transaction, 100)
+	i.timer = time.NewTimer(i.duration) // start timer now so we can just reset it
+	i.timer.Stop()
+	go i.handleChannels()
 	return i
 }
 
@@ -89,14 +90,14 @@ func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
 		}
 	}
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		txarr, err := i.getTransactionsFromMsg(msg)
+		tx, err := i.getTxFromMsg(msg)
 		if nil != err {
 			return err
 		}
-		i.queueTransactions(txarr)
-		if i.canProcess(txarr) {
-			i.processBlock()
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Sending to channel tx uuid: ", tx.Uuid)
 		}
+		i.channel <- tx
 	}
 	return nil
 }
@@ -125,24 +126,43 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
+func (i *Noops) canProcessBlock(tx *pb.Transaction) bool {
 	// For NOOPS, if we have completed the sync since we last connected,
 	// we can assume that we are at the current state; otherwise, we need to
 	// wait for the sync process to complete before we can exec the transactions
 
 	// TODO: Ask coordinator if we need to start sync
 
-	if i.txQ.Size() < i.size {
-		return false
+	i.txQ.append(tx)
+
+	// start timer if we get a tx
+	if i.txQ.size() == 1 {
+		i.timer.Reset(i.duration)
 	}
-	return true
+	return i.txQ.isFull()
 }
 
-func (i *Noops) handleTimer() {
+func (i *Noops) handleChannels() {
+	// Noops is a singleton object and only exits when peer exits, so we
+	// don't need a condition to exit this loop
 	for {
-		<-i.timer.C
-		if err := i.processBlock(); nil != err {
-			logger.Error(err.Error())
+		select {
+		case tx := <-i.channel:
+			if i.canProcessBlock(tx) {
+				if logger.IsEnabledFor(logging.DEBUG) {
+					logger.Debug("Process block due to size")
+				}
+				if err := i.processBlock(); nil != err {
+					logger.Error(err.Error())
+				}
+			}
+		case <-i.timer.C:
+			if logger.IsEnabledFor(logging.DEBUG) {
+				logger.Debug("Process block due to time")
+			}
+			if err := i.processBlock(); nil != err {
+				logger.Error(err.Error())
+			}
 		}
 	}
 }
@@ -151,8 +171,13 @@ func (i *Noops) processBlock() error {
 	i.lock.Lock()
 	i.timer.Stop()
 	defer i.lock.Unlock()
-	defer i.timer.Reset(i.duration)
 
+	if i.txQ.size() < 1 {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("processBlock() called but transaction Q is empty")
+		}
+		return nil
+	}
 	var data *pb.Block
 	var delta *statemgmt.StateDelta
 	var err error
@@ -177,7 +202,7 @@ func (i *Noops) processTransactions() error {
 	}
 
 	// Grab all transactions from the FIFO queue and run them in order
-	txarr := i.getTransactionsFromQueue()
+	txarr := i.txQ.getTXs()
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Executing batch of %d transactions with timestamp %v", len(txarr), timestamp)
 	}
@@ -201,25 +226,12 @@ func (i *Noops) processTransactions() error {
 	return nil
 }
 
-func (i *Noops) getTransactionsFromMsg(msg *pb.OpenchainMessage) ([]*pb.Transaction, error) {
+func (i *Noops) getTxFromMsg(msg *pb.OpenchainMessage) (*pb.Transaction, error) {
 	txs := &pb.TransactionBlock{}
 	if err := proto.Unmarshal(msg.Payload, txs); err != nil {
 		return nil, err
 	}
-	return txs.GetTransactions(), nil
-}
-
-func (i *Noops) getTransactionsFromQueue() []*pb.Transaction {
-	len := i.txQ.Size()
-	if len == 1 {
-		return i.txQ.Pop().([]*pb.Transaction)
-	}
-	txarr := make([]*pb.Transaction, len)
-	for k := 0; k < len; k++ {
-		txs := i.txQ.Pop().([]*pb.Transaction)
-		txarr[k] = txs[0]
-	}
-	return txarr
+	return txs.GetTransactions()[0], nil
 }
 
 func (i *Noops) getBlockData() (*pb.Block, *statemgmt.StateDelta, error) {
@@ -272,11 +284,4 @@ func (i *Noops) notifyBlockAdded(block *pb.Block, delta *statemgmt.StateDelta) e
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
-}
-
-func (i *Noops) queueTransactions(txarr []*pb.Transaction) {
-	i.txQ.Push(txarr)
-	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Queue transaction. Queue size: %d", i.txQ.Size())
-	}
 }
