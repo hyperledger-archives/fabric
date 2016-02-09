@@ -45,13 +45,11 @@ func (snapshotItr *StateSnapshotIterator) Next() bool {
 
 // GetRawKeyValue - see interface 'statemgmt.StateSnapshotIterator' for details
 func (snapshotItr *StateSnapshotIterator) GetRawKeyValue() ([]byte, []byte) {
-	keySlice := snapshotItr.dbItr.Key()
-	defer keySlice.Free()
-	valueSlice := snapshotItr.dbItr.Value()
-	defer valueSlice.Free()
-	// TODO Why do we copy the key, but not the value?
-	keyBytes := statemgmt.Copy(keySlice.Data())
-	valueBytes := valueSlice.Data()
+
+	// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+	// no need to free slices as iterator frees memory when closed.
+	keyBytes := statemgmt.Copy(snapshotItr.dbItr.Key().Data())
+	valueBytes := statemgmt.Copy(snapshotItr.dbItr.Value().Data())
 	dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
 	return dataNode.getCompositeKey(), dataNode.getValue()
 }

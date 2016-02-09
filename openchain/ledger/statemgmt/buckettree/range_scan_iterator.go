@@ -56,13 +56,11 @@ func (itr *RangeScanIterator) Next() bool {
 	}
 
 	for itr.dbItr.Valid() {
-		keySlice := itr.dbItr.Key()
-		defer keySlice.Free()
-		valueSlice := itr.dbItr.Value()
-		defer valueSlice.Free()
-		// TODO Why do we copy the key, but not the value?
-		keyBytes := statemgmt.Copy(keySlice.Data())
-		valueBytes := valueSlice.Data()
+
+		// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+		// no need to free slices as iterator frees memory when closed.
+		keyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
+		valueBytes := statemgmt.Copy(itr.dbItr.Value().Data())
 
 		dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
 		dataKey := dataNode.dataKey
