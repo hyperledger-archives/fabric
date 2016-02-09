@@ -129,8 +129,8 @@ Feature: lanching 3 peers
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
         |   docker-compose-4-consensus-noops.yml   |      60      |
-        |   docker-compose-4-consensus-classic.yml |      10      |
-        |   docker-compose-4-consensus-batch.yml   |      10      |
+        |   docker-compose-4-consensus-classic.yml |      30      |
+        |   docker-compose-4-consensus-batch.yml   |      30      |
         |   docker-compose-4-consensus-sieve.yml   |      10      |
 
 
