@@ -42,7 +42,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -158,19 +157,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// User is not logged in, proceed with login
 	restLogger.Info("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
 
-	// Get a devopsClient to perform the login
-	clientConn, err := peer.NewPeerClientConnection()
-	if err != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to connect to local peer: %s\"}", err)
-		restLogger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
-
-		return
-	}
-	devopsClient := pb.NewDevopsClient(clientConn)
-
-	// Perform the login
-	loginResult, err := devopsClient.Login(context.Background(), &loginSpec)
+	loginResult, err := s.devops.Login(context.Background(), &loginSpec)
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {

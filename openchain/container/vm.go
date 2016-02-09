@@ -177,6 +177,27 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
+// BuildObccaContainer builds the image for the obcca to be used in development network
+func (vm *VM) BuildObccaContainer() error {
+	inputbuf, err := vm.getPackageBytes(vm.writeObccaPackage)
+
+	if err != nil {
+		return fmt.Errorf("Error building obcca container: %s", err)
+	}
+	outputbuf := bytes.NewBuffer(nil)
+	opts := docker.BuildImageOptions{
+		Name:         "obcca",
+		Pull:         true,
+		InputStream:  inputbuf,
+		OutputStream: outputbuf,
+	}
+	if err := vm.Client.BuildImage(opts); err != nil {
+		vmLogger.Debug(fmt.Sprintf("Failed obcca docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building obcca container: %s\n", err)
+	}
+	return nil
+}
+
 // GetPeerPackageBytes returns the gzipped tar image used for docker build of Peer
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
@@ -248,6 +269,22 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 	err := writeGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing Peer package contents: %s", err)
+	}
+	return nil
+}
+
+func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
+	startTime := time.Now()
+
+	dockerFileContents := viper.GetString("peer.Dockerfile")
+	dockerFileContents = dockerFileContents + "RUN cd obc-ca && go install\n"
+	dockerFileSize := int64(len([]byte(dockerFileContents)))
+
+	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
+	tw.Write([]byte(dockerFileContents))
+	err := writeGopathSrc(tw, "")
+	if err != nil {
+		return fmt.Errorf("Error writing obcca package contents: %s", err)
 	}
 	return nil
 }
