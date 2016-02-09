@@ -99,7 +99,7 @@ type pbftCore struct {
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 	timerExpiredCount  uint64              // How many times the newViewTimer has expired, used in conjuection with timerResetCount to prevent racing
-	timerResetCount    uint64              // How many times the newViewTimer has expired, used in conjuection with timerExpiredCount to prevent racing
+	timerResetCount    uint64              // How many times the newViewTimer has been reset, used in conjuection with timerExpiredCount to prevent racing
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -250,6 +250,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
+	instance.timerResetCount = 1
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
@@ -278,7 +279,7 @@ func (instance *pbftCore) unlock() {
 func (instance *pbftCore) close() {
 	instance.lock()
 	close(instance.closed)
-	instance.newViewTimer.Reset(0)
+	instance.newViewTimer.Stop()
 	instance.sts.Stop()
 	instance.unlock()
 }
@@ -301,8 +302,8 @@ func (instance *pbftCore) timerHander() {
 			return
 
 		case <-instance.newViewTimer.C:
-			logger.Debug("Replica %d view change timeout expired, waiting for lock", instance.id)
 			instance.timerExpiredCount++
+			logger.Debug("Replica %d view change timeout expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
 			instance.lock()
 			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
 			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
@@ -1049,10 +1050,14 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
-	if !instance.newViewTimer.Reset(timeout) {
-		// Only consider this a true reset if the timer has fired
-		logger.Debug("Replica %d resetting a running new view timer for %s", instance.id, timeout)
+	if !instance.newViewTimer.Reset(timeout) && instance.timerActive {
+		// A false return from Reset indicates the timer fired or was stopped
+		// The instance.timerActive == true indicates that it was not stopped
+		// Therefore, the timer has already fired, so increment timerResetCount
+		// to prevent the view change thread from initiating a view change if
+		// it has not already done so
 		instance.timerResetCount++
+		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now", instance.id, timeout, instance.timerResetCount)
 	} else {
 		logger.Debug("Replica %d starting new view timer for %s", instance.id, timeout)
 	}
@@ -1060,26 +1065,17 @@ func (instance *pbftCore) startTimer(timeout time.Duration) {
 }
 
 func (instance *pbftCore) stopTimer() {
-	// remove timeouts that may have raced, to prevent additional view change
-	instance.newViewTimer.Stop()
-	logger.Debug("Replica %d stopping new view timer", instance.id)
+
+	// Stop the timer regardless
+	if !instance.newViewTimer.Stop() && instance.timerActive {
+		// See comment in startTimer for more detail, but this indicates our Stop is occurring
+		// after the view change thread has become active, so incremeent the reset count to prevent a race
+		instance.timerResetCount++
+		logger.Debug("Replica %d stopping an expired new view timer, reset count now %d", instance.id, instance.timerResetCount)
+	} else {
+		logger.Debug("Replica %d stopping a running new view timer", instance.id)
+	}
 	instance.timerActive = false
-	select {
-	case <-instance.closed:
-		return
-	default:
-	}
-	// XXX draining here does not help completely, because the
-	// timer handler goroutine may already have consumed the
-	// timeout and now is blocked on Lock()
-loopNewView:
-	for {
-		select {
-		case <-instance.newViewTimer.C:
-		default:
-			break loopNewView
-		}
-	}
 }
 
 func hashReq(req *Request) (digest string) {

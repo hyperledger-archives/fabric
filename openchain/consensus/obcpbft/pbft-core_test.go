@@ -30,10 +30,15 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
+
+func init() {
+	logging.SetLevel(logging.DEBUG, "")
+}
 
 func makeTestnetPbftCore(inst *instance) {
 	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
@@ -526,7 +531,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
-	millisUntilTimeout := time.Duration(100)
+	millisUntilTimeout := time.Duration(10)
 
 	if testing.Short() {
 		t.Skip("Skipping timeout test")
