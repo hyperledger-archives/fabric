@@ -49,6 +49,7 @@ func newTestBlockchainWrapper(t *testing.T) *blockchainTestWrapper {
 
 func (testWrapper *blockchainTestWrapper) addNewBlock(block *protos.Block, stateHash []byte) uint64 {
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	newBlockNumber, err := testWrapper.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	testutil.AssertNoError(testWrapper.t, err, "Error while adding a new block")
 	testDBWrapper.WriteToDB(testWrapper.t, writeBatch)

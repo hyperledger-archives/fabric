@@ -289,9 +289,12 @@ func (state *State) CommitStateDelta() error {
 		state.stateImpl.PrepareWorkingSet(state.stateDelta)
 		state.updateStateImpl = false
 	}
+
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	state.stateImpl.AddChangesForPersistence(writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	return db.GetDBHandle().DB.Write(opt, writeBatch)
 }
 
