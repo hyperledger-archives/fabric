@@ -52,7 +52,8 @@ The **peer** command will run peer process. You can then use the other commands 
 
 ## Test
 
-To run all tests, in one window, run `./obc-peer peer`. In a second window
+#### Unit Tests
+To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
@@ -62,6 +63,14 @@ Note that the first time the tests are run, they can take some time due to the n
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test name. To run tests with verbose output use the `-v` flag. For example, to run TestGetFoo function, change to the directory containing the `foo_test.go` and enter:
 
     go test -test.v -run=TestGetFoo
+
+#### Behave Tests
+OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
+
+```
+cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
+behave
+```
 
 ## Writing Chaincode
 Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
