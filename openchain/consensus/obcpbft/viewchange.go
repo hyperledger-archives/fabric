@@ -198,7 +198,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
-	if vc.View == instance.view && quorum == 2*instance.f+1 {
+	if vc.View == instance.view && quorum == instance.allCorrectReplicasQuorum() {
 		instance.startTimer(instance.lastNewViewTimeout)
 		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 
@@ -442,7 +442,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 			}
 		}
 
-		if quorum <= 2*instance.f {
+		if quorum < instance.intersectionQuorum() {
 			logger.Debug("Replica %d has no quorum for n:%d", instance.id, idx.SequenceNumber)
 			continue
 		}
@@ -484,7 +484,7 @@ nLoop:
 					quorum++
 				}
 
-				if quorum < 2*instance.f+1 {
+				if quorum < instance.intersectionQuorum() {
 					continue
 				}
 
@@ -524,7 +524,7 @@ nLoop:
 			quorum++
 		}
 
-		if quorum >= 2*instance.f+1 {
+		if quorum >= instance.intersectionQuorum() {
 			// "then select the null request for number n"
 			msgList[n] = ""
 

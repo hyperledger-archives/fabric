@@ -59,6 +59,13 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	return op
 }
 
+// moreCorrectThanByzantineQuorum returns the number of replicas that
+// have to agree to guarantee that more correct replicas than
+// byzantine replicas agree
+func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
+	return 2*op.pbft.f + 1
+}
+
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
@@ -347,7 +354,7 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 	}
 	op.verifyStore = append(op.verifyStore, verify)
 
-	if len(op.verifyStore) == 2*op.pbft.f+1 {
+	if len(op.verifyStore) == op.moreCorrectThanByzantineQuorum() {
 		dSet, _ := op.verifyDset(op.verifyStore)
 		verifySet := &VerifySet{
 			View:          op.epoch,

@@ -16,6 +16,9 @@ general:
     # Keep the "N" in quotes, or it will be interpreted as "false".
     "N": 4
 
+    # Number of byzantine nodes we will tolerate
+    f: 1
+
     # Checkpoint period is the maximum number of pbft requests that must be
     # re-processed in a view change. A smaller checkpoint period will decrease
     # the amount of time required to recover from an error, but will decrease
