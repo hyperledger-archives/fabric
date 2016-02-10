@@ -72,6 +72,12 @@ cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
 behave
 ```
 
+Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
+```
+go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Peer
+go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Obcca
+```
+
 ## Writing Chaincode
 Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
