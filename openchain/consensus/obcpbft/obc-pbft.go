@@ -93,10 +93,6 @@ func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
 		if err != nil {
 			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle.Name, err)
 		}
-		if id > uint64(config.GetInt("general.N")-1) {
-			err := fmt.Errorf("Integer in assigned handle (%v) exceeds the maximum allowed (%v)", id, uint64(config.GetInt("general.N")-1))
-			panic(err)
-		}
 		return
 	}
 

@@ -45,8 +45,11 @@ func (snapshotItr *StateSnapshotIterator) Next() bool {
 
 // GetRawKeyValue - see interface 'statemgmt.StateSnapshotIterator' for details
 func (snapshotItr *StateSnapshotIterator) GetRawKeyValue() ([]byte, []byte) {
+
+	// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+	// no need to free slices as iterator frees memory when closed.
 	keyBytes := statemgmt.Copy(snapshotItr.dbItr.Key().Data())
-	valueBytes := snapshotItr.dbItr.Value().Data()
+	valueBytes := statemgmt.Copy(snapshotItr.dbItr.Value().Data())
 	dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
 	return dataNode.getCompositeKey(), dataNode.getValue()
 }
