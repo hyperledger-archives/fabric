@@ -20,7 +20,7 @@ under the License.
 package main
 
 import (
-//	"fmt"
+	//	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -43,8 +43,8 @@ func main() {
 
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-	obcca.Info.Println("CA Server ("+viper.GetString("server.version")+")")
-	
+	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
+
 	eca := obcca.NewECA()
 	defer eca.Close()
 
@@ -55,23 +55,25 @@ func main() {
 	defer tlsca.Close()
 
 	var opts []grpc.ServerOption
-	if viper.GetString("tls.certfile") != "" {
+	if viper.GetString("server.tls.certfile") != "" {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
 		if err != nil {
 			panic(err)
 		}
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
+		obcca.Info.Println("TLS Enabled.")
 	}
-	srv := grpc.NewServer(opts...)
-
-	eca.Start(srv)
-	tca.Start(srv)
-	tlsca.Start(srv)
 
 	sock, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {
 		panic(err)
 	}
+
+	srv := grpc.NewServer(opts...)
+
+	eca.Start(srv)
+	tca.Start(srv)
+	tlsca.Start(srv)
 
 	srv.Serve(sock)
 
