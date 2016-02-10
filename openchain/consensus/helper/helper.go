@@ -90,8 +90,8 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 }
 
 // Broadcast sends a message to all validating peers
-func (h *Helper) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) error {
-	errors := h.coordinator.Broadcast(msg, typ)
+func (h *Helper) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
+	errors := h.coordinator.Broadcast(msg, peerType)
 	if len(errors) > 0 {
 		return fmt.Errorf("Couldn't broadcast successfully")
 	}
@@ -185,11 +185,12 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 	size := ledger.GetBlockchainSize()
 	h.curBatch = nil // TODO, remove after issue 579
 
-	if block, err := ledger.GetBlockByNumber(size - 1); err != nil {
+	block, err := ledger.GetBlockByNumber(size - 1)
+	if err != nil {
 		return nil, fmt.Errorf("Failed to get the block at the head of the chain: %v", err)
-	} else {
-		return block, nil
 	}
+
+	return block, nil
 }
 
 // RollbackTxBatch discards all the state changes that may have taken
@@ -206,7 +207,7 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatchBlock retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
+// PreviewCommitTxBatch retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
 // As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
 // this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
 // The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.

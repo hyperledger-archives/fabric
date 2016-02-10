@@ -21,11 +21,9 @@ package obcpbft
 
 import (
 	"fmt"
-	gp "google/protobuf"
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -41,33 +39,20 @@ func makeTestnetBatch(inst *instance, batchSize int) {
 	batch.batchSize = batchSize
 	batch.pbft.replicaCount = len(inst.net.replicas)
 	batch.pbft.f = inst.net.f
-	inst.deliver = func(msg []byte) {
-		batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg})
+	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
+		batch.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}, senderHandle)
 	}
-}
-
-// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
-func createExternalRequest(iter int64) (msg *pb.OpenchainMessage) {
-	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
-		Timestamp: txTime,
-		Payload:   []byte(fmt.Sprint(iter)),
-	}
-	txPacked, _ := proto.Marshal(tx)
-	msg = &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
-		Payload: txPacked,
-	}
-	return
 }
 
 func TestNetworkBatch(t *testing.T) {
-	net := makeTestnet(4, func(inst *instance) {
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetBatch(inst, 2)
 	})
 	defer net.close()
 
-	err := net.replicas[1].consenter.RecvMsg(createExternalRequest(1))
+	broadcaster := net.handles[generateBroadcaster(validatorCount)]
+	err := net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -78,7 +63,7 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))
 	}
 
-	err = net.replicas[2].consenter.RecvMsg(createExternalRequest(2))
+	err = net.replicas[2].consenter.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	net.process()
 
 	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 0 {
@@ -91,7 +76,7 @@ func TestNetworkBatch(t *testing.T) {
 			t.Fatalf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", inst.id, err)
 		}
 		if numTrans := len(block.Transactions); numTrans != net.replicas[i].consenter.(*obcBatch).batchSize {
-			t.Errorf("Replica %d executed %d requests, expected %d",
+			t.Fatalf("Replica %d executed %d requests, expected %d",
 				inst.id, numTrans, net.replicas[i].consenter.(*obcBatch).batchSize)
 		}
 	}

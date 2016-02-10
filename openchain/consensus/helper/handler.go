@@ -70,7 +70,8 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 // HandleMessage handles the incoming Openchain messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		return handler.consenter.RecvMsg(msg)
+		senderPE, _ := handler.peerHandler.To()
+		return handler.consenter.RecvMsg(msg, senderPE.ID)
 	}
 	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		return handler.doChainTransaction(msg)
@@ -119,7 +120,8 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 	}
 
 	// Pass the message to the plugin handler (ie PBFT)
-	return handler.consenter.RecvMsg(msg)
+	selfPE, _ := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
+	return handler.consenter.RecvMsg(msg, selfPE.ID)
 }
 
 func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
