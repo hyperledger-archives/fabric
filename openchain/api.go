@@ -27,6 +27,7 @@ import (
 
 	google_protobuf1 "google/protobuf"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -84,7 +85,17 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
 		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
-			transaction.Payload = nil
+			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			transaction.Payload = deploymentSpecBytes
 		}
 	}
 

@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -408,7 +409,19 @@ func sendProducerBlockEvent(block *protos.Block) {
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
 		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
-			transaction.Payload = nil
+			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error unmarshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error marshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			transaction.Payload = deploymentSpecBytes
 		}
 	}
 
