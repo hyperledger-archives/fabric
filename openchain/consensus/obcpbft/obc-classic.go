@@ -49,12 +49,11 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerI
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		op.pbft.request(ocMsg.Payload, op.pbft.id)
-
 		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
 		pbftMsg := &Message{&Message_Request{req}}
 		packedPbftMsg, _ := proto.Marshal(pbftMsg)
 		op.broadcast(packedPbftMsg)
+		op.pbft.request(ocMsg.Payload, op.pbft.id)
 
 		return nil
 	}
