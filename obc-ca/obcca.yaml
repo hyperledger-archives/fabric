@@ -7,12 +7,13 @@ server:
         port: ":50051"
 
         tls:
-#                certfile:
-#                keyfile:
+#              certfile: "/var/openchain/production/.obcca/tlsca.cert"
+#              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
 
 
 eca:
         users:
+                # <EnrollmentID>: <role (1:client, 2: peer, 4: validator)> <EnrollmentPWD>
                 lukas: 1 NPKYL39uKbkj
                 system_chaincode_invoker: 2 DRJ20pEql15a
                 diego: 2 DRJ23pEQl16a
@@ -40,16 +41,6 @@ eca:
                 test_user7: 1 YsWZD4qQmYxo
                 test_user8: 1 W8G0usrU7jRk
                 test_user9: 1 H80SiB5ODKKQ
-
-tca:
-#         tls:
-#                certfile:
-#                keyfile:
-
-tlsca:
-#         tls:
-#                certfile:
-#                keyfile:
 
 pki:
           validity-period:
