@@ -53,9 +53,9 @@ logging:
     #     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
 
     # A logging level by itself is taken as the overall default. Otherwise,
-    # overrides for individual or groups of modules can be specified using the 
+    # overrides for individual or groups of modules can be specified using the
     # <module>[,<module>...]=<level> syntax.
-    
+
     # Examples:
     #   info                                       - Set default to INFO
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
@@ -83,7 +83,7 @@ peer:
     id: jdoe
 
     # The privateKey to be used by this peer
-    privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
+    # privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
 
     # The networkId allows for logical seperation of networks
     # networkId: dev
