@@ -680,9 +680,10 @@ func (sts *StateTransferState) blockThread() {
 		select {
 		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
 		case blockSyncReq := <-sts.blockSyncReq:
+			logger.Debug("Block thread received request for block transfer thread to sync")
 			sts.syncBlockchainToCheckpoint(blockSyncReq)
 		case <-sts.blockThreadExit:
-			logger.Debug("Received request for block transfer thread to exit (2)")
+			logger.Debug("Block thread received request for block transfer thread to exit (2)")
 			return
 		}
 

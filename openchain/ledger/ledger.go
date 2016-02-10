@@ -116,31 +116,36 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		return err
 	}
 
-	success := true
-	defer ledger.resetForNextTxGroup(success)
-	defer ledger.blockchain.blockPersistenceStatus(success)
-
 	stateHash, err := ledger.state.GetHash()
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	block := protos.NewBlock(transactions, metadata)
 	block.NonHashData = &protos.NonHashData{TransactionResults: transactionResults}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 	ledger.state.AddChangesForPersistence(newBlockNumber, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	dbErr := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if dbErr != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return dbErr
 	}
+
+	ledger.resetForNextTxGroup(true)
+	ledger.blockchain.blockPersistenceStatus(true)
+
 	producer.Send(producer.CreateBlockEvent(block))
 	return nil
 }

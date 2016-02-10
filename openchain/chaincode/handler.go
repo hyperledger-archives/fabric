@@ -555,8 +555,9 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 
 		// Invoke ledger to get state
 		chaincodeID := handler.ChaincodeID.Name
-		// ToDo: Eventually, once consensus is plugged in, we need to set bool to true for ledger
-		res, err := ledgerObj.GetState(chaincodeID, key, false)
+
+		readCommittedState := !handler.getIsTransaction(msg.Uuid)
+		res, err := ledgerObj.GetState(chaincodeID, key, readCommittedState)
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -639,8 +640,9 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		}
 
 		chaincodeID := handler.ChaincodeID.Name
-		var err error
-		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryState.StartKey, rangeQueryState.EndKey, true)
+
+		readCommittedState := !handler.getIsTransaction(msg.Uuid)
+		rangeIter, err := ledger.GetStateRangeScanIterator(chaincodeID, rangeQueryState.StartKey, rangeQueryState.EndKey, readCommittedState)
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())

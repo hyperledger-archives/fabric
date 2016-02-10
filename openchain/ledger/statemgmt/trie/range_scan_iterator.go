@@ -49,8 +49,11 @@ func (itr *RangeScanIterator) Next() bool {
 		return false
 	}
 	for ; itr.dbItr.Valid(); itr.dbItr.Next() {
-		trieKeyBytes := itr.dbItr.Key().Data()
-		trieNodeBytes := itr.dbItr.Value().Data()
+
+		// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+		// no need to free slices as iterator frees memory when closed.
+		trieKeyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
+		trieNodeBytes := statemgmt.Copy(itr.dbItr.Value().Data())
 		value := unmarshalTrieNodeValue(trieNodeBytes)
 		if util.IsNil(value) {
 			continue
