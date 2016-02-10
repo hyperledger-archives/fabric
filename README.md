@@ -104,6 +104,8 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
+See [specific logging control] (https://github.com/openblockchain/obc-docs/blob/master/dev-setup/logging-control.md) when running OBC.
+
 ## Generating grpc code
 If you modify ant .proto files, run the following command to generate new .pb.go files.
 ```
