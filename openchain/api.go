@@ -76,6 +76,18 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
 		}
 	}
+
+	// Remove payload from deploy transactions. This is done to make rest api
+	// calls more lightweight as the payload for these types of transactions
+	// can be very large. If the payload is needed, the caller should fetch the
+	// individual transaction.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
+			transaction.Payload = nil
+		}
+	}
+
 	return block, nil
 }
 

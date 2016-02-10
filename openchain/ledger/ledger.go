@@ -146,7 +146,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	ledger.resetForNextTxGroup(true)
 	ledger.blockchain.blockPersistenceStatus(true)
 
-	producer.Send(producer.CreateBlockEvent(block))
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -329,7 +329,7 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 	if err != nil {
 		return err
 	}
-	producer.Send(producer.CreateBlockEvent(block))
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -398,4 +398,19 @@ func (ledger *Ledger) resetForNextTxGroup(txCommited bool) {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
 	ledger.state.ClearInMemoryChanges(txCommited)
+}
+
+func sendProducerBlockEvent(block *protos.Block) {
+
+	// Remove payload from deploy transactions. This is done to make block
+	// events more lightweight as the payload for these types of transactions
+	// can be very large.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
+			transaction.Payload = nil
+		}
+	}
+
+	producer.Send(producer.CreateBlockEvent(block))
 }
