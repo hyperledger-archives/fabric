@@ -70,6 +70,7 @@ func (testDB *TestDBWrapper) removeDBPath() {
 // WriteToDB tests can use this method for persisting a given batch to db
 func (testDB *TestDBWrapper) WriteToDB(t *testing.T, writeBatch *gorocksdb.WriteBatch) {
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	err := GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		t.Fatalf("Error while writing to db. Error:%s", err)
