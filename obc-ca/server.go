@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"runtime"
 
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/spf13/viper"
@@ -42,7 +43,6 @@ func main() {
 	}
 
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
 	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
 	eca := obcca.NewECA()
@@ -54,8 +54,10 @@ func main() {
 	tlsca := obcca.NewTLSCA(eca)
 	defer tlsca.Close()
 
+	runtime.GOMAXPROCS(obcca.GetConfigInt("server.gomaxprocs"))
+	
 	var opts []grpc.ServerOption
-	if viper.GetString("tls.certfile") != "" {
+	if viper.GetString("server.tls.certfile") != "" {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
 		if err != nil {
 			panic(err)
@@ -68,7 +70,7 @@ func main() {
 	tca.Start(srv)
 	tlsca.Start(srv)
 
-	sock, err := net.Listen("tcp", viper.GetString("server.port"))
+	sock, err := net.Listen("tcp", obcca.GetConfigString("server.port"))
 	if err != nil {
 		panic(err)
 	}

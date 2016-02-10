@@ -35,7 +35,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/spf13/viper"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -55,7 +54,7 @@ type CA struct {
 //
 func NewCA(name string) *CA {
 	ca := new(CA)
-	ca.path = viper.GetString("server.rootpath") + "/" + viper.GetString("server.cadir")
+	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
