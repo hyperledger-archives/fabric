@@ -69,7 +69,7 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	op.pbft.lock()
 	defer op.pbft.unlock()
 
@@ -84,24 +84,36 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	svMsg := &SieveMessage{}
-	err := proto.Unmarshal(ocMsg.Payload, svMsg)
+	senderID, err := getValidatorID(senderHandle)
 	if err != nil {
-		logger.Error("Could not unmarshal sieve message: %v", ocMsg)
+		panic("Cannot map sender's PeerID to a valid replica ID")
+	}
+
+	svMsg := &SieveMessage{}
+	err = proto.Unmarshal(ocMsg.Payload, svMsg)
+	if err != nil {
+		err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
+		logger.Error(err.Error())
 		return err
 	}
 	if req := svMsg.GetRequest(); req != nil {
 		op.recvRequest(req)
 	} else if exec := svMsg.GetExecute(); exec != nil {
+		if senderID != exec.ReplicaId {
+			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
+			return nil
+		}
 		op.recvExecute(exec)
 	} else if verify := svMsg.GetVerify(); verify != nil {
+		// check for senderID not needed since verify messages are signed and will be verified
 		op.recvVerify(verify)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
 		op.pbft.unlock()
-		op.pbft.receive(pbftMsg)
+		op.pbft.receive(pbftMsg, senderID)
 		op.pbft.lock()
 	} else {
-		logger.Error("Received invalid sieve message: %v", svMsg)
+		err = fmt.Errorf("Received invalid sieve message: %v", svMsg)
+		logger.Error(err.Error())
 	}
 	return nil
 }
@@ -111,7 +123,7 @@ func (op *obcSieve) Close() {
 	op.pbft.close()
 }
 
-// Drain will block until all remaining execution has been handled.
+// Drain will block until all remaining execution has been handled
 func (op *obcSieve) Drain() {
 	op.pbft.drain()
 }
@@ -142,7 +154,7 @@ func (op *obcSieve) sign(msg []byte) ([]byte, error) {
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
 	senderHandle, err := getValidatorHandle(senderID)
 	if err != nil {
-		return fmt.Errorf("Could not verify message from %v: %v", senderHandle.Name, err)
+		return err
 	}
 	return op.stack.Verify(senderHandle, signature, message)
 }
@@ -179,7 +191,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 	raw, _ := proto.Marshal(msg)
 	op.pbft.unlock()
-	op.pbft.request(raw)
+	op.pbft.request(raw, op.id)
 	op.pbft.lock()
 }
 
@@ -278,7 +290,8 @@ func (op *obcSieve) processExecute() {
 	op.stack.ExecTxs(op.currentReq, op.currentTx)
 	hash, err := op.previewCommit(op.blockNumber)
 	if err != nil {
-		logger.Error("Sieve replica %d ignoring execute: %s", op.id, err)
+		err = fmt.Errorf("Sieve replica %d ignoring execute: %s", op.id, err)
+		logger.Error(err.Error())
 		op.blockNumber--
 		op.currentReq = ""
 		return
@@ -424,7 +437,7 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	if len(vset.Dset) < op.pbft.f+1 {
 		err := fmt.Errorf("verify-set invalid: not enough verifies in vset: need at least %d, got %d",
 			op.pbft.f+1, len(vset.Dset))
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 		return err
 	}
 
@@ -432,7 +445,7 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	if !reflect.DeepEqual(dSet, vset.Dset) {
 		err := fmt.Errorf("verify-set invalid: d-set not coherent: received %v, calculated %v",
 			vset.Dset, dSet)
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 		return err
 	}
 

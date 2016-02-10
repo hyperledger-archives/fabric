@@ -63,12 +63,11 @@ func fetchDataNodesFromDBFor(bucketKey *bucketKey) (dataNodes, error) {
 	itr.Seek(minimumDataKeyBytes)
 
 	for ; itr.Valid(); itr.Next() {
-		k := itr.Key().Data()
-		v := itr.Value().Data()
+
 		// making a copy of key-value bytes because, underlying key bytes are reused by itr.
-		//Did not observe the same behaviour for value but for now making copy for both key and value bytes
-		keyBytes := statemgmt.Copy(k)
-		valueBytes := statemgmt.Copy(v)
+		// no need to free slices as iterator frees memory when closed.
+		keyBytes := statemgmt.Copy(itr.Key().Data())
+		valueBytes := statemgmt.Copy(itr.Value().Data())
 
 		dataKey := newDataKeyFromEncodedBytes(keyBytes)
 		logger.Debug("Retrieved data key [%s] from DB for bucket [%s]", dataKey, bucketKey)

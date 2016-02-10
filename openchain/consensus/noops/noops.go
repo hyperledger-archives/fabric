@@ -21,19 +21,17 @@ package noops
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-// =============================================================================
-// Init
-// =============================================================================
 
 var logger *logging.Logger // package-level logger
 
@@ -41,65 +39,62 @@ func init() {
 	logger = logging.MustGetLogger("consensus/noops")
 }
 
-// =============================================================================
-// Structures go here
-// =============================================================================
-
 // Noops is a plugin object implementing the consensus.Consenter interface.
 type Noops struct {
-	stack consensus.Stack
-	txQ   *util.Queue
+	stack    consensus.Stack
+	txQ      *txq
+	timer    *time.Timer
+	duration time.Duration
+	channel  chan *pb.Transaction
 }
 
+// Setting up a singleton NOOPS consenter
 var iNoops consensus.Consenter
-
-// =============================================================================
-// Constructors go here
-// =============================================================================
-
-// NewNoops is a constructor returning a consensus.Consenter object.
-func NewNoops(c consensus.Stack) consensus.Consenter {
-	logger.Debug("Creating a NOOPS object")
-	i := &Noops{}
-	i.stack = c
-	i.txQ = util.NewQueue()
-	return i
-}
 
 // GetNoops returns a singleton of NOOPS
 func GetNoops(c consensus.Stack) consensus.Consenter {
 	if iNoops == nil {
-		iNoops = NewNoops(c)
+		iNoops = newNoops(c)
 	}
 	return iNoops
 }
 
-// RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
-func (i *Noops) RecvMsg(msg *pb.OpenchainMessage) error {
-	logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
+// newNoops is a constructor returning a consensus.Consenter object.
+func newNoops(c consensus.Stack) consensus.Consenter {
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Creating a NOOPS object")
+	}
+	i := &Noops{}
+	i.stack = c
+	config := loadConfig()
+	i.txQ = newTXQ(config.GetInt("block.size"))
+	i.duration = time.Second * time.Duration(config.GetInt("block.timeout"))
+	i.channel = make(chan *pb.Transaction, 100)
+	i.timer = time.NewTimer(i.duration) // start timer now so we can just reset it
+	i.timer.Stop()
+	go i.handleChannels()
+	return i
+}
 
+// RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
+func (i *Noops) RecvMsg(msg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
+	}
 	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		if err := i.broadcastConsensusMsg(msg); nil != err {
 			return err
 		}
 	}
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		txarr, err := i.getTransactionsFromMsg(msg)
+		tx, err := i.getTxFromMsg(msg)
 		if nil != err {
 			return err
 		}
-		if i.canProcess(txarr) {
-			i.txQ.Push(txarr)
-			if err = i.doTransactions(msg); err == nil {
-				//transactions succeeed, broadcast
-				//spin the broadcast in go routine so
-				//(a)we make RecvMsg light and
-				//(b)we separate send from receive
-				go i.notifyBlockAdded()
-			}
-			return err
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Sending to channel tx uuid: ", tx.Uuid)
 		}
-		i.queueTransactions(txarr)
+		i.channel <- tx
 	}
 	return nil
 }
@@ -113,7 +108,9 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 	// Change the msg type to consensus and broadcast to the network so that
 	// other validators may execute the transaction
 	msg.Type = pb.OpenchainMessage_CONSENSUS
-	logger.Debug("Broadcasting %s", msg.Type)
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Broadcasting %s", msg.Type)
+	}
 	txs := &pb.TransactionBlock{Transactions: []*pb.Transaction{t}}
 	payload, err := proto.Marshal(txs)
 	if err != nil {
@@ -126,112 +123,160 @@ func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 	return nil
 }
 
-func (i *Noops) getTransactionsFromMsg(msg *pb.OpenchainMessage) ([]*pb.Transaction, error) {
-	txs := &pb.TransactionBlock{}
-	if err := proto.Unmarshal(msg.Payload, txs); err != nil {
-		return nil, err
-	}
-	return txs.GetTransactions(), nil
-}
-
-func (i *Noops) getTransactionsFromQueue() []*pb.Transaction {
-	len := i.txQ.Size()
-	if len == 1 {
-		return i.txQ.Pop().([]*pb.Transaction)
-	}
-	txarr := make([]*pb.Transaction, len)
-	for k := 0; k < len; k++ {
-		txs := i.txQ.Pop().([]*pb.Transaction)
-		txarr[k] = txs[0]
-	}
-	return txarr
-}
-
-func (i *Noops) canProcess(txarr []*pb.Transaction) bool {
+func (i *Noops) canProcessBlock(tx *pb.Transaction) bool {
 	// For NOOPS, if we have completed the sync since we last connected,
 	// we can assume that we are at the current state; otherwise, we need to
 	// wait for the sync process to complete before we can exec the transactions
 
 	// TODO: Ask coordinator if we need to start sync
 
-	return true
+	i.txQ.append(tx)
+
+	// start timer if we get a tx
+	if i.txQ.size() == 1 {
+		i.timer.Reset(i.duration)
+	}
+	return i.txQ.isFull()
 }
 
-func (i *Noops) doTransactions(msg *pb.OpenchainMessage) error {
-	logger.Debug("Executing transactions")
-	logger.Debug("Starting TX batch with timestamp: %v", msg.Timestamp)
-	if err := i.stack.BeginTxBatch(msg.Timestamp); err != nil {
+func (i *Noops) handleChannels() {
+	// Noops is a singleton object and only exits when peer exits, so we
+	// don't need a condition to exit this loop
+	for {
+		select {
+		case tx := <-i.channel:
+			if i.canProcessBlock(tx) {
+				if logger.IsEnabledFor(logging.DEBUG) {
+					logger.Debug("Process block due to size")
+				}
+				if err := i.processBlock(); nil != err {
+					logger.Error(err.Error())
+				}
+			}
+		case <-i.timer.C:
+			if logger.IsEnabledFor(logging.DEBUG) {
+				logger.Debug("Process block due to time")
+			}
+			if err := i.processBlock(); nil != err {
+				logger.Error(err.Error())
+			}
+		}
+	}
+}
+
+func (i *Noops) processBlock() error {
+	i.timer.Stop()
+
+	if i.txQ.size() < 1 {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("processBlock() called but transaction Q is empty")
+		}
+		return nil
+	}
+	var data *pb.Block
+	var delta *statemgmt.StateDelta
+	var err error
+
+	if err = i.processTransactions(); nil != err {
+		return err
+	}
+	if data, delta, err = i.getBlockData(); nil != err {
+		return err
+	}
+	go i.notifyBlockAdded(data, delta)
+	return nil
+}
+
+func (i *Noops) processTransactions() error {
+	timestamp := util.CreateUtcTimestamp()
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Starting TX batch with timestamp: %v", timestamp)
+	}
+	if err := i.stack.BeginTxBatch(timestamp); err != nil {
 		return err
 	}
 
 	// Grab all transactions from the FIFO queue and run them in order
-	txarr := i.getTransactionsFromQueue()
-	logger.Debug("Executing batch of %d transactions", len(txarr))
-	_, err := i.stack.ExecTxs(msg.Timestamp, txarr)
+	txarr := i.txQ.getTXs()
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Executing batch of %d transactions with timestamp %v", len(txarr), timestamp)
+	}
+	_, err := i.stack.ExecTxs(timestamp, txarr)
 
 	//consensus does not need to understand transaction errors, errors here are
 	//actual ledger errors, and often irrecoverable
 	if err != nil {
-		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		i.stack.RollbackTxBatch(msg.Timestamp)
+		logger.Debug("Rolling back TX batch with timestamp: %v", timestamp)
+		i.stack.RollbackTxBatch(timestamp)
 		return fmt.Errorf("Fail to execute transactions: %v", err)
 	}
-
-	logger.Debug("Committing TX batch with timestamp: %v", msg.Timestamp)
-	if _, err := i.stack.CommitTxBatch(msg.Timestamp, nil); err != nil {
-		logger.Debug("Rolling back TX batch with timestamp: %v", msg.Timestamp)
-		i.stack.RollbackTxBatch(msg.Timestamp)
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Committing TX batch with timestamp: %v", timestamp)
+	}
+	if _, err := i.stack.CommitTxBatch(timestamp, nil); err != nil {
+		logger.Debug("Rolling back TX batch with timestamp: %v", timestamp)
+		i.stack.RollbackTxBatch(timestamp)
 		return err
 	}
-
 	return nil
 }
 
-func (i *Noops) notifyBlockAdded() error {
+func (i *Noops) getTxFromMsg(msg *pb.OpenchainMessage) (*pb.Transaction, error) {
+	txs := &pb.TransactionBlock{}
+	if err := proto.Unmarshal(msg.Payload, txs); err != nil {
+		return nil, err
+	}
+	return txs.GetTransactions()[0], nil
+}
+
+func (i *Noops) getBlockData() (*pb.Block, *statemgmt.StateDelta, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return fmt.Errorf("Fail to get the ledger: %v", err)
+		return nil, nil, fmt.Errorf("Fail to get the ledger: %v", err)
 	}
 
-	// TODO: Broadcast SYNC_BLOCK_ADDED to connected NVPs
-	// VPs already know about this newly added block since they participate
-	// in the execution. That is, they can compare their current block with
-	// the network block
-	// For now, send to everyone until broadcast has better discrimination
 	blockHeight := ledger.GetBlockchainSize()
-	logger.Debug("Preparing to broadcast with block number %v", blockHeight)
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Preparing to broadcast with block number %v", blockHeight)
+	}
 	block, err := ledger.GetBlockByNumber(blockHeight - 1)
 	if nil != err {
-		return err
+		return nil, nil, err
 	}
 	//delta, err := ledger.GetStateDeltaBytes(blockHeight)
 	delta, err := ledger.GetStateDelta(blockHeight - 1)
 	if nil != err {
-		return err
+		return nil, nil, err
+	}
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Got the delta state of block number %v", blockHeight)
 	}
 
+	return block, delta, nil
+}
+
+func (i *Noops) notifyBlockAdded(block *pb.Block, delta *statemgmt.StateDelta) error {
 	//make Payload nil to reduce block size..
 	//anything else to remove .. do we need StateDelta ?
 	for _, tx := range block.Transactions {
 		tx.Payload = nil
 	}
-
-	logger.Debug("Got the delta state of block number %v", blockHeight)
 	data, err := proto.Marshal(&pb.BlockState{Block: block, StateDelta: delta.Marshal()})
 	if err != nil {
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}
+	if logger.IsEnabledFor(logging.DEBUG) {
+		logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED to non-validators")
+	}
 
-	logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED to non-validators")
+	// Broadcast SYNC_BLOCK_ADDED to connected NVPs
+	// VPs already know about this newly added block since they participate
+	// in the execution. That is, they can compare their current block with
+	// the network block
 	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED,
 		Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	if errs := i.stack.Broadcast(msg, pb.PeerEndpoint_NON_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
-}
-
-func (i *Noops) queueTransactions(txarr []*pb.Transaction) {
-	i.txQ.Push(txarr)
-	logger.Debug("Transaction queue size: %d", i.txQ.Size())
 }

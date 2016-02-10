@@ -307,15 +307,15 @@ func (instance *pbftCore) timerHander() {
 
 		case <-instance.newViewTimer.C:
 			instance.timerExpiredCount++
-			logger.Debug("Replica %d view change timeout expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
+			logger.Debug("Replica %d view change timer expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
 			instance.lock()
 			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
 			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
 			// try to change views.
 			if instance.timerResetCount > instance.timerExpiredCount {
-				logger.Debug("Replica %d view change timeout has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
+				logger.Debug("Replica %d view change timer has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
 			} else {
-				logger.Info("Replica %d view change timeout expired, sending view change", instance.id)
+				logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 				instance.sendViewChange()
 			}
 			instance.unlock()
@@ -464,17 +464,18 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 // =============================================================================
 
 // handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload}}}
+func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
+		ReplicaId: senderID}}}
 	instance.lock()
 	defer instance.unlock()
-	instance.recvMsgSync(msg)
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
 // handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte) error {
+func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
@@ -483,34 +484,75 @@ func (instance *pbftCore) receive(msgPayload []byte) error {
 
 	instance.lock()
 	defer instance.unlock()
-	instance.recvMsgSync(msg)
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
-func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
+func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
 
 	if req := msg.GetRequest(); req != nil {
+		if senderID != req.ReplicaId {
+			err = fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
+		if senderID != preprep.ReplicaId {
+			err = fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
+		if senderID != prep.ReplicaId {
+			err = fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
+		if senderID != commit.ReplicaId {
+			err = fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
+		if senderID != chkpt.ReplicaId {
+			err = fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvCheckpoint(chkpt)
 	} else if vc := msg.GetViewChange(); vc != nil {
+		if senderID != vc.ReplicaId {
+			err = fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
+		if senderID != nv.ReplicaId {
+			err = fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvNewView(nv)
 	} else if fr := msg.GetFetchRequest(); fr != nil {
+		if senderID != fr.ReplicaId {
+			err = fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvFetchRequest(fr)
 	} else if req := msg.GetReturnRequest(); req != nil {
+		// it's ok for sender ID and replica ID to differ; we're sending the original request message
 		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 	}
 
 	return
@@ -942,7 +984,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 
 	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
 	if nil != err {
-		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		err = fmt.Errorf("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		logger.Error(err.Error())
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
@@ -950,7 +993,6 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
-
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
@@ -1068,7 +1110,7 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	// We call ourselves synchronously, so that testing can run
 	// synchronous.
 	if toSelf {
-		instance.recvMsgSync(msg)
+		instance.recvMsgSync(msg, instance.id)
 	}
 	return nil
 }

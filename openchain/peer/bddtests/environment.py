@@ -11,5 +11,15 @@ def after_scenario(context, scenario):
         		cli_call(context, ["docker-compose", "-f", context.compose_yaml, "kill"], expect_success=True)
 			context.compose_output, context.compose_error, context.compose_returncode = \
         		cli_call(context, ["docker-compose", "-f", context.compose_yaml, "rm","-f"], expect_success=True)
+            # now remove any other containers (chaincodes)
+			context.compose_output, context.compose_error, context.compose_returncode = \
+        		cli_call(context, ["docker",  "ps",  "-qa"], expect_success=True)
+        	if context.compose_returncode == 0:
+        		# Remove each container
+        		for containerId in context.compose_output.splitlines():
+        			#print("docker rm {0}".format(containerId))
+        			context.compose_output, context.compose_error, context.compose_returncode = \
+                        cli_call(context, ["docker",  "rm", containerId], expect_success=True)
+
 
 

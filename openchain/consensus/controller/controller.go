@@ -38,10 +38,10 @@ func init() {
 func NewConsenter(stack consensus.Stack) (consenter consensus.Consenter) {
 	plugin := viper.GetString("peer.validator.consensus")
 	if plugin == "obcpbft" {
-		logger.Info("Running with consensus plugin %s", plugin)
+		//logger.Info("Running with consensus plugin %s", plugin)
 		consenter = obcpbft.GetPlugin(stack)
 	} else {
-		logger.Info("Running with default consensus plugin (noops)")
+		//logger.Info("Running with default consensus plugin (noops)")
 		consenter = noops.GetNoops(stack)
 	}
 	return

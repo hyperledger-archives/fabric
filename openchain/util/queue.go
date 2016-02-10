@@ -19,11 +19,14 @@ under the License.
 
 package util
 
+import "sync"
+
 // Queue is a classic implmentation of a FIFO queue object
 type Queue struct {
 	head  *element
 	tail  *element
 	count int
+	lock  *sync.Mutex
 }
 
 // Element is a single linked list with a data field containing any data
@@ -36,17 +39,23 @@ type element struct {
 // NewQueue is a constructor returning a Queue object
 func NewQueue() *Queue {
 	q := &Queue{}
+	q.lock = &sync.Mutex{}
 	return q
 }
 
 // Size returns the number of elements on the queue
 func (q *Queue) Size() int {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	return q.count
 }
 
 // Push appends an item on the queue
 // @param item - any application data
 func (q *Queue) Push(item interface{}) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
 	element := &element{data: item}
 
 	// Move tail along where t.next points the new element
@@ -61,7 +70,11 @@ func (q *Queue) Push(item interface{}) {
 }
 
 // Pop returns the data item at the head of the queue
+// Example e := q.Pop().(T)  -- cast e to type T
 func (q *Queue) Pop() interface{} {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
 	if q.head == nil {
 		return nil
 	}
@@ -81,6 +94,9 @@ func (q *Queue) Pop() interface{} {
 
 // Peek returns the data at the head of the queue
 func (q *Queue) Peek() interface{} {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
 	element := q.head
 	if element == nil {
 		return nil

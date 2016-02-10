@@ -56,8 +56,11 @@ func (itr *RangeScanIterator) Next() bool {
 	}
 
 	for itr.dbItr.Valid() {
+
+		// making a copy of key-value bytes because, underlying key bytes are reused by itr.
+		// no need to free slices as iterator frees memory when closed.
 		keyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
-		valueBytes := itr.dbItr.Value().Data()
+		valueBytes := statemgmt.Copy(itr.dbItr.Value().Data())
 
 		dataNode := unmarshalDataNodeFromBytes(keyBytes, valueBytes)
 		dataKey := dataNode.dataKey
