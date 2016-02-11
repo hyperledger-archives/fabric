@@ -18,6 +18,9 @@ It has these top-level messages:
 	PrivateKey
 	Signature
 	RegisterUserReq
+	ReadUserSetReq
+	User
+	UserSet
 	ECertCreateReq
 	ECertCreateResp
 	ECertReadReq
@@ -29,6 +32,7 @@ It has these top-level messages:
 	TCertCreateSetResp
 	TCertReadReq
 	TCertReadSetReq
+	TCertReadSetsReq
 	TCertRevokeReq
 	TCertRevokeSetReq
 	TCertCRLReq
@@ -38,6 +42,7 @@ It has these top-level messages:
 	TLSCertRevokeReq
 	Cert
 	CertSet
+	CertSets
 	CertPair
 */
 package protos
@@ -91,19 +96,25 @@ const (
 	Role_CLIENT    Role = 1
 	Role_PEER      Role = 2
 	Role_VALIDATOR Role = 4
+	Role_AUDITOR   Role = 8
+	Role_ALL       Role = 65535
 )
 
 var Role_name = map[int32]string{
-	0: "NONE",
-	1: "CLIENT",
-	2: "PEER",
-	4: "VALIDATOR",
+	0:     "NONE",
+	1:     "CLIENT",
+	2:     "PEER",
+	4:     "VALIDATOR",
+	8:     "AUDITOR",
+	65535: "ALL",
 }
 var Role_value = map[string]int32{
 	"NONE":      0,
 	"CLIENT":    1,
 	"PEER":      2,
 	"VALIDATOR": 4,
+	"AUDITOR":   8,
+	"ALL":       65535,
 }
 
 func (x Role) String() string {
@@ -221,6 +232,61 @@ func (m *RegisterUserReq) GetId() *Identity {
 	return nil
 }
 
+type ReadUserSetReq struct {
+	Req  *Identity  `protobuf:"bytes,1,opt,name=req" json:"req,omitempty"`
+	Role Role       `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Sig  *Signature `protobuf:"bytes,3,opt,name=sig" json:"sig,omitempty"`
+}
+
+func (m *ReadUserSetReq) Reset()         { *m = ReadUserSetReq{} }
+func (m *ReadUserSetReq) String() string { return proto.CompactTextString(m) }
+func (*ReadUserSetReq) ProtoMessage()    {}
+
+func (m *ReadUserSetReq) GetReq() *Identity {
+	if m != nil {
+		return m.Req
+	}
+	return nil
+}
+
+func (m *ReadUserSetReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
+	}
+	return nil
+}
+
+type User struct {
+	Id   *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Role Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+}
+
+func (m *User) Reset()         { *m = User{} }
+func (m *User) String() string { return proto.CompactTextString(m) }
+func (*User) ProtoMessage()    {}
+
+func (m *User) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type UserSet struct {
+	Users []*User `protobuf:"bytes,1,rep,name=users" json:"users,omitempty"`
+}
+
+func (m *UserSet) Reset()         { *m = UserSet{} }
+func (m *UserSet) String() string { return proto.CompactTextString(m) }
+func (*UserSet) ProtoMessage()    {}
+
+func (m *UserSet) GetUsers() []*User {
+	if m != nil {
+		return m.Users
+	}
+	return nil
+}
+
 // Certificate requests.
 //
 type ECertCreateReq struct {
@@ -279,9 +345,10 @@ func (m *ECertCreateReq) GetSig() *Signature {
 }
 
 type ECertCreateResp struct {
-	Certs *CertPair `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
-	Chain *Token    `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
-	Tok   *Token    `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
+	Certs   *CertPair `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
+	Chain   *Token    `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
+	Pkchain []byte    `protobuf:"bytes,4,opt,name=pkchain,proto3" json:"pkchain,omitempty"`
+	Tok     *Token    `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
 }
 
 func (m *ECertCreateResp) Reset()         { *m = ECertCreateResp{} }
@@ -480,9 +547,11 @@ func (m *TCertCreateSetResp) GetCerts() *CertSet {
 }
 
 type TCertReadReq struct {
-	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
-	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Sig *Signature                 `protobuf:"bytes,3,opt,name=sig" json:"sig,omitempty"`
+	Ts   *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
+	Hash *Hash                      `protobuf:"bytes,2,opt,name=hash" json:"hash,omitempty"`
+	Req  *Identity                  `protobuf:"bytes,3,opt,name=req" json:"req,omitempty"`
+	Id   *Identity                  `protobuf:"bytes,4,opt,name=id" json:"id,omitempty"`
+	Sig  *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TCertReadReq) Reset()         { *m = TCertReadReq{} }
@@ -492,6 +561,20 @@ func (*TCertReadReq) ProtoMessage()    {}
 func (m *TCertReadReq) GetTs() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Ts
+	}
+	return nil
+}
+
+func (m *TCertReadReq) GetHash() *Hash {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *TCertReadReq) GetReq() *Identity {
+	if m != nil {
+		return m.Req
 	}
 	return nil
 }
@@ -512,9 +595,10 @@ func (m *TCertReadReq) GetSig() *Signature {
 
 type TCertReadSetReq struct {
 	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
-	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Num uint32                     `protobuf:"varint,3,opt,name=num" json:"num,omitempty"`
-	Sig *Signature                 `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
+	Req *Identity                  `protobuf:"bytes,2,opt,name=req" json:"req,omitempty"`
+	Id  *Identity                  `protobuf:"bytes,3,opt,name=id" json:"id,omitempty"`
+	Num uint32                     `protobuf:"varint,4,opt,name=num" json:"num,omitempty"`
+	Sig *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TCertReadSetReq) Reset()         { *m = TCertReadSetReq{} }
@@ -528,6 +612,13 @@ func (m *TCertReadSetReq) GetTs() *google_protobuf.Timestamp {
 	return nil
 }
 
+func (m *TCertReadSetReq) GetReq() *Identity {
+	if m != nil {
+		return m.Req
+	}
+	return nil
+}
+
 func (m *TCertReadSetReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
@@ -536,6 +627,46 @@ func (m *TCertReadSetReq) GetId() *Identity {
 }
 
 func (m *TCertReadSetReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
+	}
+	return nil
+}
+
+type TCertReadSetsReq struct {
+	Begin *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=begin" json:"begin,omitempty"`
+	End   *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=end" json:"end,omitempty"`
+	Req   *Identity                  `protobuf:"bytes,3,opt,name=req" json:"req,omitempty"`
+	Role  Role                       `protobuf:"varint,4,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Sig   *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
+}
+
+func (m *TCertReadSetsReq) Reset()         { *m = TCertReadSetsReq{} }
+func (m *TCertReadSetsReq) String() string { return proto.CompactTextString(m) }
+func (*TCertReadSetsReq) ProtoMessage()    {}
+
+func (m *TCertReadSetsReq) GetBegin() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Begin
+	}
+	return nil
+}
+
+func (m *TCertReadSetsReq) GetEnd() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.End
+	}
+	return nil
+}
+
+func (m *TCertReadSetsReq) GetReq() *Identity {
+	if m != nil {
+		return m.Req
+	}
+	return nil
+}
+
+func (m *TCertReadSetsReq) GetSig() *Signature {
 	if m != nil {
 		return m.Sig
 	}
@@ -746,13 +877,44 @@ func (m *Cert) String() string { return proto.CompactTextString(m) }
 func (*Cert) ProtoMessage()    {}
 
 type CertSet struct {
-	Key   []byte   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Certs [][]byte `protobuf:"bytes,2,rep,name=certs,proto3" json:"certs,omitempty"`
+	Ts    *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
+	Id    *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Key   []byte                     `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	Certs [][]byte                   `protobuf:"bytes,4,rep,name=certs,proto3" json:"certs,omitempty"`
 }
 
 func (m *CertSet) Reset()         { *m = CertSet{} }
 func (m *CertSet) String() string { return proto.CompactTextString(m) }
 func (*CertSet) ProtoMessage()    {}
+
+func (m *CertSet) GetTs() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Ts
+	}
+	return nil
+}
+
+func (m *CertSet) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type CertSets struct {
+	Sets []*CertSet `protobuf:"bytes,1,rep,name=sets" json:"sets,omitempty"`
+}
+
+func (m *CertSets) Reset()         { *m = CertSets{} }
+func (m *CertSets) String() string { return proto.CompactTextString(m) }
+func (*CertSets) ProtoMessage()    {}
+
+func (m *CertSets) GetSets() []*CertSet {
+	if m != nil {
+		return m.Sets
+	}
+	return nil
+}
 
 type CertPair struct {
 	Sign []byte `protobuf:"bytes,1,opt,name=sign,proto3" json:"sign,omitempty"`
@@ -942,6 +1104,7 @@ var _ECAP_serviceDesc = grpc.ServiceDesc{
 
 type ECAAClient interface {
 	RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error)
+	ReadUserSet(ctx context.Context, in *ReadUserSetReq, opts ...grpc.CallOption) (*UserSet, error)
 	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 	PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...grpc.CallOption) (*CAStatus, error)
 }
@@ -957,6 +1120,15 @@ func NewECAAClient(cc *grpc.ClientConn) ECAAClient {
 func (c *eCAAClient) RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error) {
 	out := new(Token)
 	err := grpc.Invoke(ctx, "/protos.ECAA/RegisterUser", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *eCAAClient) ReadUserSet(ctx context.Context, in *ReadUserSetReq, opts ...grpc.CallOption) (*UserSet, error) {
+	out := new(UserSet)
+	err := grpc.Invoke(ctx, "/protos.ECAA/ReadUserSet", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -985,6 +1157,7 @@ func (c *eCAAClient) PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...gr
 
 type ECAAServer interface {
 	RegisterUser(context.Context, *RegisterUserReq) (*Token, error)
+	ReadUserSet(context.Context, *ReadUserSetReq) (*UserSet, error)
 	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
 	PublishCRL(context.Context, *ECertCRLReq) (*CAStatus, error)
 }
@@ -999,6 +1172,18 @@ func _ECAA_RegisterUser_Handler(srv interface{}, ctx context.Context, dec func(i
 		return nil, err
 	}
 	out, err := srv.(ECAAServer).RegisterUser(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ECAA_ReadUserSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ReadUserSetReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ECAAServer).ReadUserSet(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1036,6 +1221,10 @@ var _ECAA_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterUser",
 			Handler:    _ECAA_RegisterUser_Handler,
+		},
+		{
+			MethodName: "ReadUserSet",
+			Handler:    _ECAA_ReadUserSet_Handler,
 		},
 		{
 			MethodName: "RevokeCertificate",
@@ -1271,6 +1460,7 @@ var _TCAP_serviceDesc = grpc.ServiceDesc{
 // Client API for TCAA service
 
 type TCAAClient interface {
+	ReadCertificateSets(ctx context.Context, in *TCertReadSetsReq, opts ...grpc.CallOption) (*CertSets, error)
 	RevokeCertificate(ctx context.Context, in *TCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
 	RevokeCertificateSet(ctx context.Context, in *TCertRevokeSetReq, opts ...grpc.CallOption) (*CAStatus, error)
 	PublishCRL(ctx context.Context, in *TCertCRLReq, opts ...grpc.CallOption) (*CAStatus, error)
@@ -1282,6 +1472,15 @@ type tCAAClient struct {
 
 func NewTCAAClient(cc *grpc.ClientConn) TCAAClient {
 	return &tCAAClient{cc}
+}
+
+func (c *tCAAClient) ReadCertificateSets(ctx context.Context, in *TCertReadSetsReq, opts ...grpc.CallOption) (*CertSets, error) {
+	out := new(CertSets)
+	err := grpc.Invoke(ctx, "/protos.TCAA/ReadCertificateSets", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *tCAAClient) RevokeCertificate(ctx context.Context, in *TCertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
@@ -1314,6 +1513,7 @@ func (c *tCAAClient) PublishCRL(ctx context.Context, in *TCertCRLReq, opts ...gr
 // Server API for TCAA service
 
 type TCAAServer interface {
+	ReadCertificateSets(context.Context, *TCertReadSetsReq) (*CertSets, error)
 	RevokeCertificate(context.Context, *TCertRevokeReq) (*CAStatus, error)
 	RevokeCertificateSet(context.Context, *TCertRevokeSetReq) (*CAStatus, error)
 	PublishCRL(context.Context, *TCertCRLReq) (*CAStatus, error)
@@ -1321,6 +1521,18 @@ type TCAAServer interface {
 
 func RegisterTCAAServer(s *grpc.Server, srv TCAAServer) {
 	s.RegisterService(&_TCAA_serviceDesc, srv)
+}
+
+func _TCAA_ReadCertificateSets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TCertReadSetsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(TCAAServer).ReadCertificateSets(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _TCAA_RevokeCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -1363,6 +1575,10 @@ var _TCAA_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.TCAA",
 	HandlerType: (*TCAAServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReadCertificateSets",
+			Handler:    _TCAA_ReadCertificateSets_Handler,
+		},
 		{
 			MethodName: "RevokeCertificate",
 			Handler:    _TCAA_RevokeCertificate_Handler,

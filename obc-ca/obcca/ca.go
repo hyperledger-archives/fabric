@@ -36,7 +36,6 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/sha3"
-	"github.com/spf13/viper"
 )
 
 // CA is the base certificate authority.
@@ -45,17 +44,17 @@ type CA struct {
 	db *sql.DB
 
 	path string
-	
+
 	priv *ecdsa.PrivateKey
 	cert *x509.Certificate
-	raw []byte
+	raw  []byte
 }
 
 // NewCA sets up a new CA.
 //
 func NewCA(name string) *CA {
 	ca := new(CA)
-	ca.path = viper.GetString("server.rootpath")+"/"+viper.GetString("server.cadir")
+	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
@@ -162,7 +161,7 @@ func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 	Trace.Println("Creating CA certificate.")
 
-	raw, err := ca.newCertificate(name, pub, x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, nil)
+	raw, err := ca.newCertificate(name, pub, x509.KeyUsageDigitalSignature|x509.KeyUsageCertSign, nil)
 	if err != nil {
 		Panic.Panicln(err)
 	}
@@ -183,7 +182,7 @@ func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
 func (ca *CA) readCACertificate(name string) ([]byte, error) {
 	Trace.Println("Reading CA certificate.")
 
-	cooked, err := ioutil.ReadFile(ca.path+"/"+name+".cert")
+	cooked, err := ioutil.ReadFile(ca.path + "/" + name + ".cert")
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +192,7 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 }
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
-	Trace.Println("Creating certificate for "+id+".")
+	Trace.Println("Creating certificate for " + id + ".")
 
 	raw, err := ca.newCertificate(id, pub, usage, opt)
 	if err != nil {
@@ -258,7 +257,7 @@ func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ex
 }
 
 func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
-	Trace.Println("Reading certificate for "+id+".")
+	Trace.Println("Reading certificate for " + id + ".")
 
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
@@ -267,7 +266,7 @@ func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
 }
 
 func (ca *CA) readCertificate1(id string, ts int64) ([]byte, error) {
-	Trace.Println("Reading certificate for "+id+".")
+	Trace.Println("Reading certificate for " + id + ".")
 
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND timestamp=?", id, ts).Scan(&raw)
@@ -276,17 +275,23 @@ func (ca *CA) readCertificate1(id string, ts int64) ([]byte, error) {
 }
 
 func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
-	Trace.Println("Reading certificatess for "+id+".")
+	Trace.Println("Reading certificatess for " + id + ".")
 
 	if len(opt) > 0 && opt[0] != 0 {
-		return ca.db.Query("SELECT cert, kdfkey FROM Certificates ORDER BY usage WHERE id=? AND timestamp=?", id, opt[0])
+		return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=? AND timestamp=? ORDER BY usage", id, opt[0])
 	}
 
 	return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=?", id)
 }
 
+func (ca *CA) readCertificateSets(id string, start, end int64) (*sql.Rows, error) {
+	Trace.Println("Reading certificate sets for " + id + ".")
+
+	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates WHERE id=? AND timestamp BETWEEN ? AND ? ORDER BY timestamp", id, start, end)
+}
+
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
-	Trace.Println("Reading certificate for hash "+string(hash)+".")
+	Trace.Println("Reading certificate for hash " + string(hash) + ".")
 
 	var raw []byte
 	row := ca.db.QueryRow("SELECT cert FROM Certificates WHERE hash=?", hash)
@@ -296,7 +301,7 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 }
 
 func (ca *CA) registerUser(id string, role int, opt ...string) (string, error) {
-	Trace.Println("Registering user "+id+" as "+strconv.FormatInt(int64(role), 2)+".")
+	Trace.Println("Registering user " + id + " as " + strconv.FormatInt(int64(role), 2) + ".")
 
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
@@ -320,8 +325,8 @@ func (ca *CA) registerUser(id string, role int, opt ...string) (string, error) {
 	return tok, err
 }
 
-func (ca *CA) deleteUser(id string) (error) {
-	Trace.Println("Deleting user "+id+".")
+func (ca *CA) deleteUser(id string) error {
+	Trace.Println("Deleting user " + id + ".")
 
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
@@ -336,21 +341,27 @@ func (ca *CA) deleteUser(id string) (error) {
 			Error.Println(err)
 		}
 	}
-	
+
 	return err
 }
 
-func (ca *CA) readToken(id string) *sql.Row {
-	Trace.Println("Reading token for "+id+".")
+func (ca *CA) readUser(id string) *sql.Row {
+	Trace.Println("Reading token for " + id + ".")
 
-	return ca.db.QueryRow("SELECT token, state, key FROM Users WHERE id=?", id)
+	return ca.db.QueryRow("SELECT role, token, state, key FROM Users WHERE id=?", id)
+}
+
+func (ca *CA) readUsers(role int) (*sql.Rows, error) {
+	Trace.Println("Reading users matching role " + strconv.FormatInt(int64(role), 2) + ".")
+
+	return ca.db.Query("SELECT id, role FROM Users WHERE role&?!=0", role)
 }
 
 func (ca *CA) readRole(id string) int {
-	Trace.Println("Reading role for "+id+".")
+	Trace.Println("Reading role for " + id + ".")
 
 	var role int
 	ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
-	
+
 	return role
 }
