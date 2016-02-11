@@ -27,6 +27,7 @@ import (
 
 	google_protobuf1 "google/protobuf"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -76,6 +77,28 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
 		}
 	}
+
+	// Remove payload from deploy transactions. This is done to make rest api
+	// calls more lightweight as the payload for these types of transactions
+	// can be very large. If the payload is needed, the caller should fetch the
+	// individual transaction.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
+			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			transaction.Payload = deploymentSpecBytes
+		}
+	}
+
 	return block, nil
 }
 
