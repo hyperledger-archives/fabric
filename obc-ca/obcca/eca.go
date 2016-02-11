@@ -24,7 +24,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
+//	"crypto/rsa"
+	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -36,6 +37,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
@@ -209,16 +212,24 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
+//		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
+		spi := ecies.NewSPI()
+		eciesKey, err := spi.NewPublicKey(nil, ekey.(*ecdsa.PublicKey))
 		if err != nil {
 			return nil, err
 		}
-
-		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, nil
+		
+		ecies, err := spi.NewAsymmetricCipherFromPublicKey(eciesKey)
+		if err != nil {
+			return nil, err
+		}
+		
+		out, err := ecies.Process(tok)
+		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, err
 
 	case state == 1:
 		// ensure that the same encryption key is signed that has been used for the challenge
-		if bytes.Compare(in.Enc.Key, prev) != 0 {
+		if subtle.ConstantTimeCompare(in.Enc.Key, prev) != 1 {
 			return nil, errors.New("encryption keys don't match")
 		}
 
@@ -254,7 +265,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*rsa.PublicKey), x509.KeyUsageDataEncipherment, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		eraw, err := ecap.eca.createCertificate(id, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)

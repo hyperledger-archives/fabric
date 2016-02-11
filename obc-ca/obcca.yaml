@@ -15,7 +15,7 @@ eca:
                 system_chaincode_invoker: 2 DRJ20pEql15a
                 diego: 2 DRJ23pEQl16a
                 binhn: 3 7avZQLwcUe9q
-                jim: 4 6avZQLwcUe9b
+                jim: 8 6avZQLwcUe9b
 tca:
 #         tls:
 #                certfile:
