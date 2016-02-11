@@ -12,6 +12,7 @@ eca:
 
     users:
         # clients
+        userthread: 1 9gvZQRwhUq9q
         user1: 1 9gvZQRwhUq9q
         user2: 1 9gvZQRwhUq9q
         TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
@@ -81,5 +82,9 @@ tests:
 
             TestRegistrationSameEnrollIDDifferentRole:
                 enrollid: TestRegistrationSameEnrollIDDifferentRole
+                enrollpw: 9gvZQRwhUq9q
+
+            userthread:
+                enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
 

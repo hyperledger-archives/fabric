@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -104,6 +105,66 @@ func TestMain(m *testing.M) {
 	cleanup()
 
 	os.Exit(ret)
+}
+
+func TestBla(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
+	RegisterClient(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+
+	done := make(chan bool)
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			client, err := InitClient(conf.Name, nil)
+			if err != nil {
+				t.Log("Init failed")
+			}
+			time.Sleep(3 * time.Second)
+			err = CloseClient(client)
+			if err != nil {
+				t.Log("Close failed")
+			}
+		}
+		done <- true
+
+	}()
+	go func() {
+		for i := 0; i < 5; i++ {
+			client, err := InitClient(conf.Name, nil)
+			if err != nil {
+				t.Log("Init failed")
+			}
+			time.Sleep(5 * time.Second)
+			err = CloseClient(client)
+			if err != nil {
+				t.Log("Close failed")
+			}
+		}
+		done <- true
+
+	}()
+	go func() {
+		for i := 0; i < 5; i++ {
+			client, err := InitClient(conf.Name, nil)
+			if err != nil {
+				t.Log("Init failed")
+			}
+			time.Sleep(1 * time.Second)
+			err = CloseClient(client)
+			if err != nil {
+				t.Log("Close failed")
+			}
+		}
+		done <- true
+
+	}()
+
+	for i := 0; i < 3; i++ {
+		t.Log("Waiting")
+		<-done
+		t.Log("+1")
+	}
+	//
 }
 
 func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
