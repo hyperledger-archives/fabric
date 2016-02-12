@@ -10,7 +10,13 @@ server:
 #              certfile: "/var/openchain/production/.obcca/tlsca.cert"
 #              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
 
-
+logging:
+        trace: 0
+        info: 1
+        warning: 1
+        error: 1
+        panic: 1
+        
 eca:
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator)> <EnrollmentPWD>
