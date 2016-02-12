@@ -109,7 +109,8 @@ peer:
     listenAddress: 0.0.0.0:30303
     # The Address this Peer will bind to for providing services
     address: 0.0.0.0:30303
-    # Whether the Peer should programmatically determine the address to bind to. This case is useful for docker containers.
+    # Whether the Peer should programmatically determine the address to bind to.
+    # This case is useful for docker containers.
     addressAutoDetect: false
 
     # Peer port to accept connections on
@@ -121,17 +122,24 @@ peer:
     # Sync related configuration
     sync:
         blocks:
-            # Channel size for readonly SyncBlocks messages channel for receiving blocks from oppositie Peer Endpoints.
-            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+            # Channel size for readonly SyncBlocks messages channel for receiving
+            # blocks from oppositie Peer Endpoints.
+            # NOTE: currently messages are not stored and forwarded, but rather
+            # lost if the channel write blocks.
             channelSize: 1
         state:
             snapshot:
-                # Channel size for readonly syncStateSnapshot messages channel for receiving state deltas for snapshot from oppositie Peer Endpoints.
-                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+                # Channel size for readonly syncStateSnapshot messages channel
+                # for receiving state deltas for snapshot from oppositie Peer Endpoints.
+                # NOTE: currently messages are not stored and forwarded, but
+                # rather lost if the channel write blocks.
                 channelSize: 50
             deltas:
-                # Channel size for readonly syncStateDeltas messages channel for receiving state deltas for a syncBlockRange from oppositie Peer Endpoints.
-                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+                # Channel size for readonly syncStateDeltas messages channel for
+                # receiving state deltas for a syncBlockRange from oppositie
+                # Peer Endpoints.
+                # NOTE: currently messages are not stored and forwarded,
+                # but rather lost if the channel write blocks.
                 channelSize: 5
 
     # Validator defines whether this peer is a validating peer or not, and if
@@ -146,7 +154,8 @@ peer:
             # The address that the Event service will be enabled on the validator
             address: 0.0.0.0:31315
 
-            # total number of events that could be buffered without blocking the validator sends
+            # total number of events that could be buffered without blocking the
+            # validator sends
             buffersize: 100
 
             # milliseconds timeout for producer to send an event.
@@ -187,7 +196,8 @@ peer:
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 
-        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
+        # The root nodes are used for bootstrapping purposes, and generally
+        # supplied through ENV variables
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers
@@ -260,31 +270,36 @@ vm:
 ###############################################################################
 chaincode:
 
-    # The id is used by the Chaincode stub to register the executing Chaincode ID with the Peerand is generally supplied through ENV variables
-    # the Path form of ID is provided when deploying the chaincode. The name is used for all other requests. The name is really a hashcode
-    # returned by the system in response to the deploy transaction. In development mode where user runs the chaincode, the name can be
-    # any string
+    # The id is used by the Chaincode stub to register the executing Chaincode
+    # ID with the Peerand is generally supplied through ENV variables
+    # the Path form of ID is provided when deploying the chaincode. The name is
+    # used for all other requests. The name is really a hashcode
+    # returned by the system in response to the deploy transaction. In
+    # development mode where user runs the chaincode, the name can be any string
     id:
         path:
         name:
 
     golang:
 
-        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
+        # This is the basis for the Golang Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             from golang:1.5.1
             ENV GO15VENDOREXPERIMENT=1
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
-    #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests
+    # timeout in millisecs for starting up a container and waiting for Register
+    # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
 
     #timeout in millisecs for deploying chaincode from a remote repository.
     deploytimeout: 30000
 
     #mode - options are "dev", "net"
-    #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #dev - in dev mode, user runs the chaincode after starting validator from
+    # command line on local machine
     #net - in net mode validator will run chaincode in a docker container
 
     mode: net
@@ -336,11 +351,13 @@ ledger:
       name: buckettree
       # The data structure specific configurations
       configs:
-        # configurations for 'bucketree'. These CANNOT be changed after the DB has been created.
-        # 'numBuckets' defines the number of bins that the state key-values are to be divided
+        # configurations for 'bucketree'. These CANNOT be changed after the DB
+        # has been created. 'numBuckets' defines the number of bins that the
+        # state key-values are to be divided
         numBuckets: 10009
-        # 'maxGroupingAtEachLevel' defines the number of bins that are grouped together to construct
-        # next level of the merkle-tree (this is applied repeatedly for constructing the entire tree).
+        # 'maxGroupingAtEachLevel' defines the number of bins that are grouped
+        #together to construct next level of the merkle-tree (this is applied
+        # repeatedly for constructing the entire tree).
         maxGroupingAtEachLevel: 10
 
         # configurations for 'trie'
@@ -349,16 +366,21 @@ ledger:
 
 ###############################################################################
 #
-#    Security section -
+#    Security section - Applied to all entities (client, NVP, VP)
 #
 ###############################################################################
 security:
+    # Enable security will force every entity on the network to enroll with obc-ca
+    # and maintain a valid set of certificates in order to communicate with
+    # other peers
     enabled: false
     # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
-    # They will not be valid the subsequent times without un-enroll.
+    # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
     # sure the values are in obc-ca/obcca.yaml file eca.users
     enrollID: binhn
     enrollSecret: 7avZQLwcUe9q
-    # To enable privacy and confidentiality of transactions (requires security to be enabled)
+    # To enable privacy of transactions (requires security to be enabled). This
+    # encrypts the transaction content during transit and at rest. The state
+    # data is also encrypted
     privacy: false
