@@ -6,7 +6,7 @@
 server:
         version: "0.1"
         rootpath: ".obc-ca"
-        port: ":80541"
+        port: ":50541"
 
 eca:
 
@@ -32,13 +32,13 @@ eca:
 peer:
     pki:
         eca:
-            paddr: localhost:80541
+            paddr: localhost:50541
 
         tca:
-            paddr: localhost:80541
+            paddr: localhost:50541
 
         tlsca:
-            paddr: localhost:80541
+            paddr: localhost:50541
 
         tls:
             enabled: true
