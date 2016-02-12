@@ -242,7 +242,25 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 		urlLocation = spec.ChaincodeID.Path
 	}
 
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	if urlLocation == "" {
+		return fmt.Errorf("empty url location")
+	}
+
+	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
+		urlLocation = urlLocation[:len(urlLocation)-1]
+	}
+	toks := strings.Split(urlLocation, "/")
+	if toks == nil || len(toks) == 0 {
+		return fmt.Errorf("cannot get path components from %s", urlLocation)
+	}
+
+	chaincodeGoName := toks[len(toks)-1]
+	if chaincodeGoName == "" {
+		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
+	}
+	
+	//let the executable's name be chaincode ID's name
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
