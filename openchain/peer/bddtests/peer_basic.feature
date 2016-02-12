@@ -89,7 +89,7 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "2" seconds
+	    And I wait "3" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  |
         And I use the following credentials for querying peers:
