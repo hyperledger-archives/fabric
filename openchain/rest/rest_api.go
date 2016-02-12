@@ -872,6 +872,25 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	}
 }
 
+// GetPeers returns a list of all peer nodes currently connected to the target peer.
+func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) {
+	peers, err := s.server.GetPeers(context.Background(), &google_protobuf.Empty{})
+
+	encoder := json.NewEncoder(rw)
+
+	// Check for error
+	if err != nil {
+		// Failure
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		restLogger.Error(fmt.Sprintf("{\"Error\": \"Querying network peers -- %s\"}", err))
+	} else {
+		// Success
+		rw.WriteHeader(http.StatusOK)
+		encoder.Encode(peers)
+	}
+}
+
 // NotFound returns a custom landing page when a given openchain end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
@@ -908,6 +927,8 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
 
 	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
+
+	router.Get("/network/peers", (*ServerOpenchainREST).GetPeers)
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)

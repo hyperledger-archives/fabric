@@ -37,10 +37,16 @@ var (
 	ErrNotFound = errors.New("openchain: resource not found")
 )
 
+// PeerInfo
+type PeerInfo interface {
+	GetPeers() (*pb.PeersMessage, error)
+}
+
 // ServerOpenchain defines the Openchain server object, which holds the
-// Ledger data structure.
+// Ledger data structure and the pointer to the peerServer.
 type ServerOpenchain struct {
-	ledger *ledger.Ledger
+	ledger   *ledger.Ledger
+	peerInfo PeerInfo
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
@@ -50,7 +56,21 @@ func NewOpenchainServer() (*ServerOpenchain, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	s := &ServerOpenchain{ledger: ledger}
+
+	return s, nil
+}
+
+// NewOpenchainServerWithPeerInfo creates a new instance of the ServerOpenchain.
+func NewOpenchainServerWithPeerInfo(peerServer PeerInfo) (*ServerOpenchain, error) {
+	// Get a handle to the Ledger singleton.
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, err
+	}
+
+	s := &ServerOpenchain{ledger: ledger, peerInfo: peerServer}
 
 	return s, nil
 }
@@ -136,4 +156,9 @@ func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID strin
 		}
 	}
 	return transaction, nil
+}
+
+// GetPeers returns a list of all peer nodes currently connected to the target peer.
+func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+	return s.peerInfo.GetPeers()
 }
