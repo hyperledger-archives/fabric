@@ -371,7 +371,7 @@ func serve(args []string) error {
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := openchain.NewOpenchainServer()
+	serverOpenchain, err := openchain.NewOpenchainServer(peerServer)
 	if err != nil {
 		err = fmt.Errorf("Error creating OpenchainServer: %s", err)
 		return err

@@ -29,6 +29,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/openblockchain/obc-peer/openchain/peer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -38,19 +39,21 @@ var (
 )
 
 // ServerOpenchain defines the Openchain server object, which holds the
-// Ledger data structure.
+// Ledger data structure and the pointer to the peerServer.
 type ServerOpenchain struct {
 	ledger *ledger.Ledger
+	peer   *peer.PeerImpl
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
-func NewOpenchainServer() (*ServerOpenchain, error) {
+func NewOpenchainServer(peerServer *peer.PeerImpl) (*ServerOpenchain, error) {
 	// Get a handle to the Ledger singleton.
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, err
 	}
-	s := &ServerOpenchain{ledger: ledger}
+
+	s := &ServerOpenchain{ledger: ledger, peer: peerServer}
 
 	return s, nil
 }
@@ -136,4 +139,9 @@ func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID strin
 		}
 	}
 	return transaction, nil
+}
+
+// GetPeers returns a list of all peer nodes currently connected to the target peer.
+func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+	return s.peer.GetPeers()
 }
