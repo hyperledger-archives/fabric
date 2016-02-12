@@ -227,11 +227,13 @@ func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 	return handler.handlePutState(key, value, stub.UUID)
 }
 
-// DelState function can be invoked by a chaincode to del state from the ledger.
+// DelState function can be invoked by a chaincode to delete state from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
+// StateRangeQueryIterator allows a chaincode to iterate over a range of
+// key/value pairs in the state.
 type StateRangeQueryIterator struct {
 	handler    *Handler
 	uuid       string
@@ -240,7 +242,10 @@ type StateRangeQueryIterator struct {
 }
 
 // RangeQueryState function can be invoked by a chaincode to query of a range
-// of keys in the state.
+// of keys in the state. Assuming the startKey and endKey are in lexical order,
+// an iterator will be returned that can be used to iterate over all keys
+// between the startKey and endKey, inclusive. The order in which keys are
+// returned by the iterator is random.
 func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error) {
 	response, err := handler.handleRangeQueryState(startKey, endKey, stub.UUID)
 	if err != nil {
@@ -249,6 +254,8 @@ func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (*StateRange
 	return &StateRangeQueryIterator{handler, stub.UUID, response, 0}, nil
 }
 
+// HasNext returns true if the range query iterator contains additional keys
+// and values.
 func (iter *StateRangeQueryIterator) HasNext() bool {
 	if iter.currentLoc < len(iter.response.KeysAndValues) || iter.response.HasMore {
 		return true
@@ -256,6 +263,7 @@ func (iter *StateRangeQueryIterator) HasNext() bool {
 	return false
 }
 
+// Next returns the next key and value in the range query iterator.
 func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
 	if iter.currentLoc < len(iter.response.KeysAndValues) {
 		keyValue := iter.response.KeysAndValues[iter.currentLoc]
@@ -279,6 +287,8 @@ func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
 	}
 }
 
+// Close closes the range query iterator. This should be called when done
+// reading from the iterator to free up resources.
 func (iter *StateRangeQueryIterator) Close() error {
 	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
 	return err
