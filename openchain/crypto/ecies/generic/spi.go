@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"fmt"
 	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
 	"io"
 )
@@ -41,7 +40,6 @@ func newPublicKeyFromECDSA(pk *ecdsa.PublicKey) (ecies.PublicKey, error) {
 }
 
 func newPrivateKeyFromECDSA(sk *ecdsa.PrivateKey) (ecies.PrivateKey, error) {
-	fmt.Printf("[%s]\n", sk)
 	return &secretKeyImpl{sk, nil, nil, rand.Reader}, nil
 }
 
@@ -116,14 +114,10 @@ func (spi *spiImpl) NewAsymmetricCipherFromPublicKey(pub ecies.PublicKey) (ecies
 }
 
 func (spi *spiImpl) NewPrivateKey(r io.Reader, params interface{}) (ecies.PrivateKey, error) {
-	fmt.Printf("NewPrivateKey [%s]\n", params)
-
 	switch t := params.(type) {
 	case *ecdsa.PrivateKey:
-		fmt.Printf("2 [%s]\n", t)
 		return newPrivateKeyFromECDSA(t)
 	case elliptic.Curve:
-		fmt.Printf("1 [%s]\n", params)
 		if r == nil {
 			r = rand.Reader
 		}
