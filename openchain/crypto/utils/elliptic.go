@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	defaultCurve = elliptic.P384()
+	DefaultCurve = elliptic.P384()
 )
 
 // ECDSASignature represents an ECDSA signature
@@ -39,7 +39,7 @@ type ECDSASignature struct {
 
 // NewECDSAKey generates a new ECDSA Key
 func NewECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(defaultCurve, rand.Reader)
+	return ecdsa.GenerateKey(DefaultCurve, rand.Reader)
 }
 
 // ECDSASignDirect signs

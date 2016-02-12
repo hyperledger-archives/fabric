@@ -21,6 +21,7 @@ package main
 
 import (
 	//	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -42,7 +43,34 @@ func main() {
 		panic(err)
 	}
 
-	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	var iotrace, ioinfo, iowarning, ioerror, iopanic io.Writer
+	if obcca.GetConfigInt("logging.trace") == 1 {
+		iotrace = os.Stdout
+	} else {
+		iotrace = ioutil.Discard
+	}
+	if obcca.GetConfigInt("logging.info") == 1 {
+		ioinfo = os.Stdout
+	} else {
+		ioinfo = ioutil.Discard
+	}
+	if obcca.GetConfigInt("logging.warning") == 1 {
+		iowarning = os.Stdout
+	} else {
+		iowarning = ioutil.Discard
+	}
+	if obcca.GetConfigInt("logging.error") == 1 {
+		ioerror = os.Stderr
+	} else {
+		ioerror = ioutil.Discard
+	}
+	if obcca.GetConfigInt("logging.panic") == 1 {
+		iopanic = os.Stdout
+	} else {
+		iopanic = ioutil.Discard
+	}
+	
+	obcca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
 	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
 	eca := obcca.NewECA()

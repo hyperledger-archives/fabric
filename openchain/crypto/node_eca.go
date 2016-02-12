@@ -27,10 +27,10 @@ import (
 	protobuf "google/protobuf"
 	"time"
 
-	"crypto/rsa"
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
+	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -281,6 +281,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	defer sock.Close()
 
 	// Run the protocol
+
 	signPriv, err := utils.NewECDSAKey()
 	if err != nil {
 		node.log.Error("Failed generating ECDSA key [%s].", err.Error())
@@ -294,15 +295,15 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	encPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	encPriv, err := utils.NewECDSAKey()
 	if err != nil {
-		node.log.Error("Failed generating RSA key [%s].", err.Error())
+		node.log.Error("Failed generating Encryption key [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
 	encPub, err := x509.MarshalPKIXPublicKey(&encPriv.PublicKey)
 	if err != nil {
-		node.log.Error("Failed marshalling RSA key [%s].", err.Error())
+		node.log.Error("Failed marshalling Encryption key [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
@@ -311,7 +312,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		&obcca.Identity{id},
 		&obcca.Token{Tok: []byte(pw)},
 		&obcca.PublicKey{obcca.CryptoType_ECDSA, signPub},
-		&obcca.PublicKey{obcca.CryptoType_RSA, encPub},
+		&obcca.PublicKey{obcca.CryptoType_ECDSA, encPub},
 		nil}
 
 	resp, err := ecaP.CreateCertificatePair(context.Background(), req)
@@ -321,9 +322,25 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	out, err := rsa.DecryptPKCS1v15(rand.Reader, encPriv, resp.Tok.Tok)
+	//out, err := rsa.DecryptPKCS1v15(rand.Reader, encPriv, resp.Tok.Tok)
+	spi := ecies.NewSPI()
+	eciesKey, err := spi.NewPrivateKey(nil, encPriv)
 	if err != nil {
-		node.log.Error("Failed decrypting token [%s].", err.Error())
+		node.log.Error("Failed parsing decrypting key [%s].", err.Error())
+
+		return nil, nil, nil, err
+	}
+
+	ecies, err := spi.NewAsymmetricCipherFromPublicKey(eciesKey)
+	if err != nil {
+		node.log.Error("Failed creating asymmetrinc cipher [%s].", err.Error())
+
+		return nil, nil, nil, err
+	}
+
+	out, err := ecies.Process(resp.Tok.Tok)
+	if err != nil {
+		node.log.Error("Failed decrypting toke [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
@@ -352,7 +369,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	// Verify responce
+	// Verify response
 
 	// Verify cert for signing
 	node.log.Debug("Enrollment certificate for signing [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Sign)))
