@@ -223,6 +223,11 @@
 			"revisionTime": "2015-09-11T12:06:27+02:00"
 		},
 		{
+			"path": "golang.org/x/crypto/hkdf",
+			"revision": "c8b9e6388ef638d5a8a9d865c634befdc46a6784",
+			"revisionTime": "2015-06-18T17:47:17-07:00"
+		},
+		{
 			"path": "golang.org/x/crypto/sha3",
 			"revision": "81bf7719a6b7ce9b665598222362b50122dfc13b",
 			"revisionTime": "2015-07-28T14:18:45-07:00"
