@@ -26,9 +26,14 @@ import (
 
 // Private Variables
 
+type clientEntry struct {
+	client  Client
+	counter int64
+}
+
 var (
 	// Map of initialized clients
-	clients = make(map[string]Client)
+	clients = make(map[string]clientEntry)
 
 	// Sync
 	clientMutex sync.Mutex
@@ -43,7 +48,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	log.Info("Registering client [%s] with name [%s]...", enrollID, name)
 
-	if clients[name] != nil {
+	if _, ok := clients[name]; ok {
 		log.Info("Registering client [%s] with name [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
@@ -75,10 +80,12 @@ func InitClient(name string, pwd []byte) (Client, error) {
 
 	log.Info("Initializing client [%s]...", name)
 
-	if clients[name] != nil {
-		log.Info("Client already initiliazied [%s].", name)
+	if entry, ok := clients[name]; ok {
+		log.Info("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
+		entry.counter++
+		clients[name] = entry
 
-		return clients[name], nil
+		return clients[name].client, nil
 	}
 
 	client := new(clientImpl)
@@ -88,7 +95,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 		return nil, err
 	}
 
-	clients[name] = client
+	clients[name] = clientEntry{client, 1}
 	log.Info("Initializing client [%s]...done!", name)
 
 	return client, nil
@@ -99,7 +106,7 @@ func CloseClient(client Client) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	return closeClientInternal(client)
+	return closeClientInternal(client, false)
 }
 
 // CloseAllClients closes all the clients initialized so far
@@ -111,7 +118,7 @@ func CloseAllClients() (bool, []error) {
 
 	errs := make([]error, len(clients))
 	for _, value := range clients {
-		err := closeClientInternal(value)
+		err := closeClientInternal(value.client, true)
 
 		errs = append(errs, err)
 	}
@@ -123,21 +130,28 @@ func CloseAllClients() (bool, []error) {
 
 // Private Methods
 
-func closeClientInternal(client Client) error {
+func closeClientInternal(client Client, force bool) error {
 	if client == nil {
 		return utils.ErrNilArgument
 	}
 
 	name := client.GetName()
 	log.Info("Closing client [%s]...", name)
-	if _, ok := clients[name]; !ok {
+	entry, ok := clients[name]
+	if !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(clients, name)
+	if entry.counter == 1 || force {
+		defer delete(clients, name)
+		err := clients[name].client.(*clientImpl).close()
+		log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))
+		return err
+	} else {
+		// decrease counter
+		entry.counter--
+		clients[name] = entry
+		log.Info("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
+	}
 
-	err := clients[name].(*clientImpl).close()
-
-	log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))
-
-	return err
+	return nil
 }
