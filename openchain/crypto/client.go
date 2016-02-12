@@ -106,7 +106,7 @@ func CloseClient(client Client) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	return closeClientInternal(client)
+	return closeClientInternal(client, false)
 }
 
 // CloseAllClients closes all the clients initialized so far
@@ -118,7 +118,7 @@ func CloseAllClients() (bool, []error) {
 
 	errs := make([]error, len(clients))
 	for _, value := range clients {
-		err := closeClientInternal(value.client)
+		err := closeClientInternal(value.client, true)
 
 		errs = append(errs, err)
 	}
@@ -130,7 +130,7 @@ func CloseAllClients() (bool, []error) {
 
 // Private Methods
 
-func closeClientInternal(client Client) error {
+func closeClientInternal(client Client, force bool) error {
 	if client == nil {
 		return utils.ErrNilArgument
 	}
@@ -141,7 +141,7 @@ func closeClientInternal(client Client) error {
 	if !ok {
 		return utils.ErrInvalidReference
 	}
-	if entry.counter == 1 {
+	if entry.counter == 1 || force {
 		defer delete(clients, name)
 		err := clients[name].client.(*clientImpl).close()
 		log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))

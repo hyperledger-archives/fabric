@@ -107,7 +107,8 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
-func TestBla(t *testing.T) {
+func TestParallelInitClose(t *testing.T) {
+	// TODO: complete this
 	conf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
 	RegisterClient(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
 
@@ -119,7 +120,7 @@ func TestBla(t *testing.T) {
 			if err != nil {
 				t.Log("Init failed")
 			}
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 			err = CloseClient(client)
 			if err != nil {
 				t.Log("Close failed")
@@ -134,7 +135,7 @@ func TestBla(t *testing.T) {
 			if err != nil {
 				t.Log("Init failed")
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 			err = CloseClient(client)
 			if err != nil {
 				t.Log("Close failed")
