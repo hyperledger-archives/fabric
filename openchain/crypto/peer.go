@@ -24,11 +24,16 @@ import (
 	"sync"
 )
 
-// Private Variables
+// Private types and variables
+
+type peerEntry struct {
+	peer    Peer
+	counter int64
+}
 
 var (
 	// Map of initialized peers
-	peers = make(map[string]Peer)
+	peers = make(map[string]peerEntry)
 
 	// Sync
 	peerMutex sync.Mutex
@@ -43,7 +48,7 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 
 	log.Info("Registering peer [%s] with id [%s]...", enrollID, name)
 
-	if peers[name] != nil {
+	if _, ok := peers[name]; ok {
 		log.Info("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
@@ -75,10 +80,12 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 
 	log.Info("Initializing peer [%s]...", name)
 
-	if peers[name] != nil {
-		log.Info("Peer already initiliazied [%s].", name)
+	if entry, ok := peers[name]; ok {
+		log.Info("Peer  already initiliazied [%s]. Increasing counter from [%d]", name, peers[name].counter)
+		entry.counter++
+		peers[name] = entry
 
-		return peers[name], nil
+		return peers[name].peer, nil
 	}
 
 	peer := new(peerImpl)
@@ -88,7 +95,7 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 		return nil, err
 	}
 
-	peers[name] = peer
+	peers[name] = peerEntry{peer, 1}
 	log.Info("Initializing peer [%s]...done!", name)
 
 	return peer, nil
@@ -99,7 +106,7 @@ func ClosePeer(peer Peer) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	return closePeerInternal(peer)
+	return closePeerInternal(peer, false)
 }
 
 // CloseAllPeers closes all the peers initialized so far
@@ -111,7 +118,7 @@ func CloseAllPeers() (bool, []error) {
 
 	errs := make([]error, len(peers))
 	for _, value := range peers {
-		err := closePeerInternal(value)
+		err := closePeerInternal(value.peer, true)
 
 		errs = append(errs, err)
 	}
@@ -123,21 +130,28 @@ func CloseAllPeers() (bool, []error) {
 
 // Private Methods
 
-func closePeerInternal(peer Peer) error {
+func closePeerInternal(peer Peer, force bool) error {
 	if peer == nil {
 		return utils.ErrNilArgument
 	}
 
-	id := peer.GetName()
-	log.Info("Closing peer [%s]...", id)
-	if _, ok := peers[id]; !ok {
+	name := peer.GetName()
+	log.Info("Closing peer [%s]...", name)
+	entry, ok := peers[name]
+	if !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(peers, id)
+	if entry.counter == 1 || force {
+		defer delete(peers, name)
+		err := peers[name].peer.(*peerImpl).close()
+		log.Info("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
+		return err
+	} else {
+		// decrease counter
+		entry.counter--
+		peers[name] = entry
+		log.Info("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
+	}
 
-	err := peers[id].(*peerImpl).close()
-
-	log.Info("Closing peer [%s]...done! [%s].", id, utils.ErrToString(err))
-
-	return err
+	return nil
 }
