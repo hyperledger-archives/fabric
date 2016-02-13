@@ -651,6 +651,10 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		instance.outstandingReqs[digest] = preprep.Request
 	}
 
+	if !instance.timerActive {
+		instance.startTimer(instance.requestTimeout)
+	}
+
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
