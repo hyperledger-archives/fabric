@@ -34,7 +34,7 @@ import (
 
 // Handler peer handler implementation.
 type Handler struct {
-	chatMutex	               sync.Mutex
+	chatMutex                     sync.Mutex
 	ToPeerEndpoint                *pb.PeerEndpoint
 	Coordinator                   MessageHandlerCoordinator
 	ChatStream                    ChatStream
@@ -429,7 +429,8 @@ func (d *Handler) sendBlocks(syncBlockRange *pb.SyncBlockRange) {
 	var blockNums []uint64
 	if syncBlockRange.Start > syncBlockRange.End {
 		// Send in reverse order
-		for i := syncBlockRange.Start; i >= syncBlockRange.End; i-- {
+		// note that i is a uint so decrementing i below 0 results in an underflow (i becomes uint.MaxValue). Always stop after i == 0
+		for i := syncBlockRange.Start; i >= syncBlockRange.End && i <= syncBlockRange.Start; i-- {
 			blockNums = append(blockNums, i)
 		}
 	} else {
