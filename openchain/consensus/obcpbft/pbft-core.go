@@ -176,6 +176,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	}
 
 	instance.K = uint64(config.GetInt("general.K"))
+	logger.Info("PBFT Checkpoint period: %v", instance.K)
 
 	instance.byzantine = config.GetBool("general.byzantine")
 
@@ -187,6 +188,13 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse new view timeout: %s", err))
 	}
+
+	logger.Info("PBFT mode: %T", consumer)
+	logger.Info("PBFT expected number of peers: %v", instance.N)
+	logger.Info("PBFT max number of peer failures: %v", instance.f)
+	logger.Info("PBFT byzantine mode: %v", instance.byzantine)
+	logger.Info("PBFT request timeout setting: %v seconds", instance.requestTimeout)
+	logger.Info("PBFT view change timeout setting: %v seconds", instance.newViewTimeout)
 
 	instance.activeView = true
 	instance.L = 2 * instance.K // log size

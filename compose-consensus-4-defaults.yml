@@ -2,4 +2,10 @@ vp:
   image:   openchain-peer
   environment:
     - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
+    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - OPENCHAIN_SECURITY_ENABLED=true
+    - OPENCHAIN_LOGGING_LEVEL=debug
+    - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    - OPENCHAIN_LOGGING_CONSENSUS=debug
+    - OPENCHAIN_OBCPBFT_GENERAL_K=2
   command: obc-peer peer
