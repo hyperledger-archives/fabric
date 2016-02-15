@@ -150,3 +150,10 @@ This is not recommended, however some users may wish to build Openchain outside 
 cd $GOPATH/src/github.com/openblockchain/obc-peer
 CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
+- Make sure that the Docker daemon initialization includes the options
+```
+-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+```
+- Be aware that the Docker bridge (the `OPENCHAIN_VM_ENDPOINT`) may not come
+up at the IP address currently assumed by the test environment
+(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
