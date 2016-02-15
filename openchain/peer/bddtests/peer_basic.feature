@@ -101,7 +101,7 @@ Feature: lanching 3 peers
 
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
-
+        And I wait "2" seconds
 	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
@@ -128,9 +128,9 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
-#        |   docker-compose-4-consensus-noops.yml   |      60      |
-#        |   docker-compose-4-consensus-classic.yml |      20      |
-#        |   docker-compose-4-consensus-batch.yml   |      20      |
+        |   docker-compose-4-consensus-noops.yml   |      60      |
+        |   docker-compose-4-consensus-classic.yml |      20      |
+        |   docker-compose-4-consensus-batch.yml   |      20      |
         |   docker-compose-4-consensus-sieve.yml   |      30      |
 
 
