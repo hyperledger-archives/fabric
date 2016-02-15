@@ -20,6 +20,7 @@ under the License.
 package testutil
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"reflect"
@@ -160,6 +161,15 @@ func AppendAll(content ...[]byte) []byte {
 func GenerateUUID(t *testing.T) string {
 	uuid := util.GenerateUUID()
 	return uuid
+}
+
+func ConstructRandomBytes(t testing.TB, size int) []byte {
+	value := make([]byte, size)
+	_, err := rand.Read(value)
+	if err != nil {
+		t.Fatalf("Error while generating random bytes: %s", err)
+	}
+	return value
 }
 
 func contains(slice interface{}, value interface{}) bool {

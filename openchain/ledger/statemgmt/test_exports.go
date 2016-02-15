@@ -1,7 +1,6 @@
 package statemgmt
 
 import (
-	crand "crypto/rand"
 	"math/rand"
 	"testing"
 
@@ -36,11 +35,7 @@ func ConstructRandomStateDelta(
 	for i := 0; i < numKeysToInsert; i++ {
 		chaincodeID := chaincodeIDPrefix + "_" + string(rand.Intn(numChaincodes))
 		key := "key_" + string(rand.Intn(maxKeySuffix))
-		value := make([]byte, valueSize)
-		_, err := crand.Read(value)
-		if err != nil {
-			t.Fatalf("Error while generating random bytes: %s", err)
-		}
+		value := testutil.ConstructRandomBytes(t, valueSize)
 		delta.Set(chaincodeID, key, value, nil)
 	}
 	return delta
