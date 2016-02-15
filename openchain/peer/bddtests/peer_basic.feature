@@ -84,8 +84,8 @@ Feature: lanching 3 peers
 	    Then I should get a JSON response from all peers with "OK" = "80"
 
 
-    @doNotDecompose
-    @wip
+#    @doNotDecompose
+#    @wip
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
 
 	    Given we compose "<ComposeFile>"
