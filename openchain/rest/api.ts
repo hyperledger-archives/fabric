@@ -12,82 +12,82 @@ export class BlockchainInfo {
     /**
     * Current height of the blockchain.
     */
-    height: number;
+    "height": number;
     /**
     * Hash of the last block in the blockchain.
     */
-    currentBlockHash: string;
+    "currentBlockHash": string;
     /**
     * Hash of the previous block in the blockchain.
     */
-    previousBlockHash: string;
+    "previousBlockHash": string;
 }
 
 export class Block {
     /**
     * Creator/originator of the block.
     */
-    proposerID: string;
+    "proposerID": string;
     /**
     * Time of block creation.
     */
-    timestamp: Timestamp;
-    transactions: Array<Transaction>;
+    "timestamp": Timestamp;
+    "transactions": Array<Transaction>;
     /**
     * Global state hash after executing all transactions in the block.
     */
-    stateHash: string;
+    "stateHash": string;
     /**
     * Hash of the previous block in the blockchain.
     */
-    previousBlockHash: string;
+    "previousBlockHash": string;
     /**
     * Metadata required for consensus.
     */
-    consensusMetadata: string;
+    "consensusMetadata": string;
     /**
     * Data stored in the block, but excluded from the computation of block hash.
     */
-    nonHashData: string;
+    "nonHashData": string;
 }
 
 export class Transaction {
     /**
     * Transaction type.
     */
-    type: Transaction.TypeEnum;
+    "type": Transaction.TypeEnum;
     /**
     * Chaincode identifier as bytes.
     */
-    chaincodeID: string;
+    "chaincodeID": string;
     /**
     * Payload supplied for Chaincode function execution.
     */
-    payload: string;
+    "payload": string;
     /**
     * Unique transaction identifier.
     */
-    uuid: string;
+    "uuid": string;
     /**
     * Time at which the chanincode becomes executable.
     */
-    timestamp: Timestamp;
+    "timestamp": Timestamp;
     /**
     * Confidentiality level of the Chaincode.
     */
-    confidentialityLevel: ConfidentialityLevel;
+    "confidentialityLevel": ConfidentialityLevel;
     /**
     * Nonce value generated for this transaction.
     */
-    nonce: string;
+    "nonce": string;
     /**
     * Certificate of client sending the transaction.
     */
-    cert: string;
+    "cert": string;
     /**
     * Signature of client sending the transaction.
     */
-    signature: string;
+    "signature": string;
 }
 
 export namespace Transaction {
@@ -97,55 +97,55 @@ export namespace Transaction {
         CHAINCODE_UPDATE = <any> 'CHAINCODE_UPDATE',
         CHAINCODE_EXECUTE = <any> 'CHAINCODE_EXECUTE',
         CHAINCODE_QUERY = <any> 'CHAINCODE_QUERY',
-        CHAINCODE_TERMINATE = <any> 'CHAINCODE_TERMINATE',
+        CHAINCODE_TERMINATE = <any> 'CHAINCODE_TERMINATE'
     }
 }
 export class ChaincodeID {
     /**
     * Chaincode location in the file system. This value is required by the deploy transaction.
     */
-    _path: string;
+    "path": string;
     /**
     * Chaincode name identifier. This value is required by the invoke and query transactions.
     */
-    name: string;
+    "name": string;
 }
 
 export class ChaincodeSpec {
     /**
     * Chaincode specification language.
     */
-    type: ChaincodeSpec.TypeEnum;
+    "type": ChaincodeSpec.TypeEnum;
     /**
     * Unique Chaincode identifier.
     */
-    chaincodeID: ChaincodeID;
+    "chaincodeID": ChaincodeID;
     /**
     * Specific function to execute within the Chaincode.
     */
-    ctorMsg: ChaincodeInput;
+    "ctorMsg": ChaincodeInput;
     /**
     * Username when security is enabled.
     */
-    secureContext: string;
+    "secureContext": string;
     /**
     * Confidentiality level of the Chaincode.
     */
-    confidentialityLevel: ConfidentialityLevel;
+    "confidentialityLevel": ConfidentialityLevel;
 }
 
 export namespace ChaincodeSpec {
     export enum TypeEnum { 
         UNDEFINED = <any> 'UNDEFINED',
         GOLANG = <any> 'GOLANG',
-        NODE = <any> 'NODE',
+        NODE = <any> 'NODE'
     }
 }
 export class ChaincodeInvocationSpec {
     /**
     * Chaincode specification message.
     */
-    chaincodeSpec: ChaincodeSpec;
+    "chaincodeSpec": ChaincodeSpec;
 }
 
 /**
@@ -158,40 +158,77 @@ export class ChaincodeInput {
     /**
     * Function to execute within the Chaincode.
     */
-    _function: string;
+    "function": string;
     /**
     * Arguments supplied to the Chaincode function.
     */
-    args: Array<string>;
+    "args": Array<string>;
 }
 
 export class Secret {
     /**
     * User enrollment id registered with the certificate authority.
     */
-    enrollId: string;
+    "enrollId": string;
     /**
     * User enrollment password registered with the certificate authority.
     */
-    enrollSecret: string;
+    "enrollSecret": string;
+}
+
+export class PeersMessage {
+    "peers": Array<PeerEndpoint>;
+}
+
+export class PeerEndpoint {
+    /**
+    * Unique peer identifier.
+    */
+    "iD": PeerID;
+    /**
+    * ipaddress:port combination identifying a network peer.
+    */
+    "address": string;
+    /**
+    * Network peer type.
+    */
+    "type": PeerEndpoint.TypeEnum;
+    /**
+    * PKI identifier for the network peer.
+    */
+    "pkiID": string;
+}
+
+export namespace PeerEndpoint {
+    export enum TypeEnum { 
+        UNDEFINED = <any> 'UNDEFINED',
+        VALIDATOR = <any> 'VALIDATOR',
+        NON_VALIDATOR = <any> 'NON_VALIDATOR'
+    }
+}
+export class PeerID {
+    /**
+    * Name which uniquely identifies a network peer.
+    */
+    "name": string;
 }
 
 export class Error {
     /**
     * A descriptive message explaining the cause of error.
     */
-    error: string;
+    "error": string;
 }
 
 export class OK {
     /**
     * A descriptive message confirming a successful request.
     */
-    OK: string;
+    "oK": string;
     /**
     * An optional parameter containing additional information about the request.
     */
-    message: string;
+    "message": string;
 }
 
 
@@ -243,7 +280,7 @@ class VoidAuth implements Authentication {
     }
 }
 
-export class TransactionApi {
+export class TransactionsApi {
     protected basePath = 'http://127.0.0.1:3000';
     protected defaultHeaders : any = {};
 
@@ -274,7 +311,7 @@ export class TransactionApi {
         return <T1&T2>objA;
     }
     /**
-     * Individual Transaction Contents
+     * Individual transaction contents
      * The /transactions/{UUID} endpoint returns the transaction matching the specified UUID.
      * @param UUID Transaction to retrieve from the blockchain.
      */
@@ -606,7 +643,7 @@ export class BlockchainApi {
         return <T1&T2>objA;
     }
     /**
-     * Blockchain Information
+     * Blockchain information
      * The Chain endpoint returns information about the current state of the blockchain such as the height, the current block hash, and the previous block hash.
      */
     public getChain () : Promise<{ response: http.ClientResponse; body: BlockchainInfo;  }> {
@@ -619,6 +656,84 @@ export class BlockchainApi {
         let useFormData = false;
 
         let deferred = promise.defer<{ response: http.ClientResponse; body: BlockchainInfo;  }>();
+
+        let requestOptions: request.Options = {
+            method: 'GET',
+            qs: queryParameters,
+            headers: headerParams,
+            uri: path,
+            json: true,
+        }
+
+        this.authentications.default.applyToRequest(requestOptions);
+
+        if (Object.keys(formParams).length) {
+            if (useFormData) {
+                (<any>requestOptions).formData = formParams;
+            } else {
+                requestOptions.form = formParams;
+            }
+        }
+
+        request(requestOptions, (error, response, body) => {
+            if (error) {
+                deferred.reject(error);
+            } else {
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                    deferred.resolve({ response: response, body: body });
+                } else {
+                    deferred.reject({ response: response, body: body });
+                }
+            }
+        });
+
+        return deferred.promise;
+    }
+}
+export class NetworkApi {
+    protected basePath = 'http://127.0.0.1:3000';
+    protected defaultHeaders : any = {};
+
+
+
+    public authentications = {
+        'default': <Authentication>new VoidAuth(),
+    }
+
+    constructor(basePath?: string);
+    constructor(basePathOrUsername: string, password?: string, basePath?: string) {
+        if (password) {
+            if (basePath) {
+                this.basePath = basePath;
+            }
+        } else {
+            if (basePathOrUsername) {
+                this.basePath = basePathOrUsername
+            }
+        }
+    }
+    private extendObj<T1,T2>(objA: T1, objB: T2) {
+        for(let key in objB){
+            if(objB.hasOwnProperty(key)){
+                objA[key] = objB[key];
+            }
+        }
+        return <T1&T2>objA;
+    }
+    /**
+     * List of network peers
+     * The /network/peers endpoint returns a list of all existing network connections for the target peer node. The list includes both validating and non-validating peers.
+     */
+    public getPeers () : Promise<{ response: http.ClientResponse; body: PeersMessage;  }> {
+        const path = this.basePath + '/network/peers';
+        let queryParameters: any = {};
+        let headerParams: any = this.extendObj({}, this.defaultHeaders);
+        let formParams: any = {};
+
+
+        let useFormData = false;
+
+        let deferred = promise.defer<{ response: http.ClientResponse; body: PeersMessage;  }>();
 
         let requestOptions: request.Options = {
             method: 'GET',
@@ -684,7 +799,7 @@ export class BlockApi {
         return <T1&T2>objA;
     }
     /**
-     * Individual Block Information
+     * Individual block information
      * The {Block} endpoint returns information about a specific block within the Blockchain. Note that the genesis block is block zero.
      * @param block Block number to retrieve
      */
