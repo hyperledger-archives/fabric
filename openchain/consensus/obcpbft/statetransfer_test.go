@@ -171,6 +171,100 @@ func TestCatchupSyncBlocksErrors(t *testing.T) {
 	}
 }
 
+// Added for issue #676, for situations all potential sync targets fail, and sync is re-initiated, causing panic
+func TestCatchupSyncBlocksAllErrors(t *testing.T) {
+	blockNumber := uint64(10)
+
+	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+		rols, mrls, dps := createRemoteLedgers(1, 3)
+
+		// Test from blockheight of 1 with valid genesis block
+		// Timeouts of 10 milliseconds
+		succeeding := &filterResult{triggered: false, mutex: &sync.Mutex{}}
+		filter := func(request mockRequest, peerID *protos.PeerID) mockResponse {
+
+			succeeding.mutex.Lock()
+			defer succeeding.mutex.Unlock()
+			if !succeeding.triggered {
+				return failureType
+			}
+
+			return Normal
+		}
+		ml := NewMockLedger(rols, filter)
+
+		ml.PutBlock(0, SimpleGetBlock(0))
+		sts := newTestStateTransfer(ml, dps)
+		defer sts.Stop()
+		sts.BlockRequestTimeout = 10 * time.Millisecond
+
+		for _, remoteLedger := range *mrls {
+			remoteLedger.blockHeight = blockNumber + 1
+		}
+
+		failChannel := make(chan struct{})
+		errCount := 0
+
+		protoListener := &ProtoListener{
+			ErroredImpl: func(uint64, []byte, []*protos.PeerID, interface{}, error) {
+				errCount++
+				if errCount == 3 {
+					failChannel <- struct{}{}
+					failChannel <- struct{}{} // Block the state transfer thread until the second read
+				}
+			},
+			CompletedImpl: func(uint64, []byte, []*protos.PeerID, interface{}) {
+				if !succeeding.triggered {
+					t.Fatalf("State transfer should not have completed yet")
+				} else {
+
+				}
+			},
+		}
+
+		complete := sts.CompletionChannel()
+
+		sts.RegisterListener(protoListener)
+
+		sts.Initiate(dps)
+
+		blockHash := SimpleGetBlockHash(blockNumber)
+		sts.AddTarget(blockNumber, blockHash, dps, nil)
+
+		select {
+		case <-time.After(time.Second * 2):
+			t.Fatalf("Timed out waiting for state to error out")
+		case <-failChannel:
+		}
+
+		succeeding.triggered = true
+		sts.AddTarget(blockNumber, blockHash, dps, nil)
+
+		<-failChannel // Unblock state transfer
+
+		select {
+		case <-time.After(time.Second * 2):
+			t.Fatalf("Timed out waiting for state to catch up, error in state transfer")
+		case <-complete:
+			// Do nothing, continue the test
+		}
+
+		if size, _ := ml.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+			t.Fatalf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
+		}
+
+		block, err := ml.GetBlock(blockNumber)
+
+		if nil != err {
+			t.Fatalf("Error retrieving last block in the mock chain.")
+		}
+
+		if stateHash, _ := ml.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
+			t.Fatalf("Current state does not validate against the latest block.")
+		}
+	}
+}
+
 func TestCatchupMissingEarlyChain(t *testing.T) {
 	rols, mrls, dps := createRemoteLedgers(1, 3)
 
