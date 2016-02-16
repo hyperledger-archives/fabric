@@ -474,8 +474,9 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	// END
+	node.log.Debug("chain key: [% x]", resp.Chain.Tok)
 
-	return signPriv, resp.Certs.Sign, resp.Chain.Tok, nil
+	return signPriv, resp.Certs.Sign, resp.Pkchain, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {

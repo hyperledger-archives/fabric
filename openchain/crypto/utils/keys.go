@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 )
 
 // PrivateKeyToDER marshals a private key to der
@@ -252,7 +253,7 @@ func PublicKeyToEncryptedPEM(publicKey interface{}, pwd []byte) ([]byte, error) 
 // PEMtoPublicKey unmarshals a pem to public key
 func PEMtoPublicKey(raw []byte, pwd []byte) (interface{}, error) {
 	block, _ := pem.Decode(raw)
-
+	fmt.Printf("block % x\n", raw)
 	// TODO: derive from header the type of the key
 
 	if x509.IsEncryptedPEMBlock(block) {

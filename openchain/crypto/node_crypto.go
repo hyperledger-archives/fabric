@@ -50,7 +50,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 	node.debug("Initializing node crypto engine...")
 
 	// Init CLI
-	node.eciesSPI = generic.NewSPI()
+	node.eciesSPI = ecies.NewSPI()
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()

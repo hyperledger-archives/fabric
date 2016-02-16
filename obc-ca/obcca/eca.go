@@ -39,6 +39,7 @@ import (
 
 	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
@@ -279,11 +280,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		var obcECKey []byte
-		if role&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) != 0 {
+		if role == int(pb.Role_VALIDATOR) {
+			//if role&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) != 0 {
 			obcECKey = ecap.eca.obcPriv
 		} else {
 			obcECKey = ecap.eca.obcPub
 		}
+		fmt.Printf("obcECKey % x\n", obcECKey)
 
 		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
 	}
