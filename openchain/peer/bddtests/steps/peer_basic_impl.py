@@ -479,3 +479,28 @@ def step_impl(context):
         print("message = {0}".format(resp.json()))
         peerToSecretMessage[peer] = secretMsg
     context.peerToSecretMessage = peerToSecretMessage
+
+
+@given(u'I stop peers')
+def step_impl(context):
+    assert 'table' in context, "table (of peers) not found in context"
+    assert 'compose_yaml' in context, "compose_yaml not found in context"
+
+    services =  context.table.headings
+    # Loop through services and stop them
+    for service in services:
+       context.compose_output, context.compose_error, context.compose_returncode = \
+           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "stop", service], expect_success=True)
+       assert context.compose_returncode == 0, "docker-compose failed to stop {0}".format(service)
+
+@given(u'I start peers')
+def step_impl(context):
+    assert 'table' in context, "table (of peers) not found in context"
+    assert 'compose_yaml' in context, "compose_yaml not found in context"
+
+    services =  context.table.headings
+    # Loop through services and start them
+    for service in services:
+       context.compose_output, context.compose_error, context.compose_returncode = \
+           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "start", service], expect_success=True)
+       assert context.compose_returncode == 0, "docker-compose failed to start {0}".format(service)
