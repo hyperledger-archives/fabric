@@ -50,7 +50,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 
 		return err
 	}
-	node.log.Debug("ECA certificate [%s].", utils.EncodeBase64(ecaCertRaw))
+	node.log.Debug("ECA certificate [% x].", ecaCertRaw)
 
 	// TODO: Test ECA cert againt root CA
 	// TODO: check responce.Cert against rootCA
@@ -83,7 +83,7 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 
 		return err
 	}
-	node.log.Debug("Enrollment certificate [%s].", utils.EncodeBase64(enrollCertRaw))
+	node.log.Debug("Enrollment certificate [% x].", enrollCertRaw)
 
 	node.log.Debug("Storing enrollment data for user [%s]...", enrollID)
 
@@ -152,11 +152,11 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 
 	// Set node ID
 	node.id = utils.Hash(der)
-	node.log.Debug("Setting id to [%s].", utils.EncodeBase64(node.id))
+	node.log.Debug("Setting id to [% x].", node.id)
 
 	// Set eCertHash
 	node.enrollCertHash = utils.Hash(der)
-	node.log.Debug("Setting enrollCertHash to [%s].", utils.EncodeBase64(node.enrollCertHash))
+	node.log.Debug("Setting enrollCertHash to [% x].", node.enrollCertHash)
 
 	return nil
 }
@@ -372,7 +372,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	// Verify response
 
 	// Verify cert for signing
-	node.log.Debug("Enrollment certificate for signing [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Sign)))
+	node.log.Debug("Enrollment certificate for signing [% x]", utils.Hash(resp.Certs.Sign))
 
 	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
 	if err != nil {
@@ -396,7 +396,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	// Verify cert for encrypting
-	node.log.Debug("Enrollment certificate for encrypting [%s]", utils.EncodeBase64(utils.Hash(resp.Certs.Enc)))
+	node.log.Debug("Enrollment certificate for encrypting [% x]", utils.Hash(resp.Certs.Enc))
 
 	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
 	if err != nil {

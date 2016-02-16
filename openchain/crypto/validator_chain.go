@@ -147,7 +147,7 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, se.counter)
 
-	se.log.Debug("Encrypting with counter [%s].", utils.EncodeBase64(b))
+	se.log.Debug("Encrypting with counter [% x].", b)
 	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := utils.HMACTruncated(se.nonceStateKey, b, se.nonceSize)

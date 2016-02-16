@@ -36,7 +36,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 
 		return err
 	}
-	node.log.Debug("TCA certificate [%s]", utils.EncodeBase64(tcaCertRaw))
+	node.log.Debug("TCA certificate [% x]", tcaCertRaw)
 
 	// TODO: Test TCA cert againt root CA
 	_, err = utils.DERToX509Certificate(tcaCertRaw)

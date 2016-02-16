@@ -54,7 +54,7 @@ func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte)
 	}
 
 	if certSign == nil {
-		ks.log.Debug("Cert for [%s] not available. Fetching from ECA....", utils.EncodeBase64(id))
+		ks.log.Debug("Cert for [%s] not available. Fetching from ECA....", sid)
 
 		// If No cert is available, fetch from ECA
 
@@ -75,7 +75,7 @@ func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte)
 		}
 
 		ks.log.Debug("Insert id [%s].", sid)
-		ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(certSign))
+		ks.log.Debug("Insert cert [% x].", certSign)
 
 		_, err = tx.Exec("INSERT INTO Certificates (id, certsign, certenc) VALUES (?, ?, ?)", sid, certSign, certEnc)
 
@@ -106,7 +106,7 @@ func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte)
 		}
 	}
 
-	ks.log.Debug("Cert for [%s] = [%s]", sid, utils.EncodeBase64(certSign))
+	ks.log.Debug("Cert for [%s] = [% x]", sid, certSign)
 
 	return certSign, nil
 }
@@ -127,7 +127,7 @@ func (ks *keyStore) selectSignEnrollmentCert(id string) ([]byte, []byte, error) 
 		return nil, nil, err
 	}
 
-	ks.log.Debug("Cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("Cert [% x].", cert)
 
 	ks.log.Debug("Select Enrollment Cert...done!")
 

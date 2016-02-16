@@ -21,7 +21,6 @@ package crypto
 
 import (
 	"database/sql"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
 func (client *clientImpl) initKeyStore() error {
@@ -75,7 +74,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 			ks.log.Debug("Insert index [%d]", i)
 
 			//			db.log.Info("Insert key  ", utils.EncodeBase64(keys[i]))
-			ks.log.Debug("Insert cert [%s].", utils.EncodeBase64(cert))
+			ks.log.Debug("Insert cert [% x].", cert)
 
 			_, err := tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", cert)
 
@@ -104,7 +103,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 		}
 	}
 
-	ks.log.Debug("TCert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("TCert [% x].", cert)
 
 	return cert, nil
 }
@@ -137,7 +136,7 @@ func (ks *keyStore) selectNextTCert() ([]byte, error) {
 	}
 
 	ks.log.Debug("id [%d]", id)
-	ks.log.Debug("cert [%s].", utils.EncodeBase64(cert))
+	ks.log.Debug("cert [% x].", cert)
 
 	ks.log.Debug("Move row with id [%d] to UsedTCert...", id)
 

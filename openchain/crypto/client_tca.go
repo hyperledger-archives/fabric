@@ -79,7 +79,7 @@ func (client *clientImpl) getNextTCert() ([]byte, error) {
 	}
 
 	// rawCert and rawKey are supposed to have been already verified at this point.
-	client.node.log.Debug("Cert [%s].", utils.EncodeBase64(rawCert))
+	client.node.log.Debug("Cert [% x].", rawCert)
 	//	client.node.log.Info("getNextTCert:key  ", utils.EncodeBase64(rawKey))
 
 	client.node.log.Debug("Getting next TCert...done!")
@@ -123,7 +123,7 @@ func (client *clientImpl) signUsingTCertX509(tCert *x509.Certificate, msg []byte
 	// Compute ExpansionValue based on TCertIndex
 	TCertIndex := decryptedTCertIndex
 
-	client.node.log.Debug("TCertIndex [%s].", utils.EncodeBase64(TCertIndex))
+	client.node.log.Debug("TCertIndex [% x].", TCertIndex)
 	mac := hmac.New(utils.NewHash, ExpansionKey)
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
@@ -213,7 +213,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 
 	j := 0
 	for i := 0; i < num; i++ {
-		client.node.log.Debug("Validating certificate [%d], [%s]", i, utils.EncodeBase64(certDERs[i]))
+		client.node.log.Debug("Validating certificate [%d], [% x]", i, certDERs[i])
 
 		// DER to x509
 		x509Cert, err := utils.DERToX509Certificate(certDERs[i])
@@ -256,7 +256,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		TCertIndex := pt
 		//		TCertIndex := []byte(strconv.Itoa(i))
 
-		client.node.log.Debug("TCertIndex: [%s].", utils.EncodeBase64(TCertIndex))
+		client.node.log.Debug("TCertIndex: [% x].", TCertIndex)
 		mac := hmac.New(utils.NewHash, ExpansionKey)
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
@@ -374,7 +374,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	}
 
 	// 2. Sign rawReq
-	client.node.log.Debug("Signing req [%s]", utils.EncodeBase64(rawReq))
+	client.node.log.Debug("Signing req [% x]", rawReq)
 	r, s, err := client.node.ecdsaSignWithEnrollmentKey(rawReq)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s] [%s].", err.Error())
@@ -399,7 +399,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 }
 
 func (client *clientImpl) validateTCert(tCertDER []byte) (*x509.Certificate, error) {
-	client.node.log.Debug("Validating TCert [%s]", utils.EncodeBase64(tCertDER))
+	client.node.log.Debug("Validating TCert [% x]", tCertDER)
 
 	// DER to x509
 	x509Cert, err := utils.DERToX509Certificate(tCertDER)

@@ -179,8 +179,8 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
-	
-	client.node.log.Info("Getting a CertificateHandler for TCert [%s]", utils.EncodeBase64(tCertDER))
+
+	client.node.log.Info("Getting a CertificateHandler for TCert [% x]", tCertDER)
 
 	// Validate the transaction certificate
 	tCert, err := client.validateTCert(tCertDER)

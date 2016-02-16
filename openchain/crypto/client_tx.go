@@ -141,7 +141,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
+	client.node.log.Debug("Appending certificate [% x].", rawTCert)
 	tx.Cert = rawTCert
 
 	// Sign the transaction and append the signature
@@ -153,7 +153,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -163,7 +163,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature: [%s]", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature: [% x]", rawSignature)
 
 	return tx, nil
 }
@@ -179,7 +179,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
+	client.node.log.Debug("Appending certificate [% x].", rawTCert)
 	tx.Cert = rawTCert
 
 	// Sign the transaction and append the signature
@@ -191,7 +191,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -201,7 +201,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -217,7 +217,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(rawTCert))
+	client.node.log.Debug("Appending certificate [% x].", rawTCert)
 	tx.Cert = rawTCert
 
 	// Sign the transaction and append the signature
@@ -229,7 +229,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -239,7 +239,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -255,7 +255,7 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	client.node.log.Debug("Appending certificate [% x].", client.node.enrollCert.Raw)
 	tx.Cert = client.node.enrollCert.Raw
 
 	// Sign the transaction and append the signature
@@ -267,7 +267,7 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -277,7 +277,7 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature: [%s]", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature: [% x]", rawSignature)
 
 	return tx, nil
 }
@@ -293,7 +293,7 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	client.node.log.Debug("Appending certificate [% x].", client.node.enrollCert.Raw)
 	tx.Cert = client.node.enrollCert.Raw
 
 	// Sign the transaction and append the signature
@@ -305,7 +305,7 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -315,7 +315,7 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -331,7 +331,7 @@ func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.C
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [%s].", utils.EncodeBase64(client.node.enrollCert.Raw))
+	client.node.log.Debug("Appending certificate [% x].", client.node.enrollCert.Raw)
 	tx.Cert = client.node.enrollCert.Raw
 
 	// Sign the transaction and append the signature
@@ -343,7 +343,7 @@ func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.C
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.log.Debug("Signing tx [%s].", utils.EncodeBase64(rawTx))
+	client.node.log.Debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
@@ -353,7 +353,7 @@ func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.C
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.log.Debug("Appending signature [%s].", utils.EncodeBase64(rawSignature))
+	client.node.log.Debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }

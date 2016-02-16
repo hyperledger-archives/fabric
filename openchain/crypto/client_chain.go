@@ -45,9 +45,9 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 		tx.Metadata = encryptedMetadata
 	}
 
-	client.node.log.Debug("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.ChaincodeID))
-	client.node.log.Debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.Payload))
-	client.node.log.Debug("Encrypted Metadata [%s].", utils.EncodeBase64(tx.Metadata))
+	client.node.log.Debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
+	client.node.log.Debug("Encrypted Payload [% x].", tx.Payload)
+	client.node.log.Debug("Encrypted Metadata [% x].", tx.Metadata)
 
 	return nil
 }

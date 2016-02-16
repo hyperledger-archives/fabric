@@ -34,7 +34,6 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-
 //We are temporarily disabling the validity period functionality
 var allowValidityPeriodVerification = false
 
@@ -116,7 +115,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 }
 
 func validityPeriodVerificationEnabled() bool {
-	
+
 	if allowValidityPeriodVerification {
 		// If the verification of the validity period is enabled in the configuration file return the configured value
 		if viper.IsSet("peer.validator.validity-period.verification") {
@@ -126,8 +125,8 @@ func validityPeriodVerificationEnabled() bool {
 		// Validity period verification is enabled by default if no configuration was specified.
 		return true
 	}
-	
-	return false	
+
+	return false
 }
 
 func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {
@@ -205,7 +204,7 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	cert, err := validator.getEnrollmentCert(vkID)
 	if err != nil {
-		validator.peer.node.log.Error("Failed getting enrollment cert ", utils.EncodeBase64(vkID), err)
+		validator.peer.node.log.Error("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
 
 		return err
 	}
@@ -214,13 +213,13 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	ok, err := validator.verify(vk, message, signature)
 	if err != nil {
-		validator.peer.node.log.Error("Failed verifying signature for ", utils.EncodeBase64(vkID), err)
+		validator.peer.node.log.Error("Failed verifying signature for [% x]: [%s]", vkID, err)
 
 		return err
 	}
 
 	if !ok {
-		validator.peer.node.log.Error("Failed invalid signature for ", utils.EncodeBase64(vkID))
+		validator.peer.node.log.Error("Failed invalid signature for [% x]", vkID)
 
 		return utils.ErrInvalidSignature
 	}

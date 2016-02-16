@@ -880,6 +880,15 @@ func TestValidatorVerify(t *testing.T) {
 	}
 }
 
+func BenchmarkConfidentialTCertHExecuteTransaction(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < 100; i++ {
+		_, tx, _ := createConfidentialTCertHExecuteTransaction(nil)
+		validator.TransactionPreValidation(tx)
+		validator.TransactionPreExecution(tx)
+	}
+}
+
 func setup() {
 	// Conf
 	viper.SetConfigName("crypto_test") // name of config file (without extension)

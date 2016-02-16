@@ -71,7 +71,7 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 
 		return err
 	}
-	node.log.Debug("TLS Cert [%s]", utils.EncodeBase64(tlsCertRaw))
+	node.log.Debug("TLS Cert [% x]", tlsCertRaw)
 
 	node.log.Info("Storing TLS key and certificate for user [%s]...", id)
 
