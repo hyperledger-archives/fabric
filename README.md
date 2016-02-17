@@ -1,6 +1,6 @@
 ## Notice regarding the Linux Foundation's Hyperledger project
 
-The openblockchain project is IBM's proposed contribution to the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project. We have made it available as open source to enable others to explore our architecture and design. IBM's intention is to engage rigorously in the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project as the community establishes itself, and decides on a code base. Once established, we will transition our development focus to the [Hyperledger](https://www.hyperledger.org/) effort, and this code will be maintained as needed for IBM's use.
+TEST TEST TEST The openblockchain project is IBM's proposed contribution to the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project. We have made it available as open source to enable others to explore our architecture and design. IBM's intention is to engage rigorously in the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project as the community establishes itself, and decides on a code base. Once established, we will transition our development focus to the [Hyperledger](https://www.hyperledger.org/) effort, and this code will be maintained as needed for IBM's use.
 
 While we invite contribution to the openblockchain project, we believe that the broader blockchain community's focus should be the [Hyperledger](https://www.hyperledger.org/) project.
 
