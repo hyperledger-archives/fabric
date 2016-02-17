@@ -683,9 +683,12 @@ func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
 	}
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
-	size := p.ledgerWrapper.ledger.GetBlockchainSize()
-
-	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
+	//size := p.ledgerWrapper.ledger.GetBlockchainSize()
+	blockChainInfo, err := p.ledgerWrapper.ledger.GetBlockchainInfo()
+	if err != nil {
+		return nil, fmt.Errorf("Error creating hello message, error getting block chain info: %s", err)
+	}
+	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockchainInfo: blockChainInfo}, nil
 }
 
 // GetBlockByNumber return a block by block number
