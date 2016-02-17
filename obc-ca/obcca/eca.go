@@ -257,7 +257,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		// create new certificate pair
-		ts := time.Now().UnixNano()
+		ts := time.Now().Add(-1 * time.Minute).UnixNano()
 
 		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		if err != nil {

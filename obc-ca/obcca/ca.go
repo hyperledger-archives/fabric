@@ -210,7 +210,7 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 }
 
 func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
-	notBefore := time.Now()
+	notBefore := time.Now().Add(-1 * time.Minute)
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
 
 	parent := ca.cert
