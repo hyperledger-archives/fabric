@@ -277,15 +277,13 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		// Check that the derived public key is the same as the one in the certificate
 		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
 
-		cmp := certPK.X.Cmp(tempSK.PublicKey.X)
-		if cmp != 0 {
+		if cmp := certPK.X.Cmp(tempSK.PublicKey.X); cmp != 0 {
 			client.node.log.Error("Derived public key is different on X")
 
 			continue
 		}
 
-		cmp = certPK.Y.Cmp(tempSK.PublicKey.Y)
-		if cmp != 0 {
+		if cmp = certPK.Y.Cmp(tempSK.PublicKey.Y); cmp != 0 {
 			client.node.log.Error("Derived public key is different on Y")
 
 			continue

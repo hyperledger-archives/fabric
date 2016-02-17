@@ -94,30 +94,30 @@ func ECDSAVerify(verKey interface{}, msg, signature []byte) (bool, error) {
 
 // VerifySignCapability tests signing capabilities
 func VerifySignCapability(tempSK interface{}, certPK interface{}) error {
-	/*
-		msg := []byte("This is a message to be signed and verified by ECDSA!")
+	/* TODO: reactive or remove
+	msg := []byte("This is a message to be signed and verified by ECDSA!")
 
-		sigma, err := ECDSASign(tempSK, msg)
-		if err != nil {
-			//		log.Error("Error signing [%s].", err.Error())
+	sigma, err := ECDSASign(tempSK, msg)
+	if err != nil {
+		//		log.Error("Error signing [%s].", err.Error())
 
-			return err
-		}
+		return err
+	}
 
-		ok, err := ECDSAVerify(certPK, msg, sigma)
-		if err != nil {
-			//		log.Error("Error verifying [%s].", err.Error())
+	ok, err := ECDSAVerify(certPK, msg, sigma)
+	if err != nil {
+		//		log.Error("Error verifying [%s].", err.Error())
 
-			return err
-		}
+		return err
+	}
 
-		if !ok {
-			//		log.Error("Signature not valid.")
+	if !ok {
+		//		log.Error("Signature not valid.")
 
-			return errors.New("Signature not valid.")
-		}
+		return errors.New("Signature not valid.")
+	}
 
-		//	log.Info("Verifing signature capability...done")
+	//	log.Info("Verifing signature capability...done")
 	*/
 	return nil
 }
