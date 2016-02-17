@@ -116,9 +116,11 @@ func (indexer *blockchainIndexerAsync) createIndexesAsync(block *protos.Block, b
 func (indexer *blockchainIndexerAsync) createIndexesInternal(block *protos.Block, blockNumber uint64, blockHash []byte) error {
 	openchainDB := db.GetDBHandle()
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	addIndexDataForPersistence(block, blockNumber, blockHash, writeBatch)
 	writeBatch.PutCF(openchainDB.IndexesCF, lastIndexedBlockKey, encodeBlockNumber(blockNumber))
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	err := openchainDB.DB.Write(opt, writeBatch)
 	if err != nil {
 		return err

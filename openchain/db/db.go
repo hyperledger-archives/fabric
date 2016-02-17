@@ -70,6 +70,7 @@ func CreateDB() error {
 		return fmt.Errorf("Error making directory path [%s]: %s", dbPath, err)
 	}
 	opts := gorocksdb.NewDefaultOptions()
+	defer opts.Destroy()
 	opts.SetCreateIfMissing(true)
 
 	db, err := gorocksdb.OpenDb(opts, dbPath)
@@ -194,6 +195,7 @@ func openDB() (*OpenchainDB, error) {
 	}
 	dbPath := getDBPath()
 	opts := gorocksdb.NewDefaultOptions()
+	defer opts.Destroy()
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
 		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
@@ -231,6 +233,7 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 		return err
 	}
 	opts := gorocksdb.NewDefaultOptions()
+	defer opts.Destroy()
 	openchainDB.StateCF, err = openchainDB.DB.CreateColumnFamily(opts, stateCF)
 	if err != nil {
 		dbLogger.Error("Error creating state CF", err)
@@ -246,32 +249,40 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 
 func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
+	defer opt.Destroy()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
 	if err != nil {
 		fmt.Println("Error while trying to retrieve key:", key)
 		return nil, err
 	}
-	return slice.Data(), nil
+	defer slice.Free()
+	data := append([]byte(nil), slice.Data()...)
+	return data, nil
 }
 
 func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
+	defer opt.Destroy()
 	opt.SetSnapshot(snapshot)
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
 	if err != nil {
 		fmt.Println("Error while trying to retrieve key:", key)
 		return nil, err
 	}
-	return slice.Data(), nil
+	defer slice.Free()
+	data := append([]byte(nil), slice.Data()...)
+	return data, nil
 }
 
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
+	defer opt.Destroy()
 	return openchainDB.DB.NewIteratorCF(opt, cfHandler)
 }
 
 func (openchainDB *OpenchainDB) getSnapshotIterator(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
+	defer opt.Destroy()
 	opt.SetSnapshot(snapshot)
 	iter := openchainDB.DB.NewIteratorCF(opt, cfHandler)
 	return iter

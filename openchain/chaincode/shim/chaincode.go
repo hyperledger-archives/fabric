@@ -20,6 +20,8 @@ under the License.
 package shim
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -46,10 +48,8 @@ var handler *Handler
 // Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
 	// Run method will be called during init and for every transaction
-	//Run(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Run(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 	// Query is to be used for read-only access to chaincode state
-	//Query(chaincodeSupportClient pb.ChaincodeSupportClient) ([]byte, error)
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
@@ -58,49 +58,49 @@ type ChaincodeStub struct {
 	UUID string
 }
 
+// Peer address derived from command line or env var
+var peerAddress string
+
 // Start entry point for chaincodes bootstrap.
 func Start(cc Chaincode) error {
 	viper.SetEnvPrefix("OPENCHAIN")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	/*
-		viper.SetConfigName("openchain") // name of config file (without extension)
-		viper.AddConfigPath("./../../../")        // path to look for the config file in
-		err := viper.ReadInConfig()      // Find and read the config file
-		if err != nil {                  // Handle errors reading the config file
-			panic(fmt.Errorf("Fatal error config file: %s \n", err))
-		}
-	*/
-	fmt.Printf("peer.address: %s\n", getPeerAddress())
+
+	flag.StringVar(&peerAddress, "peer.address", "", "peer address")
+
+	flag.Parse()
+
+	chaincodeLogger.Debug("Peer address: %s", getPeerAddress())
 
 	// Establish connection with validating peer
 	clientConn, err := newPeerClientConnection()
 	if err != nil {
+		chaincodeLogger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
 		return fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
 
-	fmt.Printf("os.Args returns: %s\n", os.Args)
+	chaincodeLogger.Debug("os.Args returns: %s", os.Args)
 
 	chaincodeSupportClient := pb.NewChaincodeSupportClient(clientConn)
 
-	//err = c.Run(chaincodeSupportClient)
-	//if err != nil {
-	//}
-	// Handle message exchange with validating peer
 	err = chatWithPeer(chaincodeSupportClient, cc)
 
 	return err
 }
 
 func getPeerAddress() string {
-	//fmt.Printf("Peer address from viper is: %s", viper.GetString("peer.address"))
-	if viper.GetString("peer.address") == "" {
-		// Assume docker container, return well known docker host address
-		return "172.17.42.1:30303"
+	if peerAddress != "" {
+		return peerAddress
 	}
 
-	return viper.GetString("peer.address")
+	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
+		// Assume docker container, return well known docker host address
+		peerAddress = "172.17.42.1:30303"
+	}
+
+	return peerAddress
 }
 
 func newPeerClientConnection() (*grpc.ClientConn, error) {
@@ -134,7 +134,6 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 
 func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
 
-	var errFromChat error
 	// Establish stream with validating peer
 	stream, err := chaincodeSupportClient.Register(context.Background())
 	if err != nil {
@@ -156,31 +155,66 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	}
 	// Register on the stream
 	chaincodeLogger.Debug("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
-	stream.Send(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
+	handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
+		defer close(waitc)
+		msgAvail := make(chan *pb.ChaincodeMessage)
+		var nsInfo *nextStateInfo
+		var in *pb.ChaincodeMessage
+		recv := true
 		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				errFromChat = fmt.Errorf("Error sending transactions to peer address=%s, received EOF when expecting %s", getPeerAddress(), pb.OpenchainMessage_DISC_HELLO)
-				close(waitc)
-				return
+			in = nil
+			err = nil
+			nsInfo = nil
+			if recv {
+				recv = false
+				go func() {
+					var in2 *pb.ChaincodeMessage
+					in2, err = stream.Recv()
+					msgAvail <- in2
+				}()
 			}
-			if err != nil {
-				grpclog.Fatalf("Failed to receive a Registered message from server : %v", err)
+			select {
+			case in = <-msgAvail:
+				if err == io.EOF {
+					chaincodeLogger.Debug("Received EOF, ending chaincode stream, %s", err)
+					return
+				} else if err != nil {
+					chaincodeLogger.Error(fmt.Sprintf("Received error from server: %s, ending chaincode stream", err))
+					return
+				} else if in == nil {
+					err = fmt.Errorf("Received nil message, ending chaincode stream")
+					chaincodeLogger.Debug("Received nil message, ending chaincode stream")
+					return
+				}
+				chaincodeLogger.Debug("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
+				recv = true
+			case nsInfo = <-handler.nextState:
+				in = nsInfo.msg
+				if in == nil {
+					panic("nil msg")
+				}
+				chaincodeLogger.Debug("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
 			}
 
 			// Call FSM.handleMessage()
 			err = handler.handleMessage(in)
 			if err != nil {
-				chaincodeLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+				err = fmt.Errorf("Error handling message: %s", err)
 				return
+			}
+			if nsInfo != nil && nsInfo.sendToCC {
+				chaincodeLogger.Debug("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
+				if err = handler.serialSend(in); err != nil {
+					err = fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
+					return
+				}
 			}
 		}
 	}()
 	<-waitc
-	return nil
+	return err
 }
 
 // GetState function can be invoked by a chaincode to get a state from the ledger.
@@ -193,9 +227,71 @@ func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 	return handler.handlePutState(key, value, stub.UUID)
 }
 
-// DelState function can be invoked by a chaincode to del state from the ledger.
+// DelState function can be invoked by a chaincode to delete state from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
+}
+
+// StateRangeQueryIterator allows a chaincode to iterate over a range of
+// key/value pairs in the state.
+type StateRangeQueryIterator struct {
+	handler    *Handler
+	uuid       string
+	response   *pb.RangeQueryStateResponse
+	currentLoc int
+}
+
+// RangeQueryState function can be invoked by a chaincode to query of a range
+// of keys in the state. Assuming the startKey and endKey are in lexical order,
+// an iterator will be returned that can be used to iterate over all keys
+// between the startKey and endKey, inclusive. The order in which keys are
+// returned by the iterator is random.
+func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error) {
+	response, err := handler.handleRangeQueryState(startKey, endKey, stub.UUID)
+	if err != nil {
+		return nil, err
+	}
+	return &StateRangeQueryIterator{handler, stub.UUID, response, 0}, nil
+}
+
+// HasNext returns true if the range query iterator contains additional keys
+// and values.
+func (iter *StateRangeQueryIterator) HasNext() bool {
+	if iter.currentLoc < len(iter.response.KeysAndValues) || iter.response.HasMore {
+		return true
+	}
+	return false
+}
+
+// Next returns the next key and value in the range query iterator.
+func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
+	if iter.currentLoc < len(iter.response.KeysAndValues) {
+		keyValue := iter.response.KeysAndValues[iter.currentLoc]
+		iter.currentLoc++
+		return keyValue.Key, keyValue.Value, nil
+	} else if !iter.response.HasMore {
+		return "", nil, errors.New("No such key")
+	} else {
+		response, err := iter.handler.handleRangeQueryStateNext(iter.response.ID, iter.uuid)
+
+		if err != nil {
+			return "", nil, err
+		}
+
+		iter.currentLoc = 0
+		iter.response = response
+		keyValue := iter.response.KeysAndValues[iter.currentLoc]
+		iter.currentLoc++
+		return keyValue.Key, keyValue.Value, nil
+
+	}
+}
+
+// Close closes the range query iterator. This should be called when done
+// reading from the iterator to free up resources.
+func (iter *StateRangeQueryIterator) Close() error {
+	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
+	return err
 }
 
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.

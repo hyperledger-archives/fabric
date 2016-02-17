@@ -24,11 +24,16 @@ import (
 	"sync"
 )
 
-// Private Variables
+// Private type and variables
+
+type validatorEntry struct {
+	validator Peer
+	counter   int64
+}
 
 var (
 	// Map of initialized validators
-	validators = make(map[string]Peer)
+	validators = make(map[string]validatorEntry)
 
 	// Sync
 	mutex sync.Mutex
@@ -36,14 +41,14 @@ var (
 
 // Public Methods
 
-// RegisterValidator registers a client to the PKI infrastructure
+// RegisterValidator registers a validator to the PKI infrastructure
 func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	log.Info("Registering validator [%s] with name [%s]...", enrollID, name)
 
-	if validators[name] != nil {
+	if _, ok := validators[name]; ok {
 		log.Info("Registering validator [%s] with name [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
@@ -51,7 +56,7 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 
 	validator := new(validatorImpl)
 	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
-		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized  {
+		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
@@ -68,17 +73,19 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 	return nil
 }
 
-// InitValidator initializes a client named name with password pwd
+// InitValidator initializes a validator named name with password pwd
 func InitValidator(name string, pwd []byte) (Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	log.Info("Initializing validator [%s]...", name)
 
-	if validators[name] != nil {
-		log.Info("Validator already initiliazied [%s].", name)
+	if entry, ok := validators[name]; ok {
+		log.Info("Validator already initiliazied [%s]. Increasing counter from [%d]", name, validators[name].counter)
+		entry.counter++
+		validators[name] = entry
 
-		return validators[name], nil
+		return validators[name].validator, nil
 	}
 
 	validator := new(validatorImpl)
@@ -88,7 +95,7 @@ func InitValidator(name string, pwd []byte) (Peer, error) {
 		return nil, err
 	}
 
-	validators[name] = validator
+	validators[name] = validatorEntry{validator, 1}
 	log.Info("Initializing validator [%s]...done!", name)
 
 	return validator, nil
@@ -99,7 +106,7 @@ func CloseValidator(peer Peer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return closeValidatorInternal(peer)
+	return closeValidatorInternal(peer, false)
 }
 
 // CloseAllValidators closes all the validators initialized so far
@@ -111,7 +118,7 @@ func CloseAllValidators() (bool, []error) {
 
 	errs := make([]error, len(validators))
 	for _, value := range validators {
-		err := closeValidatorInternal(value)
+		err := closeValidatorInternal(value.validator, true)
 
 		errs = append(errs, err)
 	}
@@ -123,17 +130,28 @@ func CloseAllValidators() (bool, []error) {
 
 // Private Methods
 
-func closeValidatorInternal(peer Peer) error {
+func closeValidatorInternal(peer Peer, force bool) error {
+	if peer == nil {
+		return utils.ErrNilArgument
+	}
+
 	name := peer.GetName()
 	log.Info("Closing validator [%s]...", name)
-	if _, ok := validators[name]; !ok {
+	entry, ok := validators[name]
+	if !ok {
 		return utils.ErrInvalidReference
 	}
-	defer delete(validators, name)
+	if entry.counter == 1 || force {
+		defer delete(validators, name)
+		err := validators[name].validator.(*validatorImpl).close()
+		log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
+		return err
+	} else {
+		// decrease counter
+		entry.counter--
+		validators[name] = entry
+		log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
+	}
 
-	err := validators[name].(*validatorImpl).close()
-
-	log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
-
-	return err
+	return nil
 }

@@ -46,6 +46,8 @@ message message {
         checkpoint checkpoint = 5;
         view_change view_change = 6;
         new_view new_view = 7;
+        fetch_request fetch_request = 8;
+        request return_request = 9;
     }
 }
 
@@ -79,14 +81,17 @@ message commit {
 
 message checkpoint {
     uint64 sequence_number = 1;
-    string state_digest = 2;
-    uint64 replica_id = 3;
+    uint64 replica_id = 2;
+    uint64 block_number = 3;
+    string block_hash = 4;
 }
 
 message view_change {
+    /* This message should go away and become a checkpoint once replica_id is removed */
     message C {
         uint64 sequence_number = 1;
-        string digest = 2;
+        uint64 block_number = 2;
+        string block_hash = 3;
     }
     message PQ {
         uint64 sequence_number = 1;
@@ -108,6 +113,20 @@ message new_view {
     repeated view_change vset = 2;
     map<uint64, string> xset = 3;
     uint64 replica_id = 4;
+}
+
+message fetch_request {
+    string request_digest = 1;
+    uint64 replica_id = 2;
+}
+
+// batch
+
+message batch_message {
+    oneof payload {
+        bytes request = 1;
+        bytes pbft_message = 4;
+    }
 }
 
 // sieve
@@ -157,4 +176,10 @@ message flush {
     uint64 view = 1;
     uint64 replica_id = 2;
     bytes signature = 3;
+}
+
+// consensus metadata
+
+message metadata {
+    uint64 seqNo = 1;
 }

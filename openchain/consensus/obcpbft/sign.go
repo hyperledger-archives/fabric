@@ -19,35 +19,28 @@ under the License.
 
 package obcpbft
 
-import (
-	"fmt"
-	"reflect"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/util"
-)
+import pb "github.com/golang/protobuf/proto"
 
 type signable interface {
 	getSignature() []byte
 	setSignature(s []byte)
-	getID() []byte
-	setID(id []byte)
+	getID() uint64
+	setID(id uint64)
 	serialize() ([]byte, error)
 }
 
 func (instance *pbftCore) sign(s signable) error {
 	s.setSignature(nil)
-	// TODO once the crypto package is integrated
-	// cryptoID, _, _ := instance.cpi.GetReplicaID()
-	// s.setID(cryptoID)
-	id := []byte("XXX ID")
-	s.setID(id)
 	raw, err := s.serialize()
 	if err != nil {
 		return err
 	}
-	// s.setSignature(instance.cpi.Sign(raw))
-	s.setSignature(util.ComputeCryptoHash(append(id, raw...)))
+	signedRaw, err := instance.consumer.sign(raw)
+	if err != nil {
+		return err
+	}
+	s.setSignature(signedRaw)
+
 	return nil
 }
 
@@ -59,13 +52,7 @@ func (instance *pbftCore) verify(s signable) error {
 	if err != nil {
 		return err
 	}
-	id := s.getID()
-	// XXX check that s.Id() is a valid replica
-	// instance.cpi.Verify(s.Id(), origSig, raw)
-	if !reflect.DeepEqual(util.ComputeCryptoHash(append(id, raw...)), origSig) {
-		return fmt.Errorf("invalid signature")
-	}
-	return nil
+	return instance.consumer.verify(s.getID(), origSig, raw)
 }
 
 func (vc *ViewChange) getSignature() []byte {
@@ -76,16 +63,16 @@ func (vc *ViewChange) setSignature(sig []byte) {
 	vc.Signature = sig
 }
 
-func (vc *ViewChange) getID() []byte {
-	return []byte("XXX ID")
+func (vc *ViewChange) getID() uint64 {
+	return vc.ReplicaId
 }
 
-func (vc *ViewChange) setID(id []byte) {
-	// XXX set id
+func (vc *ViewChange) setID(id uint64) {
+	vc.ReplicaId = id
 }
 
 func (vc *ViewChange) serialize() ([]byte, error) {
-	return proto.Marshal(vc)
+	return pb.Marshal(vc)
 }
 
 func (v *Verify) getSignature() []byte {
@@ -96,16 +83,16 @@ func (v *Verify) setSignature(sig []byte) {
 	v.Signature = sig
 }
 
-func (v *Verify) getID() []byte {
-	return []byte("XXX ID")
+func (v *Verify) getID() uint64 {
+	return v.ReplicaId
 }
 
-func (v *Verify) setID(id []byte) {
-	// XXX set ID
+func (v *Verify) setID(id uint64) {
+	v.ReplicaId = id
 }
 
 func (v *Verify) serialize() ([]byte, error) {
-	return proto.Marshal(v)
+	return pb.Marshal(v)
 }
 
 func (msg *VerifySet) getSignature() []byte {
@@ -116,16 +103,16 @@ func (msg *VerifySet) setSignature(sig []byte) {
 	msg.Signature = sig
 }
 
-func (msg *VerifySet) getID() []byte {
-	return []byte("XXX ID")
+func (msg *VerifySet) getID() uint64 {
+	return msg.ReplicaId
 }
 
-func (msg *VerifySet) setID(id []byte) {
-	// XXX set ID
+func (msg *VerifySet) setID(id uint64) {
+	msg.ReplicaId = id
 }
 
 func (msg *VerifySet) serialize() ([]byte, error) {
-	return proto.Marshal(msg)
+	return pb.Marshal(msg)
 }
 
 func (msg *Flush) getSignature() []byte {
@@ -136,14 +123,14 @@ func (msg *Flush) setSignature(sig []byte) {
 	msg.Signature = sig
 }
 
-func (msg *Flush) getID() []byte {
-	return []byte("XXX ID")
+func (msg *Flush) getID() uint64 {
+	return msg.ReplicaId
 }
 
-func (msg *Flush) setID(id []byte) {
-	// XXX set ID
+func (msg *Flush) setID(id uint64) {
+	msg.ReplicaId = id
 }
 
 func (msg *Flush) serialize() ([]byte, error) {
-	return proto.Marshal(msg)
+	return pb.Marshal(msg)
 }

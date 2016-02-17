@@ -47,6 +47,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain"
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
 	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
 	"github.com/openblockchain/obc-peer/openchain/peer"
 	"github.com/openblockchain/obc-peer/openchain/rest"
@@ -70,8 +71,11 @@ var peerCmd = &cobra.Command{
 	Use:   "peer",
 	Short: "Run openchain peer.",
 	Long:  `Runs the openchain peer that interacts with the openchain network.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		serve(args)
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("peer")
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return serve(args)
 	},
 }
 
@@ -79,8 +83,11 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Status of the openchain peer.",
 	Long:  `Outputs the status of the currently running openchain peer.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		status()
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("status")
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return status()
 	},
 }
 
@@ -88,6 +95,9 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop openchain peer.",
 	Long:  `Stops the currently running openchain Peer, disconnecting from the openchain network.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("stop")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
 	},
@@ -97,8 +107,11 @@ var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login user on CLI.",
 	Long:  `Login the local user on CLI. Must supply username parameter.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		login(args)
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("login")
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return login(args)
 	},
 }
 
@@ -106,14 +119,17 @@ var vmCmd = &cobra.Command{
 	Use:   "vm",
 	Short: "VM functionality of openchain.",
 	Long:  `Interact with the VM functionality of openchain.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("vm")
+	},
 }
 
 var vmPrimeCmd = &cobra.Command{
 	Use:   "prime",
 	Short: "Prime the VM functionality of openchain.",
 	Long:  `Primes the VM functionality of openchain by preparing the necessary VM construction artifacts.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		stop()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return stop()
 	},
 }
 
@@ -125,12 +141,17 @@ var (
 	chaincodeName     string
 	chaincodeDevMode  bool
 	chaincodeUsr      string
+	chaincodeQueryRaw bool
+	chaincodeQueryHex bool
 )
 
 var chaincodeCmd = &cobra.Command{
 	Use:   chainFuncName,
 	Short: fmt.Sprintf("%s specific commands.", chainFuncName),
 	Long:  fmt.Sprintf("%s specific commands.", chainFuncName),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit(chainFuncName)
+	},
 }
 
 var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(chainFuncName))
@@ -140,8 +161,8 @@ var chaincodeDeployCmd = &cobra.Command{
 	Short:     fmt.Sprintf("Deploy the specified %s to the network.", chainFuncName),
 	Long:      fmt.Sprintf(`Deploy the specified %s to the network.`, chainFuncName),
 	ValidArgs: []string{"1"},
-	Run: func(cmd *cobra.Command, args []string) {
-		chaincodeDeploy(cmd, args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return chaincodeDeploy(cmd, args)
 	},
 }
 
@@ -150,8 +171,8 @@ var chaincodeInvokeCmd = &cobra.Command{
 	Short:     fmt.Sprintf("Invoke the specified %s.", chainFuncName),
 	Long:      fmt.Sprintf(`Invoke the specified %s.`, chainFuncName),
 	ValidArgs: []string{"1"},
-	Run: func(cmd *cobra.Command, args []string) {
-		chaincodeInvoke(cmd, args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return chaincodeInvoke(cmd, args)
 	},
 }
 
@@ -160,8 +181,8 @@ var chaincodeQueryCmd = &cobra.Command{
 	Short:     fmt.Sprintf("Query using the specified %s.", chainFuncName),
 	Long:      fmt.Sprintf(`Query using the specified %s.`, chainFuncName),
 	ValidArgs: []string{"1"},
-	Run: func(cmd *cobra.Command, args []string) {
-		chaincodeQuery(cmd, args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return chaincodeQuery(cmd, args)
 	},
 }
 
@@ -174,9 +195,14 @@ func main() {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Set the flags on the server command.
+	// Define command-line flags that are valid for all obc-peer commands and
+	// subcommands.
+	mainFlags := mainCmd.PersistentFlags()
+	mainFlags.String("logging-level", "", "Default logging level and overrides, see openchain.yaml for full syntax")
+	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
+
+	// Set the flags on the peer command.
 	flags := peerCmd.Flags()
-	flags.String("peer-logging-level", "error", "Logging level, can be one of [CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG]")
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
 	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
 	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
@@ -186,7 +212,6 @@ func main() {
 
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
-	viper.BindPFlag("peer_logging_level", flags.Lookup("peer-logging-level"))
 	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
 	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
@@ -200,31 +225,6 @@ func main() {
 	err := viper.ReadInConfig()  // Find and read the config file
 	if err != nil {              // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s \n", cmdRoot, err))
-	}
-
-	level, err := logging.LogLevel(viper.GetString("peer.logging.level"))
-	if err == nil {
-		// No error, use the setting.
-		logging.SetLevel(level, chainFuncName)
-		logging.SetLevel(level, "consensus")
-		logging.SetLevel(level, "consensus/controller")
-		logging.SetLevel(level, "consensus/helper")
-		logging.SetLevel(level, "consensus/noops")
-		logging.SetLevel(level, "consensus/pbft")
-		logging.SetLevel(level, "main")
-		logging.SetLevel(level, "peer")
-		logging.SetLevel(level, "server")
-	} else {
-		logger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
-		logging.SetLevel(logging.ERROR, chainFuncName)
-		logging.SetLevel(logging.ERROR, "consensus")
-		logging.SetLevel(logging.ERROR, "consensus/controller")
-		logging.SetLevel(logging.ERROR, "consensus/helper")
-		logging.SetLevel(logging.ERROR, "consensus/noops")
-		logging.SetLevel(logging.ERROR, "consensus/pbft")
-		logging.SetLevel(logging.ERROR, "main")
-		logging.SetLevel(logging.ERROR, "peer")
-		logging.SetLevel(logging.ERROR, "server")
 	}
 
 	mainCmd.AddCommand(peerCmd)
@@ -241,12 +241,20 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
 
+	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryRaw, "raw", "r", false, "If true, output the query value as raw bytes, otherwise format as a printable string")
+	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryHex, "hex", "x", false, "If true, output the query value byte array in hexadecimal. Incompatible with --raw")
+
 	chaincodeCmd.AddCommand(chaincodeDeployCmd)
 	chaincodeCmd.AddCommand(chaincodeInvokeCmd)
 	chaincodeCmd.AddCommand(chaincodeQueryCmd)
 
 	mainCmd.AddCommand(chaincodeCmd)
-	mainCmd.Execute()
+
+	// On failure Cobra prints the usage message and error string, so we only
+	// need to exit with a non-0 status
+	if mainCmd.Execute() != nil {
+		os.Exit(1)
+	}
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
@@ -279,7 +287,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 func serve(args []string) error {
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to get Peer Endpoint: %s", err))
+		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
 		return err
 	}
 
@@ -292,21 +300,31 @@ func serve(args []string) error {
 
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		grpclog.Fatalf("failed to listen: %v", err)
+		grpclog.Fatalf("Failed to listen: %v", err)
 	}
 
 	ehubLis, ehubGrpcServer, err := createEventHubServer()
 	if err != nil {
-		grpclog.Fatalf("failed to create ehub server: %v", err)
+		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
 	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode. Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Running in chaincode development mode")
+		logger.Info("Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Disable loading validity system chaincode")
+
 		viper.Set("peer.validator.enabled", "true")
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+
+		// Disable validity system chaincode in dev mode. Also if security is enabled,
+		// in obcca.yaml, manually set pki.validity-period.update to false to prevent
+		// obcca from calling validity system chaincode -- though no harm otherwise
+		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+		viper.Set("validator.validity-period.verification", "false")
 	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
+	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
@@ -319,8 +337,6 @@ func serve(args []string) error {
 
 	grpcServer := grpc.NewServer(opts...)
 
-	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
@@ -330,6 +346,9 @@ func serve(args []string) error {
 		logger.Debug("Running as non-validating peer")
 		peerServer, _ = peer.NewPeerWithHandler(peer.NewPeerHandler)
 	}
+
+	// Register the Peer server
+	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -337,16 +356,24 @@ func serve(args []string) error {
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer)
+	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
+	// privacy is enabled
+	var secHelper crypto.Peer
+	if viper.GetBool("security.privacy") {
+		secHelper = peerServer.GetSecHelper()
+	} else {
+		secHelper = nil
+	}
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
 	serverDevops := openchain.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := openchain.NewOpenchainServer()
+	serverOpenchain, err := openchain.NewOpenchainServerWithPeerInfo(peerServer)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating OpenchainServer: %s", err))
+		err = fmt.Errorf("Error creating OpenchainServer: %s", err)
 		return err
 	}
 
@@ -368,17 +395,22 @@ func serve(args []string) error {
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
-	serve := make(chan bool)
+	serve := make(chan error)
 	go func() {
-		grpcServer.Serve(lis)
-		serve <- true
+		var grpcErr error
+		if grpcErr = grpcServer.Serve(lis); grpcErr != nil {
+			grpcErr = fmt.Errorf("grpc server exited with error: %s", grpcErr)
+		} else {
+			logger.Info("grpc server exited")
+		}
+		serve <- grpcErr
 	}()
 
-	// Deploy the geneis block if needed.
+	// Deploy the genesis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
-		makeGeneisError := genesis.MakeGenesis(peerServer.GetSecHelper())
-		if makeGeneisError != nil {
-			return makeGeneisError
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
 		}
 	}
 
@@ -388,27 +420,30 @@ func serve(args []string) error {
 	}
 
 	// Block until grpc server exits
-	<-serve
-
-	return nil
+	return <-serve
 }
 
-func status() {
+func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer:", err)
+		return
 	}
 
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.GetStatus(context.Background(), &google_protobuf.Empty{})
-	logger.Info("Current status: %s", status)
+	if err != nil {
+		return
+	}
+	fmt.Println(status)
+	return nil
 }
 
-func stop() {
+func stop() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer:", err)
 		return
 	}
 
@@ -416,24 +451,27 @@ func stop() {
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-	logger.Info("Current status: %s", status)
-
+	if err != nil {
+		return
+	}
+	fmt.Println(status)
+	return nil
 }
 
 // login confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
-func login(args []string) {
+func login(args []string) (err error) {
 	logger.Info("CLI client login...")
 
 	// Check for username argument
 	if len(args) == 0 {
-		logger.Error("Error: must supply username.\n")
+		err = fmt.Errorf("Must supply username")
 		return
 	}
 
 	// Check for other extraneous arguments
 	if len(args) != 1 {
-		logger.Error("Error: must supply username as the 1st and only parameter.\n")
+		err = fmt.Errorf("Must supply username as the 1st and only parameter")
 		return
 	}
 
@@ -443,7 +481,7 @@ func login(args []string) {
 	logger.Info("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
-	if _, err := os.Stat(localStore + "loginToken_" + args[0]); err == nil {
+	if _, err = os.Stat(localStore + "loginToken_" + args[0]); err == nil {
 		logger.Info("User '%s' is already logged in.\n", args[0])
 		return
 	}
@@ -458,7 +496,7 @@ func login(args []string) {
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		return
 	}
 	devopsClient := pb.NewDevopsClient(clientConn)
@@ -491,10 +529,11 @@ func login(args []string) {
 
 		logger.Info("Login successful for user '%s'.\n", args[0])
 	} else {
-		logger.Error(fmt.Sprintf("Error on client login: %s", string(loginResult.Msg)))
+		err = fmt.Errorf("Error on client login: %s", string(loginResult.Msg))
+		return
 	}
 
-	return
+	return nil
 }
 
 // getCliFilePath is a helper function to retrieve the local storage directory
@@ -508,7 +547,7 @@ func getCliFilePath() string {
 	return localStore
 }
 
-func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server) {
+func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server, secHelper crypto.Peer) {
 	//get user mode
 	userRunsCC := false
 	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
@@ -523,33 +562,47 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
 }
 
-func checkChaincodeCmdParams(cmd *cobra.Command) error {
+func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 
 	if chaincodeName == undefinedParamValue {
 		if chaincodePath == undefinedParamValue {
-			err := fmt.Sprintf("Error: must supply value for %s path parameter.\n", chainFuncName)
-			cmd.Out().Write([]byte(err))
-			cmd.Usage()
-			return errors.New(err)
+			err = fmt.Errorf("Must supply value for %s path parameter.\n", chainFuncName)
+			return
 		}
 	}
 
+	// Check that non-empty chaincode parameters contain only Function and
+	// Args keys. Type checking is done later when the JSON is actually
+	// unmarshaled into a pb.ChaincodeInput. To better understand what's going
+	// on here with JSON parsing see http://blog.golang.org/json-and-go -
+	// Generic JSON with interface{}
 	if chaincodeCtorJSON != "{}" {
-		// Check to ensure the JSON has "function" and "args" keys
-		input := &pb.ChaincodeMessage{}
-		jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input)
-		if jsonerr != nil {
-			err := fmt.Sprintf("Error: must supply 'function' and 'args' keys in %s constructor parameter.\n", chainFuncName)
-			cmd.Out().Write([]byte(err))
-			cmd.Usage()
-			return errors.New(err)
+		var f interface{}
+		err = json.Unmarshal([]byte(chaincodeCtorJSON), &f)
+		if err != nil {
+			err = fmt.Errorf("Chaincode argument error : %s", err)
+			return
+		}
+		m := f.(map[string]interface{})
+		if len(m) != 2 {
+			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
+			return
+		}
+		for k, _ := range m {
+			switch strings.ToLower(k) {
+			case "function":
+			case "args":
+			default:
+				err = fmt.Errorf("Illegal chaincode key '%s' - must be either 'Function' or 'Args'", k)
+				return
+			}
 		}
 	}
 
-	return nil
+	return
 }
 
 func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
@@ -561,20 +614,22 @@ func getDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	return devopsClient, nil
 }
 
-func chaincodeDeploy(cmd *cobra.Command, args []string) {
-	if err := checkChaincodeCmdParams(cmd); err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+// chaincodeDeploy deploys the chaincode. On success, the chaincode name
+// (hash) is printed to STDOUT for use by subsequent chaincode-related CLI
+// commands.
+func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
+	if err = checkChaincodeCmdParams(cmd); err != nil {
 		return
 	}
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		err = fmt.Errorf("Error building %s: %s", chainFuncName, err)
 		return
 	}
 	// Build the spec
 	input := &pb.ChaincodeInput{}
-	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+	if err = json.Unmarshal([]byte(chaincodeCtorJSON), &input); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
@@ -582,10 +637,9 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
+		logger.Debug("Security is enabled. Include security context in deploy spec")
 		if chaincodeUsr == undefinedParamValue {
-			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
-			cmd.Out().Write([]byte(err))
-			cmd.Usage()
+			err = errors.New("Must supply username for chaincode when security is enabled")
 			return
 		}
 
@@ -594,7 +648,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
 			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
@@ -605,10 +659,16 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 
 			// Add the login token to the chaincodeSpec
 			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				logger.Info("Set confidentiality level to CONFIDENTIAL.\n")
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
-				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				err = fmt.Errorf("User '%s' not logged in. Use the 'login' command to obtain a security token.", chaincodeUsr)
 				return
 			}
 			// Unexpected error
@@ -616,49 +676,50 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
-	}
-
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
 	if err != nil {
-		errMsg := fmt.Sprintf("Error building %s: %s\n", chainFuncName, err)
-		cmd.Out().Write([]byte(errMsg))
-		cmd.Usage()
+		err = fmt.Errorf("Error building %s: %s\n", chainFuncName, err)
 		return
 	}
 	logger.Info("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
+	fmt.Println(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+	return nil
 }
 
-func chaincodeInvoke(cmd *cobra.Command, args []string) {
-	chaincodeInvokeOrQuery(cmd, args, true)
+func chaincodeInvoke(cmd *cobra.Command, args []string) error {
+	return chaincodeInvokeOrQuery(cmd, args, true)
 }
 
-func chaincodeQuery(cmd *cobra.Command, args []string) {
-	chaincodeInvokeOrQuery(cmd, args, false)
+func chaincodeQuery(cmd *cobra.Command, args []string) error {
+	return chaincodeInvokeOrQuery(cmd, args, false)
 }
 
-func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
-	if err := checkChaincodeCmdParams(cmd); err != nil {
-		logger.Error(fmt.Sprintf("Error invoking %s: %s", chainFuncName, err))
+// chaincodeInvokeOrQuery invokes or queries the chaincode. If successful, the
+// INVOKE form prints the transaction ID on STDOUT, and the QUERY form prints
+// the query result on STDOUT. A command-line flag (-r, --raw) determines
+// whether the query result is output as raw bytes, or as a printable string.
+// The printable form is optionally (-x, --hex) a hexadecimal representation
+// of the query response. If the query response is NIL, nothing is output.
+func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err error) {
+
+	if err = checkChaincodeCmdParams(cmd); err != nil {
 		return
 	}
 
 	if chaincodeName == "" {
-		logger.Error(fmt.Sprintf("Name not given for invoke/query"))
+		err = errors.New("Name not given for invoke/query")
 		return
 	}
 
 	devopsClient, err := getDevopsClient(cmd)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+		err = fmt.Errorf("Error building %s: %s", chainFuncName, err)
 		return
 	}
 	// Build the spec
 	input := &pb.ChaincodeInput{}
-	if jsonerr := json.Unmarshal([]byte(chaincodeCtorJSON), &input); jsonerr != nil {
-		logger.Error(fmt.Sprintf("Error building %s: %s", chainFuncName, err))
+	if err = json.Unmarshal([]byte(chaincodeCtorJSON), &input); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
@@ -667,9 +728,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
 		if chaincodeUsr == undefinedParamValue {
-			err := fmt.Sprintf("Error: must supply username for chaincode when security is enabled.\n")
-			cmd.Out().Write([]byte(err))
-			cmd.Usage()
+			err = errors.New("Must supply username for chaincode when security is enabled")
 			return
 		}
 
@@ -678,7 +737,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 		localStore := getCliFilePath()
 
 		// Check if the user is logged in before sending transaction
-		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
 			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
@@ -689,20 +748,21 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 
 			// Add the login token to the chaincodeSpec
 			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				logger.Info("Set confidentiality level to CONFIDENTIAL.\n")
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
-				logger.Error("Error: User not logged in. Use the 'login' command to obtain a security token.\n")
+				err = fmt.Errorf("User '%s' not logged in. Use the 'login' command to obtain a security token.", chaincodeUsr)
 				return
 			}
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
-	}
-
-	// If privacy is enabled, mark chaincode as confidential
-	if viper.GetBool("security.privacy") {
-		spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
 	}
 
 	// Build the ChaincodeInvocationSpec message
@@ -716,25 +776,34 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) {
 	}
 
 	if err != nil {
-		var errMsg string
 		if invoke {
-			errMsg = fmt.Sprintf("Error invoking %s: %s\n", chainFuncName, err)
+			err = fmt.Errorf("Error invoking %s: %s\n", chainFuncName, err)
 		} else {
-			errMsg = fmt.Sprintf("Error querying %s: %s\n", chainFuncName, err)
+			err = fmt.Errorf("Error querying %s: %s\n", chainFuncName, err)
 		}
-		cmd.Out().Write([]byte(errMsg))
-		cmd.Usage()
 		return
 	}
 	if invoke {
-		logger.Info("Successfully invoked transaction: %s(%s)", invocation, string(resp.Msg))
+		transactionID := string(resp.Msg)
+		logger.Info("Successfully invoked transaction: %s(%s)", invocation, transactionID)
+		fmt.Println(transactionID)
 	} else {
 		logger.Info("Successfully queried transaction: %s", invocation)
-		if err != nil {
-			fmt.Printf("Error running query : %s\n", err)
-		} else if resp != nil {
-			logger.Info("Trying to print as string: %s", string(resp.Msg))
-			logger.Info("Raw bytes %x", resp.Msg)
+		if resp != nil {
+			if chaincodeQueryRaw {
+				if chaincodeQueryHex {
+					err = errors.New("Options --raw (-r) and --hex (-x) are not compatible\n")
+					return
+				}
+				os.Stdout.Write(resp.Msg)
+			} else {
+				if chaincodeQueryHex {
+					fmt.Printf("%x\n", resp.Msg)
+				} else {
+					fmt.Println(string(resp.Msg))
+				}
+			}
 		}
 	}
+	return nil
 }

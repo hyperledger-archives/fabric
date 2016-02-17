@@ -22,6 +22,7 @@ package openchain
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -175,14 +176,23 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		devopsLogger.Error(fmt.Sprintf("Error generating UUID: %s", uuidErr))
-		return nil, uuidErr
-	}
+	uuid := util.GenerateUUID()
 	var transaction *pb.Transaction
 	var err error
-	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke)
+	var sec crypto.Client
+	if viper.GetBool("security.enabled") {
+		if devopsLogger.IsEnabledFor(logging.DEBUG) {
+			devopsLogger.Debug("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
+		}
+		sec, err = crypto.InitClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
+		defer crypto.CloseClient(sec)
+		// remove the security context since we are no longer need it down stream
+		chaincodeInvocationSpec.ChaincodeSpec.SecureContext = ""
+		if nil != err {
+			return nil, err
+		}
+	}
+	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
@@ -192,27 +202,21 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
+	} else {
+		if !invoke && nil != sec && viper.GetBool("security.privacy") {
+			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
+				devopsLogger.Debug("Failed decrypting query transaction result %s", string(resp.Msg[:]))
+				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+			}
+		}
 	}
-
 	return resp, err
 }
 
-func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool) (*pb.Transaction, error) {
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
-	if viper.GetBool("security.enabled") {
-		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Initializing secure devops using context %s", spec.ChaincodeSpec.SecureContext)
-		}
-		sec, err := crypto.InitClient(spec.ChaincodeSpec.SecureContext, nil)
-		defer crypto.CloseClient(sec)
-
-		// remove the security context since we are no longer need it down stream
-		spec.ChaincodeSpec.SecureContext = ""
-
-		if nil != err {
-			return nil, err
-		}
+	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
 		}
@@ -272,13 +276,23 @@ func CheckSpec(spec *pb.ChaincodeSpec) error {
 }
 
 func checkGolangSpec(spec *pb.ChaincodeSpec) error {
-	pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
-	exists, err := pathExists(pathToCheck)
-	if err != nil {
-		return fmt.Errorf("Error validating chaincode path: %s", err)
+	url, err := url.Parse(spec.ChaincodeID.Path)
+	if err != nil || url == nil {
+		return fmt.Errorf("invalid path: %s", err)
 	}
-	if !exists {
-//		return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Url)
+
+	//we have no real good way of checking existence of remote urls except by downloading and testin
+	//which we do later anyway. But we *can* - and *should* - test for existence of local paths.
+	//Treat empty scheme as a local filesystem path
+	if url.Scheme == "" {
+		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
+		exists, err := pathExists(pathToCheck)
+		if err != nil {
+			return fmt.Errorf("Error validating chaincode path: %s", err)
+		}
+		if !exists {
+			return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
+		}
 	}
 	return nil
 }

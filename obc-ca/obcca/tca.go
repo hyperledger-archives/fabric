@@ -1,21 +1,21 @@
-/* 
-Licensed to the Apache Software Foundation (ASF) under one 
-or more contributor license agreements.  See the NOTICE file 
-distributed with this work for additional information 
-regarding copyright ownership.  The ASF licenses this file 
-to you under the Apache License, Version 2.0 (the 
-"License"); you may not use this file except in compliance 
-with the License.  You may obtain a copy of the License at 
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0 
+  http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, 
-software distributed under the License is distributed on an 
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-KIND, either express or implied.  See the License for the 
-specific language governing permissions and limitations 
-under the License. 
-*/ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 
 package obcca
 
@@ -29,21 +29,18 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
-	"io"
 	"io/ioutil"
+	"math"
 	"math/big"
-	"net"
 	"strconv"
-	"sync"
 
-	"golang.org/x/crypto/sha3"
+	protobuf "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-	"github.com/spf13/viper"
+	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -58,11 +55,6 @@ type TCA struct {
 	*CA
 	eca     *ECA
 	hmacKey []byte
-
-	rand io.Reader
-		
-	sockp, socka net.Listener
-	srvp, srva *grpc.Server
 }
 
 // TCAP serves the public GRPC interface of the TCA.
@@ -82,16 +74,15 @@ type TCAA struct {
 func NewTCA(eca *ECA) *TCA {
 	var cooked string
 
-	tca := &TCA{NewCA("tca"), eca, nil, rand.Reader, nil, nil, nil, nil}
-	
-	raw, err := ioutil.ReadFile(RootPath + "/tca.hmac")
+	tca := &TCA{NewCA("tca"), eca, nil}
+
+	raw, err := ioutil.ReadFile(tca.path + "/tca.hmac")
 	if err != nil {
-		rand := rand.Reader
 		key := make([]byte, 49)
-		rand.Read(key)
+		rand.Reader.Read(key)
 		cooked = base64.StdEncoding.EncodeToString(key)
 
-		err = ioutil.WriteFile(RootPath+"/tca.hmac", []byte(cooked), 0644)
+		err = ioutil.WriteFile(tca.path+"/tca.hmac", []byte(cooked), 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}
@@ -109,69 +100,43 @@ func NewTCA(eca *ECA) *TCA {
 
 // Start starts the TCA.
 //
-func (tca *TCA) Start(wg *sync.WaitGroup) {
-	var opts []grpc.ServerOption
-	if viper.GetString("tca.tls.certfile") != "" {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("tca.tls.certfile"), viper.GetString("tca.tls.keyfile"))
-		if err != nil {
-			Panic.Panicln(err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
+func (tca *TCA) Start(srv *grpc.Server) {
+	tca.startTCAP(srv)
+	tca.startTCAA(srv)
 
-	wg.Add(2)
-	go tca.startTCAP(wg, opts)
-	go tca.startTCAA(wg, opts)
-
+	tca.startValidityPeriodUpdate()
 	Info.Println("TCA started.")
 }
 
-// Stop stops the TCA.
+func (tca *TCA) startValidityPeriodUpdate() {
+	if validityPeriodUpdateEnabled() {
+		go updateValidityPeriod()
+	}
+}
+
+func (tca *TCA) startTCAP(srv *grpc.Server) {
+	pb.RegisterTCAPServer(srv, &TCAP{tca})
+}
+
+func (tca *TCA) startTCAA(srv *grpc.Server) {
+	pb.RegisterTCAAServer(srv, &TCAA{tca})
+}
+
+// ReadCACertificate reads the certificate of the TCA.
 //
-func (tca *TCA) Stop() {
-	tca.srvp.Stop()
-	tca.srva.Stop()
-}
+func (tcap *TCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
+	Trace.Println("grpc TCAP:ReadCACertificate")
 
-func (tca *TCA) startTCAP(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-	
-	tca.sockp, err = net.Listen("tcp", viper.GetString("ports.tcaP"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tca.srvp = grpc.NewServer(opts...)
-	pb.RegisterTCAPServer(tca.srvp, &TCAP{tca})
-	tca.srvp.Serve(tca.sockp)
-
-	_ = tca.sockp.Close()
-	wg.Done()
-}
-
-func (tca *TCA) startTCAA(wg *sync.WaitGroup, opts []grpc.ServerOption) {
-	var err error
-	
-	tca.socka, err = net.Listen("tcp", viper.GetString("ports.tcaA"))
-	if err != nil {
-		Panic.Panicln(err)
-	}
-
-	tca.srva = grpc.NewServer(opts...)
-	pb.RegisterTCAAServer(tca.srva, &TCAA{tca})
-	tca.srva.Serve(tca.socka)
-
-	_ = tca.socka.Close()
-	wg.Done()
+	return &pb.Cert{tcap.tca.raw}, nil
 }
 
 // CreateCertificate requests the creation of a new transaction certificate by the TCA.
 //
-func (tcap *TCAP) CreateCertificate(ctx context.Context, req *pb.TCertCreateReq) (*pb.Cert, error) {
+func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) (*pb.TCertCreateResp, error) {
 	Trace.Println("grpc TCAP:CreateCertificate")
 
-	id := req.Id.Id
-	raw, err := tcap.tca.eca.readCertificate(id)
+	id := in.Id.Id
+	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -180,47 +145,44 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, req *pb.TCertCreateReq)
 		return nil, err
 	}
 
-	sig := req.Sig
-	req.Sig = nil
+	sig := in.Sig
+	in.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	raw = req.Pub.Key
-	if req.Pub.Type != pb.CryptoType_ECDSA {
-		Error.Println("unsupported key type")
+	raw = in.Pub.Key
+	if in.Pub.Type != pb.CryptoType_ECDSA {
 		return nil, errors.New("unsupported key type")
 	}
-	pub, err := x509.ParsePKIXPublicKey(req.Pub.Key)
+	pub, err := x509.ParsePKIXPublicKey(in.Pub.Key)
 	if err != nil {
-		Error.Println(err)
 		return nil, err
 	}
 
 	hash := sha3.New384()
-	raw, _ = proto.Marshal(req)
+	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		Error.Println("signature does not verify")
 		return nil, errors.New("signature does not verify")
 	}
 
-	if raw, err = tcap.tca.newCertificate(id, pub.(*ecdsa.PublicKey), req.Ts.Seconds); err != nil {
+	if raw, err = tcap.tca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, in.Ts.Seconds, nil); err != nil {
 		Error.Println(err)
 		return nil, err
 	}
 
-	return &pb.Cert{raw}, nil
+	return &pb.TCertCreateResp{&pb.Cert{raw}}, nil
 }
 
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 //
-func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateSetReq) (*pb.CertSet, error) {
+func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
 	Trace.Println("grpc TCAP:CreateCertificateSet")
 
-	id := req.Id.Id
-	raw, err := tcap.tca.eca.readCertificate(id)
+	id := in.Id.Id
+	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -230,31 +192,30 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 	}
 	pub := cert.PublicKey.(*ecdsa.PublicKey)
 
-	sig := req.Sig
-	req.Sig = nil
+	sig := in.Sig
+	in.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
 	hash := sha3.New384()
-	raw, _ = proto.Marshal(req)
+	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub, hash.Sum(nil), r, s) == false {
-		Error.Println("signature does not verify")
 		return nil, errors.New("signature does not verify")
 	}
 
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
-	tcap.tca.rand.Read(nonce[:8])
-	binary.LittleEndian.PutUint64(nonce[8:], uint64(req.Ts.Seconds))
-	
+	rand.Reader.Read(nonce[:8])
+	binary.LittleEndian.PutUint64(nonce[8:], uint64(in.Ts.Seconds))
+
 	mac := hmac.New(sha3.New384, tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
 
-	num := int(req.Num)
+	num := int(in.Num)
 	if num == 0 {
 		num = 1
 	}
@@ -287,28 +248,29 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, req *pb.TCertCreateS
 			return nil, err
 		}
 
-		if raw, err = tcap.tca.newCertificate(id, &txPub, req.Ts.Seconds, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
+		if raw, err = tcap.tca.createCertificate(id, &txPub, x509.KeyUsageDigitalSignature, in.Ts.Seconds, kdfKey, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 		set = append(set, raw)
 	}
 
-	return &pb.CertSet{kdfKey, set}, nil
+	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
 }
 
 // ReadCertificate reads a transaction certificate from the TCA.
 //
-func (tcap *TCAP) ReadCertificate(ctx context.Context, req *pb.TCertReadReq) (*pb.Cert, error) {
+func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TCAP:ReadCertificate")
 
-	id := req.Id.Id
-	if id == "tca-root" {
-		raw, err := tcap.tca.readCertificate(id)
-		return &pb.Cert{raw}, err
+	req := in.Req.Id
+	id := in.Id.Id
+
+	if req != id && tcap.tca.eca.readRole(req)&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) == 0 {
+		return nil, errors.New("access denied")
 	}
 
-	raw, err := tcap.tca.eca.readCertificate(id)
+	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -317,24 +279,26 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, req *pb.TCertReadReq) (*p
 		return nil, err
 	}
 
-	sig := req.Sig
-	req.Sig = nil
+	sig := in.Sig
+	in.Sig = nil
 
 	r, s := big.NewInt(0), big.NewInt(0)
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
 	hash := sha3.New384()
-	raw, _ = proto.Marshal(req)
+	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		Error.Println("signature does not verify")
 		return nil, errors.New("signature does not verify")
 	}
 
-	raw, err = tcap.tca.readCertificate(id, req.Ts.Seconds)
+	if in.Ts.Seconds != 0 {
+		raw, err = tcap.tca.readCertificate1(id, in.Ts.Seconds)
+	} else {
+		raw, err = tcap.tca.readCertificateByHash(in.Hash.Hash)
+	}
 	if err != nil {
-		Error.Println(err)
 		return nil, err
 	}
 
@@ -343,10 +307,60 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, req *pb.TCertReadReq) (*p
 
 // ReadCertificateSet reads a transaction certificate set from the TCA.  Not yet implemented.
 //
-func (tcap *TCAP) ReadCertificateSet(context.Context, *pb.TCertReadSetReq) (*pb.CertSet, error) {
+func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq) (*pb.CertSet, error) {
 	Trace.Println("grpc TCAP:ReadCertificateSet")
 
-	return nil, errors.New("not yet implemented")
+	req := in.Req.Id
+	id := in.Id.Id
+
+	if req != id && tcap.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
+		return nil, errors.New("access denied")
+	}
+
+	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	sig := in.Sig
+	in.Sig = nil
+
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	hash := sha3.New384()
+	raw, _ = proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		return nil, errors.New("signature does not verify")
+	}
+
+	rows, err := tcap.tca.readCertificates(id, in.Ts.Seconds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var certs [][]byte
+	var kdfKey []byte
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw, &kdfKey); err != nil {
+			return nil, err
+		}
+
+		certs = append(certs, raw)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &pb.CertSet{in.Ts, in.Id, kdfKey, certs}, nil
 }
 
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
@@ -365,6 +379,103 @@ func (tcap *TCAP) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (
 	return nil, errors.New("not yet implemented")
 }
 
+// ReadCertificateSets returns all certificates matching the filter criteria of the request.
+//
+func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsReq) (*pb.CertSets, error) {
+	Trace.Println("grpc TCAA:ReadCertificateSets")
+
+	req := in.Req.Id
+	if tcaa.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
+		return nil, errors.New("access denied")
+	}
+
+	raw, err := tcaa.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	sig := in.Sig
+	in.Sig = nil
+
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	hash := sha3.New384()
+	raw, _ = proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		return nil, errors.New("signature does not verify")
+	}
+
+	users, err := tcaa.tca.eca.readUsers(int(in.Role))
+	if err != nil {
+		return nil, err
+	}
+	defer users.Close()
+
+	begin := int64(0)
+	end := int64(math.MaxInt64)
+	if in.Begin != nil {
+		begin = in.Begin.Seconds
+	}
+	if in.End != nil {
+		end = in.End.Seconds
+	}
+
+	var sets []*pb.CertSet
+	for users.Next() {
+		var id string
+		var role int
+		if err = users.Scan(&id, &role); err != nil {
+			return nil, err
+		}
+
+		rows, err := tcaa.tca.eca.readCertificateSets(id, begin, end)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		var certs [][]byte
+		var kdfKey []byte
+		var timestamp int64
+		timestamp = 0
+
+		for rows.Next() {
+			var cert []byte
+			var ts int64
+
+			if err = rows.Scan(&cert, &kdfKey, &ts); err != nil {
+				return nil, err
+			}
+
+			if ts != timestamp {
+				sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
+
+				timestamp = ts
+				certs = nil
+			}
+
+			certs = append(certs, cert)
+		}
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+
+		sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
+	}
+	if err = users.Err(); err != nil {
+		return nil, err
+	}
+
+	return &pb.CertSets{sets}, nil
+}
+
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
 //
 func (tcaa *TCAA) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
@@ -381,9 +492,9 @@ func (tcaa *TCAA) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (
 	return nil, errors.New("not yet implemented")
 }
 
-// CreateCRL requests the creation of a certificate revocation list from the TCA.  Not yet implemented.
+// PublishCRL requests the creation of a certificate revocation list from the TCA.  Not yet implemented.
 //
-func (tcaa *TCAA) CreateCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, error) {
+func (tcaa *TCAA) PublishCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, error) {
 	Trace.Println("grpc TCAA:CreateCRL")
 
 	return nil, errors.New("not yet implemented")

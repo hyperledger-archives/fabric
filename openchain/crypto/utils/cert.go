@@ -20,7 +20,9 @@ under the License.
 package utils
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -60,6 +62,20 @@ func PEMtoCertificate(raw []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// PEMtoDER converts pem to der
+func PEMtoDER(raw []byte) ([]byte, error) {
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, errors.New("No PEM block available")
+	}
+
+	if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+		return nil, errors.New("Not a valid CERTIFICATE PEM block")
+	}
+
+	return block.Bytes, nil
+}
+
 // PEMtoCertificateAndDER converts pem to x509 and der
 func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 	block, _ := pem.Decode(raw)
@@ -83,14 +99,22 @@ func PEMtoCertificateAndDER(raw []byte) (*x509.Certificate, []byte, error) {
 func DERCertToPEM(der []byte) []byte {
 	return pem.EncodeToMemory(
 		&pem.Block{
-			Type: "CERTIFICATE",
+			Type:  "CERTIFICATE",
 			Bytes: der,
 		},
 	)
 }
 
-// GetExtension returns a requested cert extension
-func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
+// GetCriticalExtension returns a requested critical extension. It also remove it from the list
+// of unhandled critical extensions
+func GetCriticalExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
+	for i, ext := range cert.UnhandledCriticalExtensions {
+		if IntArrayEquals(ext, oid) {
+			cert.UnhandledCriticalExtensions = append(cert.UnhandledCriticalExtensions[:i], cert.UnhandledCriticalExtensions[i+1:]...)
+
+			break
+		}
+	}
 
 	for _, ext := range cert.Extensions {
 		if IntArrayEquals(ext.Id, oid) {
@@ -170,4 +194,51 @@ func NewSelfSignedCert() ([]byte, interface{}, error) {
 	}
 
 	return cert, privKey, nil
+}
+
+func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) error {
+	switch pub := x509Cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		priv, ok := privateKey.(*rsa.PrivateKey)
+		if !ok {
+			return errors.New("Private key type does not match public key type")
+		}
+		if pub.N.Cmp(priv.N) != 0 {
+			return errors.New("Private key does not match public key")
+		}
+	case *ecdsa.PublicKey:
+		priv, ok := privateKey.(*ecdsa.PrivateKey)
+		if !ok {
+			return errors.New("Private key type does not match public key type")
+
+		}
+		if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
+			return errors.New("Private key does not match public key")
+		}
+	default:
+		return errors.New("Unknown public key algorithm")
+	}
+
+	return nil
+}
+
+func CheckCertAgainRoot(x509Cert *x509.Certificate, certPool *x509.CertPool) ([][]*x509.Certificate, error) {
+	opts := x509.VerifyOptions{
+		// TODO		DNSName: "test.example.com",
+		Roots: certPool,
+	}
+
+	return x509Cert.Verify(opts)
+}
+
+func CheckCertAgainstSKAndRoot(x509Cert *x509.Certificate, privateKey interface{}, certPool *x509.CertPool) error {
+	if err := CheckCertPKAgainstSK(x509Cert, privateKey); err != nil {
+		return err
+	}
+
+	if _, err := CheckCertAgainRoot(x509Cert, certPool); err != nil {
+		return err
+	}
+
+	return nil
 }

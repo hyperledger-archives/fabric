@@ -17,12 +17,15 @@ It has these top-level messages:
 	Checkpoint
 	ViewChange
 	NewView
+	FetchRequest
+	BatchMessage
 	SieveMessage
 	Execute
 	Verify
 	SievePbftMessage
 	VerifySet
 	Flush
+	Metadata
 */
 package obcpbft
 
@@ -45,6 +48,8 @@ type Message struct {
 	//	*Message_Checkpoint
 	//	*Message_ViewChange
 	//	*Message_NewView
+	//	*Message_FetchRequest
+	//	*Message_ReturnRequest
 	Payload isMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -77,14 +82,22 @@ type Message_ViewChange struct {
 type Message_NewView struct {
 	NewView *NewView `protobuf:"bytes,7,opt,name=new_view,oneof"`
 }
+type Message_FetchRequest struct {
+	FetchRequest *FetchRequest `protobuf:"bytes,8,opt,name=fetch_request,oneof"`
+}
+type Message_ReturnRequest struct {
+	ReturnRequest *Request `protobuf:"bytes,9,opt,name=return_request,oneof"`
+}
 
-func (*Message_Request) isMessage_Payload()    {}
-func (*Message_PrePrepare) isMessage_Payload() {}
-func (*Message_Prepare) isMessage_Payload()    {}
-func (*Message_Commit) isMessage_Payload()     {}
-func (*Message_Checkpoint) isMessage_Payload() {}
-func (*Message_ViewChange) isMessage_Payload() {}
-func (*Message_NewView) isMessage_Payload()    {}
+func (*Message_Request) isMessage_Payload()       {}
+func (*Message_PrePrepare) isMessage_Payload()    {}
+func (*Message_Prepare) isMessage_Payload()       {}
+func (*Message_Commit) isMessage_Payload()        {}
+func (*Message_Checkpoint) isMessage_Payload()    {}
+func (*Message_ViewChange) isMessage_Payload()    {}
+func (*Message_NewView) isMessage_Payload()       {}
+func (*Message_FetchRequest) isMessage_Payload()  {}
+func (*Message_ReturnRequest) isMessage_Payload() {}
 
 func (m *Message) GetPayload() isMessage_Payload {
 	if m != nil {
@@ -142,6 +155,20 @@ func (m *Message) GetNewView() *NewView {
 	return nil
 }
 
+func (m *Message) GetFetchRequest() *FetchRequest {
+	if x, ok := m.GetPayload().(*Message_FetchRequest); ok {
+		return x.FetchRequest
+	}
+	return nil
+}
+
+func (m *Message) GetReturnRequest() *Request {
+	if x, ok := m.GetPayload().(*Message_ReturnRequest); ok {
+		return x.ReturnRequest
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
@@ -152,6 +179,8 @@ func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error
 		(*Message_Checkpoint)(nil),
 		(*Message_ViewChange)(nil),
 		(*Message_NewView)(nil),
+		(*Message_FetchRequest)(nil),
+		(*Message_ReturnRequest)(nil),
 	}
 }
 
@@ -192,6 +221,16 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_NewView:
 		b.EncodeVarint(7<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.NewView); err != nil {
+			return err
+		}
+	case *Message_FetchRequest:
+		b.EncodeVarint(8<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.FetchRequest); err != nil {
+			return err
+		}
+	case *Message_ReturnRequest:
+		b.EncodeVarint(9<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ReturnRequest); err != nil {
 			return err
 		}
 	case nil:
@@ -260,6 +299,22 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Payload = &Message_NewView{msg}
 		return true, err
+	case 8: // payload.fetch_request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(FetchRequest)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_FetchRequest{msg}
+		return true, err
+	case 9: // payload.return_request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &Message_ReturnRequest{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -325,8 +380,9 @@ func (*Commit) ProtoMessage()    {}
 
 type Checkpoint struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	StateDigest    string `protobuf:"bytes,2,opt,name=state_digest" json:"state_digest,omitempty"`
-	ReplicaId      uint64 `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
+	ReplicaId      uint64 `protobuf:"varint,2,opt,name=replica_id" json:"replica_id,omitempty"`
+	BlockNumber    uint64 `protobuf:"varint,3,opt,name=block_number" json:"block_number,omitempty"`
+	BlockHash      string `protobuf:"bytes,4,opt,name=block_hash" json:"block_hash,omitempty"`
 }
 
 func (m *Checkpoint) Reset()         { *m = Checkpoint{} }
@@ -368,9 +424,11 @@ func (m *ViewChange) GetQset() []*ViewChange_PQ {
 	return nil
 }
 
+// This message should go away and become a checkpoint once replica_id is removed
 type ViewChange_C struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	Digest         string `protobuf:"bytes,2,opt,name=digest" json:"digest,omitempty"`
+	BlockNumber    uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	BlockHash      string `protobuf:"bytes,3,opt,name=block_hash" json:"block_hash,omitempty"`
 }
 
 func (m *ViewChange_C) Reset()         { *m = ViewChange_C{} }
@@ -410,6 +468,108 @@ func (m *NewView) GetXset() map[uint64]string {
 		return m.Xset
 	}
 	return nil
+}
+
+type FetchRequest struct {
+	RequestDigest string `protobuf:"bytes,1,opt,name=request_digest" json:"request_digest,omitempty"`
+	ReplicaId     uint64 `protobuf:"varint,2,opt,name=replica_id" json:"replica_id,omitempty"`
+}
+
+func (m *FetchRequest) Reset()         { *m = FetchRequest{} }
+func (m *FetchRequest) String() string { return proto.CompactTextString(m) }
+func (*FetchRequest) ProtoMessage()    {}
+
+type BatchMessage struct {
+	// Types that are valid to be assigned to Payload:
+	//	*BatchMessage_Request
+	//	*BatchMessage_PbftMessage
+	Payload isBatchMessage_Payload `protobuf_oneof:"payload"`
+}
+
+func (m *BatchMessage) Reset()         { *m = BatchMessage{} }
+func (m *BatchMessage) String() string { return proto.CompactTextString(m) }
+func (*BatchMessage) ProtoMessage()    {}
+
+type isBatchMessage_Payload interface {
+	isBatchMessage_Payload()
+}
+
+type BatchMessage_Request struct {
+	Request []byte `protobuf:"bytes,1,opt,name=request,proto3,oneof"`
+}
+type BatchMessage_PbftMessage struct {
+	PbftMessage []byte `protobuf:"bytes,4,opt,name=pbft_message,proto3,oneof"`
+}
+
+func (*BatchMessage_Request) isBatchMessage_Payload()     {}
+func (*BatchMessage_PbftMessage) isBatchMessage_Payload() {}
+
+func (m *BatchMessage) GetPayload() isBatchMessage_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+func (m *BatchMessage) GetRequest() []byte {
+	if x, ok := m.GetPayload().(*BatchMessage_Request); ok {
+		return x.Request
+	}
+	return nil
+}
+
+func (m *BatchMessage) GetPbftMessage() []byte {
+	if x, ok := m.GetPayload().(*BatchMessage_PbftMessage); ok {
+		return x.PbftMessage
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*BatchMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _BatchMessage_OneofMarshaler, _BatchMessage_OneofUnmarshaler, []interface{}{
+		(*BatchMessage_Request)(nil),
+		(*BatchMessage_PbftMessage)(nil),
+	}
+}
+
+func _BatchMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*BatchMessage)
+	// payload
+	switch x := m.Payload.(type) {
+	case *BatchMessage_Request:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Request)
+	case *BatchMessage_PbftMessage:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.PbftMessage)
+	case nil:
+	default:
+		return fmt.Errorf("BatchMessage.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _BatchMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*BatchMessage)
+	switch tag {
+	case 1: // payload.request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &BatchMessage_Request{x}
+		return true, err
+	case 4: // payload.pbft_message
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &BatchMessage_PbftMessage{x}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 type SieveMessage struct {
@@ -709,3 +869,11 @@ type Flush struct {
 func (m *Flush) Reset()         { *m = Flush{} }
 func (m *Flush) String() string { return proto.CompactTextString(m) }
 func (*Flush) ProtoMessage()    {}
+
+type Metadata struct {
+	SeqNo uint64 `protobuf:"varint,1,opt,name=seqNo" json:"seqNo,omitempty"`
+}
+
+func (m *Metadata) Reset()         { *m = Metadata{} }
+func (m *Metadata) String() string { return proto.CompactTextString(m) }
+func (*Metadata) ProtoMessage()    {}

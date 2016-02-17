@@ -21,11 +21,9 @@ package crypto
 
 func (client *clientImpl) initCryptoEngine() error {
 	// Load TCertOwnerKDFKey
-	if err := client.loadTCertOwnerKDFKey(nil); err != nil {
+	if err := client.loadTCertOwnerKDFKey(); err != nil {
 		return err
 	}
 
 	return nil
 }
-
-

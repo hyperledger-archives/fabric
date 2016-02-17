@@ -1,3 +1,9 @@
+## Notice regarding the Linux Foundation's Hyperledger project
+
+The openblockchain project is IBM's proposed contribution to the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project. We have made it available as open source to enable others to explore our architecture and design. IBM's intention is to engage rigorously in the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project as the community establishes itself, and decides on a code base. Once established, we will transition our development focus to the [Hyperledger](https://www.hyperledger.org/) effort, and this code will be maintained as needed for IBM's use.
+
+While we invite contribution to the openblockchain project, we believe that the broader blockchain community's focus should be the [Hyperledger](https://www.hyperledger.org/) project.
+
 # Openchain - Peer
 
 ## Overview
@@ -6,7 +12,7 @@ This project contains the core blockchain fabric.
 
 ## Building the project
 
-Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-getting-started/blob/master/devenv.md)
+Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md)
 
 To access your VM, run
 ```
@@ -52,7 +58,8 @@ The **peer** command will run peer process. You can then use the other commands 
 
 ## Test
 
-To run all tests, in one window, run `./obc-peer peer`. In a second window
+#### Unit Tests
+To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
@@ -63,18 +70,31 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
     go test -test.v -run=TestGetFoo
 
+#### Behave Tests
+OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
+
+```
+cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
+behave
+```
+
+Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
+```
+go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Peer
+go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Obcca
+```
+
 ## Writing Chaincode
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Setting Up a Network
 
-To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-peer/blob/master/docs/DevnetSetup.md)
-page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
+To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
 
 ## Working with CLI, REST, and Node.js
 
-When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-peer/blob/master/docs/Openchain%20API.md) page.
+When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20API.md) page.
 
 ## Configuration
 
@@ -89,6 +109,8 @@ There is an **openchain.yaml** file that contains the configuration for the peer
 Logging utilizes the [go-logging](https://github.com/op/go-logging) library.  
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
+
+See [specific logging control] (https://github.com/openblockchain/obc-docs/blob/master/dev-setup/logging-control.md) when running OBC.
 
 ## Generating grpc code
 If you modify ant .proto files, run the following command to generate new .pb.go files.
@@ -118,12 +140,20 @@ govendor list
 ## Building outside of Vagrant
 This is not recommended, however some users may wish to build Openchain outside of Vagrant if they use an editor with built in Go tooling. The instructions are
 
-1. Follow all steps required to setup and run a Vagrant image.
+1. Follow all steps required to setup and run a Vagrant image
 - Make you you have [Go 1.5.1](https://golang.org/) or later installed
 - Set the GO15VENDOREXPERIMENT environmental variable to 1. `export GO15VENDOREXPERIMENT=1`
+- Set the maximum number of open files to 10000 or greater for your OS
 - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1
-- Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB
+- Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB:
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
 CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
+- Make sure that the Docker daemon initialization includes the options
+```
+-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+```
+- Be aware that the Docker bridge (the `OPENCHAIN_VM_ENDPOINT`) may not come
+up at the IP address currently assumed by the test environment
+(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.

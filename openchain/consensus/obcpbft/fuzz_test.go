@@ -41,9 +41,13 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	primary := newPbftCore(0, readConfig(), newMock())
+	mock := newMock()
+	primary := newPbftCore(0, loadConfig(), mock, mock)
+	primary.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
 	defer primary.close()
-	backup := newPbftCore(1, readConfig(), newMock())
+	mock = newMock()
+	backup := newPbftCore(1, loadConfig(), mock, mock)
+	backup.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
 	defer backup.close()
 
 	f := fuzz.New()
@@ -55,8 +59,26 @@ func TestFuzz(t *testing.T) {
 		// nil slices into empty slices
 		raw, _ := proto.Marshal(msg)
 		proto.Unmarshal(raw, msg)
-		primary.recvMsgSync(msg)
-		backup.recvMsgSync(msg)
+
+		var senderID uint64
+		if req := msg.GetRequest(); req != nil {
+			senderID = req.ReplicaId
+		} else if preprep := msg.GetPrePrepare(); preprep != nil {
+			senderID = preprep.ReplicaId
+		} else if prep := msg.GetPrepare(); prep != nil {
+			senderID = prep.ReplicaId
+		} else if commit := msg.GetCommit(); commit != nil {
+			senderID = commit.ReplicaId
+		} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
+			senderID = chkpt.ReplicaId
+		} else if vc := msg.GetViewChange(); vc != nil {
+			senderID = vc.ReplicaId
+		} else if nv := msg.GetNewView(); nv != nil {
+			senderID = nv.ReplicaId
+		}
+
+		primary.recvMsgSync(msg, senderID)
+		backup.recvMsgSync(msg, senderID)
 	}
 
 	logging.Reset()
@@ -100,28 +122,29 @@ func TestMinimalFuzz(t *testing.T) {
 		t.Skip("Skipping fuzz test")
 	}
 
-	net := makeTestnet(1, makeTestnetPbftCore)
+	validatorCount := 4
+	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket
 
 	noExec := 0
-	for reqid := 1; reqid < 30; reqid++ {
-		if reqid%3 == 0 {
+	for reqID := 1; reqID < 30; reqID++ {
+		if reqID%3 == 0 {
 			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.replicas))
 			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
-		// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
-		txTime := &gp.Timestamp{Seconds: int64(reqid), Nanos: 0}
+		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+		txTime := &gp.Timestamp{Seconds: int64(reqID), Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
-		msg := &Message{&Message_Request{&Request{Payload: txPacked}}}
+		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 		for _, inst := range net.replicas {
-			inst.pbft.recvMsgSync(msg)
+			inst.pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
@@ -134,9 +157,12 @@ func TestMinimalFuzz(t *testing.T) {
 
 		quorum := 0
 		for _, r := range net.replicas {
-			if len(r.executed) > 0 {
+			blockHeight, _ := r.pbft.ledger.GetBlockchainSize()
+			if blockHeight > 1 {
 				quorum++
-				r.executed = nil
+				// We don't have a delete API yet, so, just create a new one
+				r.pbft.ledger = NewMockLedger(nil, nil)
+				r.pbft.ledger.PutBlock(0, SimpleGetBlock(0))
 			}
 		}
 		if quorum < len(net.replicas)/3 {

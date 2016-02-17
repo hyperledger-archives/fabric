@@ -43,7 +43,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 	testutil.AssertNoError(t, err, "Failed to create new chaincode Deployment Transaction")
 	t.Logf("New chaincode tx: %v", newChaincodeTx)
 
-	block1 := protos.NewBlock([]*protos.Transaction{newChaincodeTx})
+	block1 := protos.NewBlock([]*protos.Transaction{newChaincodeTx}, nil)
 	blockNumber := blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))
 	t.Logf("New chain: %v", blockchain)
 	testutil.AssertEquals(t, blockNumber, uint64(0))
@@ -55,7 +55,11 @@ func TestBlockChain_SimpleChain(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blockchain := blockchainTestWrapper.blockchain
-	allBlocks, allStateHashes := blockchainTestWrapper.populateBlockChainWithSampleData()
+	allBlocks, allStateHashes, err := blockchainTestWrapper.populateBlockChainWithSampleData()
+	if err != nil {
+		t.Logf("Error populating block chain with sample data: %s", err)
+		t.Fail()
+	}
 	testutil.AssertEquals(t, blockchain.getSize(), uint64(len(allBlocks)))
 	testutil.AssertEquals(t, blockchainTestWrapper.fetchBlockchainSizeFromDB(), uint64(len(allBlocks)))
 
@@ -96,7 +100,7 @@ func TestBlockChainEmptyChain(t *testing.T) {
 func TestBlockchainBlockLedgerCommitTimestamp(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
-	block1 := protos.NewBlock(nil)
+	block1 := protos.NewBlock(nil, nil)
 	startTime := util.CreateUtcTimestamp()
 	time.Sleep(2 * time.Second)
 	blockchainTestWrapper.addNewBlock(block1, []byte("stateHash1"))

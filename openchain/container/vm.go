@@ -40,6 +40,21 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+func newDockerClient() (client *docker.Client, err error) {
+	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
+	endpoint := viper.GetString("vm.endpoint")
+	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
+	if viper.GetBool("vm.docker.tls.enabled") {
+		cert := viper.GetString("vm.docker.tls.cert.file")
+		key := viper.GetString("vm.docker.tls.key.file")
+		ca := viper.GetString("vm.docker.tls.ca.file")
+		client, err = docker.NewTLSClient(endpoint, cert, key, ca)
+	} else {
+		client, err = docker.NewClient(endpoint)
+	}
+	return
+}
+
 // VM implemenation of VM management functionality.
 type VM struct {
 	Client *docker.Client
@@ -47,51 +62,9 @@ type VM struct {
 
 // NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
-	endpoint := viper.GetString("vm.endpoint")
-	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
-	
-	tls := viper.GetBool("vm.docker.tls.enabled")
-	
-	if tls == true {
-		vmLogger.Debug("Docker TLS is enabled")
-		certFile := viper.GetString("vm.docker.tls.cert.file")
-		keyFile := viper.GetString("vm.docker.tls.key.file")
-		
-		var ca []byte
-		if viper.IsSet("vm.docker.tls.ca.file") {
-			caFile := viper.GetString("vm.docker.tls.ca.file")
-			ca1, err := ioutil.ReadFile(caFile)
-			if err != nil {
-				return nil, fmt.Errorf("Error reading Docker CA Cert File: %s", err)
-			}
-			ca = ca1
-		}
-		
-		cert, err1 := ioutil.ReadFile(certFile)
-		if err1 != nil {
-			return nil, fmt.Errorf("Error reading Docker Cert File: %s", err1)
-		}
-		
-		key, err2 := ioutil.ReadFile(keyFile)
-		if err2 != nil {
-			return nil, fmt.Errorf("Error reading Dcoker Key File: %s", err2)
-		}
-		
-		client, err3 := docker.NewTLSClientFromBytes(endpoint, cert, key, ca)
-		if err3 != nil {
-			return nil, fmt.Errorf("Error creating Docker TLS Client: %s", err3)
-		}
-		
-		VM := &VM{Client: client}
-		return VM, nil
-	} else {		
-		vmLogger.Debug("Docker TLS is disabled")
-		client, err := docker.NewClient(endpoint)
-		if err != nil {
-			return nil, err
-		}
-		VM := &VM{Client: client}
-		return VM, nil
+	client, err := newDockerClient()
+	if err != nil {
+		return nil, err
 	}
 }
 
@@ -175,6 +148,7 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainc
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
+		vmLogger.Debug(fmt.Sprintf("Failed Chaincode docker build:\n%s\n", outputbuf.String()))
 		return fmt.Errorf("Error building Chaincode container: %s", err)
 	}
 	return nil
@@ -196,7 +170,29 @@ func (vm *VM) BuildPeerContainer() error {
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		return fmt.Errorf("Error building Peer container: %s", err)
+		vmLogger.Debug(fmt.Sprintf("Failed Peer docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building Peer container: %s\n", err)
+	}
+	return nil
+}
+
+// BuildObccaContainer builds the image for the obcca to be used in development network
+func (vm *VM) BuildObccaContainer() error {
+	inputbuf, err := vm.getPackageBytes(vm.writeObccaPackage)
+
+	if err != nil {
+		return fmt.Errorf("Error building obcca container: %s", err)
+	}
+	outputbuf := bytes.NewBuffer(nil)
+	opts := docker.BuildImageOptions{
+		Name:         "obcca",
+		Pull:         true,
+		InputStream:  inputbuf,
+		OutputStream: outputbuf,
+	}
+	if err := vm.Client.BuildImage(opts); err != nil {
+		vmLogger.Debug(fmt.Sprintf("Failed obcca docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building obcca container: %s\n", err)
 	}
 	return nil
 }
@@ -245,7 +241,25 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 		urlLocation = spec.ChaincodeID.Path
 	}
 
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	if urlLocation == "" {
+		return fmt.Errorf("empty url location")
+	}
+
+	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
+		urlLocation = urlLocation[:len(urlLocation)-1]
+	}
+	toks := strings.Split(urlLocation, "/")
+	if toks == nil || len(toks) == 0 {
+		return fmt.Errorf("cannot get path components from %s", urlLocation)
+	}
+
+	chaincodeGoName := toks[len(toks)-1]
+	if chaincodeGoName == "" {
+		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
+	}
+	
+	//let the executable's name be chaincode ID's name
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
@@ -272,6 +286,22 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 	err := writeGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing Peer package contents: %s", err)
+	}
+	return nil
+}
+
+func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
+	startTime := time.Now()
+
+	dockerFileContents := viper.GetString("peer.Dockerfile")
+	dockerFileContents = dockerFileContents + "RUN cd obc-ca && go install\n"
+	dockerFileSize := int64(len([]byte(dockerFileContents)))
+
+	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
+	tw.Write([]byte(dockerFileContents))
+	err := writeGopathSrc(tw, "")
+	if err != nil {
+		return fmt.Errorf("Error writing obcca package contents: %s", err)
 	}
 	return nil
 }

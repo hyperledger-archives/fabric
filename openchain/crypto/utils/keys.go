@@ -22,6 +22,7 @@ package utils
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -33,7 +34,11 @@ func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 }
 
 // PrivateKeyToPEM converts a private key to PEM
-func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
+func PrivateKeyToPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
+	if len(pwd) != 0 {
+		return PrivateKeyToEncryptedPEM(privateKey, pwd)
+	}
+
 	switch x := privateKey.(type) {
 	case *ecdsa.PrivateKey:
 		raw, err := x509.MarshalECPrivateKey(x)
@@ -44,7 +49,7 @@ func PrivateKeyToPEM(privateKey interface{}) ([]byte, error) {
 
 		return pem.EncodeToMemory(
 			&pem.Block{
-				Type: "ECDSA PRIVATE KEY",
+				Type:  "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			},
 		), nil
@@ -83,24 +88,22 @@ func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error
 
 // DERToPrivateKey unmarshals a der to private key
 func DERToPrivateKey(der []byte) (interface{}, error) {
-	// Try RSA and then ECDSA
-	rsakey, err1 := x509.ParsePKCS1PrivateKey(der)
-	if err1 == nil {
-		return rsakey, nil
+	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
+		return key, nil
 	}
-	//	else {
-	//		fmt.Println("RSA failed" + err1.Error())
-	//	}
-
-	ecdsakey, err2 := x509.ParseECPrivateKey(der)
-	if err2 == nil {
-		return ecdsakey, nil
+	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
+		switch key := key.(type) {
+		case *rsa.PrivateKey, *ecdsa.PrivateKey:
+			return key, nil
+		default:
+			return nil, errors.New("Found unknown private key type in PKCS#8 wrapping")
+		}
 	}
-	//else {
-	//		fmt.Println("EC failed" + err2.Error())
-	//	}
+	if key, err := x509.ParseECPrivateKey(der); err == nil {
+		return key, nil
+	}
 
-	return nil, errors.New("Key not recognized.")
+	return nil, errors.New("Failed to parse private key")
 }
 
 // PEMtoPrivateKey unmarshals a pem to private key
@@ -157,6 +160,10 @@ func AEStoPEM(raw []byte) []byte {
 
 // AEStoEncryptedPEM encapsulates an AES key in the encrypted PEM format
 func AEStoEncryptedPEM(raw []byte, pwd []byte) ([]byte, error) {
+	if len(pwd) == 0 {
+		return AEStoPEM(raw), nil
+	}
+
 	block, err := x509.EncryptPEMBlock(
 		rand.Reader,
 		"AES PRIVATE KEY",

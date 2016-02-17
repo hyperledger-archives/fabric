@@ -40,23 +40,36 @@ type nodeImpl struct {
 	// keyStore
 	ks *keyStore
 
-	// Certs
+	// Certs Pool
 	rootsCertPool *x509.CertPool
+	tlsCertPool   *x509.CertPool
+	ecaCertPool   *x509.CertPool
+	tcaCertPool   *x509.CertPool
 
 	// 48-bytes identifier
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollID      string
-	enrollCert    *x509.Certificate
-	enrollPrivKey *ecdsa.PrivateKey
+	enrollID       string
+	enrollCert     *x509.Certificate
+	enrollPrivKey  *ecdsa.PrivateKey
+	enrollCertHash []byte
 
 	// Enrollment Chain
 	enrollChainKey []byte
+
+	// TLS
+	tlsCert *x509.Certificate
 }
 
 func (node *nodeImpl) GetName() string {
 	return node.conf.name
+}
+
+func (node *nodeImpl) isRegistered() bool {
+	missing, _ := utils.FileMissing(node.conf.getRawsPath(), node.conf.getEnrollmentIDFilename())
+
+	return !missing
 }
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
@@ -81,34 +94,25 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 
 		return utils.ErrAlreadyRegistered
 	}
-	// TODO: handle the error in a better way
-	if err := node.createKeyStorage(); err != nil {
-		node.log.Error("Failed creating key storage [%s].", err.Error())
 
-		return err
+	// Initialize keystore
+	node.log.Info("Init keystore...")
+	err := node.initKeyStore(pwd)
+	if err != nil {
+		if err != utils.ErrKeyStoreAlreadyInitialized {
+			node.log.Error("Keystore already initialized.")
+		} else {
+			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+
+			return err
+		}
 	}
+	node.log.Info("Init keystore...done.")
 
-	if err := node.retrieveECACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveTCACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
-
-		return err
-	}
-
-	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data: %s", err)
-
+	// Register crypto engine
+	err = node.registerCryptoEngine(enrollID, enrollPWD)
+	if err != nil {
+		node.log.Error("Failed registering crypto engine [%s].", err.Error())
 		return err
 	}
 
@@ -137,8 +141,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 
 	// Initialize keystore
 	node.log.Info("Init keystore...")
-	// TODO: password support
-	err := node.initKeyStore()
+	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
 			node.log.Error("Keystore already initialized.")

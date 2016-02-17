@@ -18,13 +18,54 @@ cli:
 ###############################################################################
 rest:
 
-    # Enable/disable setting for the REST service.
+    # Enable/disable setting for the REST service. It is recommended to disable
+    # REST service on validators in production deployment and use non-validating
+    # nodes to host REST service
     enabled: true
 
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
 
+###############################################################################
+#
+#    LOGGING section
+#
+###############################################################################
+logging:
+
+    # Valid logging levels are case-insensitive strings chosen from
+
+    #     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
+
+    # Logging 'module' names are also strings, however valid module names are
+    # defined at runtime and are not checked for validity during option
+    # processing.
+
+    # Default logging levels are specified here for each of the obc-peer
+    # commands. For commands that have subcommands, the defaults also apply to
+    # all subcommands of the command. These logging levels can be overridden
+    # on the command line using the --logging-level command-line option, or by
+    # setting the OPENCHAIN_LOGGING_LEVEL environment variable.
+
+    # The logging level specification is of the form
+
+    #     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
+
+    # A logging level by itself is taken as the overall default. Otherwise,
+    # overrides for individual or groups of modules can be specified using the
+    # <module>[,<module>...]=<level> syntax.
+
+    # Examples:
+    #   info                                       - Set default to INFO
+    #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
+    #   chaincode=info:main=debug:db=debug:warning - Same as above
+    peer:      info
+    status:    warning
+    stop:      warning
+    login:     warning
+    vm:        warning
+    chaincode: warning
 
 
 ###############################################################################
@@ -42,7 +83,7 @@ peer:
     id: jdoe
 
     # The privateKey to be used by this peer
-    privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
+    # privateKey: 794ef087680e2494fa4918fd8fb80fb284b50b57d321a31423fe42b9ccf6216047cea0b66fe8365a8e3f2a8140c6866cc45852e63124668bee1daa9c97da0c2a
 
     # The networkId allows for logical seperation of networks
     # networkId: dev
@@ -68,15 +109,9 @@ peer:
     listenAddress: 0.0.0.0:30303
     # The Address this Peer will bind to for providing services
     address: 0.0.0.0:30303
-    # Whether the Peer should programmatically determine the address to bind to. This case is useful for docker containers.
+    # Whether the Peer should programmatically determine the address to bind to.
+    # This case is useful for docker containers.
     addressAutoDetect: false
-
-
-    # Logging settings
-    logging:
-        # Logging level, can be one of [error|warning|info|debug]
-        # One of: CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
-        level: DEBUG
 
     # Peer port to accept connections on
     port:    30303
@@ -87,14 +122,25 @@ peer:
     # Sync related configuration
     sync:
         blocks:
-            # Channel size for readonly SyncBlocks messages channel for receiving blocks from oppositie Peer Endpoints.
-            # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+            # Channel size for readonly SyncBlocks messages channel for receiving
+            # blocks from oppositie Peer Endpoints.
+            # NOTE: currently messages are not stored and forwarded, but rather
+            # lost if the channel write blocks.
             channelSize: 1
         state:
             snapshot:
-                # Channel size for readonly syncStateSnapshot messages channel for receiving state deltas for snapshot from oppositie Peer Endpoints.
-                # NOTE: currently messages are not stored and forwarded, but rather lost if the channel write blocks.
+                # Channel size for readonly syncStateSnapshot messages channel
+                # for receiving state deltas for snapshot from oppositie Peer Endpoints.
+                # NOTE: currently messages are not stored and forwarded, but
+                # rather lost if the channel write blocks.
                 channelSize: 50
+            deltas:
+                # Channel size for readonly syncStateDeltas messages channel for
+                # receiving state deltas for a syncBlockRange from oppositie
+                # Peer Endpoints.
+                # NOTE: currently messages are not stored and forwarded,
+                # but rather lost if the channel write blocks.
+                channelSize: 5
 
     # Validator defines whether this peer is a validating peer or not, and if
     # it is enabled, what consensus plugin to load
@@ -104,18 +150,12 @@ peer:
         # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
         consensus: noops
 
-         # List of validating peers.
-        replicas:
-            # For MVP, assume list is static.
-            ips: 172.17.0.2:30303 172.17.0.3:30303 172.17.0.4:30303 172.17.0.5:30303
-            # Base64-encoded values.
-            hashes: a, b, c, d
-
         events:
             # The address that the Event service will be enabled on the validator
             address: 0.0.0.0:31315
 
-            # total number of events that could be buffered without blocking the validator sends
+            # total number of events that could be buffered without blocking the
+            # validator sends
             buffersize: 100
 
             # milliseconds timeout for producer to send an event.
@@ -123,6 +163,10 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
+        # Setting the validity-period.verification to false will disable the verification
+        # of the validity period in the validator
+        validity-period:
+            verification: false
 
     # TLS Settings for p2p communications
     tls:
@@ -139,14 +183,21 @@ peer:
         eca:
             paddr: localhost:50051
         tca:
-            paddr: localhost:50551
+            paddr: localhost:50051
         tlsca:
-            paddr: localhost:50951
+            paddr: localhost:50051
+        tls:
+            enabled: false
+            rootcert:
+                file: tlsca.cert
+            # The server name use to verify the hostname returned by TLS handshake
+            server-host-override:
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 
-        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
+        # The root nodes are used for bootstrapping purposes, and generally
+        # supplied through ENV variables
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers
@@ -188,30 +239,6 @@ peer:
     # Path on the file system where peer will store data
     fileSystemPath: /var/openchain/production
 
-### NOTE: The validator section below is not needed and will be removed - BN
-###############################################################################
-#
-#    Validator section
-#
-###############################################################################
-validator:
-    enabled: false
-    address: 0.0.0.0:30304
-    # TLS Settings for p2p communications
-    tls:
-        enabled:  false
-        cert:
-            file: testdata/server1.pem
-        key:
-            file: testdata/server1.key
-        # The server name use to verify the hostname returned by TLS handshake
-        server-host-override:
-    # Peer discovery settings.  Controls how this peer discovers other peers
-    discovery:
-
-        # The root nodes are used for bootstrapping purposes, and generally supplied through ENV variables
-        rootnode:
-
 ###############################################################################
 #
 #    VM section
@@ -222,16 +249,19 @@ vm:
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
     # http://localhost:4243
+    # tcp://localhost:2376
     endpoint: unix:///var/run/docker.sock
+
+    # settings for docker vms
     docker:
         tls:
-            enabled: true
+            enabled: false
             cert:
-                file: /companion_certs/cert.pem
+                file: /path/to/server.pem
             ca:
-                file: /companion_certs/ca.pem
+                file: /path/to/ca.pem
             key:
-                file: /companion_certs/key.pem
+                file: /path/to/server-key.pem
 
 ###############################################################################
 #
@@ -240,31 +270,36 @@ vm:
 ###############################################################################
 chaincode:
 
-    # The id is used by the Chaincode stub to register the executing Chaincode ID with the Peerand is generally supplied through ENV variables
-    # the Path form of ID is provided when deploying the chaincode. The name is used for all other requests. The name is really a hashcode
-    # returned by the system in response to the deploy transaction. In development mode where user runs the chaincode, the name can be
-    # any string
+    # The id is used by the Chaincode stub to register the executing Chaincode
+    # ID with the Peerand is generally supplied through ENV variables
+    # the Path form of ID is provided when deploying the chaincode. The name is
+    # used for all other requests. The name is really a hashcode
+    # returned by the system in response to the deploy transaction. In
+    # development mode where user runs the chaincode, the name can be any string
     id:
         path:
         name:
 
     golang:
 
-        # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
+        # This is the basis for the Golang Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             from golang:1.5.1
             ENV GO15VENDOREXPERIMENT=1
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
-    #timeout in millisecs for starting up a container and waiting for Register to come through. 1sec should be plenty for chaincode unit tests
+    # timeout in millisecs for starting up a container and waiting for Register
+    # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
 
     #timeout in millisecs for deploying chaincode from a remote repository.
     deploytimeout: 30000
 
     #mode - options are "dev", "net"
-    #dev - in dev mode, user runs the chaincode after starting validator from command line on local machine
+    #dev - in dev mode, user runs the chaincode after starting validator from
+    # command line on local machine
     #net - in net mode validator will run chaincode in a docker container
 
     mode: net
@@ -296,6 +331,10 @@ ledger:
       #         - bob
       #         - "10"
 
+    # Setting the deploy-system-chaincode property to false will prevent the
+    # deploying of system chaincode at genesis time.
+    deploy-system-chaincode: false
+
   state:
 
     # Control the number state deltas that are maintained. This takes additional
@@ -307,19 +346,41 @@ ledger:
     # structures may offer different performance characteristics. Options are
     # 'buckettree' and 'trie'. If not set, the default data structure is the
     # 'buckettree'. This CANNOT be changed after the DB has been created.
-    dataStructure: buckettree
+    dataStructure:
+      # The name of the data structure is for storing the state
+      name: buckettree
+      # The data structure specific configurations
+      configs:
+        # configurations for 'bucketree'. These CANNOT be changed after the DB
+        # has been created. 'numBuckets' defines the number of bins that the
+        # state key-values are to be divided
+        numBuckets: 10009
+        # 'maxGroupingAtEachLevel' defines the number of bins that are grouped
+        #together to construct next level of the merkle-tree (this is applied
+        # repeatedly for constructing the entire tree).
+        maxGroupingAtEachLevel: 10
+
+        # configurations for 'trie'
+        # 'tire' has no additional configurations exposed as yet
 
 
 ###############################################################################
 #
-#    Security section -
+#    Security section - Applied to all entities (client, NVP, VP)
 #
 ###############################################################################
 security:
+    # Enable security will force every entity on the network to enroll with obc-ca
+    # and maintain a valid set of certificates in order to communicate with
+    # other peers
     enabled: false
-    # To enroll NVP or VP with Member Services PKI. These parameters are for
-    # 1 time use. They will not be valid the subsequent times without un-enroll
-    enrollID: nepumuk
-    enrollSecret: 9gvZQRwhUq9q
-    # To enable privacy and confidentiality of transactions (requires security to be enabled)
+    # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
+    # They will not be valid on subsequent times without un-enroll first.
+    # The values come from off-line registration with obc-ca. For testing, make
+    # sure the values are in obc-ca/obcca.yaml file eca.users
+    enrollID: binhn
+    enrollSecret: 7avZQLwcUe9q
+    # To enable privacy of transactions (requires security to be enabled). This
+    # encrypts the transaction content during transit and at rest. The state
+    # data is also encrypted
     privacy: false

@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -95,7 +96,7 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 // by a transaction between these two calls, the hash will be different. The
 // preview block does not include non-hashed data such as the local timestamp.
 func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
-	transactions []*protos.Transaction, proof []byte) (*protos.Block, error) {
+	transactions []*protos.Transaction, metadata []byte) (*protos.Block, error) {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return nil, err
@@ -104,43 +105,49 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock(transactions), stateHash), nil
+	return ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash), nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
 // This function returns successfully iff the transactions details and state changes (that
 // may have happened during execution of this transaction-batch) have been committed to permanent storage
-func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, proof []byte) error {
+func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Transaction, transactionResults []*protos.TransactionResult, metadata []byte) error {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
 	}
 
-	success := true
-	defer ledger.resetForNextTxGroup(success)
-	defer ledger.blockchain.blockPersistenceStatus(success)
-
 	stateHash, err := ledger.state.GetHash()
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
-	block := protos.NewBlock(transactions)
+	defer writeBatch.Destroy()
+	block := protos.NewBlock(transactions, metadata)
+	block.NonHashData = &protos.NonHashData{TransactionResults: transactionResults}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 	ledger.state.AddChangesForPersistence(newBlockNumber, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	dbErr := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if dbErr != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return dbErr
 	}
-	producer.Send(producer.CreateBlockEvent(block))
+
+	ledger.resetForNextTxGroup(true)
+	ledger.blockchain.blockPersistenceStatus(true)
+
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -188,6 +195,15 @@ func (ledger *Ledger) GetTempStateHashWithTxDeltaStateHashes() ([]byte, map[stri
 // and if missing, pulls from db.  If committed is true, this pulls from the db only.
 func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) ([]byte, error) {
 	return ledger.state.Get(chaincodeID, key, committed)
+}
+
+// GetStateRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
+// (assuming lexical order of the keys) for a chaincodeID.
+// If committed is true, the key-values are retrived only from the db. If committed is false, the results from db
+// are mergerd with the results in memory (giving preference to in-memory data)
+// The key-values in the returned iterator are not guaranteed to be in any specific order
+func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey string, endKey string, committed bool) (statemgmt.RangeScanIterator, error) {
+	return ledger.state.GetRangeScanIterator(chaincodeID, startKey, endKey, committed)
 }
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
@@ -314,7 +330,7 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 	if err != nil {
 		return err
 	}
-	producer.Send(producer.CreateBlockEvent(block))
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -383,4 +399,31 @@ func (ledger *Ledger) resetForNextTxGroup(txCommited bool) {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
 	ledger.state.ClearInMemoryChanges(txCommited)
+}
+
+func sendProducerBlockEvent(block *protos.Block) {
+
+	// Remove payload from deploy transactions. This is done to make block
+	// events more lightweight as the payload for these types of transactions
+	// can be very large.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
+			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error unmarshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error marshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			transaction.Payload = deploymentSpecBytes
+		}
+	}
+
+	producer.Send(producer.CreateBlockEvent(block))
 }

@@ -32,34 +32,28 @@ import (
 )
 
 type obcClassic struct {
-	cpi  consensus.CPI
-	pbft *pbftCore
+	stack consensus.Stack
+	pbft  *pbftCore
 }
 
-func newObcClassic(id uint64, config *viper.Viper, cpi consensus.CPI) *obcClassic {
-	op := &obcClassic{cpi: cpi}
-	op.pbft = newPbftCore(id, config, op)
+func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
+	op := &obcClassic{stack: stack}
+	op.pbft = newPbftCore(id, config, op, stack)
 	return op
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
+func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
-		if err := op.verify(ocMsg.Payload); err != nil {
-			logger.Warning("Request did not verify: %s", err)
-			return err
-		}
-
-		op.pbft.request(ocMsg.Payload)
-
-		req := &Request{Payload: ocMsg.Payload}
-		msg := &Message{&Message_Request{req}}
-		msgRaw, _ := proto.Marshal(msg)
-		op.broadcast(msgRaw)
+		req := &Request{Payload: ocMsg.Payload, ReplicaId: op.pbft.id}
+		pbftMsg := &Message{&Message_Request{req}}
+		packedPbftMsg, _ := proto.Marshal(pbftMsg)
+		op.broadcast(packedPbftMsg)
+		op.pbft.request(ocMsg.Payload, op.pbft.id)
 
 		return nil
 	}
@@ -68,16 +62,12 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.OpenchainMessage) error {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	pbftMsg := &Message{}
-	err := proto.Unmarshal(ocMsg.Payload, pbftMsg)
+	senderID, err := getValidatorID(senderHandle)
 	if err != nil {
-		return err
+		panic("Cannot map sender's PeerID to a valid replica ID")
 	}
-	if req := pbftMsg.GetRequest(); req != nil {
-		op.pbft.request(req.Payload)
-	} else {
-		op.pbft.receive(ocMsg.Payload)
-	}
+
+	op.pbft.receive(ocMsg.Payload, senderID)
 
 	return nil
 }
@@ -88,7 +78,7 @@ func (op *obcClassic) Close() {
 }
 
 // =============================================================================
-// innerCPI interface (functions called by pbft-core)
+// innerStack interface (functions called by pbft-core)
 // =============================================================================
 
 // multicast a message to all replicas
@@ -97,58 +87,78 @@ func (op *obcClassic) broadcast(msgPayload []byte) {
 		Type:    pb.OpenchainMessage_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.cpi.Broadcast(ocMsg)
+	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
-// verify checks whether the request is valid
-func (op *obcClassic) verify(txRaw []byte) error {
-	// TODO verify transaction
-	/* tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal transaction: %v", err)
+// send a message to a specific replica
+func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	ocMsg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CONSENSUS,
+		Payload: msgPayload,
 	}
-	if _, err := instance.cpi.TransactionPreValidation(...); err != nil {
-		logger.Warning("Invalid request");
+	receiverHandle, err := getValidatorHandle(receiverID)
+	if err != nil {
+		return
+	}
+	return op.stack.Unicast(ocMsg, receiverHandle)
+}
+
+func (op *obcClassic) sign(msg []byte) ([]byte, error) {
+	return op.stack.Sign(msg)
+}
+
+func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
+	senderHandle, err := getValidatorHandle(senderID)
+	if err != nil {
 		return err
-	} */
+	}
+	return op.stack.Verify(senderHandle, signature, message)
+}
+
+// validate checks whether the request is valid syntactically
+// not used in obc-classic at the moment
+func (op *obcClassic) validate(txRaw []byte) error {
 	return nil
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(txRaw []byte) {
-	if err := op.verify(txRaw); err != nil {
-		logger.Error("Request in transaction did not verify: %s", err)
+	if err := op.validate(txRaw); err != nil {
+		err = fmt.Errorf("Request in transaction did not validate: %s", err)
+		logger.Error(err.Error())
 		return
 	}
 
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
-		logger.Error("Unable to unmarshal transaction: %v", err)
+		err = fmt.Errorf("Unable to unmarshal transaction: %v", err)
+		logger.Error(err.Error())
 		return
 	}
 
 	txs := []*pb.Transaction{tx}
 	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
 
-	if err := op.cpi.BeginTxBatch(txBatchID); err != nil {
-		logger.Error("Failed to begin transaction %s: %v", txBatchID, err)
+	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
+		err = fmt.Errorf("Failed to begin transaction %s: %v", txBatchID, err)
+		logger.Error(err.Error())
 		return
 	}
 
-	_, errs := op.cpi.ExecTXs(txs)
-	if errs[len(txs)] != nil {
-		logger.Error("Fail to execute transaction %s: %v", txBatchID, errs)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
+		err = fmt.Errorf("Failed to execute transaction %s: %v", txBatchID, err)
+		logger.Error(err.Error())
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
 	}
 
-	if err = op.cpi.CommitTxBatch(txBatchID, txs, nil); err != nil {
-		logger.Error("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
-		if err = op.cpi.RollbackTxBatch(txBatchID); err != nil {
+	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
+		err = fmt.Errorf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		logger.Error(err.Error())
+		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
 			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
 		}
 		return
@@ -158,22 +168,4 @@ func (op *obcClassic) execute(txRaw []byte) {
 // called when a view-change happened in the underlying PBFT
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
-}
-
-// returns the state hash that corresponds to a specific block in the chain
-// if called with no arguments, it returns the latest/temp state hash
-func (op *obcClassic) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	if len(blockNumber) == 0 {
-		return op.cpi.GetCurrentStateHash()
-	}
-
-	block, err := op.cpi.GetBlock(blockNumber[0])
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve block #%v: %s", blockNumber[0], err)
-	}
-	stateHash, err = block.GetHash()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve hash for block #%v: %s", blockNumber[0], err)
-	}
-	return
 }

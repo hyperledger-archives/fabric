@@ -1,34 +1,83 @@
-test: hello
-
-ports:
-        ecaP: ":50051"
-        ecaA: ":50052"
-        tcaP: ":50551"
-        tcaA: ":50552"
-        tlscaP: ":50951"
-        tlscaA: ":50952"
-
-hosts:
-        eca: localhost
-        tca: localhost
-        tlsca: localhost
+# CA server parameters
+#
+server:
+        # current version of the CA
+        version: "0.1"
         
-eca:
-#        tls:
-#                certfile:
-#                keyfile:
-                
-        users:
-                nepumuk: 9gvZQRwhUq9q
-                jim: AwbeJH2kw9qK
-                lukas: NPKYL39uKbkj
-tca:
-#         tls:
-#                certfile:
-#                keyfile:
+        # limits the number of operating system threads used by the CA
+        gomaxprocs: 2
 
-tlsca:
-#         tls:
-#                certfile:
-#                keyfile:
-         
+        # path to the OBC state directory and CA state subdirectory
+        rootpath: "/var/openchain/production"
+        cadir: ".obcca"
+        
+        # port the CA services are listening on
+        port: ":50051"
+
+        # TLS certificate and key file paths
+        tls:
+#              certfile: "/var/openchain/production/.obcca/tlsca.cert"
+#              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
+
+# Enabling/disabling different logging levels of the CA.
+#
+logging:
+        trace: 0
+        info: 1
+        warning: 1
+        error: 1
+        panic: 1
+        
+# Default users to be registered with the CA on first launch.  The role is a binary OR
+# of the different roles a user can have:
+#
+# - simple client such as a wallet: CLIENT
+# - non-validating peer: PEER
+# - validating client: VALIDATOR
+# - auditing client: AUDITOR
+#
+eca:
+        users:
+                # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD>
+                lukas: 1 NPKYL39uKbkj
+                system_chaincode_invoker: 2 DRJ20pEql15a
+                diego: 2 DRJ23pEQl16a
+                binhn: 3 7avZQLwcUe9q
+                jim: 12 6avZQLwcUe9b
+                test_vp0: 4 MwYpmSRjupbT
+                test_vp1: 4 5wgHK9qqYaPy
+                test_vp2: 4 vQelbRvja7cJ
+                test_vp3: 4 9LKqKH5peurL
+                test_vp4: 4 Pqh90CEW5juZ
+                test_vp5: 4 FfdvDkAdY81P
+                test_vp6: 4 QiXJgHyV4t7A
+                test_vp7: 4 twoKZouEyLyB
+                test_vp8: 4 BxP7QNh778gI
+                test_vp9: 4 wu3F1EwJWHvQ
+
+                test_user0: 1 MS9qrN8hFjlE
+                test_user1: 1 jGlNl6ImkuDo
+                test_user2: 1 zMflqOKezFiA
+                test_user3: 1 vWdLCE00vJy0
+                test_user4: 1 4nXSrfoYGFCP
+                test_user5: 1 yg5DVhm0er1z
+                test_user6: 1 b7pmSxzKNFiw
+                test_user7: 1 YsWZD4qQmYxo
+                test_user8: 1 W8G0usrU7jRk
+                test_user9: 1 H80SiB5ODKKQ
+
+pki:
+          validity-period:
+                 # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
+                 update: false
+                 chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
+                 # TLS Settings for communications to update the validity period
+                 tls:
+                         enabled: false
+                         cert:
+                                file: testdata/server1.pem
+                         key:
+                                file: testdata/server1.key
+                         # The server name use to verify the hostname returned by TLS handshake
+                         server-host-override:
+                 devops-address: 0.0.0.0:30303

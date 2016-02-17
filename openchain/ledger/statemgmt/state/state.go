@@ -53,9 +53,12 @@ type State struct {
 
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
-	stateImplName := viper.GetString("ledger.state.dataStructure")
+	stateImplName := viper.GetString("ledger.state.dataStructure.name")
+	stateImplConfigs := viper.GetStringMap("ledger.state.dataStructure.configs")
+
 	if len(stateImplName) == 0 {
 		stateImplName = detaultStateImpl
+		stateImplConfigs = nil
 	}
 
 	switch stateImplName {
@@ -67,7 +70,7 @@ func NewState() *State {
 		panic(fmt.Errorf("Error during initialization of state implementation. State data structure '%s' is not valid.", stateImplName))
 	}
 
-	err := stateImpl.Initialize()
+	err := stateImpl.Initialize(stateImplConfigs)
 	if err != nil {
 		panic(fmt.Errorf("Error during initialization of state implementation: %s", err))
 	}
@@ -126,6 +129,23 @@ func (state *State) Get(chaincodeID string, key string, committed bool) ([]byte,
 		}
 	}
 	return state.stateImpl.Get(chaincodeID, key)
+}
+
+// GetRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
+// (assuming lexical order of the keys) for a chaincodeID.
+func (state *State) GetRangeScanIterator(chaincodeID string, startKey string, endKey string, committed bool) (statemgmt.RangeScanIterator, error) {
+	stateImplItr, err := state.stateImpl.GetRangeScanIterator(chaincodeID, startKey, endKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if committed {
+		return stateImplItr, nil
+	}
+	return newCompositeRangeScanIterator(
+		statemgmt.NewStateDeltaRangeScanIterator(state.currentTxStateDelta, chaincodeID, startKey, endKey),
+		statemgmt.NewStateDeltaRangeScanIterator(state.stateDelta, chaincodeID, startKey, endKey),
+		stateImplItr), nil
 }
 
 // Set sets state to given value for chaincodeID and key. Does not immideatly writes to DB
@@ -269,9 +289,12 @@ func (state *State) CommitStateDelta() error {
 		state.stateImpl.PrepareWorkingSet(state.stateDelta)
 		state.updateStateImpl = false
 	}
+
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	state.stateImpl.AddChangesForPersistence(writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	return db.GetDBHandle().DB.Write(opt, writeBatch)
 }
 

@@ -39,6 +39,11 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+func getNowMillis() int64 {
+	nanos := time.Now().UnixNano()
+	return nanos / 1000000
+}
+
 // Build a chaincode.
 func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	fmt.Printf("getting deployment spec for chaincode spec: %v\n", spec)
@@ -66,7 +71,13 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
-	b, err := Execute(ctx, GetChain(DefaultChain), transaction, nil)
+	ledger, err := ledger.GetLedger()
+	ledger.BeginTxBatch("1")
+	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s", err)
+	}
+	ledger.CommitTxBatch("1", []*pb.Transaction{transaction}, nil, nil)
 
 	return b, err
 }
@@ -76,19 +87,28 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		return "", nil, uuidErr
-	}
+	uuid := util.GenerateUUID()
 
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
-		return uuid, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
 	}
 
-	retval, err := Execute(ctx, GetChain(DefaultChain), transaction, nil)
+	var retval []byte
+	var execErr error
+	if typ == pb.Transaction_CHAINCODE_QUERY {
+		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+	} else {
+		ledger, _ := ledger.GetLedger()
+		ledger.BeginTxBatch("1")
+		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+		if err != nil {
+			return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
+		}
+		ledger.CommitTxBatch("1", []*pb.Transaction{transaction}, nil, nil)
+	}
 
-	return uuid, retval, err
+	return uuid, retval, execErr
 }
 
 func closeListenerAndSleep(l net.Listener) {
@@ -126,7 +146,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -150,10 +170,6 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
-const (
-	expectedDeltaStringPrefix = "expected delta for transaction"
-)
-
 // Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {
 	// Check the state in the ledger
@@ -161,18 +177,6 @@ func checkFinalState(uuid string, chaincodeID string) error {
 	if ledgerErr != nil {
 		return fmt.Errorf("Error checking ledger for <%s>: %s", chaincodeID, ledgerErr)
 	}
-
-	_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
-
-	if err != nil {
-		return fmt.Errorf("Error getting delta for invoke transaction <%s>: %s", chaincodeID, err)
-	}
-
-	if delta[uuid] == nil {
-		return fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
-	}
-
-	fmt.Printf("found delta for transaction <%s>\n", uuid)
 
 	// Invoke ledger to get state
 	var Aval, Bval int
@@ -220,7 +224,6 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 
 	time.Sleep(time.Second)
 
-	fmt.Printf("Going to invoke\n")
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
@@ -274,7 +277,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -312,37 +315,14 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 			args := []string{"a", "b", "10"}
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-
-			fmt.Printf("Going to invoke TRANSACTION num %d\n", qnum)
 		} else {
 			f := "query"
 			args := []string{"a"}
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-
-			fmt.Printf("Going to invoke QUERY num %d\n", qnum)
 		}
 
-		uuid, _, err := invoke(ctxt, spec, typ)
-
-		if typ == pb.Transaction_CHAINCODE_EXECUTE {
-			ledgerObj, ledgerErr := ledger.GetLedger()
-			if ledgerErr != nil {
-				errs[qnum] = fmt.Errorf("Error getting ledger %s", ledgerErr)
-				return
-			}
-			_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
-			if err != nil {
-				errs[qnum] = fmt.Errorf("Error getting delta for invoke transaction <%s> :%s", uuid, err)
-				return
-			}
-
-			if delta[uuid] == nil {
-				errs[qnum] = fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
-				return
-			}
-			fmt.Printf("found delta for transaction <%s>\n", uuid)
-		}
+		_, _, err := invoke(ctxt, spec, typ)
 
 		if err != nil {
 			errs[qnum] = fmt.Errorf("Error executing <%s>: %s", chaincodeID, err)
@@ -364,7 +344,6 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 	}
 
 	wg.Wait()
-	fmt.Printf("EXEC DONE\n")
 	return errs
 }
 
@@ -397,7 +376,7 @@ func TestExecuteQuery(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -421,8 +400,10 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 
+	//start := getNowMillis()
+	//fmt.Fprintf(os.Stderr, "Starting: %d\n", start)
 	numTrans := 2
 	numQueries := 10
 	errs := exec(ctxt, chaincodeID, numTrans, numQueries)
@@ -436,13 +417,15 @@ func TestExecuteQuery(t *testing.T) {
 	}
 
 	if numerrs == 0 {
-		fmt.Printf("Query test passed\n")
 		t.Logf("Query test passed")
 	} else {
 		t.Logf("Query test failed(total errors %d)", numerrs)
 		t.Fail()
 	}
 
+	//end := getNowMillis()
+	//fmt.Fprintf(os.Stderr, "Ending: %d\n", end)
+	//fmt.Fprintf(os.Stderr, "Elapsed : %d millis\n", end-start)
 	GetChain(DefaultChain).stopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
 }
@@ -476,7 +459,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -537,7 +520,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -608,7 +591,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -720,7 +703,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	}
 
 	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout))
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
@@ -835,5 +818,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	SetupTestConfig()
+	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+	viper.Set("validator.validity-period.verification", "false")
 	os.Exit(m.Run())
 }

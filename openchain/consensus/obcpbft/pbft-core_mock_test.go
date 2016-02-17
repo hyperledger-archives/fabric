@@ -20,54 +20,56 @@ under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
-	"reflect"
+	gp "google/protobuf"
+	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-type mockCPI struct {
+type mockStack struct {
 	broadcasted [][]byte
-	executed    [][]byte
+	*instance
 }
 
-func newMock() *mockCPI {
-	mock := &mockCPI{
+func newMock() *mockStack {
+	mock := &mockStack{
 		make([][]byte, 0),
-		make([][]byte, 0),
+		&instance{},
 	}
+	mock.instance.ledger = NewMockLedger(nil, nil)
+	mock.instance.ledger.PutBlock(0, SimpleGetBlock(0))
 	return mock
 }
 
-func (mock *mockCPI) broadcast(msg []byte) {
-	mock.broadcasted = append(mock.broadcasted, msg)
+func (mock *mockStack) sign(msg []byte) ([]byte, error) {
+	return msg, nil
 }
 
-func (mock *mockCPI) verify(tx []byte) error {
+func (mock *mockStack) verify(senderID uint64, signature []byte, message []byte) error {
 	return nil
 }
 
-func (mock *mockCPI) execute(tx []byte) {
-	mock.executed = append(mock.executed, tx)
+func (mock *mockStack) broadcast(msg []byte) {
+	mock.broadcasted = append(mock.broadcasted, msg)
 }
 
-func (mock *mockCPI) viewChange(uint64) {
+func (mock *mockStack) unicast(msg []byte, receiverID uint64) (err error) {
+	panic("not implemented")
 }
-
-func (mock *mockCPI) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	return []byte("nil"), nil
-}
-
-// =============================================================================
-// Fake network structures
-// =============================================================================
 
 type closableConsenter interface {
 	consensus.Consenter
 	Close()
+	Drain()
 }
 
 type taggedMsg struct {
@@ -77,131 +79,193 @@ type taggedMsg struct {
 }
 
 type testnet struct {
-	f         int
-	cond      *sync.Cond
-	closed    bool
-	replicas  []*instance
-	msgs      []taggedMsg
-	addresses []string
-	filterFn  func(int, int, []byte) []byte
+	N        int
+	f        int
+	cond     *sync.Cond
+	closed   bool
+	replicas []*instance
+	msgs     []taggedMsg
+	handles  []*pb.PeerID
+	filterFn func(int, int, []byte) []byte
 }
 
 type instance struct {
 	id        int
-	addr      string
+	handle    *pb.PeerID
 	pbft      *pbftCore
 	consenter closableConsenter
 	net       *testnet
-	executed  [][]byte
+	ledger    consensus.LedgerStack
 
-	txID     interface{}
-	curBatch []*pb.Transaction
-	blocks   [][]*pb.Transaction
+	deliver      func([]byte, *pb.PeerID)
+	execTxResult func([]*pb.Transaction) ([]byte, error)
+}
 
-	deliver      func([]byte)
-	execTxResult func([]*pb.Transaction) ([]byte, []error)
+func (inst *instance) Sign(msg []byte) ([]byte, error) {
+	return msg, nil
+}
+func (inst *instance) Verify(peerID *pb.PeerID, signature []byte, message []byte) error {
+	return nil
+}
+
+func (inst *instance) sign(msg []byte) ([]byte, error) {
+	return msg, nil
+}
+
+func (inst *instance) verify(replicaID uint64, signature []byte, message []byte) error {
+	return nil
 }
 
 func (inst *instance) broadcast(payload []byte) {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.broadcastFilter(inst, payload)
 	net.cond.Signal()
-	net.cond.L.Unlock()
 }
 
-func (inst *instance) verify(payload []byte) error {
+func (inst *instance) unicast(payload []byte, receiverID uint64) error {
+	net := inst.net
+	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
+	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), payload})
+	net.cond.Signal()
+	return nil
+}
+
+func (inst *instance) validate(payload []byte) error {
 	return nil
 }
 
 func (inst *instance) execute(payload []byte) {
-	inst.executed = append(inst.executed, payload)
+
+	tx := &pb.Transaction{
+		Payload: payload,
+	}
+
+	txs := []*pb.Transaction{tx}
+	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(payload))
+
+	if err := inst.BeginTxBatch(txBatchID); err != nil {
+		fmt.Printf("Failed to begin transaction %s: %v", txBatchID, err)
+		return
+	}
+
+	if _, err := inst.ExecTxs(txBatchID, txs); nil != err {
+		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, err)
+		if err := inst.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
+	}
+
+	if _, err := inst.CommitTxBatch(txBatchID, nil); err != nil {
+		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
+		if err = inst.RollbackTxBatch(txBatchID); err != nil {
+			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
+		}
+		return
+	}
+
 }
 
 func (inst *instance) viewChange(uint64) {
 }
 
-func (inst *instance) getStateHash(blockNumber ...uint64) (stateHash []byte, err error) {
-	return []byte("nil"), nil
+func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
+	panic("Not implemented yet")
 }
 
-func (inst *instance) GetReplicaHash() (self string, network []string, err error) {
-	return inst.addr, inst.net.addresses, nil
-}
-
-func (inst *instance) GetReplicaID(addr string) (id uint64, err error) {
-	for i, v := range inst.net.addresses {
-		if v == addr {
-			return uint64(i), nil
-		}
-	}
-	err = fmt.Errorf("Couldn't find address in list of addresses in testnet")
-	return uint64(0), err
+func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
+	self = inst.handle
+	network = inst.net.handles
+	return
 }
 
 // Broadcast delivers to all replicas.  In contrast to the stack
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (inst *instance) Broadcast(msg *pb.OpenchainMessage) error {
+func (inst *instance) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
 	net := inst.net
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.broadcastFilter(inst, msg.Payload)
 	net.cond.Signal()
-	net.cond.L.Unlock()
 	return nil
 }
 
-func (inst *instance) Unicast(msgPayload []byte, receiver string) error {
-	panic("not implemented yet")
+func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
+	net := inst.net
+	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
+	receiverID, err := getValidatorID(receiverHandle)
+	if err != nil {
+		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
+	}
+	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), msg.Payload})
+	net.cond.Signal()
+	return nil
 }
 
 func (inst *instance) BeginTxBatch(id interface{}) error {
-	if inst.txID != nil {
-		return fmt.Errorf("Tx batch is already active")
-	}
-	inst.txID = id
-	inst.curBatch = nil
-	return nil
+	return inst.ledger.BeginTxBatch(id)
 }
 
-func (inst *instance) ExecTXs(txs []*pb.Transaction) ([]byte, []error) {
-	inst.curBatch = append(inst.curBatch, txs...)
-	errs := make([]error, len(txs)+1)
-	if inst.execTxResult != nil {
-		return inst.execTxResult(txs)
-	}
-	return nil, errs
+func (inst *instance) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) {
+	return inst.ledger.ExecTxs(id, txs)
 }
 
-func (inst *instance) CommitTxBatch(id interface{}, txs []*pb.Transaction, proof []byte) error {
-	if !reflect.DeepEqual(inst.txID, id) {
-		return fmt.Errorf("Invalid batch ID")
-	}
-	if !reflect.DeepEqual(txs, inst.curBatch) {
-		return fmt.Errorf("Tx list does not match executed Tx batch")
-	}
-	inst.txID = nil
-	inst.blocks = append(inst.blocks, inst.curBatch)
-	inst.curBatch = nil
-	return nil
+func (inst *instance) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+	return inst.ledger.CommitTxBatch(id, metadata)
+}
+
+func (inst *instance) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+	return inst.ledger.PreviewCommitTxBatch(id, metadata)
 }
 
 func (inst *instance) RollbackTxBatch(id interface{}) error {
-	if !reflect.DeepEqual(inst.txID, id) {
-		return fmt.Errorf("Invalid batch ID")
-	}
-	inst.curBatch = nil
-	inst.txID = nil
-	return nil
+	return inst.ledger.RollbackTxBatch(id)
 }
 
-func (inst *instance) GetBlock(id uint64) (*pb.Block, error) {
-	return &pb.Block{StateHash: []byte("TODO")}, nil
+func (inst *instance) GetBlock(id uint64) (block *pb.Block, err error) {
+	return inst.ledger.GetBlock(id)
 }
-
 func (inst *instance) GetCurrentStateHash() (stateHash []byte, err error) {
-	return []byte("nil"), nil
+	return inst.ledger.GetCurrentStateHash()
+}
+func (inst *instance) GetBlockchainSize() (uint64, error) {
+	return inst.ledger.GetBlockchainSize()
+}
+func (inst *instance) HashBlock(block *pb.Block) ([]byte, error) {
+	return inst.ledger.HashBlock(block)
+}
+func (inst *instance) PutBlock(blockNumber uint64, block *pb.Block) error {
+	return inst.ledger.PutBlock(blockNumber, block)
+}
+func (inst *instance) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
+	return inst.ledger.ApplyStateDelta(id, delta)
+}
+func (inst *instance) CommitStateDelta(id interface{}) error {
+	return inst.ledger.CommitStateDelta(id)
+}
+func (inst *instance) RollbackStateDelta(id interface{}) error {
+	return inst.ledger.RollbackStateDelta(id)
+}
+func (inst *instance) EmptyState() error {
+	return inst.ledger.EmptyState()
+}
+func (inst *instance) VerifyBlockchain(start, finish uint64) (uint64, error) {
+	return inst.ledger.VerifyBlockchain(start, finish)
+}
+func (inst *instance) GetRemoteBlocks(peerID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
+	return inst.ledger.GetRemoteBlocks(peerID, start, finish)
+}
+func (inst *instance) GetRemoteStateSnapshot(peerID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
+	return inst.ledger.GetRemoteStateSnapshot(peerID)
+}
+func (inst *instance) GetRemoteStateDeltas(peerID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
+	return inst.ledger.GetRemoteStateDeltas(peerID, start, finish)
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
@@ -209,36 +273,81 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 		payload = net.filterFn(inst.id, -1, payload)
 	}
 	if payload != nil {
+		/* msg := &Message{}
+		_ = proto.Unmarshal(payload, msg)
+		if fr := msg.GetFetchRequest(); fr != nil {
+			// treat fetch-request as a high-priority message that needs to be processed ASAP
+			fmt.Printf("Debug: replica %v broadcastFilter for fetch-request\n", inst.id)
+			net.deliverFilter(taggedMsg{inst.id, -1, payload})
+		} else { */
 		net.msgs = append(net.msgs, taggedMsg{inst.id, -1, payload})
 	}
 }
 
-func (net *testnet) deliverFilter(msg taggedMsg) {
+func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
+	senderHandle := net.handles[senderID]
 	if msg.dst == -1 {
 		for id, inst := range net.replicas {
+			if msg.src == id {
+				// do not deliver to local replica
+				continue
+			}
 			payload := msg.msg
 			if net.filterFn != nil {
 				payload = net.filterFn(msg.src, id, payload)
 			}
 			if payload != nil {
-				inst.deliver(msg.msg)
+				inst.deliver(msg.msg, senderHandle)
 			}
 		}
 	} else {
-		net.replicas[msg.dst].deliver(msg.msg)
+		net.replicas[msg.dst].deliver(msg.msg, senderHandle)
 	}
 }
 
-func (net *testnet) process() error {
+func (net *testnet) processWithoutDrain() {
 	net.cond.L.Lock()
 	defer net.cond.L.Unlock()
+
+	net.processWithoutDrainSync()
+}
+
+func (net *testnet) processWithoutDrainSync() {
+	doDeliver := func(msg taggedMsg) {
+		net.cond.L.Unlock()
+		defer net.cond.L.Lock()
+		net.deliverFilter(msg, msg.src)
+	}
 
 	for len(net.msgs) > 0 {
 		msg := net.msgs[0]
 		net.msgs = net.msgs[1:]
-		net.cond.L.Unlock()
-		net.deliverFilter(msg)
+		doDeliver(msg)
+	}
+}
+
+func (net *testnet) drain() {
+	for _, inst := range net.replicas {
+		if inst.pbft != nil {
+			inst.pbft.drain()
+		}
+		if inst.consenter != nil {
+			inst.consenter.Drain()
+		}
+	}
+}
+
+func (net *testnet) process() error {
+	for retry := true; retry; {
+		retry = false
+		net.processWithoutDrain()
+		net.drain()
 		net.cond.L.Lock()
+		if len(net.msgs) > 0 {
+			fmt.Printf("Debug: new messages after executeOutstanding, retrying\n")
+			retry = true
+		}
+		net.cond.L.Unlock()
 	}
 
 	return nil
@@ -254,20 +363,26 @@ func (net *testnet) processContinually() {
 		if len(net.msgs) == 0 {
 			net.cond.Wait()
 		}
-		net.cond.L.Unlock()
-		net.process()
-		net.cond.L.Lock()
+		net.processWithoutDrainSync()
 	}
 }
 
-func makeTestnet(f int, initFn ...func(*instance)) *testnet {
-	net := &testnet{f: f}
+func makeTestnet(N int, initFn ...func(*instance)) *testnet {
+	f := N / 3
+	net := &testnet{f: f, N: N}
 	net.cond = sync.NewCond(&sync.Mutex{})
-	replicaCount := 3*f + 1
-	for i := 0; i < replicaCount; i++ {
-		inst := &instance{addr: strconv.Itoa(i), id: i, net: net} // XXX ugly hack
+
+	ledgers := make(map[pb.PeerID]consensus.ReadOnlyLedger, N)
+	for i := 0; i < N; i++ {
+		inst := &instance{handle: &pb.PeerID{Name: "vp" + strconv.Itoa(i)}, id: i, net: net}
+		ml := NewMockLedger(&ledgers, nil)
+		ml.inst = inst
+		ml.PutBlock(0, SimpleGetBlock(0))
+		handle, _ := getValidatorHandle(uint64(i))
+		ledgers[*handle] = ml
+		inst.ledger = ml
 		net.replicas = append(net.replicas, inst)
-		net.addresses = append(net.addresses, inst.addr)
+		net.handles = append(net.handles, inst.handle)
 	}
 
 	for _, inst := range net.replicas {
@@ -283,6 +398,7 @@ func (net *testnet) close() {
 	if net.closed {
 		return
 	}
+	net.drain()
 	for _, inst := range net.replicas {
 		if inst.pbft != nil {
 			inst.pbft.close()
@@ -292,7 +408,29 @@ func (net *testnet) close() {
 		}
 	}
 	net.cond.L.Lock()
+	defer net.cond.L.Unlock()
 	net.closed = true
 	net.cond.Signal()
-	net.cond.L.Unlock()
+}
+
+// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+func createOcMsgWithChainTx(iter int64) (msg *pb.OpenchainMessage) {
+	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
+		Timestamp: txTime,
+		Payload:   []byte(fmt.Sprint(iter)),
+	}
+	txPacked, _ := proto.Marshal(tx)
+	msg = &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
+	}
+	return
+}
+
+func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rndm := rand.New(seed)
+	requestBroadcaster = rndm.Intn(validatorCount)
+	return
 }

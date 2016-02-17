@@ -26,13 +26,17 @@ import (
 	"path/filepath"
 )
 
+const (
+	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
+)
+
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
-	return node.conf.loadConfiguration()
+	return node.conf.init()
 }
 
 type configuration struct {
@@ -40,14 +44,18 @@ type configuration struct {
 	name   string
 
 	configurationPath string
+	keystorePath      string
+	rawsPath          string
 
 	configurationPathProperty string
-	ecaPAddressProperty string
-	tcaPAddressProperty string
-	tlscaPAddressProperty string
+	ecaPAddressProperty       string
+	tcaPAddressProperty       string
+	tlscaPAddressProperty     string
+
+	tlsServerName string
 }
 
-func (conf *configuration) loadConfiguration() error {
+func (conf *configuration) init() error {
 	conf.configurationPathProperty = "peer.fileSystemPath"
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
 	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
@@ -67,13 +75,26 @@ func (conf *configuration) loadConfiguration() error {
 		return err
 	}
 
-
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
 		viper.GetString(conf.configurationPathProperty),
 		"crypto", conf.prefix, conf.name,
 	)
 
+	// Set ks path
+	conf.keystorePath = filepath.Join(conf.configurationPath, "ks")
+
+	// Set raws path
+	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
+
+	// Set TLS host override
+	conf.tlsServerName = "tlsca"
+	if viper.IsSet("peer.pki.tls.server-host-override") {
+		ovveride := viper.GetString("peer.pki.tls.server-host-override")
+		if ovveride != "" {
+			conf.tlsServerName = ovveride
+		}
+	}
 
 	return nil
 }
@@ -103,31 +124,27 @@ func (conf *configuration) getConfPath() string {
 }
 
 func (conf *configuration) getKeyStorePath() string {
-	return conf.getConfPath()
+	return conf.keystorePath
+}
+
+func (conf *configuration) getRawsPath() string {
+	return conf.rawsPath
 }
 
 func (conf *configuration) getKeyStoreFilename() string {
-	return "keystore"
+	return "db"
 }
 
 func (conf *configuration) getKeyStoreFilePath() string {
 	return filepath.Join(conf.getKeyStorePath(), conf.getKeyStoreFilename())
 }
 
-func (conf *configuration) getKeysPath() string {
-	return conf.getConfPath()
-}
-
-func (conf *configuration) getEnrollmentKeyPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentKeyFilename())
+func (conf *configuration) getPathForAlias(alias string) string {
+	return filepath.Join(conf.getRawsPath(), alias)
 }
 
 func (conf *configuration) getEnrollmentKeyFilename() string {
 	return "enrollment.key"
-}
-
-func (conf *configuration) getEnrollmentCertPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentCertFilename())
 }
 
 func (conf *configuration) getEnrollmentCertFilename() string {
@@ -135,35 +152,47 @@ func (conf *configuration) getEnrollmentCertFilename() string {
 }
 
 func (conf *configuration) getEnrollmentIDPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentIDFilename())
+	return filepath.Join(conf.getRawsPath(), conf.getEnrollmentIDFilename())
 }
 
 func (conf *configuration) getEnrollmentIDFilename() string {
 	return "enrollment.id"
 }
 
-func (conf *configuration) getTCACertsChainPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getTCACertsChainFilename())
-}
-
 func (conf *configuration) getTCACertsChainFilename() string {
 	return "tca.cert.chain"
-}
-
-func (conf *configuration) getECACertsChainPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getECACertsChainFilename())
 }
 
 func (conf *configuration) getECACertsChainFilename() string {
 	return "eca.cert.chain"
 }
 
-func (conf *configuration) getTLSKeyPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getTLSKeyFilename())
+func (conf *configuration) getTLSCACertsChainFilename() string {
+	return TLSCA_CERT_CHAIN
 }
 
-func (conf *configuration) getTLSCertPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getTLSCertFilename())
+func (conf *configuration) getTLSCACertsExternalPath() string {
+	return viper.GetString("peer.pki.tls.rootcert.file")
+}
+
+func (conf *configuration) isTLSEnabled() bool {
+	return viper.GetBool("peer.pki.tls.enabled")
+}
+
+func (conf *configuration) isTLSClientAuthEnabled() bool {
+	return viper.GetBool("peer.pki.tls.client.auth.enabled")
+}
+
+func (conf *configuration) getTCAServerName() string {
+	return conf.tlsServerName
+}
+
+func (conf *configuration) getECAServerName() string {
+	return conf.tlsServerName
+}
+
+func (conf *configuration) getTLSCAServerName() string {
+	return conf.tlsServerName
 }
 
 func (conf *configuration) getTLSKeyFilename() string {
@@ -174,6 +203,18 @@ func (conf *configuration) getTLSCertFilename() string {
 	return "tls.cert"
 }
 
+func (conf *configuration) getTLSRootCertFilename() string {
+	return "tls.cert.chain"
+}
+
+func (conf *configuration) getEnrollmentChainKeyFilename() string {
+	return "chain.key"
+}
+
+func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
+	return "tca.kdf.key"
+}
+
 //func (conf *configuration) getRole() string {
 //	return viper.GetString(Role)
 //}
@@ -181,19 +222,3 @@ func (conf *configuration) getTLSCertFilename() string {
 //func (conf *configuration) getAffiliation() string {
 //	return viper.GetString(Affiliation)
 //}
-
-func (conf *configuration) getEnrollmentChainKeyPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getEnrollmentChainKeyFilename())
-}
-
-func (conf *configuration) getEnrollmentChainKeyFilename() string {
-	return "chain.key"
-}
-
-func (conf *configuration) getTCertOwnerKDFKeyPath() string {
-	return filepath.Join(conf.getKeysPath(), conf.getTCertOwnerKDFKeyFilename())
-}
-
-func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
-	return "tca.kdf.key"
-}

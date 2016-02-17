@@ -28,31 +28,21 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/consensus/obcpbft"
 )
 
-// =============================================================================
-// Init
-// =============================================================================
-
 var logger *logging.Logger // package-level logger
 
 func init() {
 	logger = logging.MustGetLogger("consensus/controller")
 }
 
-// =============================================================================
-// Constructors go here
-// =============================================================================
-
-// NewConsenter constructs a consenter object.
-// Called by handler.NewConsensusHandler().
-func NewConsenter(cpi consensus.CPI) consensus.Consenter {
+// NewConsenter constructs a Consenter object
+func NewConsenter(stack consensus.Stack) (consenter consensus.Consenter) {
 	plugin := viper.GetString("peer.validator.consensus")
-	var algo consensus.Consenter
 	if plugin == "obcpbft" {
-		logger.Debug("Running with OBC-PBFT consensus")
-		algo = obcpbft.GetPlugin(cpi)
+		//logger.Info("Running with consensus plugin %s", plugin)
+		consenter = obcpbft.GetPlugin(stack)
 	} else {
-		logger.Debug("Running with NOOPS consensus")
-		algo = noops.GetNoops(cpi)
+		//logger.Info("Running with default consensus plugin (noops)")
+		consenter = noops.GetNoops(stack)
 	}
-	return algo
+	return
 }

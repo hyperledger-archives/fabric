@@ -49,11 +49,32 @@ func setupTestConfig() {
 	}
 }
 
+type peerInfo struct {
+}
+
+func (p *peerInfo) GetPeers() (*protos.PeersMessage, error) {
+	peers := []*protos.PeerEndpoint{}
+	pe1 := &protos.PeerEndpoint{ID: &protos.PeerID{Name: viper.GetString("peer.id")}, Address: "localhost:30303", Type: protos.PeerEndpoint_VALIDATOR}
+	peers = append(peers, pe1)
+
+	/*
+		for _, msgHandler := range p.handlerMap.m {
+			peerEndpoint, err := msgHandler.To()
+			if err != nil {
+				return nil, fmt.Errorf("Error getting peers: %s", err)
+			}
+			peers = append(peers, &peerEndpoint)
+		}
+	*/
+	peersMessage := &protos.PeersMessage{Peers: peers}
+	return peersMessage, nil
+}
+
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a ledger with 0 blocks.
 	ledger := ledger.InitTestLedger(t)
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -98,7 +119,7 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 	ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -162,7 +183,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	ledger := ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -215,7 +236,7 @@ func TestServerOpenchain_API_GetState(t *testing.T) {
 	buildTestLedger1(ledger1, t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -236,7 +257,7 @@ func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
 	// -----------------------------<Block #0>---------------------
 	// Add the 0th (genesis block)
 	ledger1.BeginTxBatch(0)
-	err := ledger1.CommitTxBatch(0, []*protos.Transaction{}, []byte("dummy-proof"))
+	err := ledger1.CommitTxBatch(0, []*protos.Transaction{}, nil, []byte("dummy-proof"))
 	if err != nil {
 		t.Fatalf("Error in commit: %s", err)
 	}
@@ -250,20 +271,32 @@ func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
 	// TODO Use chaincode instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
 	ledger1.BeginTxBatch(1)
-	transaction1a := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction1a, err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
 	ledger1.TxBegin(transaction1a.Uuid)
 	ledger1.SetState("MyContract1", "code", []byte("code example"))
 	ledger1.TxFinished(transaction1a.Uuid, true)
-	ledger1.CommitTxBatch(1, []*protos.Transaction{transaction1a}, []byte("dummy-proof"))
+	ledger1.CommitTxBatch(1, []*protos.Transaction{transaction1a}, nil, []byte("dummy-proof"))
 	// -----------------------------</Block #1>-----------------------------------
 
 	// -----------------------------<Block #2>------------------------------------
 
 	ledger1.BeginTxBatch(2)
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction2b := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction2a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction2b, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger1.TxBegin(transaction2a.Uuid)
@@ -272,7 +305,7 @@ func buildTestLedger1(ledger1 *ledger.Ledger, t *testing.T) {
 	ledger1.TxFinished(transaction2a.Uuid, true)
 
 	// Commit txbatch that creates the 2nd block on blockchain
-	ledger1.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, []byte("dummy-proof"))
+	ledger1.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, nil, []byte("dummy-proof"))
 	// -----------------------------</Block #2>-----------------------------------
 	return
 }
@@ -285,7 +318,7 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// -----------------------------<Block #0>---------------------
 	// Add the 0th (genesis block)
 	ledger.BeginTxBatch(0)
-	ledger.CommitTxBatch(0, []*protos.Transaction{}, []byte("dummy-proof"))
+	ledger.CommitTxBatch(0, []*protos.Transaction{}, nil, []byte("dummy-proof"))
 	// -----------------------------<Block #0>---------------------
 
 	// -----------------------------<Block #1>------------------------------------
@@ -295,21 +328,33 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// TODO Use chaincode instead of contract?
 	// TODO Two types of transactions. Execute transaction, deploy/delete/update contract
 	ledger.BeginTxBatch(1)
-	transaction1a := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	transaction1a, err := protos.NewTransaction(protos.ChaincodeID{Path: "Contracts"}, generateUUID(t), "NewContract", []string{"name: MyContract1, code: var x; function setX(json) {x = json.x}}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	// VM runs transaction1a and updates the global state with the result
 	// In this case, the 'Contracts' contract stores 'MyContract1' in its state
 	ledger.TxBegin(transaction1a.Uuid)
 	ledger.SetState("MyContract1", "code", []byte("code example"))
 	ledger.TxFinished(transaction1a.Uuid, true)
-	ledger.CommitTxBatch(1, []*protos.Transaction{transaction1a}, []byte("dummy-proof"))
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction1a}, nil, []byte("dummy-proof"))
 
 	// -----------------------------</Block #1>-----------------------------------
 
 	// -----------------------------<Block #2>------------------------------------
 
 	ledger.BeginTxBatch(2)
-	transaction2a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction2b := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	transaction2a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction2b, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger.TxBegin(transaction2a.Uuid)
@@ -318,21 +363,33 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	ledger.TxFinished(transaction2a.Uuid, true)
 
 	// Commit txbatch that creates the 2nd block on blockchain
-	ledger.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, []byte("dummy-proof"))
+	ledger.CommitTxBatch(2, []*protos.Transaction{transaction2a, transaction2b}, nil, []byte("dummy-proof"))
 	// -----------------------------</Block #2>-----------------------------------
 
 	// -----------------------------<Block #3>------------------------------------
 
 	ledger.BeginTxBatch(3)
-	transaction3a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction3b := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
-	transaction3c := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	transaction3a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction3b, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction3c, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 	ledger.TxBegin(transaction3a.Uuid)
 	ledger.SetState("MyContract", "x", []byte("hello"))
 	ledger.SetState("MyOtherContract", "y", []byte("goodbuy"))
 	ledger.SetState("MyImportantContract", "z", []byte("super"))
 	ledger.TxFinished(transaction3a.Uuid, true)
-	ledger.CommitTxBatch(3, []*protos.Transaction{transaction3a, transaction3b, transaction3c}, []byte("dummy-proof"))
+	ledger.CommitTxBatch(3, []*protos.Transaction{transaction3a, transaction3b, transaction3c}, nil, []byte("dummy-proof"))
 
 	// -----------------------------</Block #3>-----------------------------------
 
@@ -342,10 +399,26 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	// Now we want to run the function 'setX' in 'MyContract
 
 	// Create a transaction'
-	transaction4a := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
-	transaction4b := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
-	transaction4c := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
-	transaction4d := protos.NewTransaction(protos.ChaincodeID{Path: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
+	transaction4a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, generateUUID(t), "setX", []string{"{x: \"hello\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4b, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyOtherContract"}, generateUUID(t), "setY", []string{"{y: \"goodbuy\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4c, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyImportantContract"}, generateUUID(t), "setZ", []string{"{z: \"super\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
+	transaction4d, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyMEGAContract"}, generateUUID(t), "setMEGA", []string{"{mega: \"MEGA\"}"})
+	if err != nil {
+		t.Logf("Error creating NewTransaction: %s", err)
+		t.Fail()
+	}
 
 	// Run this transction in the VM. The VM updates the state
 	ledger.TxBegin(transaction4a.Uuid)
@@ -356,16 +429,12 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 	ledger.TxFinished(transaction4a.Uuid, true)
 
 	// Create the 4th block and add it to the chain
-	ledger.CommitTxBatch(4, []*protos.Transaction{transaction4a, transaction4b, transaction4c, transaction4d}, []byte("dummy-proof"))
+	ledger.CommitTxBatch(4, []*protos.Transaction{transaction4a, transaction4b, transaction4c, transaction4d}, nil, []byte("dummy-proof"))
 	// -----------------------------</Block #4>-----------------------------------
 
 	return
 }
 
 func generateUUID(t *testing.T) string {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUID: %s", err)
-	}
-	return uuid
+	return util.GenerateUUID()
 }

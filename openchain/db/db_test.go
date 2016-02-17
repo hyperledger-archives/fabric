@@ -89,7 +89,9 @@ func setupTestConfig() {
 func performBasicReadWrite(t *testing.T) {
 	openchainDB := GetDBHandle()
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	writeBatch.PutCF(openchainDB.BlockchainCF, []byte("dummyKey"), []byte("dummyValue"))
 	err := openchainDB.DB.Write(opt, writeBatch)
 	if err != nil {

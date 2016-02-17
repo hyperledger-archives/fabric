@@ -159,6 +159,45 @@ func TestVMCStartContainer(t *testing.T) {
 	VMCProcess(ctxt, "Docker", stopr)
 }
 
+func TestVMCCreateAndStartContainer(t *testing.T) {
+
+	var ctxt = context.Background()
+
+	c := make(chan struct{})
+
+	//create a StartImageReq obj and send it to VMCProcess
+	go func() {
+		defer close(c)
+
+		//stop and delete the container first (if it exists)
+		stopir := StopImageReq{ID: "simple", Timeout: 0}
+		VMCProcess(ctxt, "Docker", stopir)
+
+		startir := StartImageReq{ID: "simple"}
+		r, err := VMCProcess(ctxt, "Docker", startir)
+		if err != nil {
+			t.Fail()
+			t.Logf("Error starting container: %s", err)
+			return
+		}
+		vmcresp, ok := r.(VMCResp)
+		if !ok {
+			t.Fatalf("invalid response from VMCProcess")
+		}
+		if vmcresp.Err != nil {
+			t.Fail()
+			t.Logf("docker error starting container: %s", vmcresp.Err)
+			return
+		}
+	}()
+
+	//wait for VMController to complete.
+	fmt.Println("VMCStartContainer-waiting for response")
+	<-c
+	//stopr := StopImageReq{ID: "simple", Timeout: 0, Dontremove: true}
+	//VMCProcess(ctxt, "Docker", stopr)
+}
+
 func TestVMCSyncStartContainer(t *testing.T) {
 	var ctxt = context.Background()
 

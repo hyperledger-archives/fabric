@@ -24,6 +24,15 @@ import (
 	"hash/fnv"
 )
 
+// ConfigNumBuckets - config name 'numBuckets' as it appears in yaml file
+const ConfigNumBuckets = "numBuckets"
+
+// ConfigNumBuckets - config name 'maxGroupingAtEachLevel' as it appears in yaml file
+const ConfigMaxGroupingAtEachLevel = "maxGroupingAtEachLevel"
+
+// ConfigNumBuckets - config name 'hashFunction'. This is not exposed in yaml file. This configuration is used for testing with custom hash-function
+const ConfigHashFunction = "hashFunction"
+
 // DefaultNumBuckets - total buckets
 const DefaultNumBuckets = 10009
 
@@ -31,7 +40,7 @@ const DefaultNumBuckets = 10009
 // Grouping is started from left. The last group may have less buckets
 const DefaultMaxGroupingAtEachLevel = 10
 
-var conf = initConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
+var conf *config
 
 type config struct {
 	maxGroupingAtEachLevel int
@@ -40,7 +49,28 @@ type config struct {
 	hashFunc               hashFunc
 }
 
-func initConfig(numBuckets int, maxGroupingAtEachLevel int, hashFunc hashFunc) *config {
+func initConfig(configs map[string]interface{}) {
+	logger.Info("configs passed during initialization = %#v", configs)
+
+	numBuckets, ok := configs[ConfigNumBuckets].(int)
+	if !ok {
+		numBuckets = DefaultNumBuckets
+	}
+
+	maxGroupingAtEachLevel, ok := configs[ConfigMaxGroupingAtEachLevel].(int)
+	if !ok {
+		maxGroupingAtEachLevel = DefaultMaxGroupingAtEachLevel
+	}
+
+	hashFunction, ok := configs[ConfigHashFunction].(hashFunc)
+	if !ok {
+		hashFunction = fnvHash
+	}
+	conf = newConfig(numBuckets, maxGroupingAtEachLevel, hashFunction)
+	logger.Info("Initializing bucket tree state implemetation with configurations %+v", conf)
+}
+
+func newConfig(numBuckets int, maxGroupingAtEachLevel int, hashFunc hashFunc) *config {
 	conf := &config{maxGroupingAtEachLevel, -1, make(map[int]int), hashFunc}
 	currentLevel := 0
 	numBucketAtCurrentLevel := numBuckets
