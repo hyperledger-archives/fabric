@@ -23,8 +23,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 

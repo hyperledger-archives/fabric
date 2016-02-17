@@ -25,7 +25,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,6 +65,8 @@ func NewVM() (*VM, error) {
 	if err != nil {
 		return nil, err
 	}
+	VM := &VM{Client: client}
+	return VM, nil
 }
 
 var vmLogger = logging.MustGetLogger("container")
