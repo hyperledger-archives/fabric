@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -175,7 +174,6 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.txCtxs = make(map[string]*transactionContext)
-	//chaincodehandler.uuidMap = make(map[string]*pb.Transaction)
 	chaincodehandler.uuidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
@@ -185,6 +183,14 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 }
 
 func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Handler) error {
+
+	// clean up rangeQueryIteratorMap
+	for _, context := range chaincodehandler.txCtxs {
+		for _, v := range context.rangeQueryIteratorMap {
+			v.Close()
+		}
+	}
+
 	key := chaincodehandler.ChaincodeID.Name
 	chaincodeLogger.Debug("Deregister handler: %s", key)
 	chaincodeSupport.handlerMap.Lock()
@@ -246,20 +252,10 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 //get args and env given chaincodeID
 func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
-	//openchain.yaml in the container likely will not have the right url:version. We know the right
-	//values, lets construct and pass as envs
-	toks := strings.Split(cID.Path, "/")
-	if toks == nil {
-		return nil, nil, fmt.Errorf("cannot get path components from %s", cID.Name)
-	}
-
 	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
 
-	//TODO : chaincode executable will be same as the name of the last folder (golang thing...)
-	//       need to revisit executable name assignment
-	//e.g, for path (http(s)://)github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
-	//     exec is "chaincode_example01 --peer.address=1.1.1.1:11111"
-	args = []string{chaincodeSupport.chaincodeInstallPath + toks[len(toks)-1], fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
+	//chaincode executable will be same as the name of the chaincode
+	args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
 
 	chaincodeLog.Debug("Executable is %s", args[0])
 

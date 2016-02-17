@@ -27,36 +27,41 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"google/protobuf"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google/protobuf"
-	"time"
 )
 
 func (node *nodeImpl) initTLS() error {
 	node.log.Debug("Initiliazing TLS...")
 
-	pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
-	if err != nil {
-		node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
+	if node.conf.isTLSEnabled() {
+		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
+		if err != nil {
+			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
 
-		return err
-	}
+			return err
+		}
 
-	node.tlsCertPool = x509.NewCertPool()
-	ok := node.tlsCertPool.AppendCertsFromPEM(pem)
-	if !ok {
-		node.log.Error("Failed appending TLSCA certificates chain.")
+		node.tlsCertPool = x509.NewCertPool()
+		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
+		if !ok {
+			node.log.Error("Failed appending TLSCA certificates chain.")
 
-		return errors.New("Failed appending TLSCA certificates chain.")
+			return errors.New("Failed appending TLSCA certificates chain.")
+		}
+		node.log.Debug("Initiliazing TLS...Done")
+	} else {
+		node.log.Debug("Initiliazing TLS...Disabled!!!")
 	}
 
 	return nil
-
 }
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
@@ -100,20 +105,28 @@ func (node *nodeImpl) loadTLSCertificate() error {
 }
 
 func (node *nodeImpl) loadTLSCACertsChain() error {
-	node.log.Debug("Loading TLSCA certificates chain...")
+	if node.conf.isTLSEnabled() {
+		node.log.Debug("Loading TLSCA certificates chain...")
 
-	pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
-	if err != nil {
-		node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
+		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
+		if err != nil {
+			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
 
-		return err
-	}
+			return err
+		}
 
-	ok := node.tlsCertPool.AppendCertsFromPEM(pem)
-	if !ok {
-		node.log.Error("Failed appending TLSCA certificates chain.")
+		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
+		if !ok {
+			node.log.Error("Failed appending TLSCA certificates chain.")
 
-		return errors.New("Failed appending TLSCA certificates chain.")
+			return errors.New("Failed appending TLSCA certificates chain.")
+		}
+
+		node.log.Debug("Loading TLSCA certificates chain...done")
+
+		return nil
+	} else {
+		node.log.Debug("TLS is disabled!!!")
 	}
 
 	return nil
@@ -130,12 +143,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 		return nil, nil, err
 	}
 
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		node.log.Error("Failed generating uuid: %s", err)
-
-		return nil, nil, err
-	}
+	uuid := util.GenerateUUID()
 
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)

@@ -49,11 +49,32 @@ func setupTestConfig() {
 	}
 }
 
+type peerInfo struct {
+}
+
+func (p *peerInfo) GetPeers() (*protos.PeersMessage, error) {
+	peers := []*protos.PeerEndpoint{}
+	pe1 := &protos.PeerEndpoint{ID: &protos.PeerID{Name: viper.GetString("peer.id")}, Address: "localhost:30303", Type: protos.PeerEndpoint_VALIDATOR}
+	peers = append(peers, pe1)
+
+	/*
+		for _, msgHandler := range p.handlerMap.m {
+			peerEndpoint, err := msgHandler.To()
+			if err != nil {
+				return nil, fmt.Errorf("Error getting peers: %s", err)
+			}
+			peers = append(peers, &peerEndpoint)
+		}
+	*/
+	peersMessage := &protos.PeersMessage{Peers: peers}
+	return peersMessage, nil
+}
+
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a ledger with 0 blocks.
 	ledger := ledger.InitTestLedger(t)
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -98,7 +119,7 @@ func TestServerOpenchain_API_GetBlockByNumber(t *testing.T) {
 	ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -162,7 +183,7 @@ func TestServerOpenchain_API_GetBlockCount(t *testing.T) {
 	ledger := ledger.InitTestLedger(t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -215,7 +236,7 @@ func TestServerOpenchain_API_GetState(t *testing.T) {
 	buildTestLedger1(ledger1, t)
 
 	// Initialize the OpenchainServer object.
-	server, err := NewOpenchainServer()
+	server, err := NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Logf("Error creating OpenchainServer: %s", err)
 		t.Fail()
@@ -415,9 +436,5 @@ func buildTestLedger2(ledger *ledger.Ledger, t *testing.T) {
 }
 
 func generateUUID(t *testing.T) string {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUID: %s", err)
-	}
-	return uuid
+	return util.GenerateUUID()
 }

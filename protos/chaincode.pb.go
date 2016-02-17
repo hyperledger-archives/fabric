@@ -66,24 +66,26 @@ func (x ChaincodeSpec_Type) String() string {
 type ChaincodeMessage_Type int32
 
 const (
-	ChaincodeMessage_UNDEFINED         ChaincodeMessage_Type = 0
-	ChaincodeMessage_REGISTER          ChaincodeMessage_Type = 1
-	ChaincodeMessage_REGISTERED        ChaincodeMessage_Type = 2
-	ChaincodeMessage_INIT              ChaincodeMessage_Type = 3
-	ChaincodeMessage_READY             ChaincodeMessage_Type = 4
-	ChaincodeMessage_TRANSACTION       ChaincodeMessage_Type = 5
-	ChaincodeMessage_COMPLETED         ChaincodeMessage_Type = 6
-	ChaincodeMessage_ERROR             ChaincodeMessage_Type = 7
-	ChaincodeMessage_GET_STATE         ChaincodeMessage_Type = 8
-	ChaincodeMessage_PUT_STATE         ChaincodeMessage_Type = 9
-	ChaincodeMessage_DEL_STATE         ChaincodeMessage_Type = 10
-	ChaincodeMessage_INVOKE_CHAINCODE  ChaincodeMessage_Type = 11
-	ChaincodeMessage_INVOKE_QUERY      ChaincodeMessage_Type = 12
-	ChaincodeMessage_RESPONSE          ChaincodeMessage_Type = 13
-	ChaincodeMessage_QUERY             ChaincodeMessage_Type = 14
-	ChaincodeMessage_QUERY_COMPLETED   ChaincodeMessage_Type = 15
-	ChaincodeMessage_QUERY_ERROR       ChaincodeMessage_Type = 16
-	ChaincodeMessage_RANGE_QUERY_STATE ChaincodeMessage_Type = 17
+	ChaincodeMessage_UNDEFINED               ChaincodeMessage_Type = 0
+	ChaincodeMessage_REGISTER                ChaincodeMessage_Type = 1
+	ChaincodeMessage_REGISTERED              ChaincodeMessage_Type = 2
+	ChaincodeMessage_INIT                    ChaincodeMessage_Type = 3
+	ChaincodeMessage_READY                   ChaincodeMessage_Type = 4
+	ChaincodeMessage_TRANSACTION             ChaincodeMessage_Type = 5
+	ChaincodeMessage_COMPLETED               ChaincodeMessage_Type = 6
+	ChaincodeMessage_ERROR                   ChaincodeMessage_Type = 7
+	ChaincodeMessage_GET_STATE               ChaincodeMessage_Type = 8
+	ChaincodeMessage_PUT_STATE               ChaincodeMessage_Type = 9
+	ChaincodeMessage_DEL_STATE               ChaincodeMessage_Type = 10
+	ChaincodeMessage_INVOKE_CHAINCODE        ChaincodeMessage_Type = 11
+	ChaincodeMessage_INVOKE_QUERY            ChaincodeMessage_Type = 12
+	ChaincodeMessage_RESPONSE                ChaincodeMessage_Type = 13
+	ChaincodeMessage_QUERY                   ChaincodeMessage_Type = 14
+	ChaincodeMessage_QUERY_COMPLETED         ChaincodeMessage_Type = 15
+	ChaincodeMessage_QUERY_ERROR             ChaincodeMessage_Type = 16
+	ChaincodeMessage_RANGE_QUERY_STATE       ChaincodeMessage_Type = 17
+	ChaincodeMessage_RANGE_QUERY_STATE_NEXT  ChaincodeMessage_Type = 18
+	ChaincodeMessage_RANGE_QUERY_STATE_CLOSE ChaincodeMessage_Type = 19
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
@@ -105,26 +107,30 @@ var ChaincodeMessage_Type_name = map[int32]string{
 	15: "QUERY_COMPLETED",
 	16: "QUERY_ERROR",
 	17: "RANGE_QUERY_STATE",
+	18: "RANGE_QUERY_STATE_NEXT",
+	19: "RANGE_QUERY_STATE_CLOSE",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
-	"UNDEFINED":         0,
-	"REGISTER":          1,
-	"REGISTERED":        2,
-	"INIT":              3,
-	"READY":             4,
-	"TRANSACTION":       5,
-	"COMPLETED":         6,
-	"ERROR":             7,
-	"GET_STATE":         8,
-	"PUT_STATE":         9,
-	"DEL_STATE":         10,
-	"INVOKE_CHAINCODE":  11,
-	"INVOKE_QUERY":      12,
-	"RESPONSE":          13,
-	"QUERY":             14,
-	"QUERY_COMPLETED":   15,
-	"QUERY_ERROR":       16,
-	"RANGE_QUERY_STATE": 17,
+	"UNDEFINED":               0,
+	"REGISTER":                1,
+	"REGISTERED":              2,
+	"INIT":                    3,
+	"READY":                   4,
+	"TRANSACTION":             5,
+	"COMPLETED":               6,
+	"ERROR":                   7,
+	"GET_STATE":               8,
+	"PUT_STATE":               9,
+	"DEL_STATE":               10,
+	"INVOKE_CHAINCODE":        11,
+	"INVOKE_QUERY":            12,
+	"RESPONSE":                13,
+	"QUERY":                   14,
+	"QUERY_COMPLETED":         15,
+	"QUERY_ERROR":             16,
+	"RANGE_QUERY_STATE":       17,
+	"RANGE_QUERY_STATE_NEXT":  18,
+	"RANGE_QUERY_STATE_CLOSE": 19,
 }
 
 func (x ChaincodeMessage_Type) String() string {
@@ -312,15 +318,30 @@ func (m *PutStateInfo) Reset()         { *m = PutStateInfo{} }
 func (m *PutStateInfo) String() string { return proto.CompactTextString(m) }
 func (*PutStateInfo) ProtoMessage()    {}
 
-type RangeQueryStateInfo struct {
+type RangeQueryState struct {
 	StartKey string `protobuf:"bytes,1,opt,name=startKey" json:"startKey,omitempty"`
 	EndKey   string `protobuf:"bytes,2,opt,name=endKey" json:"endKey,omitempty"`
-	Limit    uint32 `protobuf:"varint,3,opt,name=limit" json:"limit,omitempty"`
 }
 
-func (m *RangeQueryStateInfo) Reset()         { *m = RangeQueryStateInfo{} }
-func (m *RangeQueryStateInfo) String() string { return proto.CompactTextString(m) }
-func (*RangeQueryStateInfo) ProtoMessage()    {}
+func (m *RangeQueryState) Reset()         { *m = RangeQueryState{} }
+func (m *RangeQueryState) String() string { return proto.CompactTextString(m) }
+func (*RangeQueryState) ProtoMessage()    {}
+
+type RangeQueryStateNext struct {
+	ID string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+}
+
+func (m *RangeQueryStateNext) Reset()         { *m = RangeQueryStateNext{} }
+func (m *RangeQueryStateNext) String() string { return proto.CompactTextString(m) }
+func (*RangeQueryStateNext) ProtoMessage()    {}
+
+type RangeQueryStateClose struct {
+	ID string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+}
+
+func (m *RangeQueryStateClose) Reset()         { *m = RangeQueryStateClose{} }
+func (m *RangeQueryStateClose) String() string { return proto.CompactTextString(m) }
+func (*RangeQueryStateClose) ProtoMessage()    {}
 
 type RangeQueryStateKeyValue struct {
 	Key   string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
@@ -334,6 +355,7 @@ func (*RangeQueryStateKeyValue) ProtoMessage()    {}
 type RangeQueryStateResponse struct {
 	KeysAndValues []*RangeQueryStateKeyValue `protobuf:"bytes,1,rep,name=keysAndValues" json:"keysAndValues,omitempty"`
 	HasMore       bool                       `protobuf:"varint,2,opt,name=hasMore" json:"hasMore,omitempty"`
+	ID            string                     `protobuf:"bytes,3,opt,name=ID" json:"ID,omitempty"`
 }
 
 func (m *RangeQueryStateResponse) Reset()         { *m = RangeQueryStateResponse{} }

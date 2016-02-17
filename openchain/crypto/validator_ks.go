@@ -21,6 +21,7 @@ package crypto
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
@@ -36,6 +37,10 @@ func (validator *validatorImpl) initKeyStore() error {
 }
 
 func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte) ([]byte, []byte, error)) ([]byte, error) {
+	if len(id) == 0 {
+		return nil, fmt.Errorf("Invalid peer id. It is empty.")
+	}
+
 	ks.m.Lock()
 	defer ks.m.Unlock()
 

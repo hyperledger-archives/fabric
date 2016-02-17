@@ -177,6 +177,27 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
+// BuildObccaContainer builds the image for the obcca to be used in development network
+func (vm *VM) BuildObccaContainer() error {
+	inputbuf, err := vm.getPackageBytes(vm.writeObccaPackage)
+
+	if err != nil {
+		return fmt.Errorf("Error building obcca container: %s", err)
+	}
+	outputbuf := bytes.NewBuffer(nil)
+	opts := docker.BuildImageOptions{
+		Name:         "obcca",
+		Pull:         true,
+		InputStream:  inputbuf,
+		OutputStream: outputbuf,
+	}
+	if err := vm.Client.BuildImage(opts); err != nil {
+		vmLogger.Debug(fmt.Sprintf("Failed obcca docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building obcca container: %s\n", err)
+	}
+	return nil
+}
+
 // GetPeerPackageBytes returns the gzipped tar image used for docker build of Peer
 func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
 	inputbuf := bytes.NewBuffer(nil)
@@ -221,7 +242,25 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 		urlLocation = spec.ChaincodeID.Path
 	}
 
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin", urlLocation)
+	if urlLocation == "" {
+		return fmt.Errorf("empty url location")
+	}
+
+	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
+		urlLocation = urlLocation[:len(urlLocation)-1]
+	}
+	toks := strings.Split(urlLocation, "/")
+	if toks == nil || len(toks) == 0 {
+		return fmt.Errorf("cannot get path components from %s", urlLocation)
+	}
+
+	chaincodeGoName := toks[len(toks)-1]
+	if chaincodeGoName == "" {
+		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
+	}
+	
+	//let the executable's name be chaincode ID's name
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
@@ -248,6 +287,22 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 	err := writeGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing Peer package contents: %s", err)
+	}
+	return nil
+}
+
+func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
+	startTime := time.Now()
+
+	dockerFileContents := viper.GetString("peer.Dockerfile")
+	dockerFileContents = dockerFileContents + "RUN cd obc-ca && go install\n"
+	dockerFileSize := int64(len([]byte(dockerFileContents)))
+
+	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
+	tw.Write([]byte(dockerFileContents))
+	err := writeGopathSrc(tw, "")
+	if err != nil {
+		return fmt.Errorf("Error writing obcca package contents: %s", err)
 	}
 	return nil
 }

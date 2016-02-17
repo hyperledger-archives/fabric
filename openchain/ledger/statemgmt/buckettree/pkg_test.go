@@ -132,6 +132,7 @@ func (testWrapper *stateImplTestWrapper) addChangesForPersistence(writeBatch *go
 
 func (testWrapper *stateImplTestWrapper) persistChangesAndResetInMemoryChanges() {
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	testWrapper.addChangesForPersistence(writeBatch)
 	testDBWrapper.WriteToDB(testWrapper.t, writeBatch)
 	testWrapper.stateImpl.ClearWorkingSet(true)

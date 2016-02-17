@@ -27,6 +27,7 @@ import (
 
 	google_protobuf1 "google/protobuf"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -36,10 +37,16 @@ var (
 	ErrNotFound = errors.New("openchain: resource not found")
 )
 
+// PeerInfo
+type PeerInfo interface {
+	GetPeers() (*pb.PeersMessage, error)
+}
+
 // ServerOpenchain defines the Openchain server object, which holds the
-// Ledger data structure.
+// Ledger data structure and the pointer to the peerServer.
 type ServerOpenchain struct {
-	ledger *ledger.Ledger
+	ledger   *ledger.Ledger
+	peerInfo PeerInfo
 }
 
 // NewOpenchainServer creates a new instance of the ServerOpenchain.
@@ -49,7 +56,21 @@ func NewOpenchainServer() (*ServerOpenchain, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	s := &ServerOpenchain{ledger: ledger}
+
+	return s, nil
+}
+
+// NewOpenchainServerWithPeerInfo creates a new instance of the ServerOpenchain.
+func NewOpenchainServerWithPeerInfo(peerServer PeerInfo) (*ServerOpenchain, error) {
+	// Get a handle to the Ledger singleton.
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, err
+	}
+
+	s := &ServerOpenchain{ledger: ledger, peerInfo: peerServer}
 
 	return s, nil
 }
@@ -76,6 +97,28 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 			return nil, fmt.Errorf("Error retrieving block from blockchain: %s", err)
 		}
 	}
+
+	// Remove payload from deploy transactions. This is done to make rest api
+	// calls more lightweight as the payload for these types of transactions
+	// can be very large. If the payload is needed, the caller should fetch the
+	// individual transaction.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
+			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				return nil, err
+			}
+			transaction.Payload = deploymentSpecBytes
+		}
+	}
+
 	return block, nil
 }
 
@@ -113,4 +156,9 @@ func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID strin
 		}
 	}
 	return transaction, nil
+}
+
+// GetPeers returns a list of all peer nodes currently connected to the target peer.
+func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+	return s.peerInfo.GetPeers()
 }

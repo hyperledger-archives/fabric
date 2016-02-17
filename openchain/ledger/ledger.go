@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/events/producer"
 	"github.com/openblockchain/obc-peer/openchain/db"
@@ -116,32 +117,37 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 		return err
 	}
 
-	success := true
-	defer ledger.resetForNextTxGroup(success)
-	defer ledger.blockchain.blockPersistenceStatus(success)
-
 	stateHash, err := ledger.state.GetHash()
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	block := protos.NewBlock(transactions, metadata)
 	block.NonHashData = &protos.NonHashData{TransactionResults: transactionResults}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return err
 	}
 	ledger.state.AddChangesForPersistence(newBlockNumber, writeBatch)
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	dbErr := db.GetDBHandle().DB.Write(opt, writeBatch)
 	if dbErr != nil {
-		success = false
+		ledger.resetForNextTxGroup(false)
+		ledger.blockchain.blockPersistenceStatus(false)
 		return dbErr
 	}
-	producer.Send(producer.CreateBlockEvent(block))
+
+	ledger.resetForNextTxGroup(true)
+	ledger.blockchain.blockPersistenceStatus(true)
+
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -324,7 +330,7 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 	if err != nil {
 		return err
 	}
-	producer.Send(producer.CreateBlockEvent(block))
+	sendProducerBlockEvent(block)
 	return nil
 }
 
@@ -393,4 +399,31 @@ func (ledger *Ledger) resetForNextTxGroup(txCommited bool) {
 	ledgerLogger.Debug("resetting ledger state for next transaction batch")
 	ledger.currentID = nil
 	ledger.state.ClearInMemoryChanges(txCommited)
+}
+
+func sendProducerBlockEvent(block *protos.Block) {
+
+	// Remove payload from deploy transactions. This is done to make block
+	// events more lightweight as the payload for these types of transactions
+	// can be very large.
+	blockTransactions := block.GetTransactions()
+	for _, transaction := range blockTransactions {
+		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
+			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
+			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error unmarshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			deploymentSpec.CodePackage = nil
+			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
+			if err != nil {
+				ledgerLogger.Error(fmt.Sprintf("Error marshalling deployment transaction for block event: %s", err))
+				continue
+			}
+			transaction.Payload = deploymentSpecBytes
+		}
+	}
+
+	producer.Send(producer.CreateBlockEvent(block))
 }

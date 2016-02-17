@@ -120,6 +120,15 @@ message fetch_request {
     uint64 replica_id = 2;
 }
 
+// batch
+
+message batch_message {
+    oneof payload {
+        bytes request = 1;
+        bytes pbft_message = 4;
+    }
+}
+
 // sieve
 
 message sieve_message {

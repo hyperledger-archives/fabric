@@ -66,6 +66,7 @@ func (testWrapper *stateTestWrapper) getSnapshot() *StateSnapshot {
 
 func (testWrapper *stateTestWrapper) persistAndClearInMemoryChanges(blockNumber uint64) {
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	testWrapper.state.AddChangesForPersistence(blockNumber, writeBatch)
 	testDBWrapper.WriteToDB(testWrapper.t, writeBatch)
 	testWrapper.state.ClearInMemoryChanges(true)

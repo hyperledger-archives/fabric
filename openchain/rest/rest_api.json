@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "title": "Openchain API",
-        "description": "Interact with the enterprise Blockchain through Openchain API",
+        "title": "IBM Blockchain API",
+        "description": "Interact with the enterprise blockchain through IBM Blockchain API",
         "version": "1.0.0"
     },
     "host": "127.0.0.1:3000",
@@ -15,7 +15,7 @@
     "paths": {
         "/chain": {
             "get": {
-                "summary": "Blockchain Information",
+                "summary": "Blockchain information",
                 "description": "The Chain endpoint returns information about the current state of the blockchain such as the height, the current block hash, and the previous block hash.",
                 "tags": [
                     "Blockchain"
@@ -39,7 +39,7 @@
         },
         "/chain/blocks/{Block}": {
             "get": {
-                "summary": "Individual Block Information",
+                "summary": "Individual block information",
                 "description": "The {Block} endpoint returns information about a specific block within the Blockchain. Note that the genesis block is block zero.",
                 "tags": [
                     "Block"
@@ -71,10 +71,10 @@
         },
         "/transactions/{UUID}": {
             "get": {
-                "summary": "Individual Transaction Contents",
+                "summary": "Individual transaction contents",
                 "description": "The /transactions/{UUID} endpoint returns the transaction matching the specified UUID.",
                 "tags": [
-                    "Transaction"
+                    "Transactions"
                 ],
                 "operationId": "getTransaction",
                 "parameters": [{
@@ -322,6 +322,30 @@
                     }
                 }
             }
+        },
+        "/network/peers": {
+            "get": {
+                "summary": "List of network peers",
+                "description": "The /network/peers endpoint returns a list of all existing network connections for the target peer node. The list includes both validating and non-validating peers.",
+                "tags": [
+                    "Network"
+                ],
+                "operationId": "getPeers",
+                "responses": {
+                    "200": {
+                        "description": "List of network peers",
+                        "schema": {
+                           "$ref": "#/definitions/PeersMessage"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -545,6 +569,55 @@
                     "type": "integer",
                     "format": "int32",
                     "description": "Non-negative fractions of a second at nanosecond resolution. Negative second values with fractions must still have non-negative nanos values that count forward in time. Must be from 0 to 999,999,999 inclusive."
+                }
+            }
+        },
+        "PeersMessage": {
+            "type": "object",
+            "properties": {
+                "peers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PeerEndpoint"
+                    }
+                }
+            }
+        },
+        "PeerEndpoint": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "$ref": "#/definitions/PeerID",
+                    "description": "Unique peer identifier."
+                },
+                "address": {
+                    "type": "string",
+                    "description": "ipaddress:port combination identifying a network peer."
+                },
+                "type": {
+                    "type": "string",
+                    "default": "UNDEFINED",
+                    "example": "UNDEFINED",
+                    "enum":[
+                        "UNDEFINED",
+                        "VALIDATOR",
+                        "NON_VALIDATOR"
+                    ],
+                    "description": "Network peer type."
+                },
+                "pkiID": {
+                    "type": "string",
+                    "format": "bytes",
+                    "description": "PKI identifier for the network peer."
+                }
+            }
+        },
+        "PeerID": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name which uniquely identifies a network peer."
                 }
             }
         },

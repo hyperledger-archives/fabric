@@ -39,11 +39,10 @@ func init() {
 }
 
 // ConsensusHandler handles consensus messages.
-// It also implements the CPI.
+// It also implements the Stack.
 type ConsensusHandler struct {
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
-	done        chan struct{}
 	peerHandler peer.MessageHandler
 }
 
@@ -64,7 +63,6 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	}
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
-	handler.done = make(chan struct{})
 
 	return handler, nil
 }
@@ -72,7 +70,8 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 // HandleMessage handles the incoming Openchain messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
-		return handler.consenter.RecvMsg(msg)
+		senderPE, _ := handler.peerHandler.To()
+		return handler.consenter.RecvMsg(msg, senderPE.ID)
 	}
 	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		return handler.doChainTransaction(msg)
@@ -121,7 +120,8 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 	}
 
 	// Pass the message to the plugin handler (ie PBFT)
-	return handler.consenter.RecvMsg(msg)
+	selfPE, _ := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
+	return handler.consenter.RecvMsg(msg, selfPE.ID)
 }
 
 func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
@@ -176,7 +176,6 @@ func (handler *ConsensusHandler) SendMessage(msg *pb.OpenchainMessage) error {
 // Stop stops this MessageHandler, which then delegates to the contained PeerHandler to stop (and thus deregister this Peer)
 func (handler *ConsensusHandler) Stop() error {
 	err := handler.peerHandler.Stop() // deregister the handler
-	handler.done <- struct{}{}
 	if err != nil {
 		return fmt.Errorf("Error stopping ConsensusHandler: %s", err)
 	}

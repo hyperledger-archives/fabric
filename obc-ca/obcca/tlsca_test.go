@@ -20,27 +20,30 @@ under the License.
 package obcca
 
 import (
-	"golang.org/x/net/context"
 	"io/ioutil"
 	"net"
 	"os"
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	
+
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
+	"google/protobuf"
+	"path/filepath"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"google/protobuf"
-	"path/filepath"
-	
+
 	_ "fmt"
+
 	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
 )
 
@@ -53,7 +56,7 @@ var (
 func TestTLS(t *testing.T) {
 	// Skipping test for now, this is just to try tls connections
 	t.Skip()
-	
+
 	go startTLSCA(t)
 
 	time.Sleep(time.Second * 10)
@@ -111,7 +114,7 @@ func requestTLSCertificate(t *testing.T) {
 	defer sockP.Close()
 
 	tlscaP := obcca.NewTLSCAPClient(sockP)
-	
+
 	// Prepare the request
 	id := "peer"
 	priv, err := utils.NewECDSAKey()
@@ -121,12 +124,8 @@ func requestTLSCertificate(t *testing.T) {
 		t.Fail()
 	}
 
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Logf("Failed generating uuid: %s", err)
-		t.Fail()
-	}
-	
+	uuid := util.GenerateUUID()
+
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
@@ -138,28 +137,27 @@ func requestTLSCertificate(t *testing.T) {
 			Type: obcca.CryptoType_ECDSA,
 			Key:  pubraw,
 		}, nil}
-	
+
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
-	
+
 	if err != nil {
 		t.Logf("Failed signing the request: %s", err)
 		t.Fail()
 	}
-	
+
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
 	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
-	
 
 	resp, err := tlscaP.CreateCertificate(context.Background(), req)
 	if err != nil {
 		t.Logf("Failed requesting tls certificate: %s", err)
 		t.Fail()
 	}
-	
+
 	storePrivateKeyInClear("tls_peer.priv", priv, t)
-	storeCert("tls_peer.cert", resp.Cert.Cert, t) 
+	storeCert("tls_peer.cert", resp.Cert.Cert, t)
 	storeCert("tls_peer.ca", resp.RootCert.Cert, t)
 }
 

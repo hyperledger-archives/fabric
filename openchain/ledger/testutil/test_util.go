@@ -21,12 +21,13 @@ package testutil
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/spf13/viper"
 	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/spf13/viper"
 )
 
 func SetupTestConfig() {
@@ -140,10 +141,7 @@ func AppendAll(content ...[]byte) []byte {
 }
 
 func GenerateUUID(t *testing.T) string {
-	uuid, err := util.GenerateUUID()
-	if err != nil {
-		t.Fatalf("Error generating UUI - Error: %s\n %s", err, getCallerInfo())
-	}
+	uuid := util.GenerateUUID()
 	return uuid
 }
 

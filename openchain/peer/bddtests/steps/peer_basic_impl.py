@@ -1,6 +1,7 @@
 import os
 import re
 import time 
+import copy
 from datetime import datetime, timedelta
 
 import sys, requests, json
@@ -10,9 +11,21 @@ import bdd_test_util
 OPENCHAIN_REST_PORT = 5000
 
 class ContainerData:
-	def __init__(self, containerName, ipAddress):
-		self.containerName = containerName
-		self.ipAddress = ipAddress
+    def __init__(self, containerName, ipAddress, envFromInspect, composeService):
+        self.containerName = containerName
+        self.ipAddress = ipAddress
+        self.envFromInspect = envFromInspect
+        self.composeService = composeService
+
+    def getEnv(self, key):
+        envValue = None
+        for val in self.envFromInspect:
+            if val.startswith(key):
+                envValue = val[len(key):]
+                break 
+        if envValue == None: 
+            raise Exception("ENV key not found ({0}) for container ({1})".format(key, self.containerName))
+        return envValue
 
 def parseComposeOutput(context):
     """Parses the compose output results and set appropriate values into context"""
@@ -29,8 +42,22 @@ def parseComposeOutput(context):
     for containerName in containerNames: 
     	output, error, returncode = \
         	bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_success=True)
-        print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
-        containerDataList.append(ContainerData(containerName, output.splitlines()[0]))
+        #print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
+        ipAddress = output.splitlines()[0]
+
+        # Get the environment array
+        output, error, returncode = \
+            bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Env }}", containerName], expect_success=True)
+        env = output.splitlines()[0][1:-1].split()
+
+        # Get the Labels to access the com.docker.compose.service value
+        output, error, returncode = \
+            bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Labels }}", containerName], expect_success=True)
+        labels = output.splitlines()[0][4:-1].split()
+        dockerComposeService = [composeService[27:] for composeService in labels if composeService.startswith("com.docker.compose.service:")][0]
+        print("dockerComposeService = {0}".format(dockerComposeService))
+        print("container {0} has env = {1}".format(containerName, env))        
+        containerDataList.append(ContainerData(containerName, ipAddress, env, dockerComposeService))
         setattr(context, "compose_containers", containerDataList)
     print("")
 
@@ -101,6 +128,7 @@ def step_impl(context, chaincodePath, ctor, containerName):
 	   # There is ctor arguments
 	   args = context.table[0].cells
     typeGolang = 1
+
     # Create a ChaincodeSpec structure
     chaincodeSpec = {
         "type": typeGolang,
@@ -111,8 +139,12 @@ def step_impl(context, chaincodePath, ctor, containerName):
         "ctorMsg":  {
             "function" : ctor,
             "args" : args
-        }
+        },
+        #"secureContext" : "binhn"
     }
+    if 'userName' in context:
+        chaincodeSpec["secureContext"] = context.userName
+
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec))
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
     context.response = resp
@@ -266,6 +298,59 @@ def step_impl(context, seconds):
     print("Result of request to all peers = {0}".format(respMap))
     print("")
 
+def getContainerDataValuesFromContext(context, aliases, callback):
+    """Returns the IPAddress based upon a name part of the full container name"""
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    values = []
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    for namePart in aliases:    
+        for containerData in context.compose_containers:
+            if containerData.containerName.startswith(containerNamePrefix + namePart):
+                values.append(callback(containerData))
+                break
+    return values
+
+
+@then(u'I wait up to "{seconds}" seconds for transaction to be committed to peers')
+def step_impl(context, seconds):
+    assert 'transactionID' in context, "transactionID not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    assert 'table' in context, "table (of peers) not found in context"
+
+    aliases =  context.table.headings
+    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+
+    # Build map of "containerName" : resp.statusCode
+    respMap = {container.containerName:0 for container in containerDataList}
+
+    # Set the max time before stopping attempts
+    maxTime = datetime.now() + timedelta(seconds = int(seconds))
+    for container in containerDataList:
+        ipAddress = container.ipAddress
+        request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+
+        # Loop unless failure or time exceeded
+        while (datetime.now() < maxTime):
+            print("GETing path = {0}".format(request_url))
+            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            if resp.status_code == 404:
+                # Pause then try again
+                respMap[container.containerName] = 404
+                time.sleep(1)
+                continue
+            elif resp.status_code == 200:
+                # Success, continue
+                respMap[container.containerName] = 200
+                break
+            else:
+                raise Exception("Error requesting {0}, returned result code = {1}".format(request_url, resp.status_code))
+        else:
+            raise Exception("Max time exceeded waiting for transactions with current response map = {0}".format(respMap))
+    print("Result of request to all peers = {0}".format(respMap))
+    print("")
+
+
+
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on all peers')
 def step_impl(context, chaincodeName, functionName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
@@ -291,6 +376,39 @@ def step_impl(context, chaincodeName, functionName):
     context.responses = responses
 
 
+@when(u'I query chaincode "{chaincodeName}" function name "{functionName}" with value "{value}" on peers')
+def step_impl(context, chaincodeName, functionName, value):
+    assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    assert 'table' in context, "table (of peers) not found in context"
+    assert 'peerToSecretMessage' in context, "peerToSecretMessage map not found in context"
+
+    aliases =  context.table.headings
+    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+
+    # Update the chaincodeSpec ctorMsg for invoke
+    context.chaincodeSpec['ctorMsg']['function'] = functionName
+    context.chaincodeSpec['ctorMsg']['args'] = [value] 
+    # Invoke the POST
+    # Make deep copy of chaincodeSpec as we will be changing the SecurityContext per call.
+    chaincodeInvocationSpec = {
+        "chaincodeSpec" : copy.deepcopy(context.chaincodeSpec)
+    }
+    responses = []
+    for container in containerDataList:
+        # Change the SecurityContext per call
+        chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
+        print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("OPENCHAIN_SECURITY_ENROLLID")))
+        request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
+        print("POSTing path = {0}".format(request_url))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+        responses.append(resp)
+    context.responses = responses
+
+
+
+
 @then(u'I should get a JSON response from all peers with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
     assert 'responses' in context, "responses not found in context"
@@ -298,3 +416,66 @@ def step_impl(context, attribute, expectedValue):
         assert attribute in resp.json(), "Attribute not found in response (%s)" %(attribute)
         foundValue = resp.json()[attribute]
         assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+
+@then(u'I should get a JSON response from peers with "{attribute}" = "{expectedValue}"')
+def step_impl(context, attribute, expectedValue):
+    assert 'responses' in context, "responses not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    assert 'table' in context, "table (of peers) not found in context"
+
+    for resp in context.responses:
+        assert attribute in resp.json(), "Attribute not found in response (%s)" %(attribute)
+        foundValue = resp.json()[attribute]
+        assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+
+@given(u'I register with CA supplying username "{userName}" and secret "{secret}" on peers')
+def step_impl(context, userName, secret):
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    assert 'table' in context, "table (of peers) not found in context"
+
+    # Get list of IPs to login to 
+    aliases =  context.table.headings
+    ipAddressList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData.ipAddress)
+
+    secretMsg = {
+        "enrollId": userName,
+        "enrollSecret" : secret
+    }
+
+    # Login to each container specified
+    for ipAddress in ipAddressList:    
+        request_url = buildUrl(ipAddress, "/registrar")
+        print("POSTing path = {0}".format(request_url))
+
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg))
+        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+        context.response = resp
+        print("message = {0}".format(resp.json()))
+    # Store the username in the context
+    context.userName = userName
+
+@given(u'I use the following credentials for querying peers')
+def step_impl(context):
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    assert 'table' in context, "table (of peers, username, secret) not found in context"
+    
+    peerToSecretMessage = {}
+
+    # Login to each container specified using username and secret
+    for row in context.table.rows:
+        peer, userName, secret = row['peer'], row['username'], row['secret']
+        secretMsg = {
+            "enrollId": userName,
+            "enrollSecret" : secret
+        }
+
+        ipAddress = ipFromContainerNamePart(peer, context.compose_containers)
+        request_url = buildUrl(ipAddress, "/registrar")
+        print("POSTing path = {0}".format(request_url))
+
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg))
+        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
+        context.response = resp
+        print("message = {0}".format(resp.json()))
+        peerToSecretMessage[peer] = secretMsg
+    context.peerToSecretMessage = peerToSecretMessage

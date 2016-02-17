@@ -98,7 +98,7 @@ type MessageHandlerCoordinator interface {
 	StateAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
-	Broadcast(*pb.OpenchainMessage) []error
+	Broadcast(*pb.OpenchainMessage, pb.PeerEndpoint_Type) []error
 	Unicast(*pb.OpenchainMessage, *pb.PeerID) error
 	GetPeers() (*pb.PeersMessage, error)
 	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
@@ -151,7 +151,7 @@ func GetLocalAddress() (peerAddress string, err error) {
 			return "", err
 		}
 		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		peerLogger.Info("Auto detected peer address: %s", peerAddress)
+		//peerLogger.Info("Auto detected peer address: %s", peerAddress)
 	} else {
 		peerAddress = viper.GetString("peer.address")
 	}
@@ -314,7 +314,7 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	}
 	for _, peerEndpoint := range peersMessage.Peers {
 		// Filter out THIS Peer's endpoint
-		if getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == getHandlerKeyFromPeerEndpoint(peerEndpoint) {
+		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// NOOP
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// Start chat with Peer
@@ -370,12 +370,31 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 	return nil
 }
 
-// Broadcast broadcast a message to each of the currently registered PeerEndpoints
-func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
+//clone the handler so as to avoid lock across SendMessage
+func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]MessageHandler {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
+	clone := make(map[pb.PeerID]MessageHandler)
+	for id, msgHandler := range p.handlerMap.m {
+		//pb.PeerEndpoint_UNDEFINED collects all peers
+		if typ != pb.PeerEndpoint_UNDEFINED {
+			toPeerEndpoint, _ := msgHandler.To()
+			//ignore endpoints that don't match type filter
+			if typ != toPeerEndpoint.Type {
+				continue
+			}
+		}
+		clone[id] = msgHandler
+	}
+	return clone
+}
+
+// Broadcast broadcast a message to each of the currently registered PeerEndpoints of given type
+// Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
+func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage, typ pb.PeerEndpoint_Type) []error {
+	cloneMap := p.cloneHandlerMap(typ)
 	var errorsFromHandlers []error
-	for _, msgHandler := range p.handlerMap.m {
+	for _, msgHandler := range cloneMap {
 		err := msgHandler.SendMessage(msg)
 		if err != nil {
 			toPeerEndpoint, _ := msgHandler.To()
@@ -388,8 +407,9 @@ func (p *PeerImpl) Broadcast(msg *pb.OpenchainMessage) []error {
 // Unicast sends a message to a specific peer.
 func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
 	msgHandler := p.handlerMap.m[*receiverHandle]
+	//don't lock across SendMessage
+	p.handlerMap.Unlock()
 	err := msgHandler.SendMessage(msg)
 	if err != nil {
 		toPeerEndpoint, _ := msgHandler.To()
@@ -402,33 +422,40 @@ func (p *PeerImpl) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) 
 func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error creating client to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error opening chat stream to peer address=%s:  %s", peerAddress, err))}
 	}
-	defer stream.CloseSend()
+
 	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
 
 	helloMessage, err := p.NewOpenchainDiscoveryHello()
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error creating new HelloMessage (%s):  %s", peerAddress, err))}
 	}
-	stream.Send(helloMessage)
+	if err = stream.Send(helloMessage); err != nil {
+		stream.CloseSend()
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending hello to peer address=%s:  %s", peerAddress, err))}
+	}
 
 	waitc := make(chan struct{})
 	var response *pb.Response
 	go func() {
 		// Make sure to close the wait channel
 		defer close(waitc)
+		expectHello := true
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
+				peerLogger.Debug("Received EOF")
 				// read done.
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))}
+				if response == nil {
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.OpenchainMessage_DISC_HELLO))}
+				}
 				return
 			}
 			if err != nil {
@@ -436,12 +463,15 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 				return
 			}
 			if in.Type == pb.OpenchainMessage_DISC_HELLO {
+				expectHello = false
+
 				peerLogger.Debug("Received %s message as expected, sending transaction...", in.Type)
 				payload, err := proto.Marshal(transaction)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error marshalling transaction to peer address=%s:  %s", peerAddress, err))}
 					return
 				}
+
 				var ttyp pb.OpenchainMessage_Type
 				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
 					ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
@@ -451,17 +481,28 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 
 				msg := &pb.OpenchainMessage{Type: ttyp, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
 				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
-				stream.Send(msg)
+				if err = stream.Send(msg); err != nil {
+					peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
+				}
+				//we are done with all our sends.... trigger stream close
+				stream.CloseSend()
 			} else if in.Type == pb.OpenchainMessage_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
 				response = &pb.Response{}
 				err = proto.Unmarshal(in.Payload, response)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
 				}
-				return
+
+				//this should never happen but has to be tested (perhaps panic ?).
+				//if we did get an out-of-band Response, CloseSend as we may not get a DISC_HELLO
+				if expectHello {
+					peerLogger.Error(fmt.Sprintf("Received unexpected %s message, will wait for EOF", in.Type))
+					stream.CloseSend()
+				}
+			} else {
+				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 			}
-			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
 		}
 	}()
 
@@ -482,22 +523,12 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
 	}
-	defer stream.CloseSend()
-	peerLogger.Debug("Sending transaction %s to self", transaction.Type)
+
+	peerLogger.Debug("Marshalling transaction %s to send to self", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
 	}
-	var ttyp pb.OpenchainMessage_Type
-	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
-		ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
-	} else {
-		ttyp = pb.OpenchainMessage_CHAIN_QUERY
-	}
-
-	msg := &pb.OpenchainMessage{Type: ttyp, Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
-	stream.Send(msg)
 
 	waitc := make(chan struct{})
 	var response *pb.Response
@@ -507,29 +538,50 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
-				// read done.
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
+				peerLogger.Debug("Received EOF")
+				if response == nil {
+					// read done.
+					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.OpenchainMessage_DISC_HELLO))}
+				}
 				return
 			}
 			if err != nil {
 				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
 				return
 			}
+			//receive response and wait for stream to be closed (triggered by CloseSend)
 			if in.Type == pb.OpenchainMessage_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, exiting out of receive loop", in.Type)
+				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
 				response = &pb.Response{}
 				err = proto.Unmarshal(in.Payload, response)
 				if err != nil {
 					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.OpenchainMessage_CONSENSUS, err))}
 				}
-				return
+			} else {
+				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
+				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
 			}
-			peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
-			return
 		}
 	}()
+
+	var ttyp pb.OpenchainMessage_Type
+	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
+		ttyp = pb.OpenchainMessage_CHAIN_TRANSACTION
+	} else {
+		ttyp = pb.OpenchainMessage_CHAIN_QUERY
+	}
+
+	msg := &pb.OpenchainMessage{Type: ttyp, Payload: data, Timestamp: util.CreateUtcTimestamp()}
+	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
+	if err = stream.Send(msg); err != nil {
+		peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
+	}
+
+	//we are done from client side.
+	stream.CloseSend()
+
 	<-waitc
+
 	return response
 }
 
@@ -616,21 +668,23 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response 
 
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	return GetPeerEndpoint()
+	ep, err := GetPeerEndpoint()
+	if err == nil && viper.GetBool("security.enabled") {
+		// Set the PkiID on the PeerEndpoint if security is enabled
+		ep.PkiID = p.GetSecHelper().GetID()
+	}
+	return ep, err
 }
 
 func (p *PeerImpl) newHelloMessage() (*pb.HelloMessage, error) {
-	endpoint, err := GetPeerEndpoint()
+	endpoint, err := p.GetPeerEndpoint()
 	if err != nil {
 		return nil, fmt.Errorf("Error creating hello message: %s", err)
 	}
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	size := p.ledgerWrapper.ledger.GetBlockchainSize()
-	// Set the PkiID on the PeerEndpoint if security is enabled
-	if viper.GetBool("security.enabled") {
-		endpoint.PkiID = p.GetSecHelper().GetID()
-	}
+
 	return &pb.HelloMessage{PeerEndpoint: endpoint, BlockNumber: size}, nil
 }
 

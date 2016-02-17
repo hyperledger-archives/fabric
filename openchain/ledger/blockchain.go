@@ -228,6 +228,7 @@ func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber u
 		return blockBytesErr
 	}
 	writeBatch := gorocksdb.NewWriteBatch()
+	defer writeBatch.Destroy()
 	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
 
 	// Need to check as we suport out of order blocks in cases such as block/state synchronization. This is
@@ -247,6 +248,7 @@ func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber u
 	}
 
 	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
 	err = db.GetDBHandle().DB.Write(opt, writeBatch)
 	if err != nil {
 		return err

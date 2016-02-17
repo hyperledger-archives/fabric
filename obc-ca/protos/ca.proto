@@ -36,6 +36,7 @@ service ECAP { // public service
 
 service ECAA { // admin service
     rpc RegisterUser(RegisterUserReq) returns (Token);
+    rpc ReadUserSet(ReadUserSetReq) returns (UserSet);
     rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
     rpc PublishCRL(ECertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
 }
@@ -54,6 +55,7 @@ service TCAP { // public service
 }
 
 service TCAA { // admin service
+    rpc ReadCertificateSets(TCertReadSetsReq) returns (CertSets);
     rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
     rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // an admin can revoke any cert
     rpc PublishCRL(TCertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
@@ -139,11 +141,28 @@ enum Role {
     CLIENT = 1; // powers of 2 to | different roles
     PEER = 2;
     VALIDATOR = 4;
+    AUDITOR = 8;
+    ALL = 0xFFFF;
 }
 
 message RegisterUserReq {
     Identity id = 1;
     Role role = 2;
+}
+
+message ReadUserSetReq {
+    Identity req = 1;
+    Role role = 2; // bitmask
+    Signature sig = 3; // sign(priv, req | id | role)
+}
+
+message User {
+    Identity id = 1;
+    Role role = 2;
+}
+
+message UserSet {
+    repeated User users = 1;
 }
 
 
@@ -155,12 +174,13 @@ message ECertCreateReq {
     Token tok = 3;
     PublicKey sign = 4;
     PublicKey enc = 5;
-    Signature sig = 6; // sign(privS, ts | id | tok | sign | enc)
+    Signature sig = 6; // sign(priv, ts | id | tok | sign | enc)
 }
 
 message ECertCreateResp {
     CertPair certs = 1;
     Token chain = 2;
+    bytes pkchain = 4;
     Token tok = 3;
 }
 
@@ -203,15 +223,26 @@ message TCertCreateSetResp {
 
 message TCertReadReq {
     google.protobuf.Timestamp ts = 1; // timestamp of cert to read
-    Identity id = 2; // corresponding ECert retrieved from ECA
-    Signature sig = 3; // sign(priv, id)
+    Hash hash = 2; // hash of the cert to read if ts == 0
+    Identity req = 3; // corresponding ECert retrieved from ECA
+    Identity id = 4; 
+    Signature sig = 5; // sign(priv, ts | req | id)
 }
 
 message TCertReadSetReq {
     google.protobuf.Timestamp ts = 1; // timestamp of cert set to read
-    Identity id = 2; // corresponding Ecert retrieved from ECA
-    uint32 num = 3; // number of certs to read (0 == all)
-    Signature sig = 4; // sign(priv, id, ts)
+    Identity req = 2; // corresponding ECert retrieved from ECA
+    Identity id = 3;
+    uint32 num = 4; // number of certs to read (0 == all)
+    Signature sig = 5; // sign(priv, ts | req | id | num)
+}
+
+message TCertReadSetsReq {
+    google.protobuf.Timestamp begin = 1;
+    google.protobuf.Timestamp end = 2;
+    Identity req = 3; // corresponding ECert retrieved from ECA
+    Role role = 4; // bitmask
+    Signature sig = 5; // sign(priv, begin | end | req | id | role)
 }
 
 message TCertRevokeReq {
@@ -260,8 +291,14 @@ message Cert {
 }
 
 message CertSet {
-    bytes key = 1;
-    repeated bytes certs = 2; // DER / ASN.1 encoded
+    google.protobuf.Timestamp ts = 1;
+    Identity id = 2;
+    bytes key = 3;
+    repeated bytes certs = 4; // DER / ASN.1 encoded
+}
+
+message CertSets {
+    repeated CertSet sets = 1;
 }
 
 message CertPair {

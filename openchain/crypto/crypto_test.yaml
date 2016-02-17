@@ -6,12 +6,13 @@
 server:
         version: "0.1"
         rootpath: ".obc-ca"
-        port: ":50051"
+        port: ":50541"
 
 eca:
 
     users:
         # clients
+        userthread: 1 9gvZQRwhUq9q
         user1: 1 9gvZQRwhUq9q
         user2: 1 9gvZQRwhUq9q
         TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
@@ -31,13 +32,13 @@ eca:
 peer:
     pki:
         eca:
-            paddr: localhost:50051
+            paddr: localhost:50541
 
         tca:
-            paddr: localhost:50051
+            paddr: localhost:50541
 
         tlsca:
-            paddr: localhost:50051
+            paddr: localhost:50541
 
         tls:
             enabled: true
@@ -81,5 +82,9 @@ tests:
 
             TestRegistrationSameEnrollIDDifferentRole:
                 enrollid: TestRegistrationSameEnrollIDDifferentRole
+                enrollpw: 9gvZQRwhUq9q
+
+            userthread:
+                enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
 

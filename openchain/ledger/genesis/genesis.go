@@ -59,7 +59,10 @@ func MakeGenesis() error {
 		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
 		
-		if(deploySystemChaincodeEnabled()){
+		//We are disabling the validity period deployment for now, we shouldn't even allow it if it's enabled in the configuration
+		allowDeployValidityPeriod := false
+		
+		if(deploySystemChaincodeEnabled() && allowDeployValidityPeriod){
 			vpTransaction, deployErr :=  deployUpdateValidityPeriodChaincode()
 			
 			if deployErr != nil {

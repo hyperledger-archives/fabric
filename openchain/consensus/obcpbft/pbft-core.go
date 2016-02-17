@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
@@ -50,7 +51,7 @@ func init() {
 // custom interfaces and structure definitions
 // =============================================================================
 
-type innerCPI interface {
+type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(txRaw []byte)
@@ -63,9 +64,12 @@ type innerCPI interface {
 
 type pbftCore struct {
 	// internal data
-	lock     sync.Mutex
-	closed   bool
-	consumer innerCPI
+	internalLock sync.Mutex
+	executing    bool // signals that application is executing
+	closed       chan bool
+	consumer     innerStack
+	notifyCommit chan bool
+	notifyExec   *sync.Cond
 
 	// PBFT data
 	activeView   bool                   // view change happening
@@ -94,6 +98,8 @@ type pbftCore struct {
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
+	timerExpiredCount  uint64              // How many times the newViewTimer has expired, used in conjuection with timerResetCount to prevent racing
+	timerResetCount    uint64              // How many times the newViewTimer has been reset, used in conjuection with timerExpiredCount to prevent racing
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -153,15 +159,22 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger consensus.LedgerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger consensus.LedgerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
 	instance.ledger = ledger
+	instance.closed = make(chan bool)
+	instance.notifyCommit = make(chan bool, 1)
+	instance.notifyExec = sync.NewCond(&instance.internalLock)
 
 	instance.N = config.GetInt("general.N")
-	instance.f = instance.N / 3
+	instance.f = config.GetInt("general.f")
+	if instance.f*3+1 > instance.N {
+		panic(fmt.Sprintf("need at least %d enough replicas to tolerate %d byzantine faults, but only %d replicas configured", instance.f*3+1, instance.f, instance.N))
+	}
+
 	instance.K = uint64(config.GetInt("general.K"))
 
 	instance.byzantine = config.GetBool("general.byzantine")
@@ -177,7 +190,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 
 	instance.activeView = true
 	instance.L = 2 * instance.K // log size
-	instance.replicaCount = 3*instance.f + 1
+	instance.replicaCount = instance.N
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -220,7 +233,9 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
-	instance.sts.AsynchronousStateTransferRegisterListener(instance.stateTransferListener)
+	listener := struct{ statetransfer.ProtoListener }{}
+	listener.CompletedImpl = instance.stateTransferCompleted
+	instance.sts.RegisterListener(&listener)
 
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
@@ -239,37 +254,71 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerCPI, ledger conse
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
+	instance.timerResetCount = 1
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
+	go instance.executeRoutine()
 
 	return instance
 }
 
-// tear down resources opened by newPbftCore
+func (instance *pbftCore) lock() {
+	// Uncomment to debug races
+	//logger.Debug("Replica %d acquiring lock", instance.id)
+	instance.internalLock.Lock()
+	//logger.Debug("Replica %d acquired lock", instance.id)
+}
+
+func (instance *pbftCore) unlock() {
+	// Uncomment to debug races
+	//logger.Debug("Replica %d releasing lock", instance.id)
+	instance.internalLock.Unlock()
+	//logger.Debug("Replica %d released lock", instance.id)
+}
+
+// close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.closed = true
-	instance.newViewTimer.Reset(0)
-	instance.sts.StopThreads()
+	instance.lock()
+	close(instance.closed)
+	instance.newViewTimer.Stop()
+	instance.sts.Stop()
+	instance.unlock()
+}
+
+// drain remaining requests
+func (instance *pbftCore) drain() {
+	instance.lock()
+	for instance.executing {
+		instance.notifyExec.Wait()
+	}
+	instance.executeOutstanding()
+	instance.unlock()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) timerHander() {
 	for {
 		select {
+		case <-instance.closed:
+			return
+
 		case <-instance.newViewTimer.C:
-			instance.lock.Lock()
-			if instance.closed {
-				instance.lock.Unlock()
-				return
+			instance.timerExpiredCount++
+			logger.Debug("Replica %d view change timer expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
+			instance.lock()
+			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
+			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
+			// try to change views.
+			if instance.timerResetCount > instance.timerExpiredCount {
+				logger.Debug("Replica %d view change timer has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
+			} else {
+				logger.Info("Replica %d view change timer expired, sending view change", instance.id)
+				instance.sendViewChange()
 			}
-			logger.Info("Replica %d view change timeout expired", instance.id)
-			instance.sendViewChange()
-			instance.lock.Unlock()
+			instance.unlock()
 		}
 	}
 }
@@ -310,6 +359,18 @@ func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 // =============================================================================
 // preprepare/prepare/commit quorum checks
 // =============================================================================
+
+// intersectionQuorum returns the number of replicas that have to
+// agree to guarantee that at least one correct replica is shared by
+// two intersection quora
+func (instance *pbftCore) intersectionQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
+
+// allCorrectReplicasQuorum returns the number of correct replicas (N-f)
+func (instance *pbftCore) allCorrectReplicasQuorum() int {
+	return (instance.N + instance.f + 1) / 2
+}
 
 func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 	_, mInLog := instance.reqStore[digest]
@@ -358,7 +419,7 @@ func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f
+	return quorum >= instance.intersectionQuorum()-1
 }
 
 func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
@@ -381,23 +442,21 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
-	return quorum >= 2*instance.f+1
+	return quorum >= instance.intersectionQuorum()
 }
 
 // Handles finishing the state transfer by executing outstanding transactions
-func (instance *pbftCore) stateTransferListener(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, update statetransfer.StateTransferUpdate) {
+func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 
-	if update != statetransfer.Completed {
-		return
+	if md, ok := metadata.(*stateTransferMetadata); ok {
+		// Make sure the message thread is not currently modifying pbft
+		instance.lock()
+		defer instance.unlock()
+
+		instance.lastExec = md.sequenceNumber
+		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+		instance.executeOutstanding()
 	}
-
-	// Make sure the message thread is not currently modifying pbft
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-
-	instance.lastExec = metadata.(*stateTransferMetadata).sequenceNumber
-	logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
-	instance.executeOutstanding()
 }
 
 // =============================================================================
@@ -405,53 +464,95 @@ func (instance *pbftCore) stateTransferListener(blockNumber uint64, blockHash []
 // =============================================================================
 
 // handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload}}}
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
+		ReplicaId: senderID}}}
+	instance.lock()
+	defer instance.unlock()
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
 // handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte) error {
+func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.lock.Lock()
-	defer instance.lock.Unlock()
-	instance.recvMsgSync(msg)
+	instance.lock()
+	defer instance.unlock()
+	instance.recvMsgSync(msg, senderID)
 
 	return nil
 }
 
-func (instance *pbftCore) recvMsgSync(msg *Message) (err error) {
+func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
 
 	if req := msg.GetRequest(); req != nil {
+		if senderID != req.ReplicaId {
+			err = fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvRequest(req)
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
+		if senderID != preprep.ReplicaId {
+			err = fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvPrePrepare(preprep)
 	} else if prep := msg.GetPrepare(); prep != nil {
+		if senderID != prep.ReplicaId {
+			err = fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvPrepare(prep)
 	} else if commit := msg.GetCommit(); commit != nil {
+		if senderID != commit.ReplicaId {
+			err = fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvCommit(commit)
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
+		if senderID != chkpt.ReplicaId {
+			err = fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvCheckpoint(chkpt)
 	} else if vc := msg.GetViewChange(); vc != nil {
+		if senderID != vc.ReplicaId {
+			err = fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvViewChange(vc)
 	} else if nv := msg.GetNewView(); nv != nil {
+		if senderID != nv.ReplicaId {
+			err = fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvNewView(nv)
 	} else if fr := msg.GetFetchRequest(); fr != nil {
+		if senderID != fr.ReplicaId {
+			err = fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
+			logger.Warning(err.Error())
+			return
+		}
 		err = instance.recvFetchRequest(fr)
 	} else if req := msg.GetReturnRequest(); req != nil {
+		// it's ok for sender ID and replica ID to differ; we're sending the original request message
 		err = instance.recvReturnRequest(req)
 	} else {
 		err = fmt.Errorf("Invalid message: %v", msg)
-		logger.Error("%s", err)
+		logger.Error(err.Error())
 	}
 
 	return
@@ -492,7 +593,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			instance.seqNo = n
 			preprep := &PrePrepare{
 				View:           instance.view,
-				SequenceNumber: instance.seqNo,
+				SequenceNumber: n,
 				RequestDigest:  digest,
 				Request:        req,
 				ReplicaId:      instance.id,
@@ -500,7 +601,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 
-			return instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			return instance.maybeSendCommit(digest, instance.view, n)
 		}
 	}
 
@@ -591,14 +693,21 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 		}
 	}
 	cert.prepare = append(cert.prepare, prep)
-	if instance.prepared(prep.RequestDigest, prep.View, prep.SequenceNumber) && !cert.sentCommit {
+
+	return instance.maybeSendCommit(prep.RequestDigest, prep.View, prep.SequenceNumber)
+}
+
+func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) error {
+	cert := instance.getCert(v, n)
+
+	if instance.prepared(digest, v, n) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
-			instance.id, prep.View, prep.SequenceNumber)
+			instance.id, cert.prePrepare.View, cert.prePrepare.SequenceNumber)
 
 		commit := &Commit{
-			View:           prep.View,
-			SequenceNumber: prep.SequenceNumber,
-			RequestDigest:  prep.RequestDigest,
+			View:           v,
+			SequenceNumber: n,
+			RequestDigest:  digest,
 			ReplicaId:      instance.id,
 		}
 
@@ -626,7 +735,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 		// note that we can reach this point without
 		// broadcasting a commit ourselves
-		instance.executeOutstanding()
+		select { // non-blocking channel send
+		case instance.notifyCommit <- true:
+		default:
+		}
 	} else {
 		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
@@ -635,10 +747,24 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *pbftCore) executeOutstanding() error {
+func (instance *pbftCore) executeRoutine() {
+	for {
+		select {
+		case <-instance.notifyCommit:
+			instance.lock()
+			instance.executeOutstanding()
+			instance.unlock()
+
+		case <-instance.closed:
+			return
+		}
+	}
+}
+
+func (instance *pbftCore) executeOutstanding() {
 	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.AsynchronousStateTransferInProgress() {
-		return nil
+	if instance.sts.InProgress() {
+		return
 	}
 
 	for retry := true; retry; {
@@ -652,10 +778,14 @@ func (instance *pbftCore) executeOutstanding() error {
 		}
 	}
 
-	return nil
+	return
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
+	if instance.executing {
+		return false
+	}
+
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -683,9 +813,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
-
-		instance.consumer.execute(req.Payload)
 		delete(instance.outstandingReqs, digest)
+
+		instance.executing = true
+		instance.unlock()
+		instance.consumer.execute(req.Payload)
+		instance.lock()
+		instance.executing = false
+		instance.notifyExec.Broadcast()
 	}
 
 	if len(instance.outstandingReqs) > 0 {
@@ -821,8 +956,8 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				}
 
 				// Make sure we don't try to start a second state transfer while one is going on
-				if !instance.sts.AsynchronousStateTransferInProgress() {
-					instance.sts.AsynchronousStateTransfer(furthestReplicaIds)
+				if !instance.sts.InProgress() {
+					instance.sts.Initiate(furthestReplicaIds)
 				}
 			}
 
@@ -849,15 +984,15 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 
 	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
 	if nil != err {
-		logger.Error("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		err = fmt.Errorf("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		logger.Error(err.Error())
 		return
 	}
 	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AsynchronousStateTransferValidHash(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
+	instance.sts.AddTarget(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
-
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
 
@@ -865,7 +1000,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	if !instance.inW(chkpt.SequenceNumber) {
 		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.AsynchronousStateTransferInProgress() {
+		if !instance.sts.InProgress() {
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -882,12 +1017,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.AsynchronousStateTransferInProgress() && matching >= instance.f+1 {
+	if instance.sts.InProgress() && matching >= instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
 
-	if matching <= instance.f*2 {
+	if matching < instance.intersectionQuorum() {
 		// We do not have a quorum yet
 		return nil
 	}
@@ -963,7 +1098,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 // Misc. methods go here
 // =============================================================================
 
-// Marshals a Message and hands it to the CPI. If toSelf is true,
+// Marshals a Message and hands it to the Stack. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsgSync.
 func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	msgRaw, err := proto.Marshal(msg)
@@ -975,37 +1110,38 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	// We call ourselves synchronously, so that testing can run
 	// synchronous.
 	if toSelf {
-		instance.recvMsgSync(msg)
+		instance.recvMsgSync(msg, instance.id)
 	}
 	return nil
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration) {
-	instance.newViewTimer.Reset(timeout)
-	logger.Debug("Replica %d starting new view timer for %s",
-		instance.id, timeout)
+	if !instance.newViewTimer.Reset(timeout) && instance.timerActive {
+		// A false return from Reset indicates the timer fired or was stopped
+		// The instance.timerActive == true indicates that it was not stopped
+		// Therefore, the timer has already fired, so increment timerResetCount
+		// to prevent the view change thread from initiating a view change if
+		// it has not already done so
+		instance.timerResetCount++
+		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now", instance.id, timeout, instance.timerResetCount)
+	} else {
+		logger.Debug("Replica %d starting new view timer for %s", instance.id, timeout)
+	}
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
-	// remove timeouts that may have raced, to prevent additional view change
-	instance.newViewTimer.Stop()
-	logger.Debug("Replica %d stopping new view timer", instance.id)
+
+	// Stop the timer regardless
+	if !instance.newViewTimer.Stop() && instance.timerActive {
+		// See comment in startTimer for more detail, but this indicates our Stop is occurring
+		// after the view change thread has become active, so incremeent the reset count to prevent a race
+		instance.timerResetCount++
+		logger.Debug("Replica %d stopping an expired new view timer, reset count now %d", instance.id, instance.timerResetCount)
+	} else {
+		logger.Debug("Replica %d stopping a running new view timer", instance.id)
+	}
 	instance.timerActive = false
-	if instance.closed {
-		return
-	}
-	// XXX draining here does not help completely, because the
-	// timer handler goroutine may already have consumed the
-	// timeout and now is blocked on Lock()
-loopNewView:
-	for {
-		select {
-		case <-instance.newViewTimer.C:
-		default:
-			break loopNewView
-		}
-	}
 }
 
 func hashReq(req *Request) (digest string) {

@@ -43,6 +43,7 @@ func getNowMillis() int64 {
 	nanos := time.Now().UnixNano()
 	return nanos / 1000000
 }
+
 // Build a chaincode.
 func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, error) {
 	fmt.Printf("getting deployment spec for chaincode spec: %v\n", spec)
@@ -70,7 +71,13 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 		return nil, fmt.Errorf("Error deploying chaincode: %s ", err)
 	}
 
+	ledger, err := ledger.GetLedger()
+	ledger.BeginTxBatch("1")
 	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying chaincode: %s", err)
+	}
+	ledger.CommitTxBatch("1", []*pb.Transaction{transaction}, nil, nil)
 
 	return b, err
 }
@@ -80,19 +87,28 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 	chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
 
 	// Now create the Transactions message and send to Peer.
-	uuid, uuidErr := util.GenerateUUID()
-	if uuidErr != nil {
-		return "", nil, uuidErr
-	}
+	uuid := util.GenerateUUID()
 
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
-		return uuid, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
 	}
 
-	retval, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	var retval []byte
+	var execErr error
+	if typ == pb.Transaction_CHAINCODE_QUERY {
+		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+	} else {
+		ledger, _ := ledger.GetLedger()
+		ledger.BeginTxBatch("1")
+		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+		if err != nil {
+			return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
+		}
+		ledger.CommitTxBatch("1", []*pb.Transaction{transaction}, nil, nil)
+	}
 
-	return uuid, retval, err
+	return uuid, retval, execErr
 }
 
 func closeListenerAndSleep(l net.Listener) {
@@ -154,26 +170,12 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
-const (
-	expectedDeltaStringPrefix = "expected delta for transaction"
-)
-
 // Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {
 	// Check the state in the ledger
 	ledgerObj, ledgerErr := ledger.GetLedger()
 	if ledgerErr != nil {
 		return fmt.Errorf("Error checking ledger for <%s>: %s", chaincodeID, ledgerErr)
-	}
-
-	_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
-
-	if err != nil {
-		return fmt.Errorf("Error getting delta for invoke transaction <%s>: %s", chaincodeID, err)
-	}
-
-	if delta[uuid] == nil {
-		return fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
 	}
 
 	// Invoke ledger to get state
@@ -320,25 +322,7 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 		}
 
-		uuid, _, err := invoke(ctxt, spec, typ)
-
-		if typ == pb.Transaction_CHAINCODE_EXECUTE {
-			ledgerObj, ledgerErr := ledger.GetLedger()
-			if ledgerErr != nil {
-				errs[qnum] = fmt.Errorf("Error getting ledger %s", ledgerErr)
-				return
-			}
-			_, delta, err := ledgerObj.GetTempStateHashWithTxDeltaStateHashes()
-			if err != nil {
-				errs[qnum] = fmt.Errorf("Error getting delta for invoke transaction <%s> :%s", uuid, err)
-				return
-			}
-
-			if delta[uuid] == nil {
-				errs[qnum] = fmt.Errorf("%s <%s> but found nil", expectedDeltaStringPrefix, uuid)
-				return
-			}
-		}
+		_, _, err := invoke(ctxt, spec, typ)
 
 		if err != nil {
 			errs[qnum] = fmt.Errorf("Error executing <%s>: %s", chaincodeID, err)
@@ -416,7 +400,7 @@ func TestExecuteQuery(t *testing.T) {
 		return
 	}
 
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 
 	//start := getNowMillis()
 	//fmt.Fprintf(os.Stderr, "Starting: %d\n", start)
