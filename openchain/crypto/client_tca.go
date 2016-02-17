@@ -25,7 +25,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/hmac"
-	"crypto/x509"
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -34,43 +33,6 @@ import (
 	"math/big"
 	"time"
 )
-
-type tCert interface {
-	GetCertificate() *x509.Certificate
-
-	Sign(msg []byte) ([]byte, error)
-
-	Verify(signature, msg []byte) error
-}
-
-type tCertImpl struct {
-	client *clientImpl
-	cert   *x509.Certificate
-	sk     interface{}
-}
-
-func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
-	return tCert.cert
-}
-
-func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
-	if tCert.sk == nil {
-		return nil, utils.ErrNilArgument
-	}
-
-	return tCert.client.node.sign(tCert.sk, msg)
-}
-
-func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
-	ok, err := tCert.client.node.verify(tCert.cert.PublicKey, msg, signature)
-	if err != nil {
-		return
-	}
-	if !ok {
-		return utils.ErrInvalidSignature
-	}
-	return
-}
 
 func (client *clientImpl) initTCertEngine() (err error) {
 	// load TCertOwnerKDFKey
