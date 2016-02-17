@@ -130,7 +130,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, rawTCert []byte, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
 	if err != nil {
@@ -141,8 +141,8 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [% x].", rawTCert)
-	tx.Cert = rawTCert
+	client.node.log.Debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
@@ -154,7 +154,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
+	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err
@@ -168,7 +168,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
 	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
@@ -179,8 +179,8 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [% x].", rawTCert)
-	tx.Cert = rawTCert
+	client.node.log.Debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
@@ -192,7 +192,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
+	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err
@@ -206,7 +206,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, rawTCert []byte, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
@@ -217,8 +217,8 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.log.Debug("Appending certificate [% x].", rawTCert)
-	tx.Cert = rawTCert
+	client.node.log.Debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
@@ -230,7 +230,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 
 	// 2. Sign rawTx and check signature
 	client.node.log.Debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.signUsingTCertDER(rawTCert, rawTx)
+	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
 		client.node.log.Error("Failed creating signature [%s].", err.Error())
 		return nil, err

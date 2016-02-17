@@ -40,7 +40,11 @@ func (client *clientImpl) initKeyStore() error {
 	return nil
 }
 
-func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) ([]byte, error) {
+func (ks *keyStore) storeTCert(tCert tCert) (err error) {
+	return
+}
+
+func (ks *keyStore) getNextTCert(tCertFetcher func(num int) ([][]byte, error)) ([]byte, error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -56,7 +60,7 @@ func (ks *keyStore) GetNextTCert(tCertFetcher func(num int) ([][]byte, error)) (
 
 		// 1. Fetch
 		ks.log.Debug("Fectch TCerts from TCA...")
-		certs, err := tCertFetcher(10)
+		certs, err := tCertFetcher(100)
 		if err != nil {
 			return nil, err
 		}

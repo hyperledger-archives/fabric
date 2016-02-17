@@ -31,8 +31,9 @@ type clientImpl struct {
 
 	isInitialized bool
 
-	// TCA KDFKey
+	// TCert related fields
 	tCertOwnerKDFKey []byte
+	tCertPoolChannel chan tCert
 }
 
 func (client *clientImpl) GetName() string {
@@ -47,14 +48,14 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	}
 
 	// Get next available (not yet used) transaction certificate
-	rawTCert, err := client.getNextTCert()
+	tCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
 	// Create Transaction
-	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, rawTCert, nil)
+	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
@@ -65,14 +66,14 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	}
 
 	// Get next available (not yet used) transaction certificate
-	rawTCert, err := client.getNextTCert()
+	tCertHandler, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
 	// Create Transaction
-	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, rawTCert, nil)
+	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -83,14 +84,14 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	}
 
 	// Get next available (not yet used) transaction certificate
-	rawTCert, err := client.getNextTCert()
+	tCertHandler, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
 	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, rawTCert, nil)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
 }
 
 // DecryptQueryResult is used to decrypt the result of a query transaction
@@ -156,7 +157,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
 
 	// Get next TCert
-	tCertDER, err := client.getNextTCert()
+	tCert, err := client.getNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -164,7 +165,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.initDER(client, tCertDER)
+	err = handler.init(client, tCert)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
 		return nil, err
@@ -183,7 +184,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	client.node.log.Info("Getting a CertificateHandler for TCert [% x]", tCertDER)
 
 	// Validate the transaction certificate
-	tCert, err := client.validateTCert(tCertDER)
+	tCert, err := client.getTCertFromDER(tCertDER)
 	if err != nil {
 		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
 
@@ -192,7 +193,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.initX509(client, tCert)
+	err = handler.init(client, tCert)
 	if err != nil {
 		client.node.log.Error("Failed getting handler [%s].", err.Error())
 		return nil, err

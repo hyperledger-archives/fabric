@@ -20,8 +20,8 @@ under the License.
 package crypto
 
 func (client *clientImpl) initCryptoEngine() error {
-	// Load TCertOwnerKDFKey
-	if err := client.loadTCertOwnerKDFKey(); err != nil {
+	// Init TCert Engine
+	if err := client.initTCertEngine(); err != nil {
 		return err
 	}
 

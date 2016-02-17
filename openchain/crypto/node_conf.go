@@ -33,6 +33,7 @@ const (
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
+	logging.SetLevel(logging.GetLevel(log.Module), node.log.Module)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}

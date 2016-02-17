@@ -35,6 +35,56 @@ import (
 	"time"
 )
 
+type tCert interface {
+	GetCertificate() *x509.Certificate
+
+	Sign(msg []byte) ([]byte, error)
+
+	Verify(signature, msg []byte) error
+}
+
+type tCertImpl struct {
+	client *clientImpl
+	cert   *x509.Certificate
+	sk     interface{}
+}
+
+func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
+	return tCert.cert
+}
+
+func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
+	if tCert.sk == nil {
+		return nil, utils.ErrNilArgument
+	}
+
+	return tCert.client.node.sign(tCert.sk, msg)
+}
+
+func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
+	ok, err := tCert.client.node.verify(tCert.cert.PublicKey, msg, signature)
+	if err != nil {
+		return
+	}
+	if !ok {
+		return utils.ErrInvalidSignature
+	}
+	return
+}
+
+func (client *clientImpl) initTCertEngine() (err error) {
+	// load TCertOwnerKDFKey
+	if err = client.loadTCertOwnerKDFKey(); err != nil {
+		return
+	}
+
+	// open TCert channel and start thread
+	client.tCertPoolChannel = make(chan tCert, 50*2) // TODO: add configuration here
+	go client.tCertPoolWriter()
+
+	return
+}
+
 func (client *clientImpl) storeTCertOwnerKDFKey() error {
 	if err := client.node.ks.storeKey(client.node.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey); err != nil {
 		client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
@@ -67,110 +117,73 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 	return nil
 }
 
-// getNextTCert returns the next available (not yet used) transaction certificate
-// corresponding to the tuple (cert, signing key)
-func (client *clientImpl) getNextTCert() ([]byte, error) {
+func (client *clientImpl) getNextTCert() (tCert tCert, err error) {
 	client.node.log.Debug("Getting next TCert...")
-	rawCert, err := client.node.ks.GetNextTCert(client.getTCertsFromTCA)
-	if err != nil {
-		client.node.log.Error("Failed accessing db [%s].", err.Error())
+	//rawCert, err := client.node.ks.getNextTCert(client.getTCertsFromTCA)
+	//if err != nil {
+	//	client.node.log.Error("Failed accessing db [%s].", err.Error())
+	//
+	//	return nil, err
+	//}
+	for {
+		select {
+		case tCert = <-client.tCertPoolChannel:
+			break
+		case <-time.After(30 * time.Second):
+			client.node.log.Error("Failed getting a new TCert. Buffer is empty!")
 
-		return nil, err
+			return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
+		}
+		if tCert != nil {
+			break
+		}
 	}
 
-	// rawCert and rawKey are supposed to have been already verified at this point.
-	client.node.log.Debug("Cert [% x].", rawCert)
-	//	client.node.log.Info("getNextTCert:key  ", utils.EncodeBase64(rawKey))
-
+	client.node.log.Debug("Cert [% x].", tCert.GetCertificate().Raw)
 	client.node.log.Debug("Getting next TCert...done!")
 
-	return rawCert, nil
+	return
 }
 
-func (client *clientImpl) signUsingTCertDER(tCertDER []byte, msg []byte) ([]byte, error) {
-	// Parse the DER
-	tCert, err := utils.DERToX509Certificate(tCertDER)
+func (client *clientImpl) getTCertFromDER(der []byte) (tCert, error) {
+	client.node.log.Debug("Validating TCert [% x]", der)
+
+	// DER to x509
+	x509Cert, err := utils.DERToX509Certificate(der)
 	if err != nil {
-		client.node.log.Error("Failed parsing TCert DER [%s].", err.Error())
+		client.node.log.Debug("Failed parsing certificate: [%s].", err)
 
 		return nil, err
 	}
 
-	return client.signUsingTCertX509(tCert, msg)
-}
-
-func (client *clientImpl) signUsingTCertX509(tCert *x509.Certificate, msg []byte) ([]byte, error) {
-	// Extract the signing key from the tCert
-	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
-	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
-
-	// TODO: retrieve TCertIndex from the ciphertext encrypted under the TCertOwnerEncryptKey
-	ct, err := utils.GetCriticalExtension(tCert, utils.TCertEncTCertIndex)
-	if err != nil {
+	// Handle Critical Extension TCertEncTCertIndex
+	if _, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex); err != nil {
 		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-	decryptedTCertIndex, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, ct)
-	if err != nil {
-		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+	// Verify certificate against root
+	if _, err := utils.CheckCertAgainRoot(x509Cert, client.node.tcaCertPool); err != nil {
+		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
 
 		return nil, err
 	}
 
-	// Compute ExpansionValue based on TCertIndex
-	TCertIndex := decryptedTCertIndex
-
-	client.node.log.Debug("TCertIndex [% x].", TCertIndex)
-	mac := hmac.New(utils.NewHash, ExpansionKey)
-	mac.Write(TCertIndex)
-	ExpansionValue := mac.Sum(nil)
-
-	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
-	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
-	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
-
-	// Compute temporary secret key
-	tempSK := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: client.node.enrollPrivKey.Curve,
-			X:     new(big.Int),
-			Y:     new(big.Int),
-		},
-		D: new(big.Int),
-	}
-
-	var k = new(big.Int).SetBytes(ExpansionValue)
-	var one = new(big.Int).SetInt64(1)
-	n := new(big.Int).Sub(client.node.enrollPrivKey.Params().N, one)
-	k.Mod(k, n)
-	k.Add(k, one)
-
-	tempSK.D.Add(client.node.enrollPrivKey.D, k)
-	tempSK.D.Mod(tempSK.D, client.node.enrollPrivKey.PublicKey.Params().N)
-
-	// Compute temporary public key
-	tempX, tempY := client.node.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
-	tempSK.PublicKey.X, tempSK.PublicKey.Y =
-		tempSK.PublicKey.Add(
-			client.node.enrollPrivKey.PublicKey.X, client.node.enrollPrivKey.PublicKey.Y,
-			tempX, tempY,
-		)
-
-	return client.node.sign(tempSK, msg)
+	return &tCertImpl{client, x509Cert, nil}, nil
 }
 
-func (client *clientImpl) verifyUsingTCertX509(tCert *x509.Certificate, signature, msg []byte) error {
-	ok, err := client.node.verify(tCert.PublicKey, msg, signature)
-	if err != nil {
-		return err
+func (client *clientImpl) tCertPoolWriter() {
+	// Fill the channel
+	for {
+		if len(client.tCertPoolChannel) < 50 {
+			client.node.log.Debug("Refill TCert Pool. Current size [%d].", len(client.tCertPoolChannel))
+			client.getTCertsFromTCA(
+				cap(client.tCertPoolChannel) - len(client.tCertPoolChannel),
+			)
+		}
+		time.Sleep(1 * time.Second)
 	}
-	if !ok {
-		return utils.ErrInvalidSignature
-	}
-	return nil
 }
 
 func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
@@ -342,6 +355,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		client.node.log.Debug("Sub index [%d]", j)
 		j++
 		client.node.log.Debug("Certificate [%d] validated.", i)
+
+		client.tCertPoolChannel <- &tCertImpl{client, x509Cert, tempSK}
 	}
 
 	if j == 0 {
@@ -396,32 +411,4 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	}
 
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
-}
-
-func (client *clientImpl) validateTCert(tCertDER []byte) (*x509.Certificate, error) {
-	client.node.log.Debug("Validating TCert [% x]", tCertDER)
-
-	// DER to x509
-	x509Cert, err := utils.DERToX509Certificate(tCertDER)
-	if err != nil {
-		client.node.log.Debug("Failed parsing certificate: [%s].", err)
-
-		return nil, err
-	}
-
-	// Handle Critical Extension TCertEncTCertIndex
-	if _, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex); err != nil {
-		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
-
-		return nil, err
-	}
-
-	// Verify certificate against root
-	if _, err := utils.CheckCertAgainRoot(x509Cert, client.node.tcaCertPool); err != nil {
-		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
-
-		return nil, err
-	}
-
-	return x509Cert, nil
 }

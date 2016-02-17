@@ -44,7 +44,8 @@ func NewECDSAKey() (*ecdsa.PrivateKey, error) {
 // ECDSASignDirect signs
 func ECDSASignDirect(signKey interface{}, msg []byte) (*big.Int, *big.Int, error) {
 	temp := signKey.(*ecdsa.PrivateKey)
-	r, s, err := ecdsa.Sign(rand.Reader, temp, Hash(msg))
+	h := Hash(msg)
+	r, s, err := ecdsa.Sign(rand.Reader, temp, h)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +56,8 @@ func ECDSASignDirect(signKey interface{}, msg []byte) (*big.Int, *big.Int, error
 // ECDSASign signs
 func ECDSASign(signKey interface{}, msg []byte) ([]byte, error) {
 	temp := signKey.(*ecdsa.PrivateKey)
-	r, s, err := ecdsa.Sign(rand.Reader, temp, Hash(msg))
+	h := Hash(msg)
+	r, s, err := ecdsa.Sign(rand.Reader, temp, h)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +88,8 @@ func ECDSAVerify(verKey interface{}, msg, signature []byte) (bool, error) {
 	//	fmt.Printf("r [%s], s [%s]\n", R, S)
 
 	temp := verKey.(*ecdsa.PublicKey)
-	return ecdsa.Verify(temp, Hash(msg), ecdsaSignature.R, ecdsaSignature.S), nil
+	h := Hash(msg)
+	return ecdsa.Verify(temp, h, ecdsaSignature.R, ecdsaSignature.S), nil
 }
 
 // VerifySignCapability tests signing capabilities

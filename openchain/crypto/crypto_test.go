@@ -31,6 +31,7 @@ import (
 	"reflect"
 	"testing"
 
+	"crypto/rand"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -880,12 +881,71 @@ func TestValidatorVerify(t *testing.T) {
 	}
 }
 
-func BenchmarkConfidentialTCertHExecuteTransaction(b *testing.B) {
+func BenchmarkTransactionCreation(b *testing.B) {
+	b.StopTimer()
 	b.ResetTimer()
-	for i := 0; i < 100; i++ {
+	cis := &obc.ChaincodeInvocationSpec{
+		ChaincodeSpec: &obc.ChaincodeSpec{
+			Type:                 obc.ChaincodeSpec_GOLANG,
+			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+			CtorMsg:              nil,
+			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+		},
+	}
+	invoker.GetTCertificateHandlerNext()
+
+	for i := 0; i < b.N; i++ {
+		uuid := util.GenerateUUID()
+		b.StartTimer()
+		invoker.NewChaincodeExecute(cis, uuid)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkTransactionValidation(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		_, tx, _ := createConfidentialTCertHExecuteTransaction(nil)
+
+		b.StartTimer()
 		validator.TransactionPreValidation(tx)
 		validator.TransactionPreExecution(tx)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+
+	//b.Logf("#iterations %d\n", b.N)
+	signKey, _ := utils.NewECDSAKey()
+	hash := make([]byte, 48)
+
+	for i := 0; i < b.N; i++ {
+		rand.Read(hash)
+		b.StartTimer()
+		utils.ECDSASign(signKey, hash)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+
+	//b.Logf("#iterations %d\n", b.N)
+	signKey, _ := utils.NewECDSAKey()
+	verKey := signKey.PublicKey
+	hash := make([]byte, 48)
+
+	for i := 0; i < b.N; i++ {
+		rand.Read(hash)
+		sigma, _ := utils.ECDSASign(signKey, hash)
+		b.StartTimer()
+		utils.ECDSAVerify(&verKey, hash, sigma)
+		b.StopTimer()
 	}
 }
 
@@ -902,6 +962,7 @@ func setup() {
 		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 	)
 	logging.SetFormatter(formatter)
+	//logging.SetLevel(logging.CRITICAL, "CRYPTO")
 
 	// TX creators
 	deployTxCreators = []createTxFunc{
