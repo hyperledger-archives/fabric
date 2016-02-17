@@ -646,6 +646,28 @@ func TestNewViewTimeout(t *testing.T) {
 	}
 }
 
+// From issue #687
+func TestWitnessCheckpointOutOfBounds(t *testing.T) {
+	mock := newMock()
+	instance := newPbftCore(1, loadConfig(), mock, mock)
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	defer instance.close()
+
+	instance.recvCheckpoint(&Checkpoint{
+		SequenceNumber: 6,
+		ReplicaId:      0,
+	})
+
+	instance.moveWatermarks(6)
+
+	instance.recvCheckpoint(&Checkpoint{
+		SequenceNumber: 10,
+		ReplicaId:      3,
+	})
+}
+
 func TestFallBehind(t *testing.T) {
 	validatorCount := 4
 	net := makeTestnet(validatorCount, func(inst *instance) {

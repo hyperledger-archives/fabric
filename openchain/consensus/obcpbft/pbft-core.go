@@ -939,7 +939,7 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 			// If f+1 nodes have issued checkpoints above our high water mark, then
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
-			if m := chkptSeqNumArray[len(instance.hChkpts)-(instance.f+1)]; m > H {
+			if m := chkptSeqNumArray[len(chkptSeqNumArray)-(instance.f+1)]; m > H {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.moveWatermarks(m)
 
