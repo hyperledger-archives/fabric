@@ -33,7 +33,6 @@ const (
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
-	logging.SetLevel(logging.GetLevel(log.Module), node.log.Module)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
@@ -54,6 +53,8 @@ type configuration struct {
 	tlscaPAddressProperty     string
 
 	tlsServerName string
+
+	tCertBathSize int
 }
 
 func (conf *configuration) init() error {
@@ -96,6 +97,9 @@ func (conf *configuration) init() error {
 			conf.tlsServerName = ovveride
 		}
 	}
+
+	// Set tCertBathSize
+	conf.tCertBathSize = 100
 
 	return nil
 }
@@ -223,3 +227,7 @@ func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 //func (conf *configuration) getAffiliation() string {
 //	return viper.GetString(Affiliation)
 //}
+
+func (conf *configuration) getTCertBathSize() int {
+	return conf.tCertBathSize
+}

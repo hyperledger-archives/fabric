@@ -40,8 +40,8 @@ func (client *clientImpl) initTCertEngine() (err error) {
 		return
 	}
 
-	// open TCert channel and start thread
-	client.tCertPoolChannel = make(chan tCert, 50*2) // TODO: add configuration here
+	// open tCertPoolChannel and start the writer
+	client.tCertPoolChannel = make(chan tCert, client.node.conf.getTCertBathSize()*2)
 	go client.tCertPoolWriter()
 
 	return
@@ -144,11 +144,12 @@ func (client *clientImpl) tCertPoolWriter() {
 				cap(client.tCertPoolChannel) - len(client.tCertPoolChannel),
 			)
 		}
+		// TODO: configure this
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
+func (client *clientImpl) getTCertsFromTCA(num int) error {
 	client.node.log.Debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
@@ -156,7 +157,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	if err != nil {
 		client.node.log.Debug("Failed contacting TCA [%s].", err.Error())
 
-		return nil, err
+		return err
 	}
 
 	//	client.node.log.Debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
@@ -166,7 +167,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		// Check that the keys are the same
 		equal := bytes.Equal(client.tCertOwnerKDFKey, TCertOwnerKDFKey)
 		if !equal {
-			return nil, errors.New("Failed reciving kdf key from TCA. The keys are different.")
+			return errors.New("Failed reciving kdf key from TCA. The keys are different.")
 		}
 	} else {
 		client.tCertOwnerKDFKey = TCertOwnerKDFKey
@@ -175,7 +176,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		if err := client.storeTCertOwnerKDFKey(); err != nil {
 			client.node.log.Error("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 
-			return nil, err
+			return err
 		}
 	}
 
@@ -183,8 +184,6 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 
 	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(TCertOwnerKDFKey, []byte{2})
-
-	resCert := make([][]byte, num)
 
 	j := 0
 	for i := 0; i < num; i++ {
@@ -301,7 +300,6 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 		}
 
 		// Marshall certificate and secret key to be stored in the database
-		resCert[j] = certDERs[i]
 		if err != nil {
 			client.node.log.Error("Failed marshalling private key [%s].", err.Error())
 
@@ -324,10 +322,10 @@ func (client *clientImpl) getTCertsFromTCA(num int) ([][]byte, error) {
 	if j == 0 {
 		client.node.log.Error("No valid TCert was sent")
 
-		return nil, errors.New("No valid TCert was sent.")
+		return errors.New("No valid TCert was sent.")
 	}
 
-	return resCert[:j], nil
+	return nil
 }
 
 func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte, error) {
