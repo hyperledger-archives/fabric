@@ -10,6 +10,9 @@ vpBase:
     - OPENCHAIN_PEER_PKI_TLS_ROOTCERT_FILE=./openchain/peer/bddtests/tlsca.cert
     # TODO: Currently required due to issue reading obbca configuration location
     - OPENCHAIN_OBCPBFT_GENERAL_N=4
+    # The checkpoint interval in sequence numbers
+    - OPENCHAIN_OBCPBFT_GENERAL_K=2
+
 vpSieve:
   extends:
     service: vpBase
