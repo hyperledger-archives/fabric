@@ -134,7 +134,7 @@ Feature: lanching 3 peers
         |   docker-compose-4-consensus-sieve.yml   |      30      |
 
 
-    @doNotDecompose
+#    @doNotDecompose
     @wip
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)  
 
