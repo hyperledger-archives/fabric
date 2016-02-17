@@ -135,6 +135,9 @@ func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash [
 	return <-result
 }
 
+// Adds a target and blocks until that target's success
+// If peerIDs is nil, all peers will be considered sync candidates
+// This call should only be used in scenarios where an error should result in a panic, as this could otherwise cause a deadlock
 func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) {
 	result := make(chan error)
 
@@ -527,7 +530,7 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 		panic("We can't determine how long our blockchain is, this is irrecoverable")
 	}
 
-	if blockSyncReq.blockNumber < blockchainSize {
+	if blockSyncReq.blockNumber+1 < blockchainSize {
 		if !sts.RecoverDamage {
 			panic("The blockchain height is higher than advertised by consensus, the configuration has specified that bad blocks should not be deleted/overridden, so we cannot proceed")
 		} else {
@@ -755,7 +758,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		}
 
 		logger.Debug("%v state transfer thread waiting for block sync to complete", sts.id)
-		err = <-blockReplyChannel
+		err = <-blockReplyChannel // TODO, double check we can't get stuck here in shutdown
 		logger.Debug("%v state transfer thread continuing", sts.id)
 
 		if err != nil {

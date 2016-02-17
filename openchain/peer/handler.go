@@ -407,7 +407,8 @@ func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error unmarshalling SyncBlocks in beforeSyncBlocks: %s", err))
 		return
 	}
-	peerLogger.Debug("TODO: send received syncBlocks for start = %d and end = %d message to channel", syncBlocks.Range.Start, syncBlocks.Range.End)
+
+	peerLogger.Debug("Sending block onto channel for start = %d and end = %d", syncBlocks.Range.Start, syncBlocks.Range.End)
 
 	// Send the message onto the channel, allow for the fact that channel may be closed on send attempt.
 	defer func() {
@@ -704,7 +705,7 @@ func (d *Handler) beforeSyncStateDeltas(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error unmarshalling SyncStateDeltas in beforeSyncStateDeltas: %s", err))
 		return
 	}
-	peerLogger.Debug("TODO: send received syncBlocks for start = %d and end = %d message to channel", syncStateDeltas.Range.Start, syncStateDeltas.Range.End)
+	peerLogger.Debug("Sending state delta onto channel for start = %d and end = %d", syncStateDeltas.Range.Start, syncStateDeltas.Range.End)
 
 	// Send the message onto the channel, allow for the fact that channel may be closed on send attempt.
 	defer func() {
