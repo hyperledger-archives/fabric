@@ -25,12 +25,9 @@ general:
     # overall throughput in normal case operation.
     K: 10
 
-    # The log size is calculated as K * logmultiplier
-    # The log size is the maximum sequence number value ( also referred to as the high watermark )
-    # for which a replica will log information. In high volume/high latency environments, a replica might
-    # receive sequence numbers outside of its watermarks and have to wait for a stable checkpoint. Increasing
-    # the log size could improve operations in these cases.
-    logmultiplier: 10
+   # Affects the log size which is K * logmultiplier
+   # For high volume/high latency environments, a higher log size may increase throughput
+    logmultiplier: 2
 
     # How many requests should the primary send per pre-prepare when in "batch" mode
     batchsize: 2
