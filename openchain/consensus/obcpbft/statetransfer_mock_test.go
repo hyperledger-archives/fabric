@@ -304,7 +304,6 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 					current--
 				}
 			}
-			close(res)
 		}()
 	case Timeout:
 	default:
@@ -355,8 +354,16 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 					}
 					i++
 				}
+				if i == remoteBlockHeight {
+					break
+				}
 			}
-			close(res)
+			res <- &protos.SyncStateSnapshot{
+				Delta:       []byte{},
+				Sequence:    i,
+				BlockNumber: ^uint64(0),
+				Request:     nil,
+			}
 		}()
 	case Timeout:
 	default:
@@ -420,7 +427,6 @@ func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finis
 					current--
 				}
 			}
-			close(res)
 		}()
 	case Timeout:
 	default:
@@ -674,6 +680,8 @@ func TestMockLedger(t *testing.T) {
 
 	blockMessages, err := ml.GetRemoteBlocks(rlPeerID, 10, 0)
 
+	success := false
+
 	for blockMessage := range blockMessages {
 		current := blockMessage.Range.Start
 		i := 0
@@ -691,6 +699,14 @@ func TestMockLedger(t *testing.T) {
 				current--
 			}
 		}
+		if current == 0 {
+			success = true
+			break
+		}
+	}
+
+	if !success {
+		t.Fatalf("Expected more blocks before channel close")
 	}
 
 	blockNumber, err := ml.VerifyBlockchain(10, 0)
@@ -720,8 +736,14 @@ func TestMockLedger(t *testing.T) {
 		t.Fatalf("Remote state snapshot call failed, error in mock ledger implementation: %s", err)
 	}
 
+	success = false
 	_ = ml.EmptyState() // Never fails
 	for syncStateMessage := range syncStateMessages {
+		if 0 == len(syncStateMessage.Delta) {
+			success = true
+			break
+		}
+
 		delta := &statemgmt.StateDelta{}
 		if err := delta.Unmarshal(syncStateMessage.Delta); nil != err {
 			t.Fatalf("Error unmarshaling state delta : %s", err)
@@ -734,6 +756,10 @@ func TestMockLedger(t *testing.T) {
 		if err := ml.CommitStateDelta(blockNumber); err != nil {
 			t.Fatalf("Error committing state delta : %s", err)
 		}
+	}
+
+	if !success {
+		t.Fatalf("Expected nil slice to finish snapshot transfer")
 	}
 
 	block10, err := ml.GetBlock(10)
