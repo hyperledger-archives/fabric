@@ -21,6 +21,7 @@ package noops
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -61,14 +62,28 @@ func GetNoops(c consensus.Stack) consensus.Consenter {
 
 // newNoops is a constructor returning a consensus.Consenter object.
 func newNoops(c consensus.Stack) consensus.Consenter {
+	var err error
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Creating a NOOPS object")
 	}
 	i := &Noops{}
 	i.stack = c
 	config := loadConfig()
-	i.txQ = newTXQ(config.GetInt("block.size"))
-	i.duration = time.Second * time.Duration(config.GetInt("block.timeout"))
+	blockSize := config.GetInt("block.size")
+	blockTimeout := config.GetString("block.timeout")
+	if _, err = strconv.Atoi(blockTimeout); err == nil {
+		blockTimeout = blockTimeout + "s" //if string does not have unit of measure, default to seconds
+	}
+	i.duration, err = time.ParseDuration(blockTimeout)
+	if err != nil || i.duration == 0 {
+		panic(fmt.Errorf("Cannot parse block timeout: %s", err))
+	}
+
+	logger.Info("NOOPS block size = %v", blockSize)
+	logger.Info("NOOPS block timeout = %v", i.duration)
+
+	i.txQ = newTXQ(blockSize)
+
 	i.channel = make(chan *pb.Transaction, 100)
 	i.timer = time.NewTimer(i.duration) // start timer now so we can just reset it
 	i.timer.Stop()
