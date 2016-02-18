@@ -2,7 +2,9 @@ package statemgmt
 
 import (
 	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 )
@@ -32,11 +34,21 @@ func ConstructRandomStateDelta(
 	numKeysToInsert int,
 	valueSize int) *StateDelta {
 	delta := NewStateDelta()
+	s2 := rand.NewSource(time.Now().UnixNano())
+	r2 := rand.New(s2)
+
 	for i := 0; i < numKeysToInsert; i++ {
-		chaincodeID := chaincodeIDPrefix + "_" + string(rand.Intn(numChaincodes))
-		key := "key_" + string(rand.Intn(maxKeySuffix))
+		chaincodeID := chaincodeIDPrefix + "_" + strconv.Itoa(r2.Intn(numChaincodes))
+		key := "key_" + strconv.Itoa(r2.Intn(maxKeySuffix))
 		value := testutil.ConstructRandomBytes(t, valueSize)
 		delta.Set(chaincodeID, key, value, nil)
+	}
+
+	for _, chaincodeDelta := range delta.ChaincodeStateDeltas {
+		sortedKeys := chaincodeDelta.getSortedKeys()
+		smallestKey := sortedKeys[0]
+		largestKey := sortedKeys[len(sortedKeys)-1]
+		t.Logf("chaincode=%s, numKeys=%d, smallestKey=%s, largestKey=%s", chaincodeDelta.ChaincodeID, len(sortedKeys), smallestKey, largestKey)
 	}
 	return delta
 }
