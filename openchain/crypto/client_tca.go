@@ -40,9 +40,11 @@ func (client *clientImpl) initTCertEngine() (err error) {
 		return
 	}
 
-	// open tCertPoolChannel and start the writer
-	client.tCertPoolChannel = make(chan tCert, client.node.conf.getTCertBathSize()*2)
-	go client.tCertPoolWriter()
+	// init TCerPool
+	tCertPool := new(tCertPoolImpl)
+	tCertPool.init(client)
+	tCertPool.Start()
+	client.tCertPool = tCertPool
 
 	return
 }
@@ -79,34 +81,6 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 	return nil
 }
 
-func (client *clientImpl) getNextTCert() (tCert tCert, err error) {
-	client.node.log.Debug("Getting next TCert...")
-	//rawCert, err := client.node.ks.getNextTCert(client.getTCertsFromTCA)
-	//if err != nil {
-	//	client.node.log.Error("Failed accessing db [%s].", err.Error())
-	//
-	//	return nil, err
-	//}
-	for i := 0; i < 3; i++ {
-		select {
-		case tCert = <-client.tCertPoolChannel:
-			break
-		case <-time.After(30 * time.Second):
-			client.node.log.Error("Failed getting a new TCert. Buffer is empty!")
-
-			return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
-		}
-		if tCert != nil {
-			break
-		}
-	}
-
-	client.node.log.Debug("Cert [% x].", tCert.GetCertificate().Raw)
-	client.node.log.Debug("Getting next TCert...done!")
-
-	return
-}
-
 func (client *clientImpl) getTCertFromDER(der []byte) (tCert, error) {
 	client.node.log.Debug("Validating TCert [% x]", der)
 
@@ -133,20 +107,6 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert, error) {
 	}
 
 	return &tCertImpl{client, x509Cert, nil}, nil
-}
-
-func (client *clientImpl) tCertPoolWriter() {
-	// Fill the channel
-	for {
-		if len(client.tCertPoolChannel) < 50 {
-			client.node.log.Debug("Refill TCert Pool. Current size [%d].", len(client.tCertPoolChannel))
-			client.getTCertsFromTCA(
-				cap(client.tCertPoolChannel) - len(client.tCertPoolChannel),
-			)
-		}
-		// TODO: configure this
-		time.Sleep(1 * time.Second)
-	}
 }
 
 func (client *clientImpl) getTCertsFromTCA(num int) error {
@@ -314,7 +274,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		j++
 		client.node.log.Debug("Certificate [%d] validated.", i)
 
-		client.tCertPoolChannel <- &tCertImpl{client, x509Cert, tempSK}
+		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK})
 	}
 
 	if j == 0 {

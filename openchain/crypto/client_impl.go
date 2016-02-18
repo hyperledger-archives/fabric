@@ -33,7 +33,7 @@ type clientImpl struct {
 
 	// TCert related fields
 	tCertOwnerKDFKey []byte
-	tCertPoolChannel chan tCert
+	tCertPool        tCertPool
 }
 
 func (client *clientImpl) GetName() string {
@@ -48,7 +48,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.getNextTCert()
+	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -66,7 +66,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.getNextTCert()
+	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -84,7 +84,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.getNextTCert()
+	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -157,7 +157,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
 
 	// Get next TCert
-	tCert, err := client.getNextTCert()
+	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
 		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
