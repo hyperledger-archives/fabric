@@ -797,7 +797,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 	sts.stateValid = true
 
 	if *currentStateBlockNumber < (*blockHReply).blockNumber {
-		*currentStateBlockNumber, err = sts.playStateUpToCheckpoint(*currentStateBlockNumber+uint64(1), (*blockHReply).blockNumber, (*blockHReply).peerIDs)
+		*currentStateBlockNumber, err = sts.playStateUpToBlockNumber(*currentStateBlockNumber+uint64(1), (*blockHReply).blockNumber, (*blockHReply).peerIDs)
 		if nil != err {
 			// This is unlikely, in the future, we may wish to play transactions forward rather than retry
 			sts.stateValid = false
@@ -872,7 +872,7 @@ func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []b
 	}
 }
 
-func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
+func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
 	logger.Debug("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
@@ -886,10 +886,7 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 			select {
 			case deltaMessage, ok := <-deltaMessages:
 				if !ok {
-					if currentBlock == toBlockNumber+1 {
-						return nil
-					}
-					return fmt.Errorf("%v was only able to recover to block number %d when desired to recover to %d", sts.id, currentBlock, toBlockNumber)
+					return fmt.Errorf("%v was only able to recover to block number %d when desired to recover to %d", sts.id, currentBlock-1, toBlockNumber)
 				}
 
 				if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
@@ -932,20 +929,23 @@ func (sts *StateTransferState) playStateUpToCheckpoint(fromBlockNumber, toBlockN
 						return fmt.Errorf("%v played state forward according to %v, but the state hash did not match, rolled back", sts.id, peerID)
 					}
 
-				} else {
-					currentBlock++
-					if nil != sts.ledger.CommitStateDelta(deltaMessage) {
-						sts.InvalidateState()
-						return fmt.Errorf("%v played state forward according to %v, hashes matched, but failed to commit, invalidated state", sts.id, peerID)
-					}
 				}
+
+				if nil != sts.ledger.CommitStateDelta(deltaMessage) {
+					sts.InvalidateState()
+					return fmt.Errorf("%v played state forward according to %v, hashes matched, but failed to commit, invalidated state", sts.id, peerID)
+				}
+
+				if currentBlock == toBlockNumber {
+					return nil
+				}
+				currentBlock++
+
 			case <-time.After(sts.StateDeltaRequestTimeout):
 				logger.Warning("%v timed out during state delta recovery from %v", sts.id, peerID)
 				return fmt.Errorf("%v timed out during state delta recovery from %v", sts.id, peerID)
 			}
 		}
-
-		return nil
 
 	})
 	return currentBlock, err
@@ -976,6 +976,10 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 			select {
 			case piece, ok := <-stateChan:
 				if !ok {
+					return fmt.Errorf("%v had state snapshot channel close prematurely: %s", sts.id, err)
+				}
+				if 0 == len(piece.Delta) {
+					logger.Debug("%v received final piece of state snapshot from %v", sts.id, peerID)
 					return nil
 				}
 				umDelta := &statemgmt.StateDelta{}
