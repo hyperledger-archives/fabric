@@ -21,7 +21,6 @@ package obcca
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -35,7 +34,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/crypto/sha3"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
 // CA is the base certificate authority.
@@ -113,7 +112,7 @@ func (ca *CA) Close() {
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 	Trace.Println("Creating CA key pair.")
 
-	curve := elliptic.P384()
+	curve := utils.DefaultCurve
 
 	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err == nil {
@@ -200,7 +199,7 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 		return nil, err
 	}
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	hash.Write(raw)
 	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)

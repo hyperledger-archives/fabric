@@ -22,9 +22,8 @@ package obcca
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-//	"crypto/rsa"
+	//	"crypto/rsa"
 	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -42,8 +41,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
-	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -116,7 +115,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		} else {
-			priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+			priv, err = ecdsa.GenerateKey(utils.DefaultCurve, rand.Reader)
 			if err != nil {
 				Panic.Panicln(err)
 			}
@@ -212,18 +211,18 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-//		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
+		//		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
 		spi := ecies.NewSPI()
 		eciesKey, err := spi.NewPublicKey(nil, ekey.(*ecdsa.PublicKey))
 		if err != nil {
 			return nil, err
 		}
-		
+
 		ecies, err := spi.NewAsymmetricCipherFromPublicKey(eciesKey)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		out, err := ecies.Process(tok)
 		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, err
 
@@ -249,7 +248,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		hash := sha3.New384()
+		hash := utils.NewHash()
 		raw, _ := proto.Marshal(in)
 		hash.Write(raw)
 		if ecdsa.Verify(skey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -367,7 +366,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {

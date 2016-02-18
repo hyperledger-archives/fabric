@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	newHash = sha3.New384
+	newHash = sha3.New256
 )
 
 // NewHash returns a new hash function

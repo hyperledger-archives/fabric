@@ -38,6 +38,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -161,7 +162,7 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) 
 		return nil, err
 	}
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -199,7 +200,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub, hash.Sum(nil), r, s) == false {
@@ -210,7 +211,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	rand.Reader.Read(nonce[:8])
 	binary.LittleEndian.PutUint64(nonce[8:], uint64(in.Ts.Seconds))
 
-	mac := hmac.New(sha3.New384, tcap.tca.hmacKey)
+	mac := hmac.New(sha3.New256, tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
@@ -225,13 +226,13 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		tidx := []byte(strconv.Itoa(i))
 		tidx = append(tidx[:], nonce[:]...)
 
-		mac = hmac.New(sha3.New384, kdfKey)
+		mac = hmac.New(sha3.New256, kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
 
-		mac = hmac.New(sha3.New384, kdfKey)
+		mac = hmac.New(sha3.New256, kdfKey)
 		mac.Write([]byte{2})
-		mac = hmac.New(sha3.New384, mac.Sum(nil))
+		mac = hmac.New(sha3.New256, mac.Sum(nil))
 		mac.Write(tidx)
 
 		one := new(big.Int).SetInt64(1)
@@ -286,7 +287,7 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -333,7 +334,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -405,7 +406,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := sha3.New384()
+	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {

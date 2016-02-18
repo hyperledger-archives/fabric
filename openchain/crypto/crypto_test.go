@@ -905,6 +905,7 @@ func BenchmarkTransactionCreation(b *testing.B) {
 func BenchmarkTransactionValidation(b *testing.B) {
 	b.StopTimer()
 	b.ResetTimer()
+	log.Info("b.N = %d\n", b.N)
 	for i := 0; i < b.N; i++ {
 		_, tx, _ := createConfidentialTCertHExecuteTransaction(nil)
 
@@ -962,7 +963,7 @@ func setup() {
 		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 	)
 	logging.SetFormatter(formatter)
-	//logging.SetLevel(logging.CRITICAL, "CRYPTO")
+	logging.SetLevel(logging.DEBUG, "crypto")
 
 	// TX creators
 	deployTxCreators = []createTxFunc{

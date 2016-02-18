@@ -33,6 +33,7 @@ const (
 func (node *nodeImpl) initConfiguration(prefix, name string) error {
 	// Set logger
 	node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
+	logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
@@ -100,6 +101,12 @@ func (conf *configuration) init() error {
 
 	// Set tCertBathSize
 	conf.tCertBathSize = 100
+	if viper.IsSet("peer.tcert.buffer.size") {
+		ovveride := viper.GetInt("peer.tcert.buffer.size")
+		if ovveride != 0 {
+			conf.tCertBathSize = ovveride
+		}
+	}
 
 	return nil
 }

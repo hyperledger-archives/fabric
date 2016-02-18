@@ -21,7 +21,6 @@ package crypto
 
 import (
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"time"
 )
 
@@ -85,14 +84,17 @@ func (tCertPool *tCertPoolImpl) GetNextTCert() (tCert tCert, err error) {
 }
 
 func (tCertPool *tCertPoolImpl) filler() {
+	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-tCertPool.tCertChannelFeedback:
-		case <-time.After(1 * time.Second):
+			tCertPool.client.node.log.Info("Feedback received. Time to check for tcerts")
+		case <-ticker.C:
+			tCertPool.client.node.log.Info("Time elapsed. Time to check for tcerts")
 		}
 
 		if len(tCertPool.tCertChannel) < tCertPool.client.node.conf.getTCertBathSize() {
-			tCertPool.client.node.log.Debug("Refill TCert Pool. Current size [%d].",
+			tCertPool.client.node.log.Info("Refill TCert Pool. Current size [%d].",
 				len(tCertPool.tCertChannel),
 			)
 			err := tCertPool.client.getTCertsFromTCA(
@@ -106,6 +108,7 @@ func (tCertPool *tCertPoolImpl) filler() {
 }
 
 func (tCertPool *tCertPoolImpl) AddTCert(tCert tCert) (err error) {
+	tCertPool.client.node.log.Info("New TCert added.")
 	tCertPool.tCertChannel <- tCert
 
 	return

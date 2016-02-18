@@ -24,11 +24,18 @@ eca:
         validator: 4 9gvZQRwhUq9q
 
 
+pki:
+    validity-period:
+       # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
+       update: false
+
 ###############################################################################
 #
 #    Peer section
 #
 ###############################################################################
+
+
 peer:
     pki:
         eca:
@@ -49,7 +56,7 @@ peer:
 
     fileSystemPath: .obc-peer
     validator:
-        enabled: true
+        enabled: false
         validity-period:
             verification: false
 
