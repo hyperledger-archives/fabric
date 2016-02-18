@@ -326,7 +326,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	validator.peer = peer
 
 	// Initialize keystore
-	validator.peer.node.log.Info("Init keystore...")
+	validator.peer.node.log.Debug("Init keystore...")
 	err := validator.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
@@ -337,7 +337,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 			return err
 		}
 	}
-	validator.peer.node.log.Info("Init keystore...done.")
+	validator.peer.node.log.Debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = validator.initCryptoEngine()
@@ -348,8 +348,6 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 
 	// initialized
 	validator.isInitialized = true
-
-	peer.node.log.Info("Initialization...done.")
 
 	return nil
 }

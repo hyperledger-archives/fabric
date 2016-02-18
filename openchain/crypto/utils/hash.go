@@ -26,12 +26,12 @@ import (
 )
 
 var (
-	newHash = sha3.New256
+	DefaultHash = sha3.New384
 )
 
 // NewHash returns a new hash function
 func NewHash() hash.Hash {
-	return newHash()
+	return DefaultHash()
 }
 
 // Hash hashes the msh using the predefined hash function
@@ -43,7 +43,7 @@ func Hash(msg []byte) []byte {
 
 // HMAC hmacs x using key key
 func HMAC(key, x []byte) []byte {
-	mac := hmac.New(newHash, key)
+	mac := hmac.New(DefaultHash, key)
 	mac.Write(x)
 
 	return mac.Sum(nil)
@@ -51,7 +51,7 @@ func HMAC(key, x []byte) []byte {
 
 // HMACTruncated hmacs x using key key and truncate to truncation
 func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(newHash, key)
+	mac := hmac.New(DefaultHash, key)
 	mac.Write(x)
 
 	return mac.Sum(nil)[:truncation]

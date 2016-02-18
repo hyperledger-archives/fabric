@@ -273,13 +273,13 @@ func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte,
 }
 
 func (ks *keyStore) close() error {
-	ks.log.Info("Closing keystore...")
+	ks.log.Debug("Closing keystore...")
 	err := ks.sqlDB.Close()
 
 	if err != nil {
 		ks.log.Error("Failed closing keystore [%s].", err.Error())
 	} else {
-		ks.log.Info("Closing keystore...done!")
+		ks.log.Debug("Closing keystore...done!")
 	}
 
 	ks.isOpen = false

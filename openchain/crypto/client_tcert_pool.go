@@ -88,13 +88,13 @@ func (tCertPool *tCertPoolImpl) filler() {
 	for {
 		select {
 		case <-tCertPool.tCertChannelFeedback:
-			tCertPool.client.node.log.Info("Feedback received. Time to check for tcerts")
+			tCertPool.client.node.log.Debug("Feedback received. Time to check for tcerts")
 		case <-ticker.C:
-			tCertPool.client.node.log.Info("Time elapsed. Time to check for tcerts")
+			tCertPool.client.node.log.Debug("Time elapsed. Time to check for tcerts")
 		}
 
 		if len(tCertPool.tCertChannel) < tCertPool.client.node.conf.getTCertBathSize() {
-			tCertPool.client.node.log.Info("Refill TCert Pool. Current size [%d].",
+			tCertPool.client.node.log.Debug("Refill TCert Pool. Current size [%d].",
 				len(tCertPool.tCertChannel),
 			)
 			err := tCertPool.client.getTCertsFromTCA(
@@ -108,7 +108,7 @@ func (tCertPool *tCertPoolImpl) filler() {
 }
 
 func (tCertPool *tCertPoolImpl) AddTCert(tCert tCert) (err error) {
-	tCertPool.client.node.log.Info("New TCert added.")
+	tCertPool.client.node.log.Debug("New TCert added.")
 	tCertPool.tCertChannel <- tCert
 
 	return

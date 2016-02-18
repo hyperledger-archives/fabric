@@ -87,7 +87,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 
 	// Start registration
-	node.log.Info("Registering [%s]...", enrollID)
+	node.log.Debug("Registering [%s]...", enrollID)
 
 	if node.isRegistered() {
 		node.log.Error("Registering [%s]...done! Registration already performed", enrollID)
@@ -96,7 +96,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 
 	// Initialize keystore
-	node.log.Info("Init keystore...")
+	node.log.Debug("Init keystore...")
 	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
@@ -107,7 +107,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 			return err
 		}
 	}
-	node.log.Info("Init keystore...done.")
+	node.log.Debug("Init keystore...done.")
 
 	// Register crypto engine
 	err = node.registerCryptoEngine(enrollID, enrollPWD)
@@ -116,7 +116,7 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 		return err
 	}
 
-	node.log.Info("Registering [%s]...done!", enrollID)
+	node.log.Debug("Registering [%s]...done!", enrollID)
 
 	return nil
 }
@@ -140,7 +140,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	}
 
 	// Initialize keystore
-	node.log.Info("Init keystore...")
+	node.log.Debug("Init keystore...")
 	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
@@ -151,7 +151,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 			return err
 		}
 	}
-	node.log.Info("Init keystore...done.")
+	node.log.Debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = node.initCryptoEngine()
@@ -163,7 +163,7 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	// Initialisation complete
 	node.isInitialized = true
 
-	node.log.Info("Initialization...done.")
+	node.log.Debug("Initialization...done.")
 
 	return nil
 }

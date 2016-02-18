@@ -3,7 +3,7 @@ package crypto
 import "crypto/x509"
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
-	node.log.Info("Registering node crypto engine...")
+	node.log.Debug("Registering node crypto engine...")
 
 	if err := node.initTLS(); err != nil {
 		node.log.Error("Failed initliazing TLS [%s].", err.Error())
@@ -35,13 +35,13 @@ func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 		return err
 	}
 
-	node.log.Info("Registering node crypto engine...done!")
+	node.log.Debug("Registering node crypto engine...done!")
 
 	return nil
 }
 
 func (node *nodeImpl) initCryptoEngine() error {
-	node.log.Info("Initializing node crypto engine...")
+	node.log.Debug("Initializing node crypto engine...")
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()
@@ -89,7 +89,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 		return err
 	}
 
-	node.log.Info("Initializing node crypto engine...done!")
+	node.log.Debug("Initializing node crypto engine...done!")
 
 	return nil
 }

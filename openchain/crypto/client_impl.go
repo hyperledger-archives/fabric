@@ -154,8 +154,6 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 		return nil, utils.ErrNotInitialized
 	}
 
-	client.node.log.Info("Getting a CertificateHandler for the next available TCert...")
-
 	// Get next TCert
 	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
@@ -180,8 +178,6 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
-
-	client.node.log.Info("Getting a CertificateHandler for TCert [% x]", tCertDER)
 
 	// Validate the transaction certificate
 	tCert, err := client.getTCertFromDER(tCertDER)
@@ -241,7 +237,7 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	client.node = node
 
 	// Initialize keystore
-	client.node.log.Info("Init keystore...")
+	client.node.log.Debug("Init keystore...")
 	err := client.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
@@ -252,7 +248,7 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 			return err
 		}
 	}
-	client.node.log.Info("Init keystore...done.")
+	client.node.log.Debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
@@ -264,7 +260,7 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	// initialized
 	client.isInitialized = true
 
-	client.node.log.Info("Initialization...done.")
+	client.node.log.Debug("Initialization...done.")
 
 	return nil
 }

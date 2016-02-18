@@ -218,7 +218,7 @@ func TestInitialization(t *testing.T) {
 
 func TestClientDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestClientDeployTransaction with [%d]", i)
+		t.Logf("TestClientDeployTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -240,7 +240,7 @@ func TestClientDeployTransaction(t *testing.T) {
 
 func TestClientExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestClientExecuteTransaction with [%s]", i)
+		t.Logf("TestClientExecuteTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -262,7 +262,7 @@ func TestClientExecuteTransaction(t *testing.T) {
 
 func TestClientQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestClientQueryTransaction with [%s]", i)
+		t.Logf("TestClientQueryTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -463,7 +463,7 @@ func TestPeerID(t *testing.T) {
 
 func TestPeerDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestPeerDeployTransaction with [%s]", i)
+		t.Logf("TestPeerDeployTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -490,7 +490,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 
 func TestPeerExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestPeerExecuteTransaction with [%s]", i)
+		t.Logf("TestPeerExecuteTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -517,7 +517,7 @@ func TestPeerExecuteTransaction(t *testing.T) {
 
 func TestPeerQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestPeerQueryTransaction with [%s]", i)
+		t.Logf("TestPeerQueryTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -598,7 +598,7 @@ func TestValidatorID(t *testing.T) {
 
 func TestValidatorDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestValidatorDeployTransaction with [%s]", i)
+		t.Logf("TestValidatorDeployTransaction with [%d]\n", i)
 
 		otx, tx, err := createTx(t)
 		if err != nil {
@@ -634,7 +634,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 
 func TestValidatorExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestValidatorExecuteTransaction with [%s]", i)
+		t.Logf("TestValidatorExecuteTransaction with [%d]\n", i)
 
 		otx, tx, err := createTx(t)
 		if err != nil {
@@ -670,7 +670,7 @@ func TestValidatorExecuteTransaction(t *testing.T) {
 
 func TestValidatorQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestValidatorConfidentialQueryTransaction with [%s]", i)
+		t.Logf("TestValidatorConfidentialQueryTransaction with [%d]\n", i)
 
 		_, deployTx, err := deployTxCreators[i](t)
 		if err != nil {

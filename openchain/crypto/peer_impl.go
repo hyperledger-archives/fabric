@@ -170,7 +170,6 @@ func (peer *peerImpl) init(prefix, id string, pwd []byte) error {
 	// initialized
 	peer.isInitialized = true
 
-	peer.node.log.Info("Initialization...done.")
 	return nil
 }
 

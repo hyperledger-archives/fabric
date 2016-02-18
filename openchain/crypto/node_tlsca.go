@@ -73,7 +73,7 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	}
 	node.log.Debug("TLS Cert [% x]", tlsCertRaw)
 
-	node.log.Info("Storing TLS key and certificate for user [%s]...", id)
+	node.log.Debug("Storing TLS key and certificate for user [%s]...", id)
 
 	// Store tls key.
 	if err := node.ks.storePrivateKeyInClear(node.conf.getTLSKeyFilename(), key); err != nil {
@@ -133,7 +133,7 @@ func (node *nodeImpl) loadTLSCACertsChain() error {
 }
 
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
-	node.log.Info("getTLSCertificate...")
+	node.log.Debug("getTLSCertificate...")
 
 	priv, err := utils.NewECDSAKey()
 
@@ -173,13 +173,13 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 		return nil, nil, err
 	}
 
-	node.log.Info("Verifing tls certificate...")
+	node.log.Debug("Verifing tls certificate...")
 
 	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
 	utils.VerifySignCapability(priv, certPK)
 
-	node.log.Info("Verifing tls certificate...done!")
+	node.log.Debug("Verifing tls certificate...done!")
 
 	return priv, pbCert.Cert.Cert, nil
 }
