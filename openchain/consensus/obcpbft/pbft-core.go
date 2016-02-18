@@ -72,21 +72,22 @@ type pbftCore struct {
 	notifyExec   *sync.Cond
 
 	// PBFT data
-	activeView   bool                   // view change happening
-	byzantine    bool                   // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f            int                    // max. number of faults we can tolerate
-	N            int                    // max.number of validators in the network
-	h            uint64                 // low watermark
-	id           uint64                 // replica ID; PBFT `i`
-	K            uint64                 // checkpoint period
-	L            uint64                 // log size
-	lastExec     uint64                 // last request we executed
-	replicaCount int                    // number of replicas; PBFT `|R|`
-	seqNo        uint64                 // PBFT "n", strictly monotonic increasing sequence number
-	view         uint64                 // current view
-	chkpts       map[uint64]*blockState // state checkpoints; map lastExec to global hash
-	pset         map[uint64]*ViewChange_PQ
-	qset         map[qidx]*ViewChange_PQ
+	activeView    bool                   // view change happening
+	byzantine     bool                   // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
+	f             int                    // max. number of faults we can tolerate
+	N             int                    // max.number of validators in the network
+	h             uint64                 // low watermark
+	id            uint64                 // replica ID; PBFT `i`
+	K             uint64                 // checkpoint period
+	logMultiplier uint64                 // use this value to calculate log size : k*logMultiplier
+	L             uint64                 // log size
+	lastExec      uint64                 // last request we executed
+	replicaCount  int                    // number of replicas; PBFT `|R|`
+	seqNo         uint64                 // PBFT "n", strictly monotonic increasing sequence number
+	view          uint64                 // current view
+	chkpts        map[uint64]*blockState // state checkpoints; map lastExec to global hash
+	pset          map[uint64]*ViewChange_PQ
+	qset          map[qidx]*ViewChange_PQ
 
 	ledger  consensus.LedgerStack             // Used for blockchain related queries
 	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
@@ -176,6 +177,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	}
 
 	instance.K = uint64(config.GetInt("general.K"))
+	instance.logMultiplier = uint64(config.GetInt("general.logmultiplier"))
 
 	instance.byzantine = config.GetBool("general.byzantine")
 
@@ -189,8 +191,17 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	}
 
 	instance.activeView = true
-	instance.L = 2 * instance.K // log size
+	instance.L = instance.logMultiplier * instance.K // log size
 	instance.replicaCount = instance.N
+
+	logger.Info("PBFT Max number of validating peers (N) = %v", instance.N)
+	logger.Info("PBFT Max number of failing peers (f) = %v", instance.f)
+	logger.Info("PBFT byzantine flag = %v", instance.byzantine)
+	logger.Info("PBFT request timeout = %v", instance.requestTimeout)
+	logger.Info("PBFT view change timeout = %v", instance.newViewTimeout)
+	logger.Info("PBFT Checkpoint period (K) = %v", instance.K)
+	logger.Info("PBFT Log multiplier = %v", instance.logMultiplier)
+	logger.Info("PBFT log size (L) = %v", instance.L)
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
