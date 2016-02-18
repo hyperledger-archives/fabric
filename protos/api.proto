@@ -41,16 +41,6 @@ service Openchain {
 
 }
 
-// Contains information about the blockchain ledger such as height, current
-// block hash, and previous block hash.
-message BlockchainInfo {
-
-    uint64 height = 1;
-    bytes currentBlockHash = 2;
-    bytes previousBlockHash = 3;
-
-}
-
 // Specifies the block number to be returned from the blockchain.
 message BlockNumber {
 

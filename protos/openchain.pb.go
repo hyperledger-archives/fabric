@@ -278,6 +278,18 @@ func (m *Block) GetNonHashData() *NonHashData {
 	return nil
 }
 
+// Contains information about the blockchain ledger such as height, current
+// block hash, and previous block hash.
+type BlockchainInfo struct {
+	Height            uint64 `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
+	CurrentBlockHash  []byte `protobuf:"bytes,2,opt,name=currentBlockHash,proto3" json:"currentBlockHash,omitempty"`
+	PreviousBlockHash []byte `protobuf:"bytes,3,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
+}
+
+func (m *BlockchainInfo) Reset()         { *m = BlockchainInfo{} }
+func (m *BlockchainInfo) String() string { return proto.CompactTextString(m) }
+func (*BlockchainInfo) ProtoMessage()    {}
+
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
 // localLedgerCommitTimestamp - The time at which the block was added
@@ -357,8 +369,8 @@ func (m *PeersMessage) GetPeers() []*PeerEndpoint {
 }
 
 type HelloMessage struct {
-	PeerEndpoint *PeerEndpoint `protobuf:"bytes,1,opt,name=peerEndpoint" json:"peerEndpoint,omitempty"`
-	BlockNumber  uint64        `protobuf:"varint,2,opt,name=blockNumber" json:"blockNumber,omitempty"`
+	PeerEndpoint   *PeerEndpoint   `protobuf:"bytes,1,opt,name=peerEndpoint" json:"peerEndpoint,omitempty"`
+	BlockchainInfo *BlockchainInfo `protobuf:"bytes,2,opt,name=blockchainInfo" json:"blockchainInfo,omitempty"`
 }
 
 func (m *HelloMessage) Reset()         { *m = HelloMessage{} }
@@ -368,6 +380,13 @@ func (*HelloMessage) ProtoMessage()    {}
 func (m *HelloMessage) GetPeerEndpoint() *PeerEndpoint {
 	if m != nil {
 		return m.PeerEndpoint
+	}
+	return nil
+}
+
+func (m *HelloMessage) GetBlockchainInfo() *BlockchainInfo {
+	if m != nil {
+		return m.BlockchainInfo
 	}
 	return nil
 }

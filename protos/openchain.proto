@@ -89,6 +89,16 @@ message Block {
     NonHashData nonHashData = 7;
 }
 
+// Contains information about the blockchain ledger such as height, current
+// block hash, and previous block hash.
+message BlockchainInfo {
+
+    uint64 height = 1;
+    bytes currentBlockHash = 2;
+    bytes previousBlockHash = 3;
+
+}
+
 // NonHashData is data that is recorded on the block, but not included in
 // the block hash when verifying the blockchain.
 // localLedgerCommitTimestamp - The time at which the block was added
@@ -128,7 +138,7 @@ message PeersMessage {
 }
 message HelloMessage {
   PeerEndpoint peerEndpoint = 1;
-  uint64 blockNumber = 2;
+  BlockchainInfo blockchainInfo = 2;
 }
 message OpenchainMessage {
     enum Type {

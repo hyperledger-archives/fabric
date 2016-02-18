@@ -14,7 +14,6 @@ It is generated from these files:
 	server_admin.proto
 
 It has these top-level messages:
-	BlockchainInfo
 	BlockNumber
 	BlockCount
 	ChaincodeID
@@ -42,6 +41,7 @@ It has these top-level messages:
 	TransactionBlock
 	TransactionResult
 	Block
+	BlockchainInfo
 	NonHashData
 	PeerAddress
 	PeerID
@@ -75,18 +75,6 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// Contains information about the blockchain ledger such as height, current
-// block hash, and previous block hash.
-type BlockchainInfo struct {
-	Height            uint64 `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
-	CurrentBlockHash  []byte `protobuf:"bytes,2,opt,name=currentBlockHash,proto3" json:"currentBlockHash,omitempty"`
-	PreviousBlockHash []byte `protobuf:"bytes,3,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
-}
-
-func (m *BlockchainInfo) Reset()         { *m = BlockchainInfo{} }
-func (m *BlockchainInfo) String() string { return proto.CompactTextString(m) }
-func (*BlockchainInfo) ProtoMessage()    {}
 
 // Specifies the block number to be returned from the blockchain.
 type BlockNumber struct {
