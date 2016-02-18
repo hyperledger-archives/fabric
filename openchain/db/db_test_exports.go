@@ -96,3 +96,9 @@ func (testDB *TestDBWrapper) GetFromStateDeltaCF(t testing.TB, key []byte) []byt
 	}
 	return value
 }
+
+// CloseDB closes the db
+func (testDB *TestDBWrapper) CloseDB(t testing.TB) {
+	openchainDB := GetDBHandle()
+	openchainDB.CloseDB()
+}

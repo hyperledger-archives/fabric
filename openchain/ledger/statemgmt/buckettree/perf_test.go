@@ -28,11 +28,11 @@ import (
 )
 
 func BenchmarkStateHash(b *testing.B) {
-	if b.N != 1 {
-		b.Fatal(`This benchmark should be called with param -benchtime=0 so that it runs only once.
-			Otherwise, each time this addes data to the DB which affects the measurement.`)
-	}
-
+	// if b.N != 1 {
+	// 	b.Fatal(`This benchmark should be called with param -benchtime=0 so that it runs only once.
+	// 		Otherwise, each time this addes data to the DB which affects the measurement.`)
+	// }
+	b.StopTimer()
 	b.Logf("testParams:%q", testParams)
 	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
 	numBuckets := flags.Int("NumBuckets", 10009, "Number of buckets")
@@ -50,13 +50,21 @@ func BenchmarkStateHash(b *testing.B) {
 		*numBuckets, *maxGroupingAtEachLevel, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *valueSize, *debugMsgsOn)
 
 	if !*debugMsgsOn {
+		testutil.SetLogLevel(logging.ERROR, "statemgmt")
 		testutil.SetLogLevel(logging.ERROR, "buckettree")
 		testutil.SetLogLevel(logging.ERROR, "db")
 	}
 
 	stateImplTestWrapper := newStateImplTestWrapperWithCustomConfig(b, *numBuckets, *maxGroupingAtEachLevel)
-	delta := statemgmt.ConstructRandomStateDelta(b, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *valueSize)
-	b.ResetTimer()
-	stateImplTestWrapper.prepareWorkingSet(delta)
-	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		delta := statemgmt.ConstructRandomStateDelta(b, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *valueSize)
+		b.StartTimer()
+		stateImplTestWrapper.prepareWorkingSet(delta)
+		stateImplTestWrapper.computeCryptoHash()
+		if i == b.N-1 {
+			stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+			testDBWrapper.CloseDB(b)
+		}
+	}
 }
