@@ -931,15 +931,15 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 
 				}
 
-				if currentBlock == toBlockNumber {
-					return nil
-				}
-
-				currentBlock++
 				if nil != sts.ledger.CommitStateDelta(deltaMessage) {
 					sts.InvalidateState()
 					return fmt.Errorf("%v played state forward according to %v, hashes matched, but failed to commit, invalidated state", sts.id, peerID)
 				}
+
+				if currentBlock == toBlockNumber {
+					return nil
+				}
+				currentBlock++
 
 			case <-time.After(sts.StateDeltaRequestTimeout):
 				logger.Warning("%v timed out during state delta recovery from %v", sts.id, peerID)
