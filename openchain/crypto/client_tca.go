@@ -87,7 +87,7 @@ func (client *clientImpl) getNextTCert() (tCert tCert, err error) {
 	//
 	//	return nil, err
 	//}
-	for {
+	for i := 0; i < 3; i++ {
 		select {
 		case tCert = <-client.tCertPoolChannel:
 			break
@@ -277,13 +277,13 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		// Check that the derived public key is the same as the one in the certificate
 		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
 
-		if cmp := certPK.X.Cmp(tempSK.PublicKey.X); cmp != 0 {
+		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
 			client.node.log.Error("Derived public key is different on X")
 
 			continue
 		}
 
-		if cmp = certPK.Y.Cmp(tempSK.PublicKey.Y); cmp != 0 {
+		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
 			client.node.log.Error("Derived public key is different on Y")
 
 			continue
