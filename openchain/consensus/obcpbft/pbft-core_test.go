@@ -662,10 +662,32 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 
 	instance.moveWatermarks(6)
 
+	// This causes the list of high checkpoints to grow to be f+1
+	// even though there are not f+1 checkpoints witnessed outside our range
+	// historically, this caused an index out of bounds error
 	instance.recvCheckpoint(&Checkpoint{
 		SequenceNumber: 10,
 		ReplicaId:      3,
 	})
+}
+
+// From issue #687
+func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
+	mock := newMock()
+	instance := newPbftCore(1, loadConfig(), mock, mock)
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	defer instance.close()
+
+	instance.recvCommit(&Commit{
+		SequenceNumber: 2,
+		ReplicaId:      0,
+	})
+
+	// Historically, the lack of prePrepare associated with the commit would cause
+	// a nil pointer reference
+	instance.moveWatermarks(6)
 }
 
 func TestFallBehind(t *testing.T) {
