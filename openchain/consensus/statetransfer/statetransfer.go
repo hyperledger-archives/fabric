@@ -590,6 +590,8 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 
 	lowBlock := sts.validBlockRanges[0].lowBlock
 
+	logger.Debug("%v validating existing blockchain, highest validated block is %d, valid through %d", sts.id, sts.validBlockRanges[0].highBlock, lowBlock)
+
 	if 1 == len(sts.validBlockRanges) {
 		if 0 == lowBlock {
 			// We have exactly one valid block range, and it is from 0 to at least the block height at startup, consider the chain valid
@@ -637,13 +639,30 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 	if targetBlock+sts.blockVerifyChunkSize > lowBlock {
 		// The sync range is small enough
 	} else {
-		// targetBlock >=0, targetBlock+blockVeriyChunkSize <= lowBlock --> lowBlock - blockVerifyChunkSize >= 0
+		// targetBlock >=0, targetBlock+blockVerifyChunkSize <= lowBlock --> lowBlock - blockVerifyChunkSize >= 0
 		targetBlock = lowBlock - sts.blockVerifyChunkSize
 	}
 
-	blockNumber, block, err := sts.syncBlocks(lowBlock-1, targetBlock, lowNextHash, nil)
+	badBlockNumber, err := sts.ledger.VerifyBlockchain(lowBlock, targetBlock)
 
-	if blockNumber == lowBlock-1 || nil == block {
+	if nil == err {
+		logger.Debug("%v validated chain from %d to %d", sts.id, lowBlock, targetBlock)
+
+		sts.validBlockRanges[0].lowBlock = targetBlock
+
+		block, err := sts.ledger.GetBlock(targetBlock)
+		if nil != err {
+			logger.Warning("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+			return false
+		}
+
+		sts.validBlockRanges[0].lowNextHash = block.PreviousBlockHash
+		return false
+	}
+
+	blockNumber, block, err := sts.syncBlocks(badBlockNumber-1, targetBlock, lowNextHash, nil)
+
+	if blockNumber == badBlockNumber-1 || nil == block {
 		logger.Warning("%v unable to recover any blocks : %s", sts.id, err)
 		return false
 	}

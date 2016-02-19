@@ -140,10 +140,10 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)  
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "3" seconds
+	    And I wait "5" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
-             | vp0  | 
-        And I use the following credentials for querying peers:
+                     | vp0  | 
+            And I use the following credentials for querying peers:
 		     | peer |   username  |    secret    |
 		     | vp0  |  test_user0 | MS9qrN8hFjlE |
 		     | vp1  |  test_user1 | jGlNl6ImkuDo |
@@ -151,102 +151,62 @@ Feature: lanching 3 peers
 		     | vp3  |  test_user3 | vWdLCE00vJy0 |
 
 	    When requesting "/chain" from "vp0"
-	    Then I should get a JSON response with "height" = "1"
+	        Then I should get a JSON response with "height" = "1"
+
+
+            # Deploy
+	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+                    | arg1 |  arg2 | arg3 | arg4 |
+                    |  a   |  100  |  b   |  200 |
+	        Then I should have received a chaincode name 
+	        Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                     | vp0  | vp1 | vp2 | 
+ 
+            # Build up a sizable blockchain, that vp3 will need to validate at startup
+            When I invoke chaincode "example2" function name "invoke" on "vp0" "30" times
+                    |arg1|arg2|arg3| 
+                    | b  | a  | 1  |
+	        Then I should have received a transactionID
+	        Then I wait up to "10" seconds for transaction to be committed to peers:
+                    | vp0  | vp1 | vp2 | vp3 |
+
+            When I query chaincode "example2" function name "query" with value "a" on peers:
+                    | vp0  | vp1 | vp2 | vp3 | 
+	        Then I should get a JSON response from peers with "OK" = "130"
+                    | vp0  | vp1 | vp2 | vp3 | 
 
         # STOPPING vp3!!!!!!!!!!!!!!!!!!!!!!!!!!	    
         Given I stop peers:
             | vp3  | 
 
-            # TX 1, deploy
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
-		     | arg1 |  arg2 | arg3 | arg4 |
-		     |  a   |  100  |  b   |  200 |
-	    Then I should have received a chaincode name 
-	    Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+        # Invoke a transaction to get vp3 out of sync
+        When I invoke chaincode "example2" function name "invoke" on "vp0"
+			|arg1|arg2|arg3| 
+			| a  | b  | 10 |
+	    Then I should have received a transactionID
+	    Then I wait up to "10" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | 
 
-        #
+        When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 |
+	    Then I should get a JSON response from peers with "OK" = "120"
+            | vp0  | vp1 | vp2 |
+
         # Now start vp3 again and run 8 more transactions
-        #
         Given I start peers:
             | vp3  | 
-        And I wait "2" seconds
-        
+        And I wait "5" seconds
 
-        When I query chaincode "example2" function name "query" with value "a" on peers:
-            | vp0  | vp1 | vp2 | 
-	    Then I should get a JSON response from peers with "OK" = "100"
-            | vp0  | vp1 | vp2 | 
-
-        # TX 2 - Checkpoint
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
+        # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
+        When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
 			|arg1|arg2|arg3| 
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 3
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 4 - Checkpoint
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 5
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 6 - Checkpoint - state transfer triggered
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 7
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 8 - Checkpoint - state transfer given completion target
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
-        # TX 9 - Will be invoked by vp3 once state transfer finishes
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
-			| a  | b  | 10 |
-	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
-
- 
-        Given I wait "5" seconds
+	    Then I wait up to "20" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 | vp3 |
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 | 
-	    Then I should get a JSON response from peers with "OK" = "20"
+	    Then I should get a JSON response from peers with "OK" = "60"
             | vp0  | vp1 | vp2 | vp3 | 
     
 
@@ -270,3 +230,4 @@ Feature: lanching 3 peers
 	    Given we compose "docker-compose-2-tls-basic.yml"
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
+
