@@ -27,6 +27,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -194,14 +195,21 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
+	execWait := &sync.WaitGroup{}
+
 	validatorCount := 4
 	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
+		inst.pbft.L = 4
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
+			execWait.Wait()
+			return []byte("result"), nil
+		}
 	})
 	defer net.close()
 
-	execReq := func(iter int64) {
+	execReq := func(iter int64, drain bool) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -209,19 +217,18 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
-		if err != nil {
-			t.Fatalf("Request failed: %s", err)
-		}
+		net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 
-		err = net.process()
-		if err != nil {
-			t.Fatalf("Processing failed: %s", err)
+		if drain {
+			net.process()
+		} else {
+			net.processWithoutDrain()
 		}
 	}
 
-	execReq(1)
-	execReq(2)
+	// execWait is 0, and execute will proceed
+	execReq(1, false)
+	execReq(2, true)
 
 	for _, inst := range net.replicas {
 		if len(inst.pbft.chkpts) != 1 {
@@ -237,6 +244,35 @@ func TestCheckpoint(t *testing.T) {
 		if inst.pbft.h != 2 {
 			t.Errorf("Expected low water mark to be 2, got %d", inst.pbft.h)
 			continue
+		}
+	}
+
+	// this will block executes for now
+	execWait.Add(1)
+	execReq(3, false)
+	execReq(4, false)
+	execReq(5, false)
+	execReq(6, false)
+
+	// by now the requests should have committed, but not yet executed
+	// we also reached the high water mark by now.
+
+	execReq(7, false)
+
+	// request 7 should not have committed, because no more free seqNo
+	// could be assigned.
+
+	// unblock executes.
+	execWait.Add(-1)
+
+	net.process()
+	// by now request 7 should have been confirmed and executed
+
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		blockHeightExpected := uint64(8)
+		if blockHeight != blockHeightExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, inst.id)
 		}
 	}
 }
