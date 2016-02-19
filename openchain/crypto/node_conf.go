@@ -45,6 +45,9 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 	if err == nil {
 		// No error, use the setting
 		logging.SetLevel(level, "crypto."+prefix+"."+name)
+		logging.SetLevel(level, "crypto")
+		node.log.Info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
+			logging.GetLevel("crypto"))
 	} else {
 		node.log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
 		logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
@@ -117,7 +120,7 @@ func (conf *configuration) init() error {
 	}
 
 	// Set tCertBathSize
-	conf.tCertBathSize = 100
+	conf.tCertBathSize = 5
 	if viper.IsSet("peer.tcert.buffer.size") {
 		ovveride := viper.GetInt("peer.tcert.buffer.size")
 		if ovveride != 0 {

@@ -162,10 +162,11 @@ func TestParallelInitClose(t *testing.T) {
 	}()
 
 	for i := 0; i < 3; i++ {
-		t.Log("Waiting")
+		log.Info("Waiting")
 		<-done
-		t.Log("+1")
+		log.Info("+1")
 	}
+	log.Info("Test Finished!")
 	//
 }
 

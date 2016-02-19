@@ -26,6 +26,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/hmac"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
@@ -81,7 +82,7 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 	return nil
 }
 
-func (client *clientImpl) getTCertFromDER(der []byte) (tCert, error) {
+func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	client.node.log.Debug("Validating TCert [% x]", der)
 
 	// DER to x509
@@ -107,6 +108,142 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert, error) {
 	}
 
 	return &tCertImpl{client, x509Cert, nil}, nil
+}
+
+func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
+	if client.tCertOwnerKDFKey == nil {
+		return nil, fmt.Errorf("KDF key not initialized yet!")
+	}
+
+	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
+	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
+
+	client.node.log.Debug("Validating certificate [% x]", der)
+
+	// DER to x509
+	x509Cert, err := utils.DERToX509Certificate(der)
+	if err != nil {
+		client.node.log.Debug("Failed parsing certificate: [%s].", err)
+
+		return
+	}
+
+	// Handle Critical Extenstion TCertEncTCertIndex
+	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex)
+	if err != nil {
+		client.node.log.Error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+
+		return
+	}
+
+	// Verify certificate against root
+	if _, err = utils.CheckCertAgainRoot(x509Cert, client.node.tcaCertPool); err != nil {
+		client.node.log.Warning("Warning verifing certificate [%s].", err.Error())
+
+		return
+	}
+
+	// Verify public key
+
+	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
+	// Let TCertIndex = Timestamp, RandValue, 1,2,…
+	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
+
+	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
+	pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+	if err != nil {
+		client.node.log.Error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+
+		return
+	}
+
+	// Compute ExpansionValue based on TCertIndex
+	TCertIndex := pt
+	//		TCertIndex := []byte(strconv.Itoa(i))
+
+	client.node.log.Debug("TCertIndex: [% x].", TCertIndex)
+	mac := hmac.New(utils.NewHash, ExpansionKey)
+	mac.Write(TCertIndex)
+	ExpansionValue := mac.Sum(nil)
+
+	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
+	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
+
+	// Compute temporary secret key
+	tempSK := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: client.node.enrollPrivKey.Curve,
+			X:     new(big.Int),
+			Y:     new(big.Int),
+		},
+		D: new(big.Int),
+	}
+
+	var k = new(big.Int).SetBytes(ExpansionValue)
+	var one = new(big.Int).SetInt64(1)
+	n := new(big.Int).Sub(client.node.enrollPrivKey.Params().N, one)
+	k.Mod(k, n)
+	k.Add(k, one)
+
+	tempSK.D.Add(client.node.enrollPrivKey.D, k)
+	tempSK.D.Mod(tempSK.D, client.node.enrollPrivKey.PublicKey.Params().N)
+
+	// Compute temporary public key
+	tempX, tempY := client.node.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
+	tempSK.PublicKey.X, tempSK.PublicKey.Y =
+		tempSK.PublicKey.Add(
+			client.node.enrollPrivKey.PublicKey.X, client.node.enrollPrivKey.PublicKey.Y,
+			tempX, tempY,
+		)
+
+	// Verify temporary public key is a valid point on the reference curve
+	isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
+	if !isOn {
+		client.node.log.Error("Failed temporary public key IsOnCurve check.")
+
+		return nil, fmt.Errorf("Failed temporary public key IsOnCurve check.")
+	}
+
+	// Check that the derived public key is the same as the one in the certificate
+	certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
+
+	if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
+		client.node.log.Error("Derived public key is different on X")
+
+		return nil, fmt.Errorf("Derived public key is different on X")
+	}
+
+	if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
+		client.node.log.Error("Derived public key is different on Y")
+
+		return nil, fmt.Errorf("Derived public key is different on Y")
+	}
+
+	// Verify the signing capability of tempSK
+	err = utils.VerifySignCapability(tempSK, x509Cert.PublicKey)
+	if err != nil {
+		client.node.log.Error("Failed verifing signing capability [%s].", err.Error())
+
+		return
+	}
+
+	// Marshall certificate and secret key to be stored in the database
+	if err != nil {
+		client.node.log.Error("Failed marshalling private key [%s].", err.Error())
+
+		return
+	}
+
+	if err = utils.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
+		client.node.log.Error("Failed checking TCA cert PK against private key [%s].", err.Error())
+
+		return
+	}
+
+	tCert = &tCertImpl{client, x509Cert, tempSK}
+
+	return
 }
 
 func (client *clientImpl) getTCertsFromTCA(num int) error {
@@ -142,8 +279,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 
 	// Validate the Certificates obtained
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(TCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
-	ExpansionKey := utils.HMAC(TCertOwnerKDFKey, []byte{2})
+	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
+	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	j := 0
 	for i := 0; i < num; i++ {
