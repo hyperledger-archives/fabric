@@ -1,5 +1,4 @@
-from golang:1.5.1
-ENV GO15VENDOREXPERIMENT=1
+from golang:1.6
 # Install RocksDB
 RUN cd /opt  && git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb && make shared_lib
 ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
