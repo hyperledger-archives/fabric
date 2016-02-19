@@ -642,6 +642,50 @@ func TestNewViewTimeout(t *testing.T) {
 	}
 }
 
+func TestViewChangeUpdateSeqNo(t *testing.T) {
+	millisUntilTimeout := 100 * time.Millisecond
+
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
+		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
+		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
+		inst.pbft.lastExec = 99
+		inst.pbft.h = 99 / inst.pbft.K * inst.pbft.K
+	})
+	net.replicas[0].pbft.seqNo = 99
+
+	go net.processContinually()
+
+	msg := createOcMsgWithChainTx(1)
+	net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	time.Sleep(5 * millisUntilTimeout)
+	// Now we all have executed seqNo 100.  After triggering a
+	// view change, the new primary should pick up right after
+	// that.
+
+	net.replicas[0].pbft.sendViewChange()
+	net.replicas[1].pbft.sendViewChange()
+	time.Sleep(5 * millisUntilTimeout)
+
+	msg = createOcMsgWithChainTx(2)
+	net.replicas[1].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	time.Sleep(5 * millisUntilTimeout)
+
+	net.close()
+	for i, inst := range net.replicas {
+		if inst.pbft.view < 1 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		}
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		blockHeightExpected := uint64(3)
+		if blockHeight != blockHeightExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected-1, blockHeight-1, i)
+		}
+	}
+}
+
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := newMock()

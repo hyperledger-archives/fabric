@@ -459,7 +459,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 func (instance *pbftCore) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
-	maxN := h
+	maxN := h + 1
 
 	// "for all n such that h < n <= h + L"
 nLoop:
