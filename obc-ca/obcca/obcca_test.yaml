@@ -4,7 +4,7 @@ server:
         rootpath: "."
         cadir: ".obcca"
         port: ":50951"
-        
+
         tls:
                 certfile: ".obcca/tlsca.cert"
                 keyfile: ".obcca/tlsca.priv"
@@ -57,8 +57,7 @@ peer:
     networkId: dev
 
     Dockerfile:  |
-        from golang:1.5.1
-        ENV GO15VENDOREXPERIMENT=1
+        from golang:1.6
         # Install RocksDB
         RUN cd /opt  && git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
         WORKDIR /opt/rocksdb
@@ -126,7 +125,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        validity-period: 
+        validity-period:
             verification: false
 
     # TLS Settings for p2p communications
@@ -246,8 +245,7 @@ chaincode:
 
         # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from golang:1.5.1
-            ENV GO15VENDOREXPERIMENT=1
+            from golang:1.6
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
@@ -261,7 +259,7 @@ chaincode:
     mode: net
 
     installpath: /go/bin/
-    
+
 ###############################################################################
 #
 #    Ledger section - ledger configuration encompases both the blockchain
@@ -343,7 +341,7 @@ pki:
                     enabled: false
                     cert:
                             file: testdata/server1.pem
-                    key:    
+                    key:
                             file: testdata/server1.key
 
-            devops-address: 0.0.0.0:30303 
+            devops-address: 0.0.0.0:30303
