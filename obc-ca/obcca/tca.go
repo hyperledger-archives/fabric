@@ -210,7 +210,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	rand.Reader.Read(nonce[:8])
 	binary.LittleEndian.PutUint64(nonce[8:], uint64(in.Ts.Seconds))
 
-	mac := hmac.New(utils.DefaultHash, tcap.tca.hmacKey)
+	mac := hmac.New(utils.GetDefaultHash(), tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
@@ -225,13 +225,13 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		tidx := []byte(strconv.Itoa(i))
 		tidx = append(tidx[:], nonce[:]...)
 
-		mac = hmac.New(utils.DefaultHash, kdfKey)
+		mac = hmac.New(utils.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
 
-		mac = hmac.New(utils.DefaultHash, kdfKey)
+		mac = hmac.New(utils.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{2})
-		mac = hmac.New(utils.DefaultHash, mac.Sum(nil))
+		mac = hmac.New(utils.GetDefaultHash(), mac.Sum(nil))
 		mac.Write(tidx)
 
 		one := new(big.Int).SetInt64(1)

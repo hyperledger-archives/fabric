@@ -112,7 +112,7 @@ func (ca *CA) Close() {
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 	Trace.Println("Creating CA key pair.")
 
-	curve := utils.DefaultCurve
+	curve := utils.GetDefaultCurve()
 
 	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err == nil {

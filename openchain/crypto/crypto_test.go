@@ -963,7 +963,7 @@ func setup() {
 		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 	)
 	logging.SetFormatter(formatter)
-	logging.SetLevel(logging.DEBUG, "crypto")
+	logging.SetLevel(logging.ERROR, "crypto")
 
 	// TX creators
 	deployTxCreators = []createTxFunc{

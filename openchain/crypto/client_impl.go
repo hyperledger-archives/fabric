@@ -265,9 +265,16 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	return nil
 }
 
-func (client *clientImpl) close() error {
+func (client *clientImpl) close() (err error) {
 	if client.node != nil {
-		return client.node.close()
+		if err = client.node.close(); err != nil {
+			client.node.log.Debug("Failed closing node [%s]", err)
+		}
 	}
-	return nil
+	if client.tCertPool != nil {
+		if err = client.tCertPool.Stop(); err != nil {
+			client.node.log.Debug("Failed closing TCertPool [%s]", err)
+		}
+	}
+	return
 }

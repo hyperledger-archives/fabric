@@ -115,7 +115,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		} else {
-			priv, err = ecdsa.GenerateKey(utils.DefaultCurve, rand.Reader)
+			priv, err = ecdsa.GenerateKey(utils.GetDefaultCurve(), rand.Reader)
 			if err != nil {
 				Panic.Panicln(err)
 			}

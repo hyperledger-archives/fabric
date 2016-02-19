@@ -20,43 +20,13 @@ under the License.
 package utils
 
 import (
-	"crypto/hmac"
-	"golang.org/x/crypto/sha3"
-	"hash"
+	"crypto/elliptic"
 )
 
 var (
-	defaultHash = sha3.New384
+	defaultCurve = elliptic.P256()
 )
 
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
-}
-
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return defaultHash()
-}
-
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
-}
-
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)
-}
-
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+func GetDefaultCurve() elliptic.Curve {
+	return defaultCurve
 }

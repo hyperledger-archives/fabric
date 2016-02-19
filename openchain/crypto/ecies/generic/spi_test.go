@@ -16,7 +16,7 @@ func TestSPI(t *testing.T) {
 
 	spi := NewSPI()
 
-	ecdsaKey, err := ecdsa.GenerateKey(utils.DefaultCurve, rand.Reader)
+	ecdsaKey, err := ecdsa.GenerateKey(utils.GetDefaultCurve(), rand.Reader)
 
 	var a interface{}
 	a = ecdsaKey
@@ -99,7 +99,7 @@ func TestKG(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kgparams, err := newKeyGeneratorParameter(rand.Reader, utils.DefaultCurve)
+	kgparams, err := newKeyGeneratorParameter(rand.Reader, utils.GetDefaultCurve())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestES(t *testing.T) {
 
 func generateKey() ecies.PrivateKey {
 	kg, _ := newKeyGenerator()
-	kgparams, _ := newKeyGeneratorParameter(rand.Reader, utils.DefaultCurve)
+	kgparams, _ := newKeyGeneratorParameter(rand.Reader, utils.GetDefaultCurve())
 	kg.Init(kgparams)
 	privKey, _ := kg.GenerateKey()
 	return privKey

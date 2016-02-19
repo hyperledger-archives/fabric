@@ -244,7 +244,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 	}
 	// Check that deployTx and executeTx refers to the same chaincode
 	if !reflect.DeepEqual(deployTx.ChaincodeID, executeTx.ChaincodeID) {
-		return nil, utils.ErrDirrentChaincodeID
+		return nil, utils.ErrDifferentChaincodeID
 	}
 
 	validator.peer.node.log.Debug("Parsing transaction. Type [%s].", executeTx.Type.String())

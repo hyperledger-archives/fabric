@@ -27,6 +27,8 @@ import (
 type tCertPool interface {
 	Start() error
 
+	Stop() error
+
 	GetNextTCert() (tCert, error)
 
 	AddTCert(tCert tCert) error
@@ -37,6 +39,7 @@ type tCertPoolImpl struct {
 
 	tCertChannel         chan tCert
 	tCertChannelFeedback chan struct{}
+	done                 chan struct{}
 }
 
 func (tCertPool *tCertPoolImpl) init(client *clientImpl) (err error) {
@@ -44,12 +47,19 @@ func (tCertPool *tCertPoolImpl) init(client *clientImpl) (err error) {
 
 	tCertPool.tCertChannel = make(chan tCert, client.node.conf.getTCertBathSize()*2)
 	tCertPool.tCertChannelFeedback = make(chan struct{}, client.node.conf.getTCertBathSize()*2)
+	tCertPool.done = make(chan struct{})
 
 	return
 }
 
 func (tCertPool *tCertPoolImpl) Start() (err error) {
 	go tCertPool.filler()
+
+	return
+}
+
+func (tCertPool *tCertPoolImpl) Stop() (err error) {
+	tCertPool.done <- struct{}{}
 
 	return
 }
@@ -78,6 +88,10 @@ func (tCertPool *tCertPoolImpl) GetNextTCert() (tCert tCert, err error) {
 	}
 
 	tCertPool.client.node.log.Debug("Cert [% x].", tCert.GetCertificate().Raw)
+
+	// Store the TCert permanently
+	tCertPool.client.node.ks.storeTCert(tCert)
+
 	tCertPool.client.node.log.Debug("Getting next TCert...done!")
 
 	return
@@ -85,8 +99,12 @@ func (tCertPool *tCertPoolImpl) GetNextTCert() (tCert tCert, err error) {
 
 func (tCertPool *tCertPoolImpl) filler() {
 	ticker := time.NewTicker(1 * time.Second)
+	stop := false
 	for {
 		select {
+		case <-tCertPool.done:
+			stop = true
+			tCertPool.client.node.log.Debug("Done signal.")
 		case <-tCertPool.tCertChannelFeedback:
 			tCertPool.client.node.log.Debug("Feedback received. Time to check for tcerts")
 		case <-ticker.C:
@@ -104,7 +122,11 @@ func (tCertPool *tCertPoolImpl) filler() {
 				tCertPool.client.node.log.Error("Failed getting TCerts from the TCA: [%s]", err)
 			}
 		}
+		if stop {
+			break
+		}
 	}
+	tCertPool.client.node.log.Debug("TCert filler stopped.")
 }
 
 func (tCertPool *tCertPoolImpl) AddTCert(tCert tCert) (err error) {
