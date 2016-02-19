@@ -603,35 +603,31 @@ func TestNewViewTimeout(t *testing.T) {
 
 	go net.processContinually()
 
-	ticker := time.NewTicker(millisUntilTimeout * time.Millisecond)
-
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
 	net.replicas[1].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 1")
-	for i := 0; i < 5; i++ {
-		<-ticker.C // Let the timeout interval pass twice to ensure it fires for replica 1
-		fmt.Println("Debug: (still) Sleeping 1")
-	}
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
 	// However, we disable 1, which will disable the new-view going through.
 	// This checks that replicas will automatically move to view 2 when the view change times out.
 	// However, 2 does not know about the missing request, and therefore the request will not be
-	// pre-prepared and finally executed.  This will lead to another view-change timeout, even on
-	// the replicas that never saw the request (e.g. 0)
-	// Finally, 3 will be new primary and pre-prepare the missing request.
+	// pre-prepared and finally executed.
 	replica1Disabled = true
 	net.replicas[3].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 2")
-	for i := 0; i < 10; i++ {
-		fmt.Println("Debug: (still) Sleeping 2")
-		<-ticker.C // Let the timeout interval pass 10 times, but potentially much longer in a VM
-	}
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
 
-	ticker.Stop()
+	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
+	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
+	// all replicas move to view 3 and finally process the request.
+	net.replicas[0].pbft.receive(msgPacked, broadcaster)
+	fmt.Println("Debug: Sleeping 3")
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
+	fmt.Println("Debug: Waking 3")
 
 	net.close()
 	for i, inst := range net.replicas {
