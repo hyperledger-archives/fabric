@@ -60,6 +60,7 @@ type configuration struct {
 	configurationPath string
 	keystorePath      string
 	rawsPath          string
+	tCertsPath        string
 
 	configurationPathProperty string
 	ecaPAddressProperty       string
@@ -102,6 +103,9 @@ func (conf *configuration) init() error {
 
 	// Set raws path
 	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
+
+	// Set tCerts path
+	conf.tCertsPath = filepath.Join(conf.keystorePath, "tcerts")
 
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
@@ -146,6 +150,10 @@ func (conf *configuration) getTLSCAPAddr() string {
 
 func (conf *configuration) getConfPath() string {
 	return conf.configurationPath
+}
+
+func (conf *configuration) getTCertsPath() string {
+	return conf.tCertsPath
 }
 
 func (conf *configuration) getKeyStorePath() string {

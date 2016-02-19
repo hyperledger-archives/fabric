@@ -882,8 +882,8 @@ func TestValidatorVerify(t *testing.T) {
 }
 
 func BenchmarkTransactionCreation(b *testing.B) {
-	b.StopTimer()
-	b.ResetTimer()
+	//b.StopTimer()
+	//b.ResetTimer()
 	cis := &obc.ChaincodeInvocationSpec{
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
@@ -896,16 +896,15 @@ func BenchmarkTransactionCreation(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
-		b.StartTimer()
+		//b.StartTimer()
 		invoker.NewChaincodeExecute(cis, uuid)
-		b.StopTimer()
+		//b.StopTimer()
 	}
 }
 
 func BenchmarkTransactionValidation(b *testing.B) {
 	b.StopTimer()
 	b.ResetTimer()
-	log.Info("b.N = %d\n", b.N)
 	for i := 0; i < b.N; i++ {
 		_, tx, _ := createConfidentialTCertHExecuteTransaction(nil)
 

@@ -19,7 +19,14 @@ under the License.
 
 package crypto
 
+import (
+	"os"
+)
+
 func (client *clientImpl) initKeyStore() error {
+	// Create TCerts directory
+	os.MkdirAll(client.node.conf.getTCertsPath(), 0755)
+
 	// create tables
 	client.node.ks.log.Debug("Create Table if not exists [TCert] at [%s].", client.node.ks.conf.getKeyStorePath())
 	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
@@ -66,6 +73,18 @@ func (ks *keyStore) storeTCert(tCert tCert) (err error) {
 	}
 
 	ks.log.Debug("Storing used TCert...done!")
+
+	//name, err := utils.TempFile(ks.conf.getTCertsPath(), "tcert_")
+	//if err != nil {
+	//	ks.log.Error("Failed storing TCert: [%s]", err)
+	//	return
+	//}
+	//
+	//err = ioutil.WriteFile(name, tCert.GetCertificate().Raw, 0700)
+	//if err != nil {
+	//	ks.log.Error("Failed storing TCert: [%s]", err)
+	//	return
+	//}
 
 	return
 }

@@ -56,7 +56,7 @@ func (node *nodeImpl) initTLS() error {
 }
 
 func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
-	node.log.Debug("Connecting to addr:[%s], with serverName:[%s]...", address, serverName)
+	node.log.Debug("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
 
 	var conn *grpc.ClientConn
 	var err error
@@ -96,7 +96,7 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 		return nil, err
 	}
 
-	node.log.Debug("Connecting to addr:[%s], with serverName:[%s]...done!", address, serverName)
+	node.log.Debug("Dial to addr:[%s], with serverName:[%s]...done!", address, serverName)
 
 	return conn, nil
 }
