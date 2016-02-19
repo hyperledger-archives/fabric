@@ -383,18 +383,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 		}
 	} else {
-	outer:
-		for d, req := range instance.outstandingReqs {
-			for _, cert := range instance.certStore {
-				if cert.prePrepare != nil && cert.prePrepare.RequestDigest == d {
-					continue outer
-				}
-			}
-
-			// This is a request that has not been pre-prepared yet
-			// Trigger request processing again.
-			instance.recvRequest(req)
-		}
+		instance.resubmitRequests()
 	}
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
@@ -459,7 +448,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 func (instance *pbftCore) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
-	maxN := h
+	maxN := h + 1
 
 	// "for all n such that h < n <= h + L"
 nLoop:

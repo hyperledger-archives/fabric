@@ -620,6 +620,25 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	return nil
 }
 
+func (instance *pbftCore) resubmitRequests() {
+	if instance.primary(instance.view) != instance.id {
+		return
+	}
+
+outer:
+	for d, req := range instance.outstandingReqs {
+		for _, cert := range instance.certStore {
+			if cert.prePrepare != nil && cert.prePrepare.RequestDigest == d {
+				continue outer
+			}
+		}
+
+		// This is a request that has not been pre-prepared yet
+		// Trigger request processing again.
+		instance.recvRequest(req)
+	}
+}
+
 func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
@@ -925,6 +944,8 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 
 	logger.Debug("Replica %d updated low watermark to %d",
 		instance.id, instance.h)
+
+	instance.resubmitRequests()
 }
 
 func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {

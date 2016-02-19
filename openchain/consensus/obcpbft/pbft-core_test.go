@@ -27,6 +27,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -194,14 +195,21 @@ func TestNetwork(t *testing.T) {
 }
 
 func TestCheckpoint(t *testing.T) {
+	execWait := &sync.WaitGroup{}
+
 	validatorCount := 4
 	net := makeTestnet(validatorCount, func(inst *instance) {
 		makeTestnetPbftCore(inst)
 		inst.pbft.K = 2
+		inst.pbft.L = 4
+		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
+			execWait.Wait()
+			return []byte("result"), nil
+		}
 	})
 	defer net.close()
 
-	execReq := func(iter int64) {
+	execReq := func(iter int64, drain bool) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -209,19 +217,18 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
-		if err != nil {
-			t.Fatalf("Request failed: %s", err)
-		}
+		net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 
-		err = net.process()
-		if err != nil {
-			t.Fatalf("Processing failed: %s", err)
+		if drain {
+			net.process()
+		} else {
+			net.processWithoutDrain()
 		}
 	}
 
-	execReq(1)
-	execReq(2)
+	// execWait is 0, and execute will proceed
+	execReq(1, false)
+	execReq(2, true)
 
 	for _, inst := range net.replicas {
 		if len(inst.pbft.chkpts) != 1 {
@@ -237,6 +244,35 @@ func TestCheckpoint(t *testing.T) {
 		if inst.pbft.h != 2 {
 			t.Errorf("Expected low water mark to be 2, got %d", inst.pbft.h)
 			continue
+		}
+	}
+
+	// this will block executes for now
+	execWait.Add(1)
+	execReq(3, false)
+	execReq(4, false)
+	execReq(5, false)
+	execReq(6, false)
+
+	// by now the requests should have committed, but not yet executed
+	// we also reached the high water mark by now.
+
+	execReq(7, false)
+
+	// request 7 should not have committed, because no more free seqNo
+	// could be assigned.
+
+	// unblock executes.
+	execWait.Add(-1)
+
+	net.process()
+	// by now request 7 should have been confirmed and executed
+
+	for _, inst := range net.replicas {
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		blockHeightExpected := uint64(8)
+		if blockHeight != blockHeightExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, inst.id)
 		}
 	}
 }
@@ -603,35 +639,31 @@ func TestNewViewTimeout(t *testing.T) {
 
 	go net.processContinually()
 
-	ticker := time.NewTicker(millisUntilTimeout * time.Millisecond)
-
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
 	net.replicas[1].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 1")
-	for i := 0; i < 5; i++ {
-		<-ticker.C // Let the timeout interval pass twice to ensure it fires for replica 1
-		fmt.Println("Debug: (still) Sleeping 1")
-	}
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
 
 	// This will eventually trigger 3's request timeout, which will lead to a view change to 1.
 	// However, we disable 1, which will disable the new-view going through.
 	// This checks that replicas will automatically move to view 2 when the view change times out.
 	// However, 2 does not know about the missing request, and therefore the request will not be
-	// pre-prepared and finally executed.  This will lead to another view-change timeout, even on
-	// the replicas that never saw the request (e.g. 0)
-	// Finally, 3 will be new primary and pre-prepare the missing request.
+	// pre-prepared and finally executed.
 	replica1Disabled = true
 	net.replicas[3].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 2")
-	for i := 0; i < 10; i++ {
-		fmt.Println("Debug: (still) Sleeping 2")
-		<-ticker.C // Let the timeout interval pass 10 times, but potentially much longer in a VM
-	}
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
 
-	ticker.Stop()
+	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
+	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
+	// all replicas move to view 3 and finally process the request.
+	net.replicas[0].pbft.receive(msgPacked, broadcaster)
+	fmt.Println("Debug: Sleeping 3")
+	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
+	fmt.Println("Debug: Waking 3")
 
 	net.close()
 	for i, inst := range net.replicas {
@@ -642,6 +674,50 @@ func TestNewViewTimeout(t *testing.T) {
 		blockHeightExpected := uint64(2)
 		if blockHeight != blockHeightExpected {
 			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, i)
+		}
+	}
+}
+
+func TestViewChangeUpdateSeqNo(t *testing.T) {
+	millisUntilTimeout := 100 * time.Millisecond
+
+	validatorCount := 4
+	net := makeTestnet(validatorCount, func(inst *instance) {
+		makeTestnetPbftCore(inst)
+		inst.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
+		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
+		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
+		inst.pbft.lastExec = 99
+		inst.pbft.h = 99 / inst.pbft.K * inst.pbft.K
+	})
+	net.replicas[0].pbft.seqNo = 99
+
+	go net.processContinually()
+
+	msg := createOcMsgWithChainTx(1)
+	net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	time.Sleep(5 * millisUntilTimeout)
+	// Now we all have executed seqNo 100.  After triggering a
+	// view change, the new primary should pick up right after
+	// that.
+
+	net.replicas[0].pbft.sendViewChange()
+	net.replicas[1].pbft.sendViewChange()
+	time.Sleep(5 * millisUntilTimeout)
+
+	msg = createOcMsgWithChainTx(2)
+	net.replicas[1].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	time.Sleep(5 * millisUntilTimeout)
+
+	net.close()
+	for i, inst := range net.replicas {
+		if inst.pbft.view < 1 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+		}
+		blockHeight, _ := inst.ledger.GetBlockchainSize()
+		blockHeightExpected := uint64(3)
+		if blockHeight != blockHeightExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected-1, blockHeight-1, i)
 		}
 	}
 }
