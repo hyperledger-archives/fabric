@@ -121,7 +121,7 @@ func (tCertPool *tCertPoolImpl) filler() {
 				numTCerts = cap(tCertPool.tCertChannel) / 10
 			}
 
-			tCertPool.client.node.log.Info("Refilling [%d] TCerts.", numTCerts)
+			tCertPool.client.node.log.Debug("Refilling [%d] TCerts.", numTCerts)
 
 			err := tCertPool.client.getTCertsFromTCA(numTCerts)
 			if err != nil {
