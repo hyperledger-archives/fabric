@@ -163,33 +163,16 @@ def step_impl(context):
     else:
         fail('chaincodeSpec not in context')
 
+@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}" "{times}" times')
+def step_impl(context, chaincodeName, functionName, containerName, times):
+    assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
+    for i in range(int(times)):
+        invokeChaincode(context, functionName, containerName)
+
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    # Update hte chaincodeSpec ctorMsg for invoke
-    args = []
-    if 'table' in context:
-       # There is ctor arguments
-       args = context.table[0].cells
-    context.chaincodeSpec['ctorMsg']['function'] = functionName
-    context.chaincodeSpec['ctorMsg']['args'] = args
-    # Invoke the POST
-    chaincodeInvocationSpec = {
-        "chaincodeSpec" : context.chaincodeSpec
-    }
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/devops/invoke")
-    print("POSTing path = {0}".format(request_url))
-
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
-    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
-    context.response = resp
-    print(json.dumps(resp.json(), indent = 4))
-    print("RESULT from invokde o fchaincode ")
-    print("RESULT from invokde o fchaincode ")
-    # TODO: Put these back in once TX id is available in message field of JSON response for invoke.
-    transactionID = resp.json()['message']
-    context.transactionID = transactionID
+    invokeChaincode(context, functionName, containerName)
 
 @then(u'I should have received a transactionID')
 def step_impl(context):
@@ -200,9 +183,6 @@ def step_impl(context):
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     invokeChaincode(context, "query", containerName)
-    print(json.dumps(context.response.json(), indent = 4))
-    print("")
-    #raise NotImplementedError(u'STEP: When I query chaincode "example2" function name "query" with "a" on "vp0":')
 
 def invokeChaincode(context, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
@@ -224,6 +204,11 @@ def invokeChaincode(context, functionName, containerName):
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)   
     context.response = resp
+    print(json.dumps(context.response.json(), indent = 4))
+    if 'message' in resp.json():
+        print("RESULT from invoke of chaincode ")
+        transactionID = context.response.json()['message']
+        context.transactionID = transactionID
 
 @then(u'I wait "{seconds}" seconds for chaincode to build')
 def step_impl(context, seconds):
