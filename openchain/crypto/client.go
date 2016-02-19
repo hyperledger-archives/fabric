@@ -106,8 +106,6 @@ func CloseClient(client Client) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Closing all clients...")
-
 	return closeClientInternal(client, false)
 }
 
