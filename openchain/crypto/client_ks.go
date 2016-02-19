@@ -45,6 +45,9 @@ func (client *clientImpl) initKeyStore() error {
 }
 
 func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
+	ks.m.Lock()
+	defer ks.m.Unlock()
+
 	ks.log.Debug("Storing used TCert...")
 
 	// Open transaction

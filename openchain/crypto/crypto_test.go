@@ -39,7 +39,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -115,53 +114,38 @@ func TestParallelInitClose(t *testing.T) {
 
 	done := make(chan bool)
 
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
-			}
-			time.Sleep(1 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+	n := 5
+	for i := 0; i < n; i++ {
+		go func() {
+			for i := 0; i < 5; i++ {
+				client, err := InitClient(conf.Name, nil)
+				if err != nil {
+					t.Log("Init failed")
+				}
 
-	}()
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
-			}
-			time.Sleep(2 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+				cis := &obc.ChaincodeInvocationSpec{
+					ChaincodeSpec: &obc.ChaincodeSpec{
+						Type:                 obc.ChaincodeSpec_GOLANG,
+						ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+						CtorMsg:              nil,
+						ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+					},
+				}
+				for i := 0; i < 20; i++ {
+					uuid := util.GenerateUUID()
+					client.NewChaincodeExecute(cis, uuid)
+				}
 
-	}()
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
+				err = CloseClient(client)
+				if err != nil {
+					t.Log("Close failed")
+				}
 			}
-			time.Sleep(1 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+			done <- true
 
-	}()
-
-	for i := 0; i < 3; i++ {
+		}()
+	}
+	for i := 0; i < n; i++ {
 		log.Info("Waiting")
 		<-done
 		log.Info("+1")
