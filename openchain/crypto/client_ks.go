@@ -131,6 +131,31 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 	return
 }
 
+func (ks *keyStore) loadUnusedTCert() ([]byte, error) {
+	// Get the first row available
+	var id int
+	var cert []byte
+	row := ks.sqlDB.QueryRow("SELECT id, cert FROM TCerts")
+	err := row.Scan(&id, &cert)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		ks.log.Error("Error during select [%s].", err.Error())
+
+		return nil, err
+	}
+
+	// Remove from TCert
+	if _, err := ks.sqlDB.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
+		ks.log.Error("Failed removing row [%d] from TCert: [%s].", id, err.Error())
+
+		return nil, err
+	}
+
+	return cert, nil
+}
+
 func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 	// Get unused TCerts
 	rows, err := ks.sqlDB.Query("SELECT cert FROM TCerts")

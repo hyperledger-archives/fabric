@@ -43,14 +43,8 @@ type tCertPoolImpl struct {
 }
 
 func (tCertPool *tCertPoolImpl) Start() (err error) {
-	// Load unused TCerts
-	tCertDERs, err := tCertPool.client.node.ks.loadUnusedTCerts()
-	if err != nil {
-		tCertPool.client.node.log.Warning("Failed loading unused TCerts [%s]", err)
-	}
-
 	// Start the filler
-	go tCertPool.filler(tCertDERs)
+	go tCertPool.filler()
 
 	return
 }
@@ -130,34 +124,68 @@ func (tCertPool *tCertPoolImpl) init(client *clientImpl) (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolImpl) filler(tCertDERs [][]byte) {
-	tCertPool.client.node.log.Debug("Found %d unused TCerts...", len(tCertDERs))
-	if len(tCertDERs) > 0 {
-		full := false
-		for _, tCertDER := range tCertDERs {
-			tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
-			if err != nil {
-				tCertPool.client.node.log.Error("Failed paring TCert [% x]: [%s]", tCertDER, err)
-			}
+func (tCertPool *tCertPoolImpl) filler() {
+	// Load unused TCerts
+	//tCertDERs, err := tCertPool.client.node.ks.loadUnusedTCerts()
+	//if err != nil {
+	//	tCertPool.client.node.log.Warning("Failed loading unused TCerts [%s]", err)
+	//}
+	//
+	//tCertPool.client.node.log.Debug("Found %d unused TCerts...", len(tCertDERs))
+	stop := false
+	//if len(tCertDERs) > 0 {
+	full := false
+	for {
+		tCertDER, err := tCertPool.client.node.ks.loadUnusedTCert()
+		if err != nil {
+			tCertPool.client.node.log.Error("Failed loading TCert: [%s]", err)
+			break
+		}
+		if tCertDER == nil {
+			tCertPool.client.node.log.Debug("No more TCerts in cache!")
+			break
+		}
 
-			select {
-			case tCertPool.tCertChannel <- tCert:
-				tCertPool.client.node.log.Debug("TCert send to the channel!")
-			default:
-				tCertPool.client.node.log.Debug("Channell Full!")
-				full = true
-			}
-			if full {
-				break
-			}
+		tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+		if err != nil {
+			tCertPool.client.node.log.Error("Failed paring TCert [% x]: [%s]", tCertDER, err)
+
+			continue
+		}
+
+		// Check if Stop was called
+		select {
+		case <-tCertPool.done:
+			tCertPool.client.node.log.Debug("Force stop!")
+		default:
+		}
+		if stop {
+			break
+		}
+
+		// Try to send the tCert to the channel if not full
+		select {
+		case tCertPool.tCertChannel <- tCert:
+			tCertPool.client.node.log.Debug("TCert send to the channel!")
+		default:
+			tCertPool.client.node.log.Debug("Channell Full!")
+			full = true
+		}
+		if full {
+			break
 		}
 	}
+	//}
 
 	tCertPool.client.node.log.Debug("Load unused TCerts...done!")
 
 	ticker := time.NewTicker(1 * time.Second)
-	stop := false
 	for {
+		if stop {
+			tCertPool.client.node.log.Debug("Quitting filler...")
+			break
+		}
+
 		select {
 		case <-tCertPool.done:
 			stop = true
