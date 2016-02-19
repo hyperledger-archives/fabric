@@ -24,7 +24,6 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"google/protobuf"
@@ -35,34 +34,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
-
-func (node *nodeImpl) initTLS() error {
-	node.log.Debug("Initiliazing TLS...")
-
-	if node.conf.isTLSEnabled() {
-		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
-		if err != nil {
-			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
-
-			return err
-		}
-
-		node.tlsCertPool = x509.NewCertPool()
-		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
-		if !ok {
-			node.log.Error("Failed appending TLSCA certificates chain.")
-
-			return errors.New("Failed appending TLSCA certificates chain.")
-		}
-		node.log.Debug("Initiliazing TLS...Done")
-	} else {
-		node.log.Debug("Initiliazing TLS...Disabled!!!")
-	}
-
-	return nil
-}
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
@@ -182,52 +154,6 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	node.log.Debug("Verifing tls certificate...done!")
 
 	return priv, pbCert.Cert.Cert, nil
-}
-
-func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
-	node.log.Debug("Getting Client Connection to [%s]...", serverName)
-
-	var conn *grpc.ClientConn
-	var err error
-
-	if node.conf.isTLSEnabled() {
-		node.log.Debug("TLS enabled...")
-
-		// setup tls options
-		var opts []grpc.DialOption
-		config := tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            node.tlsCertPool,
-			ServerName:         serverName,
-		}
-		if node.conf.isTLSClientAuthEnabled() {
-
-		}
-
-		creds := credentials.NewTLS(&config)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
-	} else {
-		node.log.Debug("TLS disabled...")
-
-		var opts []grpc.DialOption
-		opts = append(opts, grpc.WithInsecure())
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
-	}
-
-	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, err
-	}
-
-	node.log.Debug("Getting Client Connection to [%s]...done", serverName)
-
-	return conn, nil
 }
 
 func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, error) {

@@ -30,14 +30,27 @@ const (
 	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
 )
 
-func (node *nodeImpl) initConfiguration(prefix, name string) error {
+func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 	// Set logger
 	node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
-	logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
-	return node.conf.init()
+	if err = node.conf.init(); err != nil {
+		return
+	}
+
+	// Set logger level
+	level, err := logging.LogLevel(viper.GetString("logging.crypto"))
+	if err == nil {
+		// No error, use the setting
+		logging.SetLevel(level, "crypto."+prefix+"."+name)
+	} else {
+		node.log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
+		logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
+	}
+
+	return
 }
 
 type configuration struct {
