@@ -149,14 +149,13 @@ func (tCertPool *tCertPoolImpl) filler() {
 		tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
 		if err != nil {
 			tCertPool.client.node.log.Error("Failed paring TCert [% x]: [%s]", tCertDER, err)
-
-			continue
 		}
 
 		// Check if Stop was called
 		select {
 		case <-tCertPool.done:
 			tCertPool.client.node.log.Debug("Force stop!")
+			stop = true
 		default:
 		}
 		if stop {
@@ -164,58 +163,57 @@ func (tCertPool *tCertPoolImpl) filler() {
 		}
 
 		// Try to send the tCert to the channel if not full
-		select {
-		case tCertPool.tCertChannel <- tCert:
-			tCertPool.client.node.log.Debug("TCert send to the channel!")
-		default:
-			tCertPool.client.node.log.Debug("Channell Full!")
-			full = true
-		}
-		if full {
-			break
+		if tCert != nil {
+			select {
+			case tCertPool.tCertChannel <- tCert:
+				tCertPool.client.node.log.Debug("TCert send to the channel!")
+			default:
+				tCertPool.client.node.log.Debug("Channell Full!")
+				full = true
+			}
+			if full {
+				break
+			}
 		}
 	}
 	//}
 
 	tCertPool.client.node.log.Debug("Load unused TCerts...done!")
 
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		if stop {
-			tCertPool.client.node.log.Debug("Quitting filler...")
-			break
-		}
-
-		select {
-		case <-tCertPool.done:
-			stop = true
-			tCertPool.client.node.log.Debug("Done signal.")
-		case <-tCertPool.tCertChannelFeedback:
-			tCertPool.client.node.log.Debug("Feedback received. Time to check for tcerts")
-		case <-ticker.C:
-			tCertPool.client.node.log.Debug("Time elapsed. Time to check for tcerts")
-		}
-
-		if stop {
-			tCertPool.client.node.log.Debug("Quitting filler...")
-			break
-		}
-
-		if len(tCertPool.tCertChannel) < tCertPool.client.node.conf.getTCertBathSize() {
-			tCertPool.client.node.log.Debug("Refill TCert Pool. Current size [%d].",
-				len(tCertPool.tCertChannel),
-			)
-
-			var numTCerts int = cap(tCertPool.tCertChannel) - len(tCertPool.tCertChannel)
-			if len(tCertPool.tCertChannel) == 0 {
-				numTCerts = cap(tCertPool.tCertChannel) / 10
+	if stop {
+		ticker := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-tCertPool.done:
+				stop = true
+				tCertPool.client.node.log.Debug("Done signal.")
+			case <-tCertPool.tCertChannelFeedback:
+				tCertPool.client.node.log.Debug("Feedback received. Time to check for tcerts")
+			case <-ticker.C:
+				tCertPool.client.node.log.Debug("Time elapsed. Time to check for tcerts")
 			}
 
-			tCertPool.client.node.log.Debug("Refilling [%d] TCerts.", numTCerts)
+			if stop {
+				tCertPool.client.node.log.Debug("Quitting filler...")
+				break
+			}
 
-			err := tCertPool.client.getTCertsFromTCA(numTCerts)
-			if err != nil {
-				tCertPool.client.node.log.Error("Failed getting TCerts from the TCA: [%s]", err)
+			if len(tCertPool.tCertChannel) < tCertPool.client.node.conf.getTCertBathSize() {
+				tCertPool.client.node.log.Debug("Refill TCert Pool. Current size [%d].",
+					len(tCertPool.tCertChannel),
+				)
+
+				var numTCerts int = cap(tCertPool.tCertChannel) - len(tCertPool.tCertChannel)
+				if len(tCertPool.tCertChannel) == 0 {
+					numTCerts = cap(tCertPool.tCertChannel) / 10
+				}
+
+				tCertPool.client.node.log.Debug("Refilling [%d] TCerts.", numTCerts)
+
+				err := tCertPool.client.getTCertsFromTCA(numTCerts)
+				if err != nil {
+					tCertPool.client.node.log.Error("Failed getting TCerts from the TCA: [%s]", err)
+				}
 			}
 		}
 	}
