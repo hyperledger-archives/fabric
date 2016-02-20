@@ -114,7 +114,7 @@ func TestParallelInitClose(t *testing.T) {
 
 	done := make(chan bool)
 
-	n := 5
+	n := 20
 	for i := 0; i < n; i++ {
 		go func() {
 			for i := 0; i < 5; i++ {

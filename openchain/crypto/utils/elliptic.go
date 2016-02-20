@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	DefaultCurve = elliptic.P384()
+	DefaultCurve = elliptic.P256()
 )
 
 // ECDSASignature represents an ECDSA signature

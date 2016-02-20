@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	defaultHash = sha3.New384
+	defaultHash = sha3.New256
 )
 
 func GetDefaultHash() func() hash.Hash {
