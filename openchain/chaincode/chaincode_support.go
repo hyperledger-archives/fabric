@@ -35,6 +35,7 @@ import (
 
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
+	"github.com/openblockchain/obc-peer/openchain/ledger"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -216,7 +217,7 @@ func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Co
 }
 
 // Based on state of chaincode send either init or ready to move to ready state
-func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction) error {
+func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction, depTx *pb.Transaction) error {
 	chaincodeSupport.handlerMap.Lock()
 	//if its in the map, there must be a connected stream...nothing to do
 	var handler *Handler
@@ -230,7 +231,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 	var notfy chan *pb.ChaincodeMessage
 	var err error
-	if notfy, err = handler.initOrReady(uuid, f, initArgs, tx); err != nil {
+	if notfy, err = handler.initOrReady(uuid, f, initArgs, tx, depTx); err != nil {
 		return fmt.Errorf("Error sending %s: %s", pb.ChaincodeMessage_INIT, err)
 	}
 	if notfy != nil {
@@ -408,6 +409,44 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	}
 	chaincodeSupport.handlerMap.Unlock()
 
+	var depTx *pb.Transaction
+
+	//extract depTx so we can initialize hander.deployTXSecContext
+	//we need it only after container is launched and only if this is not a deploy tx
+	//NOTE: ideally this section should be moved before just before sendInitOrReady where
+	//      where we need depTx.  However, as we don't check for ExecuteTransactions failure
+	//      in consensus/helper, the following race is not resolved:
+	//         1) deploy creates image
+	//         2) query launches chaincode
+	//         3) deploy returns "premature execution" error
+	//         4) error ignored and deploy committed
+	//         5) query successfully retrives committed tx and calls sendInitOrReady
+	// See issue #710
+
+	if t.Type != pb.Transaction_CHAINCODE_NEW {
+		ledger, ledgerErr := ledger.GetLedger()
+		if ledgerErr != nil {
+			return cID, cMsg, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
+		}
+
+		//hopefully we are restarting from existing image and the deployed transaction exists
+		depTx, ledgerErr = ledger.GetTransactionByUUID(chaincode)
+		if ledgerErr != nil {
+			return cID, cMsg, fmt.Errorf("Could not get deployment transaction for %s - %s", chaincode, ledgerErr)
+		}
+		if depTx == nil {
+			return cID, cMsg, fmt.Errorf("deployment transaction does not exist for %s", chaincode)
+		}
+		if nil != chaincodeSupport.secHelper {
+			var err error
+			depTx, err = chaincodeSupport.secHelper.TransactionPreExecution(depTx)
+			// Note that t is now decrypted and is a deep clone of the original input t
+			if nil != err {
+				return cID, cMsg, fmt.Errorf("failed tx preexecution%s - %s", chaincode, err)
+			}
+		}
+	}
+
 	//from here on : if we launch the container and get an error, we need to stop the container
 	if !chaincodeSupport.userRunsCC && handler == nil {
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cID, t.Uuid)
@@ -419,7 +458,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t)
+		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t, depTx)
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)

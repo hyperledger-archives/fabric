@@ -60,7 +60,6 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		markTxBegin(ledger, t)
 		_, _, err = chain.LaunchChaincode(ctxt, t)
 		if err != nil {
-			//TODO rollback transaction as init might have set state
 			markTxFinish(ledger, t, false)
 			return nil, fmt.Errorf("%s", err)
 		}
@@ -105,7 +104,6 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			//fmt.Printf("Got ERROR inside execute %s\n", err)
 			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction

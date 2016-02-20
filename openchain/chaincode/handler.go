@@ -547,7 +547,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 		if ledgerErr != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(ledgerErr.Error())
-			chaincodeLogger.Debug("Failed to get chaincode state. Sending %s", pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Error(fmt.Sprintf("Failed to get chaincode state(%s). Sending %s", ledgerErr, pb.ChaincodeMessage_ERROR))
 			// Remove uuid from current set
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
@@ -561,7 +561,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
-			chaincodeLogger.Debug("[%s]Failed to get chaincode state. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Failed to get chaincode state(%s). Sending %s", shortuuid(msg.Uuid), err, pb.ChaincodeMessage_ERROR))
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 		} else {
 			// Decrypt the data if the confidential is enabled
@@ -571,7 +571,7 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 			} else {
 				// Send err msg back to chaincode.
-				chaincodeLogger.Debug("[%s]Got error while decrypting. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+				chaincodeLogger.Error(fmt.Sprintf("[%s]Got error (%s) while decrypting. Sending %s", shortuuid(msg.Uuid), err, pb.ChaincodeMessage_ERROR))
 				errBytes := []byte(err.Error())
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: errBytes, Uuid: msg.Uuid}
 			}
@@ -1073,9 +1073,61 @@ func (handler *Handler) enterEndState(e *fsm.Event, state string) {
 	e.Cancel(fmt.Errorf("Entered end state"))
 }
 
+func (handler *Handler) cloneTx(tx *pb.Transaction) (*pb.Transaction, error) {
+	raw, err := proto.Marshal(tx)
+	if err != nil {
+		chaincodeLogger.Error(fmt.Sprintf("Failed marshalling transaction [%s].", err.Error()))
+		return nil, err
+	}
+
+	clone := &pb.Transaction{}
+	err = proto.Unmarshal(raw, clone)
+	if err != nil {
+		chaincodeLogger.Error(fmt.Sprintf("Failed unmarshalling transaction [%s].", err.Error()))
+		return nil, err
+	}
+
+	return clone, nil
+}
+
+func (handler *Handler) initializeSecContext(tx, depTx *pb.Transaction) error {
+	//set deploy transaction on the handler
+	if depTx != nil {
+		//we are given a deep clone of depTx.. Just use it
+		handler.deployTXSecContext = depTx
+	} else {
+		//nil depTx => tx is a deploy transaction, clone it
+		var err error
+		handler.deployTXSecContext, err = handler.cloneTx(tx)
+		if err != nil {
+			return fmt.Errorf("Failed to clone transaction: %s\n", err)
+		}
+	}
+
+	//don't need the payload which is not useful and rather large
+	handler.deployTXSecContext.Payload = nil
+
+	//we need to null out path from depTx as invoke or queries don't have it
+	cID := &pb.ChaincodeID{}
+	err := proto.Unmarshal(handler.deployTXSecContext.ChaincodeID, cID)
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshall : %s\n", err)
+	}
+
+	cID.Path = ""
+	data, err := proto.Marshal(cID)
+	if err != nil {
+		return fmt.Errorf("Failed to marshall : %s\n", err)
+	}
+
+	handler.deployTXSecContext.ChaincodeID = data
+
+	return nil
+}
+
 //if initArgs is set (should be for "deploy" only) move to Init
 //else move to ready
-func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
+func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction, depTx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
 	var ccMsg *pb.ChaincodeMessage
 	var send bool
 
@@ -1106,8 +1158,10 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 		send = true
 	}
 
-	//set deploy transaction on the handler
-	handler.deployTXSecContext = tx
+	if  err:= handler.initializeSecContext(tx, depTx); err != nil {
+		handler.deleteTxContext(uuid)
+		return nil, err
+	}
 
 	handler.triggerNextState(ccMsg, send)
 
