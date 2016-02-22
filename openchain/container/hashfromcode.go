@@ -137,7 +137,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	// . GO will not download OBC as it is in the second path. GO will use the local OBC for generating chaincode image
 	//     . network savings
 	//     . more secure
-	//     . as we are not downloading OBC, private OBC repo's become non-issue
+	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
 	
