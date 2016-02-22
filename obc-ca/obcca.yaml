@@ -24,10 +24,6 @@ security:
     # Must be the same as in openchain.yaml
     level: 256
 
-    # Enable/Disable multithread
-    multithreading:
-      enabled: false
-
 # Enabling/disabling different logging levels of the CA.
 #
 logging:
