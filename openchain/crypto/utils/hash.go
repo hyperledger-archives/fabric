@@ -21,12 +21,11 @@ package utils
 
 import (
 	"crypto/hmac"
-	"golang.org/x/crypto/sha3"
 	"hash"
 )
 
 var (
-	defaultHash = sha3.New256
+	defaultHash func() hash.Hash
 )
 
 func GetDefaultHash() func() hash.Hash {

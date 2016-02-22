@@ -21,6 +21,8 @@ package crypto
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"time"
 )
 
@@ -34,7 +36,7 @@ type tCertPool interface {
 	AddTCert(tCert tCert) error
 }
 
-type tCertPoolImpl struct {
+type tCertPoolMultithreadingImpl struct {
 	client *clientImpl
 
 	tCertChannel         chan tCert
@@ -42,14 +44,14 @@ type tCertPoolImpl struct {
 	done                 chan struct{}
 }
 
-func (tCertPool *tCertPoolImpl) Start() (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) Start() (err error) {
 	// Start the filler
 	go tCertPool.filler()
 
 	return
 }
 
-func (tCertPool *tCertPoolImpl) Stop() (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	// Stop the filler
 	tCertPool.done <- struct{}{}
 
@@ -74,7 +76,7 @@ func (tCertPool *tCertPoolImpl) Stop() (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPool.client.node.log.Debug("Getting next TCert... %d out of 3", i)
 		select {
@@ -107,14 +109,14 @@ func (tCertPool *tCertPoolImpl) GetNextTCert() (tCert tCert, err error) {
 	return
 }
 
-func (tCertPool *tCertPoolImpl) AddTCert(tCert tCert) (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) {
 	tCertPool.client.node.log.Debug("New TCert added.")
 	tCertPool.tCertChannel <- tCert
 
 	return
 }
 
-func (tCertPool *tCertPoolImpl) init(client *clientImpl) (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
 
 	tCertPool.tCertChannel = make(chan tCert, client.node.conf.getTCertBathSize()*2)
@@ -124,7 +126,7 @@ func (tCertPool *tCertPoolImpl) init(client *clientImpl) (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolImpl) filler() {
+func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 	// Load unused TCerts
 	stop := false
 	full := false
@@ -211,4 +213,65 @@ func (tCertPool *tCertPoolImpl) filler() {
 	}
 
 	tCertPool.client.node.log.Debug("TCert filler stopped.")
+}
+
+type tCertPoolSingleThreadImpl struct {
+	client *clientImpl
+
+	len    int
+	tCerts []tCert
+	m      sync.Mutex
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
+	tCertPool.client.node.log.Debug("Starting TCert Pool...")
+
+	tCertPool.m.Lock()
+	defer tCertPool.m.Unlock()
+
+	tCertPool.client.getTCertsFromTCA(tCertPool.client.node.conf.getTCertBathSize())
+
+	return
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
+	return
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err error) {
+	tCertPool.m.Lock()
+	defer tCertPool.m.Unlock()
+
+	if tCertPool.len <= 0 {
+		// Reload
+		if err := tCertPool.client.getTCertsFromTCA(tCertPool.client.node.conf.getTCertBathSize()); err != nil {
+
+			return nil, fmt.Errorf("Failed loading TCerts from TCA")
+		}
+	}
+
+	tCert = tCertPool.tCerts[tCertPool.len-1]
+	tCertPool.len--
+
+	return
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
+	tCertPool.client.node.log.Debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
+
+	tCertPool.len++
+	tCertPool.tCerts[tCertPool.len-1] = tCert
+
+	return nil
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
+	tCertPool.client = client
+
+	tCertPool.client.node.log.Debug("Init TCert Pool...")
+
+	tCertPool.tCerts = make([]tCert, tCertPool.client.node.conf.getTCertBathSize())
+	tCertPool.len = 0
+
+	return
 }

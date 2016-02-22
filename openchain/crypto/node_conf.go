@@ -21,7 +21,9 @@ package crypto
 
 import (
 	"errors"
+	"fmt"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
@@ -70,9 +72,12 @@ type configuration struct {
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
 
+	securityLevel int
+
 	tlsServerName string
 
-	tCertBathSize int
+	multiThreading bool
+	tCertBathSize  int
 }
 
 func (conf *configuration) init() error {
@@ -110,6 +115,18 @@ func (conf *configuration) init() error {
 	// Set tCerts path
 	conf.tCertsPath = filepath.Join(conf.keystorePath, "tcerts")
 
+	conf.securityLevel = 384
+	if viper.IsSet("security.level") {
+		ovveride := viper.GetInt("security.level")
+		if ovveride != 0 {
+			conf.securityLevel = ovveride
+		}
+	}
+
+	if err := utils.InitSecurityLevel(conf.securityLevel); err != nil {
+		return fmt.Errorf("Invalid security level [%d]", conf.securityLevel)
+	}
+
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
 	if viper.IsSet("peer.pki.tls.server-host-override") {
@@ -121,11 +138,17 @@ func (conf *configuration) init() error {
 
 	// Set tCertBathSize
 	conf.tCertBathSize = 200
-	if viper.IsSet("peer.tcert.buffer.size") {
-		ovveride := viper.GetInt("peer.tcert.buffer.size")
+	if viper.IsSet("peer.tcert.batch.size") {
+		ovveride := viper.GetInt("peer.tcert.batch.size")
 		if ovveride != 0 {
 			conf.tCertBathSize = ovveride
 		}
+	}
+
+	// Set multithread
+	conf.multiThreading = false
+	if viper.IsSet("security.multithreading.enabled") {
+		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
 	}
 
 	return nil
@@ -217,6 +240,10 @@ func (conf *configuration) isTLSEnabled() bool {
 
 func (conf *configuration) isTLSClientAuthEnabled() bool {
 	return viper.GetBool("peer.pki.tls.client.auth.enabled")
+}
+
+func (conf *configuration) IsMultithreadingEnabled() bool {
+	return conf.multiThreading
 }
 
 func (conf *configuration) getTCAServerName() string {

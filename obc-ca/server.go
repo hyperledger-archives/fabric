@@ -27,7 +27,9 @@ import (
 	"os"
 	"runtime"
 
+	"fmt"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -69,7 +71,13 @@ func main() {
 	} else {
 		iopanic = ioutil.Discard
 	}
-	
+
+	// Init security level
+	securityLevel := obcca.GetConfigInt("security.level")
+	if err := utils.InitSecurityLevel(securityLevel); err != nil {
+		panic(fmt.Errorf("Invalid security level [%d]", securityLevel))
+	}
+
 	obcca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
 	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
@@ -83,7 +91,7 @@ func main() {
 	defer tlsca.Close()
 
 	runtime.GOMAXPROCS(obcca.GetConfigInt("server.gomaxprocs"))
-	
+
 	var opts []grpc.ServerOption
 	if viper.GetString("server.tls.certfile") != "" {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))

@@ -968,6 +968,12 @@ func setup() {
 		createConfidentialECertHQueryTransaction,
 	}
 
+	// Init security level
+	securityLevel := viper.GetInt("security.level")
+	if err := utils.InitSecurityLevel(securityLevel); err != nil {
+		panic(fmt.Errorf("Invalid security level [%d]", securityLevel))
+	}
+
 	// Clenaup folders
 	removeFolders()
 }

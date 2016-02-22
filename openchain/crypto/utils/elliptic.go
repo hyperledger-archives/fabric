@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	defaultCurve = elliptic.P256()
+	defaultCurve elliptic.Curve
 )
 
 func GetDefaultCurve() elliptic.Curve {

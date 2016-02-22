@@ -239,6 +239,12 @@ peer:
     # Path on the file system where peer will store data
     fileSystemPath: /var/openchain/production
 
+    # TCerts related configuration
+    tcert:
+      batch:
+        # The size of the batch of TCerts
+        size:  200
+
 ###############################################################################
 #
 #    VM section
@@ -383,3 +389,11 @@ security:
     # encrypts the transaction content during transit and at rest. The state
     # data is also encrypted
     privacy: false
+
+    # Can be 256 or 384. If you change here, you have to change also
+    # the same property in obcca.yaml to the same value
+    level: 256
+
+    # Enable/Disable multithread
+    multithreading:
+      enabled: false

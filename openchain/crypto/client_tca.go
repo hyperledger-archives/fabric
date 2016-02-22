@@ -42,10 +42,20 @@ func (client *clientImpl) initTCertEngine() (err error) {
 	}
 
 	// init TCerPool
-	tCertPool := new(tCertPoolImpl)
-	tCertPool.init(client)
-	tCertPool.Start()
-	client.tCertPool = tCertPool
+	client.node.log.Debug("Using multithreading [%t]", client.node.conf.IsMultithreadingEnabled())
+	client.node.log.Debug("TCert batch size [%d]", client.node.conf.getTCertBathSize())
+
+	if client.node.conf.IsMultithreadingEnabled() {
+		tCertPool := new(tCertPoolMultithreadingImpl)
+		tCertPool.init(client)
+		client.tCertPool = tCertPool
+		tCertPool.Start()
+	} else {
+		tCertPool := new(tCertPoolSingleThreadImpl)
+		tCertPool.init(client)
+		client.tCertPool = tCertPool
+		tCertPool.Start()
+	}
 
 	return
 }
