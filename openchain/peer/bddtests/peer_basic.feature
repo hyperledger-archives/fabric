@@ -231,111 +231,68 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
-#@doNotDecompose
+#   @doNotDecompose
 #@wip
 #@skip
-   Scenario Outline: 4 peers and 1 obcca, stopping each peer in turn
+   @ttd
+   Scenario Outline: 4 peers and 1 obcca, if primary dies, consensus still works
 
-       Given we compose "<ComposeFile>"
-       And I wait "5" seconds
-       And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
-                     | vp0  |
-            And I use the following credentials for querying peers:
-          | peer |   username  |    secret    |
-          | vp0  |  test_user0 | MS9qrN8hFjlE |
-          | vp1  |  test_user1 | jGlNl6ImkuDo |
-          | vp2  |  test_user2 | zMflqOKezFiA |
-          | vp3  |  test_user3 | vWdLCE00vJy0 |
+      Given we compose "<ComposeFile>"
+      And I wait "10" seconds
+      And I use the following credentials for querying peers:
+         | peer |   username  |    secret    |
+         | vp0  |  test_user0 | MS9qrN8hFjlE |
+         | vp1  |  test_user1 | jGlNl6ImkuDo |
+         | vp2  |  test_user2 | zMflqOKezFiA |
+         | vp3  |  test_user3 | vWdLCE00vJy0 |
+      And I register with CA supplying username "test_user0" and secret "MS9qrN8hFjlE" on peers:
+         | vp0 |
 
-       When requesting "/chain" from "vp0"
-          Then I should get a JSON response with "height" = "1"
+      When requesting "/chain" from "vp0"
+       Then I should get a JSON response with "height" = "1"
 
+      # Deploy
+      When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+         | arg1 |  arg2 | arg3 | arg4 |
+         |  a   |  100  |  b   |  200 |
+       Then I should have received a chaincode name
+       Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
 
-            # Deploy
-       When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
-                    | arg1 |  arg2 | arg3 | arg4 |
-                    |  a   |  100  |  b   |  200 |
-          Then I should have received a chaincode name
-          Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
-                     | vp0  | vp1 | vp2 | vp3 |
-
-         # get things started. All peers up and executing Txs
-         When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
-                    |arg1|arg2|arg3|
-                    | a  | b  | 1  |
-          Then I should have received a transactionID
-          Then I wait up to "3" seconds for transaction to be committed to peers:
-                    | vp0  | vp1 | vp2 | vp3 |
-
-            When I query chaincode "example2" function name "query" with value "a" on peers:
-                    | vp0  | vp1 | vp2 | vp3 |
-          Then I should get a JSON response from peers with "OK" = "95"
-                    | vp0  | vp1 | vp2 | vp3 |
-
-        # STOP vp0
-        Given I stop peers:
-            | vp0  |
-
-        # continue invoking Txs ( primary should now be vp1 but sending requests to vp2 )
-        When I invoke chaincode "example2" function name "invoke" on "vp2" "5" times
-            |arg1|arg2|arg3|
-            | a  | b  | 1 |
-          Then I should have received a transactionID
-          Then I wait "3" seconds
-          # a = 90
-
-       # Restart vp0
-       Given I start peers:
-           | vp0 |
-        And I wait "3" seconds
-       # STOP vp1
-       Given I stop peers:
-           | vp1 |
-       And I wait "3" seconds
-
-       # continue invoking Txs ( primary should now be vp2 but sending requests to vp3)
-       When I invoke chaincode "example2" function name "invoke" on "vp3" "5" times
+      # get things started. All peers up and executing Txs
+      When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
            |arg1|arg2|arg3|
-           | a  | b  | 1 |
-         Then I should have received a transactionID
-         Then I wait "3" seconds
-         # a = 85
+           | a  | b  | 1  |
+       Then I should have received a transactionID
+       Then I wait up to "3" seconds for transaction to be committed to peers:
+           | vp0  | vp1 | vp2 | vp3 |
 
-      # Restart vp1
-      Given I start peers:
-          | vp1 |
-      And I wait "3" seconds
-      # STOP vp2
+      When I query chaincode "example2" function name "query" with value "a" on peers:
+           | vp0  | vp1 | vp2 | vp3 |
+       Then I should get a JSON response from peers with "OK" = "95"
+           | vp0  | vp1 | vp2 | vp3 |
+
+      # STOP vp0
       Given I stop peers:
-          | vp2 |
-      And I wait "3" seconds
+         | vp0  |
+       And I register with CA supplying username "test_user2" and secret "zMflqOKezFiA" on peers:
+         | vp2 |
 
-      # continue invoking Txs ( primary should now be vp3 but sending requests to vp1)
-      When I invoke chaincode "example2" function name "invoke" on "vp1" "5" times
+      # continue invoking Txs ( primary should now be vp1 but sending requests to vp2 )
+      When I invoke chaincode "example2" function name "invoke" on "vp2" "10" times
          |arg1|arg2|arg3|
          | a  | b  | 1 |
-        Then I should have received a transactionID
-        Then I wait "3" seconds
-        # a = 80
-
-     # Restart vp2
-     Given I start peers:
-         | vp2 |
-     And I wait "3" seconds
-     # STOP vp3
-     Given I stop peers:
-         | vp3 |
-     And I wait "3" seconds
-
-     # continue invoking Txs ( primary should now be vp0 , sending requests to vp0 )
-     When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
-        |arg1|arg2|arg3|
-        | a  | b  | 1 |
        Then I should have received a transactionID
-       Then I wait "3" seconds
-       # a = 75
+      # a = 85
+       Then I wait "30" seconds
 
-     When I query chaincode "example2" function name "query" with value "a" on peers:
-         | vp0  | vp1 | vp2 |
-       Then I should get a JSON response from peers with "OK" = "75"
-         | vp0  | vp1 | vp2 |
+      When I query chaincode "example2" function name "query" with value "a" on peers:
+        | vp1  | vp2 | vp3 |
+       Then I should get a JSON response from peers with "OK" = "85"
+        | vp1 | vp2 | vp3 |
+
+   Examples: Consensus Options
+       |          ComposeFile                       |   WaitTime   |
+       |   docker-compose-4-consensus-classic.yml   |      30      |
+       |   docker-compose-4-consensus-batch.yml     |      30      |
+       |   docker-compose-4-consensus-sieve.yml     |      30      |
