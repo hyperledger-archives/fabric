@@ -130,7 +130,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	
 	//go paths can have multiple dirs. We create a GOPATH with two source tree's as follows
 	//
-	//    <temporary empty folder to download chaincode source> : <original go path with OBC source>
+	//    <temporary empty folder to download chaincode source> : <local go path with OBC source>
 	//
 	//This approach has several goodness:
 	// . Go will pick the first path to download user code (which we will delete after processing)
