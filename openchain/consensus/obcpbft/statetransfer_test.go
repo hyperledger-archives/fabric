@@ -37,11 +37,7 @@ func newTestStateTransfer(ml *MockLedger) *StateTransferState {
 	// Seed it here so that independent test executions are consistent
 	rand.Seed(0)
 
-	peerID := &protos.PeerID{
-		Name: "State Transfer Test",
-	}
-
-	return NewStateTransferState(peerID, loadConfig(), ml)
+	return NewStateTransferState(loadConfig(), ml)
 }
 
 func createRemoteLedgers(low, high uint64) (*map[protos.PeerID]consensus.ReadOnlyLedger, *map[protos.PeerID]*MockRemoteLedger) {
@@ -367,7 +363,7 @@ func TestCatchupSimpleSynchronousSuccess(t *testing.T) {
 
 func executeBlockRecovery(ml *MockLedger, millisTimeout int) error {
 
-	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml)
+	sts := ThreadlessNewStateTransferState(loadConfig(), ml)
 	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
 	sts.RecoverDamage = true
 
@@ -395,7 +391,7 @@ func executeBlockRecovery(ml *MockLedger, millisTimeout int) error {
 
 func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int) error {
 
-	sts := ThreadlessNewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml)
+	sts := ThreadlessNewStateTransferState(loadConfig(), ml)
 	sts.BlockRequestTimeout = time.Duration(millisTimeout) * time.Millisecond
 	sts.RecoverDamage = false
 
@@ -509,7 +505,7 @@ func (lh *listenerHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID,
 func TestRegisterUnregisterListener(t *testing.T) {
 	ml := NewMockLedger(nil, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
-	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml)
+	sts := NewStateTransferState(loadConfig(), ml)
 	defer sts.Stop()
 	sts.DiscoveryThrottleTime = 1 * time.Millisecond
 

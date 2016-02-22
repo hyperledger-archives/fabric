@@ -110,7 +110,7 @@ func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, fi
 }
 
 func (mock *MockLedger) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
-	network = make([]*protos.PeerEndpoint, len(*mock.remoteLedgers))
+	network = make([]*protos.PeerEndpoint, len(*mock.remoteLedgers)+1)
 	i := 0
 	for peerID, _ := range *mock.remoteLedgers {
 		peerID := peerID // Get a memory address which will not be overwritten
@@ -119,6 +119,12 @@ func (mock *MockLedger) GetNetworkInfo() (self *protos.PeerEndpoint, network []*
 			Type: protos.PeerEndpoint_VALIDATOR,
 		}
 		i++
+	}
+	network[i] = &protos.PeerEndpoint{
+		ID: &protos.PeerID{
+			Name: "TestID",
+		},
+		Type: protos.PeerEndpoint_VALIDATOR,
 	}
 	return
 }

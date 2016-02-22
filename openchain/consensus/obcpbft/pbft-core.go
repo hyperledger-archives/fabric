@@ -215,11 +215,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger sta
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
-	if myHandle, err := getValidatorHandle(instance.id); err != nil {
-		panic("Could not retrieve own handle")
-	} else {
-		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger)
-	}
+	instance.sts = statetransfer.NewStateTransferState(config, ledger)
 
 	listener := struct{ statetransfer.ProtoListener }{}
 	listener.CompletedImpl = instance.stateTransferCompleted

@@ -277,13 +277,19 @@ outer:
 // constructors
 // =============================================================================
 
-func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, stack PartialStack) *StateTransferState {
+func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *StateTransferState {
+	var err error
 	sts := &StateTransferState{}
 
 	sts.stateTransferListenersLock = &sync.Mutex{}
 
 	sts.stack = stack
-	sts.id = id
+	sts.id, _, err = stack.GetNetworkHandles()
+
+	if nil != err {
+		logger.Debug("Error resolving our own PeerID, this shouldn't happen")
+		sts.id = &protos.PeerID{"ERROR_RESOLVING_ID"}
+	}
 
 	sts.asynchronousTransferInProgress = false
 
@@ -306,8 +312,6 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, sta
 
 	sts.DiscoveryThrottleTime = 1 * time.Second // TODO make this configurable
 
-	var err error
-
 	sts.BlockRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.singleblock"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singleblock timeout: %s", err))
@@ -324,8 +328,8 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, sta
 	return sts
 }
 
-func NewStateTransferState(id *protos.PeerID, config *viper.Viper, stack PartialStack) *StateTransferState {
-	sts := ThreadlessNewStateTransferState(id, config, stack)
+func NewStateTransferState(config *viper.Viper, stack PartialStack) *StateTransferState {
+	sts := ThreadlessNewStateTransferState(config, stack)
 
 	go sts.stateThread()
 	go sts.blockThread()

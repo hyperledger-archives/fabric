@@ -191,6 +191,10 @@ func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.Pee
 
 func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
 	self = inst.handle
+	if nil == inst.net {
+		err = fmt.Errorf("Network not initialized")
+		return
+	}
 	network = inst.net.handles
 	return
 }
