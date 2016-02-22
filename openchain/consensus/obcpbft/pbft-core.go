@@ -27,7 +27,6 @@ import (
 	"time"
 
 	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
@@ -89,7 +88,7 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	ledger  consensus.LedgerStack             // Used for blockchain related queries
+	ledger  statetransfer.PartialStack        // Used for blockchain related queries
 	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
 	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
 
@@ -160,7 +159,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger consensus.LedgerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger statetransfer.PartialStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -216,32 +215,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
-	defaultPeerIDs := make([]*protos.PeerID, instance.replicaCount-1)
-	if instance.replicaCount > 1 {
-		// For some tests, only 1 replica will be present, and defaultPeerIDs makes no sense
-		for i := uint64(0); i < uint64(instance.replicaCount); i++ {
-			handle, err := getValidatorHandle(i)
-			if err != nil {
-				panic(fmt.Errorf("Cannot retrieve handle for peer which must exist : %s", err))
-			}
-			if i < instance.id {
-				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i, instance.replicaCount, instance.id)
-				defaultPeerIDs[i] = handle
-			} else if i > instance.id {
-				logger.Debug("Replica %d assigning %v to index %d for replicaCount %d and id %d", instance.id, handle, i-1, instance.replicaCount, instance.id)
-				defaultPeerIDs[i-1] = handle
-			} else {
-				// This is our ID, do not add it to the list of default peers
-			}
-		}
-	} else {
-		logger.Debug("Replica %d not initializing defaultPeerIDs, as replicaCount is %d", instance.id, instance.replicaCount)
-	}
-
 	if myHandle, err := getValidatorHandle(instance.id); err != nil {
 		panic("Could not retrieve own handle")
 	} else {
-		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
+		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger)
 	}
 
 	listener := struct{ statetransfer.ProtoListener }{}

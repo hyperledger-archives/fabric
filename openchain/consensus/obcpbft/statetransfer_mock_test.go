@@ -109,6 +109,34 @@ func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, fi
 	return mock
 }
 
+func (mock *MockLedger) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
+	network = make([]*protos.PeerEndpoint, len(*mock.remoteLedgers))
+	i := 0
+	for peerID, _ := range *mock.remoteLedgers {
+		peerID := peerID // Get a memory address which will not be overwritten
+		network[i] = &protos.PeerEndpoint{
+			ID:   &peerID,
+			Type: protos.PeerEndpoint_VALIDATOR,
+		}
+		i++
+	}
+	return
+}
+
+func (mock *MockLedger) GetNetworkHandles() (self *protos.PeerID, network []*protos.PeerID, err error) {
+	oSelf, oNetwork, err := mock.GetNetworkInfo()
+	if nil != err {
+		return
+	}
+
+	self = oSelf.ID
+	network = make([]*protos.PeerID, len(oNetwork))
+	for i, endpoint := range oNetwork {
+		network[i] = endpoint.ID
+	}
+	return
+}
+
 func (mock *MockLedger) BeginTxBatch(id interface{}) error {
 	if mock.txID != nil {
 		return fmt.Errorf("Tx batch is already active")
@@ -251,7 +279,14 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 		return nil, fmt.Errorf("Bad peer ID")
 	}
 
-	res := make(chan *protos.SyncBlocks)
+	var size int
+	if start > finish {
+		size = int(start - finish)
+	} else {
+		size = int(finish - start)
+	}
+
+	res := make(chan *protos.SyncBlocks, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncBlocks, peerID)
 	switch ft {
 	case Corrupt:
@@ -318,14 +353,14 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 		return nil, fmt.Errorf("Bad peer ID")
 	}
 
-	res := make(chan *protos.SyncStateSnapshot)
+	remoteBlockHeight, _ := (*mock.remoteLedgers)[*peerID].GetBlockchainSize()
+	res := make(chan *protos.SyncStateSnapshot, remoteBlockHeight) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncSnapshot, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
 	case Normal:
 
-		remoteBlockHeight, _ := (*mock.remoteLedgers)[*peerID].GetBlockchainSize()
 		if remoteBlockHeight < 1 {
 			break
 		}
@@ -377,7 +412,14 @@ func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finis
 		return nil, fmt.Errorf("Bad peer ID")
 	}
 
-	res := make(chan *protos.SyncStateDeltas)
+	var size int
+	if start > finish {
+		size = int(start - finish)
+	} else {
+		size = int(finish - start)
+	}
+
+	res := make(chan *protos.SyncStateDeltas, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncDeltas, peerID)
 	switch ft {
 	case Corrupt:
