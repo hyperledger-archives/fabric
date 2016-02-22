@@ -120,7 +120,7 @@ func (conf *configuration) init() error {
 	}
 
 	// Set tCertBathSize
-	conf.tCertBathSize = 100
+	conf.tCertBathSize = 200
 	if viper.IsSet("peer.tcert.buffer.size") {
 		ovveride := viper.GetInt("peer.tcert.buffer.size")
 		if ovveride != 0 {
