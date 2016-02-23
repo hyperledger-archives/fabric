@@ -42,6 +42,7 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 		return
 	}
 
+	/* TODO: commented out due to issue 714. Restore when possible.
 	// Set logger level
 	level, err := logging.LogLevel(viper.GetString("logging.crypto"))
 	if err == nil {
@@ -54,7 +55,7 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 		node.log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
 		logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
 	}
-
+	*/
 	return
 }
 
