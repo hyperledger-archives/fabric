@@ -128,7 +128,18 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		return
 	}
 	
-	env[gopathenvIndex] = "GOPATH=" + codegopath
+	//go paths can have multiple dirs. We create a GOPATH with two source tree's as follows
+	//
+	//    <temporary empty folder to download chaincode source> : <local go path with OBC source>
+	//
+	//This approach has several goodness:
+	// . Go will pick the first path to download user code (which we will delete after processing)
+	// . GO will not download OBC as it is in the second path. GO will use the local OBC for generating chaincode image
+	//     . network savings
+	//     . more secure
+	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
+
+	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
 	
 	// Use a 'go get' command to pull the chaincode from the given repo
 	cmd := exec.Command("go", "get", path)
