@@ -980,22 +980,24 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 	ok := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 		logger.Debug("%v is initiating state recovery from %v", sts.id, peerID)
 
-		sts.ledger.EmptyState()
+		if err := sts.ledger.EmptyState(); nil != err {
+			logger.Error("Could not empty the current state: %s", err)
+		}
 
 		stateChan, err := sts.ledger.GetRemoteStateSnapshot(peerID)
 
 		if err != nil {
-			sts.ledger.EmptyState()
 			return err
 		}
 
 		timer := time.NewTimer(sts.StateSnapshotRequestTimeout)
+		counter := 0
 
 		for {
 			select {
 			case piece, ok := <-stateChan:
 				if !ok {
-					return fmt.Errorf("%v had state snapshot channel close prematurely: %s", sts.id, err)
+					return fmt.Errorf("%v had state snapshot channel close prematurely after %d deltas: %s", sts.id, counter, err)
 				}
 				if 0 == len(piece.Delta) {
 					stateHash, err := sts.ledger.GetCurrentStateHash()
@@ -1005,18 +1007,19 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 
 					}
 
-					logger.Debug("%v received final piece of state snapshot from %v now has hash %x", sts.id, peerID, stateHash)
+					logger.Debug("%v received final piece of state snapshot from %v after %d deltas, now has hash %x", sts.id, peerID, counter, stateHash)
 					return nil
 				}
 				umDelta := &statemgmt.StateDelta{}
 				if err := umDelta.Unmarshal(piece.Delta); nil != err {
-					return fmt.Errorf("%v received a corrupt delta from %v : %s", sts.id, peerID, err)
+					return fmt.Errorf("%v received a corrupt delta from %v after %d deltas : %s", sts.id, peerID, counter, err)
 				}
 				sts.ledger.ApplyStateDelta(piece, umDelta)
 				currentStateBlock = piece.BlockNumber
-				if nil != sts.ledger.CommitStateDelta(piece) {
-					return fmt.Errorf("%v could not commit state delta from %v", sts.id, peerID)
+				if err := sts.ledger.CommitStateDelta(piece); nil != err {
+					return fmt.Errorf("%v could not commit state delta from %v after %d deltas: %s", sts.id, counter, peerID, err)
 				}
+				counter++
 			case <-timer.C:
 				return fmt.Errorf("%v timed out during state recovery from %v", sts.id, peerID)
 			}
