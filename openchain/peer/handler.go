@@ -564,11 +564,11 @@ func (d *Handler) sendStateSnapshot(syncStateSnapshotRequest *pb.SyncStateSnapsh
 	defer snapshot.Release()
 
 	// Iterate over the state deltas and send to requestor
-	delta := statemgmt.NewStateDelta()
 	currBlockNumber := snapshot.GetBlockNumber()
 	var sequence uint64
 	// Loop through and send the Deltas
 	for i := 0; snapshot.Next(); i++ {
+		delta := statemgmt.NewStateDelta()
 		k, v := snapshot.GetRawKeyValue()
 		cID, kID := statemgmt.DecodeCompositeKey(k)
 		delta.Set(cID, kID, v, nil)
