@@ -388,10 +388,6 @@ security:
     # the same property in obcca.yaml to the same value
     level: 256
 
-    # Enable/Disable multithread
-    multithreading:
-      enabled: false
-
     # TCerts related configuration
     tcert:
       batch:
