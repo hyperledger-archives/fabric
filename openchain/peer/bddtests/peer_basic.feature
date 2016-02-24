@@ -137,12 +137,12 @@ Feature: lanching 3 peers
     #@doNotDecompose
     #@wip
     #@skip
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)  
+	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "5" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
-                     | vp0  | 
+                     | vp0  |
             And I use the following credentials for querying peers:
 		     | peer |   username  |    secret    |
 		     | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -158,34 +158,34 @@ Feature: lanching 3 peers
 	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
                     | arg1 |  arg2 | arg3 | arg4 |
                     |  a   |  100  |  b   |  200 |
-	        Then I should have received a chaincode name 
+	        Then I should have received a chaincode name
 	        Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
-                     | vp0  | vp1 | vp2 | 
- 
+                     | vp0  | vp1 | vp2 |
+
             # Build up a sizable blockchain, that vp3 will need to validate at startup
             When I invoke chaincode "example2" function name "invoke" on "vp0" "30" times
-                    |arg1|arg2|arg3| 
+                    |arg1|arg2|arg3|
                     | b  | a  | 1  |
 	        Then I should have received a transactionID
 	        Then I wait up to "10" seconds for transaction to be committed to peers:
                     | vp0  | vp1 | vp2 | vp3 |
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
-                    | vp0  | vp1 | vp2 | vp3 | 
+                    | vp0  | vp1 | vp2 | vp3 |
 	        Then I should get a JSON response from peers with "OK" = "130"
-                    | vp0  | vp1 | vp2 | vp3 | 
+                    | vp0  | vp1 | vp2 | vp3 |
 
-        # STOPPING vp3!!!!!!!!!!!!!!!!!!!!!!!!!!	    
+        # STOPPING vp3!!!!!!!!!!!!!!!!!!!!!!!!!!
         Given I stop peers:
-            | vp3  | 
+            | vp3  |
 
         # Invoke a transaction to get vp3 out of sync
         When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3| 
+			|arg1|arg2|arg3|
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
 	    Then I wait up to "10" seconds for transaction to be committed to peers:
-            | vp0  | vp1 | vp2 | 
+            | vp0  | vp1 | vp2 |
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 |
@@ -194,21 +194,21 @@ Feature: lanching 3 peers
 
         # Now start vp3 again and run 8 more transactions
         Given I start peers:
-            | vp3  | 
+            | vp3  |
         And I wait "5" seconds
 
         # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
         When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
-			|arg1|arg2|arg3| 
+			|arg1|arg2|arg3|
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
 	    Then I wait up to "20" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | vp3 |
         When I query chaincode "example2" function name "query" with value "a" on peers:
-            | vp0  | vp1 | vp2 | vp3 | 
+            | vp0  | vp1 | vp2 | vp3 |
 	    Then I should get a JSON response from peers with "OK" = "60"
-            | vp0  | vp1 | vp2 | vp3 | 
-    
+            | vp0  | vp1 | vp2 | vp3 |
+
 
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
@@ -231,3 +231,128 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
+#@doNotDecompose
+#@wip
+#@skip
+   Scenario Outline: 4 peers and 1 obcca, consensus still works if one backup replica fails
+
+      Given we compose "<ComposeFile>"
+      And I wait "10" seconds
+      And I use the following credentials for querying peers:
+         | peer |   username  |    secret    |
+         | vp0  |  test_user0 | MS9qrN8hFjlE |
+         | vp1  |  test_user1 | jGlNl6ImkuDo |
+         | vp2  |  test_user2 | zMflqOKezFiA |
+         | vp3  |  test_user3 | vWdLCE00vJy0 |
+      And I register with CA supplying username "test_user0" and secret "MS9qrN8hFjlE" on peers:
+         | vp0 |
+
+      When requesting "/chain" from "vp0"
+       Then I should get a JSON response with "height" = "1"
+
+      # Deploy
+      When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+         | arg1 |  arg2 | arg3 | arg4 |
+         |  a   |  100  |  b   |  200 |
+       Then I should have received a chaincode name
+       Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
+
+      # get things started. All peers up and executing Txs
+      When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+           |arg1|arg2|arg3|
+           | a  | b  | 1  |
+       Then I should have received a transactionID
+       Then I wait up to "3" seconds for transaction to be committed to peers:
+           | vp0  | vp1 | vp2 | vp3 |
+
+      When I query chaincode "example2" function name "query" with value "a" on peers:
+           | vp0  | vp1 | vp2 | vp3 |
+       Then I should get a JSON response from peers with "OK" = "95"
+           | vp0  | vp1 | vp2 | vp3 |
+
+      # STOP vp2
+      Given I stop peers:
+         | vp2  |
+       And I wait "3" seconds
+
+      # continue invoking Txs
+      When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+         |arg1|arg2|arg3|
+         | a  | b  | 1 |
+       Then I should have received a transactionID
+       Then I wait up to "3" seconds for transaction to be committed to peers:
+           | vp0  | vp1 | vp3 |
+
+      When I query chaincode "example2" function name "query" with value "a" on peers:
+        | vp0  | vp1 | vp3 |
+       Then I should get a JSON response from peers with "OK" = "90"
+        | vp0 | vp1 | vp3 |
+
+   Examples: Consensus Options
+       |          ComposeFile                       |   WaitTime   |
+       |   docker-compose-4-consensus-classic.yml   |      30      |
+       |   docker-compose-4-consensus-batch.yml     |      30      |
+       |   docker-compose-4-consensus-sieve.yml     |      30      |
+
+#@doNotDecompose
+#@wip
+#@skip
+ Scenario Outline: 4 peers and 1 obcca, consensus fails if 2 backup replicas fail
+
+    Given we compose "<ComposeFile>"
+    And I wait "10" seconds
+    And I use the following credentials for querying peers:
+       | peer |   username  |    secret    |
+       | vp0  |  test_user0 | MS9qrN8hFjlE |
+       | vp1  |  test_user1 | jGlNl6ImkuDo |
+       | vp2  |  test_user2 | zMflqOKezFiA |
+       | vp3  |  test_user3 | vWdLCE00vJy0 |
+    And I register with CA supplying username "test_user0" and secret "MS9qrN8hFjlE" on peers:
+       | vp0 |
+
+    When requesting "/chain" from "vp0"
+     Then I should get a JSON response with "height" = "1"
+
+    # Deploy
+    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+       | arg1 |  arg2 | arg3 | arg4 |
+       |  a   |  100  |  b   |  200 |
+     Then I should have received a chaincode name
+     Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+       | vp0  | vp1 | vp2 | vp3 |
+
+    # get things started. All peers up and executing Txs
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+         |arg1|arg2|arg3|
+         | a  | b  | 1  |
+     Then I should have received a transactionID
+     Then I wait up to "5" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+         | vp0  | vp1 | vp2 | vp3 |
+     Then I should get a JSON response from peers with "OK" = "95"
+         | vp0  | vp1 | vp2 | vp3 |
+
+    # STOP vp2
+    Given I stop peers:
+       | vp1  | vp2 |
+     And I wait "3" seconds
+
+    # continue invoking Txs
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+       |arg1|arg2|arg3|
+       | a  | b  | 1 |
+     And I wait "5" seconds
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+      | vp0 | vp3 |
+     Then I should get a JSON response from peers with "OK" = "95"
+      | vp0 | vp3 |
+
+ Examples: Consensus Options
+     |          ComposeFile                       |   WaitTime   |
+     |   docker-compose-4-consensus-classic.yml   |      30      |
+     |   docker-compose-4-consensus-batch.yml     |      30      |
+     |   docker-compose-4-consensus-sieve.yml     |      30      |
