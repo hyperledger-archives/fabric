@@ -24,7 +24,6 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"google/protobuf"
@@ -35,55 +34,28 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
-
-func (node *nodeImpl) initTLS() error {
-	node.log.Debug("Initiliazing TLS...")
-
-	if node.conf.isTLSEnabled() {
-		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
-		if err != nil {
-			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
-
-			return err
-		}
-
-		node.tlsCertPool = x509.NewCertPool()
-		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
-		if !ok {
-			node.log.Error("Failed appending TLSCA certificates chain.")
-
-			return errors.New("Failed appending TLSCA certificates chain.")
-		}
-		node.log.Debug("Initiliazing TLS...Done")
-	} else {
-		node.log.Debug("Initiliazing TLS...Disabled!!!")
-	}
-
-	return nil
-}
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
-		node.log.Error("Failed getting tls certificate [id=%s] %s", id, err)
+		node.error("Failed getting tls certificate [id=%s] %s", id, err)
 
 		return err
 	}
-	node.log.Debug("TLS Cert [%s]", utils.EncodeBase64(tlsCertRaw))
+	node.debug("TLS Cert [% x]", tlsCertRaw)
 
-	node.log.Info("Storing TLS key and certificate for user [%s]...", id)
+	node.debug("Storing TLS key and certificate for user [%s]...", id)
 
 	// Store tls key.
 	if err := node.ks.storePrivateKeyInClear(node.conf.getTLSKeyFilename(), key); err != nil {
-		node.log.Error("Failed storing tls key [id=%s]: %s", id, err)
+		node.error("Failed storing tls key [id=%s]: %s", id, err)
 		return err
 	}
 
 	// Store tls cert
 	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), tlsCertRaw); err != nil {
-		node.log.Error("Failed storing tls certificate [id=%s]: %s", id, err)
+		node.error("Failed storing tls certificate [id=%s]: %s", id, err)
 		return err
 	}
 
@@ -91,11 +63,11 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 }
 
 func (node *nodeImpl) loadTLSCertificate() error {
-	node.log.Debug("Loading tls certificate...")
+	node.debug("Loading tls certificate...")
 
 	cert, _, err := node.ks.loadCertX509AndDer(node.conf.getTLSCertFilename())
 	if err != nil {
-		node.log.Error("Failed parsing tls certificate [%s].", err.Error())
+		node.error("Failed parsing tls certificate [%s].", err.Error())
 
 		return err
 	}
@@ -106,39 +78,39 @@ func (node *nodeImpl) loadTLSCertificate() error {
 
 func (node *nodeImpl) loadTLSCACertsChain() error {
 	if node.conf.isTLSEnabled() {
-		node.log.Debug("Loading TLSCA certificates chain...")
+		node.debug("Loading TLSCA certificates chain...")
 
 		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
 		if err != nil {
-			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
+			node.error("Failed loading TLSCA certificates chain [%s].", err.Error())
 
 			return err
 		}
 
 		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
 		if !ok {
-			node.log.Error("Failed appending TLSCA certificates chain.")
+			node.error("Failed appending TLSCA certificates chain.")
 
 			return errors.New("Failed appending TLSCA certificates chain.")
 		}
 
-		node.log.Debug("Loading TLSCA certificates chain...done")
+		node.debug("Loading TLSCA certificates chain...done")
 
 		return nil
 	} else {
-		node.log.Debug("TLS is disabled!!!")
+		node.debug("TLS is disabled!!!")
 	}
 
 	return nil
 }
 
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
-	node.log.Info("getTLSCertificate...")
+	node.debug("getTLSCertificate...")
 
 	priv, err := utils.NewECDSAKey()
 
 	if err != nil {
-		node.log.Error("Failed generating key: %s", err)
+		node.error("Failed generating key: %s", err)
 
 		return nil, nil, err
 	}
@@ -168,79 +140,33 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {
-		node.log.Error("Failed requesting tls certificate: %s", err)
+		node.error("Failed requesting tls certificate: %s", err)
 
 		return nil, nil, err
 	}
 
-	node.log.Info("Verifing tls certificate...")
+	node.debug("Verifing tls certificate...")
 
 	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
 	utils.VerifySignCapability(priv, certPK)
 
-	node.log.Info("Verifing tls certificate...done!")
+	node.debug("Verifing tls certificate...done!")
 
 	return priv, pbCert.Cert.Cert, nil
 }
 
-func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
-	node.log.Debug("Getting Client Connection to [%s]...", serverName)
-
-	var conn *grpc.ClientConn
-	var err error
-
-	if node.conf.isTLSEnabled() {
-		node.log.Debug("TLS enabled...")
-
-		// setup tls options
-		var opts []grpc.DialOption
-		config := tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            node.tlsCertPool,
-			ServerName:         serverName,
-		}
-		if node.conf.isTLSClientAuthEnabled() {
-
-		}
-
-		creds := credentials.NewTLS(&config)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
-	} else {
-		node.log.Debug("TLS disabled...")
-
-		var opts []grpc.DialOption
-		opts = append(opts, grpc.WithInsecure())
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
-	}
-
-	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
-
-		return nil, err
-	}
-
-	node.log.Debug("Getting Client Connection to [%s]...done", serverName)
-
-	return conn, nil
-}
-
 func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, error) {
-	node.log.Debug("Getting TLSCA client...")
+	node.debug("Getting TLSCA client...")
 
 	conn, err := node.getClientConn(node.conf.getTLSCAPAddr(), node.conf.getTLSCAServerName())
 	if err != nil {
-		node.log.Error("Failed getting client connection: [%s]", err)
+		node.error("Failed getting client connection: [%s]", err)
 	}
 
 	client := obcca.NewTLSCAPClient(conn)
 
-	node.log.Debug("Getting TLSCA client...done")
+	node.debug("Getting TLSCA client...done")
 
 	return conn, client, nil
 }
@@ -248,7 +174,7 @@ func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, er
 func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.TLSCertCreateResp, error) {
 	conn, tlscaP, err := node.getTLSCAClient()
 	if err != nil {
-		node.log.Error("Failed dialing in: %s", err)
+		node.error("Failed dialing in: %s", err)
 
 		return nil, err
 	}
@@ -256,7 +182,7 @@ func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.
 
 	resp, err := tlscaP.CreateCertificate(ctx, in, opts...)
 	if err != nil {
-		node.log.Error("Failed requesting tls certificate: %s", err)
+		node.error("Failed requesting tls certificate: %s", err)
 
 		return nil, err
 	}

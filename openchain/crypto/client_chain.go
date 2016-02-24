@@ -15,9 +15,9 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 	// Derive key
 	txKey := utils.HMAC(client.node.enrollChainKey, tx.Nonce)
 
-	//	client.node.log.Info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
-	//	client.node.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	client.node.log.Info("Derived key  ", utils.EncodeBase64(txKey))
+	//	client.node.info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
+	//	client.node.info("Nonce  ", utils.EncodeBase64(tx.Nonce))
+	//	client.node.info("Derived key  ", utils.EncodeBase64(txKey))
 
 	// Encrypt Payload
 	payloadKey := utils.HMACTruncated(txKey, []byte{1}, utils.AESKeyLength)
@@ -45,9 +45,9 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 		tx.Metadata = encryptedMetadata
 	}
 
-	client.node.log.Debug("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.ChaincodeID))
-	client.node.log.Debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.Payload))
-	client.node.log.Debug("Encrypted Metadata [%s].", utils.EncodeBase64(tx.Metadata))
+	client.node.debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
+	client.node.debug("Encrypted Payload [% x].", tx.Payload)
+	client.node.debug("Encrypted Metadata [% x].", tx.Metadata)
 
 	return nil
 }

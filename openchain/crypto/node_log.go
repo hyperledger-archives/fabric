@@ -17,45 +17,20 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package crypto
 
-import (
-	"crypto/hmac"
-	"hash"
-)
-
-var (
-	defaultHash func() hash.Hash
-)
-
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
+func (node *nodeImpl) info(format string, args ...interface{}) {
+	log.Info(node.conf.logPrefix+format, args...)
 }
 
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return defaultHash()
+func (node *nodeImpl) debug(format string, args ...interface{}) {
+	log.Debug(node.conf.logPrefix+format, args...)
 }
 
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
+func (node *nodeImpl) error(format string, args ...interface{}) {
+	log.Error(node.conf.logPrefix+format, args...)
 }
 
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)
-}
-
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+func (node *nodeImpl) warning(format string, args ...interface{}) {
+	log.Warning(node.conf.logPrefix+format, args...)
 }

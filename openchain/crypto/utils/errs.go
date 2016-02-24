@@ -67,8 +67,8 @@ var (
 	// ErrDecrypt Decryption failed
 	ErrDecrypt = errors.New("Decryption failed.")
 
-	// ErrDirrentChaincodeID ChaincodeIDs are different
-	ErrDirrentChaincodeID = errors.New("ChaincodeIDs are different.")
+	// ErrDifferentChaincodeID ChaincodeIDs are different
+	ErrDifferentChaincodeID = errors.New("ChaincodeIDs are different.")
 
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidConfidentialityLevel = errors.New("Invalid confidentiality level")

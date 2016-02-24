@@ -17,45 +17,46 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package crypto
 
 import (
-	"crypto/hmac"
-	"hash"
+	"crypto/x509"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
-var (
-	defaultHash func() hash.Hash
-)
+type tCert interface {
+	GetCertificate() *x509.Certificate
 
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
+	Sign(msg []byte) ([]byte, error)
+
+	Verify(signature, msg []byte) error
 }
 
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return defaultHash()
+type tCertImpl struct {
+	client *clientImpl
+	cert   *x509.Certificate
+	sk     interface{}
 }
 
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
+func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
+	return tCert.cert
 }
 
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
+func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
+	if tCert.sk == nil {
+		return nil, utils.ErrNilArgument
+	}
 
-	return mac.Sum(nil)
+	return tCert.client.node.sign(tCert.sk, msg)
 }
 
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
+	ok, err := tCert.client.node.verify(tCert.cert.PublicKey, msg, signature)
+	if err != nil {
+		return
+	}
+	if !ok {
+		return utils.ErrInvalidSignature
+	}
+	return
 }

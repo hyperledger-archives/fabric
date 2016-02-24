@@ -31,6 +31,7 @@ import (
 	"reflect"
 	"testing"
 
+	"crypto/rand"
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
@@ -38,7 +39,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -114,57 +114,43 @@ func TestParallelInitClose(t *testing.T) {
 
 	done := make(chan bool)
 
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
-			}
-			time.Sleep(1 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+	n := 10
+	for i := 0; i < n; i++ {
+		go func() {
+			for i := 0; i < 5; i++ {
+				client, err := InitClient(conf.Name, nil)
+				if err != nil {
+					t.Log("Init failed")
+				}
 
-	}()
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
-			}
-			time.Sleep(2 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+				cis := &obc.ChaincodeInvocationSpec{
+					ChaincodeSpec: &obc.ChaincodeSpec{
+						Type:                 obc.ChaincodeSpec_GOLANG,
+						ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+						CtorMsg:              nil,
+						ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+					},
+				}
+				for i := 0; i < 20; i++ {
+					uuid := util.GenerateUUID()
+					client.NewChaincodeExecute(cis, uuid)
+				}
 
-	}()
-	go func() {
-		for i := 0; i < 5; i++ {
-			client, err := InitClient(conf.Name, nil)
-			if err != nil {
-				t.Log("Init failed")
+				err = CloseClient(client)
+				if err != nil {
+					t.Log("Close failed")
+				}
 			}
-			time.Sleep(1 * time.Second)
-			err = CloseClient(client)
-			if err != nil {
-				t.Log("Close failed")
-			}
-		}
-		done <- true
+			done <- true
 
-	}()
-
-	for i := 0; i < 3; i++ {
-		t.Log("Waiting")
-		<-done
-		t.Log("+1")
+		}()
 	}
+	for i := 0; i < n; i++ {
+		log.Info("Waiting")
+		<-done
+		log.Info("+1")
+	}
+	log.Info("Test Finished!")
 	//
 }
 
@@ -217,7 +203,7 @@ func TestInitialization(t *testing.T) {
 
 func TestClientDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestClientDeployTransaction with [%d]", i)
+		t.Logf("TestClientDeployTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -239,7 +225,7 @@ func TestClientDeployTransaction(t *testing.T) {
 
 func TestClientExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestClientExecuteTransaction with [%s]", i)
+		t.Logf("TestClientExecuteTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -261,7 +247,7 @@ func TestClientExecuteTransaction(t *testing.T) {
 
 func TestClientQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestClientQueryTransaction with [%s]", i)
+		t.Logf("TestClientQueryTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 
@@ -462,7 +448,7 @@ func TestPeerID(t *testing.T) {
 
 func TestPeerDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestPeerDeployTransaction with [%s]", i)
+		t.Logf("TestPeerDeployTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -489,7 +475,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 
 func TestPeerExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestPeerExecuteTransaction with [%s]", i)
+		t.Logf("TestPeerExecuteTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -516,7 +502,7 @@ func TestPeerExecuteTransaction(t *testing.T) {
 
 func TestPeerQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestPeerQueryTransaction with [%s]", i)
+		t.Logf("TestPeerQueryTransaction with [%d]\n", i)
 
 		_, tx, err := createTx(t)
 		if err != nil {
@@ -597,7 +583,7 @@ func TestValidatorID(t *testing.T) {
 
 func TestValidatorDeployTransaction(t *testing.T) {
 	for i, createTx := range deployTxCreators {
-		t.Logf("TestValidatorDeployTransaction with [%s]", i)
+		t.Logf("TestValidatorDeployTransaction with [%d]\n", i)
 
 		otx, tx, err := createTx(t)
 		if err != nil {
@@ -633,7 +619,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 
 func TestValidatorExecuteTransaction(t *testing.T) {
 	for i, createTx := range executeTxCreators {
-		t.Logf("TestValidatorExecuteTransaction with [%s]", i)
+		t.Logf("TestValidatorExecuteTransaction with [%d]\n", i)
 
 		otx, tx, err := createTx(t)
 		if err != nil {
@@ -669,7 +655,7 @@ func TestValidatorExecuteTransaction(t *testing.T) {
 
 func TestValidatorQueryTransaction(t *testing.T) {
 	for i, createTx := range queryTxCreators {
-		t.Logf("TestValidatorConfidentialQueryTransaction with [%s]", i)
+		t.Logf("TestValidatorConfidentialQueryTransaction with [%d]\n", i)
 
 		_, deployTx, err := deployTxCreators[i](t)
 		if err != nil {
@@ -880,6 +866,74 @@ func TestValidatorVerify(t *testing.T) {
 	}
 }
 
+func BenchmarkTransactionCreation(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+	cis := &obc.ChaincodeInvocationSpec{
+		ChaincodeSpec: &obc.ChaincodeSpec{
+			Type:                 obc.ChaincodeSpec_GOLANG,
+			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
+			CtorMsg:              nil,
+			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+		},
+	}
+	invoker.GetTCertificateHandlerNext()
+
+	for i := 0; i < b.N; i++ {
+		uuid := util.GenerateUUID()
+		b.StartTimer()
+		invoker.NewChaincodeExecute(cis, uuid)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkTransactionValidation(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, tx, _ := createConfidentialTCertHExecuteTransaction(nil)
+
+		b.StartTimer()
+		validator.TransactionPreValidation(tx)
+		validator.TransactionPreExecution(tx)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+
+	//b.Logf("#iterations %d\n", b.N)
+	signKey, _ := utils.NewECDSAKey()
+	hash := make([]byte, 48)
+
+	for i := 0; i < b.N; i++ {
+		rand.Read(hash)
+		b.StartTimer()
+		utils.ECDSASign(signKey, hash)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	b.StopTimer()
+	b.ResetTimer()
+
+	//b.Logf("#iterations %d\n", b.N)
+	signKey, _ := utils.NewECDSAKey()
+	verKey := signKey.PublicKey
+	hash := make([]byte, 48)
+
+	for i := 0; i < b.N; i++ {
+		rand.Read(hash)
+		sigma, _ := utils.ECDSASign(signKey, hash)
+		b.StartTimer()
+		utils.ECDSAVerify(&verKey, hash, sigma)
+		b.StopTimer()
+	}
+}
+
 func setup() {
 	// Conf
 	viper.SetConfigName("crypto_test") // name of config file (without extension)
@@ -913,6 +967,9 @@ func setup() {
 		createConfidentialTCertHQueryTransaction,
 		createConfidentialECertHQueryTransaction,
 	}
+
+	// Init crypto layer
+	Init()
 
 	// Clenaup folders
 	removeFolders()

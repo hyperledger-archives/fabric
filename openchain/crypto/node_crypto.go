@@ -3,45 +3,45 @@ package crypto
 import "crypto/x509"
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
-	node.log.Info("Registering node crypto engine...")
+	node.debug("Registering node crypto engine...")
 
 	if err := node.initTLS(); err != nil {
-		node.log.Error("Failed initliazing TLS [%s].", err.Error())
+		node.error("Failed initliazing TLS [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveECACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
+		node.error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTCACertsChain(enrollID); err != nil {
-		node.log.Error("Failed retrieveing ECA certs chain [%s].", err.Error())
+		node.error("Failed retrieveing ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data [%s].", err.Error())
+		node.error("Failed retrieveing enrollment data [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.log.Error("Failed retrieveing enrollment data: %s", err)
+		node.error("Failed retrieveing enrollment data: %s", err)
 
 		return err
 	}
 
-	node.log.Info("Registering node crypto engine...done!")
+	node.debug("Registering node crypto engine...done!")
 
 	return nil
 }
 
 func (node *nodeImpl) initCryptoEngine() error {
-	node.log.Info("Initializing node crypto engine...")
+	node.debug("Initializing node crypto engine...")
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()
@@ -89,7 +89,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 		return err
 	}
 
-	node.log.Info("Initializing node crypto engine...done!")
+	node.debug("Initializing node crypto engine...done!")
 
 	return nil
 }

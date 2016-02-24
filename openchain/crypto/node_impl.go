@@ -22,7 +22,6 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
@@ -34,8 +33,10 @@ type nodeImpl struct {
 	// Configuration
 	conf *configuration
 
-	// Logging
-	log *logging.Logger
+	/*
+		// Logging
+		log *logging.Logger
+	*/
 
 	// keyStore
 	ks *keyStore
@@ -74,7 +75,7 @@ func (node *nodeImpl) isRegistered() bool {
 
 func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if node.isInitialized {
-		node.log.Error("Registering [%s]...done! Initialization already performed", enrollID)
+		node.error("Registering [%s]...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -87,43 +88,43 @@ func (node *nodeImpl) register(prefix, name string, pwd []byte, enrollID, enroll
 	}
 
 	// Start registration
-	node.log.Info("Registering [%s]...", enrollID)
+	node.debug("Registering [%s]...", enrollID)
 
 	if node.isRegistered() {
-		node.log.Error("Registering [%s]...done! Registration already performed", enrollID)
+		node.error("Registering [%s]...done! Registration already performed", enrollID)
 
 		return utils.ErrAlreadyRegistered
 	}
 
 	// Initialize keystore
-	node.log.Info("Init keystore...")
+	node.debug("Init keystore...")
 	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			node.log.Error("Keystore already initialized.")
+			node.error("Keystore already initialized.")
 		} else {
-			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+			node.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	node.log.Info("Init keystore...done.")
+	node.debug("Init keystore...done.")
 
 	// Register crypto engine
 	err = node.registerCryptoEngine(enrollID, enrollPWD)
 	if err != nil {
-		node.log.Error("Failed registering crypto engine [%s].", err.Error())
+		node.error("Failed registering crypto engine [%s].", err.Error())
 		return err
 	}
 
-	node.log.Info("Registering [%s]...done!", enrollID)
+	node.debug("Registering [%s]...done!", enrollID)
 
 	return nil
 }
 
 func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	if node.isInitialized {
-		node.log.Error("Already initializaed.")
+		node.error("Already initializaed.")
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -134,36 +135,36 @@ func (node *nodeImpl) init(prefix, name string, pwd []byte) error {
 	}
 
 	if !node.isRegistered() {
-		node.log.Error("Not registered yet.")
+		node.error("Not registered yet.")
 
 		return utils.ErrRegistrationRequired
 	}
 
 	// Initialize keystore
-	node.log.Info("Init keystore...")
+	node.debug("Init keystore...")
 	err := node.initKeyStore(pwd)
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			node.log.Error("Keystore already initialized.")
+			node.error("Keystore already initialized.")
 		} else {
-			node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+			node.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	node.log.Info("Init keystore...done.")
+	node.debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = node.initCryptoEngine()
 	if err != nil {
-		node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
+		node.error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
 	// Initialisation complete
 	node.isInitialized = true
 
-	node.log.Info("Initialization...done.")
+	node.debug("Initialization...done.")
 
 	return nil
 }

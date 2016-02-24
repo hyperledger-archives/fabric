@@ -21,7 +21,8 @@ package crypto
 
 import (
 	"errors"
-	"github.com/op/go-logging"
+	"fmt"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
@@ -30,29 +31,57 @@ const (
 	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
 )
 
-func (node *nodeImpl) initConfiguration(prefix, name string) error {
-	// Set logger
-	node.log = logging.MustGetLogger("CRYPTO." + prefix + "." + name)
+func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
+	/*
+		// Set logger
+		node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
+	*/
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
-	return node.conf.init()
+	if err = node.conf.init(); err != nil {
+		return
+	}
+
+	/*
+		// Set logger level
+		level, err := logging.LogLevel(viper.GetString("logging.crypto"))
+		if err == nil {
+			// No error, use the setting
+			logging.SetLevel(level, "crypto."+prefix+"."+name)
+			logging.SetLevel(level, "crypto")
+			node.info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
+				logging.GetLevel("crypto"))
+		} else {
+			node.warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
+			logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
+		}
+	*/
+	return
 }
 
 type configuration struct {
 	prefix string
 	name   string
 
+	logPrefix string
+
 	configurationPath string
 	keystorePath      string
 	rawsPath          string
+	tCertsPath        string
 
 	configurationPathProperty string
 	ecaPAddressProperty       string
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
 
+	securityLevel int
+
 	tlsServerName string
+
+	multiThreading bool
+	tCertBathSize  int
 }
 
 func (conf *configuration) init() error {
@@ -60,6 +89,7 @@ func (conf *configuration) init() error {
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
 	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
 	conf.tlscaPAddressProperty = "peer.pki.tlsca.paddr"
+	conf.logPrefix = "[" + conf.prefix + "." + conf.name + "] "
 
 	// Check mandatory fields
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
@@ -87,6 +117,21 @@ func (conf *configuration) init() error {
 	// Set raws path
 	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
 
+	// Set tCerts path
+	conf.tCertsPath = filepath.Join(conf.keystorePath, "tcerts")
+
+	conf.securityLevel = 384
+	if viper.IsSet("security.level") {
+		ovveride := viper.GetInt("security.level")
+		if ovveride != 0 {
+			conf.securityLevel = ovveride
+		}
+	}
+
+	if err := utils.InitSecurityLevel(conf.securityLevel); err != nil {
+		return fmt.Errorf("Invalid security level [%d]", conf.securityLevel)
+	}
+
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
 	if viper.IsSet("peer.pki.tls.server-host-override") {
@@ -94,6 +139,21 @@ func (conf *configuration) init() error {
 		if ovveride != "" {
 			conf.tlsServerName = ovveride
 		}
+	}
+
+	// Set tCertBathSize
+	conf.tCertBathSize = 200
+	if viper.IsSet("security.tcert.batch.size") {
+		ovveride := viper.GetInt("security.tcert.batch.size")
+		if ovveride != 0 {
+			conf.tCertBathSize = ovveride
+		}
+	}
+
+	// Set multithread
+	conf.multiThreading = false
+	if viper.IsSet("security.multithreading.enabled") {
+		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
 	}
 
 	return nil
@@ -121,6 +181,10 @@ func (conf *configuration) getTLSCAPAddr() string {
 
 func (conf *configuration) getConfPath() string {
 	return conf.configurationPath
+}
+
+func (conf *configuration) getTCertsPath() string {
+	return conf.tCertsPath
 }
 
 func (conf *configuration) getKeyStorePath() string {
@@ -183,6 +247,10 @@ func (conf *configuration) isTLSClientAuthEnabled() bool {
 	return viper.GetBool("peer.pki.tls.client.auth.enabled")
 }
 
+func (conf *configuration) IsMultithreadingEnabled() bool {
+	return conf.multiThreading
+}
+
 func (conf *configuration) getTCAServerName() string {
 	return conf.tlsServerName
 }
@@ -222,3 +290,7 @@ func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 //func (conf *configuration) getAffiliation() string {
 //	return viper.GetString(Affiliation)
 //}
+
+func (conf *configuration) getTCertBathSize() int {
+	return conf.tCertBathSize
+}

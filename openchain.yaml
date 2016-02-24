@@ -61,6 +61,7 @@ logging:
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
     peer:      info
+    crypto:    info
     status:    warning
     stop:      warning
     login:     warning
@@ -382,3 +383,13 @@ security:
     # encrypts the transaction content during transit and at rest. The state
     # data is also encrypted
     privacy: false
+
+    # Can be 256 or 384. If you change here, you have to change also
+    # the same property in obcca.yaml to the same value
+    level: 256
+
+    # TCerts related configuration
+    tcert:
+      batch:
+        # The size of the batch of TCerts
+        size:  200

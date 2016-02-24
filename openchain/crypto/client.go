@@ -144,13 +144,13 @@ func closeClientInternal(client Client, force bool) error {
 	if entry.counter == 1 || force {
 		defer delete(clients, name)
 		err := clients[name].client.(*clientImpl).close()
-		log.Info("Closing client [%s]...done! [%s].", name, utils.ErrToString(err))
+		log.Debug("Closing client [%s]...cleanup! [%s].", name, utils.ErrToString(err))
 		return err
 	} else {
 		// decrease counter
 		entry.counter--
 		clients[name] = entry
-		log.Info("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
+		log.Debug("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
 	}
 
 	return nil

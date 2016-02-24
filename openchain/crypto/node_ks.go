@@ -21,7 +21,6 @@ package crypto
 
 import (
 	"database/sql"
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"os"
 	"path/filepath"
@@ -56,7 +55,7 @@ func addDefaultCert(key string, cert []byte) error {
 
 func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	ks := keyStore{}
-	if err := ks.init(node.log, node.conf, pwd); err != nil {
+	if err := ks.init(node, pwd); err != nil {
 		return err
 	}
 	node.ks = &ks
@@ -64,7 +63,7 @@ func (node *nodeImpl) initKeyStore(pwd []byte) error {
 	/*
 		// Add default certs
 		for key, value := range defaultCerts {
-			node.log.Debug("Adding Default Cert to the keystore [%s][%s]", key, utils.EncodeBase64(value))
+			node.debug("Adding Default Cert to the keystore [%s][%s]", key, utils.EncodeBase64(value))
 			ks.storeCert(key, value)
 		}
 	*/
@@ -73,6 +72,8 @@ func (node *nodeImpl) initKeyStore(pwd []byte) error {
 }
 
 type keyStore struct {
+	node *nodeImpl
+
 	isOpen bool
 
 	pwd []byte
@@ -80,17 +81,11 @@ type keyStore struct {
 	// backend
 	sqlDB *sql.DB
 
-	// Configuration
-	conf *configuration
-
-	// Logging
-	log *logging.Logger
-
 	// Sync
 	m sync.Mutex
 }
 
-func (ks *keyStore) init(logger *logging.Logger, conf *configuration, pwd []byte) error {
+func (ks *keyStore) init(node *nodeImpl, pwd []byte) error {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -98,8 +93,7 @@ func (ks *keyStore) init(logger *logging.Logger, conf *configuration, pwd []byte
 		return utils.ErrKeyStoreAlreadyInitialized
 	}
 
-	ks.log = logger
-	ks.conf = conf
+	ks.node = node
 	ks.pwd = utils.Clone(pwd)
 
 	err := ks.createKeyStoreIfNotExists()
@@ -116,7 +110,7 @@ func (ks *keyStore) init(logger *logging.Logger, conf *configuration, pwd []byte
 }
 
 func (ks *keyStore) isAliasSet(alias string) bool {
-	missing, _ := utils.FilePathMissing(ks.conf.getPathForAlias(alias))
+	missing, _ := utils.FilePathMissing(ks.node.conf.getPathForAlias(alias))
 	if missing {
 		return false
 	}
@@ -127,13 +121,13 @@ func (ks *keyStore) isAliasSet(alias string) bool {
 func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error {
 	rawKey, err := utils.PrivateKeyToPEM(privateKey, ks.pwd)
 	if err != nil {
-		ks.log.Error("Failed converting private key to PEM [%s]: [%s]", alias, err)
+		ks.node.error("Failed converting private key to PEM [%s]: [%s]", alias, err)
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	err = ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), rawKey, 0700)
 	if err != nil {
-		ks.log.Error("Failed storing private key [%s]: [%s]", alias, err)
+		ks.node.error("Failed storing private key [%s]: [%s]", alias, err)
 		return err
 	}
 
@@ -143,13 +137,13 @@ func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error 
 func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{}) error {
 	rawKey, err := utils.PrivateKeyToPEM(privateKey, nil)
 	if err != nil {
-		ks.log.Error("Failed converting private key to PEM [%s]: [%s]", alias, err)
+		ks.node.error("Failed converting private key to PEM [%s]: [%s]", alias, err)
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	err = ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), rawKey, 0700)
 	if err != nil {
-		ks.log.Error("Failed storing private key [%s]: [%s]", alias, err)
+		ks.node.error("Failed storing private key [%s]: [%s]", alias, err)
 		return err
 	}
 
@@ -157,19 +151,19 @@ func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{})
 }
 
 func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
-	path := ks.conf.getPathForAlias(alias)
-	ks.log.Debug("Loading private key [%s] at [%s]...", alias, path)
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.debug("Loading private key [%s] at [%s]...", alias, path)
 
 	raw, err := ioutil.ReadFile(path)
 	if err != nil {
-		ks.log.Error("Failed loading private key [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed loading private key [%s]: [%s].", alias, err.Error())
 
 		return nil, err
 	}
 
 	privateKey, err := utils.PEMtoPrivateKey(raw, ks.pwd)
 	if err != nil {
-		ks.log.Error("Failed parsing private key [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed parsing private key [%s]: [%s].", alias, err.Error())
 
 		return nil, err
 	}
@@ -180,13 +174,13 @@ func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 func (ks *keyStore) storeKey(alias string, key []byte) error {
 	pem, err := utils.AEStoEncryptedPEM(key, ks.pwd)
 	if err != nil {
-		ks.log.Error("Failed converting key to PEM [%s]: [%s]", alias, err)
+		ks.node.error("Failed converting key to PEM [%s]: [%s]", alias, err)
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), pem, 0700)
+	err = ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), pem, 0700)
 	if err != nil {
-		ks.log.Error("Failed storing key [%s]: [%s]", alias, err)
+		ks.node.error("Failed storing key [%s]: [%s]", alias, err)
 		return err
 	}
 
@@ -194,19 +188,19 @@ func (ks *keyStore) storeKey(alias string, key []byte) error {
 }
 
 func (ks *keyStore) loadKey(alias string) ([]byte, error) {
-	path := ks.conf.getPathForAlias(alias)
-	ks.log.Debug("Loading key [%s] at [%s]...", alias, path)
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.debug("Loading key [%s] at [%s]...", alias, path)
 
 	pem, err := ioutil.ReadFile(path)
 	if err != nil {
-		ks.log.Error("Failed loading key [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed loading key [%s]: [%s].", alias, err.Error())
 
 		return nil, err
 	}
 
 	key, err := utils.PEMtoAES(pem, ks.pwd)
 	if err != nil {
-		ks.log.Error("Failed parsing key [%s]: [%s]", alias, err)
+		ks.node.error("Failed parsing key [%s]: [%s]", alias, err)
 
 		return nil, err
 	}
@@ -215,9 +209,9 @@ func (ks *keyStore) loadKey(alias string) ([]byte, error) {
 }
 
 func (ks *keyStore) storeCert(alias string, der []byte) error {
-	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
+	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
 	if err != nil {
-		ks.log.Error("Failed storing certificate [%s]: [%s]", alias, err)
+		ks.node.error("Failed storing certificate [%s]: [%s]", alias, err)
 		return err
 	}
 
@@ -225,12 +219,12 @@ func (ks *keyStore) storeCert(alias string, der []byte) error {
 }
 
 func (ks *keyStore) loadCert(alias string) ([]byte, error) {
-	path := ks.conf.getPathForAlias(alias)
-	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.debug("Loading certificate [%s] at [%s]...", alias, path)
 
 	pem, err := ioutil.ReadFile(path)
 	if err != nil {
-		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed loading certificate [%s]: [%s].", alias, err.Error())
 
 		return nil, err
 	}
@@ -239,11 +233,11 @@ func (ks *keyStore) loadCert(alias string) ([]byte, error) {
 }
 
 func (ks *keyStore) loadExternalCert(path string) ([]byte, error) {
-	ks.log.Debug("Loading external certificate at [%s]...", path)
+	ks.node.debug("Loading external certificate at [%s]...", path)
 
 	pem, err := ioutil.ReadFile(path)
 	if err != nil {
-		ks.log.Error("Failed loading external certificate: [%s].", err.Error())
+		ks.node.error("Failed loading external certificate: [%s].", err.Error())
 
 		return nil, err
 	}
@@ -252,19 +246,19 @@ func (ks *keyStore) loadExternalCert(path string) ([]byte, error) {
 }
 
 func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte, error) {
-	path := ks.conf.getPathForAlias(alias)
-	ks.log.Debug("Loading certificate [%s] at [%s]...", alias, path)
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.debug("Loading certificate [%s] at [%s]...", alias, path)
 
 	pem, err := ioutil.ReadFile(path)
 	if err != nil {
-		ks.log.Error("Failed loading certificate [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed loading certificate [%s]: [%s].", alias, err.Error())
 
 		return nil, nil, err
 	}
 
 	cert, der, err := utils.PEMtoCertificateAndDER(pem)
 	if err != nil {
-		ks.log.Error("Failed parsing certificate [%s]: [%s].", alias, err.Error())
+		ks.node.error("Failed parsing certificate [%s]: [%s].", alias, err.Error())
 
 		return nil, nil, err
 	}
@@ -273,13 +267,13 @@ func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte,
 }
 
 func (ks *keyStore) close() error {
-	ks.log.Info("Closing keystore...")
+	ks.node.debug("Closing keystore...")
 	err := ks.sqlDB.Close()
 
 	if err != nil {
-		ks.log.Error("Failed closing keystore [%s].", err.Error())
+		ks.node.error("Failed closing keystore [%s].", err.Error())
 	} else {
-		ks.log.Info("Closing keystore...done!")
+		ks.node.debug("Closing keystore...done!")
 	}
 
 	ks.isOpen = false
@@ -288,20 +282,20 @@ func (ks *keyStore) close() error {
 
 func (ks *keyStore) createKeyStoreIfNotExists() error {
 	// Check keystore directory
-	ksPath := ks.conf.getKeyStorePath()
+	ksPath := ks.node.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
-	ks.log.Debug("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
+	ks.node.debug("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
 
 	if !missing {
 		// Check keystore file
-		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		ks.log.Debug("Keystore [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
+		missing, err = utils.FileMissing(ks.node.conf.getKeyStorePath(), ks.node.conf.getKeyStoreFilename())
+		ks.node.debug("Keystore [%s] missing [%t]:[%s]", ks.node.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			ks.log.Debug("Failed creating db At [%s]: ", ks.conf.getKeyStoreFilePath(), err.Error())
+			ks.node.debug("Failed creating db At [%s]: ", ks.node.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}
@@ -311,42 +305,44 @@ func (ks *keyStore) createKeyStoreIfNotExists() error {
 
 func (ks *keyStore) createKeyStore() error {
 	// Create keystore directory root if it doesn't exist yet
-	ksPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Creating Keystore at [%s]...", ksPath)
+	ksPath := ks.node.conf.getKeyStorePath()
+	ks.node.debug("Creating Keystore at [%s]...", ksPath)
 
-	missing, err := utils.FileMissing(ksPath, ks.conf.getKeyStoreFilename())
+	missing, err := utils.FileMissing(ksPath, ks.node.conf.getKeyStoreFilename())
 	if !missing {
-		ks.log.Debug("Creating Keystore at [%s]. Keystore already there", ksPath)
+		ks.node.debug("Creating Keystore at [%s]. Keystore already there", ksPath)
 		return nil
 	}
 
 	os.MkdirAll(ksPath, 0755)
 
 	// Create Raw material folder
-	os.MkdirAll(ks.conf.getRawsPath(), 0755)
+	os.MkdirAll(ks.node.conf.getRawsPath(), 0755)
 
 	// Create DB
-	ks.log.Debug("Open Keystore DB...")
-	db, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
+	ks.node.debug("Open Keystore DB...")
+	db, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.node.conf.getKeyStoreFilename()))
 	if err != nil {
 		return err
 	}
 
-	ks.log.Debug("Ping Keystore DB...")
+	ks.node.debug("Ping Keystore DB...")
 	err = db.Ping()
 	if err != nil {
-		ks.log.Fatal(err)
+		ks.node.error("Failend pinged keystore DB: [%s]", err)
+
+		return err
 	}
 	defer db.Close()
 
-	ks.log.Debug("Keystore created at [%s].", ksPath)
+	ks.node.debug("Keystore created at [%s].", ksPath)
 	return nil
 }
 
 func (ks *keyStore) deleteKeyStore() error {
-	ks.log.Debug("Removing KeyStore at [%s].", ks.conf.getKeyStorePath())
+	ks.node.debug("Removing KeyStore at [%s].", ks.node.conf.getKeyStorePath())
 
-	return os.RemoveAll(ks.conf.getKeyStorePath())
+	return os.RemoveAll(ks.node.conf.getKeyStorePath())
 }
 
 func (ks *keyStore) openKeyStore() error {
@@ -355,18 +351,18 @@ func (ks *keyStore) openKeyStore() error {
 	}
 
 	// Open DB
-	ksPath := ks.conf.getKeyStorePath()
-	ks.log.Debug("Open keystore at [%s]...", ksPath)
+	ksPath := ks.node.conf.getKeyStorePath()
+	ks.node.debug("Open keystore at [%s]...", ksPath)
 
-	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.conf.getKeyStoreFilename()))
+	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.node.conf.getKeyStoreFilename()))
 	if err != nil {
-		ks.log.Error("Error opening keystore%s", err.Error())
+		ks.node.error("Error opening keystore%s", err.Error())
 		return err
 	}
 	ks.isOpen = true
 	ks.sqlDB = sqlDB
 
-	ks.log.Debug("Open keystore at [%s]...done", ksPath)
+	ks.node.debug("Open keystore at [%s]...done", ksPath)
 
 	return nil
 }

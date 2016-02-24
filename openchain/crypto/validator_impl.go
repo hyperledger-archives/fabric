@@ -34,7 +34,6 @@ import (
 	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-
 //We are temporarily disabling the validity period functionality
 var allowValidityPeriodVerification = false
 
@@ -82,13 +81,13 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 		return nil, utils.ErrNotInitialized
 	}
 
-	//	validator.peer.node.log.Debug("Pre executing [%s].", tx.String())
-	validator.peer.node.log.Debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	//	validator.peer.node.debug("Pre executing [%s].", tx.String())
+	validator.peer.node.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	if validityPeriodVerificationEnabled() {
 		tx, err := validator.verifyValidityPeriod(tx)
 		if err != nil {
-			validator.peer.node.log.Error("TransactionPreExecution: error verifying certificate validity period %s:", err)
+			validator.peer.node.error("TransactionPreExecution: error verifying certificate validity period %s:", err)
 			return tx, err
 		}
 	}
@@ -99,12 +98,12 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 		return tx, nil
 	case obc.ConfidentialityLevel_CONFIDENTIAL:
-		validator.peer.node.log.Debug("Clone and Decrypt.")
+		validator.peer.node.debug("Clone and Decrypt.")
 
 		// Clone the transaction and decrypt it
 		newTx, err := validator.deepCloneAndDecryptTx(tx)
 		if err != nil {
-			validator.peer.node.log.Error("Failed decrypting [%s].", err.Error())
+			validator.peer.node.error("Failed decrypting [%s].", err.Error())
 
 			return nil, err
 		}
@@ -116,7 +115,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 }
 
 func validityPeriodVerificationEnabled() bool {
-	
+
 	if allowValidityPeriodVerification {
 		// If the verification of the validity period is enabled in the configuration file return the configured value
 		if viper.IsSet("peer.validator.validity-period.verification") {
@@ -126,8 +125,8 @@ func validityPeriodVerificationEnabled() bool {
 		// Validity period verification is enabled by default if no configuration was specified.
 		return true
 	}
-	
-	return false	
+
+	return false
 }
 
 func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.Transaction, error) {
@@ -136,7 +135,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		// Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			validator.peer.node.error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err
 		}
 
@@ -144,19 +143,19 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		ledger, err := ledger.GetLedger()
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			validator.peer.node.error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
 			return tx, err
 		}
 
 		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			validator.peer.node.error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
 		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
 		if err != nil {
-			validator.peer.node.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			validator.peer.node.error("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
 		}
 
@@ -175,7 +174,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		}
 
 		if errMsg != "" {
-			validator.peer.node.log.Error(errMsg)
+			validator.peer.node.error(errMsg)
 			return tx, errors.New(errMsg)
 		}
 	}
@@ -205,7 +204,7 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	cert, err := validator.getEnrollmentCert(vkID)
 	if err != nil {
-		validator.peer.node.log.Error("Failed getting enrollment cert ", utils.EncodeBase64(vkID), err)
+		validator.peer.node.error("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
 
 		return err
 	}
@@ -214,13 +213,13 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 	ok, err := validator.verify(vk, message, signature)
 	if err != nil {
-		validator.peer.node.log.Error("Failed verifying signature for ", utils.EncodeBase64(vkID), err)
+		validator.peer.node.error("Failed verifying signature for [% x]: [%s]", vkID, err)
 
 		return err
 	}
 
 	if !ok {
-		validator.peer.node.log.Error("Failed invalid signature for ", utils.EncodeBase64(vkID))
+		validator.peer.node.error("Failed invalid signature for [% x]", vkID)
 
 		return utils.ErrInvalidSignature
 	}
@@ -245,13 +244,13 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 	}
 	// Check that deployTx and executeTx refers to the same chaincode
 	if !reflect.DeepEqual(deployTx.ChaincodeID, executeTx.ChaincodeID) {
-		return nil, utils.ErrDirrentChaincodeID
+		return nil, utils.ErrDifferentChaincodeID
 	}
 
-	validator.peer.node.log.Debug("Parsing transaction. Type [%s].", executeTx.Type.String())
+	validator.peer.node.debug("Parsing transaction. Type [%s].", executeTx.Type.String())
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.peer.node.log.Debug("Parsing Query transaction...")
+		validator.peer.node.debug("Parsing Query transaction...")
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
@@ -262,7 +261,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err := se.init(validator.peer.node.log, queryKey, deployTxKey)
+		err := se.init(validator.peer.node, queryKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
@@ -283,7 +282,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
-	err := se.init(validator.peer.node.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	err := se.init(validator.peer.node, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +294,7 @@ func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Trans
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		validator.peer.node.log.Error("Registering...done! Initialization already performed", enrollID)
+		validator.peer.node.error("Registering...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -314,7 +313,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 
 func (validator *validatorImpl) init(name string, pwd []byte) error {
 	if validator.isInitialized {
-		validator.peer.node.log.Error("Already initializaed.")
+		validator.peer.node.error("Already initializaed.")
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -327,30 +326,28 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	validator.peer = peer
 
 	// Initialize keystore
-	validator.peer.node.log.Info("Init keystore...")
+	validator.peer.node.debug("Init keystore...")
 	err := validator.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			validator.peer.node.log.Error("Keystore already initialized.")
+			validator.peer.node.error("Keystore already initialized.")
 		} else {
-			validator.peer.node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+			validator.peer.node.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	validator.peer.node.log.Info("Init keystore...done.")
+	validator.peer.node.debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = validator.initCryptoEngine()
 	if err != nil {
-		validator.peer.node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
+		validator.peer.node.error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
 	// initialized
 	validator.isInitialized = true
-
-	peer.node.log.Info("Initialization...done.")
 
 	return nil
 }

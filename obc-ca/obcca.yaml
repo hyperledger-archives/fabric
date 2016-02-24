@@ -19,6 +19,11 @@ server:
 #              certfile: "/var/openchain/production/.obcca/tlsca.cert"
 #              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
 
+security:
+    # Can be 256 or 384
+    # Must be the same as in openchain.yaml
+    level: 256
+
 # Enabling/disabling different logging levels of the CA.
 #
 logging:

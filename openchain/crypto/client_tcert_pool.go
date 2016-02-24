@@ -17,45 +17,16 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package crypto
 
-import (
-	"crypto/hmac"
-	"hash"
-)
+type tCertPool interface {
+	init(client *clientImpl) error
 
-var (
-	defaultHash func() hash.Hash
-)
+	Start() error
 
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
-}
+	Stop() error
 
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return defaultHash()
-}
+	GetNextTCert() (tCert, error)
 
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
-}
-
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)
-}
-
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+	AddTCert(tCert tCert) error
 }
