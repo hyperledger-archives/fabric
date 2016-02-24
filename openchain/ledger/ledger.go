@@ -221,12 +221,16 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
 func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 	dbSnapshot := db.GetDBHandle().GetSnapshot()
-	blockNumber, err := fetchBlockchainSizeFromSnapshot(dbSnapshot)
+	blockHeight, err := fetchBlockchainSizeFromSnapshot(dbSnapshot)
 	if err != nil {
 		dbSnapshot.Release()
 		return nil, err
 	}
-	return ledger.state.GetSnapshot(blockNumber, dbSnapshot)
+	if 0 == blockHeight {
+		dbSnapshot.Release()
+		return nil, fmt.Errorf("Blockchain has no blocks, cannot determine block number")
+	}
+	return ledger.state.GetSnapshot(blockHeight-1, dbSnapshot)
 }
 
 // GetStateDelta will return the state delta for the specified block if

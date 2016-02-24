@@ -381,13 +381,6 @@ func (a blockRangeSlice) Less(i, j int) bool {
 	return a[i].highBlock < a[j].highBlock
 }
 
-func (a blockRangeSlice) Delete(i int) {
-	for j := i; j < len(a)-1; j++ {
-		a[j] = a[j+1]
-	}
-	a = a[:len(a)-1]
-}
-
 // =============================================================================
 // helper functions for state transfer
 // =============================================================================
@@ -511,7 +504,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	})
 
 	if nil != block {
-		logger.Debug("%v returned from sync with block %d and hash %x", sts.id, blockCursor, block.StateHash)
+		logger.Debug("%v returned from sync with block %d and state hash %x", sts.id, blockCursor, block.StateHash)
 	} else {
 		logger.Debug("%v returned from sync with no new blocks", sts.id)
 	}
@@ -628,7 +621,11 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 			}
 
 			// If there was an error validating or retrieving, delete, if it was successful, delete
-			blockRangeSlice(sts.validBlockRanges).Delete(1)
+			for j := 1; j < len(sts.validBlockRanges)-1; j++ {
+				sts.validBlockRanges[j] = (sts.validBlockRanges)[j+1]
+			}
+			sts.validBlockRanges = sts.validBlockRanges[:len(sts.validBlockRanges)-1]
+			logger.Debug("Deleted from validBlockRanges, new length %d", len(sts.validBlockRanges))
 			return false
 		}
 
@@ -676,6 +673,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 		logger.Warning("%v unable to recover block %d : %s", sts.id, blockNumber, err)
 	}
 
+	logger.Debug("%v recovered to block %d", sts.validBlockRanges[0].lowBlock)
 	return false
 }
 
@@ -975,41 +973,53 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 // not to consider this state as valid
 func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
 
+	logger.Debug("%v attempting to retrieve state snapshot from recovery from %v", sts.id, peerIDs)
+
 	currentStateBlock := uint64(0)
 
 	ok := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 		logger.Debug("%v is initiating state recovery from %v", sts.id, peerID)
 
-		sts.ledger.EmptyState()
+		if err := sts.ledger.EmptyState(); nil != err {
+			logger.Error("Could not empty the current state: %s", err)
+		}
 
 		stateChan, err := sts.ledger.GetRemoteStateSnapshot(peerID)
 
 		if err != nil {
-			sts.ledger.EmptyState()
 			return err
 		}
 
 		timer := time.NewTimer(sts.StateSnapshotRequestTimeout)
+		counter := 0
 
 		for {
 			select {
 			case piece, ok := <-stateChan:
 				if !ok {
-					return fmt.Errorf("%v had state snapshot channel close prematurely: %s", sts.id, err)
+					return fmt.Errorf("%v had state snapshot channel close prematurely after %d deltas: %s", sts.id, counter, err)
 				}
 				if 0 == len(piece.Delta) {
-					logger.Debug("%v received final piece of state snapshot from %v", sts.id, peerID)
+					stateHash, err := sts.ledger.GetCurrentStateHash()
+					if nil != err {
+						sts.stateValid = false
+						return fmt.Errorf("%v could not compute its current state hash: %x", sts.id, err)
+
+					}
+
+					logger.Debug("%v received final piece of state snapshot from %v after %d deltas, now has hash %x", sts.id, peerID, counter, stateHash)
 					return nil
 				}
 				umDelta := &statemgmt.StateDelta{}
 				if err := umDelta.Unmarshal(piece.Delta); nil != err {
-					return fmt.Errorf("%v received a corrupt delta from %v : %s", sts.id, peerID, err)
+					return fmt.Errorf("%v received a corrupt delta from %v after %d deltas : %s", sts.id, peerID, counter, err)
 				}
 				sts.ledger.ApplyStateDelta(piece, umDelta)
 				currentStateBlock = piece.BlockNumber
-				if nil != sts.ledger.CommitStateDelta(piece) {
-					return fmt.Errorf("%v could not commit state delta from %v", sts.id, peerID)
+				if err := sts.ledger.CommitStateDelta(piece); nil != err {
+					return fmt.Errorf("%v could not commit state delta from %v after %d deltas: %s", sts.id, counter, peerID, err)
 				}
+				counter++
 			case <-timer.C:
 				return fmt.Errorf("%v timed out during state recovery from %v", sts.id, peerID)
 			}

@@ -180,8 +180,8 @@ func TestLedgerStateSnapshot(t *testing.T) {
 		t.Fatalf("Expected 3 keys, but got %d", count)
 	}
 
-	if snapshot.GetBlockNumber() != 1 {
-		t.Fatalf("Expected blocknumber to be 1, but got %d", snapshot.GetBlockNumber())
+	if snapshot.GetBlockNumber() != 0 {
+		t.Fatalf("Expected blocknumber to be 0, but got %d", snapshot.GetBlockNumber())
 	}
 
 }
