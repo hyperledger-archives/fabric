@@ -231,11 +231,10 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
-#   @doNotDecompose
+#@doNotDecompose
 #@wip
 #@skip
-   @ttd
-   Scenario Outline: 4 peers and 1 obcca, if primary dies, consensus still works
+   Scenario Outline: 4 peers and 1 obcca, consensus still works if one backup replica fails
 
       Given we compose "<ComposeFile>"
       And I wait "10" seconds
@@ -272,27 +271,88 @@ Feature: lanching 3 peers
        Then I should get a JSON response from peers with "OK" = "95"
            | vp0  | vp1 | vp2 | vp3 |
 
-      # STOP vp0
+      # STOP vp2
       Given I stop peers:
-         | vp0  |
-       And I register with CA supplying username "test_user2" and secret "zMflqOKezFiA" on peers:
-         | vp2 |
+         | vp2  |
+       And I wait "3" seconds
 
-      # continue invoking Txs ( primary should now be vp1 but sending requests to vp2 )
-      When I invoke chaincode "example2" function name "invoke" on "vp2" "10" times
+      # continue invoking Txs
+      When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
          |arg1|arg2|arg3|
          | a  | b  | 1 |
        Then I should have received a transactionID
-      # a = 85
-       Then I wait "30" seconds
+       Then I wait up to "3" seconds for transaction to be committed to peers:
+           | vp0  | vp1 | vp3 |
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
-        | vp1  | vp2 | vp3 |
-       Then I should get a JSON response from peers with "OK" = "85"
-        | vp1 | vp2 | vp3 |
+        | vp0  | vp1 | vp3 |
+       Then I should get a JSON response from peers with "OK" = "90"
+        | vp0 | vp1 | vp3 |
 
    Examples: Consensus Options
        |          ComposeFile                       |   WaitTime   |
        |   docker-compose-4-consensus-classic.yml   |      30      |
        |   docker-compose-4-consensus-batch.yml     |      30      |
        |   docker-compose-4-consensus-sieve.yml     |      30      |
+
+#@doNotDecompose
+#@wip
+#@skip
+ Scenario Outline: 4 peers and 1 obcca, consensus fails if 2 backup replicas fail
+
+    Given we compose "<ComposeFile>"
+    And I wait "10" seconds
+    And I use the following credentials for querying peers:
+       | peer |   username  |    secret    |
+       | vp0  |  test_user0 | MS9qrN8hFjlE |
+       | vp1  |  test_user1 | jGlNl6ImkuDo |
+       | vp2  |  test_user2 | zMflqOKezFiA |
+       | vp3  |  test_user3 | vWdLCE00vJy0 |
+    And I register with CA supplying username "test_user0" and secret "MS9qrN8hFjlE" on peers:
+       | vp0 |
+
+    When requesting "/chain" from "vp0"
+     Then I should get a JSON response with "height" = "1"
+
+    # Deploy
+    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+       | arg1 |  arg2 | arg3 | arg4 |
+       |  a   |  100  |  b   |  200 |
+     Then I should have received a chaincode name
+     Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+       | vp0  | vp1 | vp2 | vp3 |
+
+    # get things started. All peers up and executing Txs
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+         |arg1|arg2|arg3|
+         | a  | b  | 1  |
+     Then I should have received a transactionID
+     Then I wait up to "5" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+         | vp0  | vp1 | vp2 | vp3 |
+     Then I should get a JSON response from peers with "OK" = "95"
+         | vp0  | vp1 | vp2 | vp3 |
+
+    # STOP vp2
+    Given I stop peers:
+       | vp1  | vp2 |
+     And I wait "3" seconds
+
+    # continue invoking Txs
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
+       |arg1|arg2|arg3|
+       | a  | b  | 1 |
+     And I wait "5" seconds
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+      | vp0 | vp3 |
+     Then I should get a JSON response from peers with "OK" = "95"
+      | vp0 | vp3 |
+
+ Examples: Consensus Options
+     |          ComposeFile                       |   WaitTime   |
+     |   docker-compose-4-consensus-classic.yml   |      30      |
+     |   docker-compose-4-consensus-batch.yml     |      30      |
+     |   docker-compose-4-consensus-sieve.yml     |      30      |
