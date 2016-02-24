@@ -19,20 +19,18 @@ under the License.
 
 package crypto
 
-import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-)
-
-func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	sigma, err := utils.ECDSASign(signKey, msg)
-
-	validator.peer.node.debug("Signing message [% x], sigma [% x].", msg, sigma)
-
-	return sigma, err
+func (node *nodeImpl) info(format string, args ...interface{}) {
+	log.Info(node.conf.logPrefix+format, args...)
 }
 
-func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	validator.peer.node.debug("Verifing signature [% x] against message [% x].", signature, msg)
+func (node *nodeImpl) debug(format string, args ...interface{}) {
+	log.Debug(node.conf.logPrefix+format, args...)
+}
 
-	return utils.ECDSAVerify(verKey, msg, signature)
+func (node *nodeImpl) error(format string, args ...interface{}) {
+	log.Error(node.conf.logPrefix+format, args...)
+}
+
+func (node *nodeImpl) warning(format string, args ...interface{}) {
+	log.Warning(node.conf.logPrefix+format, args...)
 }

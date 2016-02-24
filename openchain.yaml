@@ -239,12 +239,6 @@ peer:
     # Path on the file system where peer will store data
     fileSystemPath: /var/openchain/production
 
-    # TCerts related configuration
-    tcert:
-      batch:
-        # The size of the batch of TCerts
-        size:  200
-
 ###############################################################################
 #
 #    VM section
@@ -397,3 +391,9 @@ security:
     # Enable/Disable multithread
     multithreading:
       enabled: false
+
+    # TCerts related configuration
+    tcert:
+      batch:
+        # The size of the batch of TCerts
+        size:  200

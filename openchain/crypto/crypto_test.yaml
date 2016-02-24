@@ -16,7 +16,14 @@ security:
 
     # Enable/Disable multithread
     multithreading:
-      enabled: true
+      enabled: false
+
+    # TCerts related configuration
+    tcert:
+      batch:
+        # The size of the batch of TCerts
+        size:  200
+
 
 eca:
 
@@ -70,12 +77,6 @@ peer:
         validity-period:
             verification: false
 
-
-    # TCerts related configuration
-    tcert:
-      batch:
-        # The size of the batch of TCerts
-        size:  200
 
 
 ###############################################################################

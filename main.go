@@ -250,6 +250,11 @@ func main() {
 
 	mainCmd.AddCommand(chaincodeCmd)
 
+	// Init the crypto layer
+	if err := crypto.Init(); err != nil {
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+	}
+
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if mainCmd.Execute() != nil {

@@ -22,7 +22,6 @@ package crypto
 import (
 	"errors"
 	"fmt"
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"path/filepath"
@@ -33,8 +32,10 @@ const (
 )
 
 func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
-	// Set logger
-	node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
+	/*
+		// Set logger
+		node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
+	*/
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
@@ -42,19 +43,19 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 		return
 	}
 
-	/* TODO: commented out due to issue 714. Restore when possible.
-	// Set logger level
-	level, err := logging.LogLevel(viper.GetString("logging.crypto"))
-	if err == nil {
-		// No error, use the setting
-		logging.SetLevel(level, "crypto."+prefix+"."+name)
-		logging.SetLevel(level, "crypto")
-		node.log.Info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
-			logging.GetLevel("crypto"))
-	} else {
-		node.log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
-		logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
-	}
+	/*
+		// Set logger level
+		level, err := logging.LogLevel(viper.GetString("logging.crypto"))
+		if err == nil {
+			// No error, use the setting
+			logging.SetLevel(level, "crypto."+prefix+"."+name)
+			logging.SetLevel(level, "crypto")
+			node.info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
+				logging.GetLevel("crypto"))
+		} else {
+			node.warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
+			logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
+		}
 	*/
 	return
 }
@@ -62,6 +63,8 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 type configuration struct {
 	prefix string
 	name   string
+
+	logPrefix string
 
 	configurationPath string
 	keystorePath      string
@@ -86,6 +89,7 @@ func (conf *configuration) init() error {
 	conf.ecaPAddressProperty = "peer.pki.eca.paddr"
 	conf.tcaPAddressProperty = "peer.pki.tca.paddr"
 	conf.tlscaPAddressProperty = "peer.pki.tlsca.paddr"
+	conf.logPrefix = "[" + conf.prefix + "." + conf.name + "] "
 
 	// Check mandatory fields
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
@@ -139,8 +143,8 @@ func (conf *configuration) init() error {
 
 	// Set tCertBathSize
 	conf.tCertBathSize = 200
-	if viper.IsSet("peer.tcert.batch.size") {
-		ovveride := viper.GetInt("peer.tcert.batch.size")
+	if viper.IsSet("security.tcert.batch.size") {
+		ovveride := viper.GetInt("security.tcert.batch.size")
 		if ovveride != 0 {
 			conf.tCertBathSize = ovveride
 		}

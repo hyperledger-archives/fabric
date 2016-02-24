@@ -27,6 +27,8 @@ import (
 )
 
 type tCertPool interface {
+	init(client *clientImpl) error
+
 	Start() error
 
 	Stop() error
@@ -56,7 +58,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	tCertPool.done <- struct{}{}
 
 	// Store unused TCert
-	tCertPool.client.node.log.Debug("Store unused TCerts...")
+	tCertPool.client.node.debug("Store unused TCerts...")
 
 	tCerts := []tCert{}
 	for {
@@ -67,23 +69,23 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 		}
 	}
 
-	tCertPool.client.node.log.Debug("Found %d unused TCerts...", len(tCerts))
+	tCertPool.client.node.debug("Found %d unused TCerts...", len(tCerts))
 
 	tCertPool.client.node.ks.storeUnusedTCerts(tCerts)
 
-	tCertPool.client.node.log.Debug("Store unused TCerts...done!")
+	tCertPool.client.node.debug("Store unused TCerts...done!")
 
 	return
 }
 
 func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
 	for i := 0; i < 3; i++ {
-		tCertPool.client.node.log.Debug("Getting next TCert... %d out of 3", i)
+		tCertPool.client.node.debug("Getting next TCert... %d out of 3", i)
 		select {
 		case tCert = <-tCertPool.tCertChannel:
 			break
 		case <-time.After(30 * time.Second):
-			tCertPool.client.node.log.Error("Failed getting a new TCert. Buffer is empty!")
+			tCertPool.client.node.error("Failed getting a new TCert. Buffer is empty!")
 
 			//return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 		}
@@ -99,18 +101,18 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err e
 		return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 	}
 
-	tCertPool.client.node.log.Debug("Cert [% x].", tCert.GetCertificate().Raw)
+	tCertPool.client.node.debug("Cert [% x].", tCert.GetCertificate().Raw)
 
 	// Store the TCert permanently
 	tCertPool.client.node.ks.storeUsedTCert(tCert)
 
-	tCertPool.client.node.log.Debug("Getting next TCert...done!")
+	tCertPool.client.node.debug("Getting next TCert...done!")
 
 	return
 }
 
 func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) {
-	tCertPool.client.node.log.Debug("New TCert added.")
+	tCertPool.client.node.debug("New TCert added.")
 	tCertPool.tCertChannel <- tCert
 
 	return
@@ -134,7 +136,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 		// Check if Stop was called
 		select {
 		case <-tCertPool.done:
-			tCertPool.client.node.log.Debug("Force stop!")
+			tCertPool.client.node.debug("Force stop!")
 			stop = true
 		default:
 		}
@@ -144,17 +146,17 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 
 		tCertDER, err := tCertPool.client.node.ks.loadUnusedTCert()
 		if err != nil {
-			tCertPool.client.node.log.Error("Failed loading TCert: [%s]", err)
+			tCertPool.client.node.error("Failed loading TCert: [%s]", err)
 			break
 		}
 		if tCertDER == nil {
-			tCertPool.client.node.log.Debug("No more TCerts in cache!")
+			tCertPool.client.node.debug("No more TCerts in cache!")
 			break
 		}
 
 		tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
 		if err != nil {
-			tCertPool.client.node.log.Error("Failed paring TCert [% x]: [%s]", tCertDER, err)
+			tCertPool.client.node.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
 
 			continue
 		}
@@ -162,9 +164,9 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 		// Try to send the tCert to the channel if not full
 		select {
 		case tCertPool.tCertChannel <- tCert:
-			tCertPool.client.node.log.Debug("TCert send to the channel!")
+			tCertPool.client.node.debug("TCert send to the channel!")
 		default:
-			tCertPool.client.node.log.Debug("Channell Full!")
+			tCertPool.client.node.debug("Channell Full!")
 			full = true
 		}
 		if full {
@@ -172,7 +174,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 		}
 	}
 
-	tCertPool.client.node.log.Debug("Load unused TCerts...done!")
+	tCertPool.client.node.debug("Load unused TCerts...done!")
 
 	if !stop {
 		ticker := time.NewTicker(1 * time.Second)
@@ -180,20 +182,20 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 			select {
 			case <-tCertPool.done:
 				stop = true
-				tCertPool.client.node.log.Debug("Done signal.")
+				tCertPool.client.node.debug("Done signal.")
 			case <-tCertPool.tCertChannelFeedback:
-				tCertPool.client.node.log.Debug("Feedback received. Time to check for tcerts")
+				tCertPool.client.node.debug("Feedback received. Time to check for tcerts")
 			case <-ticker.C:
-				tCertPool.client.node.log.Debug("Time elapsed. Time to check for tcerts")
+				tCertPool.client.node.debug("Time elapsed. Time to check for tcerts")
 			}
 
 			if stop {
-				tCertPool.client.node.log.Debug("Quitting filler...")
+				tCertPool.client.node.debug("Quitting filler...")
 				break
 			}
 
 			if len(tCertPool.tCertChannel) < tCertPool.client.node.conf.getTCertBathSize() {
-				tCertPool.client.node.log.Debug("Refill TCert Pool. Current size [%d].",
+				tCertPool.client.node.debug("Refill TCert Pool. Current size [%d].",
 					len(tCertPool.tCertChannel),
 				)
 
@@ -202,17 +204,17 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 					numTCerts = cap(tCertPool.tCertChannel) / 10
 				}
 
-				tCertPool.client.node.log.Info("Refilling [%d] TCerts.", numTCerts)
+				tCertPool.client.node.info("Refilling [%d] TCerts.", numTCerts)
 
 				err := tCertPool.client.getTCertsFromTCA(numTCerts)
 				if err != nil {
-					tCertPool.client.node.log.Error("Failed getting TCerts from the TCA: [%s]", err)
+					tCertPool.client.node.error("Failed getting TCerts from the TCA: [%s]", err)
 				}
 			}
 		}
 	}
 
-	tCertPool.client.node.log.Debug("TCert filler stopped.")
+	tCertPool.client.node.debug("TCert filler stopped.")
 }
 
 type tCertPoolSingleThreadImpl struct {
@@ -224,17 +226,49 @@ type tCertPoolSingleThreadImpl struct {
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
-	tCertPool.client.node.log.Debug("Starting TCert Pool...")
-
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	tCertPool.client.getTCertsFromTCA(tCertPool.client.node.conf.getTCertBathSize())
+	tCertPool.client.node.debug("Starting TCert Pool...")
+
+	// Load unused TCerts if any
+	tCertDERs, err := tCertPool.client.node.ks.loadUnusedTCerts()
+	if err != nil {
+		tCertPool.client.node.error("Failed loading TCerts from cache: [%s]", err)
+
+		return
+	}
+	if len(tCertDERs) == 0 {
+		tCertPool.client.node.debug("No more TCerts in cache! Load new from TCA.")
+
+		tCertPool.client.getTCertsFromTCA(tCertPool.client.node.conf.getTCertBathSize())
+	} else {
+		tCertPool.client.node.debug("TCerts in cache found! Loading them...")
+
+		for _, tCertDER := range tCertDERs {
+			tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+			if err != nil {
+				tCertPool.client.node.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
+
+				continue
+			}
+			tCertPool.AddTCert(tCert)
+		}
+	}
 
 	return
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
+	tCertPool.m.Lock()
+	defer tCertPool.m.Unlock()
+
+	tCertPool.client.node.debug("Found %d unused TCerts...", tCertPool.len)
+
+	tCertPool.client.node.ks.storeUnusedTCerts(tCertPool.tCerts[:tCertPool.len])
+
+	tCertPool.client.node.debug("Store unused TCerts...done!")
+
 	return
 }
 
@@ -257,7 +291,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err err
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
-	tCertPool.client.node.log.Debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
+	tCertPool.client.node.debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
 
 	tCertPool.len++
 	tCertPool.tCerts[tCertPool.len-1] = tCert
@@ -268,7 +302,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
 
-	tCertPool.client.node.log.Debug("Init TCert Pool...")
+	tCertPool.client.node.debug("Init TCert Pool...")
 
 	tCertPool.tCerts = make([]tCert, tCertPool.client.node.conf.getTCertBathSize())
 	tCertPool.len = 0

@@ -29,15 +29,15 @@ func (client *clientImpl) initKeyStore() error {
 	os.MkdirAll(client.node.conf.getTCertsPath(), 0755)
 
 	// create tables
-	client.node.ks.log.Debug("Create Table if not exists [TCert] at [%s].", client.node.ks.conf.getKeyStorePath())
+	client.node.debug("Create Table if not exists [TCert] at [%s].", client.node.conf.getKeyStorePath())
 	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.ks.log.Debug("Failed creating table [%s].", err)
+		client.node.debug("Failed creating table [%s].", err)
 		return err
 	}
 
-	client.node.ks.log.Debug("Create Table if not exists [UsedTCert] at [%s].", client.node.ks.conf.getKeyStorePath())
+	client.node.debug("Create Table if not exists [UsedTCert] at [%s].", client.node.conf.getKeyStorePath())
 	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.ks.log.Debug("Failed creating table [%s].", err)
+		client.node.debug("Failed creating table [%s].", err)
 		return err
 	}
 
@@ -48,19 +48,19 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
-	ks.log.Debug("Storing used TCert...")
+	ks.node.debug("Storing used TCert...")
 
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
 	if err != nil {
-		ks.log.Error("Failed beginning transaction [%s].", err)
+		ks.node.error("Failed beginning transaction [%s].", err)
 
 		return
 	}
 
 	// Insert into UsedTCert
 	if _, err = tx.Exec("INSERT INTO UsedTCert (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
-		ks.log.Error("Failed inserting TCert to UsedTCert: [%s].", err)
+		ks.node.error("Failed inserting TCert to UsedTCert: [%s].", err)
 
 		tx.Rollback()
 
@@ -70,23 +70,23 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	// Finalize
 	err = tx.Commit()
 	if err != nil {
-		ks.log.Error("Failed commiting [%s].", err)
+		ks.node.error("Failed commiting [%s].", err)
 		tx.Rollback()
 
 		return
 	}
 
-	ks.log.Debug("Storing used TCert...done!")
+	ks.node.debug("Storing used TCert...done!")
 
 	//name, err := utils.TempFile(ks.conf.getTCertsPath(), "tcert_")
 	//if err != nil {
-	//	ks.log.Error("Failed storing TCert: [%s]", err)
+	//	ks.node.error("Failed storing TCert: [%s]", err)
 	//	return
 	//}
 	//
 	//err = ioutil.WriteFile(name, tCert.GetCertificate().Raw, 0700)
 	//if err != nil {
-	//	ks.log.Error("Failed storing TCert: [%s]", err)
+	//	ks.node.error("Failed storing TCert: [%s]", err)
 	//	return
 	//}
 
@@ -94,17 +94,17 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 }
 
 func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
-	ks.log.Debug("Storing unused TCerts...")
+	ks.node.debug("Storing unused TCerts...")
 
 	if len(tCerts) == 0 {
-		ks.log.Debug("Empty list of unused TCerts.")
+		ks.node.debug("Empty list of unused TCerts.")
 		return
 	}
 
 	// Open transaction
 	tx, err := ks.sqlDB.Begin()
 	if err != nil {
-		ks.log.Error("Failed beginning transaction [%s].", err)
+		ks.node.error("Failed beginning transaction [%s].", err)
 
 		return
 	}
@@ -112,7 +112,7 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 	for _, tCert := range tCerts {
 		// Insert into UsedTCert
 		if _, err = tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
-			ks.log.Error("Failed inserting unused TCert to TCerts: [%s].", err)
+			ks.node.error("Failed inserting unused TCert to TCerts: [%s].", err)
 
 			tx.Rollback()
 
@@ -123,13 +123,13 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 	// Finalize
 	err = tx.Commit()
 	if err != nil {
-		ks.log.Error("Failed commiting [%s].", err)
+		ks.node.error("Failed commiting [%s].", err)
 		tx.Rollback()
 
 		return
 	}
 
-	ks.log.Debug("Storing unused TCerts...done!")
+	ks.node.debug("Storing unused TCerts...done!")
 
 	return
 }
@@ -144,14 +144,14 @@ func (ks *keyStore) loadUnusedTCert() ([]byte, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
-		ks.log.Error("Error during select [%s].", err.Error())
+		ks.node.error("Error during select [%s].", err.Error())
 
 		return nil, err
 	}
 
 	// Remove from TCert
 	if _, err := ks.sqlDB.Exec("DELETE FROM TCerts WHERE id = ?", id); err != nil {
-		ks.log.Error("Failed removing row [%d] from TCert: [%s].", id, err.Error())
+		ks.node.error("Failed removing row [%d] from TCert: [%s].", id, err.Error())
 
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
-		ks.log.Error("Error during select [%s].", err)
+		ks.node.error("Error during select [%s].", err)
 
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 		if rows.Next() {
 			var tCertDER []byte
 			if err := rows.Scan(&tCertDER); err != nil {
-				ks.log.Error("Error during scan [%s].", err)
+				ks.node.error("Error during scan [%s].", err)
 
 				continue
 			}
@@ -187,7 +187,7 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 
 	// Delete all entries
 	if _, err = ks.sqlDB.Exec("DELETE FROM TCerts"); err != nil {
-		ks.log.Error("Failed cleaning up unused TCert entries: [%s].", err)
+		ks.node.error("Failed cleaning up unused TCert entries: [%s].", err)
 
 		return nil, err
 	}

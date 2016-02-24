@@ -29,6 +29,7 @@ import (
 
 	"fmt"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
+	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -72,10 +73,9 @@ func main() {
 		iopanic = ioutil.Discard
 	}
 
-	// Init security level
-	securityLevel := obcca.GetConfigInt("security.level")
-	if err := utils.InitSecurityLevel(securityLevel); err != nil {
-		panic(fmt.Errorf("Invalid security level [%d]", securityLevel))
+	// Init the crypto layer
+	if err := crypto.Init(); err != nil {
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
 	}
 
 	obcca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)

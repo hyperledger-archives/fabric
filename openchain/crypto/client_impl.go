@@ -50,7 +50,7 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	// Get next available (not yet used) transaction certificate
 	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
+		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -68,7 +68,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	// Get next available (not yet used) transaction certificate
 	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
+		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -86,7 +86,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	// Get next available (not yet used) transaction certificate
 	tCertHandler, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
+		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -102,7 +102,7 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	}
 
 	queryKey := utils.HMACTruncated(client.node.enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-	//	client.node.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
+	//	client.node.info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
 
 	if len(ct) <= utils.NonceSize {
 		return nil, utils.ErrDecrypt
@@ -123,7 +123,7 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 
 	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
 	if err != nil {
-		client.node.log.Error("Failed decrypting query result [%s].", err.Error())
+		client.node.error("Failed decrypting query result [%s].", err.Error())
 		return nil, utils.ErrDecrypt
 	}
 	return out, nil
@@ -140,7 +140,7 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 	handler := &eCertHandlerImpl{}
 	err := handler.init(client)
 	if err != nil {
-		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		client.node.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -157,7 +157,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	// Get next TCert
 	tCert, err := client.tCertPool.GetNextTCert()
 	if err != nil {
-		client.node.log.Error("Failed getting next transaction certificate [%s].", err.Error())
+		client.node.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
@@ -165,7 +165,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
-		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		client.node.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -182,7 +182,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	// Validate the transaction certificate
 	tCert, err := client.getTCertFromExternalDER(tCertDER)
 	if err != nil {
-		client.node.log.Warning("Failed validating transaction certificate [%s].", err)
+		client.node.warning("Failed validating transaction certificate [%s].", err)
 
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
-		client.node.log.Error("Failed getting handler [%s].", err.Error())
+		client.node.error("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -200,7 +200,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 
 func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD string) error {
 	if client.isInitialized {
-		client.node.log.Error("Registering [%s]...done! Initialization already performed", name)
+		client.node.error("Registering [%s]...done! Initialization already performed", name)
 
 		return nil
 	}
@@ -219,7 +219,7 @@ func (client *clientImpl) register(name string, pwd []byte, enrollID, enrollPWD 
 
 func (client *clientImpl) init(id string, pwd []byte) error {
 	if client.isInitialized {
-		client.node.log.Info("Already initializaed.")
+		client.node.info("Already initializaed.")
 
 		return nil
 	}
@@ -237,30 +237,30 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	client.node = node
 
 	// Initialize keystore
-	client.node.log.Debug("Init keystore...")
+	client.node.debug("Init keystore...")
 	err := client.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			client.node.log.Error("Keystore already initialized.")
+			client.node.error("Keystore already initialized.")
 		} else {
-			client.node.log.Error("Failed initiliazing keystore [%s].", err.Error())
+			client.node.error("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	client.node.log.Debug("Init keystore...done.")
+	client.node.debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
 	if err != nil {
-		client.node.log.Error("Failed initiliazing crypto engine [%s].", err.Error())
+		client.node.error("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
 	// initialized
 	client.isInitialized = true
 
-	client.node.log.Debug("Initialization...done.")
+	client.node.debug("Initialization...done.")
 
 	return nil
 }
@@ -268,13 +268,13 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 func (client *clientImpl) close() (err error) {
 	if client.tCertPool != nil {
 		if err = client.tCertPool.Stop(); err != nil {
-			client.node.log.Debug("Failed closing TCertPool [%s]", err)
+			client.node.debug("Failed closing TCertPool [%s]", err)
 		}
 	}
 
 	if client.node != nil {
 		if err = client.node.close(); err != nil {
-			client.node.log.Debug("Failed closing node [%s]", err)
+			client.node.debug("Failed closing node [%s]", err)
 		}
 	}
 	return

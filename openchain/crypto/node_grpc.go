@@ -30,12 +30,12 @@ import (
 )
 
 func (node *nodeImpl) initTLS() error {
-	node.log.Debug("Initiliazing TLS...")
+	node.debug("Initiliazing TLS...")
 
 	if node.conf.isTLSEnabled() {
 		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
 		if err != nil {
-			node.log.Error("Failed loading TLSCA certificates chain [%s].", err.Error())
+			node.error("Failed loading TLSCA certificates chain [%s].", err.Error())
 
 			return err
 		}
@@ -43,26 +43,26 @@ func (node *nodeImpl) initTLS() error {
 		node.tlsCertPool = x509.NewCertPool()
 		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
 		if !ok {
-			node.log.Error("Failed appending TLSCA certificates chain.")
+			node.error("Failed appending TLSCA certificates chain.")
 
 			return errors.New("Failed appending TLSCA certificates chain.")
 		}
-		node.log.Debug("Initiliazing TLS...Done")
+		node.debug("Initiliazing TLS...Done")
 	} else {
-		node.log.Debug("Initiliazing TLS...Disabled!!!")
+		node.debug("Initiliazing TLS...Disabled!!!")
 	}
 
 	return nil
 }
 
 func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
-	node.log.Debug("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
+	node.debug("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
 
 	var conn *grpc.ClientConn
 	var err error
 
 	if node.conf.isTLSEnabled() {
-		node.log.Debug("TLS enabled...")
+		node.debug("TLS enabled...")
 
 		// setup tls options
 		var opts []grpc.DialOption
@@ -81,7 +81,7 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 
 		conn, err = grpc.Dial(address, opts...)
 	} else {
-		node.log.Debug("TLS disabled...")
+		node.debug("TLS disabled...")
 
 		var opts []grpc.DialOption
 		opts = append(opts, grpc.WithInsecure())
@@ -91,12 +91,12 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 	}
 
 	if err != nil {
-		node.log.Error("Failed dailing in [%s].", err.Error())
+		node.error("Failed dailing in [%s].", err.Error())
 
 		return nil, err
 	}
 
-	node.log.Debug("Dial to addr:[%s], with serverName:[%s]...done!", address, serverName)
+	node.debug("Dial to addr:[%s], with serverName:[%s]...done!", address, serverName)
 
 	return conn, nil
 }

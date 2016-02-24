@@ -3,7 +3,6 @@ package utils
 import (
 	"crypto/elliptic"
 	"fmt"
-	"github.com/op/go-logging"
 	"golang.org/x/crypto/sha3"
 	"sync"
 )
@@ -13,8 +12,6 @@ var (
 )
 
 func InitSecurityLevel(level int) (err error) {
-	logging.MustGetLogger("crypto").Debug("Working at security level [%d]", level)
-
 	initOnce.Do(func() {
 		switch level {
 		case 256:
