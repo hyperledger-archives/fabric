@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"github.com/openblockchain/obc-peer/obc-ca/obcca"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
