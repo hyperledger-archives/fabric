@@ -51,15 +51,15 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		return nil, utils.ErrNotInitialized
 	}
 
-	//	peer.node.debug("Pre validating [%s].", tx.String())
-	peer.node.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	//	peer.debug("Pre validating [%s].", tx.String())
+	peer.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			peer.node.error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
+			peer.error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
 			return tx, err
 		}
 
@@ -70,7 +70,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			peer.node.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 		tx.Signature = signature
@@ -78,7 +78,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 2. Verify signature
 		ok, err := peer.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			peer.node.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
 			return tx, err
 		}
 
@@ -127,7 +127,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 
 func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
-		peer.node.error("Registering [%s]...done! Initialization already performed", enrollID)
+		peer.error("Registering [%s]...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
@@ -143,7 +143,7 @@ func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrol
 
 func (peer *peerImpl) init(eType Entity_Type, id string, pwd []byte) error {
 	if peer.isInitialized {
-		peer.node.error("Already initializaed.")
+		peer.error("Already initializaed.")
 
 		return utils.ErrAlreadyInitialized
 	}

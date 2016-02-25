@@ -47,11 +47,11 @@ func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
 		return nil, utils.ErrNilArgument
 	}
 
-	return tCert.client.node.sign(tCert.sk, msg)
+	return tCert.client.sign(tCert.sk, msg)
 }
 
 func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
-	ok, err := tCert.client.node.verify(tCert.cert.PublicKey, msg, signature)
+	ok, err := tCert.client.verify(tCert.cert.PublicKey, msg, signature)
 	if err != nil {
 		return
 	}

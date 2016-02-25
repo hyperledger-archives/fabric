@@ -64,7 +64,7 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 
 	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
 	if err != nil {
-		client.log.Error("Failed decrypting query result [%s].", err.Error())
+		client.error("Failed decrypting query result [%s].", err.Error())
 		return nil, utils.ErrDecrypt
 	}
 	return out, nil

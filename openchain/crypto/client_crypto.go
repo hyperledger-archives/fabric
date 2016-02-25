@@ -43,7 +43,7 @@ func (client *clientImpl) registerCryptoEngine() (err error) {
 
 func (client *clientImpl) initCryptoEngine() (err error) {
 	// Load TCertOwnerKDFKey
-	if err := client.initTCertEngine(); err != nil {
+	if err = client.initTCertEngine(); err != nil {
 		return
 	}
 

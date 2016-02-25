@@ -108,40 +108,40 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 
 	// Code for confidentiality 1.1
 	//if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
-	//	node.log.Error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+	//	node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
 	//	return err
 
 	// Code for confidentiality 1.2
 	// Store enrollment chain key
 	if node.eType == Entity_Validator {
-		node.log.Debug("Enrollment chain key for validator [%s]...", enrollID)
+		node.debug("Enrollment chain key for validator [%s]...", enrollID)
 		// enrollChainKey is a secret key
 
-		node.log.Debug("key [%s]...", string(enrollChainKey))
+		node.debug("key [%s]...", string(enrollChainKey))
 
 		key, err := utils.PEMtoPrivateKey(enrollChainKey, nil)
 		if err != nil {
-			node.log.Error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
 
 		if err := node.ks.storePrivateKey(node.conf.getEnrollmentChainKeyFilename(), key); err != nil {
-			node.log.Error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
 	} else {
-		node.log.Debug("Enrollment chain key for non-validator [%s]...", enrollID)
+		node.debug("Enrollment chain key for non-validator [%s]...", enrollID)
 		// enrollChainKey is a public key
 
 		key, err := utils.PEMtoPublicKey(enrollChainKey, nil)
 		if err != nil {
-			node.log.Error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
-		node.log.Debug("Key decoded from PEM [%s]...", enrollID)
+		node.debug("Key decoded from PEM [%s]...", enrollID)
 
 		if err := node.ks.storePublicKey(node.conf.getEnrollmentChainKeyFilename(), key); err != nil {
-			node.log.Error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
 	}
@@ -218,7 +218,7 @@ func (node *nodeImpl) loadEnrollmentChainKey() error {
 	// Code for confidentiality 1.1
 	//enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
 	//if err != nil {
-	//	node.log.Error("Failed loading enrollment chain key [%s].", err.Error())
+	//	node.error("Failed loading enrollment chain key [%s].", err.Error())
 	//
 	//	return err
 	//}
@@ -229,7 +229,7 @@ func (node *nodeImpl) loadEnrollmentChainKey() error {
 		// enrollChainKey is a secret key
 		enrollChainKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentChainKeyFilename())
 		if err != nil {
-			node.log.Error("Failed loading enrollment chain key: [%s]", err)
+			node.error("Failed loading enrollment chain key: [%s]", err)
 			return err
 		}
 		node.enrollChainKey = enrollChainKey
@@ -237,7 +237,7 @@ func (node *nodeImpl) loadEnrollmentChainKey() error {
 		// enrollChainKey is a public key
 		enrollChainKey, err := node.ks.loadPublicKey(node.conf.getEnrollmentChainKeyFilename())
 		if err != nil {
-			node.log.Error("Failed load enrollment chain key: [%s]", err)
+			node.error("Failed load enrollment chain key: [%s]", err)
 			return err
 		}
 		node.enrollChainKey = enrollChainKey
@@ -474,7 +474,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	// END
-	node.log.Debug("chain key: [% x]", resp.Chain.Tok)
+	node.debug("chain key: [% x]", resp.Chain.Tok)
 
 	return signPriv, resp.Certs.Sign, resp.Pkchain, nil
 }

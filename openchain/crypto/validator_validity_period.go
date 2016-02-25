@@ -33,7 +33,6 @@ import (
 //We are temporarily disabling the validity period functionality
 var allowValidityPeriodVerification = false
 
-
 func validityPeriodVerificationEnabled() bool {
 	// If the verification of the validity period is enabled in the configuration file return the configured value
 	if viper.IsSet("peer.validator.validity-period.verification") {
@@ -50,7 +49,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		// Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			validator.log.Error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			validator.error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err
 		}
 
@@ -58,19 +57,19 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		ledger, err := ledger.GetLedger()
 		if err != nil {
-			validator.log.Error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			validator.error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
 			return tx, err
 		}
 
 		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
-			validator.log.Error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			validator.error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
 		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
 		if err != nil {
-			validator.log.Error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			validator.error("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
 		}
 
@@ -89,7 +88,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		}
 
 		if errMsg != "" {
-			validator.log.Error(errMsg)
+			validator.error(errMsg)
 			return tx, errors.New(errMsg)
 		}
 	}

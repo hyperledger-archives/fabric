@@ -146,7 +146,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	// Validate the transaction certificate
 	tCert, err := client.getTCertFromExternalDER(tCertDER)
 	if err != nil {
-		client.node.warning("Failed validating transaction certificate [%s].", err)
+		client.warning("Failed validating transaction certificate [%s].", err)
 
 		return nil, err
 	}
@@ -175,13 +175,13 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 		return
 	}
 
-	client.log.Info("Register crypto engine...")
+	client.info("Register crypto engine...")
 	err = client.registerCryptoEngine()
 	if err != nil {
 		log.Error("Failed registering crypto engine [%s] [%s].", enrollID, err.Error())
 		return
 	}
-	client.log.Info("Register crypto engine...done.")
+	client.info("Register crypto engine...done.")
 
 	return
 }

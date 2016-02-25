@@ -27,7 +27,6 @@ import (
 	"crypto/cipher"
 	"encoding/asn1"
 	"encoding/binary"
-	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
@@ -67,13 +66,13 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	// client.enrollChainKey is an AES key represented as byte array
 	enrollChainKey := validator.enrollChainKey.([]byte)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.log.Debug("Parsing Query transaction...")
+		validator.debug("Parsing Query transaction...")
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
@@ -84,7 +83,7 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err := se.init(validator.log, queryKey, deployTxKey)
+		err := se.init(validator.nodeImpl, queryKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +104,7 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
-	err := se.init(validator.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	err := se.init(validator.nodeImpl, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +136,12 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.log.Debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	deployStateKey, err := validator.getStateKeyFromTransaction(deployTx)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.log.Debug("Parsing Query transaction...")
+		validator.debug("Parsing Query transaction...")
 
 		executeStateKey, err := validator.getStateKeyFromTransaction(executeTx)
 
@@ -155,7 +154,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
-		err = se.init(validator.log, executeStateKey, deployTxKey)
+		err = se.init(validator.nodeImpl, executeStateKey, deployTxKey)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +175,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
-	err = se.init(validator.log, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
+	err = se.init(validator.nodeImpl, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -187,22 +186,22 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) ([]byte, error) {
 	cipher, err := validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
-		validator.log.Error("Failed init decryption engine [%s].", err.Error())
+		validator.error("Failed init decryption engine [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.log.Debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
+	validator.debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
 
 	msgToValidatorsRaw, err := cipher.Process(tx.Key)
 	if err != nil {
-		validator.log.Error("Failed decrypting transaction key [%s].", err.Error())
+		validator.error("Failed decrypting transaction key [%s].", err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.log.Error("Failed unmarshalling message to validators [%s].", err.Error())
+		validator.error("Failed unmarshalling message to validators [%s].", err.Error())
 		return nil, err
 	}
 
@@ -210,7 +209,7 @@ func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) 
 }
 
 type stateEncryptorImpl struct {
-	log *logging.Logger
+	node *nodeImpl
 
 	deployTxKey   []byte
 	invokeTxNonce []byte
@@ -224,10 +223,10 @@ type stateEncryptorImpl struct {
 	counter uint64
 }
 
-func (se *stateEncryptorImpl) init(logger *logging.Logger, stateKey, nonceStateKey, deployTxKey, invokeTxNonce []byte) error {
+func (se *stateEncryptorImpl) init(node *nodeImpl, stateKey, nonceStateKey, deployTxKey, invokeTxNonce []byte) error {
 	// Initi fields
 	se.counter = 0
-	se.log = logger
+	se.node = node
 	se.stateKey = stateKey
 	se.nonceStateKey = nonceStateKey
 	se.deployTxKey = deployTxKey
@@ -254,7 +253,7 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, se.counter)
 
-	se.log.Debug("Encrypting with counter [%s].", utils.EncodeBase64(b))
+	se.node.debug("Encrypting with counter [%s].", utils.EncodeBase64(b))
 	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := utils.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
@@ -304,7 +303,7 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 }
 
 type queryStateEncryptor struct {
-	log *logging.Logger
+	node *nodeImpl
 
 	deployTxKey []byte
 
@@ -312,9 +311,9 @@ type queryStateEncryptor struct {
 	nonceSize int
 }
 
-func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKey []byte) error {
+func (se *queryStateEncryptor) init(node *nodeImpl, queryKey, deployTxKey []byte) error {
 	// Initi fields
-	se.log = logger
+	se.node = node
 	se.deployTxKey = deployTxKey
 
 	//	se.log.Info("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
@@ -339,7 +338,7 @@ func (se *queryStateEncryptor) init(logger *logging.Logger, queryKey, deployTxKe
 func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
 	nonce, err := utils.GetRandomBytes(se.nonceSize)
 	if err != nil {
-		se.log.Error("Failed getting randomness [%s].", err.Error())
+		se.node.error("Failed getting randomness [%s].", err.Error())
 		return nil, err
 	}
 
