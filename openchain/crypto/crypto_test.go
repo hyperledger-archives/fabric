@@ -942,6 +942,12 @@ func setup() {
 	if err != nil {                    // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file [%s] \n", err))
 	}
+	// Set Default properties
+	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "obc-crypto-tests", "peers"))
+	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca"))
+	viper.Set("peer.pki.tls.rootcert.file", filepath.Join(os.TempDir(),
+		"obc-crypto-tests", "ca", "tlsca.cert"))
+
 	// Logging
 	var formatter = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
@@ -1528,10 +1534,8 @@ func stopPKI() {
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), "obc-crypto-tests")); err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", "obc-crypto-tests", err)
 	}
-	if err := os.RemoveAll(viper.GetString("server.rootpath")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", viper.GetString("eca.crypto.path"), err)
-	}
+
 }

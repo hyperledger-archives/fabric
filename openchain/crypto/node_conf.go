@@ -32,31 +32,14 @@ const (
 )
 
 func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
-	/*
-		// Set logger
-		node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
-	*/
-
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
 	if err = node.conf.init(); err != nil {
 		return
 	}
 
-	/*
-		// Set logger level
-		level, err := logging.LogLevel(viper.GetString("logging.crypto"))
-		if err == nil {
-			// No error, use the setting
-			logging.SetLevel(level, "crypto."+prefix+"."+name)
-			logging.SetLevel(level, "crypto")
-			node.info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
-				logging.GetLevel("crypto"))
-		} else {
-			node.warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
-			logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
-		}
-	*/
+	node.debug("Data will be stored at [%s]", node.conf.configurationPath)
+
 	return
 }
 
@@ -66,6 +49,7 @@ type configuration struct {
 
 	logPrefix string
 
+	rootDataPath      string
 	configurationPath string
 	keystorePath      string
 	rawsPath          string
@@ -105,9 +89,12 @@ func (conf *configuration) init() error {
 		return err
 	}
 
+	conf.configurationPath = viper.GetString(conf.configurationPathProperty)
+	conf.rootDataPath = conf.configurationPath
+
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
-		viper.GetString(conf.configurationPathProperty),
+		conf.configurationPath,
 		"crypto", conf.prefix, conf.name,
 	)
 
@@ -189,6 +176,10 @@ func (conf *configuration) getTCertsPath() string {
 
 func (conf *configuration) getKeyStorePath() string {
 	return conf.keystorePath
+}
+
+func (conf *configuration) getRootDatastorePath() string {
+	return conf.rootDataPath
 }
 
 func (conf *configuration) getRawsPath() string {
