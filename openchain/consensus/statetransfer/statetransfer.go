@@ -376,9 +376,9 @@ func (a blockRangeSlice) Swap(i, j int) {
 func (a blockRangeSlice) Less(i, j int) bool {
 	if a[i].highBlock == a[j].highBlock {
 		// If the highs match, the bigger range comes first
-		return a[i].lowBlock > a[j].lowBlock
+		return a[i].lowBlock < a[j].lowBlock
 	}
-	return a[i].highBlock < a[j].highBlock
+	return a[i].highBlock > a[j].highBlock
 }
 
 // =============================================================================
@@ -869,6 +869,10 @@ func (sts *StateTransferState) stateThread() {
 			return
 		}
 	}
+}
+
+func (sts *StateTransferState) IsIdle() {
+
 }
 
 func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, err error, update StateTransferUpdate) {
