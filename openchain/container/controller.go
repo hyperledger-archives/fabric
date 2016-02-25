@@ -48,15 +48,15 @@ func (vm *dockerVM) newClient() (*docker.Client, error) {
 	return newDockerClient()
 }
 
-func (vm *dockerVM) createContainer(ctxt context.Context, client *docker.Client, id string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
-	config := docker.Config{Cmd: args, Image: id, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
+func (vm *dockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
+	config := docker.Config{Cmd: args, Image: imageID, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
 	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
 	vmLogger.Debug("Create container: %s", containerID)
 	_, err := client.CreateContainer(copts)
 	if err != nil {
 		return err
 	}
-	vmLogger.Debug("Created container: %s", id)
+	vmLogger.Debug("Created container: %s", imageID)
 	return nil
 }
 
@@ -75,43 +75,42 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	switch err {
 	case nil:
 		if err = client.BuildImage(opts); err != nil {
-			vmLogger.Debug("Error building Peer container: %s", err)
+			vmLogger.Error(fmt.Sprintf("Error building Peer container: %s", err))
 			return err
 		}
 		vmLogger.Debug("Created image: %s", id)
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
-	containerID := strings.Replace(id, ":", "_", -1)
-	return vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
+	return nil
 }
 
-func (vm *dockerVM) start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *dockerVM) start(ctxt context.Context, imageID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	client, err := vm.newClient()
 	if err != nil {
 		vmLogger.Debug("start - cannot create client %s", err)
 		return err
 	}
-	containerID := strings.Replace(id, ":", "_", -1)
+
+	containerID := strings.Replace(imageID, ":", "_", -1)
+
+	//stop,force remove if necessary
+	vmLogger.Debug("Cleanup container %s", containerID)
+	vm.stopInternal(ctxt, client, containerID, 0, false, false)
+
+	vmLogger.Debug("Start container %s", containerID)
+	err = vm.createContainer(ctxt, client, imageID, containerID, args, env, attachstdin, attachstdout)
+	if err != nil {
+		vmLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
+		return err
+	}
 	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
-		errMsg := "start"
-		if nscErr, ok := err.(*docker.NoSuchContainer); ok && nscErr != nil {
-			errMsg = "restart"
-			vmLogger.Debug("start-container does not exist, attempting to create %s", err)
-			err = vm.createContainer(ctxt, client, id, containerID, args, env, attachstdin, attachstdout)
-			if err != nil {
-				vmLogger.Debug("start-could not recreate container %s", err)
-				return err
-			}
-			err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
-		}
-		if err != nil {
-			vmLogger.Debug("start-could not %s container %s", errMsg, err)
-			return err
-		}
+		vmLogger.Error(fmt.Sprintf("start-could not start container %s", err))
+		return err
 	}
-	vmLogger.Debug("Started container %s", id)
+
+	vmLogger.Debug("Started container %s", containerID)
 	return nil
 }
 
@@ -122,16 +121,23 @@ func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint, dontkill
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
-	err = client.StopContainer(id, timeout)
+
+	err = vm.stopInternal(ctxt, client, id, timeout, dontkill, dontremove)
+
+	return err
+}
+
+func (vm *dockerVM) stopInternal(ctxt context.Context, client *docker.Client, id string, timeout uint, dontkill bool, dontremove bool) error {
+	err := client.StopContainer(id, timeout)
 	if err != nil {
-		vmLogger.Debug("Stopped container %s(%s)", id, err)
+		vmLogger.Debug("Stop container %s(%s)", id, err)
 	} else {
 		vmLogger.Debug("Stopped container %s", id)
 	}
 	if !dontkill {
 		err = client.KillContainer(docker.KillContainerOptions{ID: id})
 		if err != nil {
-			vmLogger.Debug("Killed container %s (%s)", id, err)
+			vmLogger.Debug("Kill container %s (%s)", id, err)
 		} else {
 			vmLogger.Debug("Killed container %s", id)
 		}
@@ -139,14 +145,13 @@ func (vm *dockerVM) stop(ctxt context.Context, id string, timeout uint, dontkill
 	if !dontremove {
 		err = client.RemoveContainer(docker.RemoveContainerOptions{ID: id, Force: true})
 		if err != nil {
-			vmLogger.Debug("Removed container %s (%s)", id, err)
+			vmLogger.Debug("Remove container %s (%s)", id, err)
 		} else {
 			vmLogger.Debug("Removed container %s", id)
 		}
 	}
 	return err
 }
-
 //constants for supported containers
 const (
 	DOCKER = "Docker"

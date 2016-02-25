@@ -345,27 +345,27 @@ func writeGopathSrc(tw *tar.Writer, excludeDir string) error {
 
 		fr, err := os.Open(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error opening path %s: %s", path, err)
 		}
 		defer fr.Close()
 
 		h, err := tar.FileInfoHeader(info, newPath)
 		if err != nil {
 			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
-			return err
+			return fmt.Errorf("Error getting file header %s: %s", newPath, err)
 		}
 		//Let's take the variance out of the tar, make headers identical everywhere by using zero time
+		oldname := h.Name
 		var zeroTime time.Time
 		h.AccessTime = zeroTime
 		h.ModTime = zeroTime
 		h.ChangeTime = zeroTime
 		h.Name = newPath
 		if err = tw.WriteHeader(h); err != nil {
-			vmLogger.Error(fmt.Sprintf("Error writing header: %s", err))
-			return err
+			return fmt.Errorf("Error write header for (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
 		}
 		if _, err := io.Copy(tw, fr); err != nil {
-			return err
+			return fmt.Errorf("Error copy (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
 		}
 		return nil
 	}
