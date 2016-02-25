@@ -50,7 +50,7 @@ const (
 	// DevModeUserRunsChaincode property allows user to run chaincode in development environment
 	DevModeUserRunsChaincode       string = "dev"
 	chaincodeStartupTimeoutDefault int    = 5000
-	chaincodeInstallPathDefault    string = "/go/bin/"
+	chaincodeInstallPathDefault    string = "/opt/gopath/bin/"
 	peerAddressDefault             string = "0.0.0.0:30303"
 )
 
