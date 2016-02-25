@@ -41,6 +41,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -115,7 +116,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		} else {
-			priv, err = ecdsa.GenerateKey(utils.GetDefaultCurve(), rand.Reader)
+			priv, err = ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
 			if err != nil {
 				Panic.Panicln(err)
 			}

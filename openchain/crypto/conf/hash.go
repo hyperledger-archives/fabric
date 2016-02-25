@@ -17,38 +17,16 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package conf
 
 import (
-	"crypto/hmac"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"hash"
 )
 
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return conf.GetDefaultHash()()
-}
+var (
+	defaultHash func() hash.Hash
+)
 
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
-}
-
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)
-}
-
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+func GetDefaultHash() func() hash.Hash {
+	return defaultHash
 }
