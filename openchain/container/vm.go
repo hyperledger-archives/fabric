@@ -144,7 +144,6 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainc
 	inputbuf := bytes.NewReader(code)
 	opts := docker.BuildImageOptions{
 		Name:         vmName,
-		Pull:         true,
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
@@ -166,7 +165,6 @@ func (vm *VM) BuildPeerContainer() error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         "openchain-peer",
-		Pull:         true,
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
@@ -187,7 +185,6 @@ func (vm *VM) BuildObccaContainer() error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         "obcca",
-		Pull:         true,
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
