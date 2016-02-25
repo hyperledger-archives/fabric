@@ -137,6 +137,9 @@ func (inst *instance) validate(payload []byte) error {
 	return nil
 }
 
+func (inst *instance) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
+}
+
 func (inst *instance) execute(payload []byte) {
 
 	tx := &pb.Transaction{

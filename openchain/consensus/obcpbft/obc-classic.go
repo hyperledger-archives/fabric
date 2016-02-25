@@ -169,3 +169,6 @@ func (op *obcClassic) execute(txRaw []byte) {
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
 }
+
+func (op *obcClassic) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
+}

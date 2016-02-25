@@ -327,3 +327,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
 	}
 	return ocMsg
 }
+
+func (op *obcBatch) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
+}
