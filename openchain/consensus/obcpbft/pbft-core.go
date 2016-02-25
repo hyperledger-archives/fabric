@@ -22,6 +22,7 @@ package obcpbft
 import (
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -194,6 +195,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.L = instance.logMultiplier * instance.K // log size
 	instance.replicaCount = instance.N
 
+	logger.Info("PBFT type = %T", instance.consumer)
 	logger.Info("PBFT Max number of validating peers (N) = %v", instance.N)
 	logger.Info("PBFT Max number of failing peers (f) = %v", instance.f)
 	logger.Info("PBFT byzantine flag = %v", instance.byzantine)
@@ -696,12 +698,6 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 			ReplicaId:      instance.id,
 		}
 
-		// TODO build this properly
-		// https://github.com/openblockchain/obc-peer/issues/217
-		if instance.byzantine {
-			prep.RequestDigest = "foo"
-		}
-
 		cert.sentPrepare = true
 		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
 	}
@@ -1145,7 +1141,30 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	if err != nil {
 		return fmt.Errorf("[innerBroadcast] Cannot marshal message: %s", err)
 	}
-	instance.consumer.broadcast(msgRaw)
+
+	doByzantine := false
+	if instance.byzantine {
+		rand1 := rand.New(rand.NewSource(time.Now().UnixNano()))
+		doIt := rand1.Intn(3) // go byzantine about 1/3 of the time
+		if doIt == 1 {
+			doByzantine = true
+		}
+	}
+
+	// testing byzantine fault.
+	if doByzantine {
+		rand2 := rand.New(rand.NewSource(time.Now().UnixNano()))
+		ignoreidx := rand2.Intn(instance.N)
+		for i := 0; i < instance.N; i++ {
+			if i != ignoreidx && uint64(i) != instance.id { //Pick a random replica and do not send message
+				instance.consumer.unicast(msgRaw, uint64(i))
+			} else {
+				logger.Debug("PBFT byzantine: not broadcasting to replica %v", i)
+			}
+		}
+	} else {
+		instance.consumer.broadcast(msgRaw)
+	}
 
 	// We call ourselves synchronously, so that testing can run
 	// synchronous.
