@@ -86,6 +86,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+    @issue_567
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
 
 	    Given we compose "<ComposeFile>"
