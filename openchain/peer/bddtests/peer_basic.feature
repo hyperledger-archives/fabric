@@ -86,6 +86,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+    @issue_567
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
 
 	    Given we compose "<ComposeFile>"
@@ -135,7 +136,7 @@ Feature: lanching 3 peers
 
 
     #@doNotDecompose
-    #@wip
+    @wip
     #@skip
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)
 
@@ -215,6 +216,55 @@ Feature: lanching 3 peers
         |   docker-compose-4-consensus-classic.yml   |      10      |
         |   docker-compose-4-consensus-batch.yml   |      10      |
         |   docker-compose-4-consensus-sieve.yml   |      10      |
+
+
+#    @doNotDecompose
+    @issue_724
+	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #724
+
+	    Given we compose "<ComposeFile>"
+	    And I wait "3" seconds
+	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+             | vp0  |
+        And I use the following credentials for querying peers:
+		     | peer |   username  |    secret    |
+		     | vp0  |  test_user0 | MS9qrN8hFjlE |
+		     | vp1  |  test_user1 | jGlNl6ImkuDo |
+		     | vp2  |  test_user2 | zMflqOKezFiA |
+		     | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+        And I wait "2" seconds
+	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name
+	    Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 | vp3 |
+
+        
+        When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 | vp3 |
+	    Then I should get a JSON response from peers with "OK" = "100"
+            | vp0  | vp1 | vp2 | vp3 |
+
+        Given I stop peers:
+           | vp0  |  vp1   | vp2  | vp3  | 
+        And I wait "1" seconds
+
+        Given I start peers:
+           | vp0  |  vp1   | vp2  | vp3  | 
+        And I wait "5" seconds
+
+        When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp3  |
+	    Then I should get a JSON response from peers with "OK" = "100"
+            | vp3  |
+
+    Examples: Consensus Options
+        |          ComposeFile                     |   WaitTime   |
+        |   docker-compose-4-consensus-noops.yml   |      60      |
 
 
 #   @doNotDecompose

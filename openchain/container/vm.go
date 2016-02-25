@@ -258,7 +258,7 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	if chaincodeGoName == "" {
 		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
 	}
-	
+
 	//let the executable's name be chaincode ID's name
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
@@ -295,7 +295,7 @@ func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
 	startTime := time.Now()
 
 	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileContents = dockerFileContents + "RUN cd obc-ca && go install\n"
+	dockerFileContents = dockerFileContents + "WORKDIR obc-ca\nRUN go install && cp obcca.yaml $GOPATH/bin\n"
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})

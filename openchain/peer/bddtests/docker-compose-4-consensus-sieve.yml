@@ -2,7 +2,6 @@ obcca0:
   extends:
     file: compose-defaults.yml
     service: obcca
-  working_dir: /go/src/github.com/openblockchain/obc-peer/obc-ca
 
 vp0:
   extends:
