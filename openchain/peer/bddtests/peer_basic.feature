@@ -23,7 +23,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
-	    Then I wait up to "25" seconds for transaction to be committed to all peers
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
 
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "2"
@@ -65,7 +65,7 @@ Feature: lanching 3 peers
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
-	    Then I wait up to "25" seconds for transaction to be committed to all peers
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
 
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
@@ -130,9 +130,9 @@ Feature: lanching 3 peers
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
         |   docker-compose-4-consensus-noops.yml   |      60      |
-        |   docker-compose-4-consensus-classic.yml |      20      |
-        |   docker-compose-4-consensus-batch.yml   |      20      |
-        |   docker-compose-4-consensus-sieve.yml   |      30      |
+        |   docker-compose-4-consensus-classic.yml |      60      |
+        |   docker-compose-4-consensus-batch.yml   |      60      |
+        |   docker-compose-4-consensus-sieve.yml   |      60      |
 
 
     #@doNotDecompose
@@ -212,10 +212,10 @@ Feature: lanching 3 peers
 
 
     Examples: Consensus Options
-        |          ComposeFile                     |   WaitTime   |
-        |   docker-compose-4-consensus-classic.yml   |      10      |
-        |   docker-compose-4-consensus-batch.yml   |      10      |
-        |   docker-compose-4-consensus-sieve.yml   |      10      |
+        |          ComposeFile                       |   WaitTime   |
+        |   docker-compose-4-consensus-classic.yml   |      60      |
+        |   docker-compose-4-consensus-batch.yml     |      60      |
+        |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 
 #    @doNotDecompose
@@ -243,18 +243,18 @@ Feature: lanching 3 peers
 	    Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | vp3 |
 
-        
+
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
 	    Then I should get a JSON response from peers with "OK" = "100"
             | vp0  | vp1 | vp2 | vp3 |
 
         Given I stop peers:
-           | vp0  |  vp1   | vp2  | vp3  | 
+           | vp0  |  vp1   | vp2  | vp3  |
         And I wait "1" seconds
 
         Given I start peers:
-           | vp0  |  vp1   | vp2  | vp3  | 
+           | vp0  |  vp1   | vp2  | vp3  |
         And I wait "5" seconds
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -341,9 +341,9 @@ Feature: lanching 3 peers
 
    Examples: Consensus Options
        |          ComposeFile                       |   WaitTime   |
-       |   docker-compose-4-consensus-classic.yml   |      30      |
-       |   docker-compose-4-consensus-batch.yml     |      30      |
-       |   docker-compose-4-consensus-sieve.yml     |      30      |
+       |   docker-compose-4-consensus-classic.yml   |      60      |
+       |   docker-compose-4-consensus-batch.yml     |      60      |
+       |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 #@doNotDecompose
 #@wip
@@ -403,9 +403,9 @@ Feature: lanching 3 peers
 
  Examples: Consensus Options
      |          ComposeFile                       |   WaitTime   |
-     |   docker-compose-4-consensus-classic.yml   |      30      |
-     |   docker-compose-4-consensus-batch.yml     |      30      |
-     |   docker-compose-4-consensus-sieve.yml     |      30      |
+     |   docker-compose-4-consensus-classic.yml   |      60      |
+     |   docker-compose-4-consensus-batch.yml     |      60      |
+     |   docker-compose-4-consensus-sieve.yml     |      60      |
 
      #@doNotDecompose
      #@wip
