@@ -34,6 +34,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 )
 
@@ -112,7 +113,7 @@ func (ca *CA) Close() {
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 	Trace.Println("Creating CA key pair.")
 
-	curve := utils.GetDefaultCurve()
+	curve := conf.GetDefaultCurve()
 
 	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err == nil {

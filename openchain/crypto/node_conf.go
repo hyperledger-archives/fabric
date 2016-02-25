@@ -21,8 +21,6 @@ package crypto
 
 import (
 	"errors"
-	"fmt"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
@@ -126,10 +124,6 @@ func (conf *configuration) init() error {
 		if ovveride != 0 {
 			conf.securityLevel = ovveride
 		}
-	}
-
-	if err := utils.InitSecurityLevel(conf.securityLevel); err != nil {
-		return fmt.Errorf("Invalid security level [%d]", conf.securityLevel)
 	}
 
 	// Set TLS host override

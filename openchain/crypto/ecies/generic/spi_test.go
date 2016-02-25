@@ -6,17 +6,21 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"reflect"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	conf.InitSecurityLevel(256)
+}
 
 func TestSPI(t *testing.T) {
 
 	spi := NewSPI()
 
-	ecdsaKey, err := ecdsa.GenerateKey(utils.GetDefaultCurve(), rand.Reader)
+	ecdsaKey, err := ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
 
 	var a interface{}
 	a = ecdsaKey
@@ -99,7 +103,7 @@ func TestKG(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kgparams, err := newKeyGeneratorParameter(rand.Reader, utils.GetDefaultCurve())
+	kgparams, err := newKeyGeneratorParameter(rand.Reader, conf.GetDefaultCurve())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +156,7 @@ func TestES(t *testing.T) {
 
 func generateKey() ecies.PrivateKey {
 	kg, _ := newKeyGenerator()
-	kgparams, _ := newKeyGeneratorParameter(rand.Reader, utils.GetDefaultCurve())
+	kgparams, _ := newKeyGeneratorParameter(rand.Reader, conf.GetDefaultCurve())
 	kg.Init(kgparams)
 	privKey, _ := kg.GenerateKey()
 	return privKey
