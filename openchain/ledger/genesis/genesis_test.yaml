@@ -46,21 +46,12 @@ peer:
     networkId: dev
 
     Dockerfile:  |
-        from golang:1.6
-        # Install RocksDB
-        RUN cd /opt  && git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb
-        WORKDIR /opt/rocksdb
-        RUN make shared_lib
-        ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
-        RUN apt-get update && apt-get install -y \
-            libsnappy-dev      \
-            zlib1g-dev         \
-            libbz2-dev
+        from openblockchain/baseimage
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
         WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/
-        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
+        RUN CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
     # The Address this Peer will bind to for providing services
     address: 0.0.0.0:30303
@@ -195,7 +186,7 @@ chaincode:
 
         # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from golang:1.6
+            from openblockchain/baseimage
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
@@ -208,7 +199,7 @@ chaincode:
 
     mode: net
 
-    installpath: /go/bin/
+    installpath: /opt/gopath/bin/
 
 ###############################################################################
 #
