@@ -54,7 +54,6 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op, stack)
-	op.pbft.sts.RegisterListener(op)
 
 	return op
 }
@@ -553,17 +552,19 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 
 	if sync {
 		op.sync(vset.BlockNumber, dSet[0].ResultDigest, dSet)
-	}
+	} else {
+		// sync is non-blocking, request execution needs to be paused until sync completes
+		op.currentReq = ""
+		op.currentResult = nil
 
-	op.currentReq = ""
-	op.currentResult = nil
+		if len(op.queuedTx) > 0 {
+			op.processRequest()
+		}
 
-	if len(op.queuedTx) > 0 {
-		op.processRequest()
-	}
+		if op.pbft.primary(op.epoch) != op.id {
+			op.processExecute()
+		}
 
-	if op.pbft.primary(op.epoch) != op.id {
-		op.processExecute()
 	}
 }
 
@@ -626,18 +627,13 @@ func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) 
 		}
 	}
 	op.pbft.sts.Initiate(peers)
-	op.pbft.sts.BlockingUntilSuccessAddTarget(blockNumber, blockHash, peers)
-}
-
-// statetransfer Listener interface implementation
-func (op *obcSieve) Initiated() {}
-func (op *obcSieve) Errored(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta interface{}, err error) {
+	op.pbft.sts.AddTarget(blockNumber, blockHash, peers, &stateTransferMetadata{op.pbft.lastExec + 1})
 }
 
 // Completed is a callback invoked when the statetransfer subsystem
 // succesfully synced to a new block
 // We are only interested in adjusting our idea of the sieve blockNumber, which tracks the ledger block height
-func (op *obcSieve) Completed(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta interface{}) {
+func (op *obcSieve) stateTransferCompleted(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta *stateTransferMetadata) {
 	op.pbft.lock()
 	defer op.pbft.unlock()
 
