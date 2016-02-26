@@ -14,8 +14,8 @@ const (
 	Entity_Validator Entity_Type = 2
 )
 
-// Entity represents a crypto object having a name
-type Entity interface {
+// Node represents a crypto object having a name
+type Node interface {
 
 	// GetType returns this entity's name
 	GetType() Entity_Type
@@ -26,7 +26,7 @@ type Entity interface {
 
 // Client is an entity able to deploy and invoke chaincode
 type Client interface {
-	Entity
+	Node
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode.
 	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
@@ -52,7 +52,7 @@ type Client interface {
 
 // Peer is an entity able to verify transactions
 type Peer interface {
-	Entity
+	Node
 
 	// GetID returns this peer's identifier
 	GetID() []byte

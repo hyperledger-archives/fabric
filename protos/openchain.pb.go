@@ -184,7 +184,7 @@ type Transaction struct {
 	ConfidentialityLevel           ConfidentialityLevel       `protobuf:"varint,7,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
 	ConfidentialityProtocolVersion string                     `protobuf:"bytes,8,opt,name=confidentialityProtocolVersion" json:"confidentialityProtocolVersion,omitempty"`
 	Nonce                          []byte                     `protobuf:"bytes,9,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	Key                            []byte                     `protobuf:"bytes,10,opt,name=key,proto3" json:"key,omitempty"`
+	ToValidators                   []byte                     `protobuf:"bytes,10,opt,name=toValidators,proto3" json:"toValidators,omitempty"`
 	Cert                           []byte                     `protobuf:"bytes,11,opt,name=cert,proto3" json:"cert,omitempty"`
 	Signature                      []byte                     `protobuf:"bytes,12,opt,name=signature,proto3" json:"signature,omitempty"`
 }

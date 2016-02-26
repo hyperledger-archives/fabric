@@ -138,9 +138,9 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 		return nil, err
 	}
 
-	validator.debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
+	validator.debug("Decrypting message to validators [% x].", tx.ToValidators)
 
-	msgToValidatorsRaw, err := cipher.Process(tx.Key)
+	msgToValidatorsRaw, err := cipher.Process(tx.ToValidators)
 	if err != nil {
 		validator.error("Failed decrypting message to validators [%s].", err.Error())
 		return nil, err
@@ -153,7 +153,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 		return nil, err
 	}
 
-	validator.debug("Deserializing transaction key [%s].", utils.EncodeBase64(msgToValidators.PrivateKey))
+	validator.debug("Deserializing transaction key [% x].", msgToValidators.PrivateKey)
 	ccPrivateKey, err = validator.eciesSPI.DeserializePrivateKey(msgToValidators.PrivateKey)
 	if err != nil {
 		validator.error("Failed deserializing transaction key [%s].", err.Error())

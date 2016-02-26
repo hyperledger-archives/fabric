@@ -37,11 +37,6 @@ type nodeImpl struct {
 	// Configuration
 	conf *configuration
 
-	/*
-		// Logging
-		log *logging.Logger
-	*/
-
 	// keyStore
 	ks *keyStore
 

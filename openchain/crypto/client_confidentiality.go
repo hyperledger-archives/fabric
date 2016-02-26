@@ -65,9 +65,9 @@ func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 		tx.Metadata = encryptedMetadata
 	}
 
-	client.debug("Encrypted ChaincodeID [%s].", utils.EncodeBase64(tx.ChaincodeID))
-	client.debug("Encrypted Payload [%s].", utils.EncodeBase64(tx.Payload))
-	client.debug("Encrypted Metadata [%s].", utils.EncodeBase64(tx.Metadata))
+	client.debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
+	client.debug("Encrypted Payload [% x].", tx.Payload)
+	client.debug("Encrypted Metadata [% x].", tx.Metadata)
 
 	return nil
 }
@@ -151,15 +151,16 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		return err
 	}
 
-	encryptedSKC, err := cipher.Process(msgToValidators)
+	encMsgToValidators, err := cipher.Process(msgToValidators)
 	if err != nil {
 		client.error("Failed encrypting message to the validators: [%s]", err)
 
 		return err
 	}
-	tx.Key = encryptedSKC
+	// TODO: change name to Key
+	tx.ToValidators = encMsgToValidators
 
-	client.debug("Message to Validator: [%s]", utils.EncodeBase64(tx.Key))
+	client.debug("Message to Validator: [% x]", tx.ToValidators)
 
 	// Encrypt the rest of the fields
 

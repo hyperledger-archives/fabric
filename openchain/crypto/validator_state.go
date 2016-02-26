@@ -190,9 +190,9 @@ func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) 
 		return nil, err
 	}
 
-	validator.debug("Decrypting message to validators [%s].", utils.EncodeBase64(tx.Key))
+	validator.debug("Decrypting message to validators [% x].", tx.ToValidators)
 
-	msgToValidatorsRaw, err := cipher.Process(tx.Key)
+	msgToValidatorsRaw, err := cipher.Process(tx.ToValidators)
 	if err != nil {
 		validator.error("Failed decrypting transaction key [%s].", err.Error())
 		return nil, err
@@ -253,7 +253,7 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, se.counter)
 
-	se.node.debug("Encrypting with counter [%s].", utils.EncodeBase64(b))
+	se.node.debug("Encrypting with counter [% x].", b)
 	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := utils.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
