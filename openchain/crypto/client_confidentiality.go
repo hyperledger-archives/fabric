@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	obc "github.com/openblockchain/obc-peer/protos"
 )
@@ -79,7 +80,7 @@ type chainCodeValidatorMessage1_2 struct {
 
 func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Create (PK_C,SK_C) pair
-	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, utils.GetDefaultCurve())
+	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, conf.GetDefaultCurve())
 	if err != nil {
 		client.error("Failed generate chaincode keypair: [%s]", err)
 
