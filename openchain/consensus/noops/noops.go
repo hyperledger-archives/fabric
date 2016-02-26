@@ -79,6 +79,7 @@ func newNoops(c consensus.Stack) consensus.Consenter {
 		panic(fmt.Errorf("Cannot parse block timeout: %s", err))
 	}
 
+	logger.Info("NOOPS consensus type = %T", i)
 	logger.Info("NOOPS block size = %v", blockSize)
 	logger.Info("NOOPS block timeout = %v", i.duration)
 

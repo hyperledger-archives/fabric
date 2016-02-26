@@ -148,6 +148,7 @@ peer:
         enabled: true
 
         # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
+        # if the given value is not recognized, we will default to noops
         consensus: noops
 
         events:
