@@ -99,8 +99,13 @@ type StateTransferState struct {
 	blockHashReceiver chan *blockHashReply // Used to process incoming valid block hashes, write only from the state thread
 	blockSyncReq      chan *blockSyncReq   // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 
-	blockThreadExit chan struct{} // Used to inform the block thread that we are shutting down
-	stateThreadExit chan struct{} // Used to inform the state thread that we are shutting down
+	threadExit chan struct{} // Used to inform the threads that we are shutting down
+
+	blockThreadIdle bool // Used to check if the block thread is idle
+	stateThreadIdle bool // Used to check if the state thread is idle
+
+	blockThreadIdleChan chan struct{} // Used to block until the block thread is idle
+	stateThreadIdleChan chan struct{} // Used to block until the state thread is idle
 
 	BlockRequestTimeout         time.Duration // How long to wait for a peer to respond to a block request
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
@@ -164,10 +169,12 @@ func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
 		blockNumber: 0,
 		peerIDs:     peerIDs,
 	}:
+		sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
+	case <-sts.threadExit:
+		logger.Error("Attempted to start state transfer after thread shutdown called")
 	default:
 		// If there is no room on the channel, then a request is already pending
 	}
-	sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
 }
 
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
@@ -255,16 +262,11 @@ func (sts *StateTransferState) InvalidateState() {
 
 // This will send a signal to any running threads to stop, regardless of whether they are stopped
 // It will never block, and if called before threads start, they will exit at startup
-// Attempting to start threads after this call may fail once
 func (sts *StateTransferState) Stop() {
-outer:
-	for {
-		select {
-		case sts.blockThreadExit <- struct{}{}:
-		case sts.stateThreadExit <- struct{}{}:
-		default:
-			break outer
-		}
+	select {
+	case <-sts.threadExit:
+	default:
+		close(sts.threadExit)
 	}
 }
 
@@ -299,8 +301,13 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, led
 	sts.blockHashReceiver = make(chan *blockHashReply, 1)
 	sts.blockSyncReq = make(chan *blockSyncReq)
 
-	sts.blockThreadExit = make(chan struct{}, 1)
-	sts.stateThreadExit = make(chan struct{}, 1)
+	sts.threadExit = make(chan struct{})
+
+	sts.blockThreadIdle = true
+	sts.stateThreadIdle = true
+
+	sts.blockThreadIdleChan = make(chan struct{})
+	sts.stateThreadIdleChan = make(chan struct{})
 
 	var err error
 
@@ -679,12 +686,13 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 
 func (sts *StateTransferState) blockThread() {
 
+	sts.blockThreadIdle = false
 	for {
 
 		select {
 		case blockSyncReq := <-sts.blockSyncReq:
 			sts.syncBlockchainToCheckpoint(blockSyncReq)
-		case <-sts.blockThreadExit:
+		case <-sts.threadExit:
 			logger.Debug("Received request for block transfer thread to exit (1)")
 			return
 		default:
@@ -697,14 +705,22 @@ func (sts *StateTransferState) blockThread() {
 
 		logger.Debug("%v has validated its blockchain to the genesis block", sts.id)
 
-		select {
-		// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
-		case blockSyncReq := <-sts.blockSyncReq:
-			logger.Debug("Block thread received request for block transfer thread to sync")
-			sts.syncBlockchainToCheckpoint(blockSyncReq)
-		case <-sts.blockThreadExit:
-			logger.Debug("Block thread received request for block transfer thread to exit (2)")
-			return
+		for {
+			sts.blockThreadIdle = true
+			select {
+			// If we make it this far, the whole blockchain has been validated, so we only need to watch for checkpoint sync requests
+			case blockSyncReq := <-sts.blockSyncReq:
+				sts.blockThreadIdle = false
+				logger.Debug("Block thread received request for block transfer thread to sync")
+				sts.syncBlockchainToCheckpoint(blockSyncReq)
+				break
+			case sts.blockThreadIdleChan <- struct{}{}:
+				continue
+			case <-sts.threadExit:
+				logger.Debug("Block thread received request for block transfer thread to exit (2)")
+				sts.blockThreadIdle = true
+				return
+			}
 		}
 
 	}
@@ -752,9 +768,8 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 				} else {
 					break outer
 				}
-			case req := <-sts.stateThreadExit:
+			case <-sts.threadExit:
 				logger.Debug("Received request for state thread to exit while waiting for block hash")
-				sts.stateThreadExit <- req // This will be checked in the calling function as well, it is a buffered channel so it's okay
 				return fmt.Errorf("Interrupted with request to exit while in state transfer.")
 			}
 		}
@@ -767,11 +782,18 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 
 		blockReplyChannel := make(chan error)
 
-		sts.blockSyncReq <- &blockSyncReq{
+		req := &blockSyncReq{
 			syncMark:       *(*mark),
 			reportOnBlock:  *currentStateBlockNumber,
 			replyChan:      blockReplyChannel,
 			firstBlockHash: (*blockHReply).blockHash,
+		}
+
+		select {
+		case sts.blockSyncReq <- req:
+		case <-sts.threadExit:
+			logger.Debug("Received request for state thread to exit while waiting for block sync reply")
+			return fmt.Errorf("Interrupted with request to exit while waiting for block sync reply.")
 		}
 
 		logger.Debug("%v state transfer thread waiting for block sync to complete", sts.id)
@@ -828,9 +850,11 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 // A thread to process state transfer
 func (sts *StateTransferState) stateThread() {
 	for {
+		sts.stateThreadIdle = true
 		select {
 		// Wait for state sync to become necessary
 		case mark := <-sts.initiateStateSync:
+			sts.stateThreadIdle = false
 
 			sts.informListeners(0, nil, mark.peerIDs, nil, nil, Initiated)
 
@@ -845,7 +869,7 @@ func (sts *StateTransferState) stateThread() {
 					logger.Error("%s", err)
 					sts.informListeners(0, nil, mark.peerIDs, nil, err, Errored)
 					select {
-					case <-sts.stateThreadExit:
+					case <-sts.threadExit:
 						logger.Debug("Received request for state thread to exit, aborting state transfer")
 						return
 					default:
@@ -863,16 +887,42 @@ func (sts *StateTransferState) stateThread() {
 			sts.asynchronousTransferInProgress = false
 
 			sts.informListeners(blockHReply.blockNumber, blockHReply.blockHash, blockHReply.peerIDs, blockHReply.metadata, nil, Completed)
-
-		case <-sts.stateThreadExit:
+		case sts.stateThreadIdleChan <- struct{}{}:
+			continue
+		case <-sts.threadExit:
 			logger.Debug("Received request for state thread to exit")
+			sts.stateThreadIdle = true
 			return
 		}
 	}
 }
 
-func (sts *StateTransferState) IsIdle() {
+// Makes a best effort to block until the state transfer is idle
+// This is not an atomic operation, and no locking is performed
+// so it is possible in rare cases that this may unblock prematurely
+func (sts *StateTransferState) BlockUntilIdle() {
+	for i := 0; i < 3; i++ {
+		// The goal is that both threads are simulatenously idle
+		// but checking idle-ness is not atomic, so checking 3 times
+		// increases the likelihood that things are in a consistent state
+		select {
+		case <-sts.blockThreadIdleChan:
+		case <-sts.threadExit: // In case the block thread is gone
+			return
+		}
+		select {
+		case <-sts.stateThreadIdleChan:
+		case <-sts.threadExit: // In case the state thread is gone
+			return
+		}
+	}
+}
 
+// Determines whether state transfer is currently doing nothing
+// Note, this is different from state transfer in progress, as for instance
+// block recovery can be being performed in the background
+func (sts *StateTransferState) IsIdle() bool {
+	return sts.stateThreadIdle && sts.blockThreadIdle
 }
 
 func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, err error, update StateTransferUpdate) {
