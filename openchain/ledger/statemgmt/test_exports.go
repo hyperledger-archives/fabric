@@ -1,6 +1,7 @@
 package statemgmt
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -32,7 +33,7 @@ func ConstructRandomStateDelta(
 	numChaincodes int,
 	maxKeySuffix int,
 	numKeysToInsert int,
-	valueSize int) *StateDelta {
+	kvSize int) *StateDelta {
 	delta := NewStateDelta()
 	s2 := rand.NewSource(time.Now().UnixNano())
 	r2 := rand.New(s2)
@@ -40,6 +41,10 @@ func ConstructRandomStateDelta(
 	for i := 0; i < numKeysToInsert; i++ {
 		chaincodeID := chaincodeIDPrefix + "_" + strconv.Itoa(r2.Intn(numChaincodes))
 		key := "key_" + strconv.Itoa(r2.Intn(maxKeySuffix))
+		valueSize := kvSize - len(key)
+		if valueSize < 1 {
+			panic(fmt.Errorf("valueSize cannot be less than one. ValueSize=%d", valueSize))
+		}
 		value := testutil.ConstructRandomBytes(t, valueSize)
 		delta.Set(chaincodeID, key, value, nil)
 	}

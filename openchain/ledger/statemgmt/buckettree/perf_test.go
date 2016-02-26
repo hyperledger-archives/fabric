@@ -41,13 +41,13 @@ func BenchmarkStateHash(b *testing.B) {
 	numChaincodes := flags.Int("NumChaincodes", 1, "Number of chaincodes to assume")
 	maxKeySuffix := flags.Int("MaxKeySuffix", 1, "the keys are appended with _1, _2,.. upto MaxKeySuffix")
 	numKeysToInsert := flags.Int("NumKeysToInsert", 1, "how many keys to insert in a single batch")
-	valueSize := flags.Int("ValueSize", 1000, "size of the value")
+	kvSize := flags.Int("KVSize", 1000, "size of the value")
 	debugMsgsOn := flags.Bool("DebugOn", false, "Trun on/off debug messages during benchmarking")
 	flags.Parse(testParams)
 
 	b.Logf(`Running test with params:
 		numbBuckets=%d, maxGroupingAtEachLevel=%d, chaincodeIDPrefix=%s, numChaincodes=%d, maxKeySuffix=%d, numKeysToInsert=%d, valueSize=%d, debugMsgs=%t`,
-		*numBuckets, *maxGroupingAtEachLevel, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *valueSize, *debugMsgsOn)
+		*numBuckets, *maxGroupingAtEachLevel, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *kvSize, *debugMsgsOn)
 
 	if !*debugMsgsOn {
 		testutil.SetLogLevel(logging.ERROR, "statemgmt")
@@ -58,7 +58,7 @@ func BenchmarkStateHash(b *testing.B) {
 	stateImplTestWrapper := newStateImplTestWrapperWithCustomConfig(b, *numBuckets, *maxGroupingAtEachLevel)
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		delta := statemgmt.ConstructRandomStateDelta(b, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *valueSize)
+		delta := statemgmt.ConstructRandomStateDelta(b, *chaincodeIDPrefix, *numChaincodes, *maxKeySuffix, *numKeysToInsert, *kvSize)
 		b.StartTimer()
 		stateImplTestWrapper.prepareWorkingSet(delta)
 		stateImplTestWrapper.computeCryptoHash()
