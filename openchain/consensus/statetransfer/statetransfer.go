@@ -164,6 +164,7 @@ func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64,
 // For the sync to complete, a call to AddTarget(hash, peerIDs) must be made
 // If peerIDs is nil, all peer will be considered sync candidates
 func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
+	logger.Debug("%v attempting to issue a state transfer request", sts.id)
 	select {
 	case sts.initiateStateSync <- &syncMark{
 		blockNumber: 0,
@@ -172,8 +173,6 @@ func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
 		sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
 	case <-sts.threadExit:
 		logger.Error("Attempted to start state transfer after thread shutdown called")
-	default:
-		// If there is no room on the channel, then a request is already pending
 	}
 }
 
@@ -297,7 +296,7 @@ func ThreadlessNewStateTransferState(id *protos.PeerID, config *viper.Viper, led
 		panic(fmt.Errorf("Must set statetransfer.blocksperrequest to be nonzero"))
 	}
 
-	sts.initiateStateSync = make(chan *syncMark, 1)
+	sts.initiateStateSync = make(chan *syncMark)
 	sts.blockHashReceiver = make(chan *blockHashReply, 1)
 	sts.blockSyncReq = make(chan *blockSyncReq)
 
@@ -452,6 +451,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
 					// If the message is not replying with blocks backwards, we did not ask for it
+					// TODO, this should count against the timeout
 					continue
 				}
 
@@ -459,6 +459,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 				for i, block = range syncBlockMessage.Blocks {
 					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
 					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
+						// TODO, this should count against the timeout
 						continue
 					}
 
@@ -715,6 +716,7 @@ func (sts *StateTransferState) blockThread() {
 				sts.syncBlockchainToCheckpoint(blockSyncReq)
 				break
 			case sts.blockThreadIdleChan <- struct{}{}:
+				logger.Debug("%v block thread reporting as idle to unblock someone", sts.id)
 				continue
 			case <-sts.threadExit:
 				logger.Debug("Block thread received request for block transfer thread to exit (2)")
@@ -888,6 +890,7 @@ func (sts *StateTransferState) stateThread() {
 
 			sts.informListeners(blockHReply.blockNumber, blockHReply.blockHash, blockHReply.peerIDs, blockHReply.metadata, nil, Completed)
 		case sts.stateThreadIdleChan <- struct{}{}:
+			logger.Debug("%v state thread reporting as idle to unblock someone", sts.id)
 			continue
 		case <-sts.threadExit:
 			logger.Debug("Received request for state thread to exit")
@@ -901,6 +904,7 @@ func (sts *StateTransferState) stateThread() {
 // This is not an atomic operation, and no locking is performed
 // so it is possible in rare cases that this may unblock prematurely
 func (sts *StateTransferState) BlockUntilIdle() {
+	logger.Debug("%v caller requesting to block until idle", sts.id)
 	for i := 0; i < 3; i++ {
 		// The goal is that both threads are simulatenously idle
 		// but checking idle-ness is not atomic, so checking 3 times

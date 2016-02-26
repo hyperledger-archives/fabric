@@ -295,7 +295,11 @@ func (instance *pbftCore) unlock() {
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
 	instance.lock()
-	close(instance.closed)
+	select { // Prevent closing multiple times
+	case <-instance.closed:
+	default:
+		close(instance.closed)
+	}
 	instance.newViewTimer.Stop()
 	instance.sts.Stop()
 	instance.unlock()
@@ -474,7 +478,9 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 
 		instance.lastExec = md.sequenceNumber
 		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+		instance.unlock() // Otherwise we deadlock in consumer
 		instance.consumer.stateTransferCompleted(blockNumber, blockHash, peerIDs, md)
+		instance.lock()
 		instance.executeOutstanding()
 		instance.stateTransferActive = false
 	} else {

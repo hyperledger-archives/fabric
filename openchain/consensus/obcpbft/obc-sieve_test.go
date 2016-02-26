@@ -44,6 +44,7 @@ func makeTestnetSieve(inst *instance) {
 	sieve := inst.consenter.(*obcSieve)
 	sieve.pbft.replicaCount = len(inst.net.replicas)
 	sieve.pbft.f = inst.net.f
+	inst.pbft = sieve.pbft
 	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
 		sieve.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}, senderHandle)
 	}
@@ -203,7 +204,9 @@ func TestSieveNonDeterministic(t *testing.T) {
 
 	instResults = []int{5, 5, 6, 6}
 	net.replicas[1].consenter.RecvMsg(createOcMsgWithChainTx(2), net.handles[generateBroadcaster(validatorCount)])
+
 	net.process()
+	net.blockForStateTransfer()
 
 	results := make([][]byte, len(net.replicas))
 	for _, inst := range net.replicas {
