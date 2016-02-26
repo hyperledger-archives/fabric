@@ -27,12 +27,12 @@ type encryptionSchemeImpl struct {
 	isForEncryption bool
 
 	// Parameters
-	params ecies.AsymmetricCipherParameter
+	params ecies.AsymmetricCipherParameters
 	pub    *publicKeyImpl
 	priv   *secretKeyImpl
 }
 
-func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameter) error {
+func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameters) error {
 	if params == nil {
 		return ecies.ErrInvalidKeyParameter
 	}

@@ -6,19 +6,23 @@ import (
 
 // Public Interfaces
 
-type Entity_Type int32
+// NodeType represents the node's type
+type NodeType int32
 
 const (
-	Entity_Client    Entity_Type = 0
-	Entity_Peer      Entity_Type = 1
-	Entity_Validator Entity_Type = 2
+	// NodeClient a client
+	NodeClient NodeType = 0
+	// NodePeer a peer
+	NodePeer NodeType = 1
+	// NodeValidator a validator
+	NodeValidator NodeType = 2
 )
 
 // Node represents a crypto object having a name
 type Node interface {
 
 	// GetType returns this entity's name
-	GetType() Entity_Type
+	GetType() NodeType
 
 	// GetName returns this entity's name
 	GetName() string

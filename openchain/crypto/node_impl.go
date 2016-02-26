@@ -32,7 +32,7 @@ type nodeImpl struct {
 	isInitialized bool
 
 	// Node type
-	eType Entity_Type
+	eType NodeType
 
 	// Configuration
 	conf *configuration
@@ -65,7 +65,7 @@ type nodeImpl struct {
 	eciesSPI ecies.SPI
 }
 
-func (node *nodeImpl) GetType() Entity_Type {
+func (node *nodeImpl) GetType() NodeType {
 	return node.eType
 }
 
@@ -79,7 +79,7 @@ func (node *nodeImpl) isRegistered() bool {
 	return !missing
 }
 
-func (node *nodeImpl) register(eType Entity_Type, name string, pwd []byte, enrollID, enrollPWD string) error {
+func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if node.isInitialized {
 		node.error("Registering [%s]...done! Initialization already performed", enrollID)
 
@@ -131,7 +131,7 @@ func (node *nodeImpl) register(eType Entity_Type, name string, pwd []byte, enrol
 	return nil
 }
 
-func (node *nodeImpl) init(eType Entity_Type, name string, pwd []byte) error {
+func (node *nodeImpl) init(eType NodeType, name string, pwd []byte) error {
 	if node.isInitialized {
 		node.error("Already initializaed.")
 

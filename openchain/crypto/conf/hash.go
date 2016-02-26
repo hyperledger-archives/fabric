@@ -27,6 +27,7 @@ var (
 	defaultHash func() hash.Hash
 )
 
+// GetDefaultHash returns the default hash function used by the crypto layer
 func GetDefaultHash() func() hash.Hash {
 	return defaultHash
 }

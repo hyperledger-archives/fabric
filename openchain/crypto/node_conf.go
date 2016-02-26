@@ -25,10 +25,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
-)
-
 func (node *nodeImpl) initConfiguration(name string) (err error) {
 	// Set logger
 	prefix := eTypeToString(node.eType)
@@ -224,7 +220,7 @@ func (conf *configuration) getECACertsChainFilename() string {
 }
 
 func (conf *configuration) getTLSCACertsChainFilename() string {
-	return TLSCA_CERT_CHAIN
+	return "tlsca.cert.chain"
 }
 
 func (conf *configuration) getTLSCACertsExternalPath() string {

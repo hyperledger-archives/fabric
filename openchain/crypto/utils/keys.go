@@ -223,6 +223,7 @@ func PublicKeyToPEM(publicKey interface{}, pwd []byte) ([]byte, error) {
 	}
 }
 
+// PublicKeyToEncryptedPEM converts a public key to encrypted pem
 func PublicKeyToEncryptedPEM(publicKey interface{}, pwd []byte) ([]byte, error) {
 	switch x := publicKey.(type) {
 	case *ecdsa.PublicKey:

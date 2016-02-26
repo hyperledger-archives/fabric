@@ -2,13 +2,13 @@ package crypto
 
 // Utility functions
 
-func eTypeToString(eType Entity_Type) string {
+func eTypeToString(eType NodeType) string {
 	switch eType {
-	case Entity_Client:
+	case NodeClient:
 		return "client"
-	case Entity_Peer:
+	case NodePeer:
 		return "peer"
-	case Entity_Validator:
+	case NodeValidator:
 		return "validator"
 	}
 	return "Invalid Type"

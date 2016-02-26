@@ -149,13 +149,14 @@ func closeValidatorInternal(peer Peer, force bool) error {
 		defer delete(validators, name)
 		err := validators[name].validator.(*validatorImpl).close()
 		log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
+
 		return err
-	} else {
-		// decrease counter
-		entry.counter--
-		validators[name] = entry
-		log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
 	}
+
+	// decrease counter
+	entry.counter--
+	validators[name] = entry
+	log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
 
 	return nil
 }

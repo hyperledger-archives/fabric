@@ -61,13 +61,13 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 			return tx, err
 		}
 
-		vp_bytes, err := ledger.GetState(cid, "system.validity.period", true)
+		vpBytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
 			validator.error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
-		i, err := strconv.ParseInt(string(vp_bytes[:]), 10, 64)
+		i, err := strconv.ParseInt(string(vpBytes[:]), 10, 64)
 		if err != nil {
 			validator.error("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
@@ -75,7 +75,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		vp := time.Unix(i, 0)
 
-		var errMsg string = ""
+		var errMsg string
 
 		// Verify the validity period of the TCert
 		switch {

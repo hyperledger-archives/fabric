@@ -125,7 +125,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 
 // Private methods
 
-func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrollID, enrollPWD string) error {
+func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
 		peer.error("Registering [%s]...done! Initialization already performed", enrollID)
 
@@ -141,7 +141,7 @@ func (peer *peerImpl) register(eType Entity_Type, name string, pwd []byte, enrol
 	return nil
 }
 
-func (peer *peerImpl) init(eType Entity_Type, id string, pwd []byte) error {
+func (peer *peerImpl) init(eType NodeType, id string, pwd []byte) error {
 	if peer.isInitialized {
 		peer.error("Already initializaed.")
 

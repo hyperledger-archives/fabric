@@ -126,7 +126,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 
 func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	if client.tCertOwnerKDFKey == nil {
-		return nil, fmt.Errorf("KDF key not initialized yet!")
+		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
 
 	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
@@ -444,12 +444,12 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 
 	// Execute the protocol
 	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
+	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 	req := &obcca.TCertCreateSetReq{
-		&timestamp,
-		&obcca.Identity{Id: client.enrollID},
-		uint32(num),
-		nil,
+		Ts:  &timestamp,
+		Id:  &obcca.Identity{Id: client.enrollID},
+		Num: uint32(num),
+		Sig: nil,
 	}
 	rawReq, err := proto.Marshal(req)
 	if err != nil {
@@ -469,7 +469,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	S, _ := s.MarshalText()
 
 	// 3. Append the signature
-	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	// 4. Send request
 	certSet, err := tcaP.CreateCertificateSet(context.Background(), req)

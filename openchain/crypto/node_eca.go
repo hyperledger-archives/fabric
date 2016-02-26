@@ -113,7 +113,7 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 
 	// Code for confidentiality 1.2
 	// Store enrollment chain key
-	if node.eType == Entity_Validator {
+	if node.eType == NodeValidator {
 		node.debug("Enrollment chain key for validator [%s]...", enrollID)
 		// enrollChainKey is a secret key
 
@@ -225,7 +225,7 @@ func (node *nodeImpl) loadEnrollmentChainKey() error {
 	//node.enrollChainKey = enrollChainKey
 
 	// Code for confidentiality 1.1
-	if node.eType == Entity_Validator {
+	if node.eType == NodeValidator {
 		// enrollChainKey is a secret key
 		enrollChainKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentChainKeyFilename())
 		if err != nil {
@@ -326,7 +326,7 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcc
 		return nil, err
 	}
 
-	return &obcca.CertPair{resp.Cert, nil}, nil
+	return &obcca.CertPair{Sign: resp.Cert, Enc: nil}, nil
 }
 
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
@@ -362,12 +362,13 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	req := &obcca.ECertCreateReq{&protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		&obcca.Identity{id},
-		&obcca.Token{Tok: []byte(pw)},
-		&obcca.PublicKey{obcca.CryptoType_ECDSA, signPub},
-		&obcca.PublicKey{obcca.CryptoType_ECDSA, encPub},
-		nil}
+	req := &obcca.ECertCreateReq{
+		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id:   &obcca.Identity{Id: id},
+		Tok:  &obcca.Token{Tok: []byte(pw)},
+		Sign: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: signPub},
+		Enc:  &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: encPub},
+		Sig:  nil}
 
 	resp, err := ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {
@@ -414,7 +415,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err = ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {

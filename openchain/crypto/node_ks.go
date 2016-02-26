@@ -28,7 +28,6 @@ import (
 
 	// Required to succefully initialized the driver
 	"crypto/x509"
-	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
 )
 

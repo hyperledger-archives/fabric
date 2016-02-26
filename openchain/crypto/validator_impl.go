@@ -150,7 +150,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 	}
 
 	// Register node
-	if err := validator.peerImpl.register(Entity_Validator, id, pwd, enrollID, enrollPWD); err != nil {
+	if err := validator.peerImpl.register(NodeValidator, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -166,7 +166,7 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 	}
 
 	// Register node
-	if err := validator.peerImpl.init(Entity_Validator, name, pwd); err != nil {
+	if err := validator.peerImpl.init(NodeValidator, name, pwd); err != nil {
 		return err
 	}
 

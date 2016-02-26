@@ -187,7 +187,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 					len(tCertPool.tCertChannel),
 				)
 
-				var numTCerts int = cap(tCertPool.tCertChannel) - len(tCertPool.tCertChannel)
+				var numTCerts = cap(tCertPool.tCertChannel) - len(tCertPool.tCertChannel)
 				if len(tCertPool.tCertChannel) == 0 {
 					numTCerts = cap(tCertPool.tCertChannel) / 10
 				}

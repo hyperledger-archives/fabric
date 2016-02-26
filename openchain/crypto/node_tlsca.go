@@ -96,7 +96,6 @@ func (node *nodeImpl) loadTLSCACertsChain() error {
 
 		node.debug("Loading TLSCA certificates chain...done")
 
-		return nil
 	} else {
 		node.debug("TLS is disabled!!!")
 	}
@@ -120,15 +119,15 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	// Prepare the request
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
+	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
 	req := &obcca.TLSCertCreateReq{
-		&timestamp,
-		&obcca.Identity{Id: id + "-" + uuid},
-		&obcca.PublicKey{
+		Ts: &timestamp,
+		Id: &obcca.Identity{Id: id + "-" + uuid},
+		Pub: &obcca.PublicKey{
 			Type: obcca.CryptoType_ECDSA,
 			Key:  pubraw,
-		}, nil}
+		}, Sig: nil}
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
 	if err != nil {
@@ -136,7 +135,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {

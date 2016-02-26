@@ -170,7 +170,7 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 	}
 
 	// Register node
-	if err = client.nodeImpl.register(Entity_Client, id, pwd, enrollID, enrollPWD); err != nil {
+	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD); err != nil {
 		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
 		return
 	}
@@ -194,7 +194,7 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	}
 
 	// Register node
-	if err := client.nodeImpl.init(Entity_Client, id, pwd); err != nil {
+	if err := client.nodeImpl.init(NodeClient, id, pwd); err != nil {
 		return err
 	}
 
