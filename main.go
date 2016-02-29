@@ -64,7 +64,7 @@ const undefinedParamValue = ""
 // The main command describes the service and
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
-	Use: cmdRoot,
+	Use: "obc-peer",
 }
 
 var peerCmd = &cobra.Command{
