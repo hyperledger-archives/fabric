@@ -17,6 +17,8 @@ This is what is not working right
 ### The *infiniteloop.sh* shell script
 We use the cli container as the spot to run the client and issue CLI or REST API calls. In order for the container to stay up until we connect to it, we need to have it start and wait. *infiniteloop.sh* is just an infinite echo/sleep loop that keeps the container up until we can do a `Docker exec` to it.
 
+On some operating systems, you'll need to set execute permission on the script file.
+
 ### Manual Configuration
  1. modify *openchain.yaml* to point to the obc-ca server
  ```
@@ -29,7 +31,7 @@ pki:
      tlsca:
          paddr: obcca:50051
  ```
- 2. Modify *obc-ca/obcca.yaml* and define enough users. We need user IDs for cli,vp0, vp1, vp2 and vp3. Make sure you specify the roles as described in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
+ 2. When login into the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
 
 
  ### Create Docker images for the obc-peer server and the obc-ca server.
