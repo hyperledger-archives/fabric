@@ -14,6 +14,66 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+  Scenario: Range query test, single peer, issue #767
+    Given we compose "docker-compose-1.yml"
+      And I wait "1" seconds
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "1"
+      When I deploy chaincode "github.com/openblockchain/obc-peer/examples/chaincode/go/map" with ctor "init" to "vp0"
+      ||
+      ||
+
+      Then I should have received a chaincode name
+      Then I wait up to "60" seconds for transaction to be committed to all peers
+
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "2"
+
+      When I invoke chaincode "map" function name "put" on "vp0"
+        | arg1 | arg2 |
+        | key1  | value1  |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "3"
+
+      When I query chaincode "map" function name "get" on "vp0":
+        | arg1|
+        | key1 |
+      Then I should get a JSON response with "OK" = "value1"
+
+      When I invoke chaincode "map" function name "put" on "vp0"
+        | arg1 | arg2 |
+        | key2  | value2  |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "4"
+
+      When I query chaincode "map" function name "keys" on "vp0":
+        ||
+        ||
+      Then I should get a JSON response with "OK" = "["key2","key1"]"
+
+      When I invoke chaincode "map" function name "remove" on "vp0"
+        | arg1 | |
+        | key1  | |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "5"
+
+      When I query chaincode "map" function name "keys" on "vp0":
+        ||
+        ||
+      Then I should get a JSON response with "OK" = "["key2"]"
+
+
+#    @doNotDecompose
+#    @wip
 	Scenario: chaincode example 02 single peer
 	    Given we compose "docker-compose-1.yml"
 	    And I wait "1" seconds

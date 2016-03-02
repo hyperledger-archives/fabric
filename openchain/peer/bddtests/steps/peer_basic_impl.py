@@ -174,12 +174,12 @@ def step_impl(context):
 def step_impl(context, chaincodeName, functionName, containerName, times):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     for i in range(int(times)):
-        invokeChaincode(context, functionName, containerName)
+        invokeChaincode(context, "invoke", functionName, containerName)
 
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    invokeChaincode(context, functionName, containerName)
+    invokeChaincode(context, "invoke", functionName, containerName)
 
 @then(u'I should have received a transactionID')
 def step_impl(context):
@@ -189,9 +189,9 @@ def step_impl(context):
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
-    invokeChaincode(context, "query", containerName)
+    invokeChaincode(context, "query", functionName, containerName)
 
-def invokeChaincode(context, functionName, containerName):
+def invokeChaincode(context, devopsFunc, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     # Update hte chaincodeSpec ctorMsg for invoke
     args = []
@@ -205,7 +205,7 @@ def invokeChaincode(context, functionName, containerName):
         "chaincodeSpec" : context.chaincodeSpec
     }
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/devops/{0}".format(functionName))
+    request_url = buildUrl(ipAddress, "/devops/{0}".format(devopsFunc))
     print("POSTing path = {0}".format(request_url))
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
