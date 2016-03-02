@@ -1,9 +1,10 @@
-package container
+package golangcontainer
 
 import (
 	"archive/tar"
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,10 +12,10 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-	"errors"
-	
+
 	"github.com/spf13/viper"
 
+	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -127,7 +128,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		err = fmt.Errorf("could not create tmp dir under %s(%s)", newgopath, err)
 		return
 	}
-	
+
 	//go paths can have multiple dirs. We create a GOPATH with two source tree's as follows
 	//
 	//    <temporary empty folder to download chaincode source> : <local go path with OBC source>
@@ -140,20 +141,20 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
-	
+
 	// Use a 'go get' command to pull the chaincode from the given repo
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err = cmd.Start()
-	
+
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
-	
+
 	select {
 	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
 		// If pulling repos takes too long, we should give up
@@ -190,22 +191,6 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 	codegopath = gopath
 
 	return
-}
-
-//name could be ChaincodeID.Name or ChaincodeID.Path
-func generateHashFromSignature(path string, ctor string, args []string) []byte {
-	fargs := ctor
-	if args != nil {
-		for _, str := range args {
-			fargs = fargs + str
-		}
-	}
-	cbytes := []byte(path + fargs)
-
-	b := make([]byte, len(cbytes))
-	copy(b, cbytes)
-	hash := util.ComputeCryptoHash(b)
-	return hash
 }
 
 //generateHashcode gets hashcode of the code under path. If path is a HTTP(s) url
@@ -267,7 +252,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
-	hash := generateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
+	hash := cutil.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
 	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {
