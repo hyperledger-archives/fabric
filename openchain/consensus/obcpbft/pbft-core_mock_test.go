@@ -176,11 +176,28 @@ func (inst *instance) viewChange(uint64) {
 }
 
 func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
-	panic("Not implemented yet")
+	oSelf, oNetwork, _ := inst.GetNetworkHandles()
+	self = &pb.PeerEndpoint{
+		ID:   oSelf,
+		Type: pb.PeerEndpoint_VALIDATOR,
+	}
+
+	network = make([]*pb.PeerEndpoint, len(oNetwork))
+	for i, id := range oNetwork {
+		network[i] = &pb.PeerEndpoint{
+			ID:   id,
+			Type: pb.PeerEndpoint_VALIDATOR,
+		}
+	}
+	return
 }
 
 func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
 	self = inst.handle
+	if nil == inst.net {
+		err = fmt.Errorf("Network not initialized")
+		return
+	}
 	network = inst.net.handles
 	return
 }
