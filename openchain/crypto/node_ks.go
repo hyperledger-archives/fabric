@@ -20,15 +20,16 @@ under the License.
 package crypto
 
 import (
+	"crypto/x509"
 	"database/sql"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 
-	// Required to succefully initialized the driver
-	"crypto/x509"
-	"io/ioutil"
+	// Required to successfully initialized the driver
+	_ "github.com/mattn/go-sqlite3"
 )
 
 /*
