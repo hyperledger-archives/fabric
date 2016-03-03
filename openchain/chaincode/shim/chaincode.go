@@ -456,6 +456,50 @@ func (stub *ChaincodeStub) GetRow(tableName string, key []Column) (Row, error) {
 
 }
 
+// GetRows returns multiple rows based on a partial key. For example, given table
+// | A | B | C | D |
+// where A, C and D are keys, GetRows can be called with [A, C] to return
+// all rows that have A, C and any value for D as their key. GetRows could
+// also be called with A only to return all rows that have A and any value
+// for C and D as their key.
+func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, error) {
+
+	keyString, err := buildKeyString(tableName, key)
+	if err != nil {
+		return nil, err
+	}
+
+	iter, err := stub.RangeQueryState(keyString+"1", keyString+":")
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching rows: %s", err)
+	}
+	defer iter.Close()
+
+	rows := make(chan Row)
+
+	go func() {
+		for iter.HasNext() {
+			_, rowBytes, err := iter.Next()
+			if err != nil {
+				close(rows)
+			}
+
+			var row Row
+			err = proto.Unmarshal(rowBytes, &row)
+			if err != nil {
+				close(rows)
+			}
+
+			rows <- row
+
+		}
+		close(rows)
+	}()
+
+	return rows, nil
+
+}
+
 // DeleteRow deletes the row for the given key from the specified table.
 func (stub *ChaincodeStub) DeleteRow(tableName string, key []Column) error {
 
