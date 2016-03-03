@@ -1,9 +1,15 @@
 package crypto
 
-import "crypto/x509"
+import (
+	"crypto/x509"
+	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
+)
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 	node.debug("Registering node crypto engine...")
+
+	// Init CLI
+	node.eciesSPI = ecies.NewSPI()
 
 	if err := node.initTLS(); err != nil {
 		node.error("Failed initliazing TLS [%s].", err.Error())
@@ -42,6 +48,9 @@ func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 
 func (node *nodeImpl) initCryptoEngine() error {
 	node.debug("Initializing node crypto engine...")
+
+	// Init CLI
+	node.eciesSPI = ecies.NewSPI()
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()

@@ -26,18 +26,18 @@ import (
 
 func (client *clientImpl) initKeyStore() error {
 	// Create TCerts directory
-	os.MkdirAll(client.node.conf.getTCertsPath(), 0755)
+	os.MkdirAll(client.conf.getTCertsPath(), 0755)
 
 	// create tables
-	client.node.debug("Create Table if not exists [TCert] at [%s].", client.node.conf.getKeyStorePath())
-	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.debug("Failed creating table [%s].", err)
+	client.debug("Create Table if not exists [TCert] at [%s].", client.conf.getKeyStorePath())
+	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+		client.debug("Failed creating table [%s].", err)
 		return err
 	}
 
-	client.node.debug("Create Table if not exists [UsedTCert] at [%s].", client.node.conf.getKeyStorePath())
-	if _, err := client.node.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
-		client.node.debug("Failed creating table [%s].", err)
+	client.debug("Create Table if not exists [UsedTCert] at [%s].", client.conf.getKeyStorePath())
+	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+		client.debug("Failed creating table [%s].", err)
 		return err
 	}
 

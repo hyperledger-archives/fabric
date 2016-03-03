@@ -106,10 +106,44 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 		return err
 	}
 
+	// Code for confidentiality 1.1
+	//if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
+	//	node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+	//	return err
+
+	// Code for confidentiality 1.2
 	// Store enrollment chain key
-	if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
-		node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
-		return err
+	if node.eType == NodeValidator {
+		node.debug("Enrollment chain key for validator [%s]...", enrollID)
+		// enrollChainKey is a secret key
+
+		node.debug("key [%s]...", string(enrollChainKey))
+
+		key, err := utils.PEMtoPrivateKey(enrollChainKey, nil)
+		if err != nil {
+			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
+			return err
+		}
+
+		if err := node.ks.storePrivateKey(node.conf.getEnrollmentChainKeyFilename(), key); err != nil {
+			node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+			return err
+		}
+	} else {
+		node.debug("Enrollment chain key for non-validator [%s]...", enrollID)
+		// enrollChainKey is a public key
+
+		key, err := utils.PEMtoPublicKey(enrollChainKey, nil)
+		if err != nil {
+			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
+			return err
+		}
+		node.debug("Key decoded from PEM [%s]...", enrollID)
+
+		if err := node.ks.storePublicKey(node.conf.getEnrollmentChainKeyFilename(), key); err != nil {
+			node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+			return err
+		}
 	}
 
 	return nil
@@ -181,13 +215,33 @@ func (node *nodeImpl) loadEnrollmentID() error {
 func (node *nodeImpl) loadEnrollmentChainKey() error {
 	node.debug("Loading enrollment chain key...")
 
-	enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
-	if err != nil {
-		node.error("Failed loading enrollment chain key [%s].", err.Error())
+	// Code for confidentiality 1.1
+	//enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
+	//if err != nil {
+	//	node.error("Failed loading enrollment chain key [%s].", err.Error())
+	//
+	//	return err
+	//}
+	//node.enrollChainKey = enrollChainKey
 
-		return err
+	// Code for confidentiality 1.1
+	if node.eType == NodeValidator {
+		// enrollChainKey is a secret key
+		enrollChainKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentChainKeyFilename())
+		if err != nil {
+			node.error("Failed loading enrollment chain key: [%s]", err)
+			return err
+		}
+		node.enrollChainKey = enrollChainKey
+	} else {
+		// enrollChainKey is a public key
+		enrollChainKey, err := node.ks.loadPublicKey(node.conf.getEnrollmentChainKeyFilename())
+		if err != nil {
+			node.error("Failed load enrollment chain key: [%s]", err)
+			return err
+		}
+		node.enrollChainKey = enrollChainKey
 	}
-	node.enrollChainKey = enrollChainKey
 
 	return nil
 }
@@ -272,7 +326,7 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcc
 		return nil, err
 	}
 
-	return &obcca.CertPair{resp.Cert, nil}, nil
+	return &obcca.CertPair{Sign: resp.Cert, Enc: nil}, nil
 }
 
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
@@ -308,12 +362,13 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	req := &obcca.ECertCreateReq{&protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		&obcca.Identity{id},
-		&obcca.Token{Tok: []byte(pw)},
-		&obcca.PublicKey{obcca.CryptoType_ECDSA, signPub},
-		&obcca.PublicKey{obcca.CryptoType_ECDSA, encPub},
-		nil}
+	req := &obcca.ECertCreateReq{
+		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id:   &obcca.Identity{Id: id},
+		Tok:  &obcca.Token{Tok: []byte(pw)},
+		Sign: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: signPub},
+		Enc:  &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: encPub},
+		Sig:  nil}
 
 	resp, err := ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {
@@ -360,7 +415,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err = ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {
@@ -420,8 +475,9 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	// END
+	node.debug("chain key: [% x]", resp.Chain.Tok)
 
-	return signPriv, resp.Certs.Sign, resp.Chain.Tok, nil
+	return signPriv, resp.Certs.Sign, resp.Pkchain, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {

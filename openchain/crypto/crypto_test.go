@@ -950,7 +950,7 @@ func setup() {
 
 	// Logging
 	var formatter = logging.MustStringFormatter(
-		`%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
+		`%{color}[%{module}] %{shortfunc} [%{shortfile}] -> %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 	)
 	logging.SetFormatter(formatter)
 

@@ -40,7 +40,7 @@ func (kgp keyGeneratorParameterImpl) GetRand() io.Reader {
 	return kgp.rand
 }
 
-func (kg *keyGeneratorImpl) Init(params ecies.KeyGeneratorParameter) error {
+func (kg *keyGeneratorImpl) Init(params ecies.KeyGeneratorParameters) error {
 	if params == nil {
 		return ecies.ErrInvalidKeyGeneratorParameter
 	}

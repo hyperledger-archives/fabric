@@ -20,43 +20,23 @@ under the License.
 package crypto
 
 import (
-	"crypto/x509"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	obc "github.com/openblockchain/obc-peer/protos"
 )
 
-type tCert interface {
-	GetCertificate() *x509.Certificate
+type nodeProtocol interface {
+	init(node Node)
 
-	Sign(msg []byte) ([]byte, error)
-
-	Verify(signature, msg []byte) error
+	parseTransaction(tx *obc.Transaction) (*obc.Transaction, error)
 }
 
-type tCertImpl struct {
-	client *clientImpl
-	cert   *x509.Certificate
-	sk     interface{}
+type clientProtocol interface {
+	nodeProtocol
+
+	decryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
 }
 
-func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
-	return tCert.cert
-}
+type validatorProtocol interface {
+	nodeProtocol
 
-func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
-	if tCert.sk == nil {
-		return nil, utils.ErrNilArgument
-	}
-
-	return tCert.client.sign(tCert.sk, msg)
-}
-
-func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
-	ok, err := tCert.client.verify(tCert.cert.PublicKey, msg, signature)
-	if err != nil {
-		return
-	}
-	if !ok {
-		return utils.ErrInvalidSignature
-	}
-	return
+	getStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
 }

@@ -27,14 +27,13 @@ type encryptionSchemeImpl struct {
 	isForEncryption bool
 
 	// Parameters
-	params ecies.AsymmetricCipherParameter
+	params ecies.AsymmetricCipherParameters
 	pub    *publicKeyImpl
 	priv   *secretKeyImpl
 }
 
-func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameter) error {
+func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameters) error {
 	if params == nil {
-		//fmt.Printf("encryptionSchemeImpl null params")
 		return ecies.ErrInvalidKeyParameter
 	}
 	es.isForEncryption = params.IsPublic()
@@ -45,7 +44,6 @@ func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameter) err
 		case *publicKeyImpl:
 			es.pub = pk
 		default:
-			//fmt.Printf("encryptionSchemeImpl failed [%s]", pk)
 			return ecies.ErrInvalidKeyParameter
 		}
 	} else {
@@ -53,7 +51,6 @@ func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameter) err
 		case *secretKeyImpl:
 			es.priv = sk
 		default:
-			//fmt.Printf("encryptionSchemeImpl failed [%s]", sk)
 			return ecies.ErrInvalidKeyParameter
 		}
 	}

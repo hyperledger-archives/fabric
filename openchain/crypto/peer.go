@@ -54,8 +54,8 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 		return nil
 	}
 
-	peer := new(peerImpl)
-	if err := peer.register("peer", name, pwd, enrollID, enrollPWD); err != nil {
+	peer := newPeer()
+	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
@@ -88,8 +88,8 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 		return peers[name].peer, nil
 	}
 
-	peer := new(peerImpl)
-	if err := peer.init("peer", name, pwd); err != nil {
+	peer := newPeer()
+	if err := peer.init(NodePeer, name, pwd); err != nil {
 		log.Error("Failed peer initialization [%s]: [%s]", name, err)
 
 		return nil, err
@@ -130,6 +130,10 @@ func CloseAllPeers() (bool, []error) {
 
 // Private Methods
 
+func newPeer() *peerImpl {
+	return &peerImpl{&nodeImpl{}, false}
+}
+
 func closePeerInternal(peer Peer, force bool) error {
 	if peer == nil {
 		return utils.ErrNilArgument
@@ -145,13 +149,14 @@ func closePeerInternal(peer Peer, force bool) error {
 		defer delete(peers, name)
 		err := peers[name].peer.(*peerImpl).close()
 		log.Info("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
+
 		return err
-	} else {
-		// decrease counter
-		entry.counter--
-		peers[name] = entry
-		log.Info("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
 	}
+
+	// decrease counter
+	entry.counter--
+	peers[name] = entry
+	log.Info("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
 
 	return nil
 }
