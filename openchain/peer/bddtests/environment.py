@@ -2,6 +2,11 @@
 from steps.bdd_test_util import cli_call
 
 def after_scenario(context, scenario):
+    if context.failed:
+        filename = scenario.name.replace(" ", "_")
+        for containerData in context.compose_containers:
+            logfile = containerData.containerName + filename
+            print("********** Test failed. Docker container logs written to {0}".format(logfile))
 	if 'doNotDecompose' in scenario.tags:
 		print("Not going to decompose after scenario {0}, with yaml '{1}'".format(scenario.name, context.compose_yaml))
 	else:
@@ -20,6 +25,3 @@ def after_scenario(context, scenario):
         			#print("docker rm {0}".format(containerId))
         			context.compose_output, context.compose_error, context.compose_returncode = \
                         cli_call(context, ["docker",  "rm", containerId], expect_success=True)
-
-
-
