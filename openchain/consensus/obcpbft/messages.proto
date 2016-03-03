@@ -79,19 +79,22 @@ message commit {
     uint64 replica_id = 4;
 }
 
+message block_state {
+    uint64 block_number = 3;
+    string block_hash = 4;
+}
+
 message checkpoint {
     uint64 sequence_number = 1;
     uint64 replica_id = 2;
-    uint64 block_number = 3;
-    string block_hash = 4;
+    string id = 3;
 }
 
 message view_change {
     /* This message should go away and become a checkpoint once replica_id is removed */
     message C {
         uint64 sequence_number = 1;
-        uint64 block_number = 2;
-        string block_hash = 3;
+        string id = 3;
     }
     message PQ {
         uint64 sequence_number = 1;

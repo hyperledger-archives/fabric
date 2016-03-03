@@ -125,11 +125,10 @@ func (instance *pbftCore) sendViewChange() error {
 		ReplicaId: instance.id,
 	}
 
-	for n, blockState := range instance.chkpts {
+	for n, id := range instance.chkpts {
 		vc.Cset = append(vc.Cset, &ViewChange_C{
 			SequenceNumber: n,
-			BlockNumber:    blockState.blockNumber,
-			BlockHash:      blockState.blockHash,
+			Id:             id,
 		})
 	}
 

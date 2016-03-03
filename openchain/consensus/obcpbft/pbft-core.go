@@ -54,10 +54,11 @@ func init() {
 type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	execute(txRaw []byte)
+	execute(seqNo uint64, txRaw []byte, reply bool)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
-	stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata *stateTransferMetadata)
+
+	syncTarget(seqNo uint64, id []byte, sources []uint64)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -90,10 +91,8 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	ledger              consensus.LedgerStack             // Used for blockchain related queries
-	hChkpts             map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
-	sts                 *statetransfer.StateTransferState // Data structure which handles state transfer
-	stateTransferActive bool                              // Whether state transfer has finished or not
+	ledger  consensus.LedgerStack // Used for blockchain related queries
+	hChkpts map[uint64]uint64     // highest checkpoint sequence number observed for each replica
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -141,11 +140,6 @@ type stateTransferMetadata struct {
 	sequenceNumber uint64
 }
 
-type blockState struct {
-	blockNumber uint64
-	blockHash   string
-}
-
 type sortableUint64Slice []uint64
 
 func (a sortableUint64Slice) Len() int {
@@ -170,7 +164,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.ledger = ledger
 	instance.closed = make(chan bool)
 	instance.notifyCommit = make(chan bool, 1)
-	instance.notifyExec = sync.NewCond(&instance.internalLock)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -209,7 +202,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	instance.certStore = make(map[msgID]*msgCert)
 	instance.reqStore = make(map[string]*Request)
 	instance.checkpointStore = make(map[Checkpoint]bool)
-	instance.chkpts = make(map[uint64]*blockState)
+	instance.chkpts = make(map[uint64]string)
 	instance.viewChangeStore = make(map[vcidx]*ViewChange)
 	instance.pset = make(map[uint64]*ViewChange_PQ)
 	instance.qset = make(map[qidx]*ViewChange_PQ)
@@ -246,10 +239,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 		instance.sts = statetransfer.NewStateTransferState(myHandle, config, ledger, defaultPeerIDs)
 	}
 
-	listener := struct{ statetransfer.ProtoListener }{}
-	listener.CompletedImpl = instance.stateTransferCompleted
-	instance.sts.RegisterListener(&listener)
-
 	// load genesis checkpoint
 	genesisBlock, err := instance.ledger.GetBlock(0)
 	if err != nil {
@@ -259,10 +248,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger con
 	if err != nil {
 		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
 	}
-	instance.chkpts[0] = &blockState{
-		blockNumber: 0,
-		blockHash:   base64.StdEncoding.EncodeToString(genesisHash),
-	}
+	// TODO, get this from Executor
+	instance.chkpts[0] = "ASDF"
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -301,17 +288,6 @@ func (instance *pbftCore) close() {
 		close(instance.closed)
 	}
 	instance.newViewTimer.Stop()
-	instance.sts.Stop()
-	instance.unlock()
-}
-
-// drain remaining requests
-func (instance *pbftCore) drain() {
-	instance.lock()
-	for instance.executing {
-		instance.notifyExec.Wait()
-	}
-	instance.executeOutstanding()
 	instance.unlock()
 }
 
@@ -460,32 +436,6 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 		instance.id, v, n, quorum)
 
 	return quorum >= instance.intersectionQuorum()
-}
-
-func (instance *pbftCore) stateTransferInitiated() {
-	instance.lock()
-	defer instance.unlock()
-	instance.stateTransferActive = true
-}
-
-// Handles finishing the state transfer by executing outstanding transactions
-func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
-
-	if md, ok := metadata.(*stateTransferMetadata); ok {
-		// Make sure the message thread is not currently modifying pbft
-		instance.lock()
-		defer instance.unlock()
-
-		instance.lastExec = md.sequenceNumber
-		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
-		instance.unlock() // Otherwise we deadlock in consumer
-		instance.consumer.stateTransferCompleted(blockNumber, blockHash, peerIDs, md)
-		instance.lock()
-		instance.executeOutstanding()
-		instance.stateTransferActive = false
-	} else {
-		logger.Error("Replica %d was informed of a completed state transfer it did not initiate, this is indicative of a serious bug", instance.id)
-	}
 }
 
 // =============================================================================
@@ -785,12 +735,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 		}
 		cert.commit = append(cert.commit, commit)
 
-		// note that we can reach this point without
-		// broadcasting a commit ourselves
-		select { // non-blocking channel send
-		case instance.notifyCommit <- true:
-		default:
-		}
+		instance.executeOutstanding()
 	} else {
 		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
 			instance.id, commit.View, commit.SequenceNumber)
@@ -799,26 +744,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	return nil
 }
 
-func (instance *pbftCore) executeRoutine() {
-	for {
-		select {
-		case <-instance.notifyCommit:
-			instance.lock()
-			instance.executeOutstanding()
-			instance.unlock()
-
-		case <-instance.closed:
-			return
-		}
-	}
-}
-
 func (instance *pbftCore) executeOutstanding() {
-	// Do not attempt to execute requests while we know we are in a bad state
-	if instance.sts.InProgress() {
-		return
-	}
-
 	for retry := true; retry; {
 		retry = false
 		for idx := range instance.certStore {
@@ -833,11 +759,27 @@ func (instance *pbftCore) executeOutstanding() {
 	return
 }
 
-func (instance *pbftCore) executeOne(idx msgID) bool {
-	if instance.executing {
-		return false
+func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
+	if seqNo%instance.K != 0 {
+		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
 	}
 
+	idAsString := base64.StdEncoding.EncodeToString(id)
+
+	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
+		instance.id, instance.view, instance.lastExec, idAsString)
+
+	chkpt := &Checkpoint{
+		SequenceNumber: instance.lastExec,
+		ReplicaId:      instance.id,
+		Id:             idAsString,
+	}
+	instance.chkpts[instance.lastExec] = id
+
+	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+}
+
+func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
@@ -867,53 +809,11 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 			instance.id, idx.v, idx.n, digest)
 		delete(instance.outstandingReqs, digest)
 
-		instance.executing = true
-		instance.unlock()
 		instance.consumer.execute(req.Payload)
-		instance.lock()
-		instance.executing = false
-		instance.notifyExec.Broadcast()
 	}
 
 	if len(instance.outstandingReqs) > 0 {
 		instance.startTimer(instance.requestTimeout)
-	}
-
-	if instance.lastExec%instance.K == 0 {
-		blockHeight, err := instance.ledger.GetBlockchainSize()
-		if nil != err {
-			panic("Could not determine block height, this is irrecoverable")
-		}
-
-		lastBlock, err := instance.ledger.GetBlock(blockHeight - 1)
-		if nil != err {
-			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
-			panic(fmt.Errorf("Just committed a block, but could not retrieve it : %s", err))
-		}
-
-		blockHashBytes, err := instance.ledger.HashBlock(lastBlock)
-
-		if nil != err {
-			// TODO this can maybe handled more gracefully, but seems likely to be irrecoverable
-			panic(fmt.Errorf("Replica %d could not compute its own state hash, this indicates an irrecoverable situation: %s", instance.id, err))
-		}
-
-		blockHashAsString := base64.StdEncoding.EncodeToString(blockHashBytes)
-
-		logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 block hash %s",
-			instance.id, instance.view, instance.lastExec, blockHashAsString)
-
-		chkpt := &Checkpoint{
-			SequenceNumber: instance.lastExec,
-			ReplicaId:      instance.id,
-			BlockNumber:    blockHeight - 1,
-			BlockHash:      blockHashAsString,
-		}
-		instance.chkpts[instance.lastExec] = &blockState{
-			blockNumber: chkpt.BlockNumber,
-			blockHash:   chkpt.BlockHash,
-		}
-		instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 	}
 
 	return true
@@ -1075,7 +975,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
 
-	if instance.sts.InProgress() && matching >= instance.f+1 {
+	if matching == instance.f+1 {
 		// We do have a weak cert
 		instance.witnessCheckpointWeakCert(chkpt)
 	}
@@ -1095,12 +995,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	// the quorum certificate must contain 2f+1 messages, including its own
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
-			instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
+			instance.id, chkpt.SequenceNumber, chkpt.Id)
 		return nil
 	}
 
 	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
-		instance.id, chkpt.SequenceNumber, chkpt.BlockHash)
+		instance.id, chkpt.SequenceNumber, chkpt.Id)
 
 	instance.moveWatermarks(chkpt.SequenceNumber)
 
