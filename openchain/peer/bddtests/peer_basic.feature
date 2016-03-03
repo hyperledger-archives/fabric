@@ -71,6 +71,158 @@ Feature: lanching 3 peers
         ||
       Then I should get a JSON response with "OK" = "["key2"]"
 
+#    @doNotDecompose
+#    @wip
+  Scenario: chaincode shim table API, issue 477
+    Given we compose "docker-compose-1.yml"
+      And I wait "1" seconds
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "1"
+      When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/behave_chaincode/go/table" with ctor "init" to "vp0"
+      ||
+      ||
+      Then I should have received a chaincode name
+      Then I wait up to "60" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "2"
+
+      When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test1| 10   | 20   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "3"
+
+      When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test2| 10   | 20   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "4"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test1|
+      Then I should get a JSON response with "OK" = "{[string:"test1"  int32:10  int32:20 ]}"
+
+      When I invoke chaincode "table_test" function name "insertRowTableTwo" on "vp0"
+        | arg1 | arg2 | arg3 | arg3 |
+        | foo2 | 34   | 65   | bar8 |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "5"
+
+      When I query chaincode "table_test" function name "getRowTableTwo" on "vp0":
+        | arg1 | arg2 | arg3 |
+        | foo2 | 65   | bar8 |
+      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
+
+      When I invoke chaincode "table_test" function name "replaceRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test1| 30   | 40   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "6"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test1|
+      Then I should get a JSON response with "OK" = "{[string:"test1"  int32:30  int32:40 ]}"
+
+      When I invoke chaincode "table_test" function name "deleteRowTableOne" on "vp0"
+        | arg1 |
+        | test1|
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "7"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test1|
+      Then I should get a JSON response with "OK" = "{[]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test2|
+      Then I should get a JSON response with "OK" = "{[string:"test2"  int32:10  int32:20 ]}"
+
+      When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test3| 10   | 20   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "8"
+
+      When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test4| 10   | 20   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "9"
+
+      When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
+        | arg1 | arg2 | arg3 |
+        | test5| 10   | 20   |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "10"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test3|
+      Then I should get a JSON response with "OK" = "{[string:"test3"  int32:10  int32:20 ]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test4|
+      Then I should get a JSON response with "OK" = "{[string:"test4"  int32:10  int32:20 ]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test5|
+      Then I should get a JSON response with "OK" = "{[string:"test5"  int32:10  int32:20 ]}"
+
+      When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
+        ||
+        ||
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "11"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test3|
+      Then I should get a JSON response with "OK" = "{[]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test4|
+      Then I should get a JSON response with "OK" = "{[]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test5|
+      Then I should get a JSON response with "OK" = "{[]}"
+
+      When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
+        | arg1 |
+        | test2|
+      Then I should get a JSON response with "OK" = "{[]}"
+
+      When I query chaincode "table_test" function name "getRowTableTwo" on "vp0":
+        | arg1 | arg2 | arg3 |
+        | foo2 | 65   | bar8 |
+      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
+
 
 #    @doNotDecompose
 #    @wip
