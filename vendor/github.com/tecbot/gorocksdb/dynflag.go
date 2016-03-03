@@ -1,4 +1,4 @@
-// +build dynamic
+// !build embed
 
 package gorocksdb
 

@@ -1,6 +1,6 @@
 package gorocksdb
 
-// Compression options for different compression algorithms like Zlib.
+// CompressionOptions represents options for different compression algorithms like Zlib.
 type CompressionOptions struct {
 	WindowBits int
 	Level      int
