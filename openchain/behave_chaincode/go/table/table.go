@@ -18,6 +18,7 @@ under the License.
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -238,6 +239,54 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 		rowString := fmt.Sprintf("%s", row)
 		return []byte(rowString), nil
+
+	case "getRowsTableTwo":
+		if len(args) < 1 {
+			return nil, errors.New("getRowsTableTwo failed. Must include at least key values")
+		}
+
+		var columns []shim.Column
+
+		col1Val := args[0]
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		columns = append(columns, col1)
+
+		if len(args) > 1 {
+			col2Int, err := strconv.ParseInt(args[1], 10, 32)
+			if err != nil {
+				return nil, errors.New("getRowsTableTwo failed. arg[1] must be convertable to int32")
+			}
+			col2Val := int32(col2Int)
+			col2 := shim.Column{Value: &shim.Column_Int32{Int32: col2Val}}
+			columns = append(columns, col2)
+		}
+
+		rowChannel, err := stub.GetRows("tableTwo", columns)
+		if err != nil {
+			return nil, fmt.Errorf("getRowsTableTwo operation failed. %s", err)
+		}
+
+		var rows []shim.Row
+		for {
+			select {
+			case row, ok := <-rowChannel:
+				if !ok {
+					rowChannel = nil
+				} else {
+					rows = append(rows, row)
+				}
+			}
+			if rowChannel == nil {
+				break
+			}
+		}
+
+		jsonRows, err := json.Marshal(rows)
+		if err != nil {
+			return nil, fmt.Errorf("getRowsTableTwo operation failed. Error marshaling JSON: %s", err)
+		}
+
+		return jsonRows, nil
 
 	default:
 		return nil, errors.New("Unsupported operation")
