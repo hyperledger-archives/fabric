@@ -235,7 +235,7 @@ Feature: lanching 3 peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]}]"
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]}]"
 
       When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
         ||
@@ -269,6 +269,19 @@ Feature: lanching 3 peers
         | arg1 | arg2 | arg3 |
         | foo2 | 65   | bar8 |
       Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
+
+      When I invoke chaincode "table_test" function name "insertRowTableThree" on "vp0"
+        | arg1 | arg2 | arg3 | arg4 | arg5 | arg6 | arg7 |
+        | foo2 | -38  | -66  | 77   | 88   | hello| true |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "16"
+
+      When I query chaincode "table_test" function name "getRowTableThree" on "vp0":
+        | arg1 |
+        | foo2 |
+      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:-38  int64:-66  uint32:77  uint64:88  bytes:"hello"  bool:true ]}"
 
 
 #    @doNotDecompose

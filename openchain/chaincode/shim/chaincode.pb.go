@@ -30,15 +30,30 @@ type ColumnDefinition_Type int32
 const (
 	ColumnDefinition_STRING ColumnDefinition_Type = 0
 	ColumnDefinition_INT32  ColumnDefinition_Type = 1
+	ColumnDefinition_INT64  ColumnDefinition_Type = 2
+	ColumnDefinition_UINT32 ColumnDefinition_Type = 3
+	ColumnDefinition_UINT64 ColumnDefinition_Type = 4
+	ColumnDefinition_BYTES  ColumnDefinition_Type = 5
+	ColumnDefinition_BOOL   ColumnDefinition_Type = 6
 )
 
 var ColumnDefinition_Type_name = map[int32]string{
 	0: "STRING",
 	1: "INT32",
+	2: "INT64",
+	3: "UINT32",
+	4: "UINT64",
+	5: "BYTES",
+	6: "BOOL",
 }
 var ColumnDefinition_Type_value = map[string]int32{
 	"STRING": 0,
 	"INT32":  1,
+	"INT64":  2,
+	"UINT32": 3,
+	"UINT64": 4,
+	"BYTES":  5,
+	"BOOL":   6,
 }
 
 func (x ColumnDefinition_Type) String() string {
@@ -75,6 +90,11 @@ type Column struct {
 	// Types that are valid to be assigned to Value:
 	//	*Column_String_
 	//	*Column_Int32
+	//	*Column_Int64
+	//	*Column_Uint32
+	//	*Column_Uint64
+	//	*Column_Bytes
+	//	*Column_Bool
 	Value isColumn_Value `protobuf_oneof:"value"`
 }
 
@@ -92,9 +112,29 @@ type Column_String_ struct {
 type Column_Int32 struct {
 	Int32 int32 `protobuf:"varint,2,opt,name=int32,oneof"`
 }
+type Column_Int64 struct {
+	Int64 int64 `protobuf:"varint,3,opt,name=int64,oneof"`
+}
+type Column_Uint32 struct {
+	Uint32 uint32 `protobuf:"varint,4,opt,name=uint32,oneof"`
+}
+type Column_Uint64 struct {
+	Uint64 uint64 `protobuf:"varint,5,opt,name=uint64,oneof"`
+}
+type Column_Bytes struct {
+	Bytes []byte `protobuf:"bytes,6,opt,name=bytes,proto3,oneof"`
+}
+type Column_Bool struct {
+	Bool bool `protobuf:"varint,7,opt,name=bool,oneof"`
+}
 
 func (*Column_String_) isColumn_Value() {}
 func (*Column_Int32) isColumn_Value()   {}
+func (*Column_Int64) isColumn_Value()   {}
+func (*Column_Uint32) isColumn_Value()  {}
+func (*Column_Uint64) isColumn_Value()  {}
+func (*Column_Bytes) isColumn_Value()   {}
+func (*Column_Bool) isColumn_Value()    {}
 
 func (m *Column) GetValue() isColumn_Value {
 	if m != nil {
@@ -117,11 +157,51 @@ func (m *Column) GetInt32() int32 {
 	return 0
 }
 
+func (m *Column) GetInt64() int64 {
+	if x, ok := m.GetValue().(*Column_Int64); ok {
+		return x.Int64
+	}
+	return 0
+}
+
+func (m *Column) GetUint32() uint32 {
+	if x, ok := m.GetValue().(*Column_Uint32); ok {
+		return x.Uint32
+	}
+	return 0
+}
+
+func (m *Column) GetUint64() uint64 {
+	if x, ok := m.GetValue().(*Column_Uint64); ok {
+		return x.Uint64
+	}
+	return 0
+}
+
+func (m *Column) GetBytes() []byte {
+	if x, ok := m.GetValue().(*Column_Bytes); ok {
+		return x.Bytes
+	}
+	return nil
+}
+
+func (m *Column) GetBool() bool {
+	if x, ok := m.GetValue().(*Column_Bool); ok {
+		return x.Bool
+	}
+	return false
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Column) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Column_OneofMarshaler, _Column_OneofUnmarshaler, []interface{}{
 		(*Column_String_)(nil),
 		(*Column_Int32)(nil),
+		(*Column_Int64)(nil),
+		(*Column_Uint32)(nil),
+		(*Column_Uint64)(nil),
+		(*Column_Bytes)(nil),
+		(*Column_Bool)(nil),
 	}
 }
 
@@ -135,6 +215,25 @@ func _Column_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Column_Int32:
 		b.EncodeVarint(2<<3 | proto.WireVarint)
 		b.EncodeVarint(uint64(x.Int32))
+	case *Column_Int64:
+		b.EncodeVarint(3<<3 | proto.WireVarint)
+		b.EncodeVarint(uint64(x.Int64))
+	case *Column_Uint32:
+		b.EncodeVarint(4<<3 | proto.WireVarint)
+		b.EncodeVarint(uint64(x.Uint32))
+	case *Column_Uint64:
+		b.EncodeVarint(5<<3 | proto.WireVarint)
+		b.EncodeVarint(uint64(x.Uint64))
+	case *Column_Bytes:
+		b.EncodeVarint(6<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Bytes)
+	case *Column_Bool:
+		t := uint64(0)
+		if x.Bool {
+			t = 1
+		}
+		b.EncodeVarint(7<<3 | proto.WireVarint)
+		b.EncodeVarint(t)
 	case nil:
 	default:
 		return fmt.Errorf("Column.Value has unexpected type %T", x)
@@ -158,6 +257,41 @@ func _Column_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer)
 		}
 		x, err := b.DecodeVarint()
 		m.Value = &Column_Int32{int32(x)}
+		return true, err
+	case 3: // value.int64
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.Value = &Column_Int64{int64(x)}
+		return true, err
+	case 4: // value.uint32
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.Value = &Column_Uint32{uint32(x)}
+		return true, err
+	case 5: // value.uint64
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.Value = &Column_Uint64{x}
+		return true, err
+	case 6: // value.bytes
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Value = &Column_Bytes{x}
+		return true, err
+	case 7: // value.bool
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.Value = &Column_Bool{x != 0}
 		return true, err
 	default:
 		return false, nil
