@@ -190,18 +190,16 @@ func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) 
 		return nil, err
 	}
 
-	validator.debug("Decrypting message to validators [% x].", tx.ToValidators)
-
 	msgToValidatorsRaw, err := cipher.Process(tx.ToValidators)
 	if err != nil {
-		validator.error("Failed decrypting transaction key [%s].", err.Error())
+		validator.error("Failed decrypting message to validators [% x]: [%s].", tx.ToValidators, err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.error("Failed unmarshalling message to validators [%s].", err.Error())
+		validator.error("Failed unmarshalling message to validators [% x]: [%s].", msgToValidators, err.Error())
 		return nil, err
 	}
 

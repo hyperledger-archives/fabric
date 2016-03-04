@@ -474,9 +474,6 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	// END
-	node.debug("chain key: [% x]", resp.Chain.Tok)
-
 	return signPriv, resp.Certs.Sign, resp.Pkchain, nil
 }
 

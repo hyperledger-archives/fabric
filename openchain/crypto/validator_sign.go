@@ -26,13 +26,9 @@ import (
 func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 	sigma, err := utils.ECDSASign(signKey, msg)
 
-	validator.debug("Signing message [% x], sigma [% x].", msg, sigma)
-
 	return sigma, err
 }
 
 func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	validator.debug("Verifing signature [% x] against message [% x].", signature, msg)
-
 	return utils.ECDSAVerify(verKey, msg, signature)
 }

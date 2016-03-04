@@ -162,10 +162,9 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
 		return nil, err
 	}
 
@@ -200,10 +199,9 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", err.Error())
 		return nil, err
 	}
 
@@ -238,10 +236,9 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", err.Error())
 		return nil, err
 	}
 
@@ -276,10 +273,9 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
 		return nil, err
 	}
 
@@ -314,10 +310,9 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
 		return nil, err
 	}
 
@@ -352,10 +347,9 @@ func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.C
 	}
 
 	// 2. Sign rawTx and check signature
-	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
 		return nil, err
 	}
 
