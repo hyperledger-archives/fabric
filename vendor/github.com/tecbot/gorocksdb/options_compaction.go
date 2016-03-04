@@ -3,13 +3,14 @@ package gorocksdb
 // #include "rocksdb/c.h"
 import "C"
 
-// Algorithm used to make a compaction request stop picking new files
-// into a single compaction run.
+// UniversalCompactionStopStyle describes a algorithm used to make a
+// compaction request stop picking new files into a single compaction run.
 type UniversalCompactionStopStyle uint
 
+// Compaction stop style types.
 const (
-	CompactionStopStyleSimilarSize = UniversalCompactionStopStyle(0)
-	CompactionStopStyleTotalSize   = UniversalCompactionStopStyle(1)
+	CompactionStopStyleSimilarSize = UniversalCompactionStopStyle(C.rocksdb_similar_size_compaction_stop_style)
+	CompactionStopStyleTotalSize   = UniversalCompactionStopStyle(C.rocksdb_total_size_compaction_stop_style)
 )
 
 // FIFOCompactionOptions represent all of the available options for
@@ -23,21 +24,22 @@ func NewDefaultFIFOCompactionOptions() *FIFOCompactionOptions {
 	return NewNativeFIFOCompactionOptions(C.rocksdb_fifo_compaction_options_create())
 }
 
-// NewDefaultFIFOCompactionOptions creates a default FIFOCompactionOptions object.
+// NewNativeFIFOCompactionOptions creates a native FIFOCompactionOptions object.
 func NewNativeFIFOCompactionOptions(c *C.rocksdb_fifo_compaction_options_t) *FIFOCompactionOptions {
 	return &FIFOCompactionOptions{c}
 }
 
+// SetMaxTableFilesSize sets the max table file size.
 // Once the total sum of table files reaches this, we will delete the oldest
 // table file
 // Default: 1GB
-func (self *FIFOCompactionOptions) SetMaxTableFilesSize(value uint64) {
-	C.rocksdb_fifo_compaction_options_set_max_table_files_size(self.c, C.uint64_t(value))
+func (opts *FIFOCompactionOptions) SetMaxTableFilesSize(value uint64) {
+	C.rocksdb_fifo_compaction_options_set_max_table_files_size(opts.c, C.uint64_t(value))
 }
 
 // Destroy deallocates the FIFOCompactionOptions object.
-func (self *FIFOCompactionOptions) Destroy() {
-	C.rocksdb_fifo_compaction_options_destroy(self.c)
+func (opts *FIFOCompactionOptions) Destroy() {
+	C.rocksdb_fifo_compaction_options_destroy(opts.c)
 }
 
 // UniversalCompactionOptions represent all of the available options for
@@ -58,27 +60,28 @@ func NewNativeUniversalCompactionOptions(c *C.rocksdb_universal_compaction_optio
 	return &UniversalCompactionOptions{c}
 }
 
-// Percentage flexibilty while comparing file size. If the candidate file(s)
-// size is 1% smaller than the next file's size, then include next file into
-// this candidate set.
+// SetSizeRatio sets the percentage flexibilty while comparing file size.
+// If the candidate file(s) size is 1% smaller than the next file's size,
+// then include next file into this candidate set.
 // Default: 1
-func (self *UniversalCompactionOptions) SetSizeRatio(value uint) {
-	C.rocksdb_universal_compaction_options_set_size_ratio(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetSizeRatio(value uint) {
+	C.rocksdb_universal_compaction_options_set_size_ratio(opts.c, C.int(value))
 }
 
-// The minimum number of files in a single compaction run.
+// SetMinMergeWidth sets the minimum number of files in a single compaction run.
 // Default: 2
-func (self *UniversalCompactionOptions) SetMinMergeWidth(value uint) {
-	C.rocksdb_universal_compaction_options_set_min_merge_width(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetMinMergeWidth(value uint) {
+	C.rocksdb_universal_compaction_options_set_min_merge_width(opts.c, C.int(value))
 }
 
-// The maximum number of files in a single compaction run.
+// SetMaxMergeWidth sets the maximum number of files in a single compaction run.
 // Default: UINT_MAX
-func (self *UniversalCompactionOptions) SetMaxMergeWidth(value uint) {
-	C.rocksdb_universal_compaction_options_set_max_merge_width(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetMaxMergeWidth(value uint) {
+	C.rocksdb_universal_compaction_options_set_max_merge_width(opts.c, C.int(value))
 }
 
-// The size amplification is defined as the amount (in percentage) of
+// SetMaxSizeAmplificationPercent sets the size amplification.
+// It is defined as the amount (in percentage) of
 // additional storage needed to store a single byte of data in the database.
 // For example, a size amplification of 2% means that a database that
 // contains 100 bytes of user-data may occupy upto 102 bytes of
@@ -88,10 +91,12 @@ func (self *UniversalCompactionOptions) SetMaxMergeWidth(value uint) {
 // the earliest file contribute to the size amplification.
 // Default: 200, which means that a 100 byte database could require upto
 // 300 bytes of storage.
-func (self *UniversalCompactionOptions) SetMaxSizeAmplificationPercent(value uint) {
-	C.rocksdb_universal_compaction_options_set_max_size_amplification_percent(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetMaxSizeAmplificationPercent(value uint) {
+	C.rocksdb_universal_compaction_options_set_max_size_amplification_percent(opts.c, C.int(value))
 }
 
+// SetCompressionSizePercent sets the percentage of compression size.
+//
 // If this option is set to be -1, all the output files
 // will follow compression type specified.
 //
@@ -108,18 +113,18 @@ func (self *UniversalCompactionOptions) SetMaxSizeAmplificationPercent(value uin
 // will be compressed iff
 //   total_C / total_size < this percentage
 // Default: -1
-func (self *UniversalCompactionOptions) SetCompressionSizePercent(value int) {
-	C.rocksdb_universal_compaction_options_set_compression_size_percent(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetCompressionSizePercent(value int) {
+	C.rocksdb_universal_compaction_options_set_compression_size_percent(opts.c, C.int(value))
 }
 
-// The algorithm used to stop picking files into a single compaction run
+// SetStopStyle sets the algorithm used to stop picking files into a single compaction run.
 // Default: CompactionStopStyleTotalSize
-func (self *UniversalCompactionOptions) SetStopStyle(value UniversalCompactionStopStyle) {
-	C.rocksdb_universal_compaction_options_set_stop_style(self.c, C.int(value))
+func (opts *UniversalCompactionOptions) SetStopStyle(value UniversalCompactionStopStyle) {
+	C.rocksdb_universal_compaction_options_set_stop_style(opts.c, C.int(value))
 }
 
 // Destroy deallocates the UniversalCompactionOptions object.
-func (self *UniversalCompactionOptions) Destroy() {
-	C.rocksdb_universal_compaction_options_destroy(self.c)
-	self.c = nil
+func (opts *UniversalCompactionOptions) Destroy() {
+	C.rocksdb_universal_compaction_options_destroy(opts.c)
+	opts.c = nil
 }

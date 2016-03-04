@@ -21,19 +21,20 @@ type FilterPolicy interface {
 	Name() string
 }
 
-// This type is a bit of a hack and will not behave as expected if clients try to
-// call its methods. It is handled specially in Options.
+// NewNativeFilterPolicy creates a FilterPolicy object.
+func NewNativeFilterPolicy(c *C.rocksdb_filterpolicy_t) FilterPolicy {
+	return nativeFilterPolicy{c}
+}
+
 type nativeFilterPolicy struct {
 	c *C.rocksdb_filterpolicy_t
 }
 
-func (fp nativeFilterPolicy) CreateFilter(keys [][]byte) []byte { return nil }
-
+func (fp nativeFilterPolicy) CreateFilter(keys [][]byte) []byte          { return nil }
 func (fp nativeFilterPolicy) KeyMayMatch(key []byte, filter []byte) bool { return false }
+func (fp nativeFilterPolicy) Name() string                               { return "" }
 
-func (fp nativeFilterPolicy) Name() string { return "" }
-
-// Return a new filter policy that uses a bloom filter with approximately
+// NewBloomFilter returns a new filter policy that uses a bloom filter with approximately
 // the specified number of bits per key.  A good value for bits_per_key
 // is 10, which yields a filter with ~1% false positive rate.
 //
@@ -48,15 +49,16 @@ func NewBloomFilter(bitsPerKey int) FilterPolicy {
 	return NewNativeFilterPolicy(C.rocksdb_filterpolicy_create_bloom(C.int(bitsPerKey)))
 }
 
-// NewNativeFilterPolicy creates a filter policy object.
-// The FilterPolicy's methods are no-ops, but it is still used correctly by
-// RocksDB.
-func NewNativeFilterPolicy(c *C.rocksdb_filterpolicy_t) FilterPolicy {
-	return nativeFilterPolicy{c}
+// Hold references to filter policies.
+var filterPolicies []FilterPolicy
+
+func registerFilterPolicy(fp FilterPolicy) int {
+	filterPolicies = append(filterPolicies, fp)
+	return len(filterPolicies) - 1
 }
 
 //export gorocksdb_filterpolicy_create_filter
-func gorocksdb_filterpolicy_create_filter(handler *FilterPolicy, cKeys **C.char, cKeysLen *C.size_t, cNumKeys C.int, cDstLen *C.size_t) *C.char {
+func gorocksdb_filterpolicy_create_filter(idx int, cKeys **C.char, cKeysLen *C.size_t, cNumKeys C.int, cDstLen *C.size_t) *C.char {
 	rawKeys := charSlice(cKeys, cNumKeys)
 	keysLen := sizeSlice(cKeysLen, cNumKeys)
 	keys := make([][]byte, int(cNumKeys))
@@ -64,24 +66,19 @@ func gorocksdb_filterpolicy_create_filter(handler *FilterPolicy, cKeys **C.char,
 		keys[i] = charToByte(rawKeys[i], len)
 	}
 
-	dst := (*handler).CreateFilter(keys)
-
+	dst := filterPolicies[idx].CreateFilter(keys)
 	*cDstLen = C.size_t(len(dst))
-
-	return byteToChar(dst)
+	return cByteSlice(dst)
 }
 
 //export gorocksdb_filterpolicy_key_may_match
-func gorocksdb_filterpolicy_key_may_match(handler *FilterPolicy, cKey *C.char, cKeyLen C.size_t, cFilter *C.char, cFilterLen C.size_t) C.uchar {
+func gorocksdb_filterpolicy_key_may_match(idx int, cKey *C.char, cKeyLen C.size_t, cFilter *C.char, cFilterLen C.size_t) C.uchar {
 	key := charToByte(cKey, cKeyLen)
 	filter := charToByte(cFilter, cFilterLen)
-
-	match := (*handler).KeyMayMatch(key, filter)
-
-	return boolToChar(match)
+	return boolToChar(filterPolicies[idx].KeyMayMatch(key, filter))
 }
 
 //export gorocksdb_filterpolicy_name
-func gorocksdb_filterpolicy_name(handler *FilterPolicy) *C.char {
-	return stringToChar((*handler).Name())
+func gorocksdb_filterpolicy_name(idx int) *C.char {
+	return stringToChar(filterPolicies[idx].Name())
 }

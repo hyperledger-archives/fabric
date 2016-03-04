@@ -19,14 +19,14 @@ func NewNativeFlushOptions(c *C.rocksdb_flushoptions_t) *FlushOptions {
 	return &FlushOptions{c}
 }
 
-// If true, the flush will wait until the flush is done.
+// SetWait specify if the flush will wait until the flush is done.
 // Default: true
-func (self *FlushOptions) SetWait(value bool) {
-	C.rocksdb_flushoptions_set_wait(self.c, boolToChar(value))
+func (opts *FlushOptions) SetWait(value bool) {
+	C.rocksdb_flushoptions_set_wait(opts.c, boolToChar(value))
 }
 
 // Destroy deallocates the FlushOptions object.
-func (self *FlushOptions) Destroy() {
-	C.rocksdb_flushoptions_destroy(self.c)
-	self.c = nil
+func (opts *FlushOptions) Destroy() {
+	C.rocksdb_flushoptions_destroy(opts.c)
+	opts.c = nil
 }

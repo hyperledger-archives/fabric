@@ -3,9 +3,7 @@ package gorocksdb
 // #include "rocksdb/c.h"
 import "C"
 
-// The Merge Operator
-//
-// Essentially, a MergeOperator specifies the SEMANTICS of a merge, which only
+// A MergeOperator specifies the SEMANTICS of a merge, which only
 // client knows. It could be numeric addition, list append, string
 // concatenation, edit data structure, ... , anything.
 // The library, on the other hand, is concerned with the exercise of this
@@ -49,6 +47,11 @@ type MergeOperator interface {
 	Name() string
 }
 
+// NewNativeMergeOperator creates a MergeOperator object.
+func NewNativeMergeOperator(c *C.rocksdb_mergeoperator_t) MergeOperator {
+	return nativeMergeOperator{c}
+}
+
 type nativeMergeOperator struct {
 	c *C.rocksdb_mergeoperator_t
 }
@@ -56,22 +59,21 @@ type nativeMergeOperator struct {
 func (mo nativeMergeOperator) FullMerge(key, existingValue []byte, operands [][]byte) ([]byte, bool) {
 	return nil, false
 }
-
 func (mo nativeMergeOperator) PartialMerge(key, leftOperand, rightOperand []byte) ([]byte, bool) {
 	return nil, false
 }
-
 func (mo nativeMergeOperator) Name() string { return "" }
 
-// NewNativeMergeOperator allocates a MergeOperator object.
-// The MergeOperator's methods are no-ops, but it is still used correctly by
-// RocksDB.
-func NewNativeMergeOperator(c *C.rocksdb_mergeoperator_t) MergeOperator {
-	return nativeMergeOperator{c}
+// Hold references to merge operators.
+var mergeOperators []MergeOperator
+
+func registerMergeOperator(merger MergeOperator) int {
+	mergeOperators = append(mergeOperators, merger)
+	return len(mergeOperators) - 1
 }
 
 //export gorocksdb_mergeoperator_full_merge
-func gorocksdb_mergeoperator_full_merge(handler *MergeOperator, cKey *C.char, cKeyLen C.size_t, cExistingValue *C.char, cExistingValueLen C.size_t, cOperands **C.char, cOperandsLen *C.size_t, cNumOperands C.int, cSuccess *C.uchar, cNewValueLen *C.size_t) *C.char {
+func gorocksdb_mergeoperator_full_merge(idx int, cKey *C.char, cKeyLen C.size_t, cExistingValue *C.char, cExistingValueLen C.size_t, cOperands **C.char, cOperandsLen *C.size_t, cNumOperands C.int, cSuccess *C.uchar, cNewValueLen *C.size_t) *C.char {
 	key := charToByte(cKey, cKeyLen)
 	rawOperands := charSlice(cOperands, cNumOperands)
 	operandsLen := sizeSlice(cOperandsLen, cNumOperands)
@@ -81,17 +83,17 @@ func gorocksdb_mergeoperator_full_merge(handler *MergeOperator, cKey *C.char, cK
 		operands[i] = charToByte(rawOperands[i], len)
 	}
 
-	newValue, success := (*handler).FullMerge(key, existingValue, operands)
+	newValue, success := mergeOperators[idx].FullMerge(key, existingValue, operands)
 	newValueLen := len(newValue)
 
 	*cNewValueLen = C.size_t(newValueLen)
 	*cSuccess = boolToChar(success)
 
-	return byteToChar(newValue)
+	return cByteSlice(newValue)
 }
 
 //export gorocksdb_mergeoperator_partial_merge_multi
-func gorocksdb_mergeoperator_partial_merge_multi(handler *MergeOperator, cKey *C.char, cKeyLen C.size_t, cOperands **C.char, cOperandsLen *C.size_t, cNumOperands C.int, cSuccess *C.uchar, cNewValueLen *C.size_t) *C.char {
+func gorocksdb_mergeoperator_partial_merge_multi(idx int, cKey *C.char, cKeyLen C.size_t, cOperands **C.char, cOperandsLen *C.size_t, cNumOperands C.int, cSuccess *C.uchar, cNewValueLen *C.size_t) *C.char {
 	key := charToByte(cKey, cKeyLen)
 	rawOperands := charSlice(cOperands, cNumOperands)
 	operandsLen := sizeSlice(cOperandsLen, cNumOperands)
@@ -103,10 +105,10 @@ func gorocksdb_mergeoperator_partial_merge_multi(handler *MergeOperator, cKey *C
 	var newValue []byte
 	success := true
 
-	h := *handler
+	merger := mergeOperators[idx]
 	leftOperand := operands[0]
 	for i := 1; i < int(cNumOperands); i++ {
-		newValue, success = h.PartialMerge(key, leftOperand, operands[i])
+		newValue, success = merger.PartialMerge(key, leftOperand, operands[i])
 		if !success {
 			break
 		}
@@ -117,10 +119,10 @@ func gorocksdb_mergeoperator_partial_merge_multi(handler *MergeOperator, cKey *C
 	*cNewValueLen = C.size_t(newValueLen)
 	*cSuccess = boolToChar(success)
 
-	return byteToChar(newValue)
+	return cByteSlice(newValue)
 }
 
 //export gorocksdb_mergeoperator_name
-func gorocksdb_mergeoperator_name(handler *MergeOperator) *C.char {
-	return stringToChar((*handler).Name())
+func gorocksdb_mergeoperator_name(idx int) *C.char {
+	return stringToChar(mergeOperators[idx].Name())
 }
