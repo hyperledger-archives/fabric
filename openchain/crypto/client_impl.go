@@ -171,14 +171,13 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 
 	// Register node
 	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s] [%s].", enrollID, err.Error())
 		return
 	}
 
 	client.info("Register crypto engine...")
 	err = client.registerCryptoEngine()
 	if err != nil {
-		log.Error("Failed registering crypto engine [%s] [%s].", enrollID, err.Error())
+		log.Error("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
 		return
 	}
 	client.info("Register crypto engine...done.")
@@ -188,9 +187,7 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 
 func (client *clientImpl) init(id string, pwd []byte) error {
 	if client.isInitialized {
-		client.info("Already initializaed.")
-
-		return nil
+		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
@@ -221,8 +218,6 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 
 	// initialized
 	client.isInitialized = true
-
-	client.debug("Initialization...done.")
 
 	return nil
 }

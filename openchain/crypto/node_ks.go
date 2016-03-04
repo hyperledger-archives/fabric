@@ -389,7 +389,6 @@ func (ks *keyStore) openKeyStore() error {
 
 	// Open DB
 	ksPath := ks.node.conf.getKeyStorePath()
-	ks.node.debug("Open keystore at [%s]...", ksPath)
 
 	sqlDB, err := sql.Open("sqlite3", filepath.Join(ksPath, ks.node.conf.getKeyStoreFilename()))
 	if err != nil {
@@ -399,7 +398,7 @@ func (ks *keyStore) openKeyStore() error {
 	ks.isOpen = true
 	ks.sqlDB = sqlDB
 
-	ks.node.debug("Open keystore at [%s]...done", ksPath)
+	ks.node.debug("Keystore opened at [%s]...done", ksPath)
 
 	return nil
 }
