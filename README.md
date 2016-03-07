@@ -143,11 +143,16 @@ This is not recommended, however some users may wish to build Openchain outside 
 1. Follow all steps required to setup and run a Vagrant image
 - Make you you have [Go 1.6](https://golang.org/) or later installed
 - Set the maximum number of open files to 10000 or greater for your OS
-- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1
-- Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB:
+- Install [RocksDB](http://rocksdb.org) version 4.1 and its deps using the OBC PPA and upstream respositories
+```
+sudo add-apt-repository ppa:openblockchain/third-party
+sudo apt-get update
+sudo apt-get install librocksdb4.1 libsnappy-dev zlib1g-dev libbz2-dev
+```
+- Run the following commands to build the obc-peer
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
-CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
+CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options
 ```

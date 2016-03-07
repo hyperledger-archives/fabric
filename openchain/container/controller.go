@@ -67,7 +67,6 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,
-		Pull:         true,
 		InputStream:  reader,
 		OutputStream: outputbuf,
 	}
