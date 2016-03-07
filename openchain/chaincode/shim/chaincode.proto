@@ -26,6 +26,11 @@ message ColumnDefinition {
 	enum Type {
     STRING = 0;
 		INT32 = 1;
+		INT64 = 2;
+		UINT32 = 3;
+		UINT64 = 4;
+		BYTES = 5;
+		BOOL = 6;
   }
 	Type type = 2;
 	bool key = 3;
@@ -40,6 +45,11 @@ message Column {
 	oneof value {
     string string = 1;
     int32 int32 = 2;
+		int64 int64 = 3;
+		uint32 uint32 = 4;
+		uint64 uint64 = 5;
+		bytes bytes = 6;
+		bool bool = 7;
   }
 }
 

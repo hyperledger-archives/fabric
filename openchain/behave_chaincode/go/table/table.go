@@ -107,6 +107,67 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 			return nil, errors.New("insertRowTableTwo operation failed. Row with given key already exists")
 		}
 
+	case "insertRowTableThree":
+		if len(args) < 7 {
+			return nil, errors.New("insertRowTableThree failed. Must include 7 column values")
+		}
+
+		col1Val := args[0]
+
+		col2Int, err := strconv.ParseInt(args[1], 10, 32)
+		if err != nil {
+			return nil, errors.New("insertRowTableThree failed. arg[1] must be convertable to int32")
+		}
+		col2Val := int32(col2Int)
+
+		col3Val, err := strconv.ParseInt(args[2], 10, 64)
+		if err != nil {
+			return nil, errors.New("insertRowTableThree failed. arg[2] must be convertable to int64")
+		}
+
+		col4Uint, err := strconv.ParseUint(args[3], 10, 32)
+		if err != nil {
+			return nil, errors.New("insertRowTableThree failed. arg[3] must be convertable to uint32")
+		}
+		col4Val := uint32(col4Uint)
+
+		col5Val, err := strconv.ParseUint(args[4], 10, 64)
+		if err != nil {
+			return nil, errors.New("insertRowTableThree failed. arg[4] must be convertable to uint64")
+		}
+
+		col6Val := []byte(args[5])
+
+		col7Val, err := strconv.ParseBool(args[6])
+		if err != nil {
+			return nil, errors.New("insertRowTableThree failed. arg[6] must be convertable to bool")
+		}
+
+		var columns []*shim.Column
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		col2 := shim.Column{Value: &shim.Column_Int32{Int32: col2Val}}
+		col3 := shim.Column{Value: &shim.Column_Int64{Int64: col3Val}}
+		col4 := shim.Column{Value: &shim.Column_Uint32{Uint32: col4Val}}
+		col5 := shim.Column{Value: &shim.Column_Uint64{Uint64: col5Val}}
+		col6 := shim.Column{Value: &shim.Column_Bytes{Bytes: col6Val}}
+		col7 := shim.Column{Value: &shim.Column_Bool{Bool: col7Val}}
+		columns = append(columns, &col1)
+		columns = append(columns, &col2)
+		columns = append(columns, &col3)
+		columns = append(columns, &col4)
+		columns = append(columns, &col5)
+		columns = append(columns, &col6)
+		columns = append(columns, &col7)
+
+		row := shim.Row{columns}
+		ok, err := stub.InsertRow("tableThree", row)
+		if err != nil {
+			return nil, fmt.Errorf("insertRowTableThree operation failed. %s", err)
+		}
+		if !ok {
+			return nil, errors.New("insertRowTableThree operation failed. Row with given key already exists")
+		}
+
 	case "deleteRowTableOne":
 		if len(args) < 1 {
 			return nil, errors.New("deleteRowTableOne failed. Must include 1 key value")
@@ -184,6 +245,12 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 			return nil, fmt.Errorf("Error creating table two during init. %s", err)
 		}
 
+		// Create table three
+		err = createTableThree(stub)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating table three during init. %s", err)
+		}
+
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
@@ -235,6 +302,25 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		row, err := stub.GetRow("tableTwo", columns)
 		if err != nil {
 			return nil, fmt.Errorf("getRowTableTwo operation failed. %s", err)
+		}
+
+		rowString := fmt.Sprintf("%s", row)
+		return []byte(rowString), nil
+
+	case "getRowTableThree":
+		if len(args) < 1 {
+			return nil, errors.New("getRowTableThree failed. Must include 1 key value")
+		}
+
+		col1Val := args[0]
+
+		var columns []shim.Column
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		columns = append(columns, col1)
+
+		row, err := stub.GetRow("tableThree", columns)
+		if err != nil {
+			return nil, fmt.Errorf("getRowTableThree operation failed. %s", err)
 		}
 
 		rowString := fmt.Sprintf("%s", row)
@@ -330,4 +416,30 @@ func createTableTwo(stub *shim.ChaincodeStub) error {
 	columnDefsTableTwo = append(columnDefsTableTwo, &columnThreeTableTwoDef)
 	columnDefsTableTwo = append(columnDefsTableTwo, &columnFourTableTwoDef)
 	return stub.CreateTable("tableTwo", columnDefsTableTwo)
+}
+
+func createTableThree(stub *shim.ChaincodeStub) error {
+	var columnDefsTableThree []*shim.ColumnDefinition
+	columnOneTableThreeDef := shim.ColumnDefinition{Name: "colOneTableThree",
+		Type: shim.ColumnDefinition_STRING, Key: true}
+	columnTwoTableThreeDef := shim.ColumnDefinition{Name: "colTwoTableThree",
+		Type: shim.ColumnDefinition_INT32, Key: false}
+	columnThreeTableThreeDef := shim.ColumnDefinition{Name: "colThreeTableThree",
+		Type: shim.ColumnDefinition_INT64, Key: false}
+	columnFourTableThreeDef := shim.ColumnDefinition{Name: "colFourTableFour",
+		Type: shim.ColumnDefinition_UINT32, Key: false}
+	columnFiveTableThreeDef := shim.ColumnDefinition{Name: "colFourTableFive",
+		Type: shim.ColumnDefinition_UINT64, Key: false}
+	columnSixTableThreeDef := shim.ColumnDefinition{Name: "colFourTableSix",
+		Type: shim.ColumnDefinition_BYTES, Key: false}
+	columnSevenTableThreeDef := shim.ColumnDefinition{Name: "colFourTableSeven",
+		Type: shim.ColumnDefinition_BOOL, Key: false}
+	columnDefsTableThree = append(columnDefsTableThree, &columnOneTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnTwoTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnThreeTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnFourTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnFiveTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnSixTableThreeDef)
+	columnDefsTableThree = append(columnDefsTableThree, &columnSevenTableThreeDef)
+	return stub.CreateTable("tableThree", columnDefsTableThree)
 }

@@ -350,6 +350,11 @@ func (stub *ChaincodeStub) CreateTable(name string, columnDefinitions []*ColumnD
 		switch definition.Type {
 		case ColumnDefinition_STRING:
 		case ColumnDefinition_INT32:
+		case ColumnDefinition_INT64:
+		case ColumnDefinition_UINT32:
+		case ColumnDefinition_UINT64:
+		case ColumnDefinition_BYTES:
+		case ColumnDefinition_BOOL:
 		default:
 			return fmt.Errorf("Column definition %s does not have a valid type.", definition.Name)
 		}
@@ -577,7 +582,17 @@ func buildKeyString(tableName string, keys []Column) (string, error) {
 			// b := make([]byte, 4)
 			// binary.LittleEndian.PutUint32(b, uint32(key.GetInt32()))
 			// keyBuffer.Write(b)
-			keyString = strconv.Itoa(int(key.GetInt32()))
+			keyString = strconv.FormatInt(int64(key.GetInt32()), 10)
+		case *Column_Int64:
+			keyString = strconv.FormatInt(key.GetInt64(), 10)
+		case *Column_Uint32:
+			keyString = strconv.FormatUint(uint64(key.GetInt32()), 10)
+		case *Column_Uint64:
+			keyString = strconv.FormatUint(key.GetUint64(), 10)
+		case *Column_Bytes:
+			keyString = string(key.GetBytes())
+		case *Column_Bool:
+			keyString = strconv.FormatBool(key.GetBool())
 		}
 
 		keyBuffer.WriteString(strconv.Itoa(len(keyString)))
@@ -605,6 +620,16 @@ func getKeyAndVerifyRow(table Table, row Row) ([]Column, error) {
 			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_STRING
 		case *Column_Int32:
 			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_INT32
+		case *Column_Int64:
+			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_INT64
+		case *Column_Uint32:
+			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_UINT32
+		case *Column_Uint64:
+			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_UINT64
+		case *Column_Bytes:
+			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_BYTES
+		case *Column_Bool:
+			expectedType = table.ColumnDefinitions[i].Type == ColumnDefinition_BOOL
 		default:
 			expectedType = false
 		}
