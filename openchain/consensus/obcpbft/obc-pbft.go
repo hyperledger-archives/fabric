@@ -108,3 +108,12 @@ func getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
 	name := "vp" + strconv.FormatUint(id, 10)
 	return &pb.PeerID{Name: name}, nil
 }
+
+// Returns the peer handles corresponding to a list of replica ids
+func getValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
+	handles = make([]*pb.PeerID, len(ids))
+	for i, id := range ids {
+		handles[i], _ = getValidatorHandle(id)
+	}
+	return
+}

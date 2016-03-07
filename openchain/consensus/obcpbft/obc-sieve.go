@@ -41,19 +41,35 @@ type obcSieve struct {
 	imminentEpoch uint64
 	blockNumber   uint64
 	currentReq    string
-	currentResult []byte
+	currentView   uint64
+	lowWaterSeqNo uint64
 
-	currentTx   []*pb.Transaction
 	verifyStore []*Verify
 
 	queuedExec map[uint64]*Execute
 	queuedTx   [][]byte
+
+	executor        Executor
+	validResultChan chan *validResult
+}
+
+type sieveID struct {
+	sieveBlock uint64
+	obcID      []byte
+}
+
+type validResult struct {
+	commit     bool
+	snapshotID []byte
+	peerIDs    []*pb.PeerID
 }
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op, stack)
+	op.validResultChan = make(chan *validResult)
+	op.executor = NewOBCExecutor(id, config, 20, op, stack) // TODO, set queue size correctly
 
 	return op
 }
@@ -120,11 +136,6 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 // Close tells us to release resources we are holding
 func (op *obcSieve) Close() {
 	op.pbft.close()
-}
-
-// Drain will block until all remaining execution has been handled
-func (op *obcSieve) Drain() {
-	op.pbft.drain()
 }
 
 // called by pbft-core to multicast a message to all replicas
@@ -242,10 +253,6 @@ func (op *obcSieve) recvExecute(exec *Execute) {
 }
 
 func (op *obcSieve) processExecute() {
-	if op.pbft.sts.InProgress() {
-		return
-	}
-
 	if op.currentReq != "" {
 		return
 	}
@@ -280,34 +287,39 @@ func (op *obcSieve) processExecute() {
 	}
 
 	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
+	op.currentView = exec.View
 	op.blockNumber++
 
-	op.begin()
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
-	op.currentTx = []*pb.Transaction{tx}
-	op.stack.ExecTxs(op.currentReq, op.currentTx)
-	hash, err := op.previewCommit(op.blockNumber)
-	if err != nil {
-		err = fmt.Errorf("Sieve replica %d ignoring execute: %s", op.id, err)
-		logger.Error(err.Error())
-		op.blockNumber--
-		op.currentReq = ""
-		return
-	}
 
-	op.currentResult = hash
+	op.executor.Execute(op.blockNumber, []*pb.Transaction{tx}, &ExecutionInfo{
+		Validate: true,
+	})
+}
 
-	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s, result=%s", op.id, op.blockNumber, op.currentReq, op.currentResult)
+func (op *obcSieve) Checkpoint(seqNo uint64, id []byte) {
+	// Nothing to do for this executor callback, as sieve will checkpoint as needed directly
+}
+
+func (op *obcSieve) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
+	op.pbft.lock()
+
+	sid, _ := proto.Marshal(&SieveId{
+		BlockNumber: seqNo,
+		ObcId:       id,
+	})
+
+	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s, id=%x", op.id, op.blockNumber, op.currentReq, sid)
 
 	// for simplicity's sake, we use the pbft timer
 	op.pbft.startTimer(op.pbft.requestTimeout)
 
 	verify := &Verify{
-		View:          exec.View,
-		BlockNumber:   exec.BlockNumber,
+		View:          op.currentView,
+		BlockNumber:   seqNo,
 		RequestDigest: op.currentReq,
-		ResultDigest:  op.currentResult,
+		ResultDigest:  sid,
 		ReplicaId:     op.id,
 	}
 	op.pbft.sign(verify)
@@ -316,6 +328,25 @@ func (op *obcSieve) processExecute() {
 		op.id, verify.BlockNumber)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
 	op.recvVerify(verify)
+
+	op.pbft.unlock()
+
+	select {
+	case result := <-op.validResultChan:
+		if !reflect.DeepEqual(id, result.snapshotID) {
+			logger.Warning("Decision successful, but our output does not match")
+			resultSID := &SieveId{}
+			proto.Unmarshal(result.snapshotID, resultSID)
+			return result.commit, resultSID.ObcId, result.peerIDs
+		} else {
+			logger.Debug("Decision successful, committing result")
+			return result.commit, nil, nil
+		}
+
+	case <-op.pbft.closed:
+		logger.Warning("Shutdown requested before decision could be made")
+		return false, nil, nil
+	}
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
@@ -468,11 +499,7 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
-func (op *obcSieve) execute(raw []byte) {
-	// called without pbft lock held
-	op.pbft.lock()
-	defer op.pbft.unlock()
-
+func (op *obcSieve) execute(seqNo uint64, raw []byte, execInfo *ExecutionInfo) {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {
@@ -480,7 +507,7 @@ func (op *obcSieve) execute(raw []byte) {
 	}
 
 	if vset := req.GetVerifySet(); vset != nil {
-		op.executeVerifySet(vset)
+		op.executeVerifySet(vset, seqNo, execInfo)
 	} else if flush := req.GetFlush(); flush != nil {
 		op.executeFlush(flush)
 	} else {
@@ -488,7 +515,7 @@ func (op *obcSieve) execute(raw []byte) {
 	}
 }
 
-func (op *obcSieve) executeVerifySet(vset *VerifySet) {
+func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *ExecutionInfo) {
 	sync := false
 
 	logger.Debug("Replica %d received verify-set from pbft, view %d, block %d",
@@ -535,36 +562,40 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet) {
 	if !sync {
 		if !shouldCommit {
 			logger.Error("Execute vset: not deterministic")
-			op.rollback()
+			op.validResultChan <- &validResult{
+				commit: false,
+			}
 			op.blockNumber--
 		} else {
-			if !reflect.DeepEqual(op.currentResult, dSet[0].ResultDigest) {
-				logger.Warning("Decision successful, but our output does not match")
-				sync = true
-			} else {
-				logger.Debug("Decision successful, committing result")
-				if op.commit(vset.BlockNumber) != nil {
-					sync = true
+			var peers []*pb.PeerID
+			for _, n := range dSet {
+				peer, err := getValidatorHandle(n.ReplicaId)
+				if err == nil {
+					peers = append(peers, peer)
 				}
+			}
+
+			logger.Warning("Decision successful, but our output does not match")
+			op.validResultChan <- &validResult{
+				commit:     true,
+				snapshotID: dSet[0].ResultDigest,
+				peerIDs:    peers,
+			}
+
+			if execInfo.Checkpoint {
+				op.pbft.Checkpoint(seqNo, dSet[0].ResultDigest)
 			}
 		}
 	}
 
-	if sync {
-		op.sync(vset.BlockNumber, dSet[0].ResultDigest, dSet)
-	} else {
-		// sync is non-blocking, request execution needs to be paused until sync completes
-		op.currentReq = ""
-		op.currentResult = nil
+	op.currentReq = ""
 
-		if len(op.queuedTx) > 0 {
-			op.processRequest()
-		}
+	if len(op.queuedTx) > 0 {
+		op.processRequest()
+	}
 
-		if op.pbft.primary(op.epoch) != op.id {
-			op.processExecute()
-		}
-
+	if op.pbft.primary(op.epoch) != op.id {
+		op.processExecute()
 	}
 }
 
@@ -580,68 +611,27 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 	op.queuedTx = nil
 	if op.currentReq != "" {
 		logger.Info("Replica %d rolling back speculative execution", op.id)
-		op.rollback()
+		op.validResultChan <- &validResult{
+			commit: false,
+		}
 		op.blockNumber--
 		op.currentReq = ""
 	}
 }
 
-func (op *obcSieve) begin() error {
-	if err := op.stack.BeginTxBatch(op.currentReq); err != nil {
-		return fmt.Errorf("Fail to begin transaction: %v", err)
-	}
-	return nil
+func (op *obcSieve) validState(seqNo uint64, id []byte, replicas []uint64) {
+	resultSID := &SieveId{}
+	proto.Unmarshal(id, resultSID)
+	op.executor.ValidState(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas))
 }
 
-func (op *obcSieve) rollback() error {
-	if err := op.stack.RollbackTxBatch(op.currentReq); err != nil {
-		return fmt.Errorf("Fail to rollback transaction: %v", err)
-	}
-	return nil
-}
-
-func (op *obcSieve) commit(seqNo uint64) error {
-	if _, err := op.stack.CommitTxBatch(op.currentReq, nil); err != nil {
-		return fmt.Errorf("Fail to commit transaction: %v", err)
-	}
-	return nil
-}
-
-func (op *obcSieve) previewCommit(seqNo uint64) ([]byte, error) {
-	block, err := op.stack.PreviewCommitTxBatch(op.currentReq, nil)
-	if err != nil {
-		return nil, fmt.Errorf("Fail to preview transaction: %v", err)
-	}
-	return op.stack.HashBlock(block)
-}
-
-func (op *obcSieve) sync(blockNumber uint64, blockHash []byte, nodes []*Verify) {
-	op.pbft.unlock()
-	defer op.pbft.lock()
-
-	var peers []*pb.PeerID
-	for _, n := range nodes {
-		peer, err := getValidatorHandle(n.ReplicaId)
-		if err == nil {
-			peers = append(peers, peer)
-		}
-	}
-	op.pbft.sts.Initiate(peers)
-	op.pbft.sts.AddTarget(blockNumber, blockHash, peers, &stateTransferMetadata{op.pbft.lastExec + 1})
-}
-
-// Completed is a callback invoked when the statetransfer subsystem
-// succesfully synced to a new block
-// We are only interested in adjusting our idea of the sieve blockNumber, which tracks the ledger block height
-func (op *obcSieve) stateTransferCompleted(blockNumber uint64, hash []byte, peers []*pb.PeerID, meta *stateTransferMetadata) {
-	op.pbft.lock()
-	defer op.pbft.unlock()
-
-	if op.currentReq != "" {
-		op.rollback()
-	}
-
+func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.currentReq = ""
-	op.currentResult = nil
-	op.blockNumber = blockNumber
+
+	resultSID := &SieveId{}
+	proto.Unmarshal(id, resultSID)
+
+	op.blockNumber = resultSID.BlockNumber
+
+	op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas))
 }

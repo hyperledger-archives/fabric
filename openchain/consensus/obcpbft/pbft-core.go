@@ -29,7 +29,6 @@ import (
 	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -53,11 +52,11 @@ func init() {
 type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	execute(seqNo uint64, txRaw []byte, reply bool)
+	execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
+	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
+	validState(seqNo uint64, id []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
-
-	syncTarget(seqNo uint64, id []byte, sources []uint64)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -73,25 +72,26 @@ type pbftCore struct {
 	notifyExec   *sync.Cond
 
 	// PBFT data
-	activeView    bool                   // view change happening
-	byzantine     bool                   // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
-	f             int                    // max. number of faults we can tolerate
-	N             int                    // max.number of validators in the network
-	h             uint64                 // low watermark
-	id            uint64                 // replica ID; PBFT `i`
-	K             uint64                 // checkpoint period
-	logMultiplier uint64                 // use this value to calculate log size : k*logMultiplier
-	L             uint64                 // log size
-	lastExec      uint64                 // last request we executed
-	replicaCount  int                    // number of replicas; PBFT `|R|`
-	seqNo         uint64                 // PBFT "n", strictly monotonic increasing sequence number
-	view          uint64                 // current view
-	chkpts        map[uint64]*blockState // state checkpoints; map lastExec to global hash
+	activeView    bool              // view change happening
+	byzantine     bool              // whether this node is intentionally acting as Byzantine; useful for debugging on the testnet
+	f             int               // max. number of faults we can tolerate
+	N             int               // max.number of validators in the network
+	h             uint64            // low watermark
+	id            uint64            // replica ID; PBFT `i`
+	K             uint64            // checkpoint period
+	logMultiplier uint64            // use this value to calculate log size : k*logMultiplier
+	L             uint64            // log size
+	lastExec      uint64            // last request we executed
+	replicaCount  int               // number of replicas; PBFT `|R|`
+	seqNo         uint64            // PBFT "n", strictly monotonic increasing sequence number
+	view          uint64            // current view
+	chkpts        map[uint64]string // state checkpoints; map lastExec to global hash
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	ledger  statetransfer.PartialStack // Used for blockchain related queries
-	hChkpts map[uint64]uint64          // highest checkpoint sequence number observed for each replica
+	skipInProgress bool                       // Set when we have detected a fall behind scenario until we pick a new starting point
+	ledger         statetransfer.PartialStack // Used for blockchain related queries
+	hChkpts        map[uint64]uint64          // highest checkpoint sequence number observed for each replica
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -210,17 +210,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger sta
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
-	instance.sts = statetransfer.NewStateTransferState(config, ledger)
-
-	// load genesis checkpoint
-	genesisBlock, err := instance.ledger.GetBlock(0)
-	if err != nil {
-		panic(fmt.Errorf("Cannot load genesis block: %s", err))
-	}
-	genesisHash, err := ledger.HashBlock(genesisBlock)
-	if err != nil {
-		panic(fmt.Errorf("Cannot hash genesis block: %s", err))
-	}
 	// TODO, get this from Executor
 	instance.chkpts[0] = "ASDF"
 
@@ -233,7 +222,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger sta
 	instance.missingReqs = make(map[string]bool)
 
 	go instance.timerHander()
-	go instance.executeRoutine()
 
 	return instance
 }
@@ -735,6 +723,7 @@ func (instance *pbftCore) executeOutstanding() {
 func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	if seqNo%instance.K != 0 {
 		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
+		return
 	}
 
 	idAsString := base64.StdEncoding.EncodeToString(id)
@@ -747,7 +736,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 		ReplicaId:      instance.id,
 		Id:             idAsString,
 	}
-	instance.chkpts[instance.lastExec] = id
+	instance.chkpts[instance.lastExec] = idAsString
 
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 }
@@ -777,12 +766,17 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	if digest == "" {
 		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
+		// Note, that it is not possible for a null request to be a multiple of the checkpoint interval, so no checkpointing checking is needed in this path
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 		delete(instance.outstandingReqs, digest)
 
-		instance.consumer.execute(req.Payload)
+		execInfo := &ExecutionInfo{
+			Checkpoint: idx.n%instance.K == 0, // Only checkpoint if this sequence number is a multiple of the checkpoint period
+		}
+
+		instance.consumer.execute(idx.n, req.Payload, execInfo)
 	}
 
 	if len(instance.outstandingReqs) > 0 {
@@ -807,8 +801,8 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= h {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 block hash %s",
-				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.BlockHash)
+			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 snapshot id %s",
+				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.Id)
 			delete(instance.checkpointStore, testChkpt)
 		}
 	}
@@ -839,7 +833,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 	instance.resubmitRequests()
 }
 
-func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
+func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 
 	H := instance.h + instance.L
 
@@ -873,65 +867,61 @@ func (instance *pbftCore) witnessCheckpoint(chkpt *Checkpoint) {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.reqStore = make(map[string]*Request) // Discard all our requests, as we will never know which were executed, to be addressed in #394
 				instance.moveWatermarks(m)
-
-				furthestReplicaIds := make([]*protos.PeerID, instance.f+1)
-				i := 0
-				for replicaID, hChkpt := range instance.hChkpts {
-					if hChkpt >= m {
-						var err error
-						if furthestReplicaIds[i], err = getValidatorHandle(replicaID); nil != err {
-							panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
-						}
-						i++
-					}
-				}
-
-				// Make sure we don't try to start a second state transfer while one is going on
-				if !instance.sts.InProgress() {
-					instance.sts.Initiate(furthestReplicaIds)
-				}
+				instance.skipInProgress = true
+				instance.lastExec = m
 			}
 
-			return
+			// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
+
+			return true
 		}
 	}
+
+	return false
 
 }
 
 func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
-	checkpointMembers := make([]*protos.PeerID, instance.replicaCount)
+	checkpointMembers := make([]uint64, instance.f+1) // Only ever invoked for the first weak cert, so guaranteed to be f+1
 	i := 0
 	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
-			var err error
-			if checkpointMembers[i], err = getValidatorHandle(testChkpt.ReplicaId); err != nil {
-				panic(fmt.Errorf("Received a replicaID in a checkpoint which does not map to a peer : %s", err))
-			} else {
-				logger.Debug("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
-			}
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.Id == chkpt.Id {
+			checkpointMembers[i] = testChkpt.ReplicaId
+			logger.Debug("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
 			i++
 		}
 	}
 
-	blockHashBytes, err := base64.StdEncoding.DecodeString(chkpt.BlockHash)
+	snapshotID, err := base64.StdEncoding.DecodeString(chkpt.Id)
 	if nil != err {
-		err = fmt.Errorf("Replica %d received a weak checkpoint cert for block %d which could not be decoded (%s)", instance.id, chkpt.BlockNumber, chkpt.BlockHash)
+		err = fmt.Errorf("Replica %d received a weak checkpoint cert which could not be decoded (%s)", instance.id, chkpt.Id)
 		logger.Error(err.Error())
 		return
 	}
-	logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)", instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-	instance.sts.AddTarget(chkpt.BlockNumber, blockHashBytes, checkpointMembers[0:i], &stateTransferMetadata{sequenceNumber: chkpt.SequenceNumber})
+
+	if instance.skipInProgress {
+		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
+			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
+		instance.skipInProgress = false
+		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+	} else {
+		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
+			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
+		instance.consumer.validState(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+	}
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
-		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.BlockHash)
+		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.Id)
 
-	instance.witnessCheckpoint(chkpt) // State transfer tracking
+	if instance.weakCheckpointSetOutOfRange(chkpt) {
+		return nil
+	}
 
 	if !instance.inW(chkpt.SequenceNumber) {
-		// If the instance is performing a state transfer, sequence numbers outside the watermarks is expected
-		if !instance.sts.InProgress() {
+		if chkpt.SequenceNumber < instance.h {
+			// It is perfectly normal that we receive checkpoints for the watermark we just raised, as we raise it after 2f+1, leaving f replies left
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
@@ -941,12 +931,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 
 	matching := 0
 	for testChkpt := range instance.checkpointStore {
-		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.BlockHash == chkpt.BlockHash {
+		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.Id == chkpt.Id {
 			matching++
 		}
 	}
-	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s, blocknumber %d",
-		instance.id, matching, chkpt.SequenceNumber, chkpt.BlockHash, chkpt.BlockNumber)
+	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s",
+		instance.id, matching, chkpt.SequenceNumber, chkpt.Id)
 
 	if matching == instance.f+1 {
 		// We do have a weak cert
