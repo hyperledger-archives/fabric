@@ -1,4 +1,4 @@
-# Building go language scripts
+# Testing
 language: go
 sudo: required
 dist: trusty
