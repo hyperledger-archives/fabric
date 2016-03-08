@@ -42,7 +42,7 @@ install:
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 before_script:
  - rm -rf $HOME/gopath/src/github.com/openblockchain/
- - cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
+ - cp -r $HOME/gopath/src/github.com/openblockchain $HOME/gopath/src/github.com/openblockchain
  - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - go build
