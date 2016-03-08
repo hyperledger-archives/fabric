@@ -53,7 +53,7 @@ before_script:
 script:
  - ./obc-peer peer &
  - echo "************************Running Unit Tests***************************"
- - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor) > result.txt
+ - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor) > build-result.txt
  - chmod +x deploy.sh
  - sudo ./deploy.sh
  - cat /$HOME/gopath/src/github.com/openblockchain/obc-peer/result.txt
@@ -72,7 +72,7 @@ script:
 notifications:
 #slack: '<account>:<token>'
  email:
- recipients:
+  recipients:
  #- <useremailaddress>
  on_success: always
  on_failure: always
