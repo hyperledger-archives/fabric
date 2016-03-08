@@ -2,10 +2,8 @@
 language: go
 sudo: required
 dist: trusty
-TIMEOUT: 10
 services: 
  - docker
-install: true
 go: 
  - 1.6
 env:
@@ -67,13 +65,14 @@ script:
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
  - cat $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
  #- behave -n  "chaincode example 02 single peer"
+ - echo "***************Performing Behave test scripts************************"
  - behave
  # notification send to email/slack
 notifications:
  # Add your Slack token below
  #slack: 'openchain:5YSkRUyUTke93O6YkvXjagjg'
  email:
- recipients:
+  recipients:
  #- <useremailaddress>
  on_success: always
  on_failure: always
