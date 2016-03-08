@@ -39,6 +39,9 @@ service Openchain {
     // structure.
     rpc GetBlockCount(google.protobuf.Empty) returns (BlockCount) {}
 
+    // GetPeers returns a list of all peer nodes currently connected to the target
+    // peer.
+    rpc GetPeers(google.protobuf.Empty) returns (PeersMessage) {}
 }
 
 // Specifies the block number to be returned from the blockchain.

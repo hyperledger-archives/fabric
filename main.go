@@ -133,6 +133,18 @@ var vmPrimeCmd = &cobra.Command{
 	},
 }
 
+var networkCmd = &cobra.Command{
+	Use:   "network",
+	Short: "List of network peers.",
+	Long:  `Show a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		openchain.LoggingInit("network")
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return network()
+	},
+}
+
 // Chaincode-related variables.
 var (
 	chaincodeLang     string
@@ -234,6 +246,8 @@ func main() {
 
 	vmCmd.AddCommand(vmPrimeCmd)
 	mainCmd.AddCommand(vmCmd)
+
+	mainCmd.AddCommand(networkCmd)
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
@@ -819,5 +833,26 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			}
 		}
 	}
+	return nil
+}
+
+// Show a list of all existing network connections for the target peer node,
+// includes both validating and non-validating peers
+func network() (err error) {
+	clientConn, err := peer.NewPeerClientConnection()
+	if err != nil {
+		err = fmt.Errorf("Error trying to connect to local peer:", err)
+		return
+	}
+	openchainClient := pb.NewOpenchainClient(clientConn)
+	peers, err := openchainClient.GetPeers(context.Background(), &google_protobuf.Empty{})
+
+	if err != nil {
+		err = fmt.Errorf("Error trying to get peers:", err)
+		return
+	}
+
+	jsonOutput, _ := json.Marshal(peers)
+	fmt.Println(string(jsonOutput))
 	return nil
 }

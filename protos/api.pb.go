@@ -110,6 +110,9 @@ type OpenchainClient interface {
 	// GetBlockCount returns the current number of blocks in the blockchain data
 	// structure.
 	GetBlockCount(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*BlockCount, error)
+	// GetPeers returns a list of all peer nodes currently connected to the target
+	// peer.
+	GetPeers(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*PeersMessage, error)
 }
 
 type openchainClient struct {
@@ -147,6 +150,15 @@ func (c *openchainClient) GetBlockCount(ctx context.Context, in *google_protobuf
 	return out, nil
 }
 
+func (c *openchainClient) GetPeers(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*PeersMessage, error) {
+	out := new(PeersMessage)
+	err := grpc.Invoke(ctx, "/protos.Openchain/GetPeers", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Openchain service
 
 type OpenchainServer interface {
@@ -159,6 +171,9 @@ type OpenchainServer interface {
 	// GetBlockCount returns the current number of blocks in the blockchain data
 	// structure.
 	GetBlockCount(context.Context, *google_protobuf1.Empty) (*BlockCount, error)
+	// GetPeers returns a list of all peer nodes currently connected to the target
+	// peer.
+	GetPeers(context.Context, *google_protobuf1.Empty) (*PeersMessage, error)
 }
 
 func RegisterOpenchainServer(s *grpc.Server, srv OpenchainServer) {
@@ -201,6 +216,18 @@ func _Openchain_GetBlockCount_Handler(srv interface{}, ctx context.Context, dec 
 	return out, nil
 }
 
+func _Openchain_GetPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(OpenchainServer).GetPeers(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Openchain_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.Openchain",
 	HandlerType: (*OpenchainServer)(nil),
@@ -216,6 +243,10 @@ var _Openchain_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetBlockCount",
 			Handler:    _Openchain_GetBlockCount_Handler,
+		},
+		{
+			MethodName: "GetPeers",
+			Handler:    _Openchain_GetPeers_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
