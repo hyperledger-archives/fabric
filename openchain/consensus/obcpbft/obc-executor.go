@@ -37,6 +37,7 @@ type Orderer interface {
 
 type Executor interface {
 	Execute(seqNo uint64, txs []*pb.Transaction, execInfo *ExecutionInfo)
+	BlockUntilIdle()
 	ValidState(seqNo uint64, id []byte, peerIDs []*pb.PeerID)
 	SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID)
 }

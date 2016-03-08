@@ -38,7 +38,7 @@ type obcClassic struct {
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{stack: stack}
-	op.pbft = newPbftCore(id, config, op, stack)
+	op.pbft = newPbftCore(id, config, op)
 	op.executor = NewOBCExecutor(id, config, 20, op, stack)
 
 	return op
@@ -162,4 +162,8 @@ func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64) {
 // Unnecessary
 func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
+}
+
+func (op *obcClassic) blockUntilIdle() {
+	op.executor.BlockUntilIdle()
 }

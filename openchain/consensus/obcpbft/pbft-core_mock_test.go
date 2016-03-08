@@ -20,7 +20,6 @@ under the License.
 package obcpbft
 
 import (
-	"encoding/base64"
 	"fmt"
 	gp "google/protobuf"
 	"math/rand"
@@ -31,45 +30,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-type mockStack struct {
-	broadcasted [][]byte
-	*instance
-}
-
-func newMock() *mockStack {
-	mock := &mockStack{
-		make([][]byte, 0),
-		&instance{},
-	}
-	mock.instance.ledger = NewMockLedger(nil, nil)
-	mock.instance.ledger.PutBlock(0, SimpleGetBlock(0))
-	return mock
-}
-
-func (mock *mockStack) sign(msg []byte) ([]byte, error) {
-	return msg, nil
-}
-
-func (mock *mockStack) verify(senderID uint64, signature []byte, message []byte) error {
-	return nil
-}
-
-func (mock *mockStack) broadcast(msg []byte) {
-	mock.broadcasted = append(mock.broadcasted, msg)
-}
-
-func (mock *mockStack) unicast(msg []byte, receiverID uint64) (err error) {
-	panic("not implemented")
-}
 
 type closableConsenter interface {
 	consensus.Consenter
 	Close()
-	Drain()
+	blockUntilIdle()
 }
 
 type taggedMsg struct {
@@ -106,73 +73,6 @@ func (inst *instance) Sign(msg []byte) ([]byte, error) {
 }
 func (inst *instance) Verify(peerID *pb.PeerID, signature []byte, message []byte) error {
 	return nil
-}
-
-func (inst *instance) sign(msg []byte) ([]byte, error) {
-	return msg, nil
-}
-
-func (inst *instance) verify(replicaID uint64, signature []byte, message []byte) error {
-	return nil
-}
-
-func (inst *instance) broadcast(payload []byte) {
-	net := inst.net
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
-	net.broadcastFilter(inst, payload)
-	net.cond.Signal()
-}
-
-func (inst *instance) unicast(payload []byte, receiverID uint64) error {
-	net := inst.net
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
-	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), payload})
-	net.cond.Signal()
-	return nil
-}
-
-func (inst *instance) validate(payload []byte) error {
-	return nil
-}
-
-func (inst *instance) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
-}
-
-func (inst *instance) execute(payload []byte) {
-
-	tx := &pb.Transaction{
-		Payload: payload,
-	}
-
-	txs := []*pb.Transaction{tx}
-	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(payload))
-
-	if err := inst.BeginTxBatch(txBatchID); err != nil {
-		fmt.Printf("Failed to begin transaction %s: %v", txBatchID, err)
-		return
-	}
-
-	if _, err := inst.ExecTxs(txBatchID, txs); nil != err {
-		fmt.Printf("Fail to execute transaction %s: %v", txBatchID, err)
-		if err := inst.RollbackTxBatch(txBatchID); err != nil {
-			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
-		}
-		return
-	}
-
-	if _, err := inst.CommitTxBatch(txBatchID, nil); err != nil {
-		fmt.Printf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
-		if err = inst.RollbackTxBatch(txBatchID); err != nil {
-			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
-		}
-		return
-	}
-
-}
-
-func (inst *instance) viewChange(uint64) {
 }
 
 func (inst *instance) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
@@ -349,30 +249,9 @@ func (net *testnet) processWithoutDrainSync() {
 func (net *testnet) drain() {
 	for _, inst := range net.replicas {
 		if inst.consenter != nil {
-			inst.consenter.Drain()
-		} else if inst.pbft != nil {
-			inst.pbft.drain()
+			inst.consenter.blockUntilIdle()
 		}
 	}
-}
-
-func (net *testnet) inStateTransfer() bool {
-	for _, inst := range net.replicas {
-		if nil != inst.pbft && nil != inst.pbft.sts && !inst.pbft.sts.IsIdle() {
-			return true
-		}
-	}
-	return false
-}
-
-func (net *testnet) blockForStateTransfer() {
-	for _, inst := range net.replicas {
-		if nil != inst.pbft && nil != inst.pbft.sts {
-			fmt.Printf("Debug: blocking on replica %d", inst.pbft.id)
-			inst.pbft.sts.BlockUntilIdle()
-		}
-	}
-	fmt.Printf("Debug: blocked until state transfer was idle")
 }
 
 func (net *testnet) process() error {

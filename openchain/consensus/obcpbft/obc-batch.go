@@ -46,7 +46,7 @@ type obcBatch struct {
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 	op := &obcBatch{stack: stack}
-	op.pbft = newPbftCore(id, config, op, stack)
+	op.pbft = newPbftCore(id, config, op)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
@@ -303,4 +303,8 @@ func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64) {
 
 func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
+}
+
+func (op *obcBatch) blockUntilIdle() {
+	op.executor.BlockUntilIdle()
 }

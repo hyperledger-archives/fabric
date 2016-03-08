@@ -20,8 +20,6 @@ under the License.
 package obcpbft
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
 	gp "google/protobuf"
 	"os"
@@ -34,33 +32,21 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-type emptyConsumer struct{}
-
-func (ec *emptyConsumer) broadcast(msgPayload []byte)                              {}
-func (ec *emptyConsumer) unicast(msgPayload []byte, receiverID uint64) (err error) { return nil }
-func (ec *emptyConsumer) execute(txRaw []byte)                                     {}
-func (ec *emptyConsumer) validate(txRaw []byte) error                              { return nil }
-func (ec *emptyConsumer) viewChange(curView uint64)                                {}
-func (ec *emptyConsumer) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
-}
-func (ec *emptyConsumer) sign(msg []byte) ([]byte, error)                                { return nil, nil }
-func (ec *emptyConsumer) verify(senderID uint64, signature []byte, message []byte) error { return nil }
 
 func init() {
 	logging.SetLevel(logging.DEBUG, "")
 }
 
 func makeTestnetPbftCore(inst *instance) {
-	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
-	defer func() {
-		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
-	}()
 	config := loadConfig()
-	inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
+	inst.consenter = &omniProto{
+		broadcastImpl: func(msgPayload []byte) {
+			inst.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
+		},
+	}
+	inst.pbft = newPbftCore(uint64(inst.id), config, inst.consenter.(*omniProto))
 	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
 	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
@@ -100,8 +86,12 @@ func TestEnvOverride(t *testing.T) {
 }
 
 func TestMaliciousPrePrepare(t *testing.T) {
-	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	mock := &omniProto{
+		broadcastImpl: func(msgPayload []byte) {
+			t.Fatalf("Expected to ignore malicious pre-prepare")
+		},
+	}
+	instance := newPbftCore(1, loadConfig(), mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -118,10 +108,6 @@ func TestMaliciousPrePrepare(t *testing.T) {
 	err := instance.recvMsgSync(pbftMsg, 0)
 	if err != nil {
 		t.Fatalf("Failed to handle PBFT message: %s", err)
-	}
-
-	if len(mock.broadcasted) != 0 {
-		t.Fatalf("Expected to ignore malicious pre-prepare")
 	}
 }
 
@@ -152,18 +138,18 @@ func TestWrongReplicaID(t *testing.T) {
 }
 
 func TestIncompletePayload(t *testing.T) {
-	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	mock := &omniProto{}
+	instance := newPbftCore(1, loadConfig(), mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
 	broadcaster := uint64(generateBroadcaster(instance.replicaCount))
 
 	checkMsg := func(msg *Message, errMsg string, args ...interface{}) {
-		_ = instance.recvMsgSync(msg, broadcaster)
-		if len(mock.broadcasted) != 0 {
+		mock.broadcastImpl = func(msgPayload []byte) {
 			t.Errorf(errMsg, args...)
 		}
+		_ = instance.recvMsgSync(msg, broadcaster)
 	}
 
 	checkMsg(&Message{}, "Expected to reject empty message")
@@ -432,7 +418,7 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
 	}
 
-	cp, ok := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
+	cp, ok, _ := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
 	if !ok || cp.SequenceNumber != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
 			net.replicas[1].pbft.viewChangeStore)
@@ -522,7 +508,13 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		inst.pbft.L = 4
 	}
 
-	stsrc := net.replicas[3].pbft.sts.CompletionChannel()
+	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
+		// No-op
+	}
+
+	net.replicas[3].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+		// No-op
+	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -593,12 +585,6 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	select {
-	case <-stsrc:
-		// State transfer for replica 3 is complete
-	case <-time.After(2 * time.Second):
-		t.Fatalf("Timed out waiting for state transfer to complete")
-	}
 	fmt.Println("Done with stage 4")
 
 	err = net.process()
@@ -608,9 +594,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	fmt.Println("Done with stage 5")
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight <= 4 {
-			t.Errorf("Expected execution for inst %d, got blockheight of %d", inst.pbft.id, blockHeight)
+		if inst.pbft.lastExec != 5 {
+			t.Errorf("Expected execution for seqNo 5, got last execution was for of %d", inst.pbft.id, inst.pbft.lastExec)
 			continue
 		}
 	}
@@ -736,8 +721,8 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
-	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	mock := &omniProto{}
+	instance := newPbftCore(1, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -761,8 +746,8 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 
 // From issue #687
 func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
-	mock := newMock()
-	instance := newPbftCore(1, loadConfig(), mock, mock)
+	mock := &omniProto{}
+	instance := newPbftCore(1, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -786,6 +771,12 @@ func TestFallBehind(t *testing.T) {
 		inst.pbft.L = 2 * inst.pbft.K
 	})
 	defer net.close()
+
+	for _, replica := range net.replicas {
+		replica.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+			// No-op
+		}
+	}
 
 	execReq := func(iter int64, skipThree bool) {
 		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
@@ -824,14 +815,13 @@ func TestFallBehind(t *testing.T) {
 	}
 
 	inst := net.replicas[3].pbft
-
 	// Send enough requests to get to a checkpoint quorum certificate with sequence number L+K
 	execReq(1, true)
 	for request := int64(2); uint64(request) <= inst.L+inst.K; request++ {
 		execReq(request, false)
 	}
 
-	if !inst.sts.InProgress() {
+	if !inst.skipInProgress {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
@@ -843,23 +833,19 @@ func TestFallBehind(t *testing.T) {
 		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K, inst.h)
 	}
 
+	kickedOffStateTransfer := false
+
+	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
+		kickedOffStateTransfer = true
+	}
+
 	// Send enough requests to get to a weak checkpoint certificate certain with sequence number L+K*2
 	for request := int64(inst.L + inst.K + 1); uint64(request) <= inst.L+inst.K*2; request++ {
 		execReq(request, false)
 	}
 
-	success := false
-
-	for i := 0; i < 200; i++ { // Loops for up to 2 seconds waiting
-		time.Sleep(10 * time.Millisecond)
-		if !inst.sts.InProgress() {
-			success = true
-			break
-		}
-	}
-
-	if !success {
-		t.Fatalf("Request failed to complete state transfer within 2 seconds")
+	if !kickedOffStateTransfer {
+		t.Fatalf("Request failed to kick off state transfer")
 	}
 
 	execReq(int64(inst.L+inst.K*2+1), false)
@@ -869,127 +855,15 @@ func TestFallBehind(t *testing.T) {
 	}
 }
 
-func executeStateTransferFromPBFT(pbft *pbftCore, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *map[pb.PeerID]*MockRemoteLedger) error {
-
-	var chkpt *Checkpoint
-
-	for i := uint64(1); i <= 3; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber - i,
-			ReplicaId:      i,
-			BlockNumber:    blockNumber - i,
-			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber - i)),
-		}
-		handle, _ := getValidatorHandle(uint64(i))
-		(*mrls)[*handle].blockHeight = blockNumber - 2
-		pbft.witnessCheckpoint(chkpt)
-	}
-
-	if !pbft.sts.InProgress() {
-		return fmt.Errorf("Replica did not detect itself falling behind to initiate the state transfer")
-	}
-
-	result := pbft.sts.CompletionChannel()
-
-	for i := 1; i < pbft.replicaCount; i++ {
-		chkpt = &Checkpoint{
-			SequenceNumber: sequenceNumber,
-			ReplicaId:      uint64(i),
-			BlockNumber:    blockNumber,
-			BlockHash:      base64.StdEncoding.EncodeToString(SimpleGetBlockHash(blockNumber)),
-		}
-		handle, _ := getValidatorHandle(uint64(i))
-		(*mrls)[*handle].blockHeight = blockNumber + 1
-		pbft.checkpointStore[*chkpt] = true
-	}
-
-	pbft.witnessCheckpointWeakCert(chkpt)
-
-	select {
-	case <-time.After(time.Second * 2):
-		return fmt.Errorf("Timed out waiting for state to catch up, error in state transfer")
-	case <-result:
-		// Do nothing, continue the test
-	}
-
-	if size, _ := pbft.ledger.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
-		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
-	}
-
-	block, err := pbft.ledger.GetBlock(blockNumber)
-
-	if nil != err {
-		return fmt.Errorf("Error retrieving last block in the mock chain.")
-	}
-
-	if stateHash, _ := pbft.ledger.GetCurrentStateHash(); !bytes.Equal(stateHash, block.StateHash) {
-		return fmt.Errorf("Current state does not validate against the latest block.")
-	}
-
-	return nil
-}
-
-func TestCatchupFromPBFTSimple(t *testing.T) {
-	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
-	mrls := make(map[pb.PeerID]*MockRemoteLedger)
-	for i := uint64(0); i <= 3; i++ {
-		peerID, _ := getValidatorHandle(i)
-		l := &MockRemoteLedger{}
-		rols[*peerID] = l
-		mrls[*peerID] = l
-	}
-
-	// Test from blockheight of 1, with valid genesis block
-	ml := NewMockLedger(&rols, nil)
-	ml.PutBlock(0, SimpleGetBlock(0))
-	config := loadConfig()
-	pbft := newPbftCore(0, config, nil, ml)
-	pbft.K = 2
-	pbft.L = 4
-	pbft.replicaCount = 4
-	pbft.consumer = &emptyConsumer{}
-
-	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
-		t.Fatalf("TestCatchupFromPBFT simple case: %s", err)
-	}
-}
-
-func TestCatchupFromPBFTDivergentSeqBlock(t *testing.T) {
-	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
-	mrls := make(map[pb.PeerID]*MockRemoteLedger)
-	for i := uint64(0); i <= 3; i++ {
-		peerID, _ := getValidatorHandle(i)
-		l := &MockRemoteLedger{}
-		rols[*peerID] = l
-		mrls[*peerID] = l
-	}
-
-	// Test from blockheight of 1, with valid genesis block
-	ml := NewMockLedger(&rols, nil)
-	ml.PutBlock(0, SimpleGetBlock(0))
-	config := loadConfig()
-	pbft := newPbftCore(0, config, nil, ml)
-	pbft.K = 2
-	pbft.L = 4
-	pbft.replicaCount = 4
-	pbft.consumer = &emptyConsumer{}
-
-	// Test to make sure that the block number and sequence number can diverge
-	if err := executeStateTransferFromPBFT(pbft, ml, 7, 100, &mrls); nil != err {
-		t.Fatalf("TestCatchupFromPBFTDivergentSeqBlock separated block/seqnumber: %s", err)
-	}
-}
-
 func TestPbftF0(t *testing.T) {
 	net := makeTestnet(1, func(inst *instance) {
-		os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
-		os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_F", "0")                           // TODO, a little hacky, but needed for state transfer not to get upset
-		defer func() {
-			os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
-			os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_F")
-		}()
 		config := loadConfig()
-		inst.pbft = newPbftCore(uint64(inst.id), config, inst, inst)
+		inst.consenter = &omniProto{
+			broadcastImpl: func(msgPayload []byte) {
+				inst.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
+			},
+		}
+		inst.pbft = newPbftCore(uint64(inst.id), config, inst.consenter.(*omniProto))
 		inst.pbft.replicaCount = inst.net.N
 		inst.pbft.f = inst.net.f
 		inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {

@@ -67,7 +67,7 @@ type validResult struct {
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
-	op.pbft = newPbftCore(id, config, op, stack)
+	op.pbft = newPbftCore(id, config, op)
 	op.validResultChan = make(chan *validResult)
 	op.executor = NewOBCExecutor(id, config, 20, op, stack) // TODO, set queue size correctly
 
@@ -634,4 +634,8 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.blockNumber = resultSID.BlockNumber
 
 	op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas))
+}
+
+func (op *obcSieve) blockUntilIdle() {
+	op.executor.BlockUntilIdle()
 }

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
-	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	"github.com/openblockchain/obc-peer/openchain/util"
 
 	"github.com/golang/protobuf/proto"
@@ -89,9 +88,8 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	skipInProgress bool                       // Set when we have detected a fall behind scenario until we pick a new starting point
-	ledger         statetransfer.PartialStack // Used for blockchain related queries
-	hChkpts        map[uint64]uint64          // highest checkpoint sequence number observed for each replica
+	skipInProgress bool              // Set when we have detected a fall behind scenario until we pick a new starting point
+	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -155,12 +153,11 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, ledger statetransfer.PartialStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
-	instance.ledger = ledger
 	instance.closed = make(chan bool)
 	instance.notifyCommit = make(chan bool, 1)
 

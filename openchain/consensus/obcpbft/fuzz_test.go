@@ -34,6 +34,10 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+func newFuzzMock() *omniProto {
+	return &omniProto{}
+}
+
 func TestFuzz(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping fuzz test")
@@ -41,13 +45,11 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	mock := newMock()
-	primary := newPbftCore(0, loadConfig(), mock, mock)
-	primary.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
+	mock := newFuzzMock()
+	primary := newPbftCore(0, loadConfig(), mock)
 	defer primary.close()
-	mock = newMock()
-	backup := newPbftCore(1, loadConfig(), mock, mock)
-	backup.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
+	mock = newFuzzMock()
+	backup := newPbftCore(1, loadConfig(), mock)
 	defer backup.close()
 
 	f := fuzz.New()
@@ -128,6 +130,14 @@ func TestMinimalFuzz(t *testing.T) {
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket
 
+	executions := make([]uint64, validatorCount)
+
+	for i, r := range net.replicas {
+		r.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+			executions[i] = executions[i] + 1
+		}
+	}
+
 	noExec := 0
 	for reqID := 1; reqID < 30; reqID++ {
 		if reqID%3 == 0 {
@@ -156,13 +166,10 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 
 		quorum := 0
-		for _, r := range net.replicas {
-			blockHeight, _ := r.pbft.ledger.GetBlockchainSize()
-			if blockHeight > 1 {
+		for i, _ := range net.replicas {
+			if executions[i] > 0 {
 				quorum++
-				// We don't have a delete API yet, so, just create a new one
-				r.pbft.ledger = NewMockLedger(nil, nil)
-				r.pbft.ledger.PutBlock(0, SimpleGetBlock(0))
+				executions[i] = 0
 			}
 		}
 		if quorum < len(net.replicas)/3 {

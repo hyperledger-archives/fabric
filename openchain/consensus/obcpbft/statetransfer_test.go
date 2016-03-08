@@ -545,7 +545,7 @@ func TestRegisterUnregisterListener(t *testing.T) {
 func TestIdle(t *testing.T) {
 	ml := NewMockLedger(nil, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
-	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, []*protos.PeerID{&protos.PeerID{"nonsense"}})
+	sts := NewStateTransferState(loadConfig(), ml)
 	defer sts.Stop()
 
 	idle := make(chan struct{})
