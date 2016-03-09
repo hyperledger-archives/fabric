@@ -15,6 +15,7 @@ before_install:
  - export GIT_USER="$TRAVIS_REPO_SLUG"
  - echo "GitUser Name is $GIT_USER"
  - USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)"
+ - echo $USER_NAME
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
