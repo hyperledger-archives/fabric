@@ -9,6 +9,8 @@ go:
 env:
  - GO15VENDOREXPERIMENT=1
 before_install:
+ - chmod +x folder.sh
+ - sudo ./folder.sh
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
