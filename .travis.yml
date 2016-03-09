@@ -46,7 +46,7 @@ before_script:
  - sleep 20
  #- cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd $HOME/gopath/src/github.com/rameshthoomu/obc-peer
- #- chmod +x folder.sh
+ - chmod +x folder.sh
  - ./folder.sh $TR_PULL_REQUEST
  #- sudo chown $USER:$USER /$HOME/gopath/src/github.com/openblockchain
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
