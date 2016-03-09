@@ -10,6 +10,8 @@ env:
  - GO15VENDOREXPERIMENT=1
 before_install:
  - echo "Travis Pull Request is $TRAVIS_PULL_REQUEST"
+ - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+ - echo "Value is $TR_PULL_REQUEST"
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
