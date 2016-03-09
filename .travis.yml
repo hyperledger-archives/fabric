@@ -48,10 +48,10 @@ before_script:
  - sudo ./folder.sh $TR_PULL_REQUEST
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
  # Modify rameshthoomu to your github username and copy to Openblockchain Dir. 
- #- cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
+ - cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
  - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
- - sudo go build
+ - go build
  - sudo rm -rf /var/openchain/
  - sudo mkdir /var/openchain/
  - sudo chown $USER:$USER /var/openchain
