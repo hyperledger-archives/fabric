@@ -49,7 +49,7 @@ before_script:
  #- cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
  - chmod +x folder.sh
- - ./folder.sh $TR_PULL_REQUEST
+ - ./folder.sh $TR_PULL_REQUEST $USER_NAME
  #- sudo chown $USER:$USER /$HOME/gopath/src/github.com/openblockchain
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
  # Modify rameshthoomu to your github username and copy to Openblockchain Dir. 
