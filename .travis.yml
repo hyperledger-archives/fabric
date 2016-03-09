@@ -19,7 +19,6 @@ before_install:
  #- chmod 600 .netrc
  - sudo stop docker
  - sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock &
- - sleep 10
  - echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
  - chmod +x tempsh.sh
  - sudo ./tempsh.sh
@@ -39,7 +38,9 @@ install:
  - export CGO_CFLAGS="-I/opt/rocksdb/include"
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 before_script:
- - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
+ - sleep 20
+ #- cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
+ - cd $HOME/gopath/src/github.com/rameshthoomu/obc-peer
  - chmod +x folder.sh
  - sudo ./folder.sh
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
