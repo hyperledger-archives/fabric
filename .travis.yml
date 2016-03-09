@@ -71,7 +71,7 @@ script:
  - cat $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
  #- behave -n  "chaincode example 02 single peer"
  - echo "***************Performing Behave test scripts************************"
- - behave -D logs=Y
+ - behave
  # notification send to email/slack
 notifications:
  # Add your Slack token below
