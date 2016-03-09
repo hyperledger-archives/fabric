@@ -51,7 +51,7 @@ before_script:
  #- cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
  - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
- - go build
+ - sudo go build
  - sudo rm -rf /var/openchain/
  - sudo mkdir /var/openchain/
  - sudo chown $USER:$USER /var/openchain
