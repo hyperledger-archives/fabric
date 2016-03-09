@@ -45,7 +45,7 @@ install:
 before_script:
  - sleep 20
  #- cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
- - cd $HOME/gopath/src/github.com/rameshthoomu/obc-peer
+ - cd $HOME/gopath/src/github.com/$GIT_REPO/obc-peer
  - chmod +x folder.sh
  - sudo ./folder.sh $TR_PULL_REQUEST
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
@@ -53,6 +53,7 @@ before_script:
  #- cp -r $HOME/gopath/src/github.com/rameshthoomu/ $HOME/gopath/src/github.com/openblockchain/
  - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
+ - go install
  - go build
  - sudo rm -rf /var/openchain/
  - sudo mkdir /var/openchain/
