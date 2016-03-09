@@ -14,6 +14,7 @@ before_install:
  - echo "Value is $TR_PULL_REQUEST"
  - export GIT_USER="$TRAVIS_REPO_SLUG"
  - echo "GitUser Name is $GIT_USER"
+ - USER_NAME="$(echo $TESTVAR | cut -d '/' -f 1)"
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
@@ -45,7 +46,7 @@ install:
 before_script:
  - sleep 20
  #- cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
- - cd $HOME/gopath/src/github.com/$GIT_USER/obc-peer
+ - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
  - chmod +x folder.sh
  - ./folder.sh $TR_PULL_REQUEST
  #- sudo chown $USER:$USER /$HOME/gopath/src/github.com/openblockchain
