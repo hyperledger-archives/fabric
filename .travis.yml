@@ -9,9 +9,6 @@ go:
 env:
  - GO15VENDOREXPERIMENT=1
 before_install:
- - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
- - chmod +x folder.sh
- - sudo ./folder.sh
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
@@ -42,6 +39,7 @@ install:
  - export CGO_CFLAGS="-I/opt/rocksdb/include"
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 before_script:
+ - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - chmod +x folder.sh
  - sudo ./folder.sh
  #- rm -rf $HOME/gopath/src/github.com/openblockchain/
