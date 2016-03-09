@@ -39,9 +39,11 @@ install:
  - export CGO_CFLAGS="-I/opt/rocksdb/include"
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 before_script:
- - rm -rf $HOME/gopath/src/github.com/openblockchain/
+ - chmod +x folder.sh
+ - sudo ./folder.sh
+ #- rm -rf $HOME/gopath/src/github.com/openblockchain/
  # Modify rameshthoomu to your github username and copy to Openblockchain Dir. 
- - cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
+ #- cp -r $HOME/gopath/src/github.com/rameshthoomu $HOME/gopath/src/github.com/openblockchain
  - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - go build
