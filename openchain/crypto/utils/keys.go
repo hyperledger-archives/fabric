@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 )
 
 // PrivateKeyToDER marshals a private key to der
