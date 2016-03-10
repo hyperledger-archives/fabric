@@ -39,7 +39,6 @@ import (
 
 	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
 
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
