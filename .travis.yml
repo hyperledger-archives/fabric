@@ -9,6 +9,10 @@ go:
 env:
  - GO15VENDOREXPERIMENT=1
 before_install:
+#whitelist
+branches:
+ only:
+ - master
  - gcloud --verbosity critical config set
  - echo "Travis Pull Request is $TRAVIS_PULL_REQUEST"
  - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
