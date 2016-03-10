@@ -9,7 +9,7 @@ go:
 env:
  - GO15VENDOREXPERIMENT=1
 before_install:
- - gcloud --verbosity critical
+ - gcloud --verbosity critical config info
  - echo "Travis Pull Request is $TRAVIS_PULL_REQUEST"
  - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
  - echo "Value is $TR_PULL_REQUEST"
