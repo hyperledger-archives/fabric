@@ -2,7 +2,7 @@
 language: go
 sudo: required
 dist: trusty
-gcloud --verbosity critical
+- gcloud --verbosity critical
 services: 
  - docker
 go: 
