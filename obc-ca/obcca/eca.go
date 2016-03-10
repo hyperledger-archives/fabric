@@ -286,7 +286,6 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		} else {
 			obcECKey = ecap.eca.obcPub
 		}
-		fmt.Printf("obcECKey % x\n", obcECKey)
 
 		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
 	}

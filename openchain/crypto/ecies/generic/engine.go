@@ -25,7 +25,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
-	rand "crypto/rand"
+	"crypto/rand"
 	"errors"
 	"io"
 
@@ -74,7 +74,7 @@ func eciesGenerateKey(rand io.Reader, curve elliptic.Curve, params *Params) (*ec
 }
 
 func eciesEncrypt(rand io.Reader, pub *ecdsa.PublicKey, s1, s2 []byte, plain []byte) ([]byte, error) {
-	params := pub.Curve.Params()
+	params := pub.Curve
 
 	// Select an ephemeral elliptic curve key pair associated with
 	// elliptic curve domain parameters params
@@ -132,7 +132,7 @@ func eciesEncrypt(rand io.Reader, pub *ecdsa.PublicKey, s1, s2 []byte, plain []b
 }
 
 func eciesDecrypt(priv *ecdsa.PrivateKey, s1, s2 []byte, ciphertext []byte) ([]byte, error) {
-	params := priv.Curve.Params()
+	params := priv.Curve
 
 	var (
 		rLen   int
