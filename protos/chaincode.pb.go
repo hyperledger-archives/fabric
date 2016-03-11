@@ -266,31 +266,6 @@ func (m *ChaincodeRequestContext) GetId() *ChaincodeIdentifier {
 	return nil
 }
 
-// Provided by the peer to the chaincode to identify the requesting chaincode
-// and allow for proper access to state.
-type ChaincodeExecutionContext struct {
-	ChaincodeId *ChaincodeIdentifier       `protobuf:"bytes,1,opt,name=ChaincodeId" json:"ChaincodeId,omitempty"`
-	Timestamp   *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=Timestamp" json:"Timestamp,omitempty"`
-}
-
-func (m *ChaincodeExecutionContext) Reset()         { *m = ChaincodeExecutionContext{} }
-func (m *ChaincodeExecutionContext) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeExecutionContext) ProtoMessage()    {}
-
-func (m *ChaincodeExecutionContext) GetChaincodeId() *ChaincodeIdentifier {
-	if m != nil {
-		return m.ChaincodeId
-	}
-	return nil
-}
-
-func (m *ChaincodeExecutionContext) GetTimestamp() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
 type ChaincodeMessage struct {
 	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
@@ -382,8 +357,6 @@ var _ grpc.ClientConn
 // Client API for ChaincodeSupport service
 
 type ChaincodeSupportClient interface {
-	// Return the datetime.
-	GetExecutionContext(ctx context.Context, in *ChaincodeRequestContext, opts ...grpc.CallOption) (*ChaincodeExecutionContext, error)
 	Register(ctx context.Context, opts ...grpc.CallOption) (ChaincodeSupport_RegisterClient, error)
 }
 
@@ -393,15 +366,6 @@ type chaincodeSupportClient struct {
 
 func NewChaincodeSupportClient(cc *grpc.ClientConn) ChaincodeSupportClient {
 	return &chaincodeSupportClient{cc}
-}
-
-func (c *chaincodeSupportClient) GetExecutionContext(ctx context.Context, in *ChaincodeRequestContext, opts ...grpc.CallOption) (*ChaincodeExecutionContext, error) {
-	out := new(ChaincodeExecutionContext)
-	err := grpc.Invoke(ctx, "/protos.ChaincodeSupport/GetExecutionContext", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *chaincodeSupportClient) Register(ctx context.Context, opts ...grpc.CallOption) (ChaincodeSupport_RegisterClient, error) {
@@ -438,25 +402,11 @@ func (x *chaincodeSupportRegisterClient) Recv() (*ChaincodeMessage, error) {
 // Server API for ChaincodeSupport service
 
 type ChaincodeSupportServer interface {
-	// Return the datetime.
-	GetExecutionContext(context.Context, *ChaincodeRequestContext) (*ChaincodeExecutionContext, error)
 	Register(ChaincodeSupport_RegisterServer) error
 }
 
 func RegisterChaincodeSupportServer(s *grpc.Server, srv ChaincodeSupportServer) {
 	s.RegisterService(&_ChaincodeSupport_serviceDesc, srv)
-}
-
-func _ChaincodeSupport_GetExecutionContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ChaincodeRequestContext)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ChaincodeSupportServer).GetExecutionContext(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func _ChaincodeSupport_Register_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -488,12 +438,7 @@ func (x *chaincodeSupportRegisterServer) Recv() (*ChaincodeMessage, error) {
 var _ChaincodeSupport_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.ChaincodeSupport",
 	HandlerType: (*ChaincodeSupportServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetExecutionContext",
-			Handler:    _ChaincodeSupport_GetExecutionContext_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Register",

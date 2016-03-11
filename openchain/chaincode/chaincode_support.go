@@ -31,8 +31,6 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	google_protobuf "google/protobuf"
-
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
@@ -203,17 +201,6 @@ func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Ha
 	delete(chaincodeSupport.handlerMap.chaincodeMap, key)
 	chaincodeLogger.Debug("Deregistered handler with key: %s", key)
 	return nil
-}
-
-// GetExecutionContext returns the execution context.  DEPRECATED. TO be removed.
-func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Context, requestContext *pb.ChaincodeRequestContext) (*pb.ChaincodeExecutionContext, error) {
-	//chaincodeId := &pb.ChaincodeIdentifier{Url: "github."}
-	timeStamp := &google_protobuf.Timestamp{Seconds: time.Now().UnixNano(), Nanos: 0}
-	executionContext := &pb.ChaincodeExecutionContext{ChaincodeId: requestContext.GetId(),
-		Timestamp: timeStamp}
-
-	chaincodeLog.Debug("returning execution context: %s", executionContext)
-	return executionContext, nil
 }
 
 // Based on state of chaincode send either init or ready to move to ready state

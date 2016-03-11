@@ -106,15 +106,6 @@ message ChaincodeRequestContext {
     ChaincodeIdentifier Id = 1;
 }
 
-// Provided by the peer to the chaincode to identify the requesting chaincode
-// and allow for proper access to state.
-message ChaincodeExecutionContext {
-
-    ChaincodeIdentifier ChaincodeId = 1;
-    google.protobuf.Timestamp Timestamp = 2;
-
-}
-
 message ChaincodeMessage {
 
     enum Type {
@@ -178,9 +169,6 @@ message RangeQueryStateResponse {
 // Interface that provides support to chaincode execution. ChaincodeContext
 // provides the context necessary for the server to respond appropriately.
 service ChaincodeSupport {
-
-    // Return the datetime.
-    rpc GetExecutionContext(ChaincodeRequestContext) returns (ChaincodeExecutionContext) {}
 
     rpc Register(stream ChaincodeMessage) returns (stream ChaincodeMessage) {}
 
