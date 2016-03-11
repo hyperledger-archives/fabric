@@ -350,7 +350,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Transforms the DER encoded certificate to a PEM encoded certificate
 		certPEM := utils.DERCertToPEM(certDER)
 
-		// As the enrollment certifiacate contains \n characters, url encode it before outputting
+		// As the enrollment certificate contains \n characters, url encode it before outputting
 		urlEncodedCert := url.QueryEscape(string(certPEM))
 
 		// Close the security client
@@ -363,6 +363,146 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		}
 	} else {
 		// Security must be enabled to request enrollment certificates
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+
+		return
+	}
+}
+
+// GetTransactionCert retrieves the transaction certificate(s) for a given user.
+func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web.Request) {
+	// Parse out the user enrollment ID
+	enrollmentID := req.PathParams["id"]
+
+	if restLogger.IsEnabledFor(logging.DEBUG) {
+		restLogger.Debug("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
+	}
+
+	// Parse out the count query parameter
+	req.ParseForm()
+	queryParams := req.Form
+
+	// The default number of TCerts to retrieve is 1
+	var count uint32 = 1
+
+	// If the query parameter is present, examine the supplied value
+	if queryParams["count"] != nil {
+		// Convert string to uint. The parse function return the widest type (uint64)
+		// Setting base to 32 allows you to subsequently cast the value to uint32
+		qParam, err := strconv.ParseUint(queryParams["count"][0], 10, 32)
+
+		// Check for count parameter being a non-negative integer
+		if err != nil {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
+			restLogger.Error("{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
+
+			return
+		}
+
+		// If the query parameter is within the allowed range, record it
+		if qParam > 0 && qParam <= 500 {
+			count = uint32(qParam)
+		}
+
+		// Limit the number of TCerts retrieved to 500
+		if qParam > 500 {
+			count = 500
+		}
+	}
+
+	// If security is enabled, initialize the crypto client
+	if viper.GetBool("security.enabled") {
+		if restLogger.IsEnabledFor(logging.DEBUG) {
+			restLogger.Debug("Initializing secure client using context '%s'", enrollmentID)
+		}
+
+		// Initialize the security client
+		sec, err := crypto.InitClient(enrollmentID, nil)
+		if err != nil {
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+
+			return
+		}
+
+		// Obtain the client CertificateHandler
+		handler, err := sec.GetTCertificateHandlerNext()
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+
+			return
+		}
+
+		// Certificate handler can not be hil
+		if handler == nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
+			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+
+			return
+		}
+
+		// Retrieve the required number of TCerts
+		tcertArray := make([]string, count)
+		var i uint32
+		for i = 0; i < count; i++ {
+			// Obtain the DER encoded certificate
+			certDER := handler.GetCertificate()
+
+			// Confirm the retrieved enrollment certificate is not nil
+			if certDER == nil {
+				rw.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate is nil.\"}")
+				restLogger.Error("{\"Error\": \"Transaction certificate is nil.\"}")
+
+				return
+			}
+
+			// Confirm the retrieved enrollment certificate has non-zero length
+			if len(certDER) == 0 {
+				rw.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate length is 0.\"}")
+				restLogger.Error("{\"Error\": \"Transaction certificate length is 0.\"}")
+
+				return
+			}
+
+			// Transforms the DER encoded certificate to a PEM encoded certificate
+			certPEM := utils.DERCertToPEM(certDER)
+
+			// As the transaction certificate contains \n characters, url encode it before outputting
+			urlEncodedCert := url.QueryEscape(string(certPEM))
+
+			// Add the urlEncodedCert transaction certificate to the certificate array
+			tcertArray[i] = urlEncodedCert
+		}
+
+		// Close the security client
+		crypto.CloseClient(sec)
+
+		// Construct a JSON formatted response
+		jsonResponse, err := json.Marshal(tcertArray)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			restLogger.Error(fmt.Sprintf("{\"Error marshalling TCert array\": \"%s\"}", err))
+
+			return
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
+		if restLogger.IsEnabledFor(logging.DEBUG) {
+			restLogger.Debug("Sucessfully retrieved transaction certificates for secure context '%s'", enrollmentID)
+		}
+	} else {
+		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
 		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
@@ -918,6 +1058,7 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/registrar/:id", (*ServerOpenchainREST).GetEnrollmentID)
 	router.Delete("/registrar/:id", (*ServerOpenchainREST).DeleteEnrollmentID)
 	router.Get("/registrar/:id/ecert", (*ServerOpenchainREST).GetEnrollmentCert)
+	router.Get("/registrar/:id/tcert", (*ServerOpenchainREST).GetTransactionCert)
 
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
