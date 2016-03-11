@@ -21,6 +21,7 @@ It has these top-level messages:
 	ChaincodeSpec
 	ChaincodeDeploymentSpec
 	ChaincodeInvocationSpec
+	ChaincodeSecurityContext
 	ChaincodeMessage
 	PutStateInfo
 	RangeQueryState

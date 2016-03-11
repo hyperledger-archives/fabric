@@ -1125,6 +1125,11 @@ func (handler *Handler) initializeSecContext(tx, depTx *pb.Transaction) error {
 	return nil
 }
 
+func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.ChaincodeMessage) error {
+	msg.SecurityContext.CallerTCert = tx.Cert
+	return nil
+}
+
 //if initArgs is set (should be for "deploy" only) move to Init
 //else move to ready
 func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction, depTx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
@@ -1162,6 +1167,9 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 		handler.deleteTxContext(uuid)
 		return nil, err
 	}
+
+	//if security is disabled the context elements will just be nil
+	handler.setChaincodeSecurityContext(tx, ccMsg)
 
 	handler.triggerNextState(ccMsg, send)
 
@@ -1321,6 +1329,9 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage, tx *pb.Tran
 	} else {
 		handler.markIsTransaction(msg.Uuid, true)
 	}
+
+	//if security is disabled the context elements will just be nil
+	handler.setChaincodeSecurityContext(tx, msg)
 
 	// Trigger FSM event if it is a transaction
 	if msg.Type.String() == pb.ChaincodeMessage_TRANSACTION.String() {

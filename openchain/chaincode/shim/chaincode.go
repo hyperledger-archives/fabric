@@ -58,6 +58,7 @@ type Chaincode interface {
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
 	UUID string
+	securityContext *pb.ChaincodeSecurityContext
 }
 
 // Peer address derived from command line or env var
@@ -219,6 +220,34 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	return err
 }
 
+// -- init stub ---
+func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext){
+	stub.UUID = uuid
+	stub.securityContext = secContext
+}
+
+
+// --------- Security functions ----------
+// GetState function can be invoked by a chaincode to get a state from the ledger.
+func (stub *ChaincodeStub) GetTCert() []byte {
+	if stub.securityContext != nil {
+		return stub.securityContext.CallerTCert
+	}
+	return nil
+}
+
+// ------------- Call Chaincode functions ---------------
+// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
+}
+
+// QueryChaincode function can be invoked by a chaincode to query another chaincode.
+func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
+}
+
+// --------- State functions ----------
 // GetState function can be invoked by a chaincode to get a state from the ledger.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)
@@ -294,16 +323,6 @@ func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
 func (iter *StateRangeQueryIterator) Close() error {
 	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
 	return err
-}
-
-// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
-func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
-}
-
-// QueryChaincode function can be invoked by a chaincode to query another chaincode.
-func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }
 
 // TABLE FUNCTIONALITY

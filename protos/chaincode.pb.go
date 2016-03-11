@@ -239,11 +239,20 @@ func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 	return nil
 }
 
+type ChaincodeSecurityContext struct {
+	CallerTCert []byte `protobuf:"bytes,1,opt,name=callerTCert,proto3" json:"callerTCert,omitempty"`
+}
+
+func (m *ChaincodeSecurityContext) Reset()         { *m = ChaincodeSecurityContext{} }
+func (m *ChaincodeSecurityContext) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeSecurityContext) ProtoMessage()    {}
+
 type ChaincodeMessage struct {
-	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
-	Payload   []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Uuid      string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	Type            ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
+	Timestamp       *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	Payload         []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Uuid            string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
+	SecurityContext *ChaincodeSecurityContext  `protobuf:"bytes,5,opt,name=securityContext" json:"securityContext,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
@@ -253,6 +262,13 @@ func (*ChaincodeMessage) ProtoMessage()    {}
 func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
+	}
+	return nil
+}
+
+func (m *ChaincodeMessage) GetSecurityContext() *ChaincodeSecurityContext {
+	if m != nil {
+		return m.SecurityContext
 	}
 	return nil
 }

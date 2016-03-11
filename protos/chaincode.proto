@@ -93,6 +93,10 @@ message ChaincodeInvocationSpec {
 
 }
 
+message ChaincodeSecurityContext {
+   bytes callerTCert = 1;
+}
+
 message ChaincodeMessage {
 
     enum Type {
@@ -122,6 +126,7 @@ message ChaincodeMessage {
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
     string uuid = 4;
+    ChaincodeSecurityContext securityContext = 5;
 }
 
 message PutStateInfo {
