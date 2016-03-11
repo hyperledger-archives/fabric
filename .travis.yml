@@ -5,6 +5,7 @@ dist: trusty
 branches:
  only:
  - master
+ - workbranch
 services:
  - docker
 go:
