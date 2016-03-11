@@ -23,7 +23,6 @@ It has these top-level messages:
 	ChaincodeInvocationSpec
 	ChaincodeIdentifier
 	ChaincodeRequestContext
-	ChaincodeExecutionContext
 	ChaincodeMessage
 	PutStateInfo
 	RangeQueryState
