@@ -323,6 +323,43 @@
                 }
             }
         },
+        "/registrar/{enrollmentID}/tcert": {
+            "get": {
+                "summary": "Retrieve user transaction certificates",
+                "description": "The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1 and 500 is the maximum number of certificates that can be retrieved with a single request.",
+                "tags": [
+                    "Registrar"
+                ],
+                "operationId": "getUserTransactionCertificate",
+                "parameters": [{
+                    "name": "enrollmentID",
+                    "in": "path",
+                    "description": "EnrollmentID for which the certificate is requested",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "count",
+                    "in": "query",
+                    "description": "The desired number of transaction certificates. The default number of returned transaction certificates is 1 and 500 is the maximum number of certificates that can be retrieved with a single request",
+                    "type": "string"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Confirm registration for target user and return the desired number of URL-encoded transaction certificates",
+                        "schema": {
+                           "$ref": "#/definitions/OK"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
         "/network/peers": {
             "get": {
                 "summary": "List of network peers",
