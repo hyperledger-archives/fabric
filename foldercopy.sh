@@ -5,7 +5,5 @@ echo "Deleted openblockchain folder"
 cp -r $HOME/gopath/src/github.com/$2 $HOME/gopath/src/github.com/openblockchain
 echo "Copied User Directory into openblockchain"
 elif [ "$2" != "openblockchain" ]; then
-echo "creatng mkdir"
-#mkdir -p $HOME/gopath/src/github.com/openblockchain/
 mv $HOME/gopath/src/github.com/$2 $HOME/gopath/src/github.com/openblockchain
 fi
