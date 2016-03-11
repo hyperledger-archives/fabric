@@ -424,7 +424,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 			peerIDs = append(peerIDs, endpoint.ID)
 		}
 
-		logger.Debug("%v discovered %d peerIDs", len(peerIDs))
+		logger.Debug("%v discovered %d peerIDs", sts.id, len(peerIDs))
 	}
 
 	logger.Debug("%v in tryOverPeers, using peerIDs: %v", sts.id, peerIDs)

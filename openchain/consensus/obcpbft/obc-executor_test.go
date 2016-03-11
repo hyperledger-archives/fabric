@@ -33,9 +33,7 @@ import (
 func makePartialStack(mrls map[pb.PeerID]*MockRemoteLedger) statetransfer.PartialStack {
 	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
 	ml := NewMockLedger(&rols, nil)
-
-	peerEndpoints := make([]*pb.PeerEndpoint, 4)
-	peerIDs := make([]*pb.PeerID, 4)
+	ml.PutBlock(0, SimpleGetBlock(0))
 
 	for i := uint64(0); i <= 3; i++ {
 		peerID, _ := getValidatorHandle(i)
@@ -44,52 +42,19 @@ func makePartialStack(mrls map[pb.PeerID]*MockRemoteLedger) statetransfer.Partia
 			rols[*peerID] = l
 			mrls[*peerID] = l
 		}
-
-		peerIDs[i] = peerID
-
-		peerEndpoints[i] = &pb.PeerEndpoint{
-			ID:   peerID,
-			Type: pb.PeerEndpoint_VALIDATOR,
-		}
-
 	}
 
-	return &omniProto{
-		// LedgerStack
-		BeginTxBatchImpl:           ml.BeginTxBatch,
-		ExecTxsImpl:                ml.ExecTxs,
-		CommitTxBatchImpl:          ml.CommitTxBatch,
-		RollbackTxBatchImpl:        ml.RollbackTxBatch,
-		PreviewCommitTxBatchImpl:   ml.PreviewCommitTxBatch,
-		GetRemoteBlocksImpl:        ml.GetRemoteBlocks,
-		GetRemoteStateSnapshotImpl: ml.GetRemoteStateSnapshot,
-		GetRemoteStateDeltasImpl:   ml.GetRemoteStateDeltas,
-		PutBlockImpl:               ml.PutBlock,
-		ApplyStateDeltaImpl:        ml.ApplyStateDelta,
-		CommitStateDeltaImpl:       ml.CommitStateDelta,
-		RollbackStateDeltaImpl:     ml.RollbackStateDelta,
-		EmptyStateImpl:             ml.EmptyState,
-		HashBlockImpl:              ml.HashBlock,
-		VerifyBlockchainImpl:       ml.VerifyBlockchain,
-		GetBlockImpl:               ml.GetBlock,
-		GetCurrentStateHashImpl:    ml.GetCurrentStateHash,
-		GetBlockchainSizeImpl:      ml.GetBlockchainSize,
-		// Inquirer
-		GetNetworkInfoImpl: func() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
-			return peerEndpoints[0], peerEndpoints, nil
-		},
-		GetNetworkHandlesImpl: func() (self *pb.PeerID, network []*pb.PeerID, err error) {
-			return peerIDs[0], peerIDs, nil
-		},
-	}
-
+	return ml
 }
 
 func TestExecutorIdle(t *testing.T) {
-	obcex := NewOBCExecutor(0, loadConfig(), 30, nil, nil)
+	mrls := make(map[pb.PeerID]*MockRemoteLedger)
+	ps := makePartialStack(mrls)
+	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	defer obcex.Stop()
 	done := make(chan struct{})
 	go func() {
-		obcex.BlockUntilIdle()
+		<-obcex.IdleChan()
 		done <- struct{}{}
 	}()
 	select {
@@ -104,6 +69,7 @@ func TestExecutorSimpleStateTransfer(t *testing.T) {
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	ps := makePartialStack(mrls)
 	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	defer obcex.Stop()
 
 	i := uint64(0)
 	for _, rl := range mrls {
@@ -120,7 +86,7 @@ func TestExecutorSimpleStateTransfer(t *testing.T) {
 
 	obcex.SkipTo(6, biAsBytes, nil)
 	obcex.Execute(7, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
-	obcex.BlockUntilIdle()
+	<-obcex.IdleChan()
 
 	if obcex.lastExec != 7 {
 		t.Fatalf("Expected execution")
@@ -132,6 +98,7 @@ func TestExecutorDivergentStateTransfer(t *testing.T) {
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	ps := makePartialStack(mrls)
 	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	defer obcex.Stop()
 
 	i := uint64(0)
 	for _, rl := range mrls {
@@ -148,7 +115,7 @@ func TestExecutorDivergentStateTransfer(t *testing.T) {
 
 	obcex.SkipTo(12, biAsBytes, nil)
 	obcex.Execute(15, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
-	obcex.BlockUntilIdle()
+	<-obcex.IdleChan()
 
 	if obcex.lastExec != 15 {
 		t.Fatalf("Expected execution")

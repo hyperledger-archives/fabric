@@ -20,19 +20,12 @@ under the License.
 package obcpbft
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 func makeTestnetBatch(inst *instance, batchSize int) {
-	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N)) // TODO, a little hacky, but needed for state transfer not to get upset
-	defer func() {
-		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
-	}()
-
 	config := loadConfig()
 	inst.consenter = newObcBatch(uint64(inst.id), config, inst)
 	batch := inst.consenter.(*obcBatch)
@@ -57,7 +50,7 @@ func TestNetworkBatch(t *testing.T) {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
-	net.processWithoutDrain()
+	net.process() // used to be without drain
 
 	if len(net.replicas[0].consenter.(*obcBatch).batchStore) != 1 {
 		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, len(net.replicas[0].consenter.(*obcBatch).batchStore))

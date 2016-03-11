@@ -64,9 +64,9 @@ type omniProto struct {
 	verifyImpl     func(senderID uint64, signature []byte, message []byte) error
 
 	// Closable Consenter methods
-	RecvMsgImpl        func(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
-	CloseImpl          func()
-	blockUntilIdleImpl func()
+	RecvMsgImpl  func(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
+	CloseImpl    func()
+	idleChanImpl func() <-chan struct{}
 
 	// Orderer methods
 	CheckpointImpl func(seqNo uint64, id []byte)
@@ -328,10 +328,9 @@ func (op *omniProto) Close() {
 	panic("Unimplemented")
 }
 
-func (op *omniProto) blockUntilIdle() {
-	if nil != op.blockUntilIdleImpl {
-		op.blockUntilIdleImpl()
-		return
+func (op *omniProto) idleChan() <-chan struct{} {
+	if nil != op.idleChanImpl {
+		return op.idleChanImpl()
 	}
 
 	panic("Unimplemented")

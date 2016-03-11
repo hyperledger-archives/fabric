@@ -45,7 +45,48 @@ func makeTestnetPbftCore(inst *instance) {
 		broadcastImpl: func(msgPayload []byte) {
 			inst.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
 		},
+		unicastImpl: func(msgPayload []byte, receiverID uint64) error {
+			handle, err := getValidatorHandle(receiverID)
+			if nil != err {
+				return err
+			}
+			inst.Unicast(&pb.OpenchainMessage{Payload: msgPayload}, handle)
+			return nil
+		},
+		idleChanImpl: func() <-chan struct{} {
+			res := make(chan struct{})
+			close(res)
+			return res
+		},
+		CloseImpl: func() {
+			// No-op
+		},
+		validateImpl: func(txRaw []byte) error {
+			return nil
+		},
+		signImpl: func(msg []byte) ([]byte, error) {
+			return msg, nil
+		},
+		verifyImpl: func(senderID uint64, signature []byte, message []byte) error {
+			return nil
+		},
+		viewChangeImpl: func(curView uint64) {
+		},
+		validStateImpl: func(seqNo uint64, id []byte, replicas []uint64) {
+			// No-op
+		},
+		CheckpointImpl: func(seqNo uint64, id []byte) {
+			// No-op
+		},
 	}
+
+	inst.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+		// Needs a reference to the struct, so cannot be initialized as literal
+		if execInfo.Checkpoint {
+			inst.consenter.(*omniProto).Checkpoint(seqNo, tx)
+		}
+	}
+
 	inst.pbft = newPbftCore(uint64(inst.id), config, inst.consenter.(*omniProto))
 	inst.pbft.replicaCount = inst.net.N
 	inst.pbft.f = inst.net.f
@@ -138,7 +179,11 @@ func TestWrongReplicaID(t *testing.T) {
 }
 
 func TestIncompletePayload(t *testing.T) {
-	mock := &omniProto{}
+	mock := &omniProto{
+		validateImpl: func(msg []byte) error {
+			return nil
+		},
+	}
 	instance := newPbftCore(1, loadConfig(), mock)
 	defer instance.close()
 	instance.replicaCount = 5
@@ -163,6 +208,17 @@ func TestNetwork(t *testing.T) {
 	net := makeTestnet(validatorCount, makeTestnetPbftCore)
 	defer net.close()
 
+	executions := make([]int, validatorCount)
+	executedTxs := make([][]byte, validatorCount)
+
+	for i := 0; i < validatorCount; i++ {
+		localI := i
+		net.replicas[localI].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+			executions[localI]++
+			executedTxs[localI] = tx
+		}
+	}
+
 	msg := createOcMsgWithChainTx(1)
 	err := net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
@@ -174,20 +230,18 @@ func TestNetwork(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight <= 1 {
+	for i, inst := range net.replicas {
+		if executions[i] <= 0 {
 			t.Errorf("Instance %d did not execute transaction", inst.id)
 			continue
 		}
-		if blockHeight != 2 {
+		if executions[i] != 1 {
 			t.Errorf("Instance %d executed more than one transaction", inst.id)
 			continue
 		}
-		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
-		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, msg.Payload) {
+		if !reflect.DeepEqual(executedTxs[i], msg.Payload) {
 			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
-				inst.id, highestBlock.Transactions[0].Payload, msg.Payload)
+				inst.id, executedTxs[i], msg.Payload)
 		}
 	}
 }
@@ -207,7 +261,7 @@ func TestCheckpoint(t *testing.T) {
 	})
 	defer net.close()
 
-	execReq := func(iter int64, drain bool) {
+	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -217,16 +271,12 @@ func TestCheckpoint(t *testing.T) {
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 		net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 
-		if drain {
-			net.process()
-		} else {
-			net.processWithoutDrain()
-		}
+		net.process()
 	}
 
 	// execWait is 0, and execute will proceed
-	execReq(1, false)
-	execReq(2, true)
+	execReq(1)
+	execReq(2)
 
 	for _, inst := range net.replicas {
 		if len(inst.pbft.chkpts) != 1 {
@@ -247,15 +297,15 @@ func TestCheckpoint(t *testing.T) {
 
 	// this will block executes for now
 	execWait.Add(1)
-	execReq(3, false)
-	execReq(4, false)
-	execReq(5, false)
-	execReq(6, false)
+	execReq(3)
+	execReq(4)
+	execReq(5)
+	execReq(6)
 
 	// by now the requests should have committed, but not yet executed
 	// we also reached the high water mark by now.
 
-	execReq(7, false)
+	execReq(7)
 
 	// request 7 should not have committed, because no more free seqNo
 	// could be assigned.
@@ -267,10 +317,9 @@ func TestCheckpoint(t *testing.T) {
 	// by now request 7 should have been confirmed and executed
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		blockHeightExpected := uint64(8)
-		if blockHeight != blockHeightExpected {
-			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, inst.id)
+		lastSeqNoExpected := uint64(7)
+		if inst.pbft.lastExec != lastSeqNoExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", lastSeqNoExpected, inst.pbft.lastExec, inst.id)
 		}
 	}
 }
@@ -293,8 +342,8 @@ func TestLostPrePrepare(t *testing.T) {
 	_ = net.replicas[0].pbft.recvRequest(req)
 
 	// clear all messages sent by primary
-	msg := net.msgs[0]
-	net.msgs = net.msgs[:0]
+	msg := <-net.msgs
+	net.clearMessages()
 
 	// deliver pre-prepare to subset of replicas
 	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
@@ -312,12 +361,11 @@ func TestLostPrePrepare(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if inst.id != 3 && blockHeight <= 1 {
+		if inst.id != 3 && inst.pbft.lastExec != 1 {
 			t.Errorf("Expected execution on replica %d", inst.id)
 			continue
 		}
-		if inst.id == 3 && blockHeight > 1 {
+		if inst.id == 3 && inst.pbft.lastExec > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -352,7 +400,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	_ = net.replicas[0].pbft.recvRequest(makePP(1).Request)
 
 	// clear all messages sent by primary
-	net.msgs = net.msgs[:0]
+	net.clearMessages()
 
 	// replace with fake messages
 	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
@@ -365,8 +413,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight > 1 {
+		if inst.pbft.lastExec > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -458,7 +505,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	_ = net.replicas[0].pbft.recvRequest(makePP(0).Request)
 
 	// clear all messages sent by primary
-	net.msgs = net.msgs[:0]
+	net.clearMessages()
 
 	// replace with fake messages
 	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
@@ -471,8 +518,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight > 1 {
+		if inst.pbft.lastExec > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -488,8 +534,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight <= 1 {
+		if inst.pbft.lastExec <= 1 {
 			t.Errorf("Expected execution")
 			continue
 		}
@@ -508,12 +553,14 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		inst.pbft.L = 4
 	}
 
-	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
-		// No-op
+	for i := 0; i < validatorCount; i++ {
+		net.replicas[i].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+			// No-op
+		}
 	}
 
-	net.replicas[3].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-		// No-op
+	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
+		// No-op, only replica 3 should call this
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -543,7 +590,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		_ = net.replicas[0].pbft.recvRequest(makePP(i).Request)
 
 		// clear all messages sent by primary
-		net.msgs = net.msgs[:0]
+		net.clearMessages()
 
 		_ = net.replicas[0].pbft.recvPrePrepare(makePP(i))
 		_ = net.replicas[1].pbft.recvPrePrepare(makePP(i))
@@ -561,7 +608,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	_ = net.replicas[0].pbft.recvRequest(makePP(4).Request)
 
 	// clear all messages sent by primary
-	net.msgs = net.msgs[:0]
+	net.clearMessages()
 
 	// replace with fake messages
 	_ = net.replicas[1].pbft.recvPrePrepare(makePP(5))
@@ -595,7 +642,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	for _, inst := range net.replicas {
 		if inst.pbft.lastExec != 5 {
-			t.Errorf("Expected execution for seqNo 5, got last execution was for of %d", inst.pbft.id, inst.pbft.lastExec)
+			t.Errorf("Replica %d expected execution for seqNo 5, got last execution was for of %d", inst.pbft.id, inst.pbft.lastExec)
 			continue
 		}
 	}
@@ -689,6 +736,15 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	})
 	net.replicas[0].pbft.seqNo = 99
 
+	executions := make([]int, validatorCount)
+
+	for i := 0; i < validatorCount; i++ {
+		localI := i
+		net.replicas[localI].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+			executions[localI]++
+		}
+	}
+
 	go net.processContinually()
 
 	msg := createOcMsgWithChainTx(1)
@@ -711,10 +767,9 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 		if inst.pbft.view < 1 {
 			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
 		}
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		blockHeightExpected := uint64(3)
-		if blockHeight != blockHeightExpected {
-			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected-1, blockHeight-1, i)
+		executionsExpected := 2
+		if executions[i] != executionsExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", executionsExpected, executions[i], i)
 		}
 	}
 }

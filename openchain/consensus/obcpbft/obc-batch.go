@@ -305,6 +305,6 @@ func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID 
 	return
 }
 
-func (op *obcBatch) blockUntilIdle() {
-	op.executor.BlockUntilIdle()
+func (op *obcBatch) idleChan() <-chan struct{} {
+	return op.executor.IdleChan()
 }

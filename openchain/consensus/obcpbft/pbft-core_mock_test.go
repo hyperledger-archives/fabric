@@ -24,7 +24,6 @@ import (
 	gp "google/protobuf"
 	"math/rand"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -36,7 +35,7 @@ import (
 type closableConsenter interface {
 	consensus.Consenter
 	Close()
-	blockUntilIdle()
+	idleChan() <-chan struct{}
 }
 
 type taggedMsg struct {
@@ -48,10 +47,9 @@ type taggedMsg struct {
 type testnet struct {
 	N        int
 	f        int
-	cond     *sync.Cond
-	closed   bool
+	closed   bool // TODO remove
 	replicas []*instance
-	msgs     []taggedMsg
+	msgs     chan taggedMsg
 	handles  []*pb.PeerID
 	filterFn func(int, int, []byte) []byte
 }
@@ -107,24 +105,17 @@ func (inst *instance) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID
 // this behavior, because it exposes subtle bugs in the
 // implementation.
 func (inst *instance) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
-	net := inst.net
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
-	net.broadcastFilter(inst, msg.Payload)
-	net.cond.Signal()
+	logger.Debug("TEST: forwarding request payload %p to broadcast filter", msg.Payload)
+	inst.net.broadcastFilter(inst, msg.Payload)
 	return nil
 }
 
 func (inst *instance) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
-	net := inst.net
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
 	receiverID, err := getValidatorID(receiverHandle)
 	if err != nil {
 		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
 	}
-	net.msgs = append(net.msgs, taggedMsg{inst.id, int(receiverID), msg.Payload})
-	net.cond.Signal()
+	inst.net.msgs <- taggedMsg{inst.id, int(receiverID), msg.Payload}
 	return nil
 }
 
@@ -189,8 +180,14 @@ func (inst *instance) GetRemoteStateDeltas(peerID *pb.PeerID, start, finish uint
 }
 
 func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
+	if net.closed {
+		logger.Error("WARNING! Attempted to send a request to a closed network, ignoring")
+		return
+	}
 	if net.filterFn != nil {
+		tmp := payload
 		payload = net.filterFn(inst.id, -1, payload)
+		logger.Debug("TEST: filtered message %p to %p", tmp, payload)
 	}
 	if payload != nil {
 		/* msg := &Message{}
@@ -200,7 +197,9 @@ func (net *testnet) broadcastFilter(inst *instance, payload []byte) {
 			fmt.Printf("Debug: replica %v broadcastFilter for fetch-request\n", inst.id)
 			net.deliverFilter(taggedMsg{inst.id, -1, payload})
 		} else { */
-		net.msgs = append(net.msgs, taggedMsg{inst.id, -1, payload})
+		logger.Debug("TEST: attempting to queue message %p", payload)
+		net.msgs <- taggedMsg{inst.id, -1, payload}
+		logger.Debug("TEST: message queued successfully %p", payload)
 	}
 }
 
@@ -225,69 +224,72 @@ func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
 	}
 }
 
-func (net *testnet) processWithoutDrain() {
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
+func (net *testnet) idleFan() <-chan struct{} {
+	res := make(chan struct{})
 
-	net.processWithoutDrainSync()
-}
-
-func (net *testnet) processWithoutDrainSync() {
-	doDeliver := func(msg taggedMsg) {
-		net.cond.L.Unlock()
-		defer net.cond.L.Lock()
-		net.deliverFilter(msg, msg.src)
-	}
-
-	for len(net.msgs) > 0 {
-		msg := net.msgs[0]
-		net.msgs = net.msgs[1:]
-		doDeliver(msg)
-	}
-}
-
-func (net *testnet) drain() {
-	for _, inst := range net.replicas {
-		if inst.consenter != nil {
-			inst.consenter.blockUntilIdle()
+	go func() {
+		for _, inst := range net.replicas {
+			if inst.consenter != nil {
+				<-inst.consenter.idleChan()
+			}
 		}
+		logger.Debug("TEST: closing idleChan")
+		// Only close to the channel after all the consenters have written to us
+		close(res)
+	}()
+
+	return res
+}
+
+func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
+	if !ok {
+		logger.Debug("TEST: message channel closed, exiting\n")
+		return false
 	}
+	logger.Debug("TEST: new message, delivering\n")
+	net.deliverFilter(msg, msg.src)
+	return true
 }
 
 func (net *testnet) process() error {
-	for retry := true; retry; {
-		retry = false
-		net.processWithoutDrain()
-		net.drain()
-		net.cond.L.Lock()
-		if len(net.msgs) > 0 {
-			fmt.Printf("Debug: new messages after executeOutstanding, retrying\n")
-			retry = true
+	for {
+		logger.Debug("TEST: process looping")
+		select {
+		case msg, ok := <-net.msgs:
+			logger.Debug("TEST: processing message without testing for idle")
+			if !net.processMessageFromChannel(msg, ok) {
+				return nil
+			}
+		default:
+			logger.Debug("TEST: processing message or testing for idle")
+			select {
+			case <-net.idleFan():
+				logger.Debug("TEST: exiting process loop because of idleness")
+				return nil
+			case msg, ok := <-net.msgs:
+				if !net.processMessageFromChannel(msg, ok) {
+					return nil
+				}
+			}
 		}
-		net.cond.L.Unlock()
 	}
 
 	return nil
 }
 
 func (net *testnet) processContinually() {
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
 	for {
-		if net.closed {
-			break
+		msg, ok := <-net.msgs
+		if !net.processMessageFromChannel(msg, ok) {
+			return
 		}
-		if len(net.msgs) == 0 {
-			net.cond.Wait()
-		}
-		net.processWithoutDrainSync()
 	}
 }
 
 func makeTestnet(N int, initFn ...func(*instance)) *testnet {
 	f := N / 3
 	net := &testnet{f: f, N: N}
-	net.cond = sync.NewCond(&sync.Mutex{})
+	net.msgs = make(chan taggedMsg, 100)
 
 	ledgers := make(map[pb.PeerID]consensus.ReadOnlyLedger, N)
 	for i := 0; i < N; i++ {
@@ -311,23 +313,19 @@ func makeTestnet(N int, initFn ...func(*instance)) *testnet {
 	return net
 }
 
+func (net *testnet) clearMessages() {
+	for {
+		select {
+		case <-net.msgs:
+		default:
+			return
+		}
+	}
+}
+
 func (net *testnet) close() {
-	if net.closed {
-		return
-	}
-	net.drain()
-	for _, inst := range net.replicas {
-		if inst.pbft != nil {
-			inst.pbft.close()
-		}
-		if inst.consenter != nil {
-			inst.consenter.Close()
-		}
-	}
-	net.cond.L.Lock()
-	defer net.cond.L.Unlock()
 	net.closed = true
-	net.cond.Signal()
+	close(net.msgs)
 }
 
 // Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`

@@ -164,6 +164,6 @@ func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedI
 	return
 }
 
-func (op *obcClassic) blockUntilIdle() {
-	op.executor.BlockUntilIdle()
+func (op *obcClassic) idleChan() <-chan struct{} {
+	return op.executor.IdleChan()
 }

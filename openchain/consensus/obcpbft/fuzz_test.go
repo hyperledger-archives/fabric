@@ -35,7 +35,22 @@ import (
 )
 
 func newFuzzMock() *omniProto {
-	return &omniProto{}
+	return &omniProto{
+		broadcastImpl: func(msgPayload []byte) {
+			// No-op
+		},
+		verifyImpl: func(senderID uint64, signature []byte, message []byte) error {
+			return nil
+		},
+		validateImpl: func(txRaw []byte) error {
+			return nil
+		},
+		signImpl: func(msg []byte) ([]byte, error) {
+			return msg, nil
+		},
+		viewChangeImpl: func(curView uint64) {
+		},
+	}
 }
 
 func TestFuzz(t *testing.T) {

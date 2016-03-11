@@ -21,7 +21,6 @@ package obcpbft
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -32,13 +31,6 @@ import (
 )
 
 func makeTestnetSieve(inst *instance) {
-	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_N", fmt.Sprintf("%d", inst.net.N))       // TODO, a little hacky, but needed for state transfer not to get upset
-	os.Setenv("OPENCHAIN_OBCPBFT_GENERAL_F", fmt.Sprintf("%d", (inst.net.N-1)/3)) // TODO, a little hacky, but needed for state transfer not to get upset
-	defer func() {
-		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_N")
-		os.Unsetenv("OPENCHAIN_OBCPBFT_GENERAL_F")
-	}()
-
 	config := loadConfig()
 	inst.consenter = newObcSieve(uint64(inst.id), config, inst)
 	sieve := inst.consenter.(*obcSieve)
@@ -103,7 +95,6 @@ func TestSieveNoDecision(t *testing.T) {
 		i.consenter.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
 		i.consenter.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
-	defer net.close()
 	net.filterFn = func(src int, dst int, raw []byte) []byte {
 		if dst == -1 && src == 0 {
 			sieve := &SieveMessage{}
@@ -121,7 +112,7 @@ func TestSieveNoDecision(t *testing.T) {
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.replicas[3].consenter.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
-	time.Sleep(3 * time.Second)
+	time.Sleep(7 * time.Second)
 	net.close()
 
 	for _, inst := range net.replicas {
@@ -157,7 +148,9 @@ func TestSieveReqBackToBack(t *testing.T) {
 			if sieve.GetExecute() != nil {
 				gotExec++
 				if gotExec == 2 {
-					net.msgs = append(net.msgs, delayPkt...)
+					for _, d := range delayPkt {
+						net.msgs <- d
+					}
 					delayPkt = nil
 				}
 			}
@@ -209,7 +202,7 @@ func TestSieveNonDeterministic(t *testing.T) {
 
 	results := make([][]byte, len(net.replicas))
 	for _, inst := range net.replicas {
-		inst.consenter.(*obcSieve).executor.BlockUntilIdle()
+		<-inst.consenter.(*obcSieve).executor.IdleChan()
 		block, err := inst.GetBlock(1)
 		if err != nil {
 			t.Fatalf("Expected replica %d to have one block", inst.id)
@@ -239,7 +232,8 @@ func TestSieveRequestHash(t *testing.T) {
 	r0 := net.replicas[0]
 	r0.consenter.RecvMsg(msg, r0.handle)
 
-	txID := r0.ledger.(*MockLedger).txID.(string)
+	// This used to be enormous, verify that it is short
+	txID := fmt.Sprintf("%v", r0.ledger.(*MockLedger).txID)
 	if len(txID) == 0 || len(txID) > 1000 {
 		t.Fatalf("invalid transaction id hash length %d", len(txID))
 	}

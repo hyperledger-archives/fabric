@@ -122,10 +122,12 @@ func (mock *MockLedger) GetNetworkInfo() (self *protos.PeerEndpoint, network []*
 	}
 	network[i] = &protos.PeerEndpoint{
 		ID: &protos.PeerID{
-			Name: "TestID",
+			Name: "SelfID",
 		},
 		Type: protos.PeerEndpoint_VALIDATOR,
 	}
+
+	self = network[i]
 	return
 }
 
@@ -162,7 +164,7 @@ func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]by
 	mock.curBatch = append(mock.curBatch, txs...)
 	var err error
 	var txResult []byte
-	if mock.inst.execTxResult != nil {
+	if nil != mock.inst && nil != mock.inst.execTxResult {
 		txResult, err = mock.inst.execTxResult(txs)
 	} else {
 		// This is basically a default fake default transaction execution
@@ -234,7 +236,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		if nil != mock.CommitStateDelta(id) {
 			panic("Error in delta construction/application")
 		}
-		fmt.Printf("Debug: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
+		logger.Info("TEST LEDGER: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
 
@@ -314,7 +316,7 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 						}
 
 					} else {
-						fmt.Printf("%v could not retrieve block %d : %s", peerID, current, err)
+						logger.Error("TEST LEDGER: %v could not retrieve block %d : %s", peerID, current, err)
 						break
 					}
 				} else {
