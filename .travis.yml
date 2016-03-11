@@ -1,27 +1,30 @@
-# Building go language scripts
+# Go langugage
 language: go
 sudo: required
 dist: trusty
-TIMEOUT: 5
+branches:
+ only:
+ - master
 services:
  - docker
-install: true
 go:
  - 1.6
 env:
  - GO15VENDOREXPERIMENT=1
 before_install:
+ #- gcloud --verbosity critical config set
+ - echo "Travis Pull Request is $TRAVIS_PULL_REQUEST"
+ - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+ - export GIT_USER="$TRAVIS_REPO_SLUG"
+ - USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)"
  - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
  - echo "Printing Docker0 Interface $ip"
  - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
  - echo "Docker Deamon Port Number $port"
- #- fuser -n tcp 5000
- - # Login credentials
  #- cp .netrc ~
  #- chmod 600 .netrc
  - sudo stop docker
  - sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock &
- - sleep 10
  - echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
  - chmod +x tempsh.sh
  - sudo ./tempsh.sh
@@ -41,9 +44,9 @@ install:
  - export CGO_CFLAGS="-I/opt/rocksdb/include"
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 before_script:
- - rm -rf $HOME/gopath/src/github.com/openblockchain/
- - cp -r $HOME/gopath/src/github.com/openblockchain $HOME/gopath/src/github.com/openblockchain
- - ls $HOME/gopath/src/github.com/openblockchain/obc-peer
+ - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
+ - chmod +x folder.sh
+ - ./folder.sh $TR_PULL_REQUEST $USER_NAME
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - go build
  - sudo rm -rf /var/openchain/
@@ -52,27 +55,20 @@ before_script:
  - echo "Successfully Executed installation process.   Moving ahead....."
 script:
  - ./obc-peer peer &
- - echo "************************Running Unit Tests***************************"
- - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor) > build-result.txt
+ - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor) > build-result.txt 2>&1
  - chmod +x deploy.sh
  - sudo ./deploy.sh
- - cat /$HOME/gopath/src/github.com/openblockchain/obc-peer/result.txt
- #- go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Peer
- #- go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Obcca
  - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
  - cd $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/
- #- cd obc-peer
- - ls $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
- - cat $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
- - sleep 5
  #- behave -n  "chaincode example 02 single peer"
  - behave
  # notification send to email/slack
 notifications:
-#slack: '<account>:<token>'
  email:
   recipients:
- #- <useremailaddress>
+   - one@test.com
  on_success: always
  on_failure: always
+ # Add your Slack token below
+ #slack: 'openchain:5YSkRUyUTke93O6YkvXjagjg'
