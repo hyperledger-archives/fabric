@@ -239,33 +239,6 @@ func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 	return nil
 }
 
-// TODO: Merge this with ChaincodeID.
-type ChaincodeIdentifier struct {
-	// URL for accessing the Chaincode, eg. https://github.com/user/SampleContract
-	Url string `protobuf:"bytes,1,opt,name=Url" json:"Url,omitempty"`
-}
-
-func (m *ChaincodeIdentifier) Reset()         { *m = ChaincodeIdentifier{} }
-func (m *ChaincodeIdentifier) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeIdentifier) ProtoMessage()    {}
-
-// Used by the peer to identify the requesting chaincode and allows for proper
-// access to state.
-type ChaincodeRequestContext struct {
-	Id *ChaincodeIdentifier `protobuf:"bytes,1,opt,name=Id" json:"Id,omitempty"`
-}
-
-func (m *ChaincodeRequestContext) Reset()         { *m = ChaincodeRequestContext{} }
-func (m *ChaincodeRequestContext) String() string { return proto.CompactTextString(m) }
-func (*ChaincodeRequestContext) ProtoMessage()    {}
-
-func (m *ChaincodeRequestContext) GetId() *ChaincodeIdentifier {
-	if m != nil {
-		return m.Id
-	}
-	return nil
-}
-
 type ChaincodeMessage struct {
 	Type      ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`

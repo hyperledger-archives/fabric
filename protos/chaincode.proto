@@ -93,19 +93,6 @@ message ChaincodeInvocationSpec {
 
 }
 
-// TODO: Merge this with ChaincodeID.
-message ChaincodeIdentifier {
-    // URL for accessing the Chaincode, eg. https://github.com/user/SampleContract
-    string Url = 1;
-}
-
-
-// Used by the peer to identify the requesting chaincode and allows for proper
-// access to state.
-message ChaincodeRequestContext {
-    ChaincodeIdentifier Id = 1;
-}
-
 message ChaincodeMessage {
 
     enum Type {
