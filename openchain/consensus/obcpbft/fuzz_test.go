@@ -140,23 +140,15 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket
-
-	executions := make([]uint64, validatorCount)
-
-	for i, r := range net.replicas {
-		r.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-			executions[i] = executions[i] + 1
-		}
-	}
 
 	noExec := 0
 	for reqID := 1; reqID < 30; reqID++ {
 		if reqID%3 == 0 {
-			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.replicas))
+			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.endpoints))
 			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
@@ -168,8 +160,8 @@ func TestMinimalFuzz(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		for _, inst := range net.replicas {
-			inst.pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		for _, ep := range net.endpoints {
+			ep.(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
@@ -181,19 +173,19 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 
 		quorum := 0
-		for i, _ := range net.replicas {
-			if executions[i] > 0 {
+		for _, ep := range net.endpoints {
+			if ep.(*pbftEndpoint).sc.executions > 0 {
 				quorum++
-				executions[i] = 0
+				ep.(*pbftEndpoint).sc.executions = 0
 			}
 		}
-		if quorum < len(net.replicas)/3 {
+		if quorum < len(net.endpoints)/3 {
 			noExec++
 		}
 		if noExec > 1 {
 			noExec = 0
-			for _, r := range net.replicas {
-				r.pbft.sendViewChange()
+			for _, ep := range net.endpoints {
+				ep.(*pbftEndpoint).pbft.sendViewChange()
 			}
 			err = net.process()
 			if err != nil {

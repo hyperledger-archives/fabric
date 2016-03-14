@@ -39,63 +39,6 @@ func init() {
 	logging.SetLevel(logging.DEBUG, "")
 }
 
-func makeTestnetPbftCore(inst *instance) {
-	config := loadConfig()
-	inst.consenter = &omniProto{
-		broadcastImpl: func(msgPayload []byte) {
-			inst.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
-		},
-		unicastImpl: func(msgPayload []byte, receiverID uint64) error {
-			handle, err := getValidatorHandle(receiverID)
-			if nil != err {
-				return err
-			}
-			inst.Unicast(&pb.OpenchainMessage{Payload: msgPayload}, handle)
-			return nil
-		},
-		idleChanImpl: func() <-chan struct{} {
-			res := make(chan struct{})
-			close(res)
-			return res
-		},
-		CloseImpl: func() {
-			// No-op
-		},
-		validateImpl: func(txRaw []byte) error {
-			return nil
-		},
-		signImpl: func(msg []byte) ([]byte, error) {
-			return msg, nil
-		},
-		verifyImpl: func(senderID uint64, signature []byte, message []byte) error {
-			return nil
-		},
-		viewChangeImpl: func(curView uint64) {
-		},
-		validStateImpl: func(seqNo uint64, id []byte, replicas []uint64) {
-			// No-op
-		},
-		CheckpointImpl: func(seqNo uint64, id []byte) {
-			// No-op
-		},
-	}
-
-	inst.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-		// Needs a reference to the struct, so cannot be initialized as literal
-		if execInfo.Checkpoint {
-			inst.consenter.(*omniProto).Checkpoint(seqNo, tx)
-		}
-	}
-
-	inst.pbft = newPbftCore(uint64(inst.id), config, inst.consenter.(*omniProto))
-	inst.pbft.replicaCount = inst.net.N
-	inst.pbft.f = inst.net.f
-	inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
-		senderID, _ := getValidatorID(senderHandle)
-		inst.pbft.receive(msg, senderID)
-	}
-}
-
 func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
@@ -154,8 +97,8 @@ func TestMaliciousPrePrepare(t *testing.T) {
 
 func TestWrongReplicaID(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	chainTxMsg := createOcMsgWithChainTx(1)
 	req := &Request{
@@ -164,7 +107,7 @@ func TestWrongReplicaID(t *testing.T) {
 		ReplicaId: 1,
 	}
 	pbftMsg := &Message{&Message_Request{req}}
-	err := net.replicas[0].pbft.recvMsgSync(pbftMsg, 0)
+	err := net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(pbftMsg, 0)
 
 	if err == nil {
 		t.Fatalf("Shouldn't have processed message with incorrect replica ID")
@@ -205,22 +148,11 @@ func TestIncompletePayload(t *testing.T) {
 
 func TestNetwork(t *testing.T) {
 	validatorCount := 7
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
-
-	executions := make([]int, validatorCount)
-	executedTxs := make([][]byte, validatorCount)
-
-	for i := 0; i < validatorCount; i++ {
-		localI := i
-		net.replicas[localI].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-			executions[localI]++
-			executedTxs[localI] = tx
-		}
-	}
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	msg := createOcMsgWithChainTx(1)
-	err := net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	err := net.endpoints[0].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -230,18 +162,19 @@ func TestNetwork(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for i, inst := range net.replicas {
-		if executions[i] <= 0 {
-			t.Errorf("Instance %d did not execute transaction", inst.id)
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.sc.executions <= 0 {
+			t.Errorf("Instance %d did not execute transaction", pep.id)
 			continue
 		}
-		if executions[i] != 1 {
-			t.Errorf("Instance %d executed more than one transaction", inst.id)
+		if pep.sc.executions != 1 {
+			t.Errorf("Instance %d executed more than one transaction", pep.id)
 			continue
 		}
-		if !reflect.DeepEqual(executedTxs[i], msg.Payload) {
+		if !reflect.DeepEqual(pep.sc.lastExecution, msg.Payload) {
 			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
-				inst.id, executedTxs[i], msg.Payload)
+				pep.id, pep.sc.lastExecution, msg.Payload)
 		}
 	}
 }
@@ -250,16 +183,15 @@ func TestCheckpoint(t *testing.T) {
 	execWait := &sync.WaitGroup{}
 
 	validatorCount := 4
-	net := makeTestnet(validatorCount, func(inst *instance) {
-		makeTestnetPbftCore(inst)
-		inst.pbft.K = 2
-		inst.pbft.L = 4
-		inst.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.K = 2
+		pe.pbft.L = 4
+		pe.sc.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
 			execWait.Wait()
 			return []byte("result"), nil
 		}
 	})
-	defer net.close()
+	defer net.stop()
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -269,7 +201,7 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 
 		net.process()
 	}
@@ -278,19 +210,20 @@ func TestCheckpoint(t *testing.T) {
 	execReq(1)
 	execReq(2)
 
-	for _, inst := range net.replicas {
-		if len(inst.pbft.chkpts) != 1 {
-			t.Errorf("Expected 1 checkpoint, found %d", len(inst.pbft.chkpts))
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if len(pep.pbft.chkpts) != 1 {
+			t.Errorf("Expected 1 checkpoint, found %d", len(pep.pbft.chkpts))
 			continue
 		}
 
-		if _, ok := inst.pbft.chkpts[2]; !ok {
-			t.Errorf("Expected checkpoint for seqNo 2, got %s", inst.pbft.chkpts)
+		if _, ok := pep.pbft.chkpts[2]; !ok {
+			t.Errorf("Expected checkpoint for seqNo 2, got %s", pep.pbft.chkpts)
 			continue
 		}
 
-		if inst.pbft.h != 2 {
-			t.Errorf("Expected low water mark to be 2, got %d", inst.pbft.h)
+		if pep.pbft.h != 2 {
+			t.Errorf("Expected low water mark to be 2, got %d", pep.pbft.h)
 			continue
 		}
 	}
@@ -316,18 +249,19 @@ func TestCheckpoint(t *testing.T) {
 	net.process()
 	// by now request 7 should have been confirmed and executed
 
-	for _, inst := range net.replicas {
-		lastSeqNoExpected := uint64(7)
-		if inst.pbft.lastExec != lastSeqNoExpected {
-			t.Errorf("Should have executed %d, got %d instead for replica %d", lastSeqNoExpected, inst.pbft.lastExec, inst.id)
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		expectedExecutions := uint64(7)
+		if pep.sc.executions != expectedExecutions {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", expectedExecutions, pep.sc.executions, pep.id)
 		}
 	}
 }
 
 func TestLostPrePrepare(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -339,20 +273,20 @@ func TestLostPrePrepare(t *testing.T) {
 		ReplicaId: uint64(generateBroadcaster(validatorCount)),
 	}
 
-	_ = net.replicas[0].pbft.recvRequest(req)
+	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(req)
 
 	// clear all messages sent by primary
 	msg := <-net.msgs
 	net.clearMessages()
 
 	// deliver pre-prepare to subset of replicas
-	for _, inst := range net.replicas[1 : len(net.replicas)-1] {
+	for _, ep := range net.endpoints[1 : len(net.endpoints)-1] {
 		msgReq := &Message{}
 		err := proto.Unmarshal(msg.msg, msgReq)
 		if err != nil {
 			t.Fatal("Could not unmarshal message")
 		}
-		inst.pbft.recvMsgSync(msgReq, uint64(msg.src))
+		ep.(*pbftEndpoint).pbft.recvMsgSync(msgReq, uint64(msg.src))
 	}
 
 	err := net.process()
@@ -360,12 +294,13 @@ func TestLostPrePrepare(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		if inst.id != 3 && inst.pbft.lastExec != 1 {
-			t.Errorf("Expected execution on replica %d", inst.id)
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.id != 3 && pep.sc.executions != 1 {
+			t.Errorf("Expected execution on replica %d", pep.id)
 			continue
 		}
-		if inst.id == 3 && inst.pbft.lastExec > 0 {
+		if pep.id == 3 && pep.sc.executions > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -374,8 +309,8 @@ func TestLostPrePrepare(t *testing.T) {
 
 func TestInconsistentPrePrepare(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -397,23 +332,23 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.replicas[0].pbft.recvRequest(makePP(1).Request)
+	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(1).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
-	_ = net.replicas[2].pbft.recvPrePrepare(makePP(2))
-	_ = net.replicas[3].pbft.recvPrePrepare(makePP(3))
+	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
+	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(2))
+	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(3))
 
 	err := net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		if inst.pbft.lastExec > 0 {
+	for _, ep := range net.endpoints {
+		if ep.(*pbftEndpoint).sc.executions > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -422,12 +357,11 @@ func TestInconsistentPrePrepare(t *testing.T) {
 
 func TestViewChange(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, func(inst *instance) {
-		makeTestnetPbftCore(inst)
-		inst.pbft.K = 2
-		inst.pbft.L = inst.pbft.K * 2
+	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
+		pep.pbft.K = 2
+		pep.pbft.L = pep.pbft.K * 2
 	})
-	defer net.close()
+	defer net.stop()
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -437,7 +371,7 @@ func TestViewChange(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		err = net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -452,8 +386,8 @@ func TestViewChange(t *testing.T) {
 	execReq(2)
 	execReq(3)
 
-	for i := 2; i < len(net.replicas); i++ {
-		net.replicas[i].pbft.sendViewChange()
+	for i := 2; i < len(net.endpoints); i++ {
+		net.endpoints[i].(*pbftEndpoint).pbft.sendViewChange()
 	}
 
 	err := net.process()
@@ -461,17 +395,17 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if net.replicas[1].pbft.view != 1 || net.replicas[0].pbft.view != 1 {
+	if net.endpoints[1].(*pbftEndpoint).pbft.view != 1 || net.endpoints[0].(*pbftEndpoint).pbft.view != 1 {
 		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
 	}
 
-	cp, ok, _ := net.replicas[1].pbft.selectInitialCheckpoint(net.replicas[1].pbft.getViewChanges())
+	cp, ok, _ := net.endpoints[1].(*pbftEndpoint).pbft.selectInitialCheckpoint(net.endpoints[1].(*pbftEndpoint).pbft.getViewChanges())
 	if !ok || cp.SequenceNumber != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
-			net.replicas[1].pbft.viewChangeStore)
+			net.endpoints[1].(*pbftEndpoint).pbft.viewChangeStore)
 	}
 
-	msgList := net.replicas[1].pbft.assignSequenceNumbers(net.replicas[1].pbft.getViewChanges(), cp.SequenceNumber)
+	msgList := net.endpoints[1].(*pbftEndpoint).pbft.assignSequenceNumbers(net.endpoints[1].(*pbftEndpoint).pbft.getViewChanges(), cp.SequenceNumber)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
@@ -479,8 +413,8 @@ func TestViewChange(t *testing.T) {
 
 func TestInconsistentDataViewChange(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
@@ -502,30 +436,30 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.replicas[0].pbft.recvRequest(makePP(0).Request)
+	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(0).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.replicas[1].pbft.recvPrePrepare(makePP(1))
-	_ = net.replicas[2].pbft.recvPrePrepare(makePP(1))
-	_ = net.replicas[3].pbft.recvPrePrepare(makePP(0))
+	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
+	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
+	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(0))
 
 	err := net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		if inst.pbft.lastExec > 0 {
+	for _, ep := range net.endpoints {
+		if ep.(*pbftEndpoint).sc.executions > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
 	}
 
-	for _, inst := range net.replicas {
-		inst.pbft.sendViewChange()
+	for _, ep := range net.endpoints {
+		ep.(*pbftEndpoint).pbft.sendViewChange()
 	}
 
 	err = net.process()
@@ -533,8 +467,8 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		if inst.pbft.lastExec <= 1 {
+	for _, ep := range net.endpoints {
+		if ep.(*pbftEndpoint).sc.executions <= 1 {
 			t.Errorf("Expected execution")
 			continue
 		}
@@ -543,24 +477,14 @@ func TestInconsistentDataViewChange(t *testing.T) {
 
 func TestViewChangeWithStateTransfer(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 
 	var err error
 
-	for _, inst := range net.replicas {
-		inst.pbft.K = 2
-		inst.pbft.L = 4
-	}
-
-	for i := 0; i < validatorCount; i++ {
-		net.replicas[i].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-			// No-op
-		}
-	}
-
-	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
-		// No-op, only replica 3 should call this
+	for _, ep := range net.endpoints {
+		ep.(*pbftEndpoint).pbft.K = 2
+		ep.(*pbftEndpoint).pbft.L = 4
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -587,14 +511,14 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
 	for i := int64(1); i <= 3; i++ {
-		_ = net.replicas[0].pbft.recvRequest(makePP(i).Request)
+		_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(i).Request)
 
 		// clear all messages sent by primary
 		net.clearMessages()
 
-		_ = net.replicas[0].pbft.recvPrePrepare(makePP(i))
-		_ = net.replicas[1].pbft.recvPrePrepare(makePP(i))
-		_ = net.replicas[2].pbft.recvPrePrepare(makePP(i))
+		_ = net.endpoints[0].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
+		_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
+		_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
 
 		err = net.process()
 		if err != nil {
@@ -605,15 +529,15 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	fmt.Println("Done with stage 1")
 
 	// Have primary now deliberately skip a sequence number to deadlock until viewchange
-	_ = net.replicas[0].pbft.recvRequest(makePP(4).Request)
+	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(4).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.replicas[1].pbft.recvPrePrepare(makePP(5))
-	_ = net.replicas[2].pbft.recvPrePrepare(makePP(5))
-	_ = net.replicas[3].pbft.recvPrePrepare(makePP(4))
+	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(5))
+	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(5))
+	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(4))
 
 	err = net.process()
 	if err != nil {
@@ -622,8 +546,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	fmt.Println("Done with stage 2")
 
-	for _, inst := range net.replicas {
-		inst.pbft.sendViewChange()
+	for _, ep := range net.endpoints {
+		ep.(*pbftEndpoint).pbft.sendViewChange()
 	}
 
 	fmt.Println("Done with stage 3")
@@ -640,9 +564,10 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	}
 	fmt.Println("Done with stage 5")
 
-	for _, inst := range net.replicas {
-		if inst.pbft.lastExec != 5 {
-			t.Errorf("Replica %d expected execution for seqNo 5, got last execution was for of %d", inst.pbft.id, inst.pbft.lastExec)
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.sc.executions != 5 {
+			t.Errorf("Replica %d expected execution for seqNo 5, got last execution was for of %d", pep.pbft.id, pep.sc.executions)
 			continue
 		}
 	}
@@ -657,13 +582,12 @@ func TestNewViewTimeout(t *testing.T) {
 	}
 
 	validatorCount := 4
-	net := makeTestnet(validatorCount, func(inst *instance) {
-		makeTestnetPbftCore(inst)
-		inst.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
-		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
-		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
+		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
+		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
 	})
-	defer net.close()
+	defer net.stop()
 
 	replica1Disabled := false
 	net.filterFn = func(src int, dst int, msg []byte) []byte {
@@ -685,7 +609,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.replicas[1].pbft.receive(msgPacked, broadcaster)
+	net.endpoints[1].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 1")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
@@ -696,7 +620,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// However, 2 does not know about the missing request, and therefore the request will not be
 	// pre-prepared and finally executed.
 	replica1Disabled = true
-	net.replicas[3].pbft.receive(msgPacked, broadcaster)
+	net.endpoints[3].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 2")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
@@ -704,20 +628,20 @@ func TestNewViewTimeout(t *testing.T) {
 	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
 	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
 	// all replicas move to view 3 and finally process the request.
-	net.replicas[0].pbft.receive(msgPacked, broadcaster)
+	net.endpoints[0].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 3")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 3")
 
-	net.close()
-	for i, inst := range net.replicas {
-		if inst.pbft.view < 3 {
-			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+	net.stop()
+	for i, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.pbft.view < 3 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", pep.pbft.view, i)
 		}
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		blockHeightExpected := uint64(2)
-		if blockHeight != blockHeightExpected {
-			t.Errorf("Should have executed %d, got %d instead for replica %d", blockHeightExpected, blockHeight, i)
+		executionsExpected := uint64(1)
+		if pep.sc.executions != executionsExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", executionsExpected, pep.sc.executions, i)
 		}
 	}
 }
@@ -726,50 +650,41 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	millisUntilTimeout := 100 * time.Millisecond
 
 	validatorCount := 4
-	net := makeTestnet(validatorCount, func(inst *instance) {
-		makeTestnetPbftCore(inst)
-		inst.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
-		inst.pbft.requestTimeout = inst.pbft.newViewTimeout
-		inst.pbft.lastNewViewTimeout = inst.pbft.newViewTimeout
-		inst.pbft.lastExec = 99
-		inst.pbft.h = 99 / inst.pbft.K * inst.pbft.K
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
+		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
+		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
+		pe.pbft.lastExec = 99
+		pe.pbft.h = 99 / pe.pbft.K * pe.pbft.K
 	})
-	net.replicas[0].pbft.seqNo = 99
-
-	executions := make([]int, validatorCount)
-
-	for i := 0; i < validatorCount; i++ {
-		localI := i
-		net.replicas[localI].consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-			executions[localI]++
-		}
-	}
+	net.endpoints[0].(*pbftEndpoint).pbft.seqNo = 99
 
 	go net.processContinually()
 
 	msg := createOcMsgWithChainTx(1)
-	net.replicas[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	net.endpoints[0].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	time.Sleep(5 * millisUntilTimeout)
 	// Now we all have executed seqNo 100.  After triggering a
 	// view change, the new primary should pick up right after
 	// that.
 
-	net.replicas[0].pbft.sendViewChange()
-	net.replicas[1].pbft.sendViewChange()
+	net.endpoints[0].(*pbftEndpoint).pbft.sendViewChange()
+	net.endpoints[1].(*pbftEndpoint).pbft.sendViewChange()
 	time.Sleep(5 * millisUntilTimeout)
 
 	msg = createOcMsgWithChainTx(2)
-	net.replicas[1].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	net.endpoints[1].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	time.Sleep(5 * millisUntilTimeout)
 
-	net.close()
-	for i, inst := range net.replicas {
-		if inst.pbft.view < 1 {
-			t.Errorf("Should have reached view 3, got %d instead for replica %d", inst.pbft.view, i)
+	net.stop()
+	for i, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.pbft.view < 1 {
+			t.Errorf("Should have reached view 3, got %d instead for replica %d", pep.pbft.view, i)
 		}
-		executionsExpected := 2
-		if executions[i] != executionsExpected {
-			t.Errorf("Should have executed %d, got %d instead for replica %d", executionsExpected, executions[i], i)
+		executionsExpected := uint64(2)
+		if pep.sc.executions != executionsExpected {
+			t.Errorf("Should have executed %d, got %d instead for replica %d", executionsExpected, pep.sc.executions, i)
 		}
 	}
 }
@@ -820,18 +735,11 @@ func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 
 func TestFallBehind(t *testing.T) {
 	validatorCount := 4
-	net := makeTestnet(validatorCount, func(inst *instance) {
-		makeTestnetPbftCore(inst)
-		inst.pbft.K = 2
-		inst.pbft.L = 2 * inst.pbft.K
+	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
+		pep.pbft.K = 2
+		pep.pbft.L = 2 * pep.pbft.K
 	})
-	defer net.close()
-
-	for _, replica := range net.replicas {
-		replica.consenter.(*omniProto).executeImpl = func(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-			// No-op
-		}
-	}
+	defer net.stop()
 
 	execReq := func(iter int64, skipThree bool) {
 		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
@@ -844,7 +752,7 @@ func TestFallBehind(t *testing.T) {
 
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 
-		err = net.replicas[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		err = net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -869,65 +777,45 @@ func TestFallBehind(t *testing.T) {
 		}
 	}
 
-	inst := net.replicas[3].pbft
+	pep := net.endpoints[3].(*pbftEndpoint)
+	pbft := pep.pbft
 	// Send enough requests to get to a checkpoint quorum certificate with sequence number L+K
 	execReq(1, true)
-	for request := int64(2); uint64(request) <= inst.L+inst.K; request++ {
+	for request := int64(2); uint64(request) <= pbft.L+pbft.K; request++ {
 		execReq(request, false)
 	}
 
-	if !inst.skipInProgress {
+	if !pbft.skipInProgress {
 		t.Fatalf("Replica did not detect that it has fallen behind.")
 	}
 
-	if len(inst.chkpts) != 0 {
-		t.Fatalf("Expected no checkpoints, found %d", len(inst.chkpts))
+	if len(pbft.chkpts) != 0 {
+		t.Fatalf("Expected no checkpoints, found %d", len(pbft.chkpts))
 	}
 
-	if inst.h != inst.L+inst.K {
-		t.Fatalf("Expected low water mark to be %d, got %d", inst.L+inst.K, inst.h)
-	}
-
-	kickedOffStateTransfer := false
-
-	net.replicas[3].consenter.(*omniProto).skipToImpl = func(seqNo uint64, id []byte, ids []uint64) {
-		kickedOffStateTransfer = true
+	if pbft.h != pbft.L+pbft.K {
+		t.Fatalf("Expected low water mark to be %d, got %d", pbft.L+pbft.K, pbft.h)
 	}
 
 	// Send enough requests to get to a weak checkpoint certificate certain with sequence number L+K*2
-	for request := int64(inst.L + inst.K + 1); uint64(request) <= inst.L+inst.K*2; request++ {
+	for request := int64(pbft.L + pbft.K + 1); uint64(request) <= pbft.L+pbft.K*2; request++ {
 		execReq(request, false)
 	}
 
-	if !kickedOffStateTransfer {
+	if !pep.sc.skipOccurred {
 		t.Fatalf("Request failed to kick off state transfer")
 	}
 
-	execReq(int64(inst.L+inst.K*2+1), false)
+	execReq(int64(pbft.L+pbft.K*2+1), false)
 
-	if inst.lastExec != inst.L+inst.K*2+1 {
+	if pep.sc.executions != pbft.L+pbft.K*2+1 {
 		t.Fatalf("Replica did not begin participating normally after state transfer completed")
 	}
 }
 
 func TestPbftF0(t *testing.T) {
-	net := makeTestnet(1, func(inst *instance) {
-		config := loadConfig()
-		inst.consenter = &omniProto{
-			broadcastImpl: func(msgPayload []byte) {
-				inst.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
-			},
-		}
-		inst.pbft = newPbftCore(uint64(inst.id), config, inst.consenter.(*omniProto))
-		inst.pbft.replicaCount = inst.net.N
-		inst.pbft.f = inst.net.f
-		inst.deliver = func(msg []byte, senderHandle *pb.PeerID) {
-			senderID, _ := getValidatorID(senderHandle)
-			inst.pbft.receive(msg, senderID)
-		}
-
-	})
-	defer net.close()
+	net := makePBFTNetwork(1)
+	defer net.stop()
 
 	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -936,7 +824,10 @@ func TestPbftF0(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
-	err = net.replicas[0].pbft.request(txPacked, 0)
+
+	pep0 := net.endpoints[0].(*pbftEndpoint)
+
+	err = pep0.pbft.request(txPacked, 0)
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -946,20 +837,19 @@ func TestPbftF0(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, inst := range net.replicas {
-		blockHeight, _ := inst.ledger.GetBlockchainSize()
-		if blockHeight <= 1 {
-			t.Errorf("Instance %d did not execute transaction", inst.id)
+	for _, ep := range net.endpoints {
+		pep := ep.(*pbftEndpoint)
+		if pep.sc.executions <= 1 {
+			t.Errorf("Instance %d did not execute transaction", pep.id)
 			continue
 		}
-		if blockHeight != 2 {
-			t.Errorf("Instance %d executed more than one transaction", inst.id)
+		if pep.sc.executions >= 2 {
+			t.Errorf("Instance %d executed more than one transaction", pep.id)
 			continue
 		}
-		highestBlock, _ := inst.ledger.GetBlock(blockHeight - 1)
-		if !reflect.DeepEqual(highestBlock.Transactions[0].Payload, txPacked) {
+		if !reflect.DeepEqual(pep.sc.lastExecution, txPacked) {
 			t.Errorf("Instance %d executed wrong transaction, %x should be %x",
-				inst.id, highestBlock.Transactions[0].Payload, txPacked)
+				pep.id, pep.sc.lastExecution, txPacked)
 		}
 	}
 }

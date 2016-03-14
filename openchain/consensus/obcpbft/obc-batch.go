@@ -45,7 +45,11 @@ type obcBatch struct {
 
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
+
 	op := &obcBatch{stack: stack}
+
+	op.executor = NewOBCExecutor(config, op, stack)
+
 	op.pbft = newPbftCore(id, config, op)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
@@ -53,8 +57,6 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}
-
-	op.executor = NewOBCExecutor(id, config, 20, op, stack)
 
 	// create non-running timer
 	op.batchTimer = time.NewTimer(100 * time.Hour) // XXX ugly
@@ -307,4 +309,8 @@ func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID 
 
 func (op *obcBatch) idleChan() <-chan struct{} {
 	return op.executor.IdleChan()
+}
+
+func (op *obcBatch) getPBFTCore() *pbftCore {
+	return op.pbft
 }

@@ -20,10 +20,48 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
+	"math/rand"
+	"time"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 
 	pb "github.com/openblockchain/obc-peer/protos"
+	gp "google/protobuf"
 )
+
+type noopSecurity struct{}
+
+func (ns *noopSecurity) Sign(msg []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (ns *noopSecurity) Verify(peerID *pb.PeerID, signature []byte, message []byte) error {
+	return nil
+}
+
+// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+func createOcMsgWithChainTx(iter int64) (msg *pb.OpenchainMessage) {
+	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
+		Timestamp: txTime,
+		Payload:   []byte(fmt.Sprint(iter)),
+	}
+	txPacked, _ := proto.Marshal(tx)
+	msg = &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
+		Payload: txPacked,
+	}
+	return
+}
+
+func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
+	seed := rand.NewSource(time.Now().UnixNano())
+	rndm := rand.New(seed)
+	requestBroadcaster = rndm.Intn(validatorCount)
+	return
+}
 
 type omniProto struct {
 	// Stack methods
@@ -67,6 +105,7 @@ type omniProto struct {
 	RecvMsgImpl  func(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
 	CloseImpl    func()
 	idleChanImpl func() <-chan struct{}
+	deliverImpl  func([]byte, *pb.PeerID)
 
 	// Orderer methods
 	CheckpointImpl func(seqNo uint64, id []byte)
@@ -354,3 +393,42 @@ func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID
 	panic("Unimplemented")
 
 }
+
+func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
+	if nil != op.deliverImpl {
+		op.deliverImpl(msg, target)
+	}
+
+	panic("Unimplemented")
+}
+
+/*
+
+	op := &omniProto{
+		GetNetworkInfoImpl:         net.GetNetworkInfo,
+		GetNetworkHandlesImpl:      net.GetNetworkHandles,
+		BroadcastImpl:              net.Broadcast,
+		UnicastImpl:                net.Unicast,
+		SignImpl:                   security.Sign,
+		VerifyImpl:                 security.Verify,
+		GetBlockImpl:               ml.GetBlock,
+		GetCurrentStateHashImpl:    ml.GetCurrentStateHash,
+		GetBlockchainSizeImpl:      ml.GetBlockchainSize,
+		HashBlockImpl:              ml.HashBlock,
+		VerifyBlockchainImpl:       ml.VerifyBlockchain,
+		PutBlockImpl:               ml.PutBlock,
+		ApplyStateDeltaImpl:        ml.ApplyStateDelta,
+		CommitStateDeltaImpl:       ml.CommitStateDelta,
+		RollbackStateDeltaImpl:     ml.RollbackStateDelta,
+		EmptyStateImpl:             ml.EmptyState,
+		BeginTxBatchImpl:           ml.BeginTxBatch,
+		ExecTxsImpl:                ml.ExecTxs,
+		CommitTxBatchImpl:          ml.CommitTxBatch,
+		RollbackTxBatchImpl:        ml.RollbackTxBatch,
+		PreviewCommitTxBatchImpl:   ml.PreviewCommitTxBatch,
+		GetRemoteBlocksImpl:        ml.GetRemoteBlocks,
+		GetRemoteStateSnapshotImpl: ml.GetRemoteStateSnapshot,
+		GetRemoteStateDeltasImpl:   ml.GetRemoteStateDeltas,
+	}
+
+*/

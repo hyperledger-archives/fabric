@@ -38,8 +38,9 @@ type obcClassic struct {
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{stack: stack}
+
 	op.pbft = newPbftCore(id, config, op)
-	op.executor = NewOBCExecutor(id, config, 20, op, stack)
+	op.executor = NewOBCExecutor(config, op, stack)
 
 	return op
 }
@@ -166,4 +167,8 @@ func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedI
 
 func (op *obcClassic) idleChan() <-chan struct{} {
 	return op.executor.IdleChan()
+}
+
+func (op *obcClassic) getPBFTCore() *pbftCore {
+	return op.pbft
 }

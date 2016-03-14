@@ -64,7 +64,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.queuedExec = make(map[uint64]*Execute)
 	op.pbft = newPbftCore(id, config, op)
 	op.validResultChan = make(chan *validResult)
-	op.executor = NewOBCExecutor(id, config, 20, op, stack) // TODO, set queue size correctly
+	op.executor = NewOBCExecutor(config, op, stack)
 
 	return op
 }
@@ -671,4 +671,8 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 
 func (op *obcSieve) idleChan() <-chan struct{} {
 	return op.executor.IdleChan()
+}
+
+func (op *obcSieve) getPBFTCore() *pbftCore {
+	return op.pbft
 }

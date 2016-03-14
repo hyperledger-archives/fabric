@@ -25,21 +25,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
 	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
 func makePartialStack(mrls map[pb.PeerID]*MockRemoteLedger) statetransfer.PartialStack {
-	rols := make(map[pb.PeerID]consensus.ReadOnlyLedger)
-	ml := NewMockLedger(&rols, nil)
+	ml := newPartialStack(NewMockLedger(nil, nil), nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 
 	for i := uint64(0); i <= 3; i++ {
 		peerID, _ := getValidatorHandle(i)
 		if 0 != i {
 			l := &MockRemoteLedger{}
-			rols[*peerID] = l
 			mrls[*peerID] = l
 		}
 	}
@@ -50,7 +47,7 @@ func makePartialStack(mrls map[pb.PeerID]*MockRemoteLedger) statetransfer.Partia
 func TestExecutorIdle(t *testing.T) {
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
 	defer obcex.Stop()
 	done := make(chan struct{})
 	go func() {
@@ -68,7 +65,7 @@ func TestExecutorIdle(t *testing.T) {
 func TestExecutorSimpleStateTransfer(t *testing.T) {
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
 	defer obcex.Stop()
 
 	i := uint64(0)
@@ -97,7 +94,7 @@ func TestExecutorSimpleStateTransfer(t *testing.T) {
 func TestExecutorDivergentStateTransfer(t *testing.T) {
 	mrls := make(map[pb.PeerID]*MockRemoteLedger)
 	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(0, loadConfig(), 30, &omniProto{}, ps)
+	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
 	defer obcex.Stop()
 
 	i := uint64(0)

@@ -71,9 +71,14 @@ type obcExecutor struct {
 	executorStack  statetransfer.PartialStack
 }
 
-func NewOBCExecutor(id uint64, config *viper.Viper, queueSize int, orderer Orderer, stack statetransfer.PartialStack) (obcex *obcExecutor) {
+func NewOBCExecutor(config *viper.Viper, orderer Orderer, stack statetransfer.PartialStack) (obcex *obcExecutor) {
 	var err error
 	obcex = &obcExecutor{}
+	queueSize := config.GetInt("executor.queuesize")
+	if queueSize <= 0 {
+		panic("Queue size must be positive")
+	}
+
 	obcex.executionQueue = make(chan *transaction, queueSize)
 	obcex.syncTargets = make(chan *syncTarget)
 	obcex.completeSync = make(chan *syncTarget)
