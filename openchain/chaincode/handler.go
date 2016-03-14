@@ -1130,7 +1130,8 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 		msg.SecurityContext = &pb.ChaincodeSecurityContext{}
 	}
 	if tx != nil {
-		msg.SecurityContext.CallerTCert = tx.Cert
+		msg.SecurityContext.CallerCert = tx.Cert
+		msg.SecurityContext.CallerSign = tx.Signature
 	}
 	return nil
 }

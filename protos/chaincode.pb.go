@@ -240,7 +240,8 @@ func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 }
 
 type ChaincodeSecurityContext struct {
-	CallerTCert []byte `protobuf:"bytes,1,opt,name=callerTCert,proto3" json:"callerTCert,omitempty"`
+	CallerCert []byte `protobuf:"bytes,1,opt,name=callerCert,proto3" json:"callerCert,omitempty"`
+	CallerSign []byte `protobuf:"bytes,2,opt,name=callerSign,proto3" json:"callerSign,omitempty"`
 }
 
 func (m *ChaincodeSecurityContext) Reset()         { *m = ChaincodeSecurityContext{} }
