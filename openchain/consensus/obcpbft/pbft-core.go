@@ -718,6 +718,8 @@ func (instance *pbftCore) executeOutstanding() {
 }
 
 func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
+	instance.lock()
+	defer instance.unlock()
 	if seqNo%instance.K != 0 {
 		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
 		return

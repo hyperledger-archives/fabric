@@ -49,12 +49,12 @@ type pbftNetwork struct {
 }
 
 type simpleConsumer struct {
-	pe            *pbftEndpoint
-	pbftNet       *pbftNetwork
-	executions    uint64
-	skipOccurred  bool
-	lastExecution []byte
-	execTxResult  func([]*pb.Transaction) ([]byte, error)
+	pe               *pbftEndpoint
+	pbftNet          *pbftNetwork
+	executions       uint64
+	skipOccurred     bool
+	lastExecution    []byte
+	checkpointResult func(seqNo uint64, txs []byte)
 }
 
 func (sc *simpleConsumer) broadcast(msgPayload []byte) {
@@ -68,6 +68,7 @@ func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
 	sc.pe.Unicast(&pb.OpenchainMessage{Payload: msgPayload}, handle)
 	return nil
 }
+
 func (sc *simpleConsumer) idleChan() <-chan struct{} {
 	res := make(chan struct{})
 	close(res)
@@ -105,13 +106,16 @@ func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 }
 
 func (sc *simpleConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-	if nil != sc.execTxResult {
-		sc.execTxResult([]*pb.Transaction{&pb.Transaction{Payload: tx}})
-	}
+	logger.Debug("TEST: executing request")
 	sc.lastExecution = tx
 	sc.executions++
 	if execInfo.Checkpoint {
-		sc.pe.pbft.Checkpoint(seqNo, tx)
+		logger.Debug("TEST: checkpoint requested, calling back")
+		if nil != sc.checkpointResult {
+			sc.checkpointResult(seqNo, tx)
+		} else {
+			sc.pe.pbft.Checkpoint(seqNo, tx)
+		}
 	}
 }
 

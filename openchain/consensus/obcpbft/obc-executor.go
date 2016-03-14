@@ -92,6 +92,8 @@ func NewOBCExecutor(config *viper.Viper, orderer Orderer, stack statetransfer.Pa
 		obcex.id = &pb.PeerID{"Dummy"}
 	}
 
+	logger.Info("Executor for %v using queue size of %d", obcex.id, queueSize)
+
 	obcex.sts = statetransfer.NewStateTransferState(config, stack)
 
 	listener := struct{ statetransfer.ProtoListener }{}

@@ -25,29 +25,25 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
+	"github.com/openblockchain/obc-peer/openchain/consensus"
+	//"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
-func makePartialStack(mrls map[pb.PeerID]*MockRemoteLedger) statetransfer.PartialStack {
-	ml := newPartialStack(NewMockLedger(nil, nil), nil)
+func newTestExecutor() (*obcExecutor, map[pb.PeerID]consensus.ReadOnlyLedger) {
+	mrls := createRemoteLedgers(0, 3)
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(mrls, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))
 
-	for i := uint64(0); i <= 3; i++ {
-		peerID, _ := getValidatorHandle(i)
-		if 0 != i {
-			l := &MockRemoteLedger{}
-			mrls[*peerID] = l
-		}
-	}
+	ps := newPartialStack(ml, mrls)
 
-	return ml
+	return NewOBCExecutor(loadConfig(), &omniProto{}, ps), mrls.remoteLedgers
 }
 
 func TestExecutorIdle(t *testing.T) {
-	mrls := make(map[pb.PeerID]*MockRemoteLedger)
-	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
+	obcex, _ := newTestExecutor()
 	defer obcex.Stop()
 	done := make(chan struct{})
 	go func() {
@@ -63,14 +59,12 @@ func TestExecutorIdle(t *testing.T) {
 }
 
 func TestExecutorSimpleStateTransfer(t *testing.T) {
-	mrls := make(map[pb.PeerID]*MockRemoteLedger)
-	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
+	obcex, mrls := newTestExecutor()
 	defer obcex.Stop()
 
 	i := uint64(0)
 	for _, rl := range mrls {
-		rl.blockHeight = 6 + i
+		rl.(*MockRemoteLedger).blockHeight = 6 + i
 		i++
 	}
 
@@ -92,14 +86,12 @@ func TestExecutorSimpleStateTransfer(t *testing.T) {
 }
 
 func TestExecutorDivergentStateTransfer(t *testing.T) {
-	mrls := make(map[pb.PeerID]*MockRemoteLedger)
-	ps := makePartialStack(mrls)
-	obcex := NewOBCExecutor(loadConfig(), &omniProto{}, ps)
+	obcex, mrls := newTestExecutor()
 	defer obcex.Stop()
 
 	i := uint64(0)
 	for _, rl := range mrls {
-		rl.blockHeight = 6 + i
+		rl.(*MockRemoteLedger).blockHeight = 6 + i
 		i++
 	}
 

@@ -21,6 +21,7 @@ package obcpbft
 
 import (
 	"fmt"
+	"sync"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -40,7 +41,7 @@ type taggedMsg struct {
 
 type testnet struct {
 	N         int
-	closed    bool
+	closed    chan struct{}
 	endpoints []endpoint
 	msgs      chan taggedMsg
 	filterFn  func(int, int, []byte) []byte
@@ -123,38 +124,48 @@ func internalQueueMessage(queue chan<- taggedMsg, tm taggedMsg) {
 }
 
 func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
-	if net.closed {
+	select {
+	case <-net.closed:
 		logger.Error("WARNING! Attempted to send a request to a closed network, ignoring")
 		return
+	default:
 	}
 	if net.filterFn != nil {
-		tmp := payload
+		//tmp := payload
 		payload = net.filterFn(int(ep.id), -1, payload)
-		logger.Debug("TEST: filtered message %p to %p", tmp, payload)
+		//logger.Debug("TEST: filtered message %p to %p", tmp, payload)
 	}
 	if payload != nil {
-		logger.Debug("TEST: attempting to queue message %p", payload)
+		//logger.Debug("TEST: attempting to queue message %p", payload)
 		internalQueueMessage(net.msgs, taggedMsg{int(ep.id), -1, payload})
-		logger.Debug("TEST: message queued successfully %p", payload)
+		//logger.Debug("TEST: message queued successfully %p", payload)
 	}
 }
 
 func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
 	senderHandle := net.endpoints[senderID].getHandle()
 	if msg.dst == -1 {
-		for id, inst := range net.endpoints {
-			if msg.src == id {
-				// do not deliver to local replica
-				continue
-			}
-			payload := msg.msg
-			if net.filterFn != nil {
-				payload = net.filterFn(msg.src, id, payload)
-			}
-			if payload != nil {
-				inst.deliver(msg.msg, senderHandle)
-			}
+		var wg sync.WaitGroup
+		wg.Add(len(net.endpoints))
+		for id, ep := range net.endpoints {
+			lid := id
+			lep := ep
+			go func() {
+				defer wg.Done()
+				if msg.src == lid {
+					// do not deliver to local replica
+					return
+				}
+				payload := msg.msg
+				if net.filterFn != nil {
+					payload = net.filterFn(msg.src, lid, payload)
+				}
+				if payload != nil {
+					lep.deliver(msg.msg, senderHandle)
+				}
+			}()
 		}
+		wg.Wait()
 	} else {
 		net.endpoints[msg.dst].deliver(msg.msg, senderHandle)
 	}
@@ -167,7 +178,7 @@ func (net *testnet) idleFan() <-chan struct{} {
 		for _, inst := range net.endpoints {
 			<-inst.idleChan()
 		}
-		logger.Debug("TEST: closing idleChan")
+		//logger.Debug("TEST: closing idleChan")
 		// Only close to the channel after all the consenters have written to us
 		close(res)
 	}()
@@ -177,33 +188,37 @@ func (net *testnet) idleFan() <-chan struct{} {
 
 func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 	if !ok {
-		logger.Debug("TEST: message channel closed, exiting\n")
+		//logger.Debug("TEST: message channel closed, exiting\n")
 		return false
 	}
-	logger.Debug("TEST: new message, delivering\n")
+	//logger.Debug("TEST: new message, delivering\n")
 	net.deliverFilter(msg, msg.src)
 	return true
 }
 
 func (net *testnet) process() error {
 	for {
-		logger.Debug("TEST: process looping")
+		//logger.Debug("TEST: process looping")
 		select {
 		case msg, ok := <-net.msgs:
-			logger.Debug("TEST: processing message without testing for idle")
+			//logger.Debug("TEST: processing message without testing for idle")
 			if !net.processMessageFromChannel(msg, ok) {
 				return nil
 			}
+		case <-net.closed:
+			return nil
 		default:
-			logger.Debug("TEST: processing message or testing for idle")
+			//logger.Debug("TEST: processing message or testing for idle")
 			select {
 			case <-net.idleFan():
-				logger.Debug("TEST: exiting process loop because of idleness")
+				//logger.Debug("TEST: exiting process loop because of idleness")
 				return nil
 			case msg, ok := <-net.msgs:
 				if !net.processMessageFromChannel(msg, ok) {
 					return nil
 				}
+			case <-net.closed:
+				return nil
 			}
 		}
 	}
@@ -213,8 +228,12 @@ func (net *testnet) process() error {
 
 func (net *testnet) processContinually() {
 	for {
-		msg, ok := <-net.msgs
-		if !net.processMessageFromChannel(msg, ok) {
+		select {
+		case msg, ok := <-net.msgs:
+			if !net.processMessageFromChannel(msg, ok) {
+				return
+			}
+		case <-net.closed:
 			return
 		}
 	}
@@ -223,6 +242,7 @@ func (net *testnet) processContinually() {
 func makeTestnet(N int, initFn func(id uint64, network *testnet) endpoint) *testnet {
 	net := &testnet{}
 	net.msgs = make(chan taggedMsg, 100)
+	net.closed = make(chan struct{})
 	net.endpoints = make([]endpoint, N)
 
 	for i, _ := range net.endpoints {
@@ -243,9 +263,8 @@ func (net *testnet) clearMessages() {
 }
 
 func (net *testnet) stop() {
-	net.closed = true
-	close(net.msgs)
 	for _, ep := range net.endpoints {
 		ep.stop()
 	}
+	close(net.closed)
 }

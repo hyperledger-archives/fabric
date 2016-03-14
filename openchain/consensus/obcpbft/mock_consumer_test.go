@@ -81,6 +81,7 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 		}
 
 		ml := NewMockLedger(&twl, nil)
+		ml.PutBlock(0, SimpleGetBlock(0)) // Initialize a genesis block
 		twl.mockLedgers[id] = ml
 
 		cs := &completeStack{

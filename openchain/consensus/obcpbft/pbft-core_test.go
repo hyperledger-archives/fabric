@@ -179,6 +179,17 @@ func TestNetwork(t *testing.T) {
 	}
 }
 
+type checkpointConsumer struct {
+	simpleConsumer
+	execWait *sync.WaitGroup
+}
+
+func (cc *checkpointConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+	if execInfo.Checkpoint {
+		// For this particular case, we don't want the simple blocking behavior of execute
+	}
+}
+
 func TestCheckpoint(t *testing.T) {
 	execWait := &sync.WaitGroup{}
 
@@ -186,9 +197,13 @@ func TestCheckpoint(t *testing.T) {
 	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
 		pe.pbft.K = 2
 		pe.pbft.L = 4
-		pe.sc.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
-			execWait.Wait()
-			return []byte("result"), nil
+		pe.sc.checkpointResult = func(seqNo uint64, id []byte) {
+			go func() {
+				logger.Debug("TEST: possibly delaying checkpoint evaluation")
+				execWait.Wait()
+				logger.Debug("TEST: sending checkpoint")
+				pe.pbft.Checkpoint(seqNo, id)
+			}()
 		}
 	})
 	defer net.stop()
