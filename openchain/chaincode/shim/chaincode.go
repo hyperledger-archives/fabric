@@ -228,13 +228,7 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 
 
 // --------- Security functions ----------
-// GetState function can be invoked by a chaincode to get a state from the ledger.
-func (stub *ChaincodeStub) GetTCert() []byte {
-	if stub.securityContext != nil {
-		return stub.securityContext.CallerTCert
-	}
-	return nil
-}
+//CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
 
 // ------------- Call Chaincode functions ---------------
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
