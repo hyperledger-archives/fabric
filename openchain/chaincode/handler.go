@@ -1126,7 +1126,12 @@ func (handler *Handler) initializeSecContext(tx, depTx *pb.Transaction) error {
 }
 
 func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.ChaincodeMessage) error {
-	msg.SecurityContext.CallerTCert = tx.Cert
+	if msg.SecurityContext == nil {
+		msg.SecurityContext = &pb.ChaincodeSecurityContext{}
+	}
+	if tx != nil {
+		msg.SecurityContext.CallerTCert = tx.Cert
+	}
 	return nil
 }
 
