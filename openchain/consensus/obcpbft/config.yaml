@@ -9,7 +9,7 @@
 ################################################################################
 general:
 
-    # Operational mode: batch, classic, or sieve
+    # Operational mode: batch, classic, or sieve ( this value is case-insensitive)
     mode: classic
 
     # Maximum number of validators/replicas we expect in the network
