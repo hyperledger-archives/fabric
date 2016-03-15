@@ -156,7 +156,7 @@ INSTALL_PATH=/usr/local make install-shared
 - Run the following commands:
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer
-CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
+CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options
 ```
