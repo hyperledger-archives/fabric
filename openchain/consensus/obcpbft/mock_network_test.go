@@ -31,6 +31,7 @@ type endpoint interface {
 	idleChan() <-chan struct{}
 	deliver([]byte, *pb.PeerID)
 	getHandle() *pb.PeerID
+	getID() uint64
 }
 
 type taggedMsg struct {
@@ -40,6 +41,7 @@ type taggedMsg struct {
 }
 
 type testnet struct {
+	debug     bool
 	N         int
 	closed    chan struct{}
 	endpoints []endpoint
@@ -57,6 +59,10 @@ func makeTestEndpoint(id uint64, net *testnet) *testEndpoint {
 	ep.id = id
 	ep.net = net
 	return ep
+}
+
+func (ep *testEndpoint) getID() uint64 {
+	return ep.id
 }
 
 func (ep *testEndpoint) getHandle() *pb.PeerID {
@@ -123,6 +129,12 @@ func internalQueueMessage(queue chan<- taggedMsg, tm taggedMsg) {
 	}
 }
 
+func (net *testnet) debugMsg(msg string, args ...interface{}) {
+	if net.debug {
+		fmt.Printf(msg, args...)
+	}
+}
+
 func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 	select {
 	case <-net.closed:
@@ -131,42 +143,54 @@ func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 	default:
 	}
 	if net.filterFn != nil {
-		//tmp := payload
 		payload = net.filterFn(int(ep.id), -1, payload)
-		//logger.Debug("TEST: filtered message %p to %p", tmp, payload)
+		net.debugMsg("TEST: filtered message\n")
 	}
 	if payload != nil {
-		//logger.Debug("TEST: attempting to queue message %p", payload)
+		net.debugMsg("TEST: attempting to queue message %p\n", payload)
 		internalQueueMessage(net.msgs, taggedMsg{int(ep.id), -1, payload})
-		//logger.Debug("TEST: message queued successfully %p", payload)
+		net.debugMsg("TEST: message queued successfully %p\n", payload)
+	} else {
+		net.debugMsg("TEST: suppressing message with payload %p\n", payload)
 	}
 }
 
 func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
+	net.debugMsg("TEST: deliver\n")
 	senderHandle := net.endpoints[senderID].getHandle()
 	if msg.dst == -1 {
-		var wg sync.WaitGroup
+		net.debugMsg("TEST: Sending broadcast %v\n", net.endpoints)
+		wg := &sync.WaitGroup{}
 		wg.Add(len(net.endpoints))
 		for id, ep := range net.endpoints {
+			net.debugMsg("TEST: Looping broadcast %d\n", ep.getID())
 			lid := id
 			lep := ep
 			go func() {
 				defer wg.Done()
 				if msg.src == lid {
+					if net.debug {
+						net.debugMsg("TEST: Skipping local delivery %d %d\n", lid, senderID)
+					}
 					// do not deliver to local replica
 					return
 				}
 				payload := msg.msg
+				net.debugMsg("TEST: Filtering %d\n", lid)
 				if net.filterFn != nil {
 					payload = net.filterFn(msg.src, lid, payload)
 				}
+				net.debugMsg("TEST: Delivering %d\n", lid)
 				if payload != nil {
+					net.debugMsg("TEST: Sending message %d\n", lid)
 					lep.deliver(msg.msg, senderHandle)
+					net.debugMsg("TEST: Sent message %d\n", lid)
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
+		net.debugMsg("TEST: Sending unicast\n")
 		net.endpoints[msg.dst].deliver(msg.msg, senderHandle)
 	}
 }
@@ -178,7 +202,7 @@ func (net *testnet) idleFan() <-chan struct{} {
 		for _, inst := range net.endpoints {
 			<-inst.idleChan()
 		}
-		//logger.Debug("TEST: closing idleChan")
+		net.debugMsg("TEST: closing idleChan\n")
 		// Only close to the channel after all the consenters have written to us
 		close(res)
 	}()
@@ -188,30 +212,30 @@ func (net *testnet) idleFan() <-chan struct{} {
 
 func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 	if !ok {
-		//logger.Debug("TEST: message channel closed, exiting\n")
+		net.debugMsg("TEST: message channel closed, exiting\n")
 		return false
 	}
-	//logger.Debug("TEST: new message, delivering\n")
+	net.debugMsg("TEST: new message, delivering\n")
 	net.deliverFilter(msg, msg.src)
 	return true
 }
 
 func (net *testnet) process() error {
 	for {
-		//logger.Debug("TEST: process looping")
+		net.debugMsg("TEST: process looping\n")
 		select {
 		case msg, ok := <-net.msgs:
-			//logger.Debug("TEST: processing message without testing for idle")
+			net.debugMsg("TEST: processing message without testing for idle\n")
 			if !net.processMessageFromChannel(msg, ok) {
 				return nil
 			}
 		case <-net.closed:
 			return nil
 		default:
-			//logger.Debug("TEST: processing message or testing for idle")
+			net.debugMsg("TEST: processing message or testing for idle\n")
 			select {
 			case <-net.idleFan():
-				//logger.Debug("TEST: exiting process loop because of idleness")
+				net.debugMsg("TEST: exiting process loop because of idleness\n")
 				return nil
 			case msg, ok := <-net.msgs:
 				if !net.processMessageFromChannel(msg, ok) {

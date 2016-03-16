@@ -24,7 +24,7 @@ import (
 )
 
 type pbftEndpoint struct {
-	testEndpoint
+	*testEndpoint
 	pbft *pbftCore
 	sc   *simpleConsumer
 }
@@ -45,7 +45,7 @@ func (pe *pbftEndpoint) stop() {
 }
 
 type pbftNetwork struct {
-	testnet
+	*testnet
 }
 
 type simpleConsumer struct {
@@ -97,20 +97,24 @@ func (sc *simpleConsumer) validState(seqNo uint64, id []byte, replicas []uint64)
 	// No-op
 }
 
+/*
 func (sc *simpleConsumer) Checkpoint(seqNo uint64, id []byte) {
 	// No-op
 }
+*/
 
 func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
+	sc.executions = seqNo
+	sc.pbftNet.debugMsg("TEST: skipping to %d\n", seqNo)
 }
 
 func (sc *simpleConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-	logger.Debug("TEST: executing request")
+	sc.pbftNet.debugMsg("TEST: executing request\n")
 	sc.lastExecution = tx
 	sc.executions++
 	if execInfo.Checkpoint {
-		logger.Debug("TEST: checkpoint requested, calling back")
+		sc.pbftNet.debugMsg("TEST: checkpoint requested, calling back\n")
 		if nil != sc.checkpointResult {
 			sc.checkpointResult(seqNo, tx)
 		} else {
@@ -124,7 +128,7 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 	endpointFunc := func(id uint64, net *testnet) endpoint {
 		tep := makeTestEndpoint(id, net)
 		pe := &pbftEndpoint{
-			testEndpoint: *tep,
+			testEndpoint: tep,
 		}
 
 		pe.sc = &simpleConsumer{
@@ -143,5 +147,9 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 
 	}
 
-	return &pbftNetwork{*makeTestnet(N, endpointFunc)}
+	pn := &pbftNetwork{makeTestnet(N, endpointFunc)}
+	for _, ep := range pn.endpoints {
+		ep.(*pbftEndpoint).sc.pbftNet = pn
+	}
+	return pn
 }

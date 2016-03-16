@@ -32,14 +32,14 @@ import (
 )
 
 type testPartialStack struct {
-	MockRemoteHashLedgerDirectory
-	MockLedger
+	*MockRemoteHashLedgerDirectory
+	*MockLedger
 }
 
 func newPartialStack(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) PartialStack {
 	return &testPartialStack{
-		MockLedger:                    *ml,
-		MockRemoteHashLedgerDirectory: *rld,
+		MockLedger:                    ml,
+		MockRemoteHashLedgerDirectory: rld,
 	}
 }
 
@@ -52,7 +52,7 @@ func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDir
 }
 
 type MockRemoteHashLedgerDirectory struct {
-	HashLedgerDirectory
+	*HashLedgerDirectory
 }
 
 func (mrls *MockRemoteHashLedgerDirectory) GetMockRemoteLedgerByPeerID(peerID *protos.PeerID) *MockRemoteLedger {
@@ -70,7 +70,7 @@ func createRemoteLedgers(low, high uint64) *MockRemoteHashLedgerDirectory {
 		l := &MockRemoteLedger{}
 		rols[*peerID] = l
 	}
-	return &MockRemoteHashLedgerDirectory{HashLedgerDirectory{rols}}
+	return &MockRemoteHashLedgerDirectory{&HashLedgerDirectory{rols}}
 }
 
 func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *MockRemoteHashLedgerDirectory) error {
@@ -521,7 +521,7 @@ func (lh *listenerHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID,
 }
 
 func TestRegisterUnregisterListener(t *testing.T) {
-	mrls := &MockRemoteHashLedgerDirectory{HashLedgerDirectory{make(map[protos.PeerID]consensus.ReadOnlyLedger)}}
+	mrls := &MockRemoteHashLedgerDirectory{&HashLedgerDirectory{make(map[protos.PeerID]consensus.ReadOnlyLedger)}}
 
 	ml := NewMockLedger(nil, nil)
 	ml.PutBlock(0, SimpleGetBlock(0))

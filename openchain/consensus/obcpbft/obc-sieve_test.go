@@ -92,10 +92,13 @@ func TestSieveNoDecision(t *testing.T) {
 		ce.consumer.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
 		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
-	net.filterFn = func(src int, dst int, raw []byte) []byte {
+	net.debug = true
+	net.testnet.filterFn = func(src int, dst int, raw []byte) []byte {
 		if dst == -1 && src == 0 {
 			sieve := &SieveMessage{}
-			proto.Unmarshal(raw, sieve)
+			if err := proto.Unmarshal(raw, sieve); nil != err {
+				panic("Should only ever encounter sieve messages")
+			}
 			if sieve.GetPbftMessage() != nil {
 				return nil
 			}
@@ -103,13 +106,15 @@ func TestSieveNoDecision(t *testing.T) {
 		return raw
 	}
 
+	fmt.Printf("DEBUG: filterFn is %p and net is %p\n", net.testnet.filterFn, net.testnet)
+
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
 	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
-	time.Sleep(7 * time.Second)
+	time.Sleep(3 * time.Second)
 	net.stop()
 
 	for _, ep := range net.endpoints {
@@ -183,7 +188,7 @@ func TestSieveNonDeterministic(t *testing.T) {
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper, func(ce *consumerEndpoint) {
 		ce.execTxResult = func(tx []*pb.Transaction) ([]byte, error) {
 			res := fmt.Sprintf("%d %s", instResults[ce.id], tx)
-			logger.Debug("State hash for %d: %s", ce.id, res)
+			fmt.Printf("State hash for %d: %s\n", ce.id, res)
 			return []byte(res), nil
 		}
 	})

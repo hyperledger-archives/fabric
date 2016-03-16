@@ -80,9 +80,10 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
-	//logger.Debug("QWER Sieve replica %d receiving message", op.id)
+	logger.Debug("QWER Sieve replica %d receiving message", op.id)
 	op.pbft.lock()
 	defer op.pbft.unlock()
+	logger.Debug("QWER Sieve replica %d processing message", op.id)
 
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
@@ -540,6 +541,8 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte, execInfo *ExecutionInfo) {
+	op.pbft.lock()
+	defer op.pbft.unlock()
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {
@@ -623,13 +626,13 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 				sieveID: dSet[0].ResultDigest,
 				peerIDs: peers,
 			}
-			op.pbft.lock()
 
 			logger.Debug("Sieve replica %d ASDF", op.id)
 
 			if execInfo.Checkpoint {
 				op.pbft.Checkpoint(seqNo, dSet[0].ResultDigest)
 			}
+			op.pbft.lock()
 		}
 	}
 }

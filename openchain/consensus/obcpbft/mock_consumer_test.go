@@ -27,7 +27,7 @@ import (
 )
 
 type consumerEndpoint struct {
-	testEndpoint
+	*testEndpoint
 	consumer     pbftConsumer
 	execTxResult func([]*pb.Transaction) ([]byte, error)
 }
@@ -45,9 +45,9 @@ func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
 }
 
 type completeStack struct {
-	consumerEndpoint
-	noopSecurity
-	MockLedger
+	*consumerEndpoint
+	*noopSecurity
+	*MockLedger
 }
 
 type pbftConsumer interface {
@@ -59,7 +59,7 @@ type pbftConsumer interface {
 }
 
 type consumerNetwork struct {
-	testnet
+	*testnet
 	mockLedgers []*MockLedger
 }
 
@@ -76,8 +76,8 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 
 	endpointFunc := func(id uint64, net *testnet) endpoint {
 		tep := makeTestEndpoint(id, net)
-		ce := consumerEndpoint{
-			testEndpoint: *tep,
+		ce := &consumerEndpoint{
+			testEndpoint: tep,
 		}
 
 		ml := NewMockLedger(&twl, nil)
@@ -86,8 +86,8 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 
 		cs := &completeStack{
 			consumerEndpoint: ce,
-			noopSecurity:     noopSecurity{},
-			MockLedger:       *ml,
+			noopSecurity:     &noopSecurity{},
+			MockLedger:       ml,
 		}
 
 		ce.consumer = makeConsumer(id, loadConfig(), cs)
@@ -95,12 +95,12 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 		ce.consumer.getPBFTCore().f = (N - 1) / 3
 
 		for _, fn := range initFNs {
-			fn(&ce)
+			fn(ce)
 		}
 
-		return &ce
+		return ce
 	}
 
-	twl.testnet = *makeTestnet(N, endpointFunc)
+	twl.testnet = makeTestnet(N, endpointFunc)
 	return &twl
 }

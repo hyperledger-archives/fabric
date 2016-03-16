@@ -252,6 +252,7 @@ func (instance *pbftCore) close() {
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) timerHander() {
 	for {
+		logger.Debug("Replica %d view timer waiting", instance.id)
 		select {
 		case <-instance.closed:
 			return
@@ -269,6 +270,7 @@ func (instance *pbftCore) timerHander() {
 				logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 				instance.sendViewChange()
 			}
+			logger.Debug("Replica %d done processing view timer", instance.id)
 			instance.unlock()
 		}
 	}
@@ -775,7 +777,9 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 			Checkpoint: idx.n%instance.K == 0, // Only checkpoint if this sequence number is a multiple of the checkpoint period
 		}
 
+		instance.unlock() // If this thread wants to call back into 'Checkpoint', then it will need to claim the lock again
 		instance.consumer.execute(idx.n, req.Payload, execInfo)
+		instance.lock()
 	}
 
 	if len(instance.outstandingReqs) > 0 {
@@ -868,16 +872,15 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 				instance.moveWatermarks(m)
 				instance.skipInProgress = true
 				instance.lastExec = m
+
+				// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
+
+				return true
 			}
-
-			// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
-
-			return true
 		}
 	}
 
 	return false
-
 }
 
 func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {

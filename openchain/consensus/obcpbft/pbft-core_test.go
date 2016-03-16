@@ -192,17 +192,20 @@ func (cc *checkpointConsumer) execute(seqNo uint64, tx []byte, execInfo *Executi
 
 func TestCheckpoint(t *testing.T) {
 	execWait := &sync.WaitGroup{}
+	finishWait := &sync.WaitGroup{}
 
 	validatorCount := 4
 	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
 		pe.pbft.K = 2
 		pe.pbft.L = 4
 		pe.sc.checkpointResult = func(seqNo uint64, id []byte) {
+			finishWait.Add(1)
 			go func() {
-				logger.Debug("TEST: possibly delaying checkpoint evaluation")
+				fmt.Println("TEST: possibly delaying checkpoint evaluation")
 				execWait.Wait()
-				logger.Debug("TEST: sending checkpoint")
+				fmt.Println("TEST: sending checkpoint")
 				pe.pbft.Checkpoint(seqNo, id)
+				finishWait.Done()
 			}()
 		}
 	})
@@ -224,6 +227,8 @@ func TestCheckpoint(t *testing.T) {
 	// execWait is 0, and execute will proceed
 	execReq(1)
 	execReq(2)
+	finishWait.Wait()
+	net.process()
 
 	for _, ep := range net.endpoints {
 		pep := ep.(*pbftEndpoint)
@@ -233,7 +238,7 @@ func TestCheckpoint(t *testing.T) {
 		}
 
 		if _, ok := pep.pbft.chkpts[2]; !ok {
-			t.Errorf("Expected checkpoint for seqNo 2, got %s", pep.pbft.chkpts)
+			t.Errorf("Expected checkpoint for seqNo 2")
 			continue
 		}
 
@@ -262,6 +267,9 @@ func TestCheckpoint(t *testing.T) {
 	execWait.Add(-1)
 
 	net.process()
+	finishWait.Wait() // Decoupling the execution thread makes this nastiness necessary
+	net.process()
+
 	// by now request 7 should have been confirmed and executed
 
 	for _, ep := range net.endpoints {
@@ -483,7 +491,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, ep := range net.endpoints {
-		if ep.(*pbftEndpoint).sc.executions <= 1 {
+		if ep.(*pbftEndpoint).sc.executions < 1 {
 			t.Errorf("Expected execution")
 			continue
 		}
@@ -581,8 +589,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		pep := ep.(*pbftEndpoint)
-		if pep.sc.executions != 5 {
-			t.Errorf("Replica %d expected execution for seqNo 5, got last execution was for of %d", pep.pbft.id, pep.sc.executions)
+		if pep.sc.executions != 4 {
+			t.Errorf("Replica %d expected execution through seqNo 5, with one null execution for seqNo 3, got %d executions", pep.pbft.id, pep.sc.executions)
 			continue
 		}
 	}
@@ -648,7 +656,6 @@ func TestNewViewTimeout(t *testing.T) {
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 3")
 
-	net.stop()
 	for i, ep := range net.endpoints {
 		pep := ep.(*pbftEndpoint)
 		if pep.pbft.view < 3 {
@@ -854,7 +861,7 @@ func TestPbftF0(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		pep := ep.(*pbftEndpoint)
-		if pep.sc.executions <= 1 {
+		if pep.sc.executions < 1 {
 			t.Errorf("Instance %d did not execute transaction", pep.id)
 			continue
 		}

@@ -300,7 +300,7 @@ func (instance *pbftCore) processNewView() error {
 	}
 
 	if instance.h < cp.SequenceNumber {
-		logger.Warning("Replica %d missing base checkpoint %d", instance.id, cp)
+		logger.Warning("Replica %d missing base checkpoint %d (%x)", instance.id, cp.SequenceNumber, cp.Id)
 		instance.moveWatermarks(cp.SequenceNumber)
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
@@ -311,6 +311,7 @@ func (instance *pbftCore) processNewView() error {
 		}
 
 		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
+		instance.lastExec = cp.SequenceNumber
 	}
 
 	for n, d := range nv.Xset {
