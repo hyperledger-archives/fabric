@@ -45,6 +45,7 @@ type Executor interface {
 type ExecutionInfo struct {
 	Checkpoint bool // Whether to reply with a checkpoint once this request commits
 	Validate   bool // Whether to validate the execution before committing
+	Null       bool // Whether this request should be empty or not
 }
 
 type syncTarget struct {
@@ -201,45 +202,38 @@ func (obcex *obcExecutor) drainExecutionQueue() {
 }
 
 // Sends the startup message to the Orderer
-func (obcex *obcExecutor) sendStartup() {
+func (obcex *obcExecutor) getCurrentID() ([]byte, error) {
 	logger.Debug("%v executor sending last checkpoint", obcex.id)
-	height, err := obcex.executorStack.GetBlockchainSize()
-	if nil != err {
-		// TODO maybe handle this better?
-		panic(fmt.Sprintf("Could not determine our blockchain size, this is irrecoverable", err))
-	}
+	height := obcex.getBlockchainSize()
 
 	if 0 == height {
-		// TODO maybe handle this better?
-		panic(fmt.Sprintf("There are no blocks in the blockchain, including the genesis block", err))
+		return nil, fmt.Errorf("There are no blocks in the blockchain, including the genesis block")
 	}
 
 	headBlock, err := obcex.executorStack.GetBlock(height - 1)
 	if nil != err {
-		// TODO maybe handle this better?
-		panic(fmt.Sprintf("Could not retrieve the latest block", err))
+		return nil, fmt.Errorf("Could not retrieve the latest block: %v", err)
 	}
 
-	blockHash, err := obcex.executorStack.HashBlock(headBlock)
-	if nil != err {
-		// TODO maybe handle this better?
-		panic(fmt.Sprintf("Could not hash the latest block", err))
-	}
+	blockHash := obcex.hashBlock(headBlock)
 
 	idAsBytes, err := createID(height-1, blockHash)
 	if nil != err {
-		// TODO maybe handle this better?
-		panic(fmt.Sprintf("Could not generate ID from head bock number and hash %v", err))
+		return nil, fmt.Errorf("Could not generate ID from head bock number and hash %v", err)
 	}
 
-	obcex.orderer.Startup(0, idAsBytes) // TODO, set the sequence number based on some external storage
+	return idAsBytes, err
 }
 
 // Loops until told to exit, waiting for and executing requests
 func (obcex *obcExecutor) queueThread() {
 	logger.Debug("%v executor thread starting", obcex.id)
 	defer close(obcex.threadIdle) // When the executor thread exits, cause the threadIdle response to always return
-	obcex.sendStartup()
+	idAsBytes, err := obcex.getCurrentID()
+	if nil != err {
+		panic(fmt.Sprintf("This is irrecoverable: %v", err))
+	}
+	obcex.orderer.Startup(0, idAsBytes) // TODO, set the sequence number based on some external storage
 
 	var transaction *transaction
 	idle := false
@@ -274,10 +268,17 @@ func (obcex *obcExecutor) queueThread() {
 			continue
 		}
 
-		if nil == transaction.txs {
+		if nil == transaction.execInfo && nil == transaction.txs {
 			logger.Info("%v executor queue apparently has a gap in it, initiating state transfer", obcex.id)
 			obcex.sync()
 			continue
+		} else if nil != transaction.execInfo && transaction.execInfo.Null && transaction.execInfo.Checkpoint {
+			idAsBytes, err := obcex.getCurrentID()
+			if nil != err {
+				logger.Critical("Requested to send a checkpoint for a Null request, but could not create one: %v", err)
+				continue
+			}
+			obcex.orderer.Checkpoint(transaction.seqNo, idAsBytes)
 		} else {
 			obcex.execute(transaction)
 		}

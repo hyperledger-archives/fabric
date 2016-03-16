@@ -111,14 +111,16 @@ func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 
 func (sc *simpleConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
 	sc.pbftNet.debugMsg("TEST: executing request\n")
-	sc.lastExecution = tx
-	sc.executions++
+	if !execInfo.Null {
+		sc.lastExecution = tx
+		sc.executions++
+	}
 	if execInfo.Checkpoint {
 		sc.pbftNet.debugMsg("TEST: checkpoint requested, calling back\n")
 		if nil != sc.checkpointResult {
-			sc.checkpointResult(seqNo, tx)
+			sc.checkpointResult(seqNo, sc.lastExecution)
 		} else {
-			sc.pe.pbft.Checkpoint(seqNo, tx)
+			sc.pe.pbft.Checkpoint(seqNo, sc.lastExecution)
 		}
 	}
 }

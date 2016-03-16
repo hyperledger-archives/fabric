@@ -604,7 +604,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 
 	if !sync {
 		if !shouldCommit {
-			logger.Error("Seive replica %d execute vset: not deterministic", op.id)
+			logger.Error("Sieve replica %d execute vset: not deterministic", op.id)
 			op.validResultChan <- &validResult{
 				commit: false,
 			}

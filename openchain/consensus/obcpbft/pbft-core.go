@@ -762,7 +762,16 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	if digest == "" {
 		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
-		// Note, that it is not possible for a null request to be a multiple of the checkpoint interval, so no checkpointing checking is needed in this path
+		// This is necessary in case the null request is on a checkpoint boundary
+		if idx.n%instance.K == 0 {
+			execInfo := &ExecutionInfo{
+				Checkpoint: true,
+				Null:       true,
+			}
+			instance.unlock()
+			instance.consumer.execute(idx.n, nil, execInfo)
+			instance.lock()
+		}
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)

@@ -20,6 +20,7 @@ under the License.
 package obcpbft
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -47,17 +48,46 @@ func newTestExecutor() (*obcExecutor, map[pb.PeerID]consensus.ReadOnlyLedger) {
 func TestExecutorIdle(t *testing.T) {
 	obcex, _ := newTestExecutor()
 	defer obcex.Stop()
-	done := make(chan struct{})
-	go func() {
-		<-obcex.IdleChan()
-		done <- struct{}{}
-	}()
+
 	select {
-	case <-done:
+	case <-obcex.IdleChan():
 	case <-time.After(time.Second):
 		t.Fatalf("Executor did not become idle within 1 second")
 	}
 
+}
+
+func TestExecutorNullRequest(t *testing.T) {
+	obcex, _ := newTestExecutor()
+	defer obcex.Stop()
+
+	var startSeqNo, endSeqNo uint64
+	var startID, endID []byte
+
+	obcex.orderer.(*omniProto).StartupImpl = func(seqNo uint64, id []byte) {
+		startSeqNo = seqNo
+		startID = id
+	}
+	obcex.orderer.(*omniProto).CheckpointImpl = func(seqNo uint64, id []byte) {
+		endSeqNo = seqNo
+		endID = id
+	}
+
+	obcex.Execute(1, nil, &ExecutionInfo{Null: true, Checkpoint: true})
+
+	select {
+	case <-obcex.IdleChan():
+	case <-time.After(time.Second):
+		t.Fatalf("Executor did not become idle within 1 second")
+	}
+
+	if startSeqNo+1 != endSeqNo {
+		t.Fatalf("Executor did not increment seqNo with Null request %d to %d", startSeqNo, endSeqNo)
+	}
+
+	if !bytes.Equal(startID, endID) {
+		t.Fatalf("Executor modified its ID despite only executing a Null request")
+	}
 }
 
 func TestExecutorSimpleStateTransfer(t *testing.T) {
