@@ -68,6 +68,22 @@ type restResult struct {
 	Error string `json:",omitempty"`
 }
 
+// rpcDeployPayload defines the JSON RPC 2.0 deploy payload for the /chaincode endpoint
+type rpcDeployPayload struct {
+	Jsonrpc string            `json:"jsonrpc,omitempty"`
+	Method  string            `json:"method,omitempty"`
+	Params  *pb.ChaincodeSpec `json:"params,omitempty"`
+	ID      int64             `json:"id,omitempty"`
+}
+
+// rpcInvokeQueryPayload defines the JSON RPC 2.0 invoke/query payload for the /chaincode endpoint
+type rpcInvokeQueryPayload struct {
+	Jsonrpc string                      `json:"jsonrpc,omitempty"`
+	Method  string                      `json:"method,omitempty"`
+	Params  *pb.ChaincodeInvocationSpec `json:"params,omitempty"`
+	ID      int64                       `json:"id,omitempty"`
+}
+
 // SetOpenchainServer is a middleware function that sets the pointer to the
 // underlying ServerOpenchain object and the undeflying Devops object.
 func (s *ServerOpenchainREST) SetOpenchainServer(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
@@ -1012,6 +1028,79 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	}
 }
 
+// ProcessChaincode implements JSON RPC 2.0 specification for chaincode deploy, invoke, and query.
+func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.Request) {
+	restLogger.Debug("\nXXX ADD Enter ProcessChaincode ADD XXX\n")
+
+	reqBody, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		restLogger.Debug("XXX ADD ERROR READING REQUEST BODY ADD XXX: %s", err)
+
+		return
+	}
+
+	// Must decode the incoming JSON payload as one of the following two structures
+	var deployPayload rpcDeployPayload
+	var invokequeryPayload rpcInvokeQueryPayload
+
+	// Attempt to decode request body as a deployment payload first
+	err = json.Unmarshal(reqBody, &deployPayload)
+	if err != nil {
+		restLogger.Debug("XXX ADD ERROR ON DECODE #1 ADD XXX: %s", err)
+
+		return
+	}
+
+	// Decoding succeded, but it may have omitted required fields
+	restLogger.Debug("XXX ADD OUTPUT ADD XXX:\n %+v\n", deployPayload)
+
+	// Insure that JSON RPC version string is present and is specified as 2.0
+	if deployPayload.Jsonrpc == "" {
+		restLogger.Debug("XXX ADD ERROR ADD XXX: Missing JSON RPC version string")
+
+		return
+	} else if deployPayload.Jsonrpc != "2.0" {
+		restLogger.Debug("XXX ADD ERROR ADD XXX: Invalid JSON RPC version string")
+
+		return
+	}
+
+	// Insure that the JSON method string is present and is either deploy, invoke or query
+	if deployPayload.Method == "" {
+		restLogger.Debug("XXX ADD ERROR ADD XXX: Missing RPC method string")
+
+		return
+	} else if (deployPayload.Method != "deploy") && (deployPayload.Method != "invoke") && (deployPayload.Method != "query") {
+		restLogger.Debug("XXX ADD ERROR ADD XXX: Invalid JSON RPC method string")
+
+		return
+	}
+
+	// Check that the method specified in the payload is actually deploy, if not decode again as an invoke/query payload
+	if deployPayload.Method == "deploy" {
+		// Chaincode deployment was requested and we have already decoded the payload, proceed
+
+		// result := processChaincodeDeploy(deployPayload.Params)
+	} else {
+		// Chaincode invocation/query was reqested, but we have incorrectly decoded as a deploy payload
+		// Decode once again as an invoke/query now
+		err = json.Unmarshal(reqBody, &invokequeryPayload)
+		if err != nil {
+			restLogger.Debug("XXX ADD ERROR ON DECODE #2 ADD XXX: %s", err)
+
+			return
+		}
+
+		restLogger.Debug("XXX ADD OUTPUT ADD XXX:\n %+v\n", invokequeryPayload)
+
+		// result := processChaincodeInvokeOrQuery(deployPayload.Params)
+	}
+
+	// Generate a JSON RPC 2.0 response Payload
+
+	return
+}
+
 // GetPeers returns a list of all peer nodes currently connected to the target peer.
 func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) {
 	peers, err := s.server.GetPeers(context.Background(), &google_protobuf.Empty{})
@@ -1063,9 +1152,13 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
+	// The /devops endpoint is deprecated and superceeded by the /chaincode endpoint
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
+
+	// The /chaincode endpoint which superceedes the /devops endpoint from above
+	router.Post("/chaincode", (*ServerOpenchainREST).ProcessChaincode)
 
 	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
 
