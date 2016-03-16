@@ -30,6 +30,7 @@ import (
 )
 
 type Orderer interface {
+	Startup(seqNo uint64, id []byte)
 	Checkpoint(seqNo uint64, id []byte)
 	Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) // Replies with true,nil,_ if valid, true,nil,_ if transfer required, and false,_,_ to rollback
 }
@@ -199,11 +200,46 @@ func (obcex *obcExecutor) drainExecutionQueue() {
 	} // Discard all outstanding requests
 }
 
+// Sends the startup message to the Orderer
+func (obcex *obcExecutor) sendStartup() {
+	logger.Debug("%v executor sending last checkpoint", obcex.id)
+	height, err := obcex.executorStack.GetBlockchainSize()
+	if nil != err {
+		// TODO maybe handle this better?
+		panic(fmt.Sprintf("Could not determine our blockchain size, this is irrecoverable", err))
+	}
+
+	if 0 == height {
+		// TODO maybe handle this better?
+		panic(fmt.Sprintf("There are no blocks in the blockchain, including the genesis block", err))
+	}
+
+	headBlock, err := obcex.executorStack.GetBlock(height - 1)
+	if nil != err {
+		// TODO maybe handle this better?
+		panic(fmt.Sprintf("Could not retrieve the latest block", err))
+	}
+
+	blockHash, err := obcex.executorStack.HashBlock(headBlock)
+	if nil != err {
+		// TODO maybe handle this better?
+		panic(fmt.Sprintf("Could not hash the latest block", err))
+	}
+
+	idAsBytes, err := createID(height-1, blockHash)
+	if nil != err {
+		// TODO maybe handle this better?
+		panic(fmt.Sprintf("Could not generate ID from head bock number and hash %v", err))
+	}
+
+	obcex.orderer.Startup(0, idAsBytes) // TODO, set the sequence number based on some external storage
+}
+
 // Loops until told to exit, waiting for and executing requests
 func (obcex *obcExecutor) queueThread() {
 	logger.Debug("%v executor thread starting", obcex.id)
-
 	defer close(obcex.threadIdle) // When the executor thread exits, cause the threadIdle response to always return
+	obcex.sendStartup()
 
 	var transaction *transaction
 	idle := false

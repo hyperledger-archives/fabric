@@ -75,7 +75,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 			t.Fatalf("Expected to ignore malicious pre-prepare")
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -127,7 +127,7 @@ func TestIncompletePayload(t *testing.T) {
 			return nil
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -714,7 +714,7 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -739,7 +739,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 // From issue #687
 func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4

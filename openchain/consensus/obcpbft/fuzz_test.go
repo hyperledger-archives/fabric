@@ -61,10 +61,10 @@ func TestFuzz(t *testing.T) {
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
 	mock := newFuzzMock()
-	primary := newPbftCore(0, loadConfig(), mock)
+	primary := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
 	defer primary.close()
 	mock = newFuzzMock()
-	backup := newPbftCore(1, loadConfig(), mock)
+	backup := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	defer backup.close()
 
 	f := fuzz.New()

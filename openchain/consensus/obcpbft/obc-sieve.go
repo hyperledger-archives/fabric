@@ -36,6 +36,8 @@ type obcSieve struct {
 	stack consensus.Stack
 	pbft  *pbftCore
 
+	startup chan []byte
+
 	id            uint64
 	epoch         uint64
 	imminentEpoch uint64
@@ -62,11 +64,22 @@ type validResult struct {
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{stack: stack, id: id}
 	op.queuedExec = make(map[uint64]*Execute)
-	op.pbft = newPbftCore(id, config, op)
 	op.validResultChan = make(chan *validResult)
+	op.startup = make(chan []byte)
+
 	op.executor = NewOBCExecutor(config, op, stack)
 
+	logger.Debug("Replica %d obtaining startup information", id)
+	startupInfo := <-op.startup
+	close(op.startup)
+
+	op.pbft = newPbftCore(id, config, op, startupInfo)
+
 	return op
+}
+
+func (op *obcSieve) Startup(seqNo uint64, id []byte) {
+	op.startup <- id
 }
 
 // moreCorrectThanByzantineQuorum returns the number of replicas that
@@ -80,10 +93,8 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
-	logger.Debug("QWER Sieve replica %d receiving message", op.id)
 	op.pbft.lock()
 	defer op.pbft.unlock()
-	logger.Debug("QWER Sieve replica %d processing message", op.id)
 
 	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
@@ -109,33 +120,24 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		return err
 	}
 	if req := svMsg.GetRequest(); req != nil {
-		//logger.Debug("QWER Sieve replica %d received request request", op.id)
 		op.recvRequest(req)
-		//logger.Debug("QWER Sieve replica %d finished request request", op.id)
 	} else if exec := svMsg.GetExecute(); exec != nil {
-		//logger.Debug("QWER Sieve replica %d received execute request", op.id)
 		if senderID != exec.ReplicaId {
 			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
 			return nil
 		}
 		op.recvExecute(exec)
-		//logger.Debug("QWER Sieve replica %d finished execute request", op.id)
 	} else if verify := svMsg.GetVerify(); verify != nil {
 		// check for senderID not needed since verify messages are signed and will be verified
-		//logger.Debug("QWER Sieve replica %d received verify request", op.id)
 		op.recvVerify(verify)
-		//logger.Debug("QWER Sieve replica %d finished verify request", op.id)
 	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
-		//logger.Debug("QWER Sieve replica %d received pbft request, releasing lock", op.id)
 		op.pbft.unlock()
 		op.pbft.receive(pbftMsg, senderID)
-		//logger.Debug("QWER Sieve replica %d finished pbft request, acquiring lock", op.id)
 		op.pbft.lock()
 	} else {
 		err = fmt.Errorf("Received invalid sieve message: %v", svMsg)
 		logger.Error(err.Error())
 	}
-	//logger.Debug("QWER Sieve replica %d exiting message processing", op.id)
 	return nil
 }
 
@@ -147,7 +149,6 @@ func (op *obcSieve) Close() {
 // called by pbft-core to multicast a message to all replicas
 func (op *obcSieve) broadcast(msgPayload []byte) {
 	svMsg := &SieveMessage{&SieveMessage_PbftMessage{msgPayload}}
-	//logger.Debug("QWER: Sieve replica %d received request, resending with payload %p via innerStack", op.id, svMsg.Payload)
 	op.broadcastMsg(svMsg)
 }
 
@@ -203,7 +204,6 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 		Payload: msgPayload,
 	}
 	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
-	//logger.Debug("QWER: Sieve replica %d successfully queued a request with from payload %p to payload %p for broadcast", op.id, svMsg.Payload, msgPayload)
 }
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
@@ -626,8 +626,6 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 				sieveID: dSet[0].ResultDigest,
 				peerIDs: peers,
 			}
-
-			logger.Debug("Sieve replica %d ASDF", op.id)
 
 			if execInfo.Checkpoint {
 				op.pbft.Checkpoint(seqNo, dSet[0].ResultDigest)

@@ -34,6 +34,8 @@ type obcBatch struct {
 	stack consensus.Stack
 	pbft  *pbftCore
 
+	startup chan []byte
+
 	batchSize        int
 	batchStore       [][]byte
 	batchTimer       *time.Timer
@@ -47,10 +49,15 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	var err error
 
 	op := &obcBatch{stack: stack}
+	op.startup = make(chan []byte)
 
 	op.executor = NewOBCExecutor(config, op, stack)
 
-	op.pbft = newPbftCore(id, config, op)
+	logger.Debug("Replica %d obtaining startup information", id)
+	startupInfo := <-op.startup
+	close(op.startup)
+
+	op.pbft = newPbftCore(id, config, op, startupInfo)
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
@@ -63,6 +70,10 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.batchTimer.Stop()
 	go op.batchTimerHander()
 	return op
+}
+
+func (op *obcBatch) Startup(seqNo uint64, id []byte) {
+	op.startup <- id
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from

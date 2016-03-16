@@ -92,7 +92,7 @@ func TestSieveNoDecision(t *testing.T) {
 		ce.consumer.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
 		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
 	})
-	net.debug = true
+	// net.debug = true // Enable for debug
 	net.testnet.filterFn = func(src int, dst int, raw []byte) []byte {
 		if dst == -1 && src == 0 {
 			sieve := &SieveMessage{}

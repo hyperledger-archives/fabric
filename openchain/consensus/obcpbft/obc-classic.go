@@ -33,16 +33,29 @@ type obcClassic struct {
 	stack consensus.Stack
 	pbft  *pbftCore
 
+	startup chan []byte
+
 	executor Executor
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{stack: stack}
 
-	op.pbft = newPbftCore(id, config, op)
+	op.startup = make(chan []byte)
+
 	op.executor = NewOBCExecutor(config, op, stack)
 
+	logger.Debug("Replica %d obtaining startup information", id)
+	startupInfo := <-op.startup
+	close(op.startup)
+
+	op.pbft = newPbftCore(id, config, op, startupInfo)
+
 	return op
+}
+
+func (op *obcClassic) Startup(seqNo uint64, id []byte) {
+	op.startup <- id
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from

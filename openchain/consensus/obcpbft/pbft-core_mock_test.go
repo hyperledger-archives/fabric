@@ -135,7 +135,7 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 			pe: pe,
 		}
 
-		pe.pbft = newPbftCore(id, loadConfig(), pe.sc)
+		pe.pbft = newPbftCore(id, loadConfig(), pe.sc, []byte("GENESIS"))
 		pe.pbft.N = N
 		pe.pbft.f = (N - 1) / 3
 

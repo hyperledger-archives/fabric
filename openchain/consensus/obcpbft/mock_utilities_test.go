@@ -109,6 +109,7 @@ type omniProto struct {
 
 	// Orderer methods
 	CheckpointImpl func(seqNo uint64, id []byte)
+	StartupImpl    func(seqNo uint64, id []byte)
 	ValidateImpl   func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
 }
 
@@ -378,6 +379,16 @@ func (op *omniProto) idleChan() <-chan struct{} {
 func (op *omniProto) Checkpoint(seqNo uint64, id []byte) {
 	if nil != op.CheckpointImpl {
 		op.CheckpointImpl(seqNo, id)
+		return
+	}
+
+	panic("Unimplemented")
+
+}
+
+func (op *omniProto) Startup(seqNo uint64, id []byte) {
+	if nil != op.StartupImpl {
+		op.StartupImpl(seqNo, id)
 		return
 	}
 

@@ -153,7 +153,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID []byte) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -207,8 +207,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
-	// TODO, get this from Executor
-	instance.chkpts[0] = "ASDF"
+	instance.chkpts[0] = base64.StdEncoding.EncodeToString(startupID)
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)

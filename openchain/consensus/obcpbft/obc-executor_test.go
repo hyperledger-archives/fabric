@@ -39,7 +39,9 @@ func newTestExecutor() (*obcExecutor, map[pb.PeerID]consensus.ReadOnlyLedger) {
 
 	ps := newPartialStack(ml, mrls)
 
-	return NewOBCExecutor(loadConfig(), &omniProto{}, ps), mrls.remoteLedgers
+	return NewOBCExecutor(loadConfig(), &omniProto{
+		StartupImpl: func(uint64, []byte) {},
+	}, ps), mrls.remoteLedgers
 }
 
 func TestExecutorIdle(t *testing.T) {
