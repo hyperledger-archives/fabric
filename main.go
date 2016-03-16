@@ -64,7 +64,7 @@ const undefinedParamValue = ""
 // The main command describes the service and
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
-	Use: cmdRoot,
+	Use: "obc-peer",
 }
 
 var peerCmd = &cobra.Command{
@@ -611,6 +611,9 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 				return
 			}
 		}
+	} else {
+		err = fmt.Errorf("Empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
+		return
 	}
 
 	return

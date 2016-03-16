@@ -1,0 +1,74 @@
+# Openblockchain Continuous Integration Config file
+# Go langugage
+language: go
+sudo: required
+dist: trusty
+#white list
+branches:
+ only:
+ - master
+ #- workbranch
+services:
+ - docker
+go:
+ - 1.6
+ #- 1.5.2
+env:
+ - GO15VENDOREXPERIMENT=1
+before_install:
+ - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+ - export GIT_USER="$TRAVIS_REPO_SLUG"
+ - USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)"
+ - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
+ - echo "Printing Docker0 Interface $ip"
+ - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
+ - echo "Docker Deamon Port Number $port"
+ - sudo stop docker
+ - sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock &
+ - echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
+ - chmod +x tempsh.sh
+ - sudo ./tempsh.sh
+ - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ - sudo apt-get -qq update
+ - sudo apt-get -qq install g++-4.8
+ - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+install:
+ - sudo pip install --upgrade pip
+ - sudo pip install behave
+ - sudo apt-get install build-essential -y
+ - cd /opt  && sudo git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb && sudo make shared_lib
+ - sudo cp /opt/rocksdb/*.so* /usr/lib/
+ - export LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
+ - sudo apt-get update && sudo apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
+ - export CGO_CFLAGS="-I/opt/rocksdb/include"
+ - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
+before_script:
+ - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
+ - chmod +x foldercopy.sh
+ - ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
+ - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
+ - go build
+ - sudo rm -rf /var/openchain/
+ - sudo mkdir /var/openchain/
+ - sudo chown $USER:$USER /var/openchain
+ - echo "Successfully Executed installation process.   Moving ahead....."
+script:
+ - ./obc-peer peer &
+ - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor) > build-result.txt
+ - chmod +x deploy.sh
+ - sudo ./deploy.sh
+ - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
+ - cd $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/
+ - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
+ #- behave -n  "chaincode example 02 single peer"
+ - behave
+ - docker images | grep "openchain-peer\|obcca"
+ # notification send to email/slack
+notifications:
+ email:
+  recipients:
+ # - one@test.com
+ on_success: always
+ on_failure: always
+ # Add your Slack token below
+ #slack: 'openchain:5YSkRUyUTke93O6YkvXjagjg'

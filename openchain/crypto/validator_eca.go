@@ -35,28 +35,27 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 
 	sid := utils.EncodeBase64(id)
 
-	validator.peer.node.debug("Getting enrollment certificate for [%s]", sid)
+	validator.debug("Getting enrollment certificate for [%s]", sid)
 
 	if cert := validator.enrollCerts[sid]; cert != nil {
-		validator.peer.node.debug("Enrollment certificate for [%s] already in memory.", sid)
-
+		validator.debug("Enrollment certificate for [%s] already in memory.", sid)
 		return cert, nil
 	}
 
 	// Retrieve from the DB or from the ECA in case
-	validator.peer.node.debug("Retrieve Enrollment certificate for [%s]...", sid)
-	rawCert, err := validator.peer.node.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
+	validator.debug("Retrieve Enrollment certificate for [%s]...", sid)
+	rawCert, err := validator.ks.GetSignEnrollmentCert(id, validator.getEnrollmentCertByHashFromECA)
 	if err != nil {
-		validator.peer.node.error("Failed getting enrollment certificate for [%s]: [%s]", sid, err)
+		validator.error("Failed getting enrollment certificate for [%s]: [%s]", sid, err)
 
 		return nil, err
 	}
 
-	validator.peer.node.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
+	validator.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
 
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
-		validator.peer.node.error("Failed parsing enrollment certificate for [%s]: [%s],[% x]", sid, rawCert, err)
+		validator.error("Failed parsing enrollment certificate for [%s]: [% x],[% x]", sid, rawCert, err)
 
 		return nil, err
 	}
@@ -68,22 +67,22 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 
 func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte, error) {
 	// Prepare the request
-	validator.peer.node.debug("Reading certificate for hash [% x]", id)
+	validator.debug("Reading certificate for hash [% x]", id)
 
 	req := &obcca.Hash{Hash: id}
-	responce, err := validator.peer.node.callECAReadCertificateByHash(context.Background(), req)
+	responce, err := validator.callECAReadCertificateByHash(context.Background(), req)
 	if err != nil {
-		validator.peer.node.error("Failed requesting enrollment certificate [%s].", err.Error())
+		validator.error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, nil, err
 	}
 
-	validator.peer.node.debug("Certificate for hash [% x] = [% x][% x]", id, responce.Sign, responce.Enc)
+	validator.debug("Certificate for hash [% x] = [% x][% x]", id, responce.Sign, responce.Enc)
 
 	// Verify responce.Sign
 	x509Cert, err := utils.DERToX509Certificate(responce.Sign)
 	if err != nil {
-		validator.peer.node.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
+		validator.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
 		return nil, nil, err
 	}
@@ -91,20 +90,20 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 	// Check role
 	roleRaw, err := utils.GetCriticalExtension(x509Cert, ECertSubjectRole)
 	if err != nil {
-		validator.peer.node.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+		validator.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
 		return nil, nil, err
 	}
 
 	role, err := strconv.ParseInt(string(roleRaw), 10, len(roleRaw)*8)
 	if err != nil {
-		validator.peer.node.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
+		validator.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
 		return nil, nil, err
 	}
 
 	if obcca.Role(role) != obcca.Role_VALIDATOR {
-		validator.peer.node.error("Invalid ECertSubjectRole in enrollment certificate for signing. Not a validator: [%s]", err)
+		validator.error("Invalid ECertSubjectRole in enrollment certificate for signing. Not a validator: [%s]", err)
 
 		return nil, nil, err
 	}

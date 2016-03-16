@@ -53,7 +53,7 @@ func New(stack consensus.Stack) consensus.Consenter {
 	handle, _, _ := stack.GetNetworkHandles()
 	id, _ := getValidatorID(handle)
 
-	switch config.GetString("general.mode") {
+	switch strings.ToLower(config.GetString("general.mode")) {
 	case "classic":
 		return newObcClassic(id, config, stack)
 	case "batch":

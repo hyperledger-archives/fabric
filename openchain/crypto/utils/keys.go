@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 )
 
 // PrivateKeyToDER marshals a private key to der
@@ -54,7 +55,7 @@ func PrivateKeyToPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
 			},
 		), nil
 	default:
-		return nil, nil
+		return nil, ErrInvalidKey
 	}
 }
 
@@ -82,26 +83,31 @@ func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error
 		return pem.EncodeToMemory(block), nil
 
 	default:
-		return nil, nil
+		return nil, ErrInvalidKey
 	}
 }
 
 // DERToPrivateKey unmarshals a der to private key
-func DERToPrivateKey(der []byte) (interface{}, error) {
-	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
+func DERToPrivateKey(der []byte) (key interface{}, err error) {
+	//fmt.Printf("DER [%s]\n", EncodeBase64(der))
+
+	if key, err = x509.ParsePKCS1PrivateKey(der); err == nil {
 		return key, nil
 	}
-	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
-		switch key := key.(type) {
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
+	if key, err = x509.ParsePKCS8PrivateKey(der); err == nil {
+		switch key.(type) {
 		case *rsa.PrivateKey, *ecdsa.PrivateKey:
-			return key, nil
+			return
 		default:
 			return nil, errors.New("Found unknown private key type in PKCS#8 wrapping")
 		}
 	}
-	if key, err := x509.ParseECPrivateKey(der); err == nil {
-		return key, nil
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
+	if key, err = x509.ParseECPrivateKey(der); err == nil {
+		return
 	}
+	//fmt.Printf("DERToPrivateKey Err [%s]\n", err)
 
 	return nil, errors.New("Failed to parse private key")
 }
@@ -109,6 +115,8 @@ func DERToPrivateKey(der []byte) (interface{}, error) {
 // PEMtoPrivateKey unmarshals a pem to private key
 func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 	block, _ := pem.Decode(raw)
+
+	// TODO: derive from header the type of the key
 
 	if x509.IsEncryptedPEMBlock(block) {
 		if pwd == nil {
@@ -191,16 +199,91 @@ func DERToPublicKey(derBytes []byte) (pub interface{}, err error) {
 */
 
 // PublicKeyToPEM marshals a public key to the pem forma
-func PublicKeyToPEM(algo string, publicKey interface{}) ([]byte, error) {
-	PubASN1, err := x509.MarshalPKIXPublicKey(publicKey)
+func PublicKeyToPEM(publicKey interface{}, pwd []byte) ([]byte, error) {
+	if len(pwd) != 0 {
+		return PublicKeyToEncryptedPEM(publicKey, pwd)
+	}
+
+	switch x := publicKey.(type) {
+	case *ecdsa.PublicKey:
+		PubASN1, err := x509.MarshalPKIXPublicKey(x)
+		if err != nil {
+			return nil, err
+		}
+
+		return pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "ECDSA PUBLIC KEY",
+				Bytes: PubASN1,
+			},
+		), nil
+
+	default:
+		return nil, ErrInvalidKey
+	}
+}
+
+// PublicKeyToEncryptedPEM converts a public key to encrypted pem
+func PublicKeyToEncryptedPEM(publicKey interface{}, pwd []byte) ([]byte, error) {
+	switch x := publicKey.(type) {
+	case *ecdsa.PublicKey:
+		raw, err := x509.MarshalPKIXPublicKey(x)
+
+		if err != nil {
+			return nil, err
+		}
+
+		block, err := x509.EncryptPEMBlock(
+			rand.Reader,
+			"ECDSA PUBLIC KEY",
+			raw,
+			pwd,
+			x509.PEMCipherAES256)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return pem.EncodeToMemory(block), nil
+
+	default:
+		return nil, ErrInvalidKey
+	}
+}
+
+// PEMtoPublicKey unmarshals a pem to public key
+func PEMtoPublicKey(raw []byte, pwd []byte) (interface{}, error) {
+	block, _ := pem.Decode(raw)
+	fmt.Printf("block % x\n", raw)
+	// TODO: derive from header the type of the key
+
+	if x509.IsEncryptedPEMBlock(block) {
+		if pwd == nil {
+			return nil, errors.New("Encrypted Key. Need a password!!!")
+		}
+
+		decrypted, err := x509.DecryptPEMBlock(block, pwd)
+		if err != nil {
+			return nil, errors.New("Failed decryption!!!")
+		}
+
+		key, err := DERToPublicKey(decrypted)
+		if err != nil {
+			return nil, err
+		}
+		return key, err
+	}
+
+	cert, err := DERToPublicKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
+	return cert, err
+}
 
-	return pem.EncodeToMemory(
-		&pem.Block{
-			Type:  algo + " PUBLIC KEY",
-			Bytes: PubASN1,
-		},
-	), nil
+// DERToPublicKey unmarshals a der to public key
+func DERToPublicKey(derBytes []byte) (pub interface{}, err error) {
+	key, err := x509.ParsePKIXPublicKey(derBytes)
+
+	return key, err
 }

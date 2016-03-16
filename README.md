@@ -77,6 +77,10 @@ OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup net
 cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
 behave
 ```
+Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
+```
+behave -D logs=Y
+```
 
 Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
 ```

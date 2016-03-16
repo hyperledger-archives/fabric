@@ -5,7 +5,6 @@
 ###############################################################################
 server:
         version: "0.1"
-        rootpath: ".obc-ca"
         port: ":50541"
 
 
@@ -67,11 +66,10 @@ peer:
         tls:
             enabled: true
             rootcert:
-                file: ./.obc-ca/tlsca.cert
+
             # The server name use to verify the hostname returned by TLS handshake
             server-host-override:
 
-    fileSystemPath: .obc-peer
     validator:
         enabled: false
         validity-period:

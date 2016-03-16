@@ -21,21 +21,13 @@ package crypto
 
 import (
 	"errors"
-	"fmt"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"path/filepath"
 )
 
-const (
-	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
-)
-
-func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
-	/*
-		// Set logger
-		node.log = logging.MustGetLogger("crypto." + prefix + "." + name)
-	*/
+func (node *nodeImpl) initConfiguration(name string) (err error) {
+	// Set logger
+	prefix := eTypeToString(node.eType)
 
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
@@ -43,20 +35,8 @@ func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 		return
 	}
 
-	/*
-		// Set logger level
-		level, err := logging.LogLevel(viper.GetString("logging.crypto"))
-		if err == nil {
-			// No error, use the setting
-			logging.SetLevel(level, "crypto."+prefix+"."+name)
-			logging.SetLevel(level, "crypto")
-			node.info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
-				logging.GetLevel("crypto"))
-		} else {
-			node.warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"), logging.GetLevel("crypto"), err)
-			logging.SetLevel(logging.GetLevel("crypto"), "crypto."+prefix+"."+name)
-		}
-	*/
+	node.debug("Data will be stored at [%s]", node.conf.configurationPath)
+
 	return
 }
 
@@ -66,6 +46,7 @@ type configuration struct {
 
 	logPrefix string
 
+	rootDataPath      string
 	configurationPath string
 	keystorePath      string
 	rawsPath          string
@@ -105,9 +86,12 @@ func (conf *configuration) init() error {
 		return err
 	}
 
+	conf.configurationPath = viper.GetString(conf.configurationPathProperty)
+	conf.rootDataPath = conf.configurationPath
+
 	// Set configuration path
 	conf.configurationPath = filepath.Join(
-		viper.GetString(conf.configurationPathProperty),
+		conf.configurationPath,
 		"crypto", conf.prefix, conf.name,
 	)
 
@@ -126,10 +110,6 @@ func (conf *configuration) init() error {
 		if ovveride != 0 {
 			conf.securityLevel = ovveride
 		}
-	}
-
-	if err := utils.InitSecurityLevel(conf.securityLevel); err != nil {
-		return fmt.Errorf("Invalid security level [%d]", conf.securityLevel)
 	}
 
 	// Set TLS host override
@@ -191,6 +171,10 @@ func (conf *configuration) getKeyStorePath() string {
 	return conf.keystorePath
 }
 
+func (conf *configuration) getRootDatastorePath() string {
+	return conf.rootDataPath
+}
+
 func (conf *configuration) getRawsPath() string {
 	return conf.rawsPath
 }
@@ -205,6 +189,10 @@ func (conf *configuration) getKeyStoreFilePath() string {
 
 func (conf *configuration) getPathForAlias(alias string) string {
 	return filepath.Join(conf.getRawsPath(), alias)
+}
+
+func (conf *configuration) getQueryStateKeyFilename() string {
+	return "query.key"
 }
 
 func (conf *configuration) getEnrollmentKeyFilename() string {
@@ -232,7 +220,7 @@ func (conf *configuration) getECACertsChainFilename() string {
 }
 
 func (conf *configuration) getTLSCACertsChainFilename() string {
-	return TLSCA_CERT_CHAIN
+	return "tlsca.cert.chain"
 }
 
 func (conf *configuration) getTLSCACertsExternalPath() string {

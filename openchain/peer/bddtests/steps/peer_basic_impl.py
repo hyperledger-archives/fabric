@@ -28,7 +28,7 @@ class ContainerData:
         return envValue
 
 def parseComposeOutput(context):
-    """Parses the compose output results and set appropriate values into context"""
+    """Parses the compose output results and set appropriate values into context.  Merges existing with newly composed."""
     # Use the prefix to get the container name
     containerNamePrefix = os.path.basename(os.getcwd()) + "_"
     containerNames = []
@@ -58,7 +58,14 @@ def parseComposeOutput(context):
         print("dockerComposeService = {0}".format(dockerComposeService))
         print("container {0} has env = {1}".format(containerName, env))
         containerDataList.append(ContainerData(containerName, ipAddress, env, dockerComposeService))
-        setattr(context, "compose_containers", containerDataList)
+    # Now merge the new containerData info with existing
+    newContainerDataList = []
+    if "compose_containers" in context:
+        # Need to merge I new list
+        newContainerDataList = context.compose_containers
+    newContainerDataList = newContainerDataList + containerDataList
+
+    setattr(context, "compose_containers", newContainerDataList)
     print("")
 
 def ipFromContainerNamePart(namePart, containerDataList):
@@ -167,12 +174,12 @@ def step_impl(context):
 def step_impl(context, chaincodeName, functionName, containerName, times):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     for i in range(int(times)):
-        invokeChaincode(context, functionName, containerName)
+        invokeChaincode(context, "invoke", functionName, containerName)
 
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    invokeChaincode(context, functionName, containerName)
+    invokeChaincode(context, "invoke", functionName, containerName)
 
 @then(u'I should have received a transactionID')
 def step_impl(context):
@@ -182,9 +189,9 @@ def step_impl(context):
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
-    invokeChaincode(context, "query", containerName)
+    invokeChaincode(context, "query", functionName, containerName)
 
-def invokeChaincode(context, functionName, containerName):
+def invokeChaincode(context, devopsFunc, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     # Update hte chaincodeSpec ctorMsg for invoke
     args = []
@@ -198,7 +205,7 @@ def invokeChaincode(context, functionName, containerName):
         "chaincodeSpec" : context.chaincodeSpec
     }
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/devops/{0}".format(functionName))
+    request_url = buildUrl(ipAddress, "/devops/{0}".format(devopsFunc))
     print("POSTing path = {0}".format(request_url))
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
@@ -386,7 +393,7 @@ def step_impl(context, chaincodeName, functionName, value):
         print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("OPENCHAIN_SECURITY_ENROLLID")))
         request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
         print("POSTing path = {0}".format(request_url))
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=3)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))
@@ -462,7 +469,7 @@ def step_impl(context):
 
         ipAddress = ipFromContainerNamePart(peer, context.compose_containers)
         request_url = buildUrl(ipAddress, "/registrar")
-        print("POSTing path = {0}".format(request_url))
+        print("POSTing to service = {0}, path = {1}".format(peer, request_url))
 
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg))
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -476,13 +483,17 @@ def step_impl(context):
 def step_impl(context):
     assert 'table' in context, "table (of peers) not found in context"
     assert 'compose_yaml' in context, "compose_yaml not found in context"
+    assert 'compose_containers' in context, "compose_containers not found in context"
 
     services =  context.table.headings
-    # Loop through services and stop them
+    # Loop through services and stop them, and remove from the container data list if stopped successfully.
     for service in services:
        context.compose_output, context.compose_error, context.compose_returncode = \
            bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "stop", service], expect_success=True)
        assert context.compose_returncode == 0, "docker-compose failed to stop {0}".format(service)
+       #remove from the containerDataList
+       context.compose_containers = [containerData for  containerData in context.compose_containers if containerData.composeService != service]
+    print("After stopping, the container serive list is = {0}".format([containerData.composeService for  containerData in context.compose_containers]))
 
 @given(u'I start peers')
 def step_impl(context):
@@ -495,3 +506,5 @@ def step_impl(context):
        context.compose_output, context.compose_error, context.compose_returncode = \
            bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "start", service], expect_success=True)
        assert context.compose_returncode == 0, "docker-compose failed to start {0}".format(service)
+       parseComposeOutput(context)
+    print("After starting peers, the container service list is = {0}".format([containerData.composeService + ":" + containerData.ipAddress for  containerData in context.compose_containers]))

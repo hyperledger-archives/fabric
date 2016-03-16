@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/asn1"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"math/big"
 )
 
@@ -33,7 +34,7 @@ type ECDSASignature struct {
 
 // NewECDSAKey generates a new ECDSA Key
 func NewECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(defaultCurve, rand.Reader)
+	return ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
 }
 
 // ECDSASignDirect signs

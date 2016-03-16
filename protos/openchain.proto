@@ -43,10 +43,12 @@ message Transaction {
     google.protobuf.Timestamp timestamp = 6;
 
     ConfidentialityLevel confidentialityLevel = 7;
-    bytes nonce = 8;
+    string confidentialityProtocolVersion = 8;
+    bytes nonce = 9;
 
-    bytes cert = 9;
-    bytes signature = 10;
+    bytes toValidators = 10;
+    bytes cert = 11;
+    bytes signature = 12;
 }
 
 // TransactionBlock carries a batch of transactions.

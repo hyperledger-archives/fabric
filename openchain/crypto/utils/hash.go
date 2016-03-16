@@ -21,20 +21,13 @@ package utils
 
 import (
 	"crypto/hmac"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"hash"
 )
 
-var (
-	defaultHash func() hash.Hash
-)
-
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
-}
-
 // NewHash returns a new hash function
 func NewHash() hash.Hash {
-	return defaultHash()
+	return conf.GetDefaultHash()()
 }
 
 // Hash hashes the msh using the predefined hash function
@@ -46,7 +39,7 @@ func Hash(msg []byte) []byte {
 
 // HMAC hmacs x using key key
 func HMAC(key, x []byte) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
+	mac := hmac.New(conf.GetDefaultHash(), key)
 	mac.Write(x)
 
 	return mac.Sum(nil)
@@ -54,7 +47,7 @@ func HMAC(key, x []byte) []byte {
 
 // HMACTruncated hmacs x using key key and truncate to truncation
 func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(GetDefaultHash(), key)
+	mac := hmac.New(conf.GetDefaultHash(), key)
 	mac.Write(x)
 
 	return mac.Sum(nil)[:truncation]

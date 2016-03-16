@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/spf13/viper"
 )
 
@@ -10,6 +10,8 @@ var (
 	log = logging.MustGetLogger("crypto")
 )
 
+// Init initializes the crypto layer. It load from viper the security level
+// and the logging setting.
 func Init() (err error) {
 	// Init log
 	log.ExtraCalldepth++
@@ -35,7 +37,7 @@ func Init() (err error) {
 		}
 	}
 	log.Debug("Working at security level [%d]", securityLevel)
-	if err = utils.InitSecurityLevel(securityLevel); err != nil {
+	if err = conf.InitSecurityLevel(securityLevel); err != nil {
 		log.Debug("Failed setting security level: [%s]", err)
 
 		return

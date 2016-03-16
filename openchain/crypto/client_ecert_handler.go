@@ -24,17 +24,17 @@ func (handler *eCertHandlerImpl) init(client *clientImpl) error {
 
 // GetCertificate returns the TCert DER
 func (handler *eCertHandlerImpl) GetCertificate() []byte {
-	return utils.Clone(handler.client.node.enrollCert.Raw)
+	return utils.Clone(handler.client.enrollCert.Raw)
 }
 
 // Sign signs msg using the signing key corresponding to this TCert
 func (handler *eCertHandlerImpl) Sign(msg []byte) ([]byte, error) {
-	return handler.client.node.signWithEnrollmentKey(msg)
+	return handler.client.signWithEnrollmentKey(msg)
 }
 
 // Verify verifies msg using the verifying key corresponding to this TCert
 func (handler *eCertHandlerImpl) Verify(signature []byte, msg []byte) error {
-	ok, err := handler.client.node.verifyWithEnrollmentCert(msg, signature)
+	ok, err := handler.client.verifyWithEnrollmentCert(msg, signature)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 	txHandler := &eCertTransactionHandlerImpl{}
 	err := txHandler.init(handler.client)
 	if err != nil {
-		handler.client.node.error("Failed getting transaction handler [%s]", err)
+		handler.client.error("Failed getting transaction handler [%s]", err)
 
 		return nil, err
 	}
@@ -60,14 +60,14 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 	nonce, err := client.createTransactionNonce()
 	if err != nil {
-		client.node.error("Failed initiliazing transaction handler [%s]", err)
+		client.error("Failed initiliazing transaction handler [%s]", err)
 
 		return err
 	}
 
 	handler.client = client
 	handler.nonce = nonce
-	handler.binding = utils.Hash(append(handler.client.node.enrollCert.Raw, handler.nonce...))
+	handler.binding = utils.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }

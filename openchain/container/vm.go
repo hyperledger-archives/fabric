@@ -258,7 +258,7 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	if chaincodeGoName == "" {
 		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
 	}
-	
+
 	//let the executable's name be chaincode ID's name
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
@@ -295,7 +295,7 @@ func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
 	startTime := time.Now()
 
 	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileContents = dockerFileContents + "RUN cd obc-ca && go install\n"
+	dockerFileContents = dockerFileContents + "WORKDIR obc-ca\nRUN go install && cp obcca.yaml $GOPATH/bin\n"
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
@@ -345,27 +345,27 @@ func writeGopathSrc(tw *tar.Writer, excludeDir string) error {
 
 		fr, err := os.Open(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error opening path %s: %s", path, err)
 		}
 		defer fr.Close()
 
 		h, err := tar.FileInfoHeader(info, newPath)
 		if err != nil {
 			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
-			return err
+			return fmt.Errorf("Error getting file header %s: %s", newPath, err)
 		}
 		//Let's take the variance out of the tar, make headers identical everywhere by using zero time
+		oldname := h.Name
 		var zeroTime time.Time
 		h.AccessTime = zeroTime
 		h.ModTime = zeroTime
 		h.ChangeTime = zeroTime
 		h.Name = newPath
 		if err = tw.WriteHeader(h); err != nil {
-			vmLogger.Error(fmt.Sprintf("Error writing header: %s", err))
-			return err
+			return fmt.Errorf("Error write header for (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
 		}
 		if _, err := io.Copy(tw, fr); err != nil {
-			return err
+			return fmt.Errorf("Error copy (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
 		}
 		return nil
 	}

@@ -2,7 +2,9 @@ package gorocksdb
 
 // #include "rocksdb/c.h"
 import "C"
+import "unsafe"
 
+// ReadTier controls fetching of data during a read request.
 // An application can issue a read request (via Get/Iterators) and specify
 // if that read should process data that ALREADY resides on a specified cache
 // level. For example, if an application specifies BlockCacheTier then the
@@ -12,9 +14,9 @@ import "C"
 type ReadTier uint
 
 const (
-	// data in memtable, block cache, OS cache or storage
+	// ReadAllTier reads data in memtable, block cache, OS cache or storage.
 	ReadAllTier = ReadTier(0)
-	// data in memtable or block cache
+	// BlockCacheTier reads data in memtable or block cache.
 	BlockCacheTier = ReadTier(1)
 )
 
@@ -34,48 +36,54 @@ func NewNativeReadOptions(c *C.rocksdb_readoptions_t) *ReadOptions {
 	return &ReadOptions{c}
 }
 
-// If true, all data read from underlying storage will be
+// UnsafeGetReadOptions returns the underlying c read options object.
+func (opts *ReadOptions) UnsafeGetReadOptions() unsafe.Pointer {
+	return unsafe.Pointer(opts.c)
+}
+
+// SetVerifyChecksums speciy if all data read from underlying storage will be
 // verified against corresponding checksums.
 // Default: false
-func (self *ReadOptions) SetVerifyChecksums(value bool) {
-	C.rocksdb_readoptions_set_verify_checksums(self.c, boolToChar(value))
+func (opts *ReadOptions) SetVerifyChecksums(value bool) {
+	C.rocksdb_readoptions_set_verify_checksums(opts.c, boolToChar(value))
 }
 
-// Should the "data block"/"index block"/"filter block" read for this
-// iteration be cached in memory?
+// SetFillCache specify whether the "data block"/"index block"/"filter block"
+// read for this iteration should be cached in memory?
 // Callers may wish to set this field to false for bulk scans.
 // Default: true
-func (self *ReadOptions) SetFillCache(value bool) {
-	C.rocksdb_readoptions_set_fill_cache(self.c, boolToChar(value))
+func (opts *ReadOptions) SetFillCache(value bool) {
+	C.rocksdb_readoptions_set_fill_cache(opts.c, boolToChar(value))
 }
 
-// If snapshot is set, read as of the supplied snapshot
-// which must belong to the DB that is being read and which must
+// SetSnapshot sets the snapshot which should be used for the read.
+// The snapshot must belong to the DB that is being read and must
 // not have been released.
 // Default: nil
-func (self *ReadOptions) SetSnapshot(snap *Snapshot) {
-	C.rocksdb_readoptions_set_snapshot(self.c, snap.c)
+func (opts *ReadOptions) SetSnapshot(snap *Snapshot) {
+	C.rocksdb_readoptions_set_snapshot(opts.c, snap.c)
 }
 
-// Specify if this read request should process data that ALREADY
+// SetReadTier specify if this read request should process data that ALREADY
 // resides on a particular cache. If the required data is not
 // found at the specified cache, then Status::Incomplete is returned.
 // Default: ReadAllTier
-func (self *ReadOptions) SetReadTier(value ReadTier) {
-	C.rocksdb_readoptions_set_read_tier(self.c, C.int(value))
+func (opts *ReadOptions) SetReadTier(value ReadTier) {
+	C.rocksdb_readoptions_set_read_tier(opts.c, C.int(value))
 }
 
-// Specify to create a tailing iterator -- a special iterator that has a
-// view of the complete database (i.e. it can also be used to read newly
-// added data) and is optimized for sequential reads. It will return records
+// SetTailing specify if to create a tailing iterator.
+// A special iterator that has a view of the complete database
+// (i.e. it can also be used to read newly added data) and
+// is optimized for sequential reads. It will return records
 // that were inserted into the database after the creation of the iterator.
 // Default: false
-func (self *ReadOptions) SetTailing(value bool) {
-	C.rocksdb_readoptions_set_tailing(self.c, boolToChar(value))
+func (opts *ReadOptions) SetTailing(value bool) {
+	C.rocksdb_readoptions_set_tailing(opts.c, boolToChar(value))
 }
 
 // Destroy deallocates the ReadOptions object.
-func (self *ReadOptions) Destroy() {
-	C.rocksdb_readoptions_destroy(self.c)
-	self.c = nil
+func (opts *ReadOptions) Destroy() {
+	C.rocksdb_readoptions_destroy(opts.c)
+	opts.c = nil
 }

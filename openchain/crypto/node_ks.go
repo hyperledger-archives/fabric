@@ -20,16 +20,16 @@ under the License.
 package crypto
 
 import (
+	"crypto/x509"
 	"database/sql"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 
-	// Required to succefully initialized the driver
-	"crypto/x509"
+	// Required to successfully initialized the driver
 	_ "github.com/mattn/go-sqlite3"
-	"io/ioutil"
 )
 
 /*
@@ -162,6 +162,43 @@ func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 	}
 
 	privateKey, err := utils.PEMtoPrivateKey(raw, ks.pwd)
+	if err != nil {
+		ks.node.error("Failed parsing private key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+func (ks *keyStore) storePublicKey(alias string, publicKey interface{}) error {
+	rawKey, err := utils.PublicKeyToPEM(publicKey, ks.pwd)
+	if err != nil {
+		ks.node.error("Failed converting public key to PEM [%s]: [%s]", alias, err)
+		return err
+	}
+
+	err = ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), rawKey, 0700)
+	if err != nil {
+		ks.node.error("Failed storing private key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadPublicKey(alias string) (interface{}, error) {
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.debug("Loading public key [%s] at [%s]...", alias, path)
+
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		ks.node.error("Failed loading public key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	privateKey, err := utils.PEMtoPublicKey(raw, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed parsing private key [%s]: [%s].", alias, err.Error())
 

@@ -9,7 +9,7 @@ import (
 func (client *clientImpl) createTransactionNonce() ([]byte, error) {
 	nonce, err := utils.GetRandomBytes(utils.NonceSize)
 	if err != nil {
-		client.node.error("Failed creating nonce [%s].", err.Error())
+		client.error("Failed creating nonce [%s].", err.Error())
 		return nil, err
 	}
 
@@ -20,7 +20,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	// Create a new transaction
 	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
-		client.node.error("Failed creating new transaction [%s].", err.Error())
+		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err
 	}
 
@@ -34,7 +34,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 		if nonce == nil {
 			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 			if err != nil {
-				client.node.error("Failed creating nonce [%s].", err.Error())
+				client.error("Failed creating nonce [%s].", err.Error())
 				return nil, err
 			}
 		} else {
@@ -42,10 +42,13 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
-			client.node.error("Failed encrypting payload [%s].", err.Error())
+			client.error("Failed encrypting payload [%s].", err.Error())
 			return nil, err
 
 		}
@@ -58,7 +61,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	/// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_EXECUTE)
 	if err != nil {
-		client.node.error("Failed creating new transaction [%s].", err.Error())
+		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err
 	}
 
@@ -72,7 +75,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		if nonce == nil {
 			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 			if err != nil {
-				client.node.error("Failed creating nonce [%s].", err.Error())
+				client.error("Failed creating nonce [%s].", err.Error())
 				return nil, err
 			}
 		} else {
@@ -80,10 +83,13 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
-			client.node.error("Failed encrypting payload [%s].", err.Error())
+			client.error("Failed encrypting payload [%s].", err.Error())
 			return nil, err
 
 		}
@@ -96,7 +102,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
 	if err != nil {
-		client.node.error("Failed creating new transaction [%s].", err.Error())
+		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err
 	}
 
@@ -110,7 +116,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 		if nonce == nil {
 			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
 			if err != nil {
-				client.node.error("Failed creating nonce [%s].", err.Error())
+				client.error("Failed creating nonce [%s].", err.Error())
 				return nil, err
 			}
 		} else {
@@ -118,10 +124,13 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 			tx.Nonce = nonce
 		}
 
-		// 2. encrypt tx
+		// 2. set confidentiality protocol version
+		tx.ConfidentialityProtocolVersion = "1.2"
+
+		// 3. encrypt tx
 		err = client.encryptTx(tx)
 		if err != nil {
-			client.node.error("Failed encrypting payload [%s].", err.Error())
+			client.error("Failed encrypting payload [%s].", err.Error())
 			return nil, err
 
 		}
@@ -134,36 +143,36 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	// Create a new transaction
 	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new deploy transaction [%s].", err.Error())
+		client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
 	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
+	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature: [% x]", rawSignature)
+	client.debug("Appending signature: [% x]", rawSignature)
 
 	return tx, nil
 }
@@ -172,36 +181,36 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	/// Create a new transaction
 	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new execute transaction [%s].", err.Error())
+		client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
 	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
+	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature [% x].", rawSignature)
+	client.debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -210,36 +219,36 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	// Create a new transaction
 	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new query transaction [%s].", err.Error())
+		client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
+	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
 	tx.Cert = tCert.GetCertificate().Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
+	client.debug("Signing tx [% x].", rawTx)
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature [% x].", rawSignature)
+	client.debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -248,36 +257,36 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 	// Create a new transaction
 	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new deploy transaction [%s].", err.Error())
+		client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", client.node.enrollCert.Raw)
-	tx.Cert = client.node.enrollCert.Raw
+	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
+	tx.Cert = client.enrollCert.Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	client.debug("Signing tx [% x].", rawTx)
+	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature: [% x]", rawSignature)
+	client.debug("Appending signature: [% x]", rawSignature)
 
 	return tx, nil
 }
@@ -286,36 +295,36 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 	/// Create a new transaction
 	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new execute transaction [%s].", err.Error())
+		client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", client.node.enrollCert.Raw)
-	tx.Cert = client.node.enrollCert.Raw
+	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
+	tx.Cert = client.enrollCert.Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	client.debug("Signing tx [% x].", rawTx)
+	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature [% x].", rawSignature)
+	client.debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -324,36 +333,36 @@ func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.C
 	// Create a new transaction
 	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
-		client.node.error("Failed creating new query transaction [%s].", err.Error())
+		client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
 	}
 
 	// Sign the transaction
 
 	// Append the certificate to the transaction
-	client.node.debug("Appending certificate [% x].", client.node.enrollCert.Raw)
-	tx.Cert = client.node.enrollCert.Raw
+	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
+	tx.Cert = client.enrollCert.Raw
 
 	// Sign the transaction and append the signature
 	// 1. Marshall tx to bytes
 	rawTx, err := proto.Marshal(tx)
 	if err != nil {
-		client.node.error("Failed marshaling tx [%s].", err.Error())
+		client.error("Failed marshaling tx [%s].", err.Error())
 		return nil, err
 	}
 
 	// 2. Sign rawTx and check signature
-	client.node.debug("Signing tx [% x].", rawTx)
-	rawSignature, err := client.node.signWithEnrollmentKey(rawTx)
+	client.debug("Signing tx [% x].", rawTx)
+	rawSignature, err := client.signWithEnrollmentKey(rawTx)
 	if err != nil {
-		client.node.error("Failed creating signature [%s].", err.Error())
+		client.error("Failed creating signature [%s].", err.Error())
 		return nil, err
 	}
 
 	// 3. Append the signature
 	tx.Signature = rawSignature
 
-	client.node.debug("Appending signature [% x].", rawSignature)
+	client.debug("Appending signature [% x].", rawSignature)
 
 	return tx, nil
 }
@@ -375,7 +384,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 		// 1. Unmarshal cert
 		cert, err := utils.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			client.node.error("Failed unmarshalling cert [%s].", err.Error())
+			client.error("Failed unmarshalling cert [%s].", err.Error())
 			return err
 		}
 		// TODO: verify cert
@@ -385,15 +394,15 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			client.node.error("Failed marshaling tx [%s].", err.Error())
+			client.error("Failed marshaling tx [%s].", err.Error())
 			return err
 		}
 		tx.Signature = signature
 
 		// 2. Verify signature
-		ver, err := client.node.verify(cert.PublicKey, rawTx, tx.Signature)
+		ver, err := client.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			client.node.error("Failed marshaling tx [%s].", err.Error())
+			client.error("Failed marshaling tx [%s].", err.Error())
 			return err
 		}
 
