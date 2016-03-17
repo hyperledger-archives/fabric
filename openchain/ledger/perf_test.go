@@ -62,9 +62,12 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	kvSize := flags.Int("KVSize", 1000, "size of the key-value")
 	batchSize := flags.Int("BatchSize", 100, "size of the key-value")
 	numBatches := flags.Int("NumBatches", 100, "number of batches")
+	numWritesToLedger := flags.Int("NumWritesToLedger", 4, "size of the key-value")
 	flags.Parse(testParams)
 
-	b.Logf(`Running test with params: key=%s, kvSize=%d, batchSize=%d, numBatches=%d`, *key, *kvSize, *batchSize, *numBatches)
+	b.Logf(`Running test with params: key=%s, kvSize=%d, batchSize=%d, numBatches=%d, NumWritesToLedger=%d`,
+		*key, *kvSize, *batchSize, *numBatches, *numWritesToLedger)
+
 	testutil.SetLogLevel(logging.ERROR, "indexes")
 	testutil.SetLogLevel(logging.ERROR, "ledger")
 	testutil.SetLogLevel(logging.ERROR, "state")
@@ -92,7 +95,9 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 				if err != nil {
 					b.Fatalf("Error in getting state: %s", err)
 				}
-				ledger.SetState(chaincode, *key, value)
+				for l := 0; l < *numWritesToLedger; l++ {
+					ledger.SetState(chaincode, *key, value)
+				}
 				ledger.TxFinished("txUuid", true)
 				transactions = append(transactions, tx)
 			}
