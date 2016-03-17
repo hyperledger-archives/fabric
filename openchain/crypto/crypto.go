@@ -89,6 +89,8 @@ type Peer interface {
 	// the deploy transaction and the execute transaction. Notice that,
 	// executeTx can also correspond to a deploy transaction.
 	GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
+
+	GetTransactionBinding(tx *obc.Transaction) ([]byte, error)
 }
 
 // StateEncryptor is used to encrypt chaincode's state

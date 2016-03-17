@@ -220,6 +220,15 @@ func (handler *Handler) encrypt(uuid string, payload []byte) ([]byte, error) {
 	return handler.encryptOrDecrypt(true, uuid, payload)
 }
 
+func (handler *Handler) getSecurityBinding(tx *pb.Transaction) ([]byte, error) {
+	secHelper := handler.chaincodeSupport.getSecHelper()
+	if secHelper == nil {
+		return nil, fmt.Errorf("No security help set!!!")
+	}
+
+	return secHelper.GetTransactionBinding(tx)
+}
+
 func (handler *Handler) deregister() error {
 	if handler.registered {
 		handler.chaincodeSupport.deregisterHandler(handler)
@@ -1132,6 +1141,8 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 	if tx != nil {
 		msg.SecurityContext.CallerCert = tx.Cert
 		msg.SecurityContext.CallerSign = tx.Signature
+		msg.SecurityContext.Binding = handler.getSecurityBinding(tx)
+		msg.SecurityContext.Metadata = tx.Metadata
 	}
 	return nil
 }
@@ -1169,7 +1180,7 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 		send = true
 	}
 
-	if  err:= handler.initializeSecContext(tx, depTx); err != nil {
+	if err := handler.initializeSecContext(tx, depTx); err != nil {
 		handler.deleteTxContext(uuid)
 		return nil, err
 	}

@@ -34,6 +34,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim/crypto/ecdsa"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -57,7 +58,7 @@ type Chaincode interface {
 
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
-	UUID string
+	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
 }
 
@@ -221,11 +222,10 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 }
 
 // -- init stub ---
-func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext){
+func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext) {
 	stub.UUID = uuid
 	stub.securityContext = secContext
 }
-
 
 // --------- Security functions ----------
 //CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
@@ -532,6 +532,35 @@ func (stub *ChaincodeStub) DeleteRow(tableName string, key []Column) error {
 	}
 
 	return nil
+}
+
+// VerifySignature ...
+func (stub *ChaincodeStub) VerifySignature(certificate, signature, message []byte) (bool, error) {
+	// Instantiate a new SignatureVerifier
+	sv := ecdsa.NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	return sv.Verify(certificate, signature, message)
+}
+
+// GetCallerCertificate returns caller certificate
+func (stub *ChaincodeStub) GetCallerCertificate() ([]byte, error) {
+	stub.securityContext.CallerCert
+}
+
+// GetCallerMetadata returns caller metadata
+func (stub *ChaincodeStub) GetCallerMetadata() ([]byte, error) {
+	stub.securityContext.Metadata
+}
+
+// GetBinding returns tx binding
+func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
+	stub.securityContext.Binding
+}
+
+// GetPayload returns tx payload
+func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
+	stub.securityContext.Payload
 }
 
 func (stub *ChaincodeStub) getTable(tableName string) (*Table, error) {

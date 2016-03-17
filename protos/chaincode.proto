@@ -94,8 +94,11 @@ message ChaincodeInvocationSpec {
 }
 
 message ChaincodeSecurityContext {
-   bytes callerCert = 1;
-   bytes callerSign = 2;
+    bytes callerCert = 1;
+    bytes callerSign = 2;
+    bytes binding = 3;
+    bytes metadata = 4;
+    bytes parentMetadata = 5;
 }
 
 message ChaincodeMessage {
