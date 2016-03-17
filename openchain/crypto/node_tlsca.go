@@ -34,6 +34,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/spf13/viper"
 )
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
@@ -187,4 +188,27 @@ func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.
 	}
 
 	return resp, nil
+}
+
+func GetTLSCARootCertificate(ctx context.Context) ([]byte, error) {
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithTimeout(time.Second * 3))
+
+	conn, err := grpc.Dial(viper.GetString("peer.pki.tlsca.paddr"), opts...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+
+	client := obcca.NewTLSCAPClient(conn)
+	cert, err := client.ReadCACertificate(ctx, &obcca.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	return cert.Cert, nil
 }
