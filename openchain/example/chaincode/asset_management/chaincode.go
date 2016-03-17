@@ -43,7 +43,8 @@ func (t *AssetManagementChaincode) init(stub *shim.ChaincodeStub, args []string)
 	})
 
 	// Set the admin
-	stub.PutState("admin", stub.GetCallerCertificate())
+	// The metadata will contain the certificate of the administrator
+	stub.PutState("admin", stub.GetCallerMetadata())
 
 	return nil, nil
 }
