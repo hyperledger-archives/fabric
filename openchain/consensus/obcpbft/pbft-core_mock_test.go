@@ -46,6 +46,7 @@ func (pe *pbftEndpoint) stop() {
 
 type pbftNetwork struct {
 	*testnet
+	pbftEndpoints []*pbftEndpoint
 }
 
 type simpleConsumer struct {
@@ -149,9 +150,11 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 
 	}
 
-	pn := &pbftNetwork{makeTestnet(N, endpointFunc)}
-	for _, ep := range pn.endpoints {
-		ep.(*pbftEndpoint).sc.pbftNet = pn
+	pn := &pbftNetwork{testnet: makeTestnet(N, endpointFunc)}
+	pn.pbftEndpoints = make([]*pbftEndpoint, len(pn.endpoints))
+	for i, ep := range pn.endpoints {
+		pn.pbftEndpoints[i] = ep.(*pbftEndpoint)
+		pn.pbftEndpoints[i].sc.pbftNet = pn
 	}
 	return pn
 }

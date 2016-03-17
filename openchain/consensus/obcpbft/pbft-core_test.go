@@ -107,7 +107,7 @@ func TestWrongReplicaID(t *testing.T) {
 		ReplicaId: 1,
 	}
 	pbftMsg := &Message{&Message_Request{req}}
-	err := net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(pbftMsg, 0)
+	err := net.pbftEndpoints[0].pbft.recvMsgSync(pbftMsg, 0)
 
 	if err == nil {
 		t.Fatalf("Shouldn't have processed message with incorrect replica ID")
@@ -152,7 +152,7 @@ func TestNetwork(t *testing.T) {
 	defer net.stop()
 
 	msg := createOcMsgWithChainTx(1)
-	err := net.endpoints[0].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	err := net.pbftEndpoints[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	if err != nil {
 		t.Fatalf("Request failed: %s", err)
 	}
@@ -162,8 +162,7 @@ func TestNetwork(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions <= 0 {
 			t.Errorf("Instance %d did not execute transaction", pep.id)
 			continue
@@ -219,7 +218,7 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		net.pbftEndpoints[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 
 		net.process()
 	}
@@ -230,8 +229,7 @@ func TestCheckpoint(t *testing.T) {
 	finishWait.Wait()
 	net.process()
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		if len(pep.pbft.chkpts) != 1 {
 			t.Errorf("Expected 1 checkpoint, found %d", len(pep.pbft.chkpts))
 			continue
@@ -272,8 +270,7 @@ func TestCheckpoint(t *testing.T) {
 
 	// by now request 7 should have been confirmed and executed
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		expectedExecutions := uint64(7)
 		if pep.sc.executions != expectedExecutions {
 			t.Errorf("Should have executed %d, got %d instead for replica %d", expectedExecutions, pep.sc.executions, pep.id)
@@ -296,20 +293,20 @@ func TestLostPrePrepare(t *testing.T) {
 		ReplicaId: uint64(generateBroadcaster(validatorCount)),
 	}
 
-	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(req)
+	_ = net.pbftEndpoints[0].pbft.recvRequest(req)
 
 	// clear all messages sent by primary
 	msg := <-net.msgs
 	net.clearMessages()
 
 	// deliver pre-prepare to subset of replicas
-	for _, ep := range net.endpoints[1 : len(net.endpoints)-1] {
+	for _, pep := range net.pbftEndpoints[1 : len(net.pbftEndpoints)-1] {
 		msgReq := &Message{}
 		err := proto.Unmarshal(msg.msg, msgReq)
 		if err != nil {
 			t.Fatal("Could not unmarshal message")
 		}
-		ep.(*pbftEndpoint).pbft.recvMsgSync(msgReq, uint64(msg.src))
+		pep.pbft.recvMsgSync(msgReq, uint64(msg.src))
 	}
 
 	err := net.process()
@@ -317,8 +314,7 @@ func TestLostPrePrepare(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		if pep.id != 3 && pep.sc.executions != 1 {
 			t.Errorf("Expected execution on replica %d", pep.id)
 			continue
@@ -355,23 +351,23 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(1).Request)
+	_ = net.pbftEndpoints[0].pbft.recvRequest(makePP(1).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
-	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(2))
-	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(3))
+	_ = net.pbftEndpoints[1].pbft.recvPrePrepare(makePP(1))
+	_ = net.pbftEndpoints[2].pbft.recvPrePrepare(makePP(2))
+	_ = net.pbftEndpoints[3].pbft.recvPrePrepare(makePP(3))
 
 	err := net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		if ep.(*pbftEndpoint).sc.executions > 0 {
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
@@ -394,7 +390,7 @@ func TestViewChange(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		err = net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		err = net.pbftEndpoints[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -409,8 +405,8 @@ func TestViewChange(t *testing.T) {
 	execReq(2)
 	execReq(3)
 
-	for i := 2; i < len(net.endpoints); i++ {
-		net.endpoints[i].(*pbftEndpoint).pbft.sendViewChange()
+	for i := 2; i < len(net.pbftEndpoints); i++ {
+		net.pbftEndpoints[i].pbft.sendViewChange()
 	}
 
 	err := net.process()
@@ -418,17 +414,17 @@ func TestViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	if net.endpoints[1].(*pbftEndpoint).pbft.view != 1 || net.endpoints[0].(*pbftEndpoint).pbft.view != 1 {
+	if net.pbftEndpoints[1].pbft.view != 1 || net.pbftEndpoints[0].pbft.view != 1 {
 		t.Fatalf("Replicas did not follow f+1 crowd to trigger view-change")
 	}
 
-	cp, ok, _ := net.endpoints[1].(*pbftEndpoint).pbft.selectInitialCheckpoint(net.endpoints[1].(*pbftEndpoint).pbft.getViewChanges())
+	cp, ok, _ := net.pbftEndpoints[1].pbft.selectInitialCheckpoint(net.pbftEndpoints[1].pbft.getViewChanges())
 	if !ok || cp.SequenceNumber != 2 {
 		t.Fatalf("Wrong new initial checkpoint: %+v",
-			net.endpoints[1].(*pbftEndpoint).pbft.viewChangeStore)
+			net.pbftEndpoints[1].pbft.viewChangeStore)
 	}
 
-	msgList := net.endpoints[1].(*pbftEndpoint).pbft.assignSequenceNumbers(net.endpoints[1].(*pbftEndpoint).pbft.getViewChanges(), cp.SequenceNumber)
+	msgList := net.pbftEndpoints[1].pbft.assignSequenceNumbers(net.pbftEndpoints[1].pbft.getViewChanges(), cp.SequenceNumber)
 	if msgList[4] != "" || msgList[5] != "" || msgList[3] == "" {
 		t.Fatalf("Wrong message list: %+v", msgList)
 	}
@@ -459,30 +455,30 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		return preprep
 	}
 
-	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(0).Request)
+	_ = net.pbftEndpoints[0].pbft.recvRequest(makePP(0).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
-	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(1))
-	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(0))
+	_ = net.pbftEndpoints[1].pbft.recvPrePrepare(makePP(1))
+	_ = net.pbftEndpoints[2].pbft.recvPrePrepare(makePP(1))
+	_ = net.pbftEndpoints[3].pbft.recvPrePrepare(makePP(0))
 
 	err := net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		if ep.(*pbftEndpoint).sc.executions > 0 {
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions > 0 {
 			t.Errorf("Expected no execution")
 			continue
 		}
 	}
 
-	for _, ep := range net.endpoints {
-		ep.(*pbftEndpoint).pbft.sendViewChange()
+	for _, pep := range net.pbftEndpoints {
+		pep.pbft.sendViewChange()
 	}
 
 	err = net.process()
@@ -490,8 +486,8 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		if ep.(*pbftEndpoint).sc.executions < 1 {
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions < 1 {
 			t.Errorf("Expected execution")
 			continue
 		}
@@ -505,9 +501,9 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	var err error
 
-	for _, ep := range net.endpoints {
-		ep.(*pbftEndpoint).pbft.K = 2
-		ep.(*pbftEndpoint).pbft.L = 4
+	for _, pep := range net.pbftEndpoints {
+		pep.pbft.K = 2
+		pep.pbft.L = 4
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -534,14 +530,14 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
 	for i := int64(1); i <= 3; i++ {
-		_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(i).Request)
+		_ = net.pbftEndpoints[0].pbft.recvRequest(makePP(i).Request)
 
 		// clear all messages sent by primary
 		net.clearMessages()
 
-		_ = net.endpoints[0].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
-		_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
-		_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(i))
+		_ = net.pbftEndpoints[0].pbft.recvPrePrepare(makePP(i))
+		_ = net.pbftEndpoints[1].pbft.recvPrePrepare(makePP(i))
+		_ = net.pbftEndpoints[2].pbft.recvPrePrepare(makePP(i))
 
 		err = net.process()
 		if err != nil {
@@ -552,15 +548,15 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	fmt.Println("Done with stage 1")
 
 	// Have primary now deliberately skip a sequence number to deadlock until viewchange
-	_ = net.endpoints[0].(*pbftEndpoint).pbft.recvRequest(makePP(4).Request)
+	_ = net.pbftEndpoints[0].pbft.recvRequest(makePP(4).Request)
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	_ = net.endpoints[1].(*pbftEndpoint).pbft.recvPrePrepare(makePP(5))
-	_ = net.endpoints[2].(*pbftEndpoint).pbft.recvPrePrepare(makePP(5))
-	_ = net.endpoints[3].(*pbftEndpoint).pbft.recvPrePrepare(makePP(4))
+	_ = net.pbftEndpoints[1].pbft.recvPrePrepare(makePP(5))
+	_ = net.pbftEndpoints[2].pbft.recvPrePrepare(makePP(5))
+	_ = net.pbftEndpoints[3].pbft.recvPrePrepare(makePP(4))
 
 	err = net.process()
 	if err != nil {
@@ -569,8 +565,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	fmt.Println("Done with stage 2")
 
-	for _, ep := range net.endpoints {
-		ep.(*pbftEndpoint).pbft.sendViewChange()
+	for _, pep := range net.pbftEndpoints {
+		pep.pbft.sendViewChange()
 	}
 
 	fmt.Println("Done with stage 3")
@@ -587,8 +583,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	}
 	fmt.Println("Done with stage 5")
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions != 4 {
 			t.Errorf("Replica %d expected execution through seqNo 5, with one null execution for seqNo 3, got %d executions", pep.pbft.id, pep.sc.executions)
 			continue
@@ -632,7 +627,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.endpoints[1].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
+	net.pbftEndpoints[1].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 1")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
@@ -643,7 +638,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// However, 2 does not know about the missing request, and therefore the request will not be
 	// pre-prepared and finally executed.
 	replica1Disabled = true
-	net.endpoints[3].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
+	net.pbftEndpoints[3].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 2")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
@@ -651,13 +646,12 @@ func TestNewViewTimeout(t *testing.T) {
 	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
 	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
 	// all replicas move to view 3 and finally process the request.
-	net.endpoints[0].(*pbftEndpoint).pbft.receive(msgPacked, broadcaster)
+	net.pbftEndpoints[0].pbft.receive(msgPacked, broadcaster)
 	fmt.Println("Debug: Sleeping 3")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 3")
 
-	for i, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for i, pep := range net.pbftEndpoints {
 		if pep.pbft.view < 3 {
 			t.Errorf("Should have reached view 3, got %d instead for replica %d", pep.pbft.view, i)
 		}
@@ -679,28 +673,27 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 		pe.pbft.lastExec = 99
 		pe.pbft.h = 99 / pe.pbft.K * pe.pbft.K
 	})
-	net.endpoints[0].(*pbftEndpoint).pbft.seqNo = 99
+	net.pbftEndpoints[0].pbft.seqNo = 99
 
 	go net.processContinually()
 
 	msg := createOcMsgWithChainTx(1)
-	net.endpoints[0].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	net.pbftEndpoints[0].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	time.Sleep(5 * millisUntilTimeout)
 	// Now we all have executed seqNo 100.  After triggering a
 	// view change, the new primary should pick up right after
 	// that.
 
-	net.endpoints[0].(*pbftEndpoint).pbft.sendViewChange()
-	net.endpoints[1].(*pbftEndpoint).pbft.sendViewChange()
+	net.pbftEndpoints[0].pbft.sendViewChange()
+	net.pbftEndpoints[1].pbft.sendViewChange()
 	time.Sleep(5 * millisUntilTimeout)
 
 	msg = createOcMsgWithChainTx(2)
-	net.endpoints[1].(*pbftEndpoint).pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
+	net.pbftEndpoints[1].pbft.request(msg.Payload, uint64(generateBroadcaster(validatorCount)))
 	time.Sleep(5 * millisUntilTimeout)
 
 	net.stop()
-	for i, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for i, pep := range net.pbftEndpoints {
 		if pep.pbft.view < 1 {
 			t.Errorf("Should have reached view 3, got %d instead for replica %d", pep.pbft.view, i)
 		}
@@ -774,7 +767,7 @@ func TestFallBehind(t *testing.T) {
 
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 
-		err = net.endpoints[0].(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		err = net.pbftEndpoints[0].pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -799,7 +792,7 @@ func TestFallBehind(t *testing.T) {
 		}
 	}
 
-	pep := net.endpoints[3].(*pbftEndpoint)
+	pep := net.pbftEndpoints[3]
 	pbft := pep.pbft
 	// Send enough requests to get to a checkpoint quorum certificate with sequence number L+K
 	execReq(1, true)
@@ -847,7 +840,7 @@ func TestPbftF0(t *testing.T) {
 		t.Fatalf("Failed to marshal TX block: %s", err)
 	}
 
-	pep0 := net.endpoints[0].(*pbftEndpoint)
+	pep0 := net.pbftEndpoints[0]
 
 	err = pep0.pbft.request(txPacked, 0)
 	if err != nil {
@@ -859,8 +852,7 @@ func TestPbftF0(t *testing.T) {
 		t.Fatalf("Processing failed: %s", err)
 	}
 
-	for _, ep := range net.endpoints {
-		pep := ep.(*pbftEndpoint)
+	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions < 1 {
 			t.Errorf("Instance %d did not execute transaction", pep.id)
 			continue
