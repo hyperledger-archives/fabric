@@ -77,6 +77,19 @@ func (testDB *TestDBWrapper) WriteToDB(t testing.TB, writeBatch *gorocksdb.Write
 	}
 }
 
+func (testDB *TestDBWrapper) GetFromDB(t testing.TB, key []byte) []byte {
+	db := GetDBHandle().DB
+	opt := gorocksdb.NewDefaultReadOptions()
+	defer opt.Destroy()
+	slice, err := db.Get(opt, key)
+	defer slice.Free()
+	if err != nil {
+		t.Fatalf("Error while getting key-value from DB: %s", err)
+	}
+	value := append([]byte(nil), slice.Data()...)
+	return value
+}
+
 // GetFromStateCF tests can use this method for getting value from StateCF column-family
 func (testDB *TestDBWrapper) GetFromStateCF(t testing.TB, key []byte) []byte {
 	openchainDB := GetDBHandle()

@@ -23,16 +23,34 @@ import (
 	"crypto/rand"
 	"flag"
 	"fmt"
+	mathRand "math/rand"
 	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 )
+
+type TestRandomNumberGenerator struct {
+	rand      *mathRand.Rand
+	maxNumber int
+}
+
+func NewTestRandomNumberGenerator(maxNumber int) *TestRandomNumberGenerator {
+	return &TestRandomNumberGenerator{
+		mathRand.New(mathRand.NewSource(time.Now().UnixNano())),
+		maxNumber,
+	}
+}
+
+func (randNumGenerator *TestRandomNumberGenerator) Next() int {
+	return randNumGenerator.rand.Intn(randNumGenerator.maxNumber)
+}
 
 func SetupTestConfig() {
 	viper.AddConfigPath(".")

@@ -31,7 +31,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+var testParams []string
+
 func TestMain(m *testing.M) {
+	testParams = testutil.ParseTestParams()
 	testutil.SetupTestConfig()
 	os.Exit(m.Run())
 }

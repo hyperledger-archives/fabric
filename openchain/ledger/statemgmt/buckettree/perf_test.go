@@ -28,10 +28,6 @@ import (
 )
 
 func BenchmarkStateHash(b *testing.B) {
-	// if b.N != 1 {
-	// 	b.Fatal(`This benchmark should be called with param -benchtime=0 so that it runs only once.
-	// 		Otherwise, each time this addes data to the DB which affects the measurement.`)
-	// }
 	b.StopTimer()
 	b.Logf("testParams:%q", testParams)
 	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
