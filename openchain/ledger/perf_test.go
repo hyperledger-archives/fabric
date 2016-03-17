@@ -21,15 +21,17 @@ package ledger
 
 import (
 	"flag"
+	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 	"strconv"
 	"testing"
 )
 
 func BenchmarkDB(b *testing.B) {
-	b.StopTimer()
 	b.Logf("testParams:%q", testParams)
 	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
 	kvSize := flags.Int("KVSize", 1000, "size of the key-value")
@@ -38,19 +40,71 @@ func BenchmarkDB(b *testing.B) {
 	keyPrefix := flags.String("KeyPrefix", "Key_", "The generated workload will have keys such as KeyPrefix_1, KeyPrefix_2, and so on")
 	flags.Parse(testParams)
 	if *toPopulateDB {
-		b.StartTimer()
+		b.ResetTimer()
 		populateDB(b, *kvSize, *maxKeySuffix, *keyPrefix)
 		return
 	}
 
 	dbWrapper := db.NewTestDBWrapper()
 	randNumGen := testutil.NewTestRandomNumberGenerator(*maxKeySuffix)
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		key := []byte(*keyPrefix + strconv.Itoa(randNumGen.Next()))
 		value := dbWrapper.GetFromDB(b, key)
 		b.SetBytes(int64(len(value)))
 	}
+}
+
+func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
+	b.Logf("testParams:%q", testParams)
+	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
+	key := flags.String("Key", "key", "key name")
+	kvSize := flags.Int("KVSize", 1000, "size of the key-value")
+	batchSize := flags.Int("BatchSize", 100, "size of the key-value")
+	numBatches := flags.Int("NumBatches", 100, "number of batches")
+	flags.Parse(testParams)
+
+	b.Logf(`Running test with params: key=%s, kvSize=%d, batchSize=%d, numBatches=%d`, *key, *kvSize, *batchSize, *numBatches)
+	testutil.SetLogLevel(logging.ERROR, "indexes")
+	testutil.SetLogLevel(logging.ERROR, "ledger")
+	testutil.SetLogLevel(logging.ERROR, "state")
+	testutil.SetLogLevel(logging.ERROR, "statemgmt")
+	testutil.SetLogLevel(logging.ERROR, "buckettree")
+	testutil.SetLogLevel(logging.ERROR, "db")
+
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(b)
+	ledger := ledgerTestWrapper.ledger
+
+	chaincode := "chaincodeId"
+	value := testutil.ConstructRandomBytes(b, *kvSize-(len(chaincode)+len(*key)))
+	tx := constructDummyTx(b)
+	serializedBytes, _ := tx.Bytes()
+	b.Logf("Size of serialized bytes for tx = %d", len(serializedBytes))
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < *numBatches; i++ {
+			ledger.BeginTxBatch(1)
+			// execute one batch
+			var transactions []*protos.Transaction
+			for j := 0; j < *batchSize; j++ {
+				ledger.TxBegin("txUuid")
+				_, err := ledger.GetState(chaincode, *key, true)
+				if err != nil {
+					b.Fatalf("Error in getting state: %s", err)
+				}
+				ledger.SetState(chaincode, *key, value)
+				ledger.TxFinished("txUuid", true)
+				transactions = append(transactions, tx)
+			}
+			ledger.CommitTxBatch(1, transactions, nil, []byte("proof"))
+		}
+	}
+	b.StopTimer()
+
+	//varify value persisted
+	value, _ = ledger.GetState(chaincode, *key, true)
+	size := ledger.GetBlockchainSize()
+	b.Logf("Value size=%d, Blockchain height=%d", len(value), size)
 }
 
 func populateDB(tb testing.TB, kvSize int, totalKeys int, keyPrefix string) {
@@ -67,4 +121,11 @@ func populateDB(tb testing.TB, kvSize int, totalKeys int, keyPrefix string) {
 		}
 	}
 	dbWrapper.CloseDB(tb)
+}
+
+func constructDummyTx(tb testing.TB) *protos.Transaction {
+	uuid := util.GenerateUUID()
+	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "dummyChaincodeId"}, uuid, "dummyFunction", []string{"dummyParamValue1, dummyParamValue2"})
+	testutil.AssertNil(tb, err)
+	return tx
 }
