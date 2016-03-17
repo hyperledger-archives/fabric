@@ -281,12 +281,14 @@ chaincode:
         path:
         name:
 
-    # This is the basis for the Dockerfile for chaincode.  Additional commands will
-    # be appended depedendent upon the chaincode specification.
-    Dockerfile:  |
-         from golang:1.6
-         COPY src $GOPATH/src
-         WORKDIR $GOPATH
+    golang:
+
+        # This is the basis for the Golang Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
+        Dockerfile:  |
+            from golang:1.6
+            COPY src $GOPATH/src
+            WORKDIR $GOPATH
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
