@@ -2,6 +2,7 @@ package util
 
 import (
 	"archive/tar"
+	"bufio"
 	"fmt"
 	"github.com/op/go-logging"
 	"io"
@@ -15,14 +16,14 @@ var vmLogger = logging.MustGetLogger("container")
 
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
-	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
+	if strings.LastIndex(gopath, "/") == len(gopath) - 1 {
 		gopath = gopath[:len(gopath)]
 	}
 	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary
-	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir)-1 {
+	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir) - 1 {
 		excludeDir = excludeDir + "/"
 	}
 
@@ -39,7 +40,8 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		}
 
 		//exclude any files with excludeDir prefix. They should already be in the tar
-		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen+1 { //1 for "/"
+		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen + 1 {
+			//1 for "/"
 			return nil
 		}
 		// Because of scoping we can reference the external rootDirectory variable
@@ -49,30 +51,11 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 			return nil
 		}
 
-		fr, err := os.Open(path)
+		err = WriteFileToPackage(path, newPath, tw)
 		if err != nil {
-			return fmt.Errorf("Error opening path %s: %s", path, err)
+			return fmt.Errorf("Error writing file to package: %s", err)
 		}
-		defer fr.Close()
 
-		h, err := tar.FileInfoHeader(info, newPath)
-		if err != nil {
-			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
-			return fmt.Errorf("Error getting file header %s: %s", newPath, err)
-		}
-		//Let's take the variance out of the tar, make headers identical everywhere by using zero time
-		oldname := h.Name
-		var zeroTime time.Time
-		h.AccessTime = zeroTime
-		h.ModTime = zeroTime
-		h.ChangeTime = zeroTime
-		h.Name = newPath
-		if err = tw.WriteHeader(h); err != nil {
-			return fmt.Errorf("Error write header for (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
-		}
-		if _, err := io.Copy(tw, fr); err != nil {
-			return fmt.Errorf("Error copy (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
-		}
 		return nil
 	}
 
@@ -85,5 +68,45 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		return err
 	}
 	//ioutil.WriteFile("/tmp/chaincode_deployment.tar", inputbuf.Bytes(), 0644)
+	return nil
+}
+
+func WriteFileToPackage(localpath string, packagepath string, tw *tar.Writer) error {
+	fd, err := os.Open(localpath)
+	if err != nil {
+		return fmt.Errorf("%s: %s", localpath, err)
+	}
+	defer fd.Close()
+
+	is := bufio.NewReader(fd)
+	return WriteStreamToPackage(is, localpath, packagepath, tw)
+
+}
+
+func WriteStreamToPackage(is io.Reader, localpath string, packagepath string, tw *tar.Writer) error {
+	info, err := os.Stat(localpath)
+	if err != nil {
+		return fmt.Errorf("%s: %s", localpath, err)
+	}
+	header, err := tar.FileInfoHeader(info, localpath)
+	if err != nil {
+		return fmt.Errorf("Error getting FileInfoHeader: %s", err)
+	}
+
+	//Let's take the variance out of the tar, make headers identical by using zero time
+	oldname := header.Name
+	var zeroTime time.Time
+	header.AccessTime = zeroTime
+	header.ModTime = zeroTime
+	header.ChangeTime = zeroTime
+	header.Name = packagepath
+
+	if err = tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("Error write header for (path: %s, oldname:%s,newname:%s,sz:%d) : %s", localpath, oldname, packagepath, header.Size, err)
+	}
+	if _, err := io.Copy(tw, is); err != nil {
+		return fmt.Errorf("Error copy (path: %s, oldname:%s,newname:%s,sz:%d) : %s", localpath, oldname, packagepath, header.Size, err)
+	}
+
 	return nil
 }

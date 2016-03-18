@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -19,27 +18,6 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error {
-	h, err := tar.FileInfoHeader(info, path)
-	if err != nil {
-		return fmt.Errorf("Error getting FileInfoHeader: %s", err)
-	}
-	//Let's take the variance out of the tar, make headers identical by using zero time
-	var zeroTime time.Time
-	h.AccessTime = zeroTime
-	h.ModTime = zeroTime
-	h.ChangeTime = zeroTime
-	h.Name = path
-	if err = tw.WriteHeader(h); err != nil {
-		return fmt.Errorf("Error writing header: %s", err)
-	}
-	rdr := bytes.NewReader(fbytes)
-	if _, err := io.Copy(tw, rdr); err != nil {
-		return fmt.Errorf("Error copying file : %s", err)
-	}
-	return nil
-}
 
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
@@ -60,7 +38,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			}
 			continue
 		}
-		buf, err := ioutil.ReadFile(rootDir + "/" + name)
+		fqp := rootDir + "/" + name
+		buf, err := ioutil.ReadFile(fqp)
 		if err != nil {
 			fmt.Printf("Error reading %s\n", err)
 			return hash, err
@@ -72,7 +51,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 		hash = util.ComputeCryptoHash(newSlice)
 
 		if tw != nil {
-			if err = addFile(tw, "src/"+name, fi, buf); err != nil {
+			is := bytes.NewReader(buf)
+			if err = cutil.WriteStreamToPackage(is, fqp, "src/"+name, tw); err != nil {
 				return hash, fmt.Errorf("Error adding file to tar %s", err)
 			}
 		}
