@@ -31,3 +31,5 @@ RUN make install
 
 # Now add this for SWIG execution requirement to get missing stubs-32.h header file
 RUN apt-get install g++-multilib -y
+
+ENV CGO_LDFLAGS="-L/usr/local/lib/ -lbitcoin-consensus -lstdc++"
