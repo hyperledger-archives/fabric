@@ -1,16 +1,15 @@
 package golang
 
 import (
-	"fmt"
-	"net/url"
-	"path/filepath"
-	"os"
 	"archive/tar"
+	"fmt"
 	pb "github.com/openblockchain/obc-peer/protos"
+	"net/url"
+	"os"
+	"path/filepath"
 )
 
 type Platform struct {
-
 }
 
 // Returns whether the given file or directory exists or not
@@ -62,4 +61,3 @@ func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error
 
 	return nil
 }
-

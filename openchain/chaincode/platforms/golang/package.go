@@ -28,15 +28,15 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 		return fmt.Errorf("empty url location")
 	}
 
-	if strings.LastIndex(urlLocation, "/") == len(urlLocation) - 1 {
-		urlLocation = urlLocation[:len(urlLocation) - 1]
+	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
+		urlLocation = urlLocation[:len(urlLocation)-1]
 	}
 	toks := strings.Split(urlLocation, "/")
 	if toks == nil || len(toks) == 0 {
 		return fmt.Errorf("cannot get path components from %s", urlLocation)
 	}
 
-	chaincodeGoName := toks[len(toks) - 1]
+	chaincodeGoName := toks[len(toks)-1]
 	if chaincodeGoName == "" {
 		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
 	}

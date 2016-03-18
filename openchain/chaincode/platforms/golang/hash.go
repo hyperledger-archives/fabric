@@ -45,14 +45,14 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			return hash, err
 		}
 
-		newSlice := make([]byte, len(hash) + len(buf))
+		newSlice := make([]byte, len(hash)+len(buf))
 		copy(newSlice[len(buf):], hash[:])
 		//hash = md5.Sum(newSlice)
 		hash = util.ComputeCryptoHash(newSlice)
 
 		if tw != nil {
 			is := bytes.NewReader(buf)
-			if err = cutil.WriteStreamToPackage(is, fqp, "src/" + name, tw); err != nil {
+			if err = cutil.WriteStreamToPackage(is, fqp, "src/"+name, tw); err != nil {
 				return hash, fmt.Errorf("Error adding file to tar %s", err)
 			}
 		}
@@ -137,15 +137,15 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 
 	select {
 	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
-	// If pulling repos takes too long, we should give up
-	// (This can happen if a repo is private and the git clone asks for credentials)
+		// If pulling repos takes too long, we should give up
+		// (This can happen if a repo is private and the git clone asks for credentials)
 		if err = cmd.Process.Kill(); err != nil {
 			err = fmt.Errorf("failed to kill: %s", err)
 		} else {
 			err = errors.New("Getting chaincode took too long")
 		}
 	case err = <-done:
-	// If we're here, the 'go get' command must have finished
+		// If we're here, the 'go get' command must have finished
 		if err != nil {
 			err = fmt.Errorf("process done with error = %v", err)
 		}
@@ -234,7 +234,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 
 	hash := util.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
-	hash, err = hashFilesInDir(codegopath + "/src/", actualcodepath, hash, tw)
+	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {
 		return "", fmt.Errorf("Could not get hashcode for %s - %s\n", path, err)
 	}

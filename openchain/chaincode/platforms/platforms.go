@@ -1,8 +1,8 @@
 package platforms
 
 import (
-	"fmt"
 	"archive/tar"
+	"fmt"
 	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms/golang"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
