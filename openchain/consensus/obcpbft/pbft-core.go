@@ -377,12 +377,12 @@ func (instance *pbftCore) getCert(v uint64, n uint64) (cert *msgCert) {
 // agree to guarantee that at least one correct replica is shared by
 // two intersection quora
 func (instance *pbftCore) intersectionQuorum() int {
-	return (instance.N + instance.f + 1) / 2
+	return (instance.N + instance.f + 2) / 2
 }
 
 // allCorrectReplicasQuorum returns the number of correct replicas (N-f)
 func (instance *pbftCore) allCorrectReplicasQuorum() int {
-	return (instance.N + instance.f + 1) / 2
+	return (instance.N - instance.f)
 }
 
 func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
