@@ -159,14 +159,14 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
 	if err != nil {
-		GetChain(DefaultChain).stopChaincode(ctxt, spec.ChaincodeID)
+		GetChain(DefaultChain).StopChaincode(ctxt, spec.ChaincodeID)
 		closeListenerAndSleep(lis)
 		t.Fail()
 		t.Logf("Error deploying <%s>: %s", chaincodeID, err)
 		return
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, spec.ChaincodeID)
+	GetChain(DefaultChain).StopChaincode(ctxt, spec.ChaincodeID)
 	closeListenerAndSleep(lis)
 }
 
@@ -297,7 +297,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		t.Logf("Invoke test passed")
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+	GetChain(DefaultChain).StopChaincode(ctxt, chaincodeID)
 
 	closeListenerAndSleep(lis)
 }
@@ -395,7 +395,7 @@ func TestExecuteQuery(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -426,7 +426,7 @@ func TestExecuteQuery(t *testing.T) {
 	//end := getNowMillis()
 	//fmt.Fprintf(os.Stderr, "Ending: %d\n", end)
 	//fmt.Fprintf(os.Stderr, "Elapsed : %d millis\n", end-start)
-	GetChain(DefaultChain).stopChaincode(ctxt, cID)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
 }
 
@@ -477,7 +477,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 		errStr := err.Error()
 		t.Logf("Got error %s\n", errStr)
 		t.Logf("InvalidInvoke test passed")
-		GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+		GetChain(DefaultChain).StopChaincode(ctxt, chaincodeID)
 
 		closeListenerAndSleep(lis)
 		return
@@ -486,7 +486,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	t.Fail()
 	t.Logf("Error invoking transaction %s", err)
 
-	GetChain(DefaultChain).stopChaincode(ctxt, chaincodeID)
+	GetChain(DefaultChain).StopChaincode(ctxt, chaincodeID)
 
 	closeListenerAndSleep(lis)
 }
@@ -539,7 +539,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -558,7 +558,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 		t.Logf("This query should not have succeeded as it attempts to put state")
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, cID)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID)
 	closeListenerAndSleep(lis)
 }
 
@@ -611,7 +611,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -632,8 +632,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -652,8 +652,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -663,14 +663,14 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-	GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 	closeListenerAndSleep(lis)
 }
 
@@ -723,7 +723,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -744,8 +744,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -765,8 +765,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -776,8 +776,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil || result != 300 {
 		t.Fail()
 		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -794,8 +794,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error querying <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -805,14 +805,14 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil || result != 300 {
 		t.Fail()
 		t.Logf("Incorrect final value after query for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-		GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+		GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 		closeListenerAndSleep(lis)
 		return
 	}
 
-	GetChain(DefaultChain).stopChaincode(ctxt, cID1)
-	GetChain(DefaultChain).stopChaincode(ctxt, cID2)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID1)
+	GetChain(DefaultChain).StopChaincode(ctxt, cID2)
 	closeListenerAndSleep(lis)
 }
 
