@@ -22,15 +22,13 @@ package openchain
 import (
 	"errors"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/openblockchain/obc-peer/openchain/chaincode"
+	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms"
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/peer"
@@ -263,50 +261,10 @@ func CheckSpec(spec *pb.ChaincodeSpec) error {
 		return errors.New("Expected chaincode specification, nil received")
 	}
 
-	switch spec.Type {
-	case pb.ChaincodeSpec_GOLANG:
-		if err := checkGolangSpec(spec); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("Unsupported spec: %s", spec.Type)
+	platform, err := platforms.Find(spec.Type)
+	if err != nil {
+		return fmt.Errorf("Failed to determine platform type: %s", err)
 	}
 
-	devopsLogger.Debug("Validated spec:  %v", spec)
-
-	return nil
-}
-
-func checkGolangSpec(spec *pb.ChaincodeSpec) error {
-	url, err := url.Parse(spec.ChaincodeID.Path)
-	if err != nil || url == nil {
-		return fmt.Errorf("invalid path: %s", err)
-	}
-
-	//we have no real good way of checking existence of remote urls except by downloading and testin
-	//which we do later anyway. But we *can* - and *should* - test for existence of local paths.
-	//Treat empty scheme as a local filesystem path
-	if url.Scheme == "" {
-		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
-		exists, err := pathExists(pathToCheck)
-		if err != nil {
-			return fmt.Errorf("Error validating chaincode path: %s", err)
-		}
-		if !exists {
-			return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
-		}
-	}
-	return nil
-}
-
-// Returns whether the given file or directory exists or not
-func pathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
+	return platform.ValidateSpec(spec)
 }

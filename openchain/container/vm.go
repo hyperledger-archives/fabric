@@ -33,7 +33,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/container/golangcontainer"
+	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms"
 	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -114,12 +114,14 @@ func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 	gw := gzip.NewWriter(inputbuf)
 	tw := tar.NewWriter(gw)
 
-	var err error
-	switch spec.Type {
-	case pb.ChaincodeSpec_GOLANG:
-		err = golangcontainer.WritePackage(spec, tw)
-	default:
-		err = fmt.Errorf("Unsupported chaincode type: %s", spec.Type)
+	platform, err := platforms.Find(spec.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	err = platform.WritePackage(spec, tw)
+	if err != nil {
+		return nil, err
 	}
 
 	tw.Close()
