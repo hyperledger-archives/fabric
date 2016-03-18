@@ -153,6 +153,8 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
 	chaincodeID := &pb.ChaincodeID{Name: viper.GetString("chaincode.id.name")}
+	chaincodeLogger.Debug("Chaincode ID: %s", viper.GetString("chaincode.id.name"))
+
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
@@ -545,22 +547,22 @@ func (stub *ChaincodeStub) VerifySignature(certificate, signature, message []byt
 
 // GetCallerCertificate returns caller certificate
 func (stub *ChaincodeStub) GetCallerCertificate() ([]byte, error) {
-	stub.securityContext.CallerCert
+	return stub.securityContext.CallerCert, nil
 }
 
 // GetCallerMetadata returns caller metadata
 func (stub *ChaincodeStub) GetCallerMetadata() ([]byte, error) {
-	stub.securityContext.Metadata
+	return stub.securityContext.Metadata, nil
 }
 
 // GetBinding returns tx binding
 func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
-	stub.securityContext.Binding
+	return stub.securityContext.Binding, nil
 }
 
 // GetPayload returns tx payload
 func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
-	stub.securityContext.Payload
+	return stub.securityContext.Payload, nil
 }
 
 func (stub *ChaincodeStub) getTable(tableName string) (*Table, error) {

@@ -305,7 +305,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.stopChaincode(context, cID)
+		errIgnore := chaincodeSupport.StopChaincode(context, cID)
 		if errIgnore != nil {
 			chaincodeLog.Debug("error on stop %s(%s)", errIgnore, err)
 		}
@@ -313,7 +313,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	return alreadyRunning, err
 }
 
-func (chaincodeSupport *ChaincodeSupport) stopChaincode(context context.Context, cID *pb.ChaincodeID) error {
+func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, cID *pb.ChaincodeID) error {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return fmt.Errorf("chaincode name not set")
@@ -449,7 +449,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
-			errIgnore := chaincodeSupport.stopChaincode(context, cID)
+			errIgnore := chaincodeSupport.StopChaincode(context, cID)
 			if errIgnore != nil {
 				chaincodeLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}

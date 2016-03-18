@@ -180,6 +180,10 @@ func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []by
 	if txctx.transactionSecContext == nil {
 		return nil, fmt.Errorf("[%s]transaction context is nil for uuid %s", shortuuid(uuid), uuid)
 	}
+	// TODO: this must be removed
+	if txctx.transactionSecContext.ConfidentialityLevel == pb.ConfidentialityLevel_PUBLIC {
+		return payload, nil
+	}
 
 	var enc crypto.StateEncryptor
 	var err error
@@ -1135,14 +1139,40 @@ func (handler *Handler) initializeSecContext(tx, depTx *pb.Transaction) error {
 }
 
 func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.ChaincodeMessage) error {
+	chaincodeLogger.Debug("setting chaincode security context...")
 	if msg.SecurityContext == nil {
 		msg.SecurityContext = &pb.ChaincodeSecurityContext{}
 	}
 	if tx != nil {
+		chaincodeLogger.Debug("setting chaincode security context. Transaction different from nil")
+		chaincodeLogger.Debug("setting chaincode security context. Metadata [% x]", tx.Metadata)
+
 		msg.SecurityContext.CallerCert = tx.Cert
 		msg.SecurityContext.CallerSign = tx.Signature
-		msg.SecurityContext.Binding = handler.getSecurityBinding(tx)
+		binding, err := handler.getSecurityBinding(tx)
+		if err != nil {
+			chaincodeLogger.Debug("Failed getting binding [%s]", err)
+			return err
+		}
+		msg.SecurityContext.Binding = binding
 		msg.SecurityContext.Metadata = tx.Metadata
+
+		if tx.Type == pb.Transaction_CHAINCODE_EXECUTE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
+			cis := &pb.ChaincodeInvocationSpec{}
+			if err := proto.Unmarshal(tx.Payload, cis); err != nil {
+				chaincodeLogger.Debug("Failed getting payload [%s]", err)
+				return err
+			}
+
+			ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
+			if err != nil {
+				chaincodeLogger.Debug("Failed getting ctorMsgRaw [%s]", err)
+				return err
+			}
+
+			msg.SecurityContext.Payload = ctorMsgRaw
+		}
+
 	}
 	return nil
 }
@@ -1186,7 +1216,9 @@ func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, t
 	}
 
 	//if security is disabled the context elements will just be nil
-	handler.setChaincodeSecurityContext(tx, ccMsg)
+	if err := handler.setChaincodeSecurityContext(tx, ccMsg); err != nil {
+		return nil, err
+	}
 
 	handler.triggerNextState(ccMsg, send)
 
@@ -1348,7 +1380,9 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage, tx *pb.Tran
 	}
 
 	//if security is disabled the context elements will just be nil
-	handler.setChaincodeSecurityContext(tx, msg)
+	if err := handler.setChaincodeSecurityContext(tx, msg); err != nil {
+		return nil, err
+	}
 
 	// Trigger FSM event if it is a transaction
 	if msg.Type.String() == pb.ChaincodeMessage_TRANSACTION.String() {

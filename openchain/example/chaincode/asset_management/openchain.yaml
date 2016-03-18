@@ -8,7 +8,7 @@ server:
         gomaxprocs: 2
 
         # path to the OBC state directory and CA state subdirectory
-        rootpath: "/var/openchain/production"
+        rootpath: "."
         cadir: ".obcca"
 
         # port the CA services are listening on
@@ -330,7 +330,7 @@ peer:
         touchMaxNodes: 100
 
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/production
+    fileSystemPath: .openchain/production
 
 ###############################################################################
 #
@@ -371,7 +371,7 @@ chaincode:
     # development mode where user runs the chaincode, the name can be any string
     id:
         path:
-        name: "mycc"
+        name: mycc
 
     golang:
 
@@ -465,7 +465,7 @@ security:
     # Enable security will force every entity on the network to enroll with obc-ca
     # and maintain a valid set of certificates in order to communicate with
     # other peers
-    enabled: false
+    enabled: true
     # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
     # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
@@ -475,7 +475,7 @@ security:
     # To enable privacy of transactions (requires security to be enabled). This
     # encrypts the transaction content during transit and at rest. The state
     # data is also encrypted
-    privacy: false
+    privacy: true
 
     # Can be 256 or 384. If you change here, you have to change also
     # the same property in obcca.yaml to the same value
@@ -485,4 +485,4 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  200
+        size:  2

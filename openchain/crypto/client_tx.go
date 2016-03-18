@@ -27,20 +27,21 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	// Copy metadata from ChaincodeSpec
 	tx.Metadata = chaincodeDeploymentSpec.ChaincodeSpec.Metadata
 
+	if nonce == nil {
+		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		if err != nil {
+			client.error("Failed creating nonce [%s].", err.Error())
+			return nil, err
+		}
+	} else {
+		// TODO: check that it is a well formed nonce
+		tx.Nonce = nonce
+	}
+
 	// Handle confidentiality
 	if chaincodeDeploymentSpec.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		if nonce == nil {
-			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-			if err != nil {
-				client.error("Failed creating nonce [%s].", err.Error())
-				return nil, err
-			}
-		} else {
-			// TODO: check that it is a well formed nonce
-			tx.Nonce = nonce
-		}
 
 		// 2. set confidentiality protocol version
 		tx.ConfidentialityProtocolVersion = "1.2"
@@ -68,20 +69,21 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	// Copy metadata from ChaincodeSpec
 	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
 
+	if nonce == nil {
+		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		if err != nil {
+			client.error("Failed creating nonce [%s].", err.Error())
+			return nil, err
+		}
+	} else {
+		// TODO: check that it is a well formed nonce
+		tx.Nonce = nonce
+	}
+
 	// Handle confidentiality
 	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		if nonce == nil {
-			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-			if err != nil {
-				client.error("Failed creating nonce [%s].", err.Error())
-				return nil, err
-			}
-		} else {
-			// TODO: check that it is a well formed nonce
-			tx.Nonce = nonce
-		}
 
 		// 2. set confidentiality protocol version
 		tx.ConfidentialityProtocolVersion = "1.2"
@@ -109,20 +111,21 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	// Copy metadata from ChaincodeSpec
 	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
 
+	if nonce == nil {
+		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		if err != nil {
+			client.error("Failed creating nonce [%s].", err.Error())
+			return nil, err
+		}
+	} else {
+		// TODO: check that it is a well formed nonce
+		tx.Nonce = nonce
+	}
+
 	// Handle confidentiality
 	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 		// 1. set confidentiality level and nonce
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-		if nonce == nil {
-			tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-			if err != nil {
-				client.error("Failed creating nonce [%s].", err.Error())
-				return nil, err
-			}
-		} else {
-			// TODO: check that it is a well formed nonce
-			tx.Nonce = nonce
-		}
 
 		// 2. set confidentiality protocol version
 		tx.ConfidentialityProtocolVersion = "1.2"
