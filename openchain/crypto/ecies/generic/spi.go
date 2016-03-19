@@ -8,7 +8,7 @@ import (
 	"io"
 )
 
-func newKeyGeneratorParameter(rand io.Reader, curve elliptic.Curve) (ecies.KeyGeneratorParameter, error) {
+func newKeyGeneratorParameter(rand io.Reader, curve elliptic.Curve) (ecies.KeyGeneratorParameters, error) {
 	return &keyGeneratorParameterImpl{rand, curve, nil}, nil
 }
 
@@ -98,6 +98,7 @@ func newAsymmetricCipherFromPublicKey(pub ecies.PublicKey) (ecies.AsymmetricCiph
 	return es, nil
 }
 
+// NewSPI returns a new SPI instance
 func NewSPI() ecies.SPI {
 	return &spiImpl{}
 }

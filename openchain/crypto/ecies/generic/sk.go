@@ -23,7 +23,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"fmt"
 	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
 	"io"
 )
@@ -56,7 +55,6 @@ func (sk *secretKeyImpl) GetPublicKey() ecies.PublicKey {
 func (sks *secretKeySerializerImpl) ToBytes(key interface{}) ([]byte, error) {
 	switch sk := key.(type) {
 	case *secretKeyImpl:
-		fmt.Println("key [%s]\n", sk.priv.Curve)
 		return x509.MarshalECPrivateKey(sk.priv)
 	default:
 		return nil, ecies.ErrInvalidKeyParameter

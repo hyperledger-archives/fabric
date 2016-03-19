@@ -62,7 +62,7 @@ The **peer** command will run peer process. You can then use the other commands 
 To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/)
+    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/ | grep -v /examples/)
 
 Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
 
@@ -76,6 +76,10 @@ OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup net
 ```
 cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
 behave
+```
+Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
+```
+behave -D logs=Y
 ```
 
 Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands

@@ -13,51 +13,57 @@ var (
 	ErrInvalidKeyGeneratorParameter = errors.New("Invalid Key Generator Parameter.")
 )
 
-// Parameter is common interface for all the parameters
-type Parameter interface {
+// Parameters is common interface for all the parameters
+type Parameters interface {
+
+	// GetRand returns the random generated associated to this parameters
 	GetRand() io.Reader
 }
 
 // CipherParameters is common interface to represent cipher parameters
 type CipherParameters interface {
-	Parameter
+	Parameters
 }
 
-// AsymmetricKeyParameter is common interface to represent asymmetric cipher parameters
-type AsymmetricCipherParameter interface {
-	Parameter
+// AsymmetricCipherParameters is common interface to represent asymmetric cipher parameters
+type AsymmetricCipherParameters interface {
+	Parameters
 
+	// IsPublic returns true if the parameters are public, false otherwise.
 	IsPublic() bool
 }
 
 // PublicKey is common interface to represent public asymmetric cipher parameters
 type PublicKey interface {
-	AsymmetricCipherParameter
+	AsymmetricCipherParameters
 }
 
 // PrivateKey is common interface to represent private asymmetric cipher parameters
 type PrivateKey interface {
-	AsymmetricCipherParameter
+	AsymmetricCipherParameters
 
+	// GetPublicKey returns the associated public key
 	GetPublicKey() PublicKey
 }
 
-// KeyGeneratorParameter is common interface to represent key generation parameters
-type KeyGeneratorParameter interface {
-	Parameter
+// KeyGeneratorParameters is common interface to represent key generation parameters
+type KeyGeneratorParameters interface {
+	Parameters
 }
 
 // KeyGenerator defines a key generator
 type KeyGenerator interface {
-	Init(params KeyGeneratorParameter) error
+	// Init initializes this generated using the passed parameters
+	Init(params KeyGeneratorParameters) error
 
+	// GenerateKey generates a new private key
 	GenerateKey() (PrivateKey, error)
 }
 
-// KeyGenerator defines an asymmetric cipher
+// AsymmetricCipher defines an asymmetric cipher
 type AsymmetricCipher interface {
 	// Init initializes this cipher with the passed parameters
-	Init(params AsymmetricCipherParameter) error
+	Init(params AsymmetricCipherParameters) error
 
 	// Process processes the byte array given in input
 	Process(msg []byte) ([]byte, error)
@@ -74,10 +80,22 @@ type KeySerializer interface {
 
 // SPI is the ECIES Service Provider Interface
 type SPI interface {
+
+	// NewAsymmetricCipherFromPrivateKey creates a new AsymmetricCipher for decryption from a secret key
 	NewAsymmetricCipherFromPrivateKey(priv PrivateKey) (AsymmetricCipher, error)
+
+	// NewAsymmetricCipherFromPublicKey creates a new AsymmetricCipher for encryption from a public key
 	NewAsymmetricCipherFromPublicKey(pub PublicKey) (AsymmetricCipher, error)
+
+	// NewPrivateKey creates a new private key from (rand, params)
 	NewPrivateKey(rand io.Reader, params interface{}) (PrivateKey, error)
+
+	// NewPublicKey creates a new public key from (rand, params)
 	NewPublicKey(rand io.Reader, params interface{}) (PublicKey, error)
+
+	// SerializePrivateKey serializes a private key
 	SerializePrivateKey(priv PrivateKey) ([]byte, error)
+
+	// DeserializePrivateKey deserializes to a private key
 	DeserializePrivateKey(bytes []byte) (PrivateKey, error)
 }

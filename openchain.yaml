@@ -60,8 +60,8 @@ logging:
     #   info                                       - Set default to INFO
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
-    peer:      info
-    crypto:    info
+    peer:      debug
+    crypto:    debug
     status:    warning
     stop:      warning
     login:     warning
@@ -147,7 +147,7 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
+        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops ( this value is case-insensitive)
         # if the given value is not recognized, we will default to noops
         consensus: noops
 
@@ -378,8 +378,8 @@ security:
     # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
     # sure the values are in obc-ca/obcca.yaml file eca.users
-    enrollID: binhn
-    enrollSecret: 7avZQLwcUe9q
+    enrollID: vp
+    enrollSecret: f3489fy98ghf
     # To enable privacy of transactions (requires security to be enabled). This
     # encrypts the transaction content during transit and at rest. The state
     # data is also encrypted

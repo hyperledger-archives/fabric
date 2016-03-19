@@ -49,10 +49,13 @@ var (
 	// ErrInvalidSignature Invalid Signature
 	ErrInvalidSignature = errors.New("Invalid Signature.")
 
+	// ErrInvalidKey Invalid key
+	ErrInvalidKey = errors.New("Invalid key.")
+
 	// ErrInvalidReference Invalid reference
 	ErrInvalidReference = errors.New("Invalid reference.")
 
-	// ErrInvalidReference Invalid reference
+	// ErrNilArgument Invalid reference
 	ErrNilArgument = errors.New("Nil argument.")
 
 	// ErrNotImplemented Not implemented
@@ -70,10 +73,23 @@ var (
 	// ErrDifferentChaincodeID ChaincodeIDs are different
 	ErrDifferentChaincodeID = errors.New("ChaincodeIDs are different.")
 
+	// ErrDifferrentConfidentialityProtocolVersion different confidentiality protocol versions
+	ErrDifferrentConfidentialityProtocolVersion = errors.New("Confidentiality protocol versions are different.")
+
 	// ErrInvalidConfidentialityLevel Invalid confidentiality level
 	ErrInvalidConfidentialityLevel = errors.New("Invalid confidentiality level")
+
+	// ErrInvalidConfidentialityProtocol Invalid confidentiality level
+	ErrInvalidConfidentialityProtocol = errors.New("Invalid confidentiality protocol")
+
+	// ErrInvalidTransactionType Invalid transaction type
+	ErrInvalidTransactionType = errors.New("Invalid transaction type")
+
+	// ErrInvalidProtocolVersion Invalid protocol version
+	ErrInvalidProtocolVersion = errors.New("Invalid protocol version")
 )
 
+// ErrToString converts and error to a string. If the error is nil, it returns the string "<clean>"
 func ErrToString(err error) string {
 	if err != nil {
 		return err.Error()

@@ -147,6 +147,7 @@ func nextSuffix() string {
 	return strconv.Itoa(int(1e9 + r%1e9))[1:]
 }
 
+// TempFile returns a temporary file path with the respect the system temp dir.
 func TempFile(dir, prefix string) (name string, err error) {
 	if dir == "" {
 		dir = os.TempDir()

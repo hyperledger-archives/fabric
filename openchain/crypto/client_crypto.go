@@ -19,11 +19,45 @@ under the License.
 
 package crypto
 
-func (client *clientImpl) initCryptoEngine() error {
-	// Init TCert Engine
-	if err := client.initTCertEngine(); err != nil {
-		return err
+import (
+	"crypto/ecdsa"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+)
+
+func (client *clientImpl) registerCryptoEngine() (err error) {
+	// Store query state key
+	client.queryStateKey, err = utils.GetRandomBytes(utils.NonceSize)
+	if err != nil {
+		log.Error("Failed generating query state key: [%s].", err.Error())
+		return
 	}
 
-	return nil
+	err = client.ks.storeKey(client.conf.getQueryStateKeyFilename(), client.queryStateKey)
+	if err != nil {
+		log.Error("Failed storing query state key: [%s].", err.Error())
+		return
+	}
+
+	return
+}
+
+func (client *clientImpl) initCryptoEngine() (err error) {
+	// Load TCertOwnerKDFKey
+	if err = client.initTCertEngine(); err != nil {
+		return
+	}
+
+	// Init query state key
+	client.queryStateKey, err = client.ks.loadKey(client.conf.getQueryStateKeyFilename())
+	if err != nil {
+		return
+	}
+
+	// Init chain publicKey
+	client.chainPublicKey, err = client.eciesSPI.NewPublicKey(nil, client.enrollChainKey.(*ecdsa.PublicKey))
+	if err != nil {
+		return
+	}
+
+	return
 }

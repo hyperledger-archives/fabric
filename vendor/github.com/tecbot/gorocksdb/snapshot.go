@@ -15,7 +15,7 @@ func NewNativeSnapshot(c *C.rocksdb_snapshot_t, cDb *C.rocksdb_t) *Snapshot {
 }
 
 // Release removes the snapshot from the database's list of snapshots.
-func (self *Snapshot) Release() {
-	C.rocksdb_release_snapshot(self.cDb, self.c)
-	self.c, self.cDb = nil, nil
+func (s *Snapshot) Release() {
+	C.rocksdb_release_snapshot(s.cDb, s.c)
+	s.c, s.cDb = nil, nil
 }

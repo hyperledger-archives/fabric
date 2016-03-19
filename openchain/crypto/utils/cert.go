@@ -196,6 +196,7 @@ func NewSelfSignedCert() ([]byte, interface{}, error) {
 	return cert, privKey, nil
 }
 
+// CheckCertPKAgainstSK checks certificate's publickey against the passed secret key
 func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) error {
 	switch pub := x509Cert.PublicKey.(type) {
 	case *rsa.PublicKey:
@@ -222,6 +223,7 @@ func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) er
 	return nil
 }
 
+// CheckCertAgainRoot check the validity of the passed certificate against the passed certPool
 func CheckCertAgainRoot(x509Cert *x509.Certificate, certPool *x509.CertPool) ([][]*x509.Certificate, error) {
 	opts := x509.VerifyOptions{
 		// TODO		DNSName: "test.example.com",
@@ -231,6 +233,7 @@ func CheckCertAgainRoot(x509Cert *x509.Certificate, certPool *x509.CertPool) ([]
 	return x509Cert.Verify(opts)
 }
 
+// CheckCertAgainstSKAndRoot checks the passed certificate against the passed secretkey and certPool
 func CheckCertAgainstSKAndRoot(x509Cert *x509.Certificate, privateKey interface{}, certPool *x509.CertPool) error {
 	if err := CheckCertPKAgainstSK(x509Cert, privateKey); err != nil {
 		return err

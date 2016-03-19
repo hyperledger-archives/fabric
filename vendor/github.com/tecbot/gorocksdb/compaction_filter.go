@@ -3,10 +3,8 @@ package gorocksdb
 // #include "rocksdb/c.h"
 import "C"
 
+// A CompactionFilter can be used to filter keys during compaction time.
 type CompactionFilter interface {
-	// The name of the compaction filter, for logging
-	Name() string
-
 	// If the Filter function returns false, it indicates
 	// that the kv should be preserved, while a return value of true
 	// indicates that this key-value should be removed from the
@@ -22,14 +20,39 @@ type CompactionFilter interface {
 	// called from different threads concurrently. The application must ensure
 	// that the call is thread-safe.
 	Filter(level int, key, val []byte) (remove bool, newVal []byte)
+
+	// The name of the compaction filter, for logging
+	Name() string
+}
+
+// NewNativeCompactionFilter creates a CompactionFilter object.
+func NewNativeCompactionFilter(c *C.rocksdb_comparator_t) Comparator {
+	return nativeComparator{c}
+}
+
+type nativeCompactionFilter struct {
+	c *C.rocksdb_compactionfilter_t
+}
+
+func (c nativeCompactionFilter) Filter(level int, key, val []byte) (remove bool, newVal []byte) {
+	return false, nil
+}
+func (c nativeCompactionFilter) Name() string { return "" }
+
+// Hold references to compaction filters.
+var compactionFilters []CompactionFilter
+
+func registerCompactionFilter(filter CompactionFilter) int {
+	compactionFilters = append(compactionFilters, filter)
+	return len(compactionFilters) - 1
 }
 
 //export gorocksdb_compactionfilter_filter
-func gorocksdb_compactionfilter_filter(handle *CompactionFilter, cLevel C.int, cKey *C.char, cKeyLen C.size_t, cVal *C.char, cValLen C.size_t, cNewVal **C.char, cNewValLen *C.size_t, cValChanged *C.uchar) C.int {
+func gorocksdb_compactionfilter_filter(idx int, cLevel C.int, cKey *C.char, cKeyLen C.size_t, cVal *C.char, cValLen C.size_t, cNewVal **C.char, cNewValLen *C.size_t, cValChanged *C.uchar) C.int {
 	key := charToByte(cKey, cKeyLen)
 	val := charToByte(cVal, cValLen)
-	remove, newVal := (*handle).Filter(int(cLevel), key, val)
 
+	remove, newVal := compactionFilters[idx].Filter(int(cLevel), key, val)
 	if remove {
 		return C.int(1)
 	} else if newVal != nil {
@@ -41,6 +64,6 @@ func gorocksdb_compactionfilter_filter(handle *CompactionFilter, cLevel C.int, c
 }
 
 //export gorocksdb_compactionfilter_name
-func gorocksdb_compactionfilter_name(handle *CompactionFilter) *C.char {
-	return stringToChar((*handle).Name())
+func gorocksdb_compactionfilter_name(idx int) *C.char {
+	return stringToChar(compactionFilters[idx].Name())
 }

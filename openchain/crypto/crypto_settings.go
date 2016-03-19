@@ -10,6 +10,8 @@ var (
 	log = logging.MustGetLogger("crypto")
 )
 
+// Init initializes the crypto layer. It load from viper the security level
+// and the logging setting.
 func Init() (err error) {
 	// Init log
 	log.ExtraCalldepth++

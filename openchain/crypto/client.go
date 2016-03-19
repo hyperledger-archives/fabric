@@ -54,7 +54,7 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 		return nil
 	}
 
-	client := new(clientImpl)
+	client := newClient()
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
@@ -88,7 +88,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 		return clients[name].client, nil
 	}
 
-	client := new(clientImpl)
+	client := newClient()
 	if err := client.init(name, pwd); err != nil {
 		log.Error("Failed client initialization [%s]: [%s].", name, err)
 
@@ -130,6 +130,10 @@ func CloseAllClients() (bool, []error) {
 
 // Private Methods
 
+func newClient() *clientImpl {
+	return &clientImpl{&nodeImpl{}, false, nil, nil, nil, nil}
+}
+
 func closeClientInternal(client Client, force bool) error {
 	if client == nil {
 		return utils.ErrNilArgument
@@ -145,13 +149,14 @@ func closeClientInternal(client Client, force bool) error {
 		defer delete(clients, name)
 		err := clients[name].client.(*clientImpl).close()
 		log.Debug("Closing client [%s]...cleanup! [%s].", name, utils.ErrToString(err))
+
 		return err
-	} else {
-		// decrease counter
-		entry.counter--
-		clients[name] = entry
-		log.Debug("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
 	}
+
+	// decrease counter
+	entry.counter--
+	clients[name] = entry
+	log.Debug("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
 
 	return nil
 }

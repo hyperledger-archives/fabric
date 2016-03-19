@@ -25,11 +25,10 @@ import (
 	"path/filepath"
 )
 
-const (
-	TLSCA_CERT_CHAIN = "tlsca.cert.chain"
-)
+func (node *nodeImpl) initConfiguration(name string) (err error) {
+	// Set logger
+	prefix := eTypeToString(node.eType)
 
-func (node *nodeImpl) initConfiguration(prefix, name string) (err error) {
 	// Set configuration
 	node.conf = &configuration{prefix: prefix, name: name}
 	if err = node.conf.init(); err != nil {
@@ -192,6 +191,10 @@ func (conf *configuration) getPathForAlias(alias string) string {
 	return filepath.Join(conf.getRawsPath(), alias)
 }
 
+func (conf *configuration) getQueryStateKeyFilename() string {
+	return "query.key"
+}
+
 func (conf *configuration) getEnrollmentKeyFilename() string {
 	return "enrollment.key"
 }
@@ -217,7 +220,7 @@ func (conf *configuration) getECACertsChainFilename() string {
 }
 
 func (conf *configuration) getTLSCACertsChainFilename() string {
-	return TLSCA_CERT_CHAIN
+	return "tlsca.cert.chain"
 }
 
 func (conf *configuration) getTLSCACertsExternalPath() string {

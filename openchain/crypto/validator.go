@@ -54,7 +54,7 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 		return nil
 	}
 
-	validator := new(validatorImpl)
+	validator := newValidator()
 	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
@@ -88,7 +88,7 @@ func InitValidator(name string, pwd []byte) (Peer, error) {
 		return validators[name].validator, nil
 	}
 
-	validator := new(validatorImpl)
+	validator := newValidator()
 	if err := validator.init(name, pwd); err != nil {
 		log.Error("Failed validator initialization [%s]: [%s]", name, err)
 
@@ -130,6 +130,10 @@ func CloseAllValidators() (bool, []error) {
 
 // Private Methods
 
+func newValidator() *validatorImpl {
+	return &validatorImpl{&peerImpl{&nodeImpl{}, false}, false, nil, nil}
+}
+
 func closeValidatorInternal(peer Peer, force bool) error {
 	if peer == nil {
 		return utils.ErrNilArgument
@@ -145,13 +149,14 @@ func closeValidatorInternal(peer Peer, force bool) error {
 		defer delete(validators, name)
 		err := validators[name].validator.(*validatorImpl).close()
 		log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
+
 		return err
-	} else {
-		// decrease counter
-		entry.counter--
-		validators[name] = entry
-		log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
 	}
+
+	// decrease counter
+	entry.counter--
+	validators[name] = entry
+	log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
 
 	return nil
 }

@@ -611,6 +611,9 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 				return
 			}
 		}
+	} else {
+		err = fmt.Errorf("Empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
+		return
 	}
 
 	return

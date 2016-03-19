@@ -45,10 +45,13 @@ eca:
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD>
                 lukas: 1 NPKYL39uKbkj
-                system_chaincode_invoker: 2 DRJ20pEql15a
-                diego: 2 DRJ23pEQl16a
-                binhn: 3 7avZQLwcUe9q
-                jim: 12 6avZQLwcUe9b
+                system_chaincode_invoker: 1 DRJ20pEql15a
+                diego: 1 DRJ23pEQl16a
+                jim: 1 6avZQLwcUe9b
+                binhn: 1 7avZQLwcUe9q
+
+                vp: 4 f3489fy98ghf
+
                 test_vp0: 4 MwYpmSRjupbT
                 test_vp1: 4 5wgHK9qqYaPy
                 test_vp2: 4 vQelbRvja7cJ

@@ -96,7 +96,7 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	if err != nil {
 		return nil, errors.New("Failed to get state")
 	}
-	if Avalbytes == nil {
+	if Bvalbytes == nil {
 		return nil, errors.New("Entity not found")
 	}
 	Bval, _ = strconv.Atoi(string(Bvalbytes))

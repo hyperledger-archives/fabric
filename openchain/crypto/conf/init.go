@@ -11,6 +11,7 @@ var (
 	initOnce sync.Once
 )
 
+// InitSecurityLevel initialize the crypto layer at the given security level
 func InitSecurityLevel(level int) (err error) {
 	initOnce.Do(func() {
 		switch level {
