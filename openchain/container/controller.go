@@ -67,7 +67,7 @@ func (vm *dockerVM) build(ctxt context.Context, id string, args []string, env []
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,
-		Pull:         true,
+		Pull:         false,
 		InputStream:  reader,
 		OutputStream: outputbuf,
 	}
@@ -152,6 +152,7 @@ func (vm *dockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 	}
 	return err
 }
+
 //constants for supported containers
 const (
 	DOCKER = "Docker"
