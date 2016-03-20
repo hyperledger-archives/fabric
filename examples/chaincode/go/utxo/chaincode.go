@@ -64,18 +64,16 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		if err != nil {
 			return nil, fmt.Errorf("Error executing TX:  %s", err)
 		}
+
+		fmt.Printf("\nExecResult: Coinbase: %t, SumInputs %d, SumOutputs %d\n\n", execResult.IsCoinbase, execResult.SumPriorOutputs, execResult.SumCurrentOutputs)
+
 		if execResult.IsCoinbase == false {
-			if execResult.SumCurrentOutputs != execResult.SumPriorOutputs {
-				return nil, fmt.Errorf("sumOfCurrentOutputs != sumOfPriorOutputs: sumOfCurrentOutputs = %d, sumOfPriorOutputs = %d", execResult.SumCurrentOutputs, execResult.SumPriorOutputs)
+			if execResult.SumCurrentOutputs > execResult.SumPriorOutputs {
+				return nil, fmt.Errorf("sumOfCurrentOutputs > sumOfPriorOutputs: sumOfCurrentOutputs = %d, sumOfPriorOutputs = %d", execResult.SumCurrentOutputs, execResult.SumPriorOutputs)
 			}
 		}
 
 		return nil, nil
-
-		// err := stub.DelState(key)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("remove operation failed. Error updating state: %s", err)
-		// }
 
 	default:
 		return nil, errors.New("Unsupported operation")
@@ -87,47 +85,6 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 // Query callback representing the query of a chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, errors.New("Unsupported operation")
-
-	// switch function {
-
-	// case "get":
-	// 	if len(args) < 1 {
-	// 		return nil, errors.New("get operation must include one argument, a key")
-	// 	}
-	// 	key := args[0]
-	// 	value, err := stub.GetState(key)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("get operation failed. Error accessing state: %s", err)
-	// 	}
-	// 	return value, nil
-
-	// case "keys":
-
-	// 	keysIter, err := stub.RangeQueryState("", "")
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("keys operation failed. Error accessing state: %s", err)
-	// 	}
-	// 	defer keysIter.Close()
-
-	// 	var keys []string
-	// 	for keysIter.HasNext() {
-	// 		key, _, err := keysIter.Next()
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("keys operation failed. Error accessing state: %s", err)
-	// 		}
-	// 		keys = append(keys, key)
-	// 	}
-
-	// 	jsonKeys, err := json.Marshal(keys)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("keys operation failed. Error marshaling JSON: %s", err)
-	// 	}
-
-	// 	return jsonKeys, nil
-
-	// default:
-	// 	return nil, errors.New("Unsupported operation")
-	// }
 }
 
 func main() {

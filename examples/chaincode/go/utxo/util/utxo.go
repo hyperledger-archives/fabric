@@ -24,15 +24,6 @@ type Key struct {
 	TxIndex     uint32
 }
 
-// type Value struct {
-// 	Satoshi uint64
-// 	Script  []byte
-// }
-
-// func makeKey(txData []byte) *Key {
-// 	newKey := &Key{}
-// }
-
 func (u *UTXO) GetTransactionHash(txData []byte) [32]byte {
 	firstHash := sha256.Sum256(txData)
 	txHash := sha256.Sum256(firstHash[:])
