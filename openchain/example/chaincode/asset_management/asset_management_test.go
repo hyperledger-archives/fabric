@@ -372,6 +372,9 @@ func setup() {
 		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
 	}
 
+	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "openchain", "production"))
+	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obcca"))
+
 	removeFolders()
 }
 
@@ -427,7 +430,7 @@ func initVP() {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:30303"
+	peerAddress := "0.0.0.0:40404"
 	var err error
 	lis, err = net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -538,10 +541,10 @@ func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.Cha
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(".obcca"); err != nil {
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), "obcca")); err != nil {
 		fmt.Printf("Failed removing [%s] [%s]\n", ".obcca", err)
 	}
-	if err := os.RemoveAll(".openchain"); err != nil {
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), "openchain")); err != nil {
 		fmt.Printf("Failed removing [%s] [%s]\n", ".openchain", err)
 	}
 }

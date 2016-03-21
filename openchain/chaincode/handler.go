@@ -227,7 +227,7 @@ func (handler *Handler) encrypt(uuid string, payload []byte) ([]byte, error) {
 func (handler *Handler) getSecurityBinding(tx *pb.Transaction) ([]byte, error) {
 	secHelper := handler.chaincodeSupport.getSecHelper()
 	if secHelper == nil {
-		return nil, fmt.Errorf("No security help set!!!")
+		return nil, nil
 	}
 
 	return secHelper.GetTransactionBinding(tx)
