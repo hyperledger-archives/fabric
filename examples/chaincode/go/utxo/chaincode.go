@@ -26,16 +26,12 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
 )
 
-// This chaincode implements a simple map that is stored in the state.
-// The following operations are available.
-
-// Invoke operations
-// put - requires two arguments, a key and value
-// remove - requires a key
-
-// Query operations
-// get - requires one argument, a key, and returns a value
-// keys - requires no arguments, returns all keys
+// The UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
+// encoded transactions from the Bitcoin network. This chaincode will parse the transactions and pass the transaction
+// components to the Bitcoin libconsensus C library for script verification. A table of UTXOs is maintained to ensure
+// each transaction is valid.
+// Documentation can be found at
+// https://github.com/openblockchain/obc-peer/blob/master/examples/chaincode/go/utxo/README.md
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
