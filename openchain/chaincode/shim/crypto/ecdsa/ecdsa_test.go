@@ -20,21 +20,22 @@ under the License.
 package ecdsa
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/primitives"
+	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
+	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
 	"testing"
 )
 
 func TestSignatureVerifier(t *testing.T) {
 	// Create a signature
-	primitives.InitSecurityLevel(256)
+	conf.InitSecurityLevel(256)
 
-	cert, key, err := primitives.NewSelfSignedCert()
+	cert, key, err := utils.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := primitives.ECDSASign(key, message)
+	signature, err := utils.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
