@@ -244,7 +244,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		if nil != mock.CommitStateDelta(id) {
 			panic("Error in delta construction/application")
 		}
-		logger.Info("TEST LEDGER: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
+		fmt.Printf("TEST LEDGER: Mock ledger is inserting block %d with hash %x\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
 
@@ -325,7 +325,7 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 						}
 
 					} else {
-						logger.Error("TEST LEDGER: %v could not retrieve block %d : %s", peerID, current, err)
+						fmt.Printf("TEST LEDGER: %v could not retrieve block %d : %s\n", peerID, current, err)
 						break
 					}
 				} else {

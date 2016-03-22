@@ -457,7 +457,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, peerIDs []*protos.PeerID) (uint64, *protos.Block, error) {
-	logger.Debug("%v syncing blocks from %d to %d", sts.id, highBlock, lowBlock)
+	logger.Debug("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
@@ -480,6 +480,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
 					// If the message is not replying with blocks backwards, we did not ask for it
 					// TODO, this should count against the timeout
+					logger.Debug("Received block potentially from a different request, start=%d, end=%d", syncBlockMessage.Range.Start, syncBlockMessage.Range.End)
 					continue
 				}
 
@@ -488,6 +489,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
 					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
 						// TODO, this should count against the timeout
+						logger.Debug("Received block potentially from a different request, start=%d, end=%d, wanted %d", syncBlockMessage.Range.Start, syncBlockMessage.Range.End, blockCursor)
 						continue
 					}
 

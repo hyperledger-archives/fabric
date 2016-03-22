@@ -22,6 +22,7 @@ package obcpbft
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	pb "github.com/openblockchain/obc-peer/protos"
 )
@@ -124,7 +125,7 @@ func internalQueueMessage(queue chan<- taggedMsg, tm taggedMsg) {
 	select {
 	case queue <- tm:
 	default:
-		logger.Warning("TEST NET: Message cannot be queued without blocking, consider increasing the queue size")
+		fmt.Println("TEST NET: Message cannot be queued without blocking, consider increasing the queue size")
 		queue <- tm
 	}
 }
@@ -138,7 +139,7 @@ func (net *testnet) debugMsg(msg string, args ...interface{}) {
 func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 	select {
 	case <-net.closed:
-		logger.Error("WARNING! Attempted to send a request to a closed network, ignoring")
+		fmt.Println("WARNING! Attempted to send a request to a closed network, ignoring")
 		return
 	default:
 	}
@@ -241,6 +242,9 @@ func (net *testnet) process() error {
 				if !net.processMessageFromChannel(msg, ok) {
 					return nil
 				}
+			case <-time.After(10 * time.Second):
+				// Things should never take this long
+				panic("Test waiting for new messages took 10 seconds, this generally indicates a deadlock condition")
 			case <-net.closed:
 				return nil
 			}

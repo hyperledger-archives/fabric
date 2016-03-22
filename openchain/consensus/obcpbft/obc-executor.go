@@ -217,7 +217,7 @@ func (obcex *obcExecutor) getCurrentID() ([]byte, error) {
 
 	blockHash := obcex.hashBlock(headBlock)
 
-	idAsBytes, err := createID(height-1, blockHash)
+	idAsBytes, err := obcex.createID(height-1, blockHash)
 	if nil != err {
 		return nil, fmt.Errorf("Could not generate ID from head bock number and hash %v", err)
 	}
@@ -262,7 +262,9 @@ func (obcex *obcExecutor) queueThread() {
 			}
 		}
 
-		logger.Debug("%v executor thread attempting an execution for seqNo=%d", obcex.id, transaction.seqNo)
+		blockHeight := obcex.getBlockchainSize()
+
+		logger.Debug("%v executor thread attempting an execution for seqNo=%d, candidate for block %d", obcex.id, transaction.seqNo, blockHeight)
 		if transaction.seqNo <= obcex.lastExec {
 			logger.Debug("%v skipping execution of request for seqNo=%d (lastExec=%d)", obcex.id, transaction.seqNo, obcex.lastExec)
 			continue
@@ -330,7 +332,7 @@ func (obcex *obcExecutor) checkpoint(tx *transaction, block *pb.Block) {
 	blockHeight := obcex.getBlockchainSize()
 	blockHashBytes := obcex.hashBlock(block)
 
-	idAsBytes, err := createID(blockHeight-1, blockHashBytes)
+	idAsBytes, err := obcex.createID(blockHeight-1, blockHashBytes)
 
 	if nil != err {
 		logger.Error("%v could not send checkpoint: %v", obcex.id, err)
@@ -347,7 +349,9 @@ func (obcex *obcExecutor) rollback(tx *transaction) {
 	}
 }
 
-func createID(blockNumber uint64, blockHashBytes []byte) ([]byte, error) {
+func (obcex *obcExecutor) createID(blockNumber uint64, blockHashBytes []byte) ([]byte, error) {
+	logger.Debug("%v creating id for blockNumber %d and hash %x", obcex.id, blockNumber, blockHashBytes)
+
 	id := &BlockInfo{
 		BlockNumber: blockNumber,
 		BlockHash:   blockHashBytes,
@@ -409,7 +413,7 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
 	blockHeight := obcex.getBlockchainSize()
 	blockHashBytes := obcex.hashBlock(block)
 
-	idAsBytes, err := createID(blockHeight, blockHashBytes)
+	idAsBytes, err := obcex.createID(blockHeight, blockHashBytes)
 
 	if err != nil {
 		return fmt.Errorf("Error creating the execution id: %v", err)
@@ -424,6 +428,7 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
 
 	if nil != correctedIDAsBytes {
 		logger.Debug("%v transaction %p results incorrect, recovering", obcex.id, tx)
+		obcex.rollback(tx)
 		correctedID := &BlockInfo{}
 		if err := proto.Unmarshal(correctedIDAsBytes, correctedID); nil != err {
 			logger.Warning("%v transaction %p did not unmarshal to the required BlockInfo: %v", obcex.id, tx, err)
@@ -465,7 +470,7 @@ func (obcex *obcExecutor) execute(tx *transaction) error {
 func (obcex *obcExecutor) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata interface{}) {
 
 	if md, ok := metadata.(*syncTarget); ok {
-		logger.Debug("%v completed state transfer to sequence number %d, about to resume request execution", obcex.id, md.seqNo)
+		logger.Debug("%v completed state transfer to sequence number %d with block number %d and hash %x, about to resume request execution", obcex.id, md.seqNo, blockNumber, blockHash)
 		obcex.completeSync <- md
 	} else {
 		logger.Error("%v was informed of a completed state transfer it did not initiate, this is indicative of a serious bug", obcex.id)

@@ -279,13 +279,15 @@ func (op *obcSieve) processExecute() {
 	}
 
 	if exec.BlockNumber != op.blockNumber+1 {
-		logger.Debug("Invalid block number in execute: expected %d, got %d",
-			op.blockNumber+1, exec.BlockNumber)
+		logger.Debug("Block block number in execute wrong: expected %d, got %d",
+			op.blockNumber, exec.BlockNumber)
 		return
 	}
 
-	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d",
-		op.id, exec.ReplicaId, exec.View, exec.BlockNumber)
+	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
+
+	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d from request=%s",
+		op.id, exec.ReplicaId, exec.View, exec.BlockNumber, op.currentReq)
 
 	// With the execution decoupled from the ordering, this sanity check is challenging and introduces a race
 	/*
@@ -297,16 +299,16 @@ func (op *obcSieve) processExecute() {
 		}
 	*/
 
-	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
 	op.currentView = exec.View
-	op.blockNumber++
+	op.blockNumber = exec.BlockNumber
 
 	tx := &pb.Transaction{}
 	proto.Unmarshal(exec.Request, tx)
 
-	op.executor.Execute(op.blockNumber, []*pb.Transaction{tx}, &ExecutionInfo{
+	op.executor.Execute(exec.BlockNumber, []*pb.Transaction{tx}, &ExecutionInfo{
 		Validate: true,
 	})
+
 }
 
 func (op *obcSieve) Checkpoint(seqNo uint64, id []byte) {
@@ -314,17 +316,13 @@ func (op *obcSieve) Checkpoint(seqNo uint64, id []byte) {
 }
 
 func (op *obcSieve) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
-	op.pbft.lock()
 
 	sidAsBytes, _ := proto.Marshal(&SieveId{
 		BlockNumber: seqNo,
 		ObcId:       id,
 	})
 
-	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s, id=%x", op.id, op.blockNumber, op.currentReq, sidAsBytes)
-
-	// for simplicity's sake, we use the pbft timer
-	op.pbft.startTimer(op.pbft.requestTimeout)
+	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s, id=%x, sid=%x", op.id, op.blockNumber, op.currentReq, id, sidAsBytes)
 
 	verify := &Verify{
 		View:          op.currentView,
@@ -337,35 +335,34 @@ func (op *obcSieve) Validate(seqNo uint64, id []byte) (commit bool, correctedID 
 
 	logger.Debug("Sieve replica %d sending verify blockNo=%d",
 		op.id, verify.BlockNumber)
-	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
-	op.recvVerify(verify)
 
-	op.pbft.unlock()
+	go func() {
+		op.pbft.lock()
+		defer op.pbft.unlock()
+		// for simplicity's sake, we use the pbft timer
+		op.pbft.startTimer(op.pbft.requestTimeout)
+		op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
+
+		op.recvVerify(verify)
+	}()
 
 	logger.Debug("Sieve replica %d waiting for result decision on block %d", op.id, seqNo)
+
 	select {
 	case result := <-op.validResultChan:
-		defer func() {
-			op.pbft.lock()
-			defer op.pbft.unlock()
-			op.currentReq = ""
 
-			if len(op.queuedTx) > 0 {
-				op.processRequest()
-			}
+		sid := &SieveId{}
+		proto.Unmarshal(result.sieveID, sid)
 
-			if op.pbft.primary(op.epoch) != op.id {
-				op.processExecute()
-			}
-		}()
+		if sid.BlockNumber != seqNo {
+			logger.Error("Received a valid result for the wrong block number %d, expecting %d, this indicates a bug", sid.BlockNumber, seqNo)
+			return false, nil, nil
+		}
 
 		if result.commit {
 			logger.Debug("Sieve replica %d received a result decision to commit to %x", op.id, result.sieveID)
 			if !reflect.DeepEqual(sidAsBytes, result.sieveID) {
-				logger.Warning("Decision successful, but our output does not match")
-
-				sid := &SieveId{}
-				proto.Unmarshal(result.sieveID, sid)
+				logger.Warning("Decision successful, but our output does not match (%x) vs (%x)", sidAsBytes, result.sieveID)
 
 				logger.Debug("Sieve replica %d decodes decision to obc-snapshot ID of %x", op.id, sid.ObcId)
 
@@ -602,35 +599,65 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 
 	dSet, shouldCommit := op.verifyDset(vset.Dset)
 
-	if !sync {
-		if !shouldCommit {
+	if !shouldCommit {
+		if !sync {
 			logger.Error("Sieve replica %d execute vset: not deterministic", op.id)
 			op.validResultChan <- &validResult{
 				commit: false,
 			}
 			op.blockNumber--
 		} else {
-			var peers []*pb.PeerID
-			for _, n := range dSet {
-				peer, err := getValidatorHandle(n.ReplicaId)
-				if err == nil {
-					peers = append(peers, peer)
-				}
+			logger.Error("Sieve replica %d told to roll back transactions for a block it doesn't have")
+		}
+	} else {
+		var peers []*pb.PeerID
+		for _, n := range dSet {
+			peer, err := getValidatorHandle(n.ReplicaId)
+			if err == nil {
+				peers = append(peers, peer)
 			}
+		}
 
-			logger.Warning("Sieve replica %d arrived at decision %x", op.id, dSet[0].ResultDigest)
+		decision := dSet[0].ResultDigest
 
-			op.pbft.unlock()
+		if !sync {
+			logger.Debug("Sieve replica %d arrived at decision %x for block %d", op.id, decision, vset.BlockNumber)
 			op.validResultChan <- &validResult{
 				commit:  true,
-				sieveID: dSet[0].ResultDigest,
+				sieveID: decision,
 				peerIDs: peers,
 			}
 
+			op.pbft.unlock()
 			if execInfo.Checkpoint {
-				op.pbft.Checkpoint(seqNo, dSet[0].ResultDigest)
+				op.pbft.Checkpoint(seqNo, decision)
 			}
 			op.pbft.lock()
+		} else {
+			logger.Debug("Sieve replica %d must sync to decision %x for block %d", op.id, decision, vset.BlockNumber)
+			replicas := make([]uint64, len(dSet))
+			for i, n := range dSet {
+				replicas[i] = n.ReplicaId
+			}
+			resultSID := &SieveId{}
+			proto.Unmarshal(decision, resultSID)
+
+			op.blockNumber = resultSID.BlockNumber
+
+			op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, peers)
+		}
+	}
+
+	if !(!shouldCommit && sync) {
+		logger.Debug("Sieve replica %d clearing currentReq state because result decision is being acted on", op.id)
+		op.currentReq = ""
+
+		if len(op.queuedTx) > 0 {
+			op.processRequest()
+		}
+
+		if op.pbft.primary(op.epoch) != op.id {
+			op.processExecute()
 		}
 	}
 }
@@ -662,14 +689,7 @@ func (op *obcSieve) validState(seqNo uint64, id []byte, replicas []uint64) {
 }
 
 func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.currentReq = ""
-
-	resultSID := &SieveId{}
-	proto.Unmarshal(id, resultSID)
-
-	op.blockNumber = resultSID.BlockNumber
-
-	op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas))
+	// No-op for sieve, as it will handle its own state synchronization
 }
 
 func (op *obcSieve) idleChan() <-chan struct{} {
