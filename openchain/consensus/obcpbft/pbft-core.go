@@ -582,7 +582,13 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		logger.Warning("Pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		if preprep.SequenceNumber != instance.h {
+			logger.Warning("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		} else {
+			// This is perfectly normal
+			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		}
+
 		return nil
 	}
 
@@ -636,8 +642,18 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
 
-	if !(instance.primary(instance.view) != prep.ReplicaId && instance.inWV(prep.View, prep.SequenceNumber)) {
-		logger.Warning("Ignoring invalid prepare")
+	if instance.primary(instance.view) == prep.ReplicaId {
+		logger.Warning("Received prepare from primary, ignoring")
+		return nil
+	}
+
+	if !instance.inWV(prep.View, prep.SequenceNumber) {
+		if prep.SequenceNumber != instance.h {
+			logger.Warning("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv", instance.id, prep.View, prep.SequenceNumber)
+		} else {
+			// This is perfectly normal
+			logger.Debug("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv", instance.id, prep.View, prep.SequenceNumber)
+		}
 		return nil
 	}
 
@@ -680,21 +696,25 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
 
-	if instance.inWV(commit.View, commit.SequenceNumber) {
-		cert := instance.getCert(commit.View, commit.SequenceNumber)
-		for _, prevCommit := range cert.commit {
-			if prevCommit.ReplicaId == commit.ReplicaId {
-				logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
-				return nil
-			}
+	if !instance.inWV(commit.View, commit.SequenceNumber) {
+		if commit.SequenceNumber != instance.h {
+			logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv", instance.id, commit.View, commit.SequenceNumber)
+		} else {
+			// This is perfectly normal
+			logger.Debug("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv", instance.id, commit.View, commit.SequenceNumber)
 		}
-		cert.commit = append(cert.commit, commit)
-
-		instance.executeOutstanding()
-	} else {
-		logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv",
-			instance.id, commit.View, commit.SequenceNumber)
 	}
+
+	cert := instance.getCert(commit.View, commit.SequenceNumber)
+	for _, prevCommit := range cert.commit {
+		if prevCommit.ReplicaId == commit.ReplicaId {
+			logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
+			return nil
+		}
+	}
+	cert.commit = append(cert.commit, commit)
+
+	instance.executeOutstanding()
 
 	return nil
 }
@@ -926,9 +946,11 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	}
 
 	if !instance.inW(chkpt.SequenceNumber) {
-		if chkpt.SequenceNumber < instance.h {
+		if chkpt.SequenceNumber != instance.h {
 			// It is perfectly normal that we receive checkpoints for the watermark we just raised, as we raise it after 2f+1, leaving f replies left
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+		} else {
+			logger.Debug("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
 	}
