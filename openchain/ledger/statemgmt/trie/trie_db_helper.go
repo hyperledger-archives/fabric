@@ -20,7 +20,7 @@ under the License.
 package trie
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
+	"github.com/hyperledger-incubator/obc-peer/openchain/db"
 )
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {

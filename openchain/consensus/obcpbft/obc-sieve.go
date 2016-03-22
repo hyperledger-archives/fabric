@@ -25,9 +25,9 @@ import (
 	"reflect"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 
 	"github.com/spf13/viper"
 )

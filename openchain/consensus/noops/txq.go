@@ -20,7 +20,7 @@ under the License.
 package noops
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 type txq struct {

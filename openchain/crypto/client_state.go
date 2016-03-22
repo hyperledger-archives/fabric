@@ -22,8 +22,8 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 // DecryptQueryResult is used to decrypt the result of a query transaction

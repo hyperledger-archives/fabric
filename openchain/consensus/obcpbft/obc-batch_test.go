@@ -24,7 +24,7 @@ import (
 	"os"
 	"testing"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func makeTestnetBatch(inst *instance, batchSize int) {

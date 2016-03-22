@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/events/consumer"
-	"github.com/openblockchain/obc-peer/events/producer"
-	ehpb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/events/consumer"
+	"github.com/hyperledger-incubator/obc-peer/events/producer"
+	ehpb "github.com/hyperledger-incubator/obc-peer/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

@@ -23,8 +23,8 @@ import (
 	"fmt"
 
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/db"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
 	"github.com/tecbot/gorocksdb"
 )
 

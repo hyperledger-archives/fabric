@@ -23,10 +23,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"
 )

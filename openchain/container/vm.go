@@ -36,7 +36,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func newDockerClient() (client *docker.Client, err error) {
@@ -260,7 +260,7 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	}
 
 	//let the executable's name be chaincode ID's name
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger-incubator/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))

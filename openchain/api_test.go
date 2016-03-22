@@ -27,9 +27,9 @@ import (
 
 	"google/protobuf"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )

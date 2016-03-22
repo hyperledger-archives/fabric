@@ -22,7 +22,7 @@ package buckettree
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
 	"github.com/spf13/viper"
 )
 

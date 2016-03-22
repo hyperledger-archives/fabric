@@ -26,7 +26,7 @@ import (
 	"os"
 	"testing"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 	"golang.org/x/net/context"
 )
 
@@ -97,7 +97,7 @@ func TestVM_BuildImage_ChaincodeLocal(t *testing.T) {
 		return
 	}
 	// Build the spec
-	chaincodePath := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
+	chaincodePath := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example01"
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: &pb.ChaincodeInput{Function: "f"}}
 	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
 		t.Fail()

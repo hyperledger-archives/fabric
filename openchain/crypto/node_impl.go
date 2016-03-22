@@ -22,8 +22,8 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 )
 
 // Public Struct

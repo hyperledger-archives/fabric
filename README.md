@@ -12,7 +12,7 @@ This project contains the core blockchain fabric.
 
 ## Building the project
 
-Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md)
+Assuming you have followed the [development environment getting started instructions](https://github.com/hyperledger-incubator/obc-docs/blob/master/dev-setup/devenv.md)
 
 To access your VM, run
 ```
@@ -23,7 +23,7 @@ From within the VM, follow these additional steps.
 
 ### Go build
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer
+cd $GOPATH/src/github.com/hyperledger-incubator/obc-peer
 go build
 ```
 
@@ -31,7 +31,7 @@ go build
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
+    cd $GOPATH/src/github.com/hyperledger-incubator/obc-peer
     ./obc-peer
 
 You should see some output similar to below (**NOTE**: rootcommand below is hardcoded in the [main.go](./main.go). Current build will actually create an *obc-peer* executable file).
@@ -61,8 +61,8 @@ The **peer** command will run peer process. You can then use the other commands 
 #### Unit Tests
 To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/ | grep -v /examples/)
+    cd $GOPATH/src/github.com/hyperledger-incubator/obc-peer
+    go test -timeout=20m $(go list github.com/hyperledger-incubator/obc-peer/... | grep -v /vendor/ | grep -v /examples/)
 
 Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
 
@@ -74,7 +74,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
+cd $GOPATH/src/github.com/hyperledger-incubator/obc-peer/openchain/peer/bddtests
 behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
@@ -84,21 +84,21 @@ behave -D logs=Y
 
 Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
 ```
-go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Peer
-go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Obcca
+go test github.com/hyperledger-incubator/obc-peer/openchain/container -run=BuildImage_Peer
+go test github.com/hyperledger-incubator/obc-peer/openchain/container -run=BuildImage_Obcca
 ```
 
 ## Writing Chaincode
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/hyperledger-incubator/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Setting Up a Network
 
-To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
+To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/hyperledger-incubator/obc-docs/blob/master/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
 
 ## Working with CLI, REST, and Node.js
 
-When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20API.md) page.
+When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/hyperledger-incubator/obc-docs/blob/master/api/Openchain%20API.md) page.
 
 ## Configuration
 
@@ -114,7 +114,7 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
-See [specific logging control] (https://github.com/openblockchain/obc-docs/blob/master/dev-setup/logging-control.md) when running OBC.
+See [specific logging control] (https://github.com/hyperledger-incubator/obc-docs/blob/master/dev-setup/logging-control.md) when running OBC.
 
 ## Generating grpc code
 If you modify any .proto files, run the following command to generate new .pb.go files.
@@ -150,7 +150,7 @@ This is not recommended, however some users may wish to build Openchain outside 
 - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1
 - Run the following commands replacing `/opt/rocksdb` with the path where you installed RocksDB:
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer
+cd $GOPATH/src/github.com/hyperledger-incubator/obc-peer
 CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options

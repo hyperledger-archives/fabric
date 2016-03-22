@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/openblockchain/obc-peer/examples/chaincode/go/utxo/consensus"
+	"github.com/hyperledger-incubator/obc-peer/examples/chaincode/go/utxo/consensus"
 )
 
 type UTXO struct {

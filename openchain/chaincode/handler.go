@@ -28,13 +28,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
 )
 
 const (

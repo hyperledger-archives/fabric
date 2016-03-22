@@ -20,7 +20,7 @@ under the License.
 package state
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
 )
 
 // CompositeRangeScanIterator - an implementation of interface 'statemgmt.RangeScanIterator'

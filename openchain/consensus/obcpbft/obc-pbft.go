@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 
 	"github.com/spf13/viper"
 )
@@ -87,7 +87,7 @@ func loadConfig() (config *viper.Viper) {
 
 // Returns the uint64 ID corresponding to a peer handle
 func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
-	// as requested here: https://github.com/openblockchain/obc-peer/issues/462#issuecomment-170785410
+	// as requested here: https://github.com/hyperledger-incubator/obc-peer/issues/462#issuecomment-170785410
 	if startsWith := strings.HasPrefix(handle.Name, "vp"); startsWith {
 		id, err = strconv.ParseUint(handle.Name[2:], 10, 64)
 		if err != nil {
@@ -104,7 +104,7 @@ func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
 
 // Returns the peer handle that corresponds to a validator ID (uint64 assigned to it for PBFT)
 func getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
-	// as requested here: https://github.com/openblockchain/obc-peer/issues/462#issuecomment-170785410
+	// as requested here: https://github.com/hyperledger-incubator/obc-peer/issues/462#issuecomment-170785410
 	name := "vp" + strconv.FormatUint(id, 10)
 	return &pb.PeerID{Name: name}, nil
 }

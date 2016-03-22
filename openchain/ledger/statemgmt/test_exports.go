@@ -3,7 +3,7 @@ package statemgmt
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
 )
 
 // AssertIteratorContains - tests wether the iterator (itr) contains expected results (provided in map)

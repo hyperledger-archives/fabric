@@ -6,8 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies"
 	"reflect"
 	"testing"
 )

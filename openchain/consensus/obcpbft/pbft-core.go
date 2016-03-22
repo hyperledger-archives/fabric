@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/openblockchain/obc-peer/openchain" // Needed for logging format init
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
+	_ "github.com/hyperledger-incubator/obc-peer/openchain" // Needed for logging format init
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus/statetransfer"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"

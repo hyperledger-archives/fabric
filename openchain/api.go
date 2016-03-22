@@ -28,8 +28,8 @@ import (
 	google_protobuf1 "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 var (

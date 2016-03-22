@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	obc "github.com/openblockchain/obc-peer/protos"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 const (

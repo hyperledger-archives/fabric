@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/looplab/fsm"
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 // PeerChaincodeStream interface for stream between Peer and chaincode instance.

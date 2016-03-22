@@ -1,8 +1,8 @@
 package crypto
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 type eCertHandlerImpl struct {

@@ -31,7 +31,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	ehpb "github.com/openblockchain/obc-peer/protos"
+	ehpb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //OpenchainEventsClient holds the stream and adapter for consumer to work with

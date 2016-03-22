@@ -25,7 +25,7 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
 )
 
 // StateDelta holds the changes to existing state. This struct is used for holding the uncommited changes during execution of a tx-batch

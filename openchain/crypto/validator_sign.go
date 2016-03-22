@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 )
 
 func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {

@@ -21,7 +21,7 @@ package generic
 
 import (
 	"crypto/elliptic"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies"
 	"io"
 )
 

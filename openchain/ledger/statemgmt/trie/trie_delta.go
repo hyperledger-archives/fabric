@@ -20,7 +20,7 @@ under the License.
 package trie
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
 )
 
 type levelDeltaMap map[string]*trieNode

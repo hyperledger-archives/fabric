@@ -24,9 +24,9 @@ import (
 	"github.com/spf13/viper"
 	"strings"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/consensus/noops"
-	"github.com/openblockchain/obc-peer/openchain/consensus/obcpbft"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus/noops"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus/obcpbft"
 )
 
 var logger *logging.Logger // package-level logger

@@ -37,9 +37,9 @@ import (
 	protobuf "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	pb "github.com/hyperledger-incubator/obc-peer/obc-ca/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/examples/chaincode/go/utxo/util"
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger-incubator/obc-peer/examples/chaincode/go/utxo/util"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode/shim"
 )
 
 type Store struct {

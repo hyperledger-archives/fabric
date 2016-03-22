@@ -20,7 +20,7 @@ under the License.
 package producer
 
 import (
-	ehpb "github.com/openblockchain/obc-peer/protos"
+	ehpb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //CreateBlockEvent creates a OpenchainEvent from a Block

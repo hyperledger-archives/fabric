@@ -21,7 +21,7 @@ package utils
 
 import (
 	"crypto/hmac"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
 	"hash"
 )
 

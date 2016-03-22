@@ -34,8 +34,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func init() {

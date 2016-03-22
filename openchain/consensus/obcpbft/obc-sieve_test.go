@@ -28,7 +28,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func makeTestnetSieve(inst *instance) {

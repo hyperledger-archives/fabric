@@ -21,7 +21,7 @@ package crypto
 
 import (
 	"crypto/x509"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 )
 
 type tCert interface {

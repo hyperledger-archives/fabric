@@ -22,7 +22,7 @@ package producer
 import (
 	"fmt"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 type handler struct {

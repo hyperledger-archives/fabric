@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode/shim"
 )
 
 // SimpleChaincode example simple Chaincode implementation

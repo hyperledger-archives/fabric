@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
 )
 
 // NewBlock creates a new block with the specified proposer ID, list of,

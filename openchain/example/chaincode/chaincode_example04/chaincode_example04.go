@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode/shim"
 )
 
 // This chaincode is a test for chaincode invoking another chaincode - invokes chaincode_example02
@@ -34,7 +34,7 @@ type SimpleChaincode struct {
 }
 
 func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
-	//This is the hashcode for github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02
+	//This is the hashcode for github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
 	//chainCodeToCall := "74db26619d161b31aec095af0c354914" //with MD5
 	chainCodeToCall := "bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c" //with SHA3

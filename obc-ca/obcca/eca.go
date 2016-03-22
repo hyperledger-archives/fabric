@@ -37,12 +37,12 @@ import (
 	"strings"
 	"time"
 
-	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
+	ecies "github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies/generic"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	pb "github.com/hyperledger-incubator/obc-peer/obc-ca/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
