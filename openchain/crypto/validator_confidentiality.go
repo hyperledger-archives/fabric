@@ -23,9 +23,9 @@ import (
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.Transaction, error) {

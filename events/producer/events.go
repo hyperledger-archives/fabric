@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //---- event hub framework ----

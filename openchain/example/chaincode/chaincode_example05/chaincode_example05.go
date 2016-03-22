@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode/shim"
 )
 
 // This chaincode is a test for chaincode querying another chaincode - invokes chaincode_example02 and computes the sum of a and b and stores it as state
@@ -69,7 +69,7 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0]     // Expecting "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	chaincodeUrl := args[0]     // Expecting "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 	sum = args[1]
 
 	// Query chaincode_example02

@@ -21,7 +21,7 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 )
 
 func (client *clientImpl) registerCryptoEngine() (err error) {

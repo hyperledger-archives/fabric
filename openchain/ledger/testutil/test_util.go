@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 )
 

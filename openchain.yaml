@@ -102,8 +102,8 @@ peer:
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
-        WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/
-        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
+        WORKDIR $GOPATH/src/github.com/hyperledger-incubator/obc-peer/
+        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger-incubator/obc-peer/openchain.yaml $GOPATH/bin
 
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:30303
@@ -321,7 +321,7 @@ ledger:
 
       # Deploy chaincodes into the genesis block
       # chaincode:
-      #     path: github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01
+      #     path: github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example01
       #     type: GOLANG
       #     constructor:
       #       func: init

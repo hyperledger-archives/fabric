@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
 	"github.com/spf13/viper"
 )
 

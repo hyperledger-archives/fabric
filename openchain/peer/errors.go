@@ -22,7 +22,7 @@ package peer
 import (
 	"fmt"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 // DuplicateHandlerError returned if attempt to register same chaincodeID while a stream already exists.

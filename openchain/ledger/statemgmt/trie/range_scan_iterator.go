@@ -20,9 +20,9 @@ under the License.
 package trie
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/util"
+	"github.com/hyperledger-incubator/obc-peer/openchain/db"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/util"
 	"github.com/tecbot/gorocksdb"
 )
 

@@ -25,13 +25,13 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	crypto "github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/peer"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode"
+	"github.com/hyperledger-incubator/obc-peer/openchain/consensus"
+	crypto "github.com/hyperledger-incubator/obc-peer/openchain/crypto"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/peer"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator

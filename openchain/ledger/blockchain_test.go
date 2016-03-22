@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func TestBlockChain_SingleBlock(t *testing.T) {

@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/asn1"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/conf"
 	"math/big"
 )
 

@@ -22,8 +22,8 @@ package ledger
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {

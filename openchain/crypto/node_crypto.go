@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"crypto/x509"
-	ecies "github.com/openblockchain/obc-peer/openchain/crypto/ecies/generic"
+	ecies "github.com/hyperledger-incubator/obc-peer/openchain/crypto/ecies/generic"
 )
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {

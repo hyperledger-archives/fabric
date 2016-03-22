@@ -25,7 +25,7 @@ under the License.
 package producer
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //----Event Types -----

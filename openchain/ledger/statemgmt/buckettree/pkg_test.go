@@ -25,9 +25,9 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger-incubator/obc-peer/openchain/db"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/testutil"
 	"github.com/tecbot/gorocksdb"
 )
 

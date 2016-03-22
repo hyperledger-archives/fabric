@@ -33,10 +33,10 @@ import (
 
 	google_protobuf "google/protobuf"
 
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/container"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 var chaincodeLog = logging.MustGetLogger("chaincode")

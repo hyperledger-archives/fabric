@@ -42,19 +42,19 @@ before_script:
  - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
  - chmod +x foldercopy.sh
  - ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
- - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
+ - cd /$HOME/gopath/src/github.com/hyperledger-incubator/obc-peer
  - go build
  - sudo rm -rf /var/openchain/ && sudo mkdir /var/openchain/ && sudo chown $USER:$USER /var/openchain
  - echo "Successfully Executed installation process.   Moving ahead....."
 script:
  - ./obc-peer peer &
- - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
+ - go test -timeout=20m $(go list github.com/hyperledger-incubator/obc-peer/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
  - chmod +x deploy.sh
  - sudo ./deploy.sh
- - cat /$HOME/gopath/src/github.com/openblockchain/obc-peer/build-result.txt
+ - cat /$HOME/gopath/src/github.com/hyperledger-incubator/obc-peer/build-result.txt
  - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
- - cd $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/
- - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
+ - cd $HOME/gopath/src/github.com/hyperledger-incubator/obc-peer/openchain/peer/bddtests/
+ - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger-incubator/obc-peer/openchain/peer/bddtests/compose-defaults.yml
  #- behave -n  "chaincode example 02 single peer"
  - behave
  - docker images | grep "openchain-peer\|obcca"

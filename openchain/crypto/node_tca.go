@@ -20,10 +20,10 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
+	obcca "github.com/hyperledger-incubator/obc-peer/obc-ca/protos"
 
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

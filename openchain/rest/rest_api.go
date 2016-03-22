@@ -38,11 +38,11 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
-	oc "github.com/openblockchain/obc-peer/openchain"
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	pb "github.com/openblockchain/obc-peer/protos"
+	oc "github.com/hyperledger-incubator/obc-peer/openchain"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 var restLogger = logging.MustGetLogger("rest")

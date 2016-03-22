@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obc "github.com/openblockchain/obc-peer/protos"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 
 	"bytes"
 	"fmt"
@@ -33,9 +33,9 @@ import (
 
 	"crypto/rand"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/obc-ca/obcca"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger-incubator/obc-peer/obc-ca/obcca"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

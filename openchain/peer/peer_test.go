@@ -29,9 +29,9 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/openblockchain/obc-peer/openchain/config"
-	"github.com/openblockchain/obc-peer/openchain/container"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/config"
+	"github.com/hyperledger-incubator/obc-peer/openchain/container"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

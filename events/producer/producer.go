@@ -26,7 +26,7 @@ import (
 
 	"github.com/op/go-logging"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 const defaultTimeout = time.Second * 3

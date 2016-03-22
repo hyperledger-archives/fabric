@@ -2,8 +2,8 @@ package crypto
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func (client *clientImpl) createTransactionNonce() ([]byte, error) {

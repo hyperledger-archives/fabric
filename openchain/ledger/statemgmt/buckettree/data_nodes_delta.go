@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
 )
 
 // Code for managing changes in data nodes

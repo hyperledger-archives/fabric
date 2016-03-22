@@ -31,8 +31,8 @@ ParseConfigForDockerfile() {
 		then
 			if [[ $line == *"COPY src $GOPATH/src"* ]]
 			then
-				echo "RUN mkdir -p $GOPATH/src/github.com/openblockchain/obc-peer"
-				echo "COPY ./ $GOPATH/src/github.com/openblockchain/obc-peer/"
+				echo "RUN mkdir -p $GOPATH/src/github.com/hyperledger-incubator/obc-peer"
+				echo "COPY ./ $GOPATH/src/github.com/hyperledger-incubator/obc-peer/"
 			else
 				echo $line
 			fi

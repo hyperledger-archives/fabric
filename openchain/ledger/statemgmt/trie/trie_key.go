@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger/statemgmt"
 )
 
 type trieKeyEncoder interface {

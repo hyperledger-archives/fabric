@@ -30,12 +30,12 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/peer"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode"
+	"github.com/hyperledger-incubator/obc-peer/openchain/container"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto"
+	"github.com/hyperledger-incubator/obc-peer/openchain/peer"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 var devopsLogger = logging.MustGetLogger("devops")

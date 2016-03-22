@@ -15,8 +15,8 @@ import (
 	
 	"github.com/spf13/viper"
 
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error {

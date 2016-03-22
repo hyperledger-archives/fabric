@@ -24,7 +24,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger-incubator/obc-peer/openchain/chaincode/shim"
 )
 
 // This chaincode implements a simple map that is stored in the state.

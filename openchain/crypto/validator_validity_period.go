@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	obc "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //We are temporarily disabling the validity period functionality

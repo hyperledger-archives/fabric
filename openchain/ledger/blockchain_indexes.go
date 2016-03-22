@@ -24,8 +24,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/db"
+	"github.com/hyperledger-incubator/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
 )
 

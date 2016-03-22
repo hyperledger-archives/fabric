@@ -28,10 +28,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger-incubator/obc-peer/openchain/container"
+	"github.com/hyperledger-incubator/obc-peer/openchain/ledger"
+	"github.com/hyperledger-incubator/obc-peer/openchain/util"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -152,7 +152,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example01"
+	url := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example01"
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
@@ -283,7 +283,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 	//url := "https://github.com/prjayach/chaincode_examples/chaincode_example02"
 	chaincodeID := &pb.ChaincodeID{Path: url}
 
@@ -382,7 +382,7 @@ func TestExecuteQuery(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 
 	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
@@ -465,7 +465,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 	chaincodeID := &pb.ChaincodeID{Path: url}
 
 	//FAIL, FAIL!
@@ -526,7 +526,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example03"
+	url := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example03"
 
 	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
@@ -598,7 +598,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	var ctxt = context.Background()
 
 	// Deploy first chaincode
-	url1 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url1 := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
@@ -619,7 +619,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Deploy second chaincode
-	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example04"
+	url2 := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example04"
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
@@ -710,7 +710,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	var ctxt = context.Background()
 
 	// Deploy first chaincode
-	url1 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+	url1 := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example02"
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
@@ -731,7 +731,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Deploy second chaincode
-	url2 := "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example05"
+	url2 := "github.com/hyperledger-incubator/obc-peer/openchain/example/chaincode/chaincode_example05"
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"

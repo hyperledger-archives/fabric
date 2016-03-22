@@ -24,7 +24,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger-incubator/obc-peer/protos"
 )
 
 //-----------------------------------------------------------------------------

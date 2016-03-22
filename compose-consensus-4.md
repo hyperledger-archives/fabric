@@ -20,7 +20,7 @@ We use the cli container as the spot to run the client and issue CLI or REST API
 On some operating systems, you'll need to set execute permission on the script file.
 
 ### Manual Configuration
- 1. When you login to the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
+ 1. When you login to the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/hyperledger-incubator/obc-docs/blob/master/api/SandboxSetup.md) document.
 
 
  ### Create Docker images for the obc-peer server and the obc-ca server.
@@ -32,7 +32,7 @@ then create the obc-ca Docker image by running command
 ```
 docker build -t obcca -f obc-ca/Dockerfile .
 ```
-or you can follow the instructions in the  [README](https://github.com/openblockchain/obc-peer/blob/master/README.md) document.
+or you can follow the instructions in the  [README](https://github.com/hyperledger-incubator/obc-peer/blob/master/README.md) document.
 
 You can verify that the images have been created and are available by running command
 ```
