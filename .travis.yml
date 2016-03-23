@@ -13,9 +13,13 @@ services:
 go:
  - 1.6
  #- 1.5.2
+
 env:
- - GO15VENDOREXPERIMENT=1
+
+- GO15VENDOREXPERIMENT=1
+
 before_install:
+
  - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
  - export GIT_USER="$TRAVIS_REPO_SLUG"
  - USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)"
@@ -28,7 +32,10 @@ before_install:
  - echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
  - chmod +x tempsh.sh && sudo ./tempsh.sh
  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test && sudo apt-get -qq update && sudo apt-get -qq install g++-4.8 && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+
+
 install:
+
  - sudo pip install --upgrade pip
  - sudo pip install behave
  - sudo apt-get install build-essential -y
@@ -38,26 +45,37 @@ install:
  - sudo apt-get update && sudo apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
  - export CGO_CFLAGS="-I/opt/rocksdb/include"
  - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
+
 before_script:
+
  - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
  - chmod +x foldercopy.sh
  - ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
  - cd /$HOME/gopath/src/github.com/openblockchain/obc-peer
  - go build
  - sudo rm -rf /var/openchain/ && sudo mkdir /var/openchain/ && sudo chown $USER:$USER /var/openchain
- - echo "Successfully Executed installation process.   Moving ahead....."
+ - echo "Successfully Build the application ... Moving ahead....."
+
 script:
+
  - ./obc-peer peer &
+ - if [ "$?" -ne 0 ] ; then echo "OBC PEER PROCESS FAILED" exit 1 fi
  - go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
- - chmod +x deploy.sh
- - sudo ./deploy.sh
+ - chmod +x deploy.sh && sudo ./deploy.sh
+ 
  - cat /$HOME/gopath/src/github.com/openblockchain/obc-peer/build-result.txt
+ 
  - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
  - cd $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests/compose-defaults.yml
  #- behave -n  "chaincode example 02 single peer"
+ 
  - behave
- - docker images | grep "openchain-peer\|obcca"
+
+ - if [ "$?" -ne 0 ] ; then echo "BEHAVE SCRIPTS ARE FAILED" exit 1 fi
+ - echo " ******* Pushing Images to Docker Hub ***********"
+ - curl -v http://169.53.62.117/cgi-bin/buildobcimage.sh
+ #- docker images | grep "openchain-peer\|obcca"
  # notification send to email/slack
 notifications:
  email:
