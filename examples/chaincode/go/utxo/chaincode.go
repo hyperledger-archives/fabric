@@ -81,6 +81,12 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 // Query callback representing the query of a chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if function == "has_transaction" && len(args) == 1 {
+		jsonResp := "{\"result\":\"true\"}"
+		fmt.Printf("Query Response:%s\n", jsonResp)
+		return jsonResp, nil
+	}
+
 	return nil, errors.New("Unsupported operation")
 }
 
