@@ -421,6 +421,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
+	logger.Debug("Receiving PBFT message, about to acquire lock")
 
 	instance.lock()
 	defer instance.unlock()
@@ -703,6 +704,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 			// This is perfectly normal
 			logger.Debug("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv", instance.id, commit.View, commit.SequenceNumber)
 		}
+		return nil
 	}
 
 	cert := instance.getCert(commit.View, commit.SequenceNumber)
