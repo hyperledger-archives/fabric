@@ -94,16 +94,32 @@ type rpcResponse struct {
 
 // rpcResult defines the structure for an rpc result message.
 type rpcResult struct {
-	Status  string `json:"status,omitempty"`
-	Message string `json:"message,omitempty"`
+	Status  string    `json:"status,omitempty"`
+	Message string    `json:"message,omitempty"`
+	Error   *rpcError `json:"error,omitempty"`
 }
 
 // rpcError defines the structure for an rpc error message.
 type rpcError struct {
-	Code    int64  `json:"code,omitempty"`
+	// A Number that indicates the error type that occurred. This MUST be an integer.
+	Code int64 `json:"code,omitempty"`
+	// A String providing a short description of the error. The message SHOULD be
+	// limited to a concise single sentence.
 	Message string `json:"message,omitempty"`
-	Data    string `json:"data,omitempty"`
+	// A Primitive or Structured value that contains additional information about
+	// the error. This may be omitted. The value of this member is defined by the
+	// Server (e.g. detailed error information, nested errors etc.).
+	Data string `json:"data,omitempty"`
 }
+
+// Codify pre-defined JSON RPC 2.0 errors and messages. Data fields are defined by the server.
+var (
+	ParseError     = &rpcError{Code: -32700, Message: "Parse error"}
+	InvalidRequest = &rpcError{Code: -32600, Message: "Invalid Request"}
+	MethodNotFound = &rpcError{Code: -32601, Message: "Method not found"}
+	InvalidParams  = &rpcError{Code: -32602, Message: "Invalid params"}
+	InternalError  = &rpcError{Code: -32603, Message: "Internal error"}
+)
 
 // SetOpenchainServer is a middleware function that sets the pointer to the
 // underlying ServerOpenchain object and the undeflying Devops object.
@@ -1158,15 +1174,17 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	return
 }
 
-// processChaincodeDeploy deploys the chaincode and returns the result
-func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) {
+// processChaincodeDeploy triggers chaincode deploy and returns a result or an error
+func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpcResult {
 	restLogger.Info("REST deploying chaincode...")
 
 	// Check that the ChaincodeID is not nil.
 	if spec.ChaincodeID == nil {
-		restLogger.Debug("{\"ADD Error ADD \": \"Payload must contain a ChaincodeID.\"}")
+		// Format the error appropriately for further processing
+		result := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a ChaincodeID.")
+		restLogger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
 
-		return
+		return result
 	}
 
 	// If the peer is running in development mode, confirm that the Chaincode name
@@ -1177,16 +1195,18 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) {
 	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
 		// Check that the Chaincode name is not blank.
 		if spec.ChaincodeID.Name == "" {
-			restLogger.Debug("{\"ADD Error ADD\": \"Chaincode name may not be blank in development mode.\"}")
+			restLogger.Debug("{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
+			result := rpcResult{Status: "Error", Message: "Chaincode name may not be blank in development mode."}
 
-			return
+			return result
 		}
 	} else {
 		// Check that the Chaincode path is not left blank.
 		if spec.ChaincodeID.Path == "" {
-			restLogger.Debug("{\"ADD Error ADD\": \"Chaincode path may not be blank.\"}")
+			restLogger.Debug("{\"Error\": \"Chaincode path may not be blank.\"}")
+			result := rpcResult{Status: "Error", Message: "Chaincode path may not be blank."}
 
-			return
+			return result
 		}
 	}
 
@@ -1194,9 +1214,10 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) {
 	if viper.GetBool("security.enabled") {
 		chaincodeUsr := spec.SecureContext
 		if chaincodeUsr == "" {
-			restLogger.Debug("{\"ADD Error ADD\": \"Must supply username for chaincode when security is enabled.\"}")
+			restLogger.Debug("{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+			result := rpcResult{Status: "Error", Message: "Must supply username for chaincode when security is enabled."}
 
-			return
+			return result
 		}
 
 		// Retrieve the REST data storage path
@@ -1244,14 +1265,14 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) {
 		return
 	}
 
-	// Clients will need the chaincode name in order to invoke or query it
+	// Clients will need the chaincode name in order to invoke or query it, record it
 	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
 
 	// Output correctly formatted response
 	restLogger.Debug("ADD: Successfuly deployed chainCode: " + chainID + ".\n")
 }
 
-// processChaincodeInvokeOrQuery invokes or queries the chaincode and returns the result
+// processChaincodeInvokeOrQuery triggers chaincode invoke/query and returns a result or an error
 func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) {
 	if method == "invoke" {
 		restLogger.Info("REST invoking chaincode...")

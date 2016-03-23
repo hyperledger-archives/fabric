@@ -26,3 +26,11 @@ func isJSON(s string) bool {
 	var js map[string]interface{}
 	return json.Unmarshal([]byte(s), &js) == nil
 }
+
+// formatRPCError formats the error response to aid in JSON RPC 2.0 implementation
+func formatRPCError(code int64, msg string, data string) rpcResult {
+	err := &rpcError{Code: code, Message: msg, Data: data}
+	result := rpcResult{Status: "Error", Error: err}
+
+	return result
+}
