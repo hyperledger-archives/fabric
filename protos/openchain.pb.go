@@ -22,29 +22,28 @@ var _ = math.Inf
 type Transaction_Type int32
 
 const (
-	Transaction_UNDEFINED           Transaction_Type = 0
-	Transaction_CHAINCODE_NEW       Transaction_Type = 1
-	Transaction_CHAINCODE_UPDATE    Transaction_Type = 2
-	Transaction_CHAINCODE_EXECUTE   Transaction_Type = 3
+	Transaction_UNDEFINED Transaction_Type = 0
+	// deploy a chaincode to the network and call `Init` function
+	Transaction_CHAINCODE_DEPLOY Transaction_Type = 1
+	// call a chaincode `Invoke` function as a transaction
+	Transaction_CHAINCODE_INVOKE    Transaction_Type = 2
 	Transaction_CHAINCODE_QUERY     Transaction_Type = 4
-	Transaction_CHAINCODE_TERMINATE Transaction_Type = 5
+	Transaction_CHAINCODE_TERMINATE Transaction_Type = 6
 )
 
 var Transaction_Type_name = map[int32]string{
 	0: "UNDEFINED",
-	1: "CHAINCODE_NEW",
-	2: "CHAINCODE_UPDATE",
-	3: "CHAINCODE_EXECUTE",
+	1: "CHAINCODE_DEPLOY",
+	2: "CHAINCODE_INVOKE",
 	4: "CHAINCODE_QUERY",
-	5: "CHAINCODE_TERMINATE",
+	6: "CHAINCODE_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
 	"UNDEFINED":           0,
-	"CHAINCODE_NEW":       1,
-	"CHAINCODE_UPDATE":    2,
-	"CHAINCODE_EXECUTE":   3,
+	"CHAINCODE_DEPLOY":    1,
+	"CHAINCODE_INVOKE":    2,
 	"CHAINCODE_QUERY":     4,
-	"CHAINCODE_TERMINATE": 5,
+	"CHAINCODE_TERMINATE": 6,
 }
 
 func (x Transaction_Type) String() string {

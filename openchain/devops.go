@@ -232,7 +232,7 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 		}
 		var t pb.Transaction_Type
 		if invokeTx {
-			t = pb.Transaction_CHAINCODE_EXECUTE
+			t = pb.Transaction_CHAINCODE_INVOKE
 		} else {
 			t = pb.Transaction_CHAINCODE_QUERY
 		}

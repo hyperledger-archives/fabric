@@ -102,7 +102,7 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 		addressToTxIndexesMap[txExecutingAddress] = append(addressToTxIndexesMap[txExecutingAddress], uint64(txIndex))
 
 		switch tx.Type {
-		case protos.Transaction_CHAINCODE_NEW, protos.Transaction_CHAINCODE_UPDATE:
+		case protos.Transaction_CHAINCODE_DEPLOY, protos.Transaction_CHAINCODE_INVOKE:
 			authroizedAddresses, chaincodeID := getAuthorisedAddresses(tx)
 			for _, authroizedAddress := range authroizedAddresses {
 				addressToChaincodeIDsMap[authroizedAddress] = append(addressToChaincodeIDsMap[authroizedAddress], chaincodeID)
