@@ -421,10 +421,10 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
-	logger.Debug("Receiving PBFT message, about to acquire lock")
 
 	instance.lock()
 	defer instance.unlock()
+
 	instance.recvMsgSync(msg, senderID)
 
 	return nil
@@ -574,6 +574,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
+		logger.Debug("Replica %d ignoring pre-prepare as we in a view change", instance.id)
 		return nil
 	}
 
@@ -583,11 +584,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
-		if preprep.SequenceNumber != instance.h {
-			logger.Warning("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		if preprep.SequenceNumber != instance.h && !instance.skipInProgress {
+			logger.Warning("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		}
 
 		return nil
@@ -643,17 +644,17 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
 
-	if instance.primary(instance.view) == prep.ReplicaId {
-		logger.Warning("Received prepare from primary, ignoring")
+	if instance.primary(prep.View) == prep.ReplicaId {
+		logger.Warning("Replica %d received prepare from primary, ignoring", instance.id)
 		return nil
 	}
 
 	if !instance.inWV(prep.View, prep.SequenceNumber) {
-		if prep.SequenceNumber != instance.h {
-			logger.Warning("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv", instance.id, prep.View, prep.SequenceNumber)
+		if prep.SequenceNumber != instance.h && !instance.skipInProgress {
+			logger.Warning("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv", instance.id, prep.View, prep.SequenceNumber)
+			logger.Debug("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
 		}
 		return nil
 	}
@@ -698,11 +699,11 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
 
 	if !instance.inWV(commit.View, commit.SequenceNumber) {
-		if commit.SequenceNumber != instance.h {
-			logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv", instance.id, commit.View, commit.SequenceNumber)
+		if commit.SequenceNumber != instance.h && !instance.skipInProgress {
+			logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv", instance.id, commit.View, commit.SequenceNumber)
+			logger.Debug("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
 		}
 		return nil
 	}
@@ -763,6 +764,11 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
 	if idx.n != instance.lastExec+1 || cert == nil || cert.prePrepare == nil {
+		return false
+	}
+
+	if instance.skipInProgress {
+		logger.Debug("Replica %d currently picking a starting point to resume, will not execute", instance.id)
 		return false
 	}
 
@@ -897,7 +903,6 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 				instance.reqStore = make(map[string]*Request) // Discard all our requests, as we will never know which were executed, to be addressed in #394
 				instance.moveWatermarks(m)
 				instance.skipInProgress = true
-				instance.lastExec = m
 
 				// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
 
@@ -931,6 +936,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
 		instance.skipInProgress = false
+		instance.moveWatermarks(chkpt.SequenceNumber)
+		instance.lastExec = chkpt.SequenceNumber
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
 	} else {
 		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
@@ -948,7 +955,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
 	}
 
 	if !instance.inW(chkpt.SequenceNumber) {
-		if chkpt.SequenceNumber != instance.h {
+		if chkpt.SequenceNumber != instance.h && !instance.skipInProgress {
 			// It is perfectly normal that we receive checkpoints for the watermark we just raised, as we raise it after 2f+1, leaving f replies left
 			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		} else {
