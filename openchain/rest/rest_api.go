@@ -62,26 +62,47 @@ type ServerOpenchainREST struct {
 	devops *oc.Devops
 }
 
-// restResult defines the structure of the REST interface JSON response.
+// restResult defines the response payload for a general REST interface request.
 type restResult struct {
 	OK    string `json:",omitempty"`
 	Error string `json:",omitempty"`
 }
 
-// rpcDeployPayload defines the JSON RPC 2.0 deploy payload for the /chaincode endpoint
-type rpcDeployPayload struct {
+// rpcDeployRequest defines the JSON RPC 2.0 deploy request payload for the /chaincode endpoint.
+type rpcDeployRequest struct {
 	Jsonrpc string            `json:"jsonrpc,omitempty"`
 	Method  string            `json:"method,omitempty"`
 	Params  *pb.ChaincodeSpec `json:"params,omitempty"`
 	ID      int64             `json:"id,omitempty"`
 }
 
-// rpcInvokeQueryPayload defines the JSON RPC 2.0 invoke/query payload for the /chaincode endpoint
-type rpcInvokeQueryPayload struct {
+// rpcInvokeQueryRequest defines the JSON RPC 2.0 invoke/query request payload for the /chaincode endpoint.
+type rpcInvokeQueryRequest struct {
 	Jsonrpc string                      `json:"jsonrpc,omitempty"`
 	Method  string                      `json:"method,omitempty"`
 	Params  *pb.ChaincodeInvocationSpec `json:"params,omitempty"`
 	ID      int64                       `json:"id,omitempty"`
+}
+
+// rpcResponse defines the JSON RPC 2.0 deploy/invoke/query response payload for the /chaincode endpoint.
+type rpcResponse struct {
+	Jsonrpc string     `json:"jsonrpc,omitempty"`
+	Result  *rpcResult `json:"result,omitempty"`
+	Error   *rpcError  `json:"error,omitempty"`
+	ID      int64      `json:"id,omitempty"`
+}
+
+// rpcResult defines the structure for an rpc result message.
+type rpcResult struct {
+	Status  string `json:"status,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// rpcError defines the structure for an rpc error message.
+type rpcError struct {
+	Code    int64  `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+	Data    string `json:"data,omitempty"`
 }
 
 // SetOpenchainServer is a middleware function that sets the pointer to the
@@ -1030,20 +1051,29 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 
 // ProcessChaincode implements JSON RPC 2.0 specification for chaincode deploy, invoke, and query.
 func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.Request) {
-	restLogger.Debug("\nXXX ADD Enter ProcessChaincode ADD XXX\n")
+	restLogger.Info("REST processing chaincode request...")
 
+	// Read in the incoming request payload
 	reqBody, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		restLogger.Debug("XXX ADD ERROR READING REQUEST BODY ADD XXX: %s", err)
+		restLogger.Debug("XXX ADD ERROR READING IN REQUEST BODY ADD XXX: %s", err)
 
 		return
 	}
 
-	// Must decode the incoming JSON payload as one of the following two structures
-	var deployPayload rpcDeployPayload
-	var invokequeryPayload rpcInvokeQueryPayload
+	// Incoming request body may not be empty, client must supply request payload
+	if string(reqBody) == "" {
+		restLogger.Debug("XXX ADD EMPTY REQUEST BODY ADD XXX")
 
-	// Attempt to decode request body as a deployment payload first
+		return
+	}
+	restLogger.Debug("XXX ADD REQUEST PAYLOAD ADD XXX: %s", reqBody)
+
+	// Must decode the incoming JSON request payload as one of the following two structures
+	var deployPayload rpcDeployRequest
+	var invokequeryPayload rpcInvokeQueryRequest
+
+	// First, attempt to decode request payload as a deployment payload
 	err = json.Unmarshal(reqBody, &deployPayload)
 	if err != nil {
 		restLogger.Debug("XXX ADD ERROR ON DECODE #1 ADD XXX: %s", err)
@@ -1054,7 +1084,7 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	// Decoding succeded, but it may have omitted required fields
 	restLogger.Debug("XXX ADD OUTPUT ADD XXX:\n %+v\n", deployPayload)
 
-	// Insure that JSON RPC version string is present and is specified as 2.0
+	// Insure that JSON RPC version string is present and is exactly "2.0"
 	if deployPayload.Jsonrpc == "" {
 		restLogger.Debug("XXX ADD ERROR ADD XXX: Missing JSON RPC version string")
 
@@ -1076,13 +1106,29 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		return
 	}
 
-	// Check that the method specified in the payload is actually deploy, if not decode again as an invoke/query payload
+	// Check that the method specified in the payload is indeed deploy, if not decode again as an invoke/query payload
 	if deployPayload.Method == "deploy" {
-		// Chaincode deployment was requested and we have already decoded the payload, proceed
+		// Chaincode deployment was requested and we have correctly decoded the payload, proceed
+		restLogger.Debug("\n\nXXX ADD DEPLOY REQUEST ADD XXX\n\n")
 
-		// result := processChaincodeDeploy(deployPayload.Params)
+		// Payload params field must contain a ChaincodeSpec message
+		if deployPayload.Params == nil {
+			restLogger.Debug("XXX ADD ERROR ADD XXX: Client must supply ChaincodeSpec")
+
+			return
+		}
+
+		// Extract the ChaincodeSpec from the params field
+		deploySpec := deployPayload.Params
+		restLogger.Debug("XXX ADD ChaincodeSpec XXX: %+v", deploySpec)
+
+		// Process the chaincode deployment request and record the result
+		s.processChaincodeDeploy(deploySpec)
+		//restLogger.Debug("XXX ADD Deploy Result XXX: %+v", result)
 	} else {
 		// Chaincode invocation/query was reqested, but we have incorrectly decoded as a deploy payload
+		restLogger.Debug("\n\nXXX ADD INVOCATION/QUERY REQUEST ADD XXX\n\n")
+
 		// Decode once again as an invoke/query now
 		err = json.Unmarshal(reqBody, &invokequeryPayload)
 		if err != nil {
@@ -1091,14 +1137,258 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 			return
 		}
 
-		restLogger.Debug("XXX ADD OUTPUT ADD XXX:\n %+v\n", invokequeryPayload)
+		// Payload params field must contain a ChaincodeInvocationSpec message
+		if invokequeryPayload.Params == nil {
+			restLogger.Debug("XXX ADD ERROR ADD XXX: Client must supply ChaincodeInvocationSpec")
 
-		// result := processChaincodeInvokeOrQuery(deployPayload.Params)
+			return
+		}
+
+		// Extract the ChaincodeInvocationSpec from the params field
+		invokequerySpec := invokequeryPayload.Params
+		restLogger.Debug("XXX ADD ChaincodeInvocationSpec ADD XXX: %+v", invokequerySpec)
+
+		// Process the chaincode invoke/query request and record the result
+		s.processChaincodeInvokeOrQuery(deployPayload.Method, invokequerySpec)
+		//restLogger.Debug("XXX ADD Deploy Result XXX: %+v", result)
 	}
 
-	// Generate a JSON RPC 2.0 response Payload
+	// Generate the correctly formatted response payload
 
 	return
+}
+
+// processChaincodeDeploy deploys the chaincode and returns the result
+func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) {
+	restLogger.Info("REST deploying chaincode...")
+
+	// Check that the ChaincodeID is not nil.
+	if spec.ChaincodeID == nil {
+		restLogger.Debug("{\"ADD Error ADD \": \"Payload must contain a ChaincodeID.\"}")
+
+		return
+	}
+
+	// If the peer is running in development mode, confirm that the Chaincode name
+	// is not left blank. If the peer is running in production mode, confirm that
+	// the Chaincode path is not left blank. This is necessary as in development
+	// mode, the chaincode is identified by name not by path during the deploy
+	// process.
+	if viper.GetString("chaincode.mode") == chaincode.DevModeUserRunsChaincode {
+		// Check that the Chaincode name is not blank.
+		if spec.ChaincodeID.Name == "" {
+			restLogger.Debug("{\"ADD Error ADD\": \"Chaincode name may not be blank in development mode.\"}")
+
+			return
+		}
+	} else {
+		// Check that the Chaincode path is not left blank.
+		if spec.ChaincodeID.Path == "" {
+			restLogger.Debug("{\"ADD Error ADD\": \"Chaincode path may not be blank.\"}")
+
+			return
+		}
+	}
+
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		chaincodeUsr := spec.SecureContext
+		if chaincodeUsr == "" {
+			restLogger.Debug("{\"ADD Error ADD\": \"Must supply username for chaincode when security is enabled.\"}")
+
+			return
+		}
+
+		// Retrieve the REST data storage path
+		// Returns /var/openchain/production/client/
+		localStore := getRESTFilePath()
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
+			if err != nil {
+				panic(fmt.Errorf("ADD: Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				restLogger.Debug("{\"ADD Error ADD\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+
+				return
+			}
+			// Unexpected error
+			panic(fmt.Errorf("ADD Fatal error when checking for client login token: %s\n", err))
+		}
+	}
+
+	// Trigger the chaincode deployment through the devops service
+	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), spec)
+	if err != nil {
+		// Replace " characters with ' within the chaincode response
+		errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+		// Output correctly formatted error
+		restLogger.Debug(fmt.Sprintf("{\"ADD Error ADD\": \"Deploying Chaincode -- %s\"}", errVal))
+
+		return
+	}
+
+	// Clients will need the chaincode name in order to invoke or query it
+	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+
+	// Output correctly formatted response
+	restLogger.Debug("ADD: Successfuly deployed chainCode: " + chainID + ".\n")
+}
+
+// processChaincodeInvokeOrQuery invokes or queries the chaincode and returns the result
+func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) {
+	if method == "invoke" {
+		restLogger.Info("REST invoking chaincode...")
+	} else {
+		restLogger.Info("REST querying chaincode...")
+	}
+
+	// Check that the ChaincodeSpec is not left blank.
+	if spec.ChaincodeSpec == nil {
+		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a ChaincodeSpec.\"}")
+
+		return
+	}
+
+	// Check that the ChaincodeID is not left blank.
+	if spec.ChaincodeSpec.ChaincodeID == nil {
+		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a ChaincodeID.\"}")
+
+		return
+	}
+
+	// Check that the Chaincode name is not blank.
+	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
+		restLogger.Error("{\"ADD Error ADD\": \"Chaincode name may not be blank.\"}")
+
+		return
+	}
+
+	// Check that the CtorMsg is not left blank.
+	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
+		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+
+		return
+	}
+
+	// If security is enabled, add client login token
+	if viper.GetBool("security.enabled") {
+		chaincodeUsr := spec.ChaincodeSpec.SecureContext
+		if chaincodeUsr == "" {
+			restLogger.Error("{\"ADD Error ADD\": \"Must supply username for chaincode when security is enabled.\"}")
+
+			return
+		}
+
+		// Retrieve the REST data storage path
+		// Returns /var/openchain/production/client/
+		localStore := getRESTFilePath()
+
+		// Check if the user is logged in before sending transaction
+		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+
+			// Read in the login token
+			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
+			if err != nil {
+				panic(fmt.Errorf("ADD: Fatal error when reading client login token: %s\n", err))
+			}
+
+			// Add the login token to the chaincodeSpec
+			spec.ChaincodeSpec.SecureContext = string(token)
+
+			// If privacy is enabled, mark chaincode as confidential
+			if viper.GetBool("security.privacy") {
+				spec.ChaincodeSpec.ConfidentialityLevel = pb.ConfidentialityLevel_CONFIDENTIAL
+			}
+		} else {
+			// Check if the token is not there and fail
+			if os.IsNotExist(err) {
+				restLogger.Error("{\"ADD Error ADD\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+
+				return
+			}
+			// Unexpected error
+			panic(fmt.Errorf("ADD: Fatal error when checking for client login token: %s\n", err))
+		}
+	}
+
+	// Check the method that is being requested and execute either an invoke or a query
+	if method == "invoke" {
+
+		//
+		// Invoke the chainCode
+		//
+
+		// Trigger the chaincode invocation through the devops service
+		resp, err := s.devops.Invoke(context.Background(), spec)
+		if err != nil {
+			// Replace " characters with ' within the chaincode response
+			errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+			// Output correctly formatted error
+			restLogger.Error(fmt.Sprintf("{\"ADD Error ADD\": \"Invoking Chaincode -- %s\"}", errVal))
+
+			return
+		}
+
+		// Clients will need the txuuid in order to track it after invocation, record it
+		txuuid := resp.Msg
+
+		// Output correctly formatted response
+		restLogger.Info("ADD: Successfuly invoked chainCode with txuuid (%s)\n", string(txuuid))
+	} else {
+
+		//
+		// Query the chainCode
+		//
+
+		// Trigger the chaincode query through the devops service
+		resp, err := s.devops.Query(context.Background(), spec)
+		if err != nil {
+			// Replace " characters with ' within the chaincode response
+			errVal := strings.Replace(err.Error(), "\"", "'", -1)
+
+			// Output correctly formatted error
+			restLogger.Error(fmt.Sprintf("{\"ADD Error ADD\": \"Querying Chaincode -- %s\"}", errVal))
+
+			return
+		}
+
+		// Determine if the response received is JSON formatted
+		if isJSON(string(resp.Msg)) {
+			// Response is JSON formatted, return it as is
+			restLogger.Debug(fmt.Sprintf("{\"ADD OK ADD\": %s}", string(resp.Msg)))
+		} else {
+			// Response is not JSON formatted, construct a JSON formatted response
+			jsonResponse, err := json.Marshal(restResult{OK: string(resp.Msg)})
+			if err != nil {
+				// Output correctly formatted error
+				restLogger.Error(fmt.Sprintf("{\"Error marshalling query response\": \"%s\"}", err))
+
+				return
+			}
+
+			// Output correctly formatted response
+			restLogger.Debug(fmt.Sprintf("{\"ADD OK ADD\": %s}", string(jsonResponse)))
+		}
+	}
 }
 
 // GetPeers returns a list of all peer nodes currently connected to the target peer.
@@ -1152,7 +1442,7 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	// The /devops endpoint is deprecated and superceeded by the /chaincode endpoint
+	// The /devops endpoint is now considered deprecated and superceeded by the /chaincode endpoint
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
