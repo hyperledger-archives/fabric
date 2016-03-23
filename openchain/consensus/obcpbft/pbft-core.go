@@ -58,6 +58,7 @@ type innerStack interface {
 	execute(txRaw []byte)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
+	stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata *stateTransferMetadata)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -90,9 +91,10 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	ledger  consensus.LedgerStack             // Used for blockchain related queries
-	hChkpts map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
-	sts     *statetransfer.StateTransferState // Data structure which handles state transfer
+	ledger              consensus.LedgerStack             // Used for blockchain related queries
+	hChkpts             map[uint64]uint64                 // highest checkpoint sequence number observed for each replica
+	sts                 *statetransfer.StateTransferState // Data structure which handles state transfer
+	stateTransferActive bool                              // Whether state transfer has finished or not
 
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
@@ -295,7 +297,11 @@ func (instance *pbftCore) unlock() {
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
 	instance.lock()
-	close(instance.closed)
+	select { // Prevent closing multiple times
+	case <-instance.closed:
+	default:
+		close(instance.closed)
+	}
 	instance.newViewTimer.Stop()
 	instance.sts.Stop()
 	instance.unlock()
@@ -458,6 +464,12 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 	return quorum >= instance.intersectionQuorum()
 }
 
+func (instance *pbftCore) stateTransferInitiated() {
+	instance.lock()
+	defer instance.unlock()
+	instance.stateTransferActive = true
+}
+
 // Handles finishing the state transfer by executing outstanding transactions
 func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 
@@ -468,7 +480,13 @@ func (instance *pbftCore) stateTransferCompleted(blockNumber uint64, blockHash [
 
 		instance.lastExec = md.sequenceNumber
 		logger.Debug("Replica %d completed state transfer to sequence number %d, about to execute outstanding requests", instance.id, instance.lastExec)
+		instance.unlock() // Otherwise we deadlock in consumer
+		instance.consumer.stateTransferCompleted(blockNumber, blockHash, peerIDs, md)
+		instance.lock()
 		instance.executeOutstanding()
+		instance.stateTransferActive = false
+	} else {
+		logger.Error("Replica %d was informed of a completed state transfer it did not initiate, this is indicative of a serious bug", instance.id)
 	}
 }
 

@@ -38,6 +38,18 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+type emptyConsumer struct{}
+
+func (ec *emptyConsumer) broadcast(msgPayload []byte)                              {}
+func (ec *emptyConsumer) unicast(msgPayload []byte, receiverID uint64) (err error) { return nil }
+func (ec *emptyConsumer) execute(txRaw []byte)                                     {}
+func (ec *emptyConsumer) validate(txRaw []byte) error                              { return nil }
+func (ec *emptyConsumer) viewChange(curView uint64)                                {}
+func (ec *emptyConsumer) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
+}
+func (ec *emptyConsumer) sign(msg []byte) ([]byte, error)                                { return nil, nil }
+func (ec *emptyConsumer) verify(senderID uint64, signature []byte, message []byte) error { return nil }
+
 func init() {
 	logging.SetLevel(logging.DEBUG, "")
 }
@@ -935,6 +947,7 @@ func TestCatchupFromPBFTSimple(t *testing.T) {
 	pbft.K = 2
 	pbft.L = 4
 	pbft.replicaCount = 4
+	pbft.consumer = &emptyConsumer{}
 
 	if err := executeStateTransferFromPBFT(pbft, ml, 7, 10, &mrls); nil != err {
 		t.Fatalf("TestCatchupFromPBFT simple case: %s", err)
@@ -959,6 +972,7 @@ func TestCatchupFromPBFTDivergentSeqBlock(t *testing.T) {
 	pbft.K = 2
 	pbft.L = 4
 	pbft.replicaCount = 4
+	pbft.consumer = &emptyConsumer{}
 
 	// Test to make sure that the block number and sequence number can diverge
 	if err := executeStateTransferFromPBFT(pbft, ml, 7, 100, &mrls); nil != err {

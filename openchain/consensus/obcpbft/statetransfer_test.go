@@ -546,3 +546,26 @@ func TestRegisterUnregisterListener(t *testing.T) {
 	}
 
 }
+
+func TestIdle(t *testing.T) {
+	ml := NewMockLedger(nil, nil)
+	ml.PutBlock(0, SimpleGetBlock(0))
+	sts := NewStateTransferState(&protos.PeerID{"Replica 0"}, loadConfig(), ml, []*protos.PeerID{&protos.PeerID{"nonsense"}})
+	defer sts.Stop()
+
+	idle := make(chan struct{})
+	go func() {
+		sts.BlockUntilIdle()
+		idle <- struct{}{}
+	}()
+
+	select {
+	case <-idle:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Timed out waiting for state transfer to become idle")
+	}
+
+	if !sts.IsIdle() {
+		t.Fatalf("State transfer unblocked from idle but did not remain that way")
+	}
+}

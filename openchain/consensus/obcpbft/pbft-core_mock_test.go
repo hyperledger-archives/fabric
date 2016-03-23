@@ -137,6 +137,9 @@ func (inst *instance) validate(payload []byte) error {
 	return nil
 }
 
+func (inst *instance) stateTransferCompleted(blockNumber uint64, blockHash []byte, peerIDs []*pb.PeerID, metadata *stateTransferMetadata) {
+}
+
 func (inst *instance) execute(payload []byte) {
 
 	tx := &pb.Transaction{
@@ -328,13 +331,31 @@ func (net *testnet) processWithoutDrainSync() {
 
 func (net *testnet) drain() {
 	for _, inst := range net.replicas {
-		if inst.pbft != nil {
-			inst.pbft.drain()
-		}
 		if inst.consenter != nil {
 			inst.consenter.Drain()
+		} else if inst.pbft != nil {
+			inst.pbft.drain()
 		}
 	}
+}
+
+func (net *testnet) inStateTransfer() bool {
+	for _, inst := range net.replicas {
+		if nil != inst.pbft && nil != inst.pbft.sts && !inst.pbft.sts.IsIdle() {
+			return true
+		}
+	}
+	return false
+}
+
+func (net *testnet) blockForStateTransfer() {
+	for _, inst := range net.replicas {
+		if nil != inst.pbft && nil != inst.pbft.sts {
+			fmt.Printf("Debug: blocking on replica %d", inst.pbft.id)
+			inst.pbft.sts.BlockUntilIdle()
+		}
+	}
+	fmt.Printf("Debug: blocked until state transfer was idle")
 }
 
 func (net *testnet) process() error {
