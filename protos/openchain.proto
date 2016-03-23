@@ -152,10 +152,7 @@ message OpenchainMessage {
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
 
-        CHAIN_STATUS = 6;
-        CHAIN_TRANSACTION = 7;
-        CHAIN_GET_TRANSACTIONS = 8;
-        CHAIN_QUERY = 9;
+        CHAIN_TRANSACTION = 6;
 
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;

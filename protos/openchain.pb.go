@@ -83,10 +83,7 @@ const (
 	OpenchainMessage_DISC_GET_PEERS          OpenchainMessage_Type = 3
 	OpenchainMessage_DISC_PEERS              OpenchainMessage_Type = 4
 	OpenchainMessage_DISC_NEWMSG             OpenchainMessage_Type = 5
-	OpenchainMessage_CHAIN_STATUS            OpenchainMessage_Type = 6
-	OpenchainMessage_CHAIN_TRANSACTION       OpenchainMessage_Type = 7
-	OpenchainMessage_CHAIN_GET_TRANSACTIONS  OpenchainMessage_Type = 8
-	OpenchainMessage_CHAIN_QUERY             OpenchainMessage_Type = 9
+	OpenchainMessage_CHAIN_TRANSACTION       OpenchainMessage_Type = 6
 	OpenchainMessage_SYNC_GET_BLOCKS         OpenchainMessage_Type = 11
 	OpenchainMessage_SYNC_BLOCKS             OpenchainMessage_Type = 12
 	OpenchainMessage_SYNC_BLOCK_ADDED        OpenchainMessage_Type = 13
@@ -105,10 +102,7 @@ var OpenchainMessage_Type_name = map[int32]string{
 	3:  "DISC_GET_PEERS",
 	4:  "DISC_PEERS",
 	5:  "DISC_NEWMSG",
-	6:  "CHAIN_STATUS",
-	7:  "CHAIN_TRANSACTION",
-	8:  "CHAIN_GET_TRANSACTIONS",
-	9:  "CHAIN_QUERY",
+	6:  "CHAIN_TRANSACTION",
 	11: "SYNC_GET_BLOCKS",
 	12: "SYNC_BLOCKS",
 	13: "SYNC_BLOCK_ADDED",
@@ -126,10 +120,7 @@ var OpenchainMessage_Type_value = map[string]int32{
 	"DISC_GET_PEERS":          3,
 	"DISC_PEERS":              4,
 	"DISC_NEWMSG":             5,
-	"CHAIN_STATUS":            6,
-	"CHAIN_TRANSACTION":       7,
-	"CHAIN_GET_TRANSACTIONS":  8,
-	"CHAIN_QUERY":             9,
+	"CHAIN_TRANSACTION":       6,
 	"SYNC_GET_BLOCKS":         11,
 	"SYNC_BLOCKS":             12,
 	"SYNC_BLOCK_ADDED":        13,

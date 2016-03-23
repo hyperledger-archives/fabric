@@ -72,38 +72,36 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error {
 	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()
 		return handler.consenter.RecvMsg(msg, senderPE.ID)
+	} else if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(msg.Payload, tx)
+		if err == nil {
+			if tx.Type == pb.Transaction_CHAINCODE_QUERY {
+				return handler.doChainQuery(tx)
+			} else {
+				return handler.doChainTransaction(msg,tx)
+			}
+		}
 	}
-	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
-		return handler.doChainTransaction(msg)
-	}
-	if msg.Type == pb.OpenchainMessage_CHAIN_QUERY {
-		return handler.doChainQuery(msg)
-	}
+
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	}
 	return handler.peerHandler.HandleMessage(msg)
 }
 
-func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) error {
+func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage, tx *pb.Transaction) error {
 	var response *pb.Response
-	tx := &pb.Transaction{}
-
-	err := proto.Unmarshal(msg.Payload, tx)
-	if err != nil {
-		response = &pb.Response{Status: pb.Response_FAILURE,
-			Msg: []byte(fmt.Sprintf("Error unmarshalling payload OpenchainMessage:%s.", msg.Type))}
-	} else {
-		// Verify transaction signature if security is enabled
-		secHelper := handler.coordinator.GetSecHelper()
-		if nil != secHelper {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Verifying transaction signature %s", tx.Uuid)
-			}
-			if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
-				logger.Debug("Failed to verify transaction %v", err)
-			}
+	// Verify transaction signature if security is enabled
+	secHelper := handler.coordinator.GetSecHelper()
+	if nil != secHelper {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Verifying transaction signature %s", tx.Uuid)
+		}
+		var err error
+		if tx,err = secHelper.TransactionPreValidation(tx); nil != err {
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+			logger.Debug("Failed to verify transaction %v", err)
 		}
 	}
 	// Send response back to the requester
@@ -111,7 +109,7 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 	if nil == response {
 		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
 	}
-	payload, err := proto.Marshal(response)
+	payload, _ := proto.Marshal(response)
 	handler.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_RESPONSE, Payload: payload})
 
 	// If we fail to marshal or verify the tx, don't send it to consensus plugin
@@ -124,37 +122,32 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.OpenchainMessage) er
 	return handler.consenter.RecvMsg(msg, selfPE.ID)
 }
 
-func (handler *ConsensusHandler) doChainQuery(msg *pb.OpenchainMessage) error {
+func (handler *ConsensusHandler) doChainQuery(tx *pb.Transaction) error {
 	var response *pb.Response
-	tx := &pb.Transaction{}
-	err := proto.Unmarshal(msg.Payload, tx)
-	if err != nil {
-		response = &pb.Response{Status: pb.Response_FAILURE,
-			Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type))}
-	} else {
-		// Verify transaction signature if security is enabled
-		secHelper := handler.coordinator.GetSecHelper()
-		if nil != secHelper {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Verifying transaction signature %s", tx.Uuid)
-			}
-			if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
-				logger.Debug("Failed to verify transaction %v", err)
-			}
+	var err error
+	// Verify transaction signature if security is enabled
+	secHelper := handler.coordinator.GetSecHelper()
+	if nil != secHelper {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Verifying transaction signature %s", tx.Uuid)
 		}
-		// execute if response nil (ie, no error)
-		if nil == response {
-			// The secHelper is set during creat ChaincodeSupport, so we don't need this step
-			// cxt := context.WithValue(context.Background(), "security", secHelper)
-			cxt := context.Background()
-			result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
-			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE,
-					Msg: []byte(fmt.Sprintf("Error:%s", err))}
-			} else {
-				response = &pb.Response{Status: pb.Response_SUCCESS, Msg: result}
-			}
+		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+			logger.Debug("Failed to verify transaction %v", err)
+		}
+
+	}
+	// execute if response nil (ie, no error)
+	if nil == response {
+		// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+		// cxt := context.WithValue(context.Background(), "security", secHelper)
+		cxt := context.Background()
+		result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
+		if err != nil {
+			response = &pb.Response{Status: pb.Response_FAILURE,
+				Msg: []byte(fmt.Sprintf("Error:%s", err))}
+		} else {
+			response = &pb.Response{Status: pb.Response_SUCCESS, Msg: result}
 		}
 	}
 	payload, _ := proto.Marshal(response)
