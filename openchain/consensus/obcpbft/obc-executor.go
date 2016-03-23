@@ -42,6 +42,7 @@ type Executor interface {
 	SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID)
 }
 
+// Orderers only need to implement the Checkpoint/Validate methods if they pass in the corresponding ExecutionInfo flag
 type ExecutionInfo struct {
 	Checkpoint bool // Whether to reply with a checkpoint once this request commits
 	Validate   bool // Whether to validate the execution before committing
