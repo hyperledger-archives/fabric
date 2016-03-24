@@ -51,6 +51,7 @@ type Handler struct {
 	ChatStream PeerChaincodeStream
 	FSM        *fsm.FSM
 	cc         Chaincode
+	cc1        Chaincode1
 	// Multiple queries (and one transaction) with different Uuids can be executing in parallel for this chaincode
 	// responseChannel is the channel on which responses are communicated by the shim to the chaincodeStub.
 	responseChannel map[string]chan pb.ChaincodeMessage
@@ -140,11 +141,22 @@ func (handler *Handler) deleteIsTransaction(uuid string) {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
+func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, cc interface{}) (*Handler, error) {
+	var chaincode Chaincode
+	var chaincode1 Chaincode1
+	switch ccode := cc.(type) {
+	case Chaincode1:
+		chaincode1 = ccode.(Chaincode1)
+	case Chaincode:
+		chaincode = ccode.(Chaincode)
+	default:
+		return nil,errors.New("Incorrect chaincode implementation recieved")
+	}
 	v := &Handler{
 		To:         to,
 		ChatStream: peerChatStream,
 		cc:         chaincode,
+		cc1:        chaincode1,
 	}
 	v.responseChannel = make(map[string]chan pb.ChaincodeMessage)
 	v.isTransaction = make(map[string]bool)
@@ -180,7 +192,7 @@ func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincod
 			"before_" + pb.ChaincodeMessage_QUERY.String(): func(e *fsm.Event) { v.beforeQuery(e) }, //only checks for QUERY
 		},
 	)
-	return v
+	return v,nil
 }
 
 // beforeRegistered is called to handle the REGISTERED message.
@@ -224,7 +236,8 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Run(stub, input.Function, input.Args)
+
+		res, err := handler.callTypeInit(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -291,7 +304,8 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Run(stub, input.Function, input.Args)
+
+		res, err := handler.callTypeInvoke(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -338,7 +352,8 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Query(stub, input.Function, input.Args)
+
+		res, err := handler.callTypeQuery(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -879,4 +894,36 @@ func filterError(errFromFSMEvent error) error {
 		}
 	}
 	return nil
+}
+
+//////// Call functions (Init,Invoke, Run and Query) based on chaincode interface type implemented ////////
+
+//Call Init or Run based on the chaincode implementation, else error
+func (handler *Handler) callTypeInit(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
+	if handler.cc != nil{
+		return handler.cc.Run(stub, function, args)
+	} else if handler.cc1 != nil {
+		return handler.cc1.Init(stub, function, args)
+	}
+	return nil, errors.New("Incorrect chaincode implementation recieved")
+}
+
+//Call Invoke or Run based on the chaincode implementation, else error
+func (handler *Handler) callTypeInvoke(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
+	if handler.cc != nil{
+		return handler.cc.Run(stub, function, args)
+	} else if handler.cc1 != nil {
+		return handler.cc1.Invoke(stub, function, args)
+	}
+	return nil, errors.New("Incorrect chaincode implementation recieved")
+}
+
+//Call Query based on the Chaincode implementation type, else error
+func (handler *Handler) callTypeQuery(stub *ChaincodeStub, function string, args []string) ([]byte, error) {
+	if handler.cc != nil{
+		return handler.cc.Query(stub, function, args)
+	} else if handler.cc1 != nil {
+		return handler.cc1.Query(stub, function, args)
+	}
+	return nil, errors.New("Incorrect chaincode implementation recieved")
 }

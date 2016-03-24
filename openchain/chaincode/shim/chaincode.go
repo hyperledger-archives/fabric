@@ -56,6 +56,16 @@ type Chaincode interface {
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
+// A new Chaincode callback interface
+type Chaincode1 interface {
+	// Init method will be called during deployment
+	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Invoke will be called for every transaction
+	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Query is to be used for read-only access to chaincode state
+	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+}
+
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
 	UUID            string
@@ -66,7 +76,7 @@ type ChaincodeStub struct {
 var peerAddress string
 
 // Start entry point for chaincodes bootstrap.
-func Start(cc Chaincode) error {
+func Start(cc interface{}) error {
 	viper.SetEnvPrefix("OPENCHAIN")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
@@ -136,7 +146,7 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 	return conn, err
 }
 
-func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
+func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc interface{}) error {
 
 	// Establish stream with validating peer
 	stream, err := chaincodeSupportClient.Register(context.Background())
@@ -148,7 +158,10 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	//stub := &ChaincodeStub{}
 
 	// Create the shim handler responsible for all control logic
-	handler = newChaincodeHandler(getPeerAddress(), stream, cc)
+	handler,err = newChaincodeHandler(getPeerAddress(), stream, cc)
+	if err != nil {
+		return fmt.Errorf("Error  %s", err)
+	}
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
