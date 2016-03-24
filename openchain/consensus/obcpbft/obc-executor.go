@@ -37,9 +37,9 @@ type Orderer interface {
 
 type Executor interface {
 	Execute(seqNo uint64, txs []*pb.Transaction, execInfo *ExecutionInfo)
+	ValidState(seqNo uint64, id []byte, peerIDs []*pb.PeerID, execInfo *ExecutionInfo)
+	SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID, execInfo *ExecutionInfo)
 	IdleChan() <-chan struct{}
-	ValidState(seqNo uint64, id []byte, peerIDs []*pb.PeerID)
-	SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID)
 }
 
 // Orderers only need to implement the Checkpoint/Validate methods if they pass in the corresponding ExecutionInfo flag
@@ -53,12 +53,14 @@ type syncTarget struct {
 	seqNo     uint64
 	peerIDs   []*pb.PeerID
 	blockInfo *BlockInfo
+	execInfo  *ExecutionInfo
 }
 
 type transaction struct {
 	seqNo    uint64
 	txs      []*pb.Transaction // nil has a special meaning, that this represents some missing/discarded requests and should possibly state transfer
 	execInfo *ExecutionInfo
+	sync     bool
 }
 
 type obcExecutor struct {
@@ -118,7 +120,7 @@ func (obcex *obcExecutor) Stop() {
 }
 
 // Informs the other end of the syncTargets if someone is listening
-func (obcex *obcExecutor) ValidState(seqNo uint64, id []byte, peerIDs []*pb.PeerID) {
+func (obcex *obcExecutor) ValidState(seqNo uint64, id []byte, peerIDs []*pb.PeerID, execInfo *ExecutionInfo) {
 	blockInfo := &BlockInfo{}
 	if err := proto.Unmarshal(id, blockInfo); nil != err {
 		logger.Error("%v error unmarshalling id to blockInfo: %s", obcex.id, err)
@@ -129,6 +131,7 @@ func (obcex *obcExecutor) ValidState(seqNo uint64, id []byte, peerIDs []*pb.Peer
 		seqNo:     seqNo,
 		peerIDs:   peerIDs,
 		blockInfo: blockInfo,
+		execInfo:  execInfo,
 	}:
 		logger.Debug("%v sent sync target", obcex.id)
 	default:
@@ -158,13 +161,14 @@ func (obcex *obcExecutor) Execute(seqNo uint64, txs []*pb.Transaction, execInfo 
 }
 
 // Skips to a point further in the execution
-func (obcex *obcExecutor) SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID) {
+func (obcex *obcExecutor) SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID, execInfo *ExecutionInfo) {
 	logger.Debug("%v skipping to new sequence number %d", obcex.id, seqNo)
 	obcex.drainExecutionQueue()
 	logger.Debug("%v queue cleared, queueing 'skip' transaction", obcex.id)
 	obcex.executionQueue <- &transaction{
-		seqNo: seqNo,
-		// nil txRaw indicates a missed request
+		seqNo:    seqNo,
+		sync:     true,
+		execInfo: execInfo,
 	}
 
 	blockInfo := &BlockInfo{}
@@ -179,6 +183,7 @@ func (obcex *obcExecutor) SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID) 
 		seqNo:     seqNo,
 		peerIDs:   peerIDs,
 		blockInfo: blockInfo,
+		execInfo:  execInfo,
 	}:
 		logger.Debug("%v sent sync target", obcex.id)
 	case <-obcex.threadExit:
@@ -271,25 +276,43 @@ func (obcex *obcExecutor) queueThread() {
 			continue
 		}
 
-		if nil == transaction.execInfo && nil == transaction.txs {
+		var err error
+		var id []byte
+		var seqNo uint64
+		var sync bool
+		execInfo := transaction.execInfo
+
+		if nil == execInfo {
+			execInfo = &ExecutionInfo{}
+		}
+
+		switch {
+		case transaction.sync:
 			logger.Info("%v executor queue apparently has a gap in it, initiating state transfer", obcex.id)
-			obcex.sync()
-			continue
-		} else if nil != transaction.execInfo && transaction.execInfo.Null && transaction.execInfo.Checkpoint {
-			idAsBytes, err := obcex.getCurrentID()
+			sync = true
+		case execInfo.Null:
+			seqNo = transaction.seqNo
+			id, err = obcex.getCurrentID()
 			if nil != err {
 				logger.Critical("Requested to send a checkpoint for a Null request, but could not create one: %v", err)
 				continue
 			}
-			obcex.orderer.Checkpoint(transaction.seqNo, idAsBytes)
-		} else {
-			obcex.execute(transaction)
+		default:
+			sync, id, err = obcex.execute(transaction)
+		}
+
+		if sync {
+			seqNo, id, execInfo = obcex.sync()
+		}
+
+		if execInfo.Checkpoint {
+			obcex.orderer.Checkpoint(seqNo, id)
 		}
 	}
 }
 
 // Performs state transfer, this is called only from the execution thread to prevent races
-func (obcex *obcExecutor) sync() uint64 {
+func (obcex *obcExecutor) sync() (uint64, []byte, *ExecutionInfo) {
 	logger.Debug("%v attempting to sync", obcex.id)
 	obcex.sts.Initiate(nil)
 	for {
@@ -300,10 +323,10 @@ func (obcex *obcExecutor) sync() uint64 {
 		case finish := <-obcex.completeSync:
 			logger.Debug("%v completed sync to seqNo %d", obcex.id, finish.seqNo)
 			obcex.lastExec = finish.seqNo
-			return finish.seqNo
+			return finish.seqNo, finish.blockInfo.BlockHash, finish.execInfo
 		case <-obcex.threadExit:
 			logger.Debug("%v request for shutdown in sync", obcex.id)
-			return 0
+			return 0, nil, nil
 		}
 	}
 }
@@ -381,28 +404,25 @@ func (obcex *obcExecutor) prepareCommit(tx *transaction) error {
 }
 
 // commits the result from prepareCommit
-func (obcex *obcExecutor) commit(tx *transaction) error {
+func (obcex *obcExecutor) commit(tx *transaction) ([]byte, error) {
 	logger.Debug("%v committing transaction %p", obcex.id, tx)
 	if block, err := obcex.executorStack.CommitTxBatch(tx, nil); err != nil {
 		obcex.rollback(tx)
-		return fmt.Errorf("Failed to commit transaction batch %p to the ledger: %v", tx, err)
+		return nil, fmt.Errorf("Failed to commit transaction batch %p to the ledger: %v", tx, err)
 	} else {
 		obcex.lastExec = tx.seqNo
-		if tx.execInfo.Checkpoint {
-			logger.Debug("%v responding with checkpoint for transaction %p", obcex.id, tx)
-			obcex.checkpoint(tx, block)
-		}
-
-		return nil
+		id := obcex.hashBlock(block)
+		logger.Debug("%v responding with id %x for transaction %p", obcex.id, id, tx)
+		return id, nil
 	}
 }
 
 // first validates, then commits the result from prepareCommit
-func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
+func (obcex *obcExecutor) validateAndCommit(tx *transaction) (sync bool, err error) {
 	logger.Debug("%v previewing transaction %p", obcex.id, tx)
 	block, err := obcex.executorStack.PreviewCommitTxBatch(tx, nil)
 	if err != nil {
-		return fmt.Errorf("Fail to preview transaction: %v", err)
+		return false, fmt.Errorf("Fail to preview transaction: %v", err)
 	}
 
 	defer func() {
@@ -417,14 +437,14 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
 	idAsBytes, err := obcex.createID(blockHeight, blockHashBytes)
 
 	if err != nil {
-		return fmt.Errorf("Error creating the execution id: %v", err)
+		return false, fmt.Errorf("Error creating the execution id: %v", err)
 	}
 
 	logger.Debug("%v validating transaction %p", obcex.id, tx)
 	commit, correctedIDAsBytes, peerIDs := obcex.orderer.Validate(tx.seqNo, idAsBytes)
 
 	if !commit {
-		return fmt.Errorf("Was told not to commit the transaction, rolling back")
+		return false, fmt.Errorf("Was told not to commit the transaction, rolling back")
 	}
 
 	if nil != correctedIDAsBytes {
@@ -432,8 +452,8 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
 		obcex.rollback(tx)
 		correctedID := &BlockInfo{}
 		if err := proto.Unmarshal(correctedIDAsBytes, correctedID); nil != err {
-			logger.Warning("%v transaction %p did not unmarshal to the required BlockInfo: %v", obcex.id, tx, err)
-			return err
+			logger.Critical("%v transaction %p did not unmarshal to the required BlockInfo: %v", obcex.id, tx, err)
+			return true, err
 		}
 		go func() {
 			obcex.syncTargets <- &syncTarget{
@@ -442,28 +462,29 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (err error) {
 				peerIDs:   peerIDs,
 			}
 		}()
-		if obcex.sync() == tx.seqNo && tx.execInfo.Checkpoint {
-			// If the sync arrives at this sequence number, proceed and send out a checkpoint if needed
-			// but it is possible the sync will arrive at a later point, in which case do not
-			obcex.checkpoint(tx, block)
-		}
-	} else {
-		obcex.commit(tx)
+		return true, nil
 	}
-	return nil
+
+	return false, nil
 }
 
 // perform the actual transaction execution
-func (obcex *obcExecutor) execute(tx *transaction) error {
-	if err := obcex.prepareCommit(tx); nil != err {
-		return err
+func (obcex *obcExecutor) execute(tx *transaction) (sync bool, id []byte, err error) {
+	if err = obcex.prepareCommit(tx); nil != err {
+		return
 	}
 
 	if tx.execInfo.Validate {
-		return obcex.validateAndCommit(tx)
-	} else {
-		return obcex.commit(tx)
+		sync, err = obcex.validateAndCommit(tx)
 	}
+
+	if nil != err || sync {
+		return
+	}
+
+	id, err = obcex.commit(tx)
+
+	return
 
 }
 

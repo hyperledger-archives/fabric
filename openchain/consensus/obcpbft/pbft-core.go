@@ -53,8 +53,8 @@ type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
-	validState(seqNo uint64, id []byte, peers []uint64)
+	skipTo(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
+	validState(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
 
@@ -938,11 +938,11 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.skipInProgress = false
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
-		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
 	} else {
 		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		instance.consumer.validState(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+		instance.consumer.validState(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
 	}
 }
 

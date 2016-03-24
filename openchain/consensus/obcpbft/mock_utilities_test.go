@@ -94,8 +94,8 @@ type omniProto struct {
 	broadcastImpl  func(msgPayload []byte)
 	unicastImpl    func(msgPayload []byte, receiverID uint64) (err error)
 	executeImpl    func(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validStateImpl func(seqNo uint64, id []byte, peers []uint64)
+	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
+	validStateImpl func(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
 	validateImpl   func(txRaw []byte) error
 	viewChangeImpl func(curView uint64)
 	signImpl       func(msg []byte) ([]byte, error)
@@ -305,17 +305,17 @@ func (op *omniProto) execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo
 
 	panic("Unimplemented")
 }
-func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64) {
+func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo) {
 	if nil != op.skipToImpl {
-		op.skipToImpl(seqNo, snapshotID, peers)
+		op.skipToImpl(seqNo, snapshotID, peers, execInfo)
 		return
 	}
 
 	panic("Unimplemented")
 }
-func (op *omniProto) validState(seqNo uint64, id []byte, peers []uint64) {
+func (op *omniProto) validState(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo) {
 	if nil != op.validStateImpl {
-		op.validStateImpl(seqNo, id, peers)
+		op.validStateImpl(seqNo, id, peers, execInfo)
 		return
 	}
 

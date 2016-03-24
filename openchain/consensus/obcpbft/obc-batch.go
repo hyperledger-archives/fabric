@@ -306,12 +306,12 @@ func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
 	op.pbft.Checkpoint(seqNo, id)
 }
 
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas))
+func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
-func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64) {
-	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas))
+func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
 func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {

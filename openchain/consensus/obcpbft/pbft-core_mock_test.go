@@ -94,7 +94,7 @@ func (sc *simpleConsumer) verify(senderID uint64, signature []byte, message []by
 func (sc *simpleConsumer) viewChange(curView uint64) {
 }
 
-func (sc *simpleConsumer) validState(seqNo uint64, id []byte, replicas []uint64) {
+func (sc *simpleConsumer) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
 	// No-op
 }
 
@@ -104,7 +104,7 @@ func (sc *simpleConsumer) Checkpoint(seqNo uint64, id []byte) {
 }
 */
 
-func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
+func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
 	sc.skipOccurred = true
 	sc.executions = seqNo
 	sc.pbftNet.debugMsg("TEST: skipping to %d\n", seqNo)

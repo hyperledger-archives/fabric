@@ -644,7 +644,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 
 			op.blockNumber = resultSID.BlockNumber
 
-			op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, peers)
+			op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, peers, execInfo)
 		}
 	}
 
@@ -682,13 +682,13 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 	}
 }
 
-func (op *obcSieve) validState(seqNo uint64, id []byte, replicas []uint64) {
+func (op *obcSieve) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
 	resultSID := &SieveId{}
 	proto.Unmarshal(id, resultSID)
-	op.executor.ValidState(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas))
+	op.executor.ValidState(resultSID.BlockNumber, resultSID.ObcId, getValidatorHandles(replicas), execInfo)
 }
 
-func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
+func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
 	// No-op for sieve, as it will handle its own state synchronization
 }
 

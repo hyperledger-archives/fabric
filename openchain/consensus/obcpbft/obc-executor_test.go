@@ -107,7 +107,7 @@ func TestExecutorSimpleStateTransfer(t *testing.T) {
 
 	biAsBytes, _ := proto.Marshal(bi)
 
-	obcex.SkipTo(6, biAsBytes, nil)
+	obcex.SkipTo(6, biAsBytes, nil, &ExecutionInfo{})
 	obcex.Execute(7, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
 	<-obcex.IdleChan()
 
@@ -134,7 +134,7 @@ func TestExecutorDivergentStateTransfer(t *testing.T) {
 
 	biAsBytes, _ := proto.Marshal(bi)
 
-	obcex.SkipTo(12, biAsBytes, nil)
+	obcex.SkipTo(12, biAsBytes, nil, &ExecutionInfo{})
 	obcex.Execute(15, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
 	<-obcex.IdleChan()
 

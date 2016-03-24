@@ -165,12 +165,12 @@ func (op *obcClassic) Checkpoint(seqNo uint64, id []byte) {
 	op.pbft.Checkpoint(seqNo, id)
 }
 
-func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas))
+func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
-func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64) {
-	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas))
+func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
 // Unnecessary

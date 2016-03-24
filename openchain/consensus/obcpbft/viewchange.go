@@ -310,7 +310,7 @@ func (instance *pbftCore) processNewView() error {
 			return nil
 		}
 
-		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
+		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas, &ExecutionInfo{Checkpoint: true})
 		instance.lastExec = cp.SequenceNumber
 	}
 
