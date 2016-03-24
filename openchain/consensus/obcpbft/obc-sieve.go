@@ -547,10 +547,23 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte, execInfo *ExecutionInfo) {
-	op.executeChan <- &pbftExecute{
-		seqNo:    seqNo,
-		txRaw:    raw,
-		execInfo: execInfo,
+	for {
+		select {
+		case op.executeChan <- &pbftExecute{
+			seqNo:    seqNo,
+			txRaw:    raw,
+			execInfo: execInfo,
+		}:
+			logger.Debug("Seive replica %d successfully queued transaction for sequence number %d", op.id, seqNo)
+			return
+		default:
+			// This will always eventually empty the channel, so this call never blocks permenately
+			// it is okay to drop requests if we are lagging because each request contains the state transfer
+			// snapshot id
+			for tx := range op.executeChan {
+				logger.Warning("Seive replica %d ran out of execution buffer space, dropped transaction for sequence number %d", op.id, tx.seqNo)
+			}
+		}
 	}
 }
 
@@ -651,13 +664,13 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64, execInfo *Ex
 
 		if !sync {
 			logger.Debug("Sieve replica %d arrived at decision %x for block %d", op.id, decision, vset.BlockNumber)
+
+			op.pbft.unlock()
 			op.validResultChan <- &validResult{
 				commit:  true,
 				sieveID: decision,
 				peerIDs: peers,
 			}
-
-			op.pbft.unlock()
 			if execInfo.Checkpoint {
 				op.pbft.Checkpoint(seqNo, decision)
 			}

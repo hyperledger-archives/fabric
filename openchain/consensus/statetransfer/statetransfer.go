@@ -711,7 +711,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 		logger.Warning("%v unable to recover block %d : %s", sts.id, blockNumber, err)
 	}
 
-	logger.Debug("%v recovered to block %d", sts.validBlockRanges[0].lowBlock)
+	logger.Debug("%v recovered to block %d", sts.id, sts.validBlockRanges[0].lowBlock)
 	return false
 }
 
