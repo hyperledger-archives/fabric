@@ -53,6 +53,13 @@ type obcSieve struct {
 
 	executor        Executor
 	validResultChan chan *validResult
+	executeChan     chan *pbftExecute
+}
+
+type pbftExecute struct {
+	seqNo    uint64
+	txRaw    []byte
+	execInfo *ExecutionInfo
 }
 
 type validResult struct {
@@ -66,7 +73,6 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.queuedExec = make(map[uint64]*Execute)
 	op.validResultChan = make(chan *validResult)
 	op.startup = make(chan []byte)
-
 	op.executor = NewOBCExecutor(config, op, stack)
 
 	logger.Debug("Replica %d obtaining startup information", id)
@@ -74,6 +80,9 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	close(op.startup)
 
 	op.pbft = newPbftCore(id, config, op, startupInfo)
+
+	op.executeChan = make(chan *pbftExecute, op.pbft.L)
+	go op.executeThread()
 
 	return op
 }
@@ -538,6 +547,26 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte, execInfo *ExecutionInfo) {
+	op.executeChan <- &pbftExecute{
+		seqNo:    seqNo,
+		txRaw:    raw,
+		execInfo: execInfo,
+	}
+}
+
+func (op *obcSieve) executeThread() {
+	for {
+		select {
+		case exec := <-op.executeChan:
+			op.executeImpl(exec.seqNo, exec.txRaw, exec.execInfo)
+		case <-op.pbft.closed:
+			logger.Debug("Sieve replica %d requested to stop", op.id)
+			return
+		}
+	}
+}
+
+func (op *obcSieve) executeImpl(seqNo uint64, raw []byte, execInfo *ExecutionInfo) {
 	op.pbft.lock()
 	defer op.pbft.unlock()
 	req := &SievePbftMessage{}
