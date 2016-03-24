@@ -101,11 +101,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 			var data []byte
 			return data, nil
 		}
-		data, err := proto.Marshal(tx)
-		if err != nil {
-			return nil, fmt.Errorf("Error marshalling transaction to bytes:  %s", err)
-		}
-		return data, nil
+		return tx, nil
 
 	default:
 		return nil, errors.New("Unsupported operation")

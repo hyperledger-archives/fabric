@@ -52,7 +52,7 @@ func (s *Store) PutState(key util.Key, value *util.TX_TXOUT) error {
 	return s.stub.PutState(keyToString(&key), data)
 }
 
-func (s *Store) GetTran(key string) (*util.TX, bool, error) {
+func (s *Store) GetTran(key string) ([]byte, bool, error) {
 	data, err := s.stub.GetState(key)
 	if err != nil {
 		return nil, false, fmt.Errorf("Error getting state from stub:  %s", err)
@@ -60,19 +60,9 @@ func (s *Store) GetTran(key string) (*util.TX, bool, error) {
 	if data == nil {
 		return nil, false, nil
 	}
-	// Value found, unmarshal
-	var value = &util.TX{}
-	err = proto.Unmarshal(data, value)
-	if err != nil {
-		return nil, false, fmt.Errorf("Error unmarshalling value:  %s", err)
-	}
-	return value, true, nil
+	return data, true, nil
 }
 
-func (s *Store) PutTran(key string, value *util.TX) error {
-	data, err := proto.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("Error marshalling value to bytes:  %s", err)
-	}
-	return s.stub.PutState(key, data)
+func (s *Store) PutTran(key string, value []byte) error {
+	return s.stub.PutState(key, value)
 }

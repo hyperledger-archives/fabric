@@ -106,12 +106,12 @@ func (u *UTXO) Execute(txData []byte) (*ExecResult, error) {
 
 		hex := hex.EncodeToString(txHash[:])
 		fmt.Printf("PUT TRAN %s", hex)
-		u.Store.PutTran(hex, newTX)
+		u.Store.PutTran(hex, txData)
 	}
 	return execResult, nil
 }
 
-func (u *UTXO) Query(txHashHex string) (*TX, error) {
+func (u *UTXO) Query(txHashHex string) ([]byte, error) {
 	tx, _, err := u.Store.GetTran(txHashHex)
 	return tx, err
 }
