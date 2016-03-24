@@ -42,6 +42,12 @@ type Communicator interface {
 	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
+// NetworkStack is used to retrieve network info and send messages
+type NetworkStack interface {
+	Communicator
+	Inquirer
+}
+
 // SecurityUtils is used to access the sign/verify methods from the crypto package
 type SecurityUtils interface {
 	Sign(msg []byte) ([]byte, error)
@@ -102,8 +108,7 @@ type LedgerStack interface {
 
 // Stack is the set of stack-facing methods available to the consensus plugin
 type Stack interface {
-	Inquirer
-	Communicator
+	NetworkStack
 	SecurityUtils
 	LedgerStack
 }

@@ -408,7 +408,7 @@ Feature: lanching 3 peers
 
 
     #@doNotDecompose
-    @wip
+    #@wip
     #@skip
 	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)
 

@@ -231,16 +231,18 @@ func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber u
 	defer writeBatch.Destroy()
 	writeBatch.PutCF(db.GetDBHandle().BlockchainCF, encodeBlockNumberDBKey(blockNumber), blockBytes)
 
+	blockHash, err := block.GetHash()
+	if err != nil {
+		return err
+	}
+
 	// Need to check as we suport out of order blocks in cases such as block/state synchronization. This is
 	// really blockchain height, not size.
 	if blockchain.getSize() < blockNumber+1 {
 		sizeBytes := encodeUint64(blockNumber + 1)
 		writeBatch.PutCF(db.GetDBHandle().BlockchainCF, blockCountKey, sizeBytes)
 		blockchain.size = blockNumber + 1
-	}
-	blockHash, err := block.GetHash()
-	if err != nil {
-		return err
+		blockchain.previousBlockHash = blockHash
 	}
 
 	if blockchain.indexer.isSynchronous() {

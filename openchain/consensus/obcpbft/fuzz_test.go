@@ -34,6 +34,25 @@ import (
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
+func newFuzzMock() *omniProto {
+	return &omniProto{
+		broadcastImpl: func(msgPayload []byte) {
+			// No-op
+		},
+		verifyImpl: func(senderID uint64, signature []byte, message []byte) error {
+			return nil
+		},
+		validateImpl: func(txRaw []byte) error {
+			return nil
+		},
+		signImpl: func(msg []byte) ([]byte, error) {
+			return msg, nil
+		},
+		viewChangeImpl: func(curView uint64) {
+		},
+	}
+}
+
 func TestFuzz(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping fuzz test")
@@ -41,13 +60,11 @@ func TestFuzz(t *testing.T) {
 
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
-	mock := newMock()
-	primary := newPbftCore(0, loadConfig(), mock, mock)
-	primary.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
+	mock := newFuzzMock()
+	primary := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
 	defer primary.close()
-	mock = newMock()
-	backup := newPbftCore(1, loadConfig(), mock, mock)
-	backup.sts.Stop() // The state transfer is not correctly initialized, so it will just spin and eat CPU
+	mock = newFuzzMock()
+	backup := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
 	defer backup.close()
 
 	f := fuzz.New()
@@ -123,15 +140,15 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	validatorCount := 4
-	net := makeTestnet(validatorCount, makeTestnetPbftCore)
-	defer net.close()
+	net := makePBFTNetwork(validatorCount)
+	defer net.stop()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket
 
 	noExec := 0
 	for reqID := 1; reqID < 30; reqID++ {
 		if reqID%3 == 0 {
-			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.replicas))
+			fuzzer.fuzzNode = fuzzer.r.Intn(len(net.endpoints))
 			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
@@ -143,8 +160,8 @@ func TestMinimalFuzz(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		for _, inst := range net.replicas {
-			inst.pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+		for _, ep := range net.endpoints {
+			ep.(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
@@ -156,22 +173,19 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 
 		quorum := 0
-		for _, r := range net.replicas {
-			blockHeight, _ := r.pbft.ledger.GetBlockchainSize()
-			if blockHeight > 1 {
+		for _, ep := range net.endpoints {
+			if ep.(*pbftEndpoint).sc.executions > 0 {
 				quorum++
-				// We don't have a delete API yet, so, just create a new one
-				r.pbft.ledger = NewMockLedger(nil, nil)
-				r.pbft.ledger.PutBlock(0, SimpleGetBlock(0))
+				ep.(*pbftEndpoint).sc.executions = 0
 			}
 		}
-		if quorum < len(net.replicas)/3 {
+		if quorum < len(net.endpoints)/3 {
 			noExec++
 		}
 		if noExec > 1 {
 			noExec = 0
-			for _, r := range net.replicas {
-				r.pbft.sendViewChange()
+			for _, ep := range net.endpoints {
+				ep.(*pbftEndpoint).pbft.sendViewChange()
 			}
 			err = net.process()
 			if err != nil {
