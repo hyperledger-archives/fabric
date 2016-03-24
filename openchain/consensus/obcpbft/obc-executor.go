@@ -208,7 +208,7 @@ func (obcex *obcExecutor) drainExecutionQueue() {
 }
 
 // Sends the startup message to the Orderer
-func (obcex *obcExecutor) getCurrentID() ([]byte, error) {
+func (obcex *obcExecutor) getCurrentInfo() (*BlockInfo, error) {
 	logger.Debug("%v executor sending last checkpoint", obcex.id)
 	height := obcex.getBlockchainSize()
 
@@ -223,19 +223,19 @@ func (obcex *obcExecutor) getCurrentID() ([]byte, error) {
 
 	blockHash := obcex.hashBlock(headBlock)
 
-	idAsBytes, err := obcex.createID(height-1, blockHash)
-	if nil != err {
-		return nil, fmt.Errorf("Could not generate ID from head bock number and hash %v", err)
-	}
+	return &BlockInfo{
+		BlockNumber: height - 1,
+		BlockHash:   blockHash,
+	}, nil
 
-	return idAsBytes, err
 }
 
 // Loops until told to exit, waiting for and executing requests
 func (obcex *obcExecutor) queueThread() {
 	logger.Debug("%v executor thread starting", obcex.id)
 	defer close(obcex.threadIdle) // When the executor thread exits, cause the threadIdle response to always return
-	idAsBytes, err := obcex.getCurrentID()
+	bi, err := obcex.getCurrentInfo()
+	idAsBytes, err := obcex.createID(bi)
 	if nil != err {
 		panic(fmt.Sprintf("This is irrecoverable: %v", err))
 	}
@@ -277,7 +277,7 @@ func (obcex *obcExecutor) queueThread() {
 		}
 
 		var err error
-		var id []byte
+		var id *BlockInfo
 		var seqNo uint64
 		var sync bool
 		execInfo := transaction.execInfo
@@ -292,7 +292,7 @@ func (obcex *obcExecutor) queueThread() {
 			sync = true
 		case execInfo.Null:
 			seqNo = transaction.seqNo
-			id, err = obcex.getCurrentID()
+			id, err = obcex.getCurrentInfo()
 			if nil != err {
 				logger.Critical("Requested to send a checkpoint for a Null request, but could not create one: %v", err)
 				continue
@@ -301,18 +301,35 @@ func (obcex *obcExecutor) queueThread() {
 			sync, id, err = obcex.execute(transaction)
 		}
 
+		if nil != err {
+			logger.Error("%v encountered an error while processing transaction: %v", err)
+			continue
+		}
+
 		if sync {
+			logger.Debug("%v requested sync while processing transaction: %v", err)
 			seqNo, id, execInfo = obcex.sync()
+			if nil == id {
+				// id should only be nil during shutdown
+				continue
+			}
+		}
+
+		if nil != err {
+			logger.Error("%v encountered an error while performing state sync: %v", err)
+			continue
 		}
 
 		if execInfo.Checkpoint {
-			obcex.orderer.Checkpoint(seqNo, id)
+			idAsBytes, _ := obcex.createID(id)
+			logger.Debug("%v sending checkpoint: %x", obcex.id, idAsBytes)
+			obcex.orderer.Checkpoint(seqNo, idAsBytes)
 		}
 	}
 }
 
 // Performs state transfer, this is called only from the execution thread to prevent races
-func (obcex *obcExecutor) sync() (uint64, []byte, *ExecutionInfo) {
+func (obcex *obcExecutor) sync() (uint64, *BlockInfo, *ExecutionInfo) {
 	logger.Debug("%v attempting to sync", obcex.id)
 	obcex.sts.Initiate(nil)
 	for {
@@ -323,7 +340,7 @@ func (obcex *obcExecutor) sync() (uint64, []byte, *ExecutionInfo) {
 		case finish := <-obcex.completeSync:
 			logger.Debug("%v completed sync to seqNo %d", obcex.id, finish.seqNo)
 			obcex.lastExec = finish.seqNo
-			return finish.seqNo, finish.blockInfo.BlockHash, finish.execInfo
+			return finish.seqNo, finish.blockInfo, finish.execInfo
 		case <-obcex.threadExit:
 			logger.Debug("%v request for shutdown in sync", obcex.id)
 			return 0, nil, nil
@@ -351,21 +368,6 @@ func (obcex *obcExecutor) hashBlock(block *pb.Block) []byte {
 	return blockHashBytes
 }
 
-// Send a checkpoint ot the Orderer
-func (obcex *obcExecutor) checkpoint(tx *transaction, block *pb.Block) {
-	blockHeight := obcex.getBlockchainSize()
-	blockHashBytes := obcex.hashBlock(block)
-
-	idAsBytes, err := obcex.createID(blockHeight-1, blockHashBytes)
-
-	if nil != err {
-		logger.Error("%v could not send checkpoint: %v", obcex.id, err)
-		return
-	}
-
-	obcex.orderer.Checkpoint(tx.seqNo, idAsBytes)
-}
-
 func (obcex *obcExecutor) rollback(tx *transaction) {
 	logger.Debug("%v rolling back transaction %p", obcex.id, tx)
 	if ierr := obcex.executorStack.RollbackTxBatch(tx); ierr != nil {
@@ -373,13 +375,8 @@ func (obcex *obcExecutor) rollback(tx *transaction) {
 	}
 }
 
-func (obcex *obcExecutor) createID(blockNumber uint64, blockHashBytes []byte) ([]byte, error) {
-	logger.Debug("%v creating id for blockNumber %d and hash %x", obcex.id, blockNumber, blockHashBytes)
-
-	id := &BlockInfo{
-		BlockNumber: blockNumber,
-		BlockHash:   blockHashBytes,
-	}
+func (obcex *obcExecutor) createID(id *BlockInfo) ([]byte, error) {
+	logger.Debug("%v creating id for blockNumber %d and hash %x", obcex.id, id.BlockNumber, id.BlockHash)
 
 	return proto.Marshal(id)
 }
@@ -418,7 +415,7 @@ func (obcex *obcExecutor) commit(tx *transaction) ([]byte, error) {
 }
 
 // first validates, then commits the result from prepareCommit
-func (obcex *obcExecutor) validateAndCommit(tx *transaction) (sync bool, err error) {
+func (obcex *obcExecutor) validate(tx *transaction) (sync bool, err error) {
 	logger.Debug("%v previewing transaction %p", obcex.id, tx)
 	block, err := obcex.executorStack.PreviewCommitTxBatch(tx, nil)
 	if err != nil {
@@ -434,7 +431,10 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (sync bool, err err
 	blockHeight := obcex.getBlockchainSize()
 	blockHashBytes := obcex.hashBlock(block)
 
-	idAsBytes, err := obcex.createID(blockHeight, blockHashBytes)
+	idAsBytes, err := obcex.createID(&BlockInfo{
+		BlockNumber: blockHeight, // Not -1, as the block is not yet committed
+		BlockHash:   blockHashBytes,
+	})
 
 	if err != nil {
 		return false, fmt.Errorf("Error creating the execution id: %v", err)
@@ -469,20 +469,32 @@ func (obcex *obcExecutor) validateAndCommit(tx *transaction) (sync bool, err err
 }
 
 // perform the actual transaction execution
-func (obcex *obcExecutor) execute(tx *transaction) (sync bool, id []byte, err error) {
+func (obcex *obcExecutor) execute(tx *transaction) (sync bool, blockInfo *BlockInfo, err error) {
 	if err = obcex.prepareCommit(tx); nil != err {
 		return
 	}
 
 	if tx.execInfo.Validate {
-		sync, err = obcex.validateAndCommit(tx)
+		sync, err = obcex.validate(tx)
 	}
 
 	if nil != err || sync {
 		return
 	}
 
-	id, err = obcex.commit(tx)
+	var blockHash []byte
+	blockHash, err = obcex.commit(tx)
+
+	if nil != err {
+		return
+	}
+
+	blockHeight := obcex.getBlockchainSize()
+
+	blockInfo = &BlockInfo{
+		BlockNumber: blockHeight - 1,
+		BlockHash:   blockHash,
+	}
 
 	return
 
