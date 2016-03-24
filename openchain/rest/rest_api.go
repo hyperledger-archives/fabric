@@ -121,6 +121,7 @@ var (
 	InternalError  = &rpcError{Code: -32603, Message: "Internal error", Data: "Internal JSON-RPC error."}
 	// -32000 to -32099	 - Server error	 - Reserved for implementation-defined server-errors.
 	MissingRegistrationError = &rpcError{Code: -32000, Message: "Registration missing", Data: "User not logged in. Use the '/registrar' endpoint to obtain a security token."}
+	ChaincodeDeployError     = &rpcError{Code: -32001, Message: "Deployment failure", Data: "Chaincode deployment has failed."}
 )
 
 // SetOpenchainServer is a middleware function that sets the pointer to the
@@ -1184,7 +1185,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	if spec.ChaincodeID == nil {
 		// Format the error appropriately for further processing
 		result := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a ChaincodeID.")
-		restLogger.Error("{\"Error\": \"Payload must contain a ChaincodeID.\"}")
+		restLogger.Error("Payload must contain a ChaincodeID.")
 
 		return result
 	}
@@ -1203,7 +1204,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 		if spec.ChaincodeID.Name == "" {
 			// Format the error appropriately for further processing
 			result := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Chaincode name may not be blank in development mode.")
-			restLogger.Error("{\"Error\": \"Chaincode name may not be blank in development mode.\"}")
+			restLogger.Error("Chaincode name may not be blank in development mode.")
 
 			return result
 		}
@@ -1216,20 +1217,23 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 		if spec.ChaincodeID.Path == "" {
 			// Format the error appropriately for further processing
 			result := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Chaincode path may not be blank.")
-			restLogger.Error("{\"Error\": \"Chaincode path may not be blank.\"}")
+			restLogger.Error("Chaincode path may not be blank.")
 
 			return result
 		}
 	}
 
-	// If security is enabled, add client login token
+	//
+	// Check if security is enabled
+	//
+
 	if viper.GetBool("security.enabled") {
-		// registrationID must be present inside request payload with security enabled
+		// User registrationID must be present inside request payload with security enabled
 		chaincodeUsr := spec.SecureContext
 		if chaincodeUsr == "" {
 			// Format the error appropriately for further processing
 			result := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Must supply username for chaincode when security is enabled.")
-			restLogger.Error("{\"Error\": \"Must supply username for chaincode when security is enabled.\"}")
+			restLogger.Error("Must supply username for chaincode when security is enabled.")
 
 			return result
 		}
@@ -1240,15 +1244,15 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			// No error, token exists so user is already logged in
+			// No error returned, therefore token exists so user is already logged in
 			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				// Format the error appropriately for further processing
-				result := formatRPCError(InternalError.Code, InternalError.Message, fmt.Errorf("Fatal error when reading client login token: %s", err))
-				restLogger.Error(fmt.Errorf("Fatal error when reading client login token: %s\n", err))
+				result := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Fatal error when reading client login token: %s", err))
+				restLogger.Error(fmt.Sprintf("Fatal error when reading client login token: %s", err))
 
 				return result
 			}
@@ -1271,32 +1275,47 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 			}
 			// Unexpected error
 			// Format the error appropriately for further processing
-			result := formatRPCError(InternalError.Code, InternalError.Message, fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
-			restLogger.Error(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+			result := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Fatal error when checking for client login token: %s", err))
+			restLogger.Error(fmt.Sprintf("Fatal error when checking for client login token: %s", err))
 
 			return result
 		}
 	}
 
-/// STOP here
-
+	//
 	// Trigger the chaincode deployment through the devops service
+	//
+
 	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), spec)
+
+	//
+	// Deployment failed
+	//
+
 	if err != nil {
 		// Replace " characters with ' within the chaincode response
 		errVal := strings.Replace(err.Error(), "\"", "'", -1)
 
-		// Output correctly formatted error
-		restLogger.Debug(fmt.Sprintf("{\"ADD Error ADD\": \"Deploying Chaincode -- %s\"}", errVal))
+		// Format the error appropriately for further processing
+		result := formatRPCError(ChaincodeDeployError.Code, ChaincodeDeployError.Message, fmt.Sprintf("Error when deploying chaincode: %s", errVal))
+		restLogger.Error(fmt.Sprintf("Error when deploying chaincode: %s", errVal))
 
-		return
+		return result
 	}
+
+	//
+	// Deployment succeded
+	//
 
 	// Clients will need the chaincode name in order to invoke or query it, record it
 	chainID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
 
+	//
 	// Output correctly formatted response
-	restLogger.Debug("ADD: Successfuly deployed chainCode: " + chainID + ".\n")
+	//
+
+	restLogger.Info(fmt.Sprintf("Successfuly deployed chainCode: %s", chainID))
+	// return ...
 }
 
 // processChaincodeInvokeOrQuery triggers chaincode invoke/query and returns a result or an error
