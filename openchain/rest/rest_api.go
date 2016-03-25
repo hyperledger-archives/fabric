@@ -1326,11 +1326,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 
 // processChaincodeInvokeOrQuery triggers chaincode invoke or query and returns a result or an error
 func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) rpcResult {
-	if method == "invoke" {
-		restLogger.Info("REST invoking chaincode...")
-	} else {
-		restLogger.Info("REST querying chaincode...")
-	}
+	restLogger.Info(fmt.Sprintf("REST %s chaincode...", method))
 
 	// Check that the ChaincodeSpec is not nil.
 	if spec.ChaincodeSpec == nil {
@@ -1427,6 +1423,11 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 	}
 
+	//
+	// Create the result variable
+	//
+	var result rpcResult
+
 	// Check the method that is being requested and execute either an invoke or a query
 	if method == "invoke" {
 
@@ -1462,48 +1463,65 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		// Output correctly formatted response
 		//
 
-		result := formatRPCOK(txuuid)
+		result = formatRPCOK(txuuid)
 		restLogger.Info(fmt.Sprintf("Successfuly invoked chainCode with txuuid (%s)", txuuid))
-
-		return result
 	}
 
 	if method == "query" {
 
 		//
-		// Query the chainCode
+		// Trigger the chaincode query through the devops service
 		//
 
-		// Trigger the chaincode query through the devops service
 		resp, err := s.devops.Query(context.Background(), spec)
+
+		//
+		// Query failed
+		//
+
 		if err != nil {
 			// Replace " characters with ' within the chaincode response
 			errVal := strings.Replace(err.Error(), "\"", "'", -1)
 
-			// Output correctly formatted error
-			restLogger.Error(fmt.Sprintf("{\"ADD Error ADD\": \"Querying Chaincode -- %s\"}", errVal))
+			// Format the error appropriately for further processing
+			error := formatRPCError(ChaincodeQueryError.Code, ChaincodeQueryError.Message, fmt.Sprintf("Error when querying chaincode: %s", errVal))
+			restLogger.Error(fmt.Sprintf("Error when querying chaincode: %s", errVal))
 
-			return
+			return error
 		}
+
+		//
+		// Query succeded
+		//
 
 		// Determine if the response received is JSON formatted
 		if isJSON(string(resp.Msg)) {
 			// Response is JSON formatted, return it as is
-			restLogger.Debug(fmt.Sprintf("{\"ADD OK ADD\": %s}", string(resp.Msg)))
-		} else {
-			// Response is not JSON formatted, construct a JSON formatted response
-			jsonResponse, err := json.Marshal(restResult{OK: string(resp.Msg)})
-			if err != nil {
-				// Output correctly formatted error
-				restLogger.Error(fmt.Sprintf("{\"Error marshalling query response\": \"%s\"}", err))
+			result = formatRPCOK(string(resp.Msg))
+			restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", string(resp.Msg)))
 
-				return
-			}
-
-			// Output correctly formatted response
-			restLogger.Debug(fmt.Sprintf("{\"ADD OK ADD\": %s}", string(jsonResponse)))
+			return result
 		}
+
+		// Response is not JSON formatted, construct a JSON formatted response
+		jsonResponse, err := json.Marshal(string(resp.Msg))
+		if err != nil {
+			// Format the error appropriately for further processing
+			error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Error marshalling query response: %s", err))
+			restLogger.Error(fmt.Sprintf("Error marshalling query response: %s", err))
+
+			return error
+		}
+
+		//
+		// Output correctly formatted response
+		//
+
+		result = formatRPCOK(string(jsonResponse))
+		restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", string(jsonResponse)))
 	}
+
+	return result
 }
 
 // GetPeers returns a list of all peer nodes currently connected to the target peer.
