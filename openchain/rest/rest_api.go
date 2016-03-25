@@ -716,6 +716,15 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
+	// Check that the CtorMsg is not left blank.
+	if (spec.CtorMsg == nil) || (spec.CtorMsg.Function == "") {
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		restLogger.Error("{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+
+		return
+	}
+
 	// If security is enabled, add client login token
 	if viper.GetBool("security.enabled") {
 		chaincodeUsr := spec.SecureContext
@@ -1225,6 +1234,15 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 
 			return error
 		}
+	}
+
+	// Check that the CtorMsg is not left blank.
+	if (spec.CtorMsg == nil) || (spec.CtorMsg.Function == "") {
+		// Format the error appropriately for further processing
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a CtorMsg with a Chaincode function name.")
+		restLogger.Error("Payload must contain a CtorMsg with a Chaincode function name.")
+
+		return error
 	}
 
 	//
