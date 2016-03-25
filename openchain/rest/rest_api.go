@@ -114,14 +114,18 @@ type rpcError struct {
 
 // Codify pre-defined JSON RPC 2.0 errors and messages. Data fields are defined by the server.
 var (
+	// Pre-defined errors and messages.
 	ParseError     = &rpcError{Code: -32700, Message: "Parse error", Data: "Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text."}
 	InvalidRequest = &rpcError{Code: -32600, Message: "Invalid request", Data: "The JSON sent is not a valid Request object."}
 	MethodNotFound = &rpcError{Code: -32601, Message: "Method not found", Data: "The method does not exist / is not available."}
 	InvalidParams  = &rpcError{Code: -32602, Message: "Invalid params", Data: "Invalid method parameter(s)."}
 	InternalError  = &rpcError{Code: -32603, Message: "Internal error", Data: "Internal JSON-RPC error."}
-	// -32000 to -32099	 - Server error	 - Reserved for implementation-defined server-errors.
+
+	// -32000 to -32099	 - Server error. Reserved for implementation-defined server-errors.
 	MissingRegistrationError = &rpcError{Code: -32000, Message: "Registration missing", Data: "User not logged in. Use the '/registrar' endpoint to obtain a security token."}
 	ChaincodeDeployError     = &rpcError{Code: -32001, Message: "Deployment failure", Data: "Chaincode deployment has failed."}
+	ChaincodeInvokeError     = &rpcError{Code: -32002, Message: "Invocation failure", Data: "Chaincode invocation has failed."}
+	ChaincodeQueryError      = &rpcError{Code: -32003, Message: "Query failure", Data: "Chaincode query has failed."}
 )
 
 // SetOpenchainServer is a middleware function that sets the pointer to the
@@ -1314,55 +1318,69 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	// Output correctly formatted response
 	//
 
-	restLogger.Info(fmt.Sprintf("Successfuly deployed chainCode: %s", chainID))
 	result := formatRPCOK(chainID)
+	restLogger.Info(fmt.Sprintf("Successfuly deployed chainCode: %s", chainID))
 
 	return result
 }
 
-// processChaincodeInvokeOrQuery triggers chaincode invoke/query and returns a result or an error
-func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) {
+// processChaincodeInvokeOrQuery triggers chaincode invoke or query and returns a result or an error
+func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) rpcResult {
 	if method == "invoke" {
 		restLogger.Info("REST invoking chaincode...")
 	} else {
 		restLogger.Info("REST querying chaincode...")
 	}
 
-	// Check that the ChaincodeSpec is not left blank.
+	// Check that the ChaincodeSpec is not nil.
 	if spec.ChaincodeSpec == nil {
-		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a ChaincodeSpec.\"}")
+		// Format the error appropriately for further processing
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a ChaincodeSpec.")
+		restLogger.Error("Payload must contain a ChaincodeSpec.")
 
-		return
+		return error
 	}
 
-	// Check that the ChaincodeID is not left blank.
+	// Check that the ChaincodeID is not nil.
 	if spec.ChaincodeSpec.ChaincodeID == nil {
-		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a ChaincodeID.\"}")
+		// Format the error appropriately for further processing
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a ChaincodeID.")
+		restLogger.Error("Payload must contain a ChaincodeID.")
 
-		return
+		return error
 	}
 
 	// Check that the Chaincode name is not blank.
 	if spec.ChaincodeSpec.ChaincodeID.Name == "" {
-		restLogger.Error("{\"ADD Error ADD\": \"Chaincode name may not be blank.\"}")
+		// Format the error appropriately for further processing
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Chaincode name may not be blank.")
+		restLogger.Error("Chaincode name may not be blank.")
 
-		return
+		return error
 	}
 
 	// Check that the CtorMsg is not left blank.
 	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
-		restLogger.Error("{\"ADD Error ADD\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		// Format the error appropriately for further processing
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a CtorMsg with a Chaincode function name.")
+		restLogger.Error("Payload must contain a CtorMsg with a Chaincode function name.")
 
-		return
+		return error
 	}
 
-	// If security is enabled, add client login token
+	//
+	// Check if security is enabled
+	//
+
 	if viper.GetBool("security.enabled") {
+		// User registrationID must be present inside request payload with security enabled
 		chaincodeUsr := spec.ChaincodeSpec.SecureContext
 		if chaincodeUsr == "" {
-			restLogger.Error("{\"ADD Error ADD\": \"Must supply username for chaincode when security is enabled.\"}")
+			// Format the error appropriately for further processing
+			error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Must supply username for chaincode when security is enabled.")
+			restLogger.Error("Must supply username for chaincode when security is enabled.")
 
-			return
+			return error
 		}
 
 		// Retrieve the REST data storage path
@@ -1371,12 +1389,17 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
+			// No error returned, therefore token exists so user is already logged in
 			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
-				panic(fmt.Errorf("ADD: Fatal error when reading client login token: %s\n", err))
+				// Format the error appropriately for further processing
+				error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Fatal error when reading client login token: %s", err))
+				restLogger.Error(fmt.Sprintf("Fatal error when reading client login token: %s", err))
+
+				return error
 			}
 
 			// Add the login token to the chaincodeSpec
@@ -1389,12 +1412,18 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		} else {
 			// Check if the token is not there and fail
 			if os.IsNotExist(err) {
-				restLogger.Error("{\"ADD Error ADD\": \"User not logged in. Use the '/registrar' endpoint to obtain a security token.\"}")
+				// Format the error appropriately for further processing
+				error := formatRPCError(MissingRegistrationError.Code, MissingRegistrationError.Message, MissingRegistrationError.Data)
+				restLogger.Error(MissingRegistrationError.Data)
 
-				return
+				return error
 			}
 			// Unexpected error
-			panic(fmt.Errorf("ADD: Fatal error when checking for client login token: %s\n", err))
+			// Format the error appropriately for further processing
+			error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
+			restLogger.Error(fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
+
+			return error
 		}
 	}
 
@@ -1402,27 +1431,44 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 	if method == "invoke" {
 
 		//
-		// Invoke the chainCode
+		// Trigger the chaincode invoke through the devops service
 		//
 
-		// Trigger the chaincode invocation through the devops service
 		resp, err := s.devops.Invoke(context.Background(), spec)
+
+		//
+		// Invocation failed
+		//
+
 		if err != nil {
 			// Replace " characters with ' within the chaincode response
 			errVal := strings.Replace(err.Error(), "\"", "'", -1)
 
-			// Output correctly formatted error
-			restLogger.Error(fmt.Sprintf("{\"ADD Error ADD\": \"Invoking Chaincode -- %s\"}", errVal))
+			// Format the error appropriately for further processing
+			error := formatRPCError(ChaincodeInvokeError.Code, ChaincodeInvokeError.Message, fmt.Sprintf("Error when invoking chaincode: %s", errVal))
+			restLogger.Error(fmt.Sprintf("Error when invoking chaincode: %s", errVal))
 
-			return
+			return error
 		}
 
-		// Clients will need the txuuid in order to track it after invocation, record it
-		txuuid := resp.Msg
+		//
+		// Invocation succeded
+		//
 
+		// Clients will need the txuuid in order to track it after invocation, record it
+		txuuid := string(resp.Msg)
+
+		//
 		// Output correctly formatted response
-		restLogger.Info("ADD: Successfuly invoked chainCode with txuuid (%s)\n", string(txuuid))
-	} else {
+		//
+
+		result := formatRPCOK(txuuid)
+		restLogger.Info(fmt.Sprintf("Successfuly invoked chainCode with txuuid (%s)", txuuid))
+
+		return result
+	}
+
+	if method == "query" {
 
 		//
 		// Query the chainCode
