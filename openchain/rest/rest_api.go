@@ -1265,14 +1265,33 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		// Decode once again as an invoke/query now
 		err = json.Unmarshal(reqBody, &invokequeryPayload)
 		if err != nil {
-			restLogger.Debug("XXX ADD ERROR ON DECODE #2 ADD XXX: %s", err)
+			// Format the error appropriately
+			error := formatRPCError(ParseError.Code, ParseError.Message, fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
+			// Produce correctly formatted JSON RPC 2.0 response
+			response := formatRPCResponse(error, nil)
+			jsonResponse, _ := json.Marshal(response)
+
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, string(jsonResponse))
+			restLogger.Error(fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
 
 			return
 		}
 
 		// Payload params field must contain a ChaincodeInvocationSpec message
 		if invokequeryPayload.Params == nil {
-			restLogger.Debug("XXX ADD ERROR ADD XXX: Client must supply ChaincodeInvocationSpec")
+			// If the request is not a notification, produce a response.
+			if !notification {
+				// Format the error appropriately
+				error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeInvocationSpec for chaincode invoke or query request.")
+				// Produce correctly formatted JSON RPC 2.0 response
+				response := formatRPCResponse(error, invokequeryPayload.ID)
+				jsonResponse, _ := json.Marshal(response)
+
+				rw.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(rw, string(jsonResponse))
+			}
+			restLogger.Error("Client must supply ChaincodeInvocationSpec for chaincode invoke or query request.")
 
 			return
 		}
