@@ -70,18 +70,18 @@ type restResult struct {
 
 // rpcDeployRequest defines the JSON RPC 2.0 deploy request payload for the /chaincode endpoint.
 type rpcDeployRequest struct {
-	Jsonrpc string            `json:"jsonrpc,omitempty"`
-	Method  string            `json:"method,omitempty"`
+	Jsonrpc *string           `json:"jsonrpc,omitempty"`
+	Method  *string           `json:"method,omitempty"`
 	Params  *pb.ChaincodeSpec `json:"params,omitempty"`
-	ID      int64             `json:"id,omitempty"`
+	ID      *int64            `json:"id,omitempty"`
 }
 
 // rpcInvokeQueryRequest defines the JSON RPC 2.0 invoke/query request payload for the /chaincode endpoint.
 type rpcInvokeQueryRequest struct {
-	Jsonrpc string                      `json:"jsonrpc,omitempty"`
-	Method  string                      `json:"method,omitempty"`
+	Jsonrpc *string                     `json:"jsonrpc,omitempty"`
+	Method  *string                     `json:"method,omitempty"`
 	Params  *pb.ChaincodeInvocationSpec `json:"params,omitempty"`
-	ID      int64                       `json:"id,omitempty"`
+	ID      *int64                      `json:"id,omitempty"`
 }
 
 // rpcResponse defines the JSON RPC 2.0 deploy/invoke/query response payload for the /chaincode endpoint.
@@ -89,7 +89,7 @@ type rpcResponse struct {
 	Jsonrpc string     `json:"jsonrpc,omitempty"`
 	Result  *rpcResult `json:"result,omitempty"`
 	Error   *rpcError  `json:"error,omitempty"`
-	ID      int64      `json:"id,omitempty"`
+	ID      *int64     `json:"id"`
 }
 
 // rpcResult defines the structure for an rpc result message.
@@ -112,7 +112,7 @@ type rpcError struct {
 	Data string `json:"data,omitempty"`
 }
 
-// Codify pre-defined JSON RPC 2.0 errors and messages. Data fields are defined by the server.
+// JSON RPC 2.0 errors and messages.
 var (
 	// Pre-defined errors and messages.
 	ParseError     = &rpcError{Code: -32700, Message: "Parse error", Data: "Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text."}
@@ -1088,78 +1088,179 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	// Read in the incoming request payload
 	reqBody, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		restLogger.Debug("XXX ADD ERROR READING IN REQUEST BODY ADD XXX: %s", err)
+		// Format the error appropriately
+		error := formatRPCError(InternalError.Code, InternalError.Message, "Internal JSON-RPC error when reading request body.")
+		// Produce correctly formatted JSON RPC 2.0 response
+		response := formatRPCResponse(error, nil)
+		jsonResponse, _ := json.Marshal(response)
+
+		rw.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(rw, string(jsonResponse))
+		restLogger.Error("Internal JSON-RPC error when reading request body.")
 
 		return
 	}
 
 	// Incoming request body may not be empty, client must supply request payload
 	if string(reqBody) == "" {
-		restLogger.Debug("XXX ADD EMPTY REQUEST BODY ADD XXX")
+		// Format the error appropriately
+		error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Client must supply a payload for chaincode requests.")
+		// Produce correctly formatted JSON RPC 2.0 response
+		response := formatRPCResponse(error, nil)
+		jsonResponse, _ := json.Marshal(response)
+
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, string(jsonResponse))
+		restLogger.Error("Client must supply a payload for chaincode requests.")
 
 		return
 	}
-	restLogger.Debug("XXX ADD REQUEST PAYLOAD ADD XXX: %s", reqBody)
 
-	// Must decode the incoming JSON request payload as one of the following two structures
+	// Payload must conform to one of the following two structures
 	var deployPayload rpcDeployRequest
 	var invokequeryPayload rpcInvokeQueryRequest
 
-	// First, attempt to decode request payload as a deployment payload
+	// First, attempt to decode request payload as a deployment payload. If we
+	// guessed incorrectly, it will unmarshal with some required parameters missing.
+	// There will be an error here only if the JSON is actually invalid (e.g.
+	// missing brace or comma).
 	err = json.Unmarshal(reqBody, &deployPayload)
 	if err != nil {
-		restLogger.Debug("XXX ADD ERROR ON DECODE #1 ADD XXX: %s", err)
+		// Format the error appropriately
+		error := formatRPCError(ParseError.Code, ParseError.Message, fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
+		// Produce correctly formatted JSON RPC 2.0 response
+		response := formatRPCResponse(error, nil)
+		jsonResponse, _ := json.Marshal(response)
+
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, string(jsonResponse))
+		restLogger.Error(fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
 
 		return
 	}
 
-	// Decoding succeded, but it may have omitted required fields
-	restLogger.Debug("XXX ADD OUTPUT ADD XXX:\n %+v\n", deployPayload)
+	//
+	// After parsing the request payload successfully, determine if the incoming
+	// request payload contains an "id" member. If id is not included, the request
+	// is assumed to be a notification. The Server MUST NOT reply to a Notification.
+	// Notifications are not confirmable by definition, since they do not have a
+	// Response object to be returned. As such, the Client would not be aware of
+	// any errors (like e.g. "Invalid params","Internal error").
+	//
+
+	notification := false
+	if deployPayload.ID == nil {
+		notification = true
+	}
 
 	// Insure that JSON RPC version string is present and is exactly "2.0"
-	if deployPayload.Jsonrpc == "" {
-		restLogger.Debug("XXX ADD ERROR ADD XXX: Missing JSON RPC version string")
+	if deployPayload.Jsonrpc == nil {
+		// If the request is not a notification, produce a response.
+		if !notification {
+			// Format the error appropriately
+			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 version string.")
+			// Produce correctly formatted JSON RPC 2.0 response
+			response := formatRPCResponse(error, deployPayload.ID)
+			jsonResponse, _ := json.Marshal(response)
+
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, string(jsonResponse))
+		}
+		restLogger.Error("Missing JSON RPC version string.")
 
 		return
-	} else if deployPayload.Jsonrpc != "2.0" {
-		restLogger.Debug("XXX ADD ERROR ADD XXX: Invalid JSON RPC version string")
+	} else if *(deployPayload.Jsonrpc) != "2.0" {
+		// If the request is not a notification, produce a response.
+		if !notification {
+			// Format the error appropriately
+			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Invalid JSON RPC 2.0 version string. Must be 2.0.")
+			// Produce correctly formatted JSON RPC 2.0 response
+			response := formatRPCResponse(error, deployPayload.ID)
+			jsonResponse, _ := json.Marshal(response)
+
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, string(jsonResponse))
+		}
+		restLogger.Error("Invalid JSON RPC version string. Must be 2.0.")
 
 		return
 	}
 
 	// Insure that the JSON method string is present and is either deploy, invoke or query
-	if deployPayload.Method == "" {
-		restLogger.Debug("XXX ADD ERROR ADD XXX: Missing RPC method string")
+	if deployPayload.Method == nil {
+		// If the request is not a notification, produce a response.
+		if !notification {
+			// Format the error appropriately
+			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 method string.")
+			// Produce correctly formatted JSON RPC 2.0 response
+			response := formatRPCResponse(error, deployPayload.ID)
+			jsonResponse, _ := json.Marshal(response)
+
+			rw.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(rw, string(jsonResponse))
+		}
+		restLogger.Error("Missing JSON RPC 2.0 method string.")
 
 		return
-	} else if (deployPayload.Method != "deploy") && (deployPayload.Method != "invoke") && (deployPayload.Method != "query") {
-		restLogger.Debug("XXX ADD ERROR ADD XXX: Invalid JSON RPC method string")
+	} else if (*(deployPayload.Method) != "deploy") && (*(deployPayload.Method) != "invoke") && (*(deployPayload.Method) != "query") {
+		// If the request is not a notification, produce a response.
+		if !notification {
+			// Format the error appropriately
+			error := formatRPCError(MethodNotFound.Code, MethodNotFound.Message, "Requested method does not exist.")
+			// Produce correctly formatted JSON RPC 2.0 response
+			response := formatRPCResponse(error, deployPayload.ID)
+			jsonResponse, _ := json.Marshal(response)
+
+			rw.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(rw, string(jsonResponse))
+		}
+		restLogger.Error("Requested method does not exist.")
 
 		return
 	}
 
-	// Check that the method specified in the payload is indeed deploy, if not decode again as an invoke/query payload
-	if deployPayload.Method == "deploy" {
+	//
+	// Confirm the requested chaincode method and execute accordingly
+	//
+
+	// Variable that will hold the execution result
+	var result rpcResult
+
+	// Check requested chaincode method
+	if *(deployPayload.Method) == "deploy" {
+
+		//
 		// Chaincode deployment was requested and we have correctly decoded the payload, proceed
-		restLogger.Debug("\n\nXXX ADD DEPLOY REQUEST ADD XXX\n\n")
+		//
 
 		// Payload params field must contain a ChaincodeSpec message
 		if deployPayload.Params == nil {
-			restLogger.Debug("XXX ADD ERROR ADD XXX: Client must supply ChaincodeSpec")
+			// If the request is not a notification, produce a response.
+			if !notification {
+				// Format the error appropriately
+				error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeSpec for chaincode deploy request.")
+				// Produce correctly formatted JSON RPC 2.0 response
+				response := formatRPCResponse(error, deployPayload.ID)
+				jsonResponse, _ := json.Marshal(response)
+
+				rw.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(rw, string(jsonResponse))
+			}
+			restLogger.Error("Client must supply ChaincodeSpec for chaincode deploy request.")
 
 			return
 		}
 
 		// Extract the ChaincodeSpec from the params field
 		deploySpec := deployPayload.Params
-		restLogger.Debug("XXX ADD ChaincodeSpec XXX: %+v", deploySpec)
 
 		// Process the chaincode deployment request and record the result
-		s.processChaincodeDeploy(deploySpec)
-		//restLogger.Debug("XXX ADD Deploy Result XXX: %+v", result)
+		result = s.processChaincodeDeploy(deploySpec)
 	} else {
+
+		//
 		// Chaincode invocation/query was reqested, but we have incorrectly decoded as a deploy payload
-		restLogger.Debug("\n\nXXX ADD INVOCATION/QUERY REQUEST ADD XXX\n\n")
+		//
 
 		// Decode once again as an invoke/query now
 		err = json.Unmarshal(reqBody, &invokequeryPayload)
@@ -1178,14 +1279,16 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 
 		// Extract the ChaincodeInvocationSpec from the params field
 		invokequerySpec := invokequeryPayload.Params
-		restLogger.Debug("XXX ADD ChaincodeInvocationSpec ADD XXX: %+v", invokequerySpec)
 
 		// Process the chaincode invoke/query request and record the result
-		s.processChaincodeInvokeOrQuery(deployPayload.Method, invokequerySpec)
-		//restLogger.Debug("XXX ADD Deploy Result XXX: %+v", result)
+		result = s.processChaincodeInvokeOrQuery(*(deployPayload.Method), invokequerySpec)
 	}
 
-	// Generate the correctly formatted response payload
+	//
+	// Generate correctly formatted JSON RPC 2.0 response payload
+	//
+
+	formatRPCResponse(result, nil)
 
 	return
 }

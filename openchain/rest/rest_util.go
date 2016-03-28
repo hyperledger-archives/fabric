@@ -41,3 +41,19 @@ func formatRPCOK(msg string) rpcResult {
 
 	return result
 }
+
+// formatRPCResponse consumes either an RPC ERROR or OK rpcResult and formats it
+// in accordance with the JSON RPC 2.0 specification.
+func formatRPCResponse(res rpcResult, id *int64) rpcResponse {
+	var response rpcResponse
+
+	// Format a successful response
+	if res.Status == "OK" {
+		response = rpcResponse{Jsonrpc: "2.0", Result: &res, ID: id}
+	} else {
+		// Format an error response
+		response = rpcResponse{Jsonrpc: "2.0", Error: res.Error, ID: id}
+	}
+
+	return response
+}
