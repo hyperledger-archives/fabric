@@ -20,11 +20,9 @@ under the License.
 package obcpbft
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -34,12 +32,30 @@ import (
 type obcClassic struct {
 	stack consensus.Stack
 	pbft  *pbftCore
+
+	startup chan []byte
+
+	executor Executor
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{stack: stack}
-	op.pbft = newPbftCore(id, config, op, stack)
+
+	op.startup = make(chan []byte)
+
+	op.executor = NewOBCExecutor(config, op, stack)
+
+	logger.Debug("Replica %d obtaining startup information", id)
+	startupInfo := <-op.startup
+	close(op.startup)
+
+	op.pbft = newPbftCore(id, config, op, startupInfo)
+
 	return op
+}
+
+func (op *obcClassic) Startup(seqNo uint64, id []byte) {
+	op.startup <- id
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
@@ -122,7 +138,7 @@ func (op *obcClassic) validate(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(txRaw []byte) {
+func (op *obcClassic) execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo) {
 	if err := op.validate(txRaw); err != nil {
 		err = fmt.Errorf("Request in transaction did not validate: %s", err)
 		logger.Error(err.Error())
@@ -137,35 +153,35 @@ func (op *obcClassic) execute(txRaw []byte) {
 		return
 	}
 
-	txs := []*pb.Transaction{tx}
-	txBatchID := base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(txRaw))
-
-	if err := op.stack.BeginTxBatch(txBatchID); err != nil {
-		err = fmt.Errorf("Failed to begin transaction %s: %v", txBatchID, err)
-		logger.Error(err.Error())
-		return
-	}
-
-	if _, err := op.stack.ExecTxs(txBatchID, txs); nil != err {
-		err = fmt.Errorf("Failed to execute transaction %s: %v", txBatchID, err)
-		logger.Error(err.Error())
-		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
-			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
-		}
-		return
-	}
-
-	if _, err = op.stack.CommitTxBatch(txBatchID, nil); err != nil {
-		err = fmt.Errorf("Failed to commit transaction %s to the ledger: %v", txBatchID, err)
-		logger.Error(err.Error())
-		if err = op.stack.RollbackTxBatch(txBatchID); err != nil {
-			panic(fmt.Errorf("Unable to rollback transaction %s: %v", txBatchID, err))
-		}
-		return
-	}
+	op.executor.Execute(seqNo, []*pb.Transaction{tx}, execInfo)
 }
 
 // called when a view-change happened in the underlying PBFT
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
+}
+
+func (op *obcClassic) Checkpoint(seqNo uint64, id []byte) {
+	op.pbft.Checkpoint(seqNo, id)
+}
+
+func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
+}
+
+func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
+}
+
+// Unnecessary
+func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
+	return
+}
+
+func (op *obcClassic) idleChan() <-chan struct{} {
+	return op.executor.IdleChan()
+}
+
+func (op *obcClassic) getPBFTCore() *pbftCore {
+	return op.pbft
 }

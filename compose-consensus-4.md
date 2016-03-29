@@ -20,18 +20,7 @@ We use the cli container as the spot to run the client and issue CLI or REST API
 On some operating systems, you'll need to set execute permission on the script file.
 
 ### Manual Configuration
- 1. modify *openchain.yaml* to point to the obc-ca server
- ```
- # PKI member services properties
-pki:
-     eca:
-         paddr: obcca:50051
-     tca:
-         paddr: obcca:50051
-     tlsca:
-         paddr: obcca:50051
- ```
- 2. When login into the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
+ 1. When you login to the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
 
 
  ### Create Docker images for the obc-peer server and the obc-ca server.
@@ -43,6 +32,7 @@ then create the obc-ca Docker image by running command
 ```
 docker build -t obcca -f obc-ca/Dockerfile .
 ```
+or you can follow the instructions in the  [README](https://github.com/openblockchain/obc-peer/blob/master/README.md) document.
 
 You can verify that the images have been created and are available by running command
 ```
@@ -55,6 +45,7 @@ Rename or backup file *docker-compose.yml* then copy or rename file *compose-con
 cp compose-consensus-4.yml docker-compose.yml
 ```
 (This is necessary because Docker requires the first file to be docker-compose.yml and we are not using the original docker-compose.yml file).
+
 Then start up the network by running command
 ```
 docker-compose -f docker-compose.yml -f compose-consensus-4-links.yml -f compose-consensus-4-sieve.yml up --force-recreate -d

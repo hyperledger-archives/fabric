@@ -61,6 +61,55 @@ func (r mockResponse) String() string {
 	return "ERROR"
 }
 
+type LedgerDirectory interface {
+	GetLedgerByPeerID(peerID *protos.PeerID) (consensus.ReadOnlyLedger, bool)
+}
+
+type HashLedgerDirectory struct {
+	remoteLedgers map[protos.PeerID]consensus.ReadOnlyLedger
+}
+
+func (hd *HashLedgerDirectory) GetLedgerByPeerID(peerID *protos.PeerID) (consensus.ReadOnlyLedger, bool) {
+	ledger, ok := hd.remoteLedgers[*peerID]
+	return ledger, ok
+}
+
+func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
+	network = make([]*protos.PeerEndpoint, len(hd.remoteLedgers)+1)
+	i := 0
+	for peerID, _ := range hd.remoteLedgers {
+		peerID := peerID // Get a memory address which will not be overwritten
+		network[i] = &protos.PeerEndpoint{
+			ID:   &peerID,
+			Type: protos.PeerEndpoint_VALIDATOR,
+		}
+		i++
+	}
+	network[i] = &protos.PeerEndpoint{
+		ID: &protos.PeerID{
+			Name: "SelfID",
+		},
+		Type: protos.PeerEndpoint_VALIDATOR,
+	}
+
+	self = network[i]
+	return
+}
+
+func (hd *HashLedgerDirectory) GetNetworkHandles() (self *protos.PeerID, network []*protos.PeerID, err error) {
+	oSelf, oNetwork, err := hd.GetNetworkInfo()
+	if nil != err {
+		return
+	}
+
+	self = oSelf.ID
+	network = make([]*protos.PeerID, len(oNetwork))
+	for i, endpoint := range oNetwork {
+		network[i] = endpoint.ID
+	}
+	return
+}
+
 const MAGIC_DELTA_KEY string = "The only key/string we ever use for deltas"
 
 type MockLedger struct {
@@ -68,7 +117,7 @@ type MockLedger struct {
 	blocks        map[uint64]*protos.Block
 	blockHeight   uint64
 	state         uint64
-	remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger
+	remoteLedgers LedgerDirectory
 	filter        func(request mockRequest, peerID *protos.PeerID) mockResponse
 
 	mutex *sync.Mutex
@@ -81,10 +130,10 @@ type MockLedger struct {
 	deltaID       interface{}
 	preDeltaValue uint64
 
-	inst *instance // To support the ExecTx stuff
+	ce *consumerEndpoint // To support the ExecTx stuff
 }
 
-func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, filter func(request mockRequest, peerID *protos.PeerID) mockResponse) *MockLedger {
+func NewMockLedger(remoteLedgers LedgerDirectory, filter func(request mockRequest, peerID *protos.PeerID) mockResponse) *MockLedger {
 	mock := &MockLedger{}
 	mock.mutex = &sync.Mutex{}
 	mock.blocks = make(map[uint64]*protos.Block)
@@ -99,12 +148,7 @@ func NewMockLedger(remoteLedgers *map[protos.PeerID]consensus.ReadOnlyLedger, fi
 		mock.filter = filter
 	}
 
-	if nil == remoteLedgers {
-		tmp := make(map[protos.PeerID]consensus.ReadOnlyLedger)
-		mock.remoteLedgers = &tmp
-	} else {
-		mock.remoteLedgers = remoteLedgers
-	}
+	mock.remoteLedgers = remoteLedgers
 
 	return mock
 }
@@ -128,8 +172,8 @@ func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]by
 	mock.curBatch = append(mock.curBatch, txs...)
 	var err error
 	var txResult []byte
-	if mock.inst.execTxResult != nil {
-		txResult, err = mock.inst.execTxResult(txs)
+	if nil != mock.ce && nil != mock.ce.execTxResult {
+		txResult, err = mock.ce.execTxResult(txs)
 	} else {
 		// This is basically a default fake default transaction execution
 		if nil == txs {
@@ -200,7 +244,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		if nil != mock.CommitStateDelta(id) {
 			panic("Error in delta construction/application")
 		}
-		fmt.Printf("Debug: Mock ledger is inserting block %d with hash %v\n", mock.blockHeight, SimpleHashBlock(block))
+		fmt.Printf("TEST LEDGER: Mock ledger is inserting block %d with hash %x\n", mock.blockHeight, SimpleHashBlock(block))
 		mock.PutBlock(mock.blockHeight, block)
 	}
 
@@ -247,11 +291,19 @@ func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 }
 
 func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
-	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
-		return nil, fmt.Errorf("Bad peer ID")
+	rl, ok := mock.remoteLedgers.GetLedgerByPeerID(peerID)
+	if !ok {
+		return nil, fmt.Errorf("Bad peer ID %v", peerID)
 	}
 
-	res := make(chan *protos.SyncBlocks)
+	var size int
+	if start > finish {
+		size = int(start - finish)
+	} else {
+		size = int(finish - start)
+	}
+
+	res := make(chan *protos.SyncBlocks, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncBlocks, peerID)
 	switch ft {
 	case Corrupt:
@@ -263,7 +315,7 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 
 			for {
 				if ft != Corrupt || current != corruptBlock {
-					if block, err := (*mock.remoteLedgers)[*peerID].GetBlock(current); nil == err {
+					if block, err := rl.GetBlock(current); nil == err {
 						res <- &protos.SyncBlocks{
 							Range: &protos.SyncBlockRange{
 								Start: current,
@@ -273,7 +325,7 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 						}
 
 					} else {
-						fmt.Printf("%v could not retrieve block %d : %s", peerID, current, err)
+						fmt.Printf("TEST LEDGER: %v could not retrieve block %d : %s\n", peerID, current, err)
 						break
 					}
 				} else {
@@ -314,18 +366,20 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 }
 
 func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
-	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
-		return nil, fmt.Errorf("Bad peer ID")
+
+	rl, ok := mock.remoteLedgers.GetLedgerByPeerID(peerID)
+	if !ok {
+		return nil, fmt.Errorf("Bad peer ID %v", peerID)
 	}
 
-	res := make(chan *protos.SyncStateSnapshot)
+	remoteBlockHeight, _ := rl.GetBlockchainSize()
+	res := make(chan *protos.SyncStateSnapshot, remoteBlockHeight) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncSnapshot, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
 	case Normal:
 
-		remoteBlockHeight, _ := (*mock.remoteLedgers)[*peerID].GetBlockchainSize()
 		if remoteBlockHeight < 1 {
 			break
 		}
@@ -373,11 +427,20 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 }
 
 func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
-	if _, ok := (*mock.remoteLedgers)[*peerID]; !ok {
-		return nil, fmt.Errorf("Bad peer ID")
+	rl, ok := mock.remoteLedgers.GetLedgerByPeerID(peerID)
+
+	if !ok {
+		return nil, fmt.Errorf("Bad peer ID %v", peerID)
 	}
 
-	res := make(chan *protos.SyncStateDeltas)
+	var size int
+	if start > finish {
+		size = int(start - finish)
+	} else {
+		size = int(finish - start)
+	}
+
+	res := make(chan *protos.SyncStateDeltas, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncDeltas, peerID)
 	switch ft {
 	case Corrupt:
@@ -388,7 +451,7 @@ func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finis
 			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
 			for {
 				if ft != Corrupt || current != corruptBlock {
-					if remoteBlock, err := (*mock.remoteLedgers)[*peerID].GetBlock(current); nil == err {
+					if remoteBlock, err := rl.GetBlock(current); nil == err {
 						deltas := make([][]byte, len(remoteBlock.Transactions))
 						for i, transaction := range remoteBlock.Transactions {
 							deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
@@ -675,7 +738,7 @@ func TestMockLedger(t *testing.T) {
 	}
 	remoteLedgers[*rlPeerID] = rl
 
-	ml := NewMockLedger(&remoteLedgers, nil)
+	ml := NewMockLedger(&HashLedgerDirectory{remoteLedgers}, nil)
 	ml.GetCurrentStateHash()
 
 	blockMessages, err := ml.GetRemoteBlocks(rlPeerID, 10, 0)

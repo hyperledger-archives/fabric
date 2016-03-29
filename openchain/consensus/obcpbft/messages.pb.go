@@ -14,6 +14,8 @@ It has these top-level messages:
 	PrePrepare
 	Prepare
 	Commit
+	BlockInfo
+	SieveId
 	Checkpoint
 	ViewChange
 	NewView
@@ -378,11 +380,28 @@ func (m *Commit) Reset()         { *m = Commit{} }
 func (m *Commit) String() string { return proto.CompactTextString(m) }
 func (*Commit) ProtoMessage()    {}
 
+type BlockInfo struct {
+	BlockNumber uint64 `protobuf:"varint,1,opt,name=block_number" json:"block_number,omitempty"`
+	BlockHash   []byte `protobuf:"bytes,2,opt,name=block_hash,proto3" json:"block_hash,omitempty"`
+}
+
+func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
+func (m *BlockInfo) String() string { return proto.CompactTextString(m) }
+func (*BlockInfo) ProtoMessage()    {}
+
+type SieveId struct {
+	BlockNumber uint64 `protobuf:"varint,1,opt,name=block_number" json:"block_number,omitempty"`
+	ObcId       []byte `protobuf:"bytes,2,opt,name=obc_id,proto3" json:"obc_id,omitempty"`
+}
+
+func (m *SieveId) Reset()         { *m = SieveId{} }
+func (m *SieveId) String() string { return proto.CompactTextString(m) }
+func (*SieveId) ProtoMessage()    {}
+
 type Checkpoint struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	ReplicaId      uint64 `protobuf:"varint,2,opt,name=replica_id" json:"replica_id,omitempty"`
-	BlockNumber    uint64 `protobuf:"varint,3,opt,name=block_number" json:"block_number,omitempty"`
-	BlockHash      string `protobuf:"bytes,4,opt,name=block_hash" json:"block_hash,omitempty"`
+	Id             string `protobuf:"bytes,3,opt,name=id" json:"id,omitempty"`
 }
 
 func (m *Checkpoint) Reset()         { *m = Checkpoint{} }
@@ -427,8 +446,7 @@ func (m *ViewChange) GetQset() []*ViewChange_PQ {
 // This message should go away and become a checkpoint once replica_id is removed
 type ViewChange_C struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
-	BlockNumber    uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
-	BlockHash      string `protobuf:"bytes,3,opt,name=block_hash" json:"block_hash,omitempty"`
+	Id             string `protobuf:"bytes,3,opt,name=id" json:"id,omitempty"`
 }
 
 func (m *ViewChange_C) Reset()         { *m = ViewChange_C{} }

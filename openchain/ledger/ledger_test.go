@@ -194,6 +194,20 @@ func TestLedgerPutRawBlock(t *testing.T) {
 	block.StateHash = []byte("bar")
 	ledger.PutRawBlock(block, 4)
 	testutil.AssertEquals(t, ledgerTestWrapper.GetBlockByNumber(4), block)
+
+	ledger.BeginTxBatch(1)
+	ledger.TxBegin("txUuid")
+	ledger.SetState("chaincode1", "key1", []byte("value1"))
+	ledger.TxFinished("txUuid", true)
+	transaction, _ := buildTestTx(t)
+	ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, nil, []byte("proof"))
+
+	previousHash, _ := block.GetHash()
+	newBlock := ledgerTestWrapper.GetBlockByNumber(5)
+
+	if !bytes.Equal(newBlock.PreviousBlockHash, previousHash) {
+		t.Fatalf("Expected new block to properly set its previous hash")
+	}
 }
 
 func TestLedgerSetRawState(t *testing.T) {
