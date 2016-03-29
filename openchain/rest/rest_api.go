@@ -1259,7 +1259,8 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	} else {
 
 		//
-		// Chaincode invocation/query was reqested, but we have incorrectly decoded as a deploy payload
+		// Chaincode invocation/query was reqested, but we have incorrectly decoded
+		// as a deploy payload.
 		//
 
 		// Decode once again as an invoke/query payload now. No need to check for
@@ -1296,12 +1297,8 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	// Generate correctly formatted JSON RPC 2.0 response payload
 	//
 
-	// Produce correctly formatted JSON RPC 2.0 response
 	response := formatRPCResponse(result, deployPayload.ID)
-	restLogger.Debug(fmt.Sprintf("REST response: %+v", response.Result))
-
 	jsonResponse, _ := json.Marshal(response)
-	restLogger.Debug(fmt.Sprintf("REST response marshalled: %s", string(jsonResponse)))
 
 	// If the request is not a notification, produce a response.
 	if !notification {
@@ -1635,31 +1632,15 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		// Query succeded
 		//
 
-		// Determine if the response received is JSON formatted
-		if isJSON(string(resp.Msg)) {
-			// Response is JSON formatted, return it as is
-			result = formatRPCOK(string(resp.Msg))
-			restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", string(resp.Msg)))
-
-			return result
-		}
-
-		// Response is not JSON formatted, construct a JSON formatted response
-		jsonResponse, err := json.Marshal(string(resp.Msg))
-		if err != nil {
-			// Format the error appropriately for further processing
-			error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Error marshalling query response: %s", err))
-			restLogger.Error(fmt.Sprintf("Error marshalling query response: %s", err))
-
-			return error
-		}
+		// Clients will need the returned value, record it
+		val := string(resp.Msg)
 
 		//
 		// Output correctly formatted response
 		//
 
-		result = formatRPCOK(string(jsonResponse))
-		restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", string(jsonResponse)))
+		result = formatRPCOK(val)
+		restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", val))
 	}
 
 	return result
