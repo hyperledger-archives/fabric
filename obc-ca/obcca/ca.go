@@ -50,6 +50,91 @@ type CA struct {
 	raw  []byte
 }
 
+// The certificate spec defines the parameter used to create a new certificate.
+//
+type CertificateSpec struct { 
+	id string
+	serialNumber *big.Int
+	pub *interface{}
+	usage x509.KeyUsage
+	NotBefore *time
+	NotAfter *time
+	ext *[]pkix.Extension
+}
+
+// Create a new certificate spec
+//
+func NewCertificateSpec(id string, serialNumber * big.Int, pub *interface{}, usage x509.KeyUsage, notBefore *time, notAfter *time,  ext *[]pkix.Extension) *CertificateSpec {
+	spec := make(CertificateSpec)
+	spec.id = id
+	spec.serialNumber = serialNumber
+	spec.pub = pub
+	spec.usage = usage
+	spec.NotBefore = notBefore
+	spec.NotAfter = notAfter
+	spec.ext = ext
+	return spec
+}
+
+// Create a new certificate spec with notBefore a minute ago and not after 90 days from notBefore.
+//
+func NewDefaultPeriodCertificateSpec(id string, serialNumber * big.Int, pub *interface{}, usage x509.KeyUsage, ext *[]pkix.Extension) *CertificateSpec {
+	notBefore := time.Now().Add(-1 * time.Minute)
+	notAfter := notBefore.Add(time.Hour * 24 * 90)
+	return NewCertificateSpec(id, serialNumber, pub, usage, notBefore, notAfter, ext)
+}
+
+// Create a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore.
+//
+func NewDefaultCertificateSpec(id string, pub *interface{}, usage x509.KeyUsage, ext *[]pkix.Extension) *CertificateSpec {
+	serialNumber := big.NewInt(1)
+	return NewDefaultPeriodCertificateSpec(id, serialNumber, pub, usage, ext)
+}
+
+func (spec *CertificateSpec) GetId() string { 
+	return spec.id
+}
+
+func (spec *CertificateSpec) GetSerialNumber() *big.Int { 
+	return spec.serialNumber
+}
+
+func (spec *CertificateSpec) GetPublicKey() *interface{} { 
+	return spec.pub
+}
+
+func (spec *CertificateSpec) GetUsage() *x509.KeyUsage { 
+	return spec.usage
+}
+
+func (spec *CertificateSpec) GetNotBefore() *time { 
+	return spec.NotBefore
+}
+
+func (spec *CertificateSpec) GetNotAfter() *time { 
+	return spec.NotAfter
+}
+
+func (spec *CertificateSpec) GetOrganization() string { 
+	return "IBM"
+}
+
+func (spec *CertificateSpec) GetCountry() string { 
+	return "US"
+}
+
+func (spec *CertificateSpec) GetSubjectKeyId() *[]byte { 
+	return []byte{1, 2, 3, 4}
+}
+
+func (spec *CertificateSpec) GetSignatureAlgorithm() SignatureAlgorithm {
+	return x509.ECDSAWithSHA384
+}
+
+func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension { 
+	return spec.ext
+}
+
 // NewCA sets up a new CA.
 //
 func NewCA(name string) *CA {
@@ -192,9 +277,14 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 }
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
+	spec := NewDefaultCertificateSpec(id, pub, usage, ext)
+	return ca.createCertificateFromSpec(spec, timestamp, kdfKey)
+}
+
+func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
 	Trace.Println("Creating certificate for " + id + ".")
 
-	raw, err := ca.newCertificate(id, pub, usage, opt)
+	raw, err := ca.newCertificateFromSpec(spec)
 	if err != nil {
 		Error.Println(err)
 		return nil, err
@@ -209,34 +299,39 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 	return raw, err
 }
 
-func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
-	notBefore := time.Now().Add(-1 * time.Minute)
-	notAfter := notBefore.Add(time.Hour * 24 * 90)
+func (ca *CA) newCertificate(id string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
+	spec := NewDefaultCertificateSpec(id, pub, usage, ext)
+	return ca.newCertificateFromSpec(spec)
+}
+
+func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
+	notBefore := spec.GetNotBefore()
+	notAfter := spec.GetNotAfter()
 
 	parent := ca.cert
 	isCA := parent == nil
 
 	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: spec.GetSerialNumber(),
 		Subject: pkix.Name{
-			CommonName:   id,
-			Organization: []string{"IBM"},
-			Country:      []string{"US"},
+			CommonName:   spec.GetId(),
+			Organization: []string{spec.GetOrganization()},
+			Country:      []string{spec.GetCountry()},
 		},
 		NotBefore: notBefore,
 		NotAfter:  notAfter,
 
-		SubjectKeyId:       []byte{1, 2, 3, 4},
-		SignatureAlgorithm: x509.ECDSAWithSHA384,
-		KeyUsage:           usage,
+		SubjectKeyId:       spec.GetSubjectKeyId(),
+		SignatureAlgorithm: spec.GetSignatureAlgorithm,
+		KeyUsage:           spec.GetUsage(),
 
 		BasicConstraintsValid: true,
 		IsCA: isCA,
 	}
 
 	if len(ext) > 0 {
-		tmpl.Extensions = ext
-		tmpl.ExtraExtensions = ext
+		tmpl.Extensions = spec.GetExtensions()
+		tmpl.ExtraExtensions = spec.GetExtensions()
 	}
 	if isCA {
 		parent = &tmpl
@@ -246,7 +341,7 @@ func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ex
 		rand.Reader,
 		&tmpl,
 		parent,
-		pub,
+		spec.GetPublicKey(),
 		ca.priv,
 	)
 	if isCA && err != nil {
