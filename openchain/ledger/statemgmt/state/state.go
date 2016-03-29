@@ -27,6 +27,7 @@ import (
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/buckettree"
+	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/raw"
 	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/trie"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
@@ -61,11 +62,15 @@ func NewState() *State {
 		stateImplConfigs = nil
 	}
 
+	logger.Info("Initializing state implementation [%s]", stateImplName)
+
 	switch stateImplName {
 	case "buckettree":
 		stateImpl = buckettree.NewStateImpl()
 	case "trie":
 		stateImpl = trie.NewStateTrie()
+	case "raw":
+		stateImpl = raw.NewRawState()
 	default:
 		panic(fmt.Errorf("Error during initialization of state implementation. State data structure '%s' is not valid.", stateImplName))
 	}

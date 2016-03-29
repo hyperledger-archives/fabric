@@ -21,14 +21,15 @@ package ledger
 
 import (
 	"flag"
+	"strconv"
+	"testing"
+
 	"github.com/op/go-logging"
 	"github.com/openblockchain/obc-peer/openchain/db"
 	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	"github.com/openblockchain/obc-peer/protos"
 	"github.com/tecbot/gorocksdb"
-	"strconv"
-	"testing"
 )
 
 func BenchmarkDB(b *testing.B) {
@@ -68,13 +69,6 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	b.Logf(`Running test with params: key=%s, kvSize=%d, batchSize=%d, numBatches=%d, NumWritesToLedger=%d`,
 		*key, *kvSize, *batchSize, *numBatches, *numWritesToLedger)
 
-	testutil.SetLogLevel(logging.ERROR, "indexes")
-	testutil.SetLogLevel(logging.ERROR, "ledger")
-	testutil.SetLogLevel(logging.ERROR, "state")
-	testutil.SetLogLevel(logging.ERROR, "statemgmt")
-	testutil.SetLogLevel(logging.ERROR, "buckettree")
-	testutil.SetLogLevel(logging.ERROR, "db")
-
 	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(b)
 	ledger := ledgerTestWrapper.ledger
 
@@ -112,6 +106,117 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	b.Logf("Value size=%d, Blockchain height=%d", len(value), size)
 }
 
+func BenchmarkLedgerPopulate(b *testing.B) {
+	b.Logf("testParams:%q", testParams)
+	disableLogging()
+	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
+	kvSize := flags.Int("KVSize", 1000, "size of the key-value")
+	maxKeySuffix := flags.Int("MaxKeySuffix", 1, "the keys are appended with _1, _2,.. upto MaxKeySuffix")
+	keyPrefix := flags.String("KeyPrefix", "Key_", "The generated workload will have keys such as KeyPrefix_1, KeyPrefix_2, and so on")
+	batchSize := flags.Int("BatchSize", 100, "size of the key-value")
+	flags.Parse(testParams)
+
+	b.Logf(`Running test with params: keyPrefix=%s, kvSize=%d, batchSize=%d, maxKeySuffix=%d`,
+		*keyPrefix, *kvSize, *batchSize, *maxKeySuffix)
+
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(b)
+	ledger := ledgerTestWrapper.ledger
+
+	chaincode := "chaincodeId"
+	numBatches := *maxKeySuffix / *batchSize
+	tx := constructDummyTx(b)
+	value := testutil.ConstructRandomBytes(b, *kvSize-(len(chaincode)+len(*keyPrefix)))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for batchID := 0; batchID < numBatches; batchID++ {
+			ledger.BeginTxBatch(1)
+			// execute one batch
+			var transactions []*protos.Transaction
+			for j := 0; j < *batchSize; j++ {
+				ledger.TxBegin("txUuid")
+
+				b.StopTimer()
+				keyNumber := batchID*(*batchSize) + j
+				key := *keyPrefix + strconv.Itoa(keyNumber)
+				b.StartTimer()
+
+				ledger.SetState(chaincode, key, value)
+				ledger.TxFinished("txUuid", true)
+
+				b.StopTimer()
+				transactions = append(transactions, tx)
+				b.StartTimer()
+			}
+			ledger.CommitTxBatch(1, transactions, nil, []byte("proof"))
+		}
+	}
+	b.StopTimer()
+	b.Logf("DB stats afters populating: %s", testDBWrapper.GetEstimatedNumKeys(b))
+}
+
+func BenchmarkLedgerRandomTransactions(b *testing.B) {
+	disableLogging()
+	b.Logf("testParams:%q", testParams)
+	flags := flag.NewFlagSet("testParams", flag.ExitOnError)
+	keyPrefix := flags.String("KeyPrefix", "Key_", "The generated workload will have keys such as KeyPrefix_1, KeyPrefix_2, and so on")
+	kvSize := flags.Int("KVSize", 1000, "size of the key-value")
+	maxKeySuffix := flags.Int("MaxKeySuffix", 1, "the keys are appended with _1, _2,.. upto MaxKeySuffix")
+	batchSize := flags.Int("BatchSize", 100, "size of the key-value")
+	numBatches := flags.Int("NumBatches", 100, "number of batches")
+	numReadsFromLedger := flags.Int("NumReadsFromLedger", 4, "Number of Key-Values to read")
+	numWritesToLedger := flags.Int("NumWritesToLedger", 4, "Number of Key-Values to write")
+	flags.Parse(testParams)
+
+	b.Logf(`Running test with params: keyPrefix=%s, kvSize=%d, batchSize=%d, maxKeySuffix=%d, numBatches=%d, numReadsFromLedger=%d, numWritesToLedger=%d`,
+		*keyPrefix, *kvSize, *batchSize, *maxKeySuffix, *numBatches, *numReadsFromLedger, *numWritesToLedger)
+
+	ledger, err := newLedger()
+	testutil.AssertNoError(b, err, "Error while constructing ledger")
+
+	chaincode := "chaincodeId"
+	tx := constructDummyTx(b)
+	value := testutil.ConstructRandomBytes(b, *kvSize-(len(chaincode)+len(*keyPrefix)))
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for batchID := 0; batchID < *numBatches; batchID++ {
+			ledger.BeginTxBatch(1)
+			// execute one batch
+			var transactions []*protos.Transaction
+			for j := 0; j < *batchSize; j++ {
+				b.StopTimer()
+				randomKeySuffixGen := testutil.NewTestRandomNumberGenerator(*maxKeySuffix)
+				b.StartTimer()
+
+				ledger.TxBegin("txUuid")
+				for k := 0; k < *numReadsFromLedger; k++ {
+					b.StopTimer()
+					randomKey := *keyPrefix + strconv.Itoa(randomKeySuffixGen.Next())
+					b.StartTimer()
+					ledger.GetState(chaincode, randomKey, true)
+				}
+				for k := 0; k < *numWritesToLedger; k++ {
+					b.StopTimer()
+					randomKey := *keyPrefix + strconv.Itoa(randomKeySuffixGen.Next())
+					b.StartTimer()
+
+					ledger.SetState(chaincode, randomKey, value)
+				}
+				ledger.TxFinished("txUuid", true)
+
+				b.StopTimer()
+				transactions = append(transactions, tx)
+				b.StartTimer()
+			}
+			ledger.CommitTxBatch(1, transactions, nil, []byte("proof"))
+		}
+	}
+	b.StopTimer()
+	b.Logf("DB stats afters populating: %s", testDBWrapper.GetEstimatedNumKeys(b))
+}
+
 func populateDB(tb testing.TB, kvSize int, totalKeys int, keyPrefix string) {
 	dbWrapper := db.NewTestDBWrapper()
 	dbWrapper.CreateFreshDB(tb)
@@ -133,4 +238,13 @@ func constructDummyTx(tb testing.TB) *protos.Transaction {
 	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "dummyChaincodeId"}, uuid, "dummyFunction", []string{"dummyParamValue1, dummyParamValue2"})
 	testutil.AssertNil(tb, err)
 	return tx
+}
+
+func disableLogging() {
+	testutil.SetLogLevel(logging.ERROR, "indexes")
+	testutil.SetLogLevel(logging.ERROR, "ledger")
+	testutil.SetLogLevel(logging.INFO, "state")
+	testutil.SetLogLevel(logging.ERROR, "statemgmt")
+	testutil.SetLogLevel(logging.INFO, "buckettree")
+	testutil.SetLogLevel(logging.ERROR, "db")
 }

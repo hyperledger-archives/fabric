@@ -77,6 +77,7 @@ func (testDB *TestDBWrapper) WriteToDB(t testing.TB, writeBatch *gorocksdb.Write
 	}
 }
 
+// GetFromDB gets the value for the given key from default column-family
 func (testDB *TestDBWrapper) GetFromDB(t testing.TB, key []byte) []byte {
 	db := GetDBHandle().DB
 	opt := gorocksdb.NewDefaultReadOptions()
@@ -114,4 +115,15 @@ func (testDB *TestDBWrapper) GetFromStateDeltaCF(t testing.TB, key []byte) []byt
 func (testDB *TestDBWrapper) CloseDB(t testing.TB) {
 	openchainDB := GetDBHandle()
 	openchainDB.CloseDB()
+}
+
+// GetEstimatedNumKeys returns estimated number of key-values in db. This is not accurate in all the cases
+func (testDB *TestDBWrapper) GetEstimatedNumKeys(t testing.TB) map[string]string {
+	openchainDB := GetDBHandle()
+	result := make(map[string]string, 5)
+	result["stateCF"] = openchainDB.DB.GetPropertyCF("rocksdb.estimate-num-keys", openchainDB.StateCF)
+	result["stateDeltaCF"] = openchainDB.DB.GetPropertyCF("rocksdb.estimate-num-keys", openchainDB.StateDeltaCF)
+	result["blockchainCF"] = openchainDB.DB.GetPropertyCF("rocksdb.estimate-num-keys", openchainDB.BlockchainCF)
+	result["indexCF"] = openchainDB.DB.GetPropertyCF("rocksdb.estimate-num-keys", openchainDB.IndexesCF)
+	return result
 }
