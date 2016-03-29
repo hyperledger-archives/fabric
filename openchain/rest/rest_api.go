@@ -1066,7 +1066,6 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
-	router.Get("/devops/gettlscarootcert", (*ServerOpenchainREST).GetTLSCARootCertificate)
 
 	router.Get("/transactions/:uuid", (*ServerOpenchainREST).GetTransactionByUUID)
 
@@ -1081,53 +1080,3 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 		restLogger.Error(fmt.Sprintf("ListenAndServe: %s", err))
 	}
 }
-
-// GetTLSCARootCertificate retrieves the TLS-CA root certificate for a given user.
-func (s *ServerOpenchainREST) GetTLSCARootCertificate(rw web.ResponseWriter, req *web.Request) {
-    if restLogger.IsEnabledFor(logging.DEBUG) {
-        restLogger.Debug("REST received TLS-CA root certificate retrieval request '%s'")
-    }
-    // If security is enabled, initialize the crypto client
-    if viper.GetBool("security.enabled") {
-        // Obtain the TLS-CA Root certificate
-        response, err := s.devops.GetTLSCARootCertificate(context.Background())
-        if err != nil {
-            rw.WriteHeader(http.StatusInternalServerError)
-            fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-            restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
-            return
-        }
-        
-        cert := response.Msg
-        // Certificate handler can not be nil
-        if cert == nil {
-            rw.WriteHeader(http.StatusInternalServerError)
-            fmt.Fprintf(rw, "{\"Error\": \"Error retrieving TLS-CA Root certificate, certificate is nil\"}")
-            restLogger.Error("{\"Error\": \"Error retrieving TLS-CA Root certificate, certificate is nil.\"}")
-            return
-        }
-        // Confirm the retrieved certificate has non-zero length
-        if len(cert) == 0 {
-            rw.WriteHeader(http.StatusInternalServerError)
-            fmt.Fprintf(rw, "{\"Error\": \"TLS-CA Root certificate length is 0.\"}")
-            restLogger.Error("{\"Error\": \"TLS-CA Root certificate length is 0.\"}")
-            return
-        }
-        // Transforms the DER encoded certificate to a PEM encoded certificate
-        certPEM := utils.DERCertToPEM(cert)
-        // As the enrollment certifiacate contains \n characters, url encode it before outputting
-      //  urlEncodedCert := url.QueryEscape(string(certPEM))
-        rw.WriteHeader(http.StatusOK)
-    	fmt.Fprintf(rw, "%s", string(certPEM))
-        if restLogger.IsEnabledFor(logging.DEBUG) {
-            restLogger.Debug("Sucessfully retrieved TLS-CA Root certificate")
-        }
-    } else {
-        // Security must be enabled to request TLS-CA Root certificate
-        rw.WriteHeader(http.StatusBadRequest)
-        fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting TLS-CA Root certificate.\"}")
-        restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting TLS-CA Root certificate.\"}")
-        return
-    }
-}
-

@@ -256,17 +256,6 @@ func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.Chaincod
 	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, false)
 }
 
-func (d *Devops) GetTLSCARootCertificate(ctx context.Context) (*pb.Response, error) {
-	cert, err := crypto.GetTLSCARootCertificate(ctx); 
-
-	if nil != err {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
-	}
-	return &pb.Response{Status: pb.Response_SUCCESS, Msg: cert}, nil
-
-	// TODO: Handle timeout and expiration
-}
-
 // CheckSpec to see if chaincode resides within current package capture for language.
 func CheckSpec(spec *pb.ChaincodeSpec) error {
 	// Don't allow nil value
