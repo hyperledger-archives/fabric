@@ -199,6 +199,39 @@
               }
            }
         },
+        "/chaincode": {
+           "post": {
+              "summary": "Service endpoint for Chaincode operations",
+              "description": "The /chaincode endpoint receives requests to deploy, invoke, and query a target Chaincode. This service endpoint implements the JSON RPC 2.0 specification with the payload identifiying the desired Chaincode operation within the 'method' field.",
+              "tags": [
+                  "Devops"
+              ],
+              "operationId": "chaincodeRPC",
+              "parameters": [{
+                 "name": "ChaincodeRPCPayload",
+                 "in": "body",
+                 "description": "Chaincode JSON RPC 2.0 payload",
+                 "required": true,
+                 "schema": {
+                    "$ref": "#/definitions/ChaincodeRPCPayload"
+                 }
+              }],
+              "responses": {
+                  "200": {
+                      "description": "Chaincode RPC operation successful",
+                      "schema": {
+                         "$ref": "#/definitions/ChaincodeRPCSuccess"
+                      }
+                  },
+                  "default": {
+                      "description": "Chaincode RPC operation failed",
+                      "schema": {
+                          "$ref": "#/definitions/ChaincodeRPCFailure"
+                      }
+                  }
+              }
+           }
+        },
         "/registrar": {
            "post": {
               "summary": "Register a user with the certificate authority",
@@ -555,6 +588,45 @@
                 }
             }
         },
+        "ChaincodeRPCPayload": {
+           "type": "object",
+           "required": [
+              "jsonrpc",
+              "method",
+              "params"
+           ],
+           "properties": {
+              "jsonrpc": {
+                 "type": "string",
+                 "default": "2.0",
+                 "description": "A string specifying the version of the JSON-RPC protocol. Must be exactly '2.0'."
+              },
+              "method": {
+                 "type": "string",
+                 "description": "A string containing the name of the method to be invoked. Must be 'deploy', 'invoke', or 'query'."
+              },
+              "params": {
+                  "$ref": "#/definitions/rpcParams",
+                  "description": "A structured value that holds the parameter values to be used during the invocation of the method. Must include a ChaincodeSpec for 'deploy' and a ChaincodeInvocationSpec for 'invoke' and 'query'."
+              },
+              "id": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "An identifier established by the client that must contain an integer value if included. The Server will reply with the same value in the response object. This member is used to correlate the context between the request and response objects. If it is not included, the request is assumed to be a notification and the server will not generate a response."
+              }
+           }
+        },
+        "rpcParams": {
+          "type": "object",
+          "properties": {
+              "prop1": {
+                  "type": "string"
+              },
+              "prop2": {
+                  "type": "string"
+              }
+          }
+        },
         "ConfidentialityLevel":{
             "type": "string",
             "default": "PUBLIC",
@@ -679,6 +751,76 @@
                     "description": "An optional parameter containing additional information about the request."
                 }
             }
+        },
+        "ChaincodeRPCSuccess": {
+           "type": "object",
+           "required": [
+              "jsonrpc",
+              "result",
+              "id"
+           ],
+           "properties": {
+              "jsonrpc": {
+                 "type": "string",
+                 "default": "2.0",
+                 "description": "A string specifying the version of the JSON-RPC protocol. Must be exactly '2.0'."
+              },
+              "result": {
+                  "$ref": "#/definitions/OK",
+                  "description": "This member is required on success. This member must not exist if there was an error invoking the method. The value of this member is determined by the method invoked on the server."
+              },
+              "id": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "This member is required. It must be the same as the value of the id member in the request object. If there was an error in detecting the id in the request object (e.g. Parse error/Invalid Request), it must be null."
+              }
+           }
+        },
+        "ChaincodeRPCFailure": {
+           "type": "object",
+           "required": [
+              "jsonrpc",
+              "error",
+              "id"
+           ],
+           "properties": {
+              "jsonrpc": {
+                 "type": "string",
+                 "default": "2.0",
+                 "description": "A string specifying the version of the JSON-RPC protocol. Must be exactly '2.0'."
+              },
+              "error": {
+                 "$ref": "#/definitions/rpcError",
+                 "description": "A structured value that holds the parameter values to be used during the invocation of the method. Must include a ChaincodeSpec for 'deploy' and a ChaincodeInvocationSpec for 'invoke' and 'query'."
+             },
+             "id": {
+                 "type": "integer",
+                 "format": "int64",
+                 "description": "An identifier established by the client that must contain an integer value if included. The Server will reply with the same value in the response object. This member is used to correlate the context between the request and response objects. If it is not included, the request is assumed to be a notification and the server will not generate a response."
+             }
+          }
+        },
+        "rpcError": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "integer",
+              "format": "int64",
+              "description": "A Number that indicates the error type that occurred."
+            },
+            "message": {
+              "type": "string",
+              "description": "A string providing a short description of the error."
+            },
+            "data": {
+              "type": "string",
+              "description": "A primitive or structured value that contains additional information about the error. This may be omitted. The value of this member is defined by the Server (e.g. detailed error information, nested errors etc.)."
+            }
+          }
         }
     }
 }
