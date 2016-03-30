@@ -40,6 +40,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -48,6 +49,7 @@ var (
 	// TCertEncTCertIndex is the ASN1 object identifier of the TCert index.
 	//
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
+	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
 )
 
 // TCA is the transaction certificate authority.
@@ -177,6 +179,12 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) 
 	return &pb.TCertCreateResp{&pb.Cert{raw}}, nil
 }
 
+func (tcap *TCAP) GetPreKFrom(enrollmentCert *x509.Certificate) ([]byte, error) {
+	//Implement the code that returns an raw corresponding to the PreK of this ECert.
+	key := make([]byte, 40) 
+	rand.Reader.Read(key)
+	return key, nil
+}
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 //
 func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
@@ -216,6 +224,9 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
 
+    var preKey []byte
+	preKey, err  = tcap.GetPreKFrom(cert)
+	
 	num := int(in.Num)
 	if num == 0 {
 		num = 1
@@ -223,23 +234,33 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	var set [][]byte
 
 	for i := 0; i < num; i++ {
-		tidx := []byte(strconv.Itoa(i))
+		tidx := []byte(strconv.Itoa(2*i + 1))
 		tidx = append(tidx[:], nonce[:]...)
 
 		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
 
+		
+		tcertid := util.GenerateIntUUID()
+		mac = hmac.New(conf.GetDefaultHash(), preKey)
+		mac.Write(tcertid.Bytes())
+		enrollmentIdKey := mac.Sum(nil)
+		encEnrollmentID, err := CBCEncrypt(enrollmentIdKey, []byte(id))
+		if err != nil {
+			return nil, err
+		}
+		
 		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{2})
 		mac = hmac.New(conf.GetDefaultHash(), mac.Sum(nil))
 		mac.Write(tidx)
-
+		
 		one := new(big.Int).SetInt64(1)
 		k := new(big.Int).SetBytes(mac.Sum(nil))
 		k.Mod(k, new(big.Int).Sub(pub.Curve.Params().N, one))
 		k.Add(k, one)
-
+		
 		tmpX, tmpY := pub.ScalarBaseMult(k.Bytes())
 		txX, txY := pub.Curve.Add(pub.X, pub.Y, tmpX, tmpY)
 		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
@@ -249,7 +270,8 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			return nil, err
 		}
 
-		if raw, err = tcap.tca.createCertificate(id, &txPub, x509.KeyUsageDigitalSignature, in.Ts.Seconds, kdfKey, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
+		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub,  x509.KeyUsageDigitalSignature, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encEnrollmentID});
+		if raw, err = tcap.tca.createCertificateFromSpec(spec, in.Ts.Seconds, kdfKey); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
