@@ -646,6 +646,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
 		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
 
@@ -736,6 +737,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
 		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
 
