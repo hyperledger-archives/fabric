@@ -31,7 +31,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+var testParams []string
+
 func TestMain(m *testing.M) {
+	testParams = testutil.ParseTestParams()
 	testutil.SetupTestConfig()
 	os.Exit(m.Run())
 }
@@ -143,10 +146,10 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	return allBlocks, allHashes, nil
 }
 
-func buildTestTx(t *testing.T) (*protos.Transaction, string) {
+func buildTestTx(tb testing.TB) (*protos.Transaction, string) {
 	uuid := util.GenerateUUID()
 	tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-	testutil.AssertNil(t, err)
+	testutil.AssertNil(tb, err)
 	return tx, uuid
 }
 
@@ -160,62 +163,62 @@ func buildTestBlock(t *testing.T) (*protos.Block, error) {
 
 type ledgerTestWrapper struct {
 	ledger *Ledger
-	t      *testing.T
+	tb     testing.TB
 }
 
-func createFreshDBAndTestLedgerWrapper(t *testing.T) *ledgerTestWrapper {
-	testDBWrapper.CreateFreshDB(t)
+func createFreshDBAndTestLedgerWrapper(tb testing.TB) *ledgerTestWrapper {
+	testDBWrapper.CreateFreshDB(tb)
 	ledger, err := newLedger()
-	testutil.AssertNoError(t, err, "Error while constructing ledger")
-	return &ledgerTestWrapper{ledger, t}
+	testutil.AssertNoError(tb, err, "Error while constructing ledger")
+	return &ledgerTestWrapper{ledger, tb}
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) GetState(chaincodeID string, key string, committed bool) []byte {
 	value, err := ledgerTestWrapper.ledger.GetState(chaincodeID, key, committed)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state from ledger")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while getting state from ledger")
 	return value
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) GetBlockByNumber(blockNumber uint64) *protos.Block {
 	block, err := ledgerTestWrapper.ledger.GetBlockByNumber(blockNumber)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting block from ledger")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while getting block from ledger")
 	return block
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) VerifyChain(highBlock, lowBlock uint64) uint64 {
 	result, err := ledgerTestWrapper.ledger.VerifyChain(highBlock, lowBlock)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while verifying chain")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while verifying chain")
 	return result
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) PutRawBlock(block *protos.Block, blockNumber uint64) {
 	err := ledgerTestWrapper.ledger.PutRawBlock(block, blockNumber)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while verifying chain")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while verifying chain")
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) GetStateDelta(blockNumber uint64) *statemgmt.StateDelta {
 	delta, err := ledgerTestWrapper.ledger.GetStateDelta(blockNumber)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state delta from ledger")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while getting state delta from ledger")
 	return delta
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) GetTempStateHash() []byte {
 	hash, err := ledgerTestWrapper.ledger.GetTempStateHash()
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error while getting state hash from ledger")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error while getting state hash from ledger")
 	return hash
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) {
 	err := ledgerTestWrapper.ledger.ApplyStateDelta(id, delta)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error applying state delta")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error applying state delta")
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) CommitStateDelta(id interface{}) {
 	err := ledgerTestWrapper.ledger.CommitStateDelta(id)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error committing state delta")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error committing state delta")
 }
 
 func (ledgerTestWrapper *ledgerTestWrapper) RollbackStateDelta(id interface{}) {
 	err := ledgerTestWrapper.ledger.RollbackStateDelta(id)
-	testutil.AssertNoError(ledgerTestWrapper.t, err, "error rolling back state delta")
+	testutil.AssertNoError(ledgerTestWrapper.tb, err, "error rolling back state delta")
 }
