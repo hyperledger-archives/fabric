@@ -102,10 +102,10 @@
         },
         "/devops/deploy": {
            "post": {
-              "summary": "Service endpoint for deploying Chaincode",
-              "description": "The /devops/deploy endpoint receives Chaincode deployment requests. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, a confirmation message is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "[DEPRECATED] Service endpoint for deploying Chaincode [DEPRECATED]",
+              "description": "The /devops/deploy endpoint receives Chaincode deployment requests. The Chaincode and the required entities are first packaged into a container and subsequently deployed to the blockchain. If the Chaincode build and deployment are successful, a confirmation message is returned. Otherwise, an error is displayed alongside with a reason for the failure. This service endpoint is being deprecated, please use the /chaincode endpoint instead.",
               "tags": [
-                  "Devops"
+                  "Chaincode"
               ],
               "operationId": "chaincodeDeploy",
               "parameters": [{
@@ -135,10 +135,10 @@
         },
         "/devops/invoke": {
            "post": {
-              "summary": "Service endpoint for invoking Chaincode functions",
-              "description": "The /devops/invoke endpoint receives requests for invoking functions in deployed Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "[DEPRECATED] Service endpoint for invoking Chaincode functions [DEPRECATED]",
+              "description": "The /devops/invoke endpoint receives requests for invoking functions in deployed Chaincodes. If the Chaincode function is invoked sucessfully, a transaction id is returned. Otherwise, an error is displayed alongside with a reason for the failure. This service endpoint is being deprecated, please use the /chaincode endpoint instead.",
               "tags": [
-                  "Devops"
+                  "Chaincode"
               ],
               "operationId": "chaincodeInvoke",
               "parameters": [{
@@ -168,10 +168,10 @@
         },
         "/devops/query": {
            "post": {
-              "summary": "Service endpoint for querying Chaincode state",
-              "description": "The /devops/query endpoint receives requests to query Chaincode state. The request triggers a query method on the target Chaincode, both identified in the required payload. If the query method is successful, the response defined within the method is returned. Otherwise, an error is displayed alongside with a reason for the failure.",
+              "summary": "[DEPRECATED] Service endpoint for querying Chaincode state [DEPRECATED]",
+              "description": "The /devops/query endpoint receives requests to query Chaincode state. The request triggers a query method on the target Chaincode, both identified in the required payload. If the query method is successful, the response defined within the method is returned. Otherwise, an error is displayed alongside with a reason for the failure. This service endpoint is being deprecated, please use the /chaincode endpoint instead.",
               "tags": [
-                  "Devops"
+                  "Chaincode"
               ],
               "operationId": "chaincodeQuery",
               "parameters": [{
@@ -204,29 +204,29 @@
               "summary": "Service endpoint for Chaincode operations",
               "description": "The /chaincode endpoint receives requests to deploy, invoke, and query a target Chaincode. This service endpoint implements the JSON RPC 2.0 specification with the payload identifiying the desired Chaincode operation within the 'method' field.",
               "tags": [
-                  "Devops"
+                  "Chaincode"
               ],
-              "operationId": "chaincodeRPC",
+              "operationId": "chaincodeOp",
               "parameters": [{
-                 "name": "ChaincodeRPCPayload",
+                 "name": "ChaincodeOpPayload",
                  "in": "body",
                  "description": "Chaincode JSON RPC 2.0 payload",
                  "required": true,
                  "schema": {
-                    "$ref": "#/definitions/ChaincodeRPCPayload"
+                    "$ref": "#/definitions/ChaincodeOpPayload"
                  }
               }],
               "responses": {
                   "200": {
-                      "description": "Chaincode RPC operation successful",
+                      "description": "Chaincode operation successful",
                       "schema": {
-                         "$ref": "#/definitions/ChaincodeRPCSuccess"
+                         "$ref": "#/definitions/ChaincodeOpSuccess"
                       }
                   },
                   "default": {
-                      "description": "Chaincode RPC operation failed",
+                      "description": "Chaincode operation failed",
                       "schema": {
-                          "$ref": "#/definitions/ChaincodeRPCFailure"
+                          "$ref": "#/definitions/ChaincodeOpFailure"
                       }
                   }
               }
@@ -588,13 +588,8 @@
                 }
             }
         },
-        "ChaincodeRPCPayload": {
+        "ChaincodeOpPayload": {
            "type": "object",
-           "required": [
-              "jsonrpc",
-              "method",
-              "params"
-           ],
            "properties": {
               "jsonrpc": {
                  "type": "string",
@@ -606,26 +601,21 @@
                  "description": "A string containing the name of the method to be invoked. Must be 'deploy', 'invoke', or 'query'."
               },
               "params": {
-                  "$ref": "#/definitions/rpcParams",
-                  "description": "A structured value that holds the parameter values to be used during the invocation of the method. Must include a ChaincodeSpec for 'deploy' and a ChaincodeInvocationSpec for 'invoke' and 'query'."
+                  "$ref": "#/definitions/ChaincodeSpec",
+                  "description": "A required Chaincode specification message identifying the target chaincode."
               },
               "id": {
-                  "type": "integer",
-                  "format": "int64",
-                  "description": "An identifier established by the client that must contain an integer value if included. The Server will reply with the same value in the response object. This member is used to correlate the context between the request and response objects. If it is not included, the request is assumed to be a notification and the server will not generate a response."
+                 "type": "integer",
+                 "format": "int64",
+                 "description": "An integer number used to correlate the request and response objects. If it is not included, the request is assumed to be a notification and the server will not generate a response."
               }
-           }
-        },
-        "rpcParams": {
-          "type": "object",
-          "properties": {
-              "prop1": {
-                  "type": "string"
-              },
-              "prop2": {
-                  "type": "string"
-              }
-          }
+           },
+           "required": [
+              "jsonrpc",
+              "method",
+              "params",
+              "id"
+           ]
         },
         "ConfidentialityLevel":{
             "type": "string",
@@ -752,13 +742,8 @@
                 }
             }
         },
-        "ChaincodeRPCSuccess": {
+        "ChaincodeOpSuccess": {
            "type": "object",
-           "required": [
-              "jsonrpc",
-              "result",
-              "id"
-           ],
            "properties": {
               "jsonrpc": {
                  "type": "string",
@@ -766,23 +751,24 @@
                  "description": "A string specifying the version of the JSON-RPC protocol. Must be exactly '2.0'."
               },
               "result": {
-                  "$ref": "#/definitions/OK",
-                  "description": "This member is required on success. This member must not exist if there was an error invoking the method. The value of this member is determined by the method invoked on the server."
+                  "$ref": "#/definitions/rpcResponse",
+                  "description": "The value of this element is determined by the method invoked on the server."
               },
               "id": {
                   "type": "integer",
                   "format": "int64",
-                  "description": "This member is required. It must be the same as the value of the id member in the request object. If there was an error in detecting the id in the request object (e.g. Parse error/Invalid Request), it must be null."
+                  "default": 123,
+                  "description": "This number will be the same as the value of the id member in the request object."
               }
-           }
-        },
-        "ChaincodeRPCFailure": {
-           "type": "object",
+           },
            "required": [
               "jsonrpc",
-              "error",
+              "result",
               "id"
-           ],
+           ]
+        },
+        "ChaincodeOpFailure": {
+           "type": "object",
            "properties": {
               "jsonrpc": {
                  "type": "string",
@@ -791,36 +777,63 @@
               },
               "error": {
                  "$ref": "#/definitions/rpcError",
-                 "description": "A structured value that holds the parameter values to be used during the invocation of the method. Must include a ChaincodeSpec for 'deploy' and a ChaincodeInvocationSpec for 'invoke' and 'query'."
+                 "description": "A structured value specifying the code and description of the error that occurred."
              },
              "id": {
                  "type": "integer",
                  "format": "int64",
-                 "description": "An identifier established by the client that must contain an integer value if included. The Server will reply with the same value in the response object. This member is used to correlate the context between the request and response objects. If it is not included, the request is assumed to be a notification and the server will not generate a response."
+                 "default": 123,
+                 "description": "This number will be the same as the value of the id member in the request object. If there was an error detecting the id in the request object (e.g. Parse error/Invalid Request), it will be null."
              }
-          }
+          },
+          "required": [
+            "jsonrpc",
+            "error",
+            "id"
+          ]
+        },
+        "rpcResponse": {
+           "type": "object",
+           "properties": {
+              "Status": {
+                 "type": "string",
+                 "default": "OK",
+                 "description": "A string confirming successful request execution."
+              },
+              "Message": {
+                 "type": "string",
+                 "default": "500",
+                 "description": "Additional information about the response or values returned."
+              }
+           },
+           "required": [
+             "Status"
+           ]
         },
         "rpcError": {
           "type": "object",
-          "required": [
-            "code",
-            "message"
-          ],
           "properties": {
             "code": {
               "type": "integer",
               "format": "int64",
-              "description": "A Number that indicates the error type that occurred."
+              "default": -32700,
+              "description": "A number that indicates the error type that occurred."
             },
             "message": {
               "type": "string",
+              "default": "Parse error",
               "description": "A string providing a short description of the error."
             },
             "data": {
               "type": "string",
-              "description": "A primitive or structured value that contains additional information about the error. This may be omitted. The value of this member is defined by the Server (e.g. detailed error information, nested errors etc.)."
+              "default": "Error unmarshalling chaincode request payload: unexpected end of JSON input",
+              "description": "A primitive or structured value that contains additional information about the error (e.g. detailed error information, nested errors etc.)."
             }
-          }
+          },
+          "required": [
+            "code",
+            "message"
+          ]
         }
     }
 }
