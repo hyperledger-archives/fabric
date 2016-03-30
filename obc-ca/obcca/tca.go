@@ -40,6 +40,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -178,7 +179,7 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) 
 	return &pb.TCertCreateResp{&pb.Cert{raw}}, nil
 }
 
-func (tcap *TCAP) GetPreKFrom(enrollmentCert *Certificate) ([]byte, error) {
+func (tcap *TCAP) GetPreKFrom(enrollmentCert *x509.Certificate) ([]byte, error) {
 	//Implement the code that returns an raw corresponding to the PreK of this ECert.
 	key := make([]byte, 40) 
 	rand.Reader.Read(key)
@@ -223,6 +224,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
 
+    var preKey []byte
 	preKey, err  = tcap.GetPreKFrom(cert)
 	
 	num := int(in.Num)
@@ -239,11 +241,12 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
 
-		tcertid := utils.GenerateIntUUID()
-		mac = hmac.New(conf.GetDefaultHash(), prekey)
-		mac.Write(tcertid)
+		
+		tcertid := util.GenerateIntUUID()
+		mac = hmac.New(conf.GetDefaultHash(), preKey)
+		mac.Write(tcertid.Bytes())
 		enrollmentIdKey := mac.Sum(nil)
-		encEnrollmentID, err := CBCEncrypt(enrollmentIdKey, id)
+		encEnrollmentID, err := CBCEncrypt(enrollmentIdKey, []byte(id))
 		if err != nil {
 			return nil, err
 		}
@@ -258,8 +261,6 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		k.Mod(k, new(big.Int).Sub(pub.Curve.Params().N, one))
 		k.Add(k, one)
 		
-		pub.Curve.Params().G
-
 		tmpX, tmpY := pub.ScalarBaseMult(k.Bytes())
 		txX, txY := pub.Curve.Add(pub.X, pub.Y, tmpX, tmpY)
 		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
@@ -269,8 +270,8 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			return nil, err
 		}
 
-		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub,  x509.KeyUsageDigitalSignature, in.Ts.Seconds, kdfKey, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encEnrollmentID});
-		if raw, err = tcap.tca.createCertificate(spec, in.Ts.Seconds, kdfKey); err != nil {
+		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub,  x509.KeyUsageDigitalSignature, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encEnrollmentID});
+		if raw, err = tcap.tca.createCertificateFromSpec(spec, in.Ts.Seconds, kdfKey); err != nil {
 			Error.Println(err)
 			return nil, err
 		}

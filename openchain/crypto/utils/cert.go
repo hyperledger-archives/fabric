@@ -36,6 +36,8 @@ import (
 var (
 	// TCertEncTCertIndex oid for TCertIndex
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
+	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
+
 )
 
 // DERToX509Certificate converts der to x509

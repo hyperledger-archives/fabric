@@ -55,17 +55,17 @@ type CA struct {
 type CertificateSpec struct { 
 	id string
 	serialNumber *big.Int
-	pub *interface{}
+	pub interface{}
 	usage x509.KeyUsage
-	NotBefore *time
-	NotAfter *time
+	NotBefore *time.Time
+	NotAfter *time.Time
 	ext *[]pkix.Extension
 }
 
 // Create a new certificate spec
 //
-func NewCertificateSpec(id string, serialNumber * big.Int, pub *interface{}, usage x509.KeyUsage, notBefore *time, notAfter *time,  ext *[]pkix.Extension) *CertificateSpec {
-	spec := make(CertificateSpec)
+func NewCertificateSpec(id string, serialNumber * big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time,  ext *[]pkix.Extension) *CertificateSpec {
+	spec := new(CertificateSpec)
 	spec.id = id
 	spec.serialNumber = serialNumber
 	spec.pub = pub
@@ -78,17 +78,17 @@ func NewCertificateSpec(id string, serialNumber * big.Int, pub *interface{}, usa
 
 // Create a new certificate spec with notBefore a minute ago and not after 90 days from notBefore.
 //
-func NewDefaultPeriodCertificateSpec(id string, serialNumber * big.Int, pub *interface{}, usage x509.KeyUsage, ext *[]pkix.Extension) *CertificateSpec {
+func NewDefaultPeriodCertificateSpec(id string, serialNumber * big.Int, pub interface{}, usage x509.KeyUsage, opt...pkix.Extension) *CertificateSpec {
 	notBefore := time.Now().Add(-1 * time.Minute)
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
-	return NewCertificateSpec(id, serialNumber, pub, usage, notBefore, notAfter, ext)
+	return NewCertificateSpec(id, serialNumber, pub, usage, &notBefore, &notAfter, &opt)
 }
 
 // Create a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore.
 //
-func NewDefaultCertificateSpec(id string, pub *interface{}, usage x509.KeyUsage, ext *[]pkix.Extension) *CertificateSpec {
+func NewDefaultCertificateSpec(id string, pub interface{}, usage x509.KeyUsage, opt...pkix.Extension) *CertificateSpec {
 	serialNumber := big.NewInt(1)
-	return NewDefaultPeriodCertificateSpec(id, serialNumber, pub, usage, ext)
+	return NewDefaultPeriodCertificateSpec(id, serialNumber, pub, usage, opt...)
 }
 
 func (spec *CertificateSpec) GetId() string { 
@@ -99,19 +99,19 @@ func (spec *CertificateSpec) GetSerialNumber() *big.Int {
 	return spec.serialNumber
 }
 
-func (spec *CertificateSpec) GetPublicKey() *interface{} { 
+func (spec *CertificateSpec) GetPublicKey() interface{} { 
 	return spec.pub
 }
 
-func (spec *CertificateSpec) GetUsage() *x509.KeyUsage { 
+func (spec *CertificateSpec) GetUsage() x509.KeyUsage { 
 	return spec.usage
 }
 
-func (spec *CertificateSpec) GetNotBefore() *time { 
+func (spec *CertificateSpec) GetNotBefore() *time.Time { 
 	return spec.NotBefore
 }
 
-func (spec *CertificateSpec) GetNotAfter() *time { 
+func (spec *CertificateSpec) GetNotAfter() *time.Time { 
 	return spec.NotAfter
 }
 
@@ -124,10 +124,10 @@ func (spec *CertificateSpec) GetCountry() string {
 }
 
 func (spec *CertificateSpec) GetSubjectKeyId() *[]byte { 
-	return []byte{1, 2, 3, 4}
+	return &[]byte{1, 2, 3, 4}
 }
 
-func (spec *CertificateSpec) GetSignatureAlgorithm() SignatureAlgorithm {
+func (spec *CertificateSpec) GetSignatureAlgorithm() x509.SignatureAlgorithm {
 	return x509.ECDSAWithSHA384
 }
 
@@ -164,6 +164,7 @@ func NewCA(name string) *CA {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
 		Panic.Panicln(err)
 	}
+	
 	ca.db = db
 
 	// read or create signing key pair
@@ -277,12 +278,12 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 }
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
-	spec := NewDefaultCertificateSpec(id, pub, usage, ext)
+	spec := NewDefaultCertificateSpec(id, pub, usage, opt...)
 	return ca.createCertificateFromSpec(spec, timestamp, kdfKey)
 }
 
 func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
-	Trace.Println("Creating certificate for " + id + ".")
+	Trace.Println("Creating certificate for " + spec.GetId() + ".")
 
 	raw, err := ca.newCertificateFromSpec(spec)
 	if err != nil {
@@ -292,15 +293,15 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 
 	hash := utils.NewHash()
 	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil), kdfKey); err != nil {
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", spec.GetId(), timestamp, spec.GetUsage(), raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)
 	}
 
 	return raw, err
 }
 
-func (ca *CA) newCertificate(id string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
-	spec := NewDefaultCertificateSpec(id, pub, usage, ext)
+func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
+	spec := NewDefaultCertificateSpec(id, pub, usage, ext...)
 	return ca.newCertificateFromSpec(spec)
 }
 
@@ -318,20 +319,20 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 			Organization: []string{spec.GetOrganization()},
 			Country:      []string{spec.GetCountry()},
 		},
-		NotBefore: notBefore,
-		NotAfter:  notAfter,
+		NotBefore: *notBefore,
+		NotAfter:  *notAfter,
 
-		SubjectKeyId:       spec.GetSubjectKeyId(),
-		SignatureAlgorithm: spec.GetSignatureAlgorithm,
+		SubjectKeyId:       *spec.GetSubjectKeyId(),
+		SignatureAlgorithm: spec.GetSignatureAlgorithm(),
 		KeyUsage:           spec.GetUsage(),
 
 		BasicConstraintsValid: true,
 		IsCA: isCA,
 	}
 
-	if len(ext) > 0 {
-		tmpl.Extensions = spec.GetExtensions()
-		tmpl.ExtraExtensions = spec.GetExtensions()
+	if len(*spec.GetExtensions()) > 0 {
+		tmpl.Extensions = *spec.GetExtensions()
+		tmpl.ExtraExtensions = *spec.GetExtensions()
 	}
 	if isCA {
 		parent = &tmpl
@@ -411,13 +412,14 @@ func (ca *CA) registerUser(id string, role int, opt ...string) (string, error) {
 		tok = randomString(12)
 	}
 
-	_, err = ca.db.Exec("INSERT INTO Users (id, role, token, state) VALUES (?, ?, ?, ?)", id, role, tok, 0)
+	_ , err = ca.db.Exec("INSERT INTO Users (id, token, role, state) VALUES (?, ?, ?, ?)", id, tok, role, 0)
+	
 	if err != nil {
 		Error.Println(err)
-
 	}
-
+	 
 	return tok, err
+	
 }
 
 func (ca *CA) deleteUser(id string) error {
