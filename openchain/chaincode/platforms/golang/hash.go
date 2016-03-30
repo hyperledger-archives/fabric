@@ -1,44 +1,23 @@
-package container
+package golang
 
 import (
 	"archive/tar"
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-	"errors"
-	
+
 	"github.com/spf13/viper"
 
+	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
-
-func addFile(tw *tar.Writer, path string, info os.FileInfo, fbytes []byte) error {
-	h, err := tar.FileInfoHeader(info, path)
-	if err != nil {
-		return fmt.Errorf("Error getting FileInfoHeader: %s", err)
-	}
-	//Let's take the variance out of the tar, make headers identical by using zero time
-	var zeroTime time.Time
-	h.AccessTime = zeroTime
-	h.ModTime = zeroTime
-	h.ChangeTime = zeroTime
-	h.Name = path
-	if err = tw.WriteHeader(h); err != nil {
-		return fmt.Errorf("Error writing header: %s", err)
-	}
-	rdr := bytes.NewReader(fbytes)
-	if _, err := io.Copy(tw, rdr); err != nil {
-		return fmt.Errorf("Error copying file : %s", err)
-	}
-	return nil
-}
 
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
@@ -59,7 +38,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			}
 			continue
 		}
-		buf, err := ioutil.ReadFile(rootDir + "/" + name)
+		fqp := rootDir + "/" + name
+		buf, err := ioutil.ReadFile(fqp)
 		if err != nil {
 			fmt.Printf("Error reading %s\n", err)
 			return hash, err
@@ -71,7 +51,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 		hash = util.ComputeCryptoHash(newSlice)
 
 		if tw != nil {
-			if err = addFile(tw, "src/"+name, fi, buf); err != nil {
+			is := bytes.NewReader(buf)
+			if err = cutil.WriteStreamToPackage(is, fqp, "src/"+name, tw); err != nil {
 				return hash, fmt.Errorf("Error adding file to tar %s", err)
 			}
 		}
@@ -127,7 +108,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		err = fmt.Errorf("could not create tmp dir under %s(%s)", newgopath, err)
 		return
 	}
-	
+
 	//go paths can have multiple dirs. We create a GOPATH with two source tree's as follows
 	//
 	//    <temporary empty folder to download chaincode source> : <local go path with OBC source>
@@ -140,20 +121,20 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
-	
+
 	// Use a 'go get' command to pull the chaincode from the given repo
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err = cmd.Start()
-	
+
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
-	
+
 	select {
 	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
 		// If pulling repos takes too long, we should give up
@@ -190,22 +171,6 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 	codegopath = gopath
 
 	return
-}
-
-//name could be ChaincodeID.Name or ChaincodeID.Path
-func generateHashFromSignature(path string, ctor string, args []string) []byte {
-	fargs := ctor
-	if args != nil {
-		for _, str := range args {
-			fargs = fargs + str
-		}
-	}
-	cbytes := []byte(path + fargs)
-
-	b := make([]byte, len(cbytes))
-	copy(b, cbytes)
-	hash := util.ComputeCryptoHash(b)
-	return hash
 }
 
 //generateHashcode gets hashcode of the code under path. If path is a HTTP(s) url
@@ -267,7 +232,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
-	hash := generateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
+	hash := util.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
 	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {

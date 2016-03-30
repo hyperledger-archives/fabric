@@ -61,3 +61,20 @@ func CreateUtcTimestamp() *gp.Timestamp {
 	nanos := int32(now.UnixNano() - (secs * 1000000000))
 	return &(gp.Timestamp{Seconds: secs, Nanos: nanos})
 }
+
+//name could be ChaincodeID.Name or ChaincodeID.Path
+func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
+	fargs := ctor
+	if args != nil {
+		for _, str := range args {
+			fargs = fargs + str
+		}
+	}
+	cbytes := []byte(path + fargs)
+
+	b := make([]byte, len(cbytes))
+	copy(b, cbytes)
+	hash := ComputeCryptoHash(b)
+	return hash
+}
+
