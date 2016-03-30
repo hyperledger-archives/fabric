@@ -51,6 +51,11 @@ func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcCl
 
 	op.pbft = newPbftCore(id, config, op, startupInfo)
 
+	queueSize := config.GetInt("executor.queuesize")
+	if queueSize <= int(op.pbft.L) {
+		logger.Error("Replica %d has executor queue size %d less than PBFT log size %d, this indicates a misconfiguration", id, queueSize, op.pbft.L)
+	}
+
 	return op
 }
 

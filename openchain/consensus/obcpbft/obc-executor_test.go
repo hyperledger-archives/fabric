@@ -142,3 +142,35 @@ func TestExecutorDivergentStateTransfer(t *testing.T) {
 		t.Fatalf("Expected execution")
 	}
 }
+
+func TestExecutorRequestFlood(t *testing.T) {
+	obcex, mrls := newTestExecutor()
+	defer obcex.Stop()
+
+	i := uint64(0)
+	for _, rl := range mrls {
+		rl.(*MockRemoteLedger).blockHeight = 101
+		i++
+	}
+
+	for i := uint64(0); i < 100; i++ {
+		obcex.Execute(i, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
+	}
+
+	bi := &BlockInfo{
+		BlockNumber: 100,
+		BlockHash:   SimpleGetBlockHash(100),
+	}
+
+	biAsBytes, _ := proto.Marshal(bi)
+	obcex.ValidState(100, biAsBytes, nil, &ExecutionInfo{})
+	<-obcex.IdleChan()
+
+	obcex.Execute(101, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
+	<-obcex.IdleChan()
+
+	if obcex.lastExec != 101 {
+		t.Fatalf("Expected executions")
+	}
+
+}
