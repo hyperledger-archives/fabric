@@ -26,6 +26,7 @@ import (
 	"os"
 	"testing"
 
+	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"golang.org/x/net/context"
 )
@@ -54,7 +55,7 @@ func TestVM_BuildImage_WritingGopathSource(t *testing.T) {
 	inputbuf := bytes.NewBuffer(nil)
 	tw := tar.NewWriter(inputbuf)
 
-	err := writeGopathSrc(tw, "")
+	err := cutil.WriteGopathSrc(tw, "")
 	if err != nil {
 		t.Fail()
 		t.Logf("Error writing gopath src: %s", err)

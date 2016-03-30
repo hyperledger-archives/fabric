@@ -125,11 +125,10 @@ func (instance *pbftCore) sendViewChange() error {
 		ReplicaId: instance.id,
 	}
 
-	for n, blockState := range instance.chkpts {
+	for n, id := range instance.chkpts {
 		vc.Cset = append(vc.Cset, &ViewChange_C{
 			SequenceNumber: n,
-			BlockNumber:    blockState.blockNumber,
-			BlockHash:      blockState.blockHash,
+			Id:             id,
 		})
 	}
 
@@ -217,7 +216,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 
 	vset := instance.getViewChanges()
 
-	cp, ok := instance.selectInitialCheckpoint(vset)
+	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
 		return
 	}
@@ -280,7 +279,7 @@ func (instance *pbftCore) processNewView() error {
 		return nil
 	}
 
-	cp, ok := instance.selectInitialCheckpoint(nv.Vset)
+	cp, ok, replicas := instance.selectInitialCheckpoint(nv.Vset)
 	if !ok {
 		logger.Warning("Replica %d could not determine initial checkpoint: %+v",
 			instance.id, instance.viewChangeStore)
@@ -301,19 +300,18 @@ func (instance *pbftCore) processNewView() error {
 	}
 
 	if instance.h < cp.SequenceNumber {
-		logger.Warning("Replica %d missing base checkpoint %d", instance.id, cp)
+		logger.Warning("Replica %d missing base checkpoint %d (%x)", instance.id, cp.SequenceNumber, cp.Id)
 		instance.moveWatermarks(cp.SequenceNumber)
-		instance.sts.Initiate(nil)
 
-		blockHashBytes, err := base64.StdEncoding.DecodeString(cp.BlockHash)
+		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
-			err = fmt.Errorf("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.BlockHash)
+			err = fmt.Errorf("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.Id)
 			logger.Error(err.Error())
 			return nil
 		}
 
-		// TODO, if we know what replicas generated the view change, we could be more specific about who to retrieve from instead of nil, still, this should succeed eventually
-		instance.sts.AddTarget(cp.BlockNumber, blockHashBytes, nil, &stateTransferMetadata{cp.SequenceNumber})
+		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas, &ExecutionInfo{Checkpoint: true})
+		instance.lastExec = cp.SequenceNumber
 	}
 
 	for n, d := range nv.Xset {
@@ -401,12 +399,12 @@ func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 	return
 }
 
-func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint ViewChange_C, ok bool) {
+func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint ViewChange_C, ok bool, replicas []uint64) {
 	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
 		for _, c := range vc.Cset {
 			checkpoints[*c] = append(checkpoints[*c], vc)
-			logger.Debug("Replica %d appending checkpoint with sequence number %d, block number %d, and block hash %s", instance.id, c.SequenceNumber, c.BlockNumber, c.BlockHash)
+			logger.Debug("Replica %d appending checkpoint with sequence number %d, and checkpoint digest %s", instance.id, c.SequenceNumber, c.Id)
 		}
 	}
 
@@ -434,6 +432,11 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 		if quorum < instance.intersectionQuorum() {
 			logger.Debug("Replica %d has no quorum for n:%d", instance.id, idx.SequenceNumber)
 			continue
+		}
+
+		replicas = make([]uint64, len(vcList))
+		for i, vc := range vcList {
+			replicas[i] = vc.ReplicaId
 		}
 
 		if checkpoint.SequenceNumber <= idx.SequenceNumber {

@@ -3,6 +3,7 @@ from golang:1.6
 RUN cd /opt  && git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb && make shared_lib
 ENV LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
 RUN apt-get update && apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
+RUN apt-get update && apt-get install -y vim
 # Copy GOPATH src and install Peer
 RUN mkdir -p /var/openchain/db
 WORKDIR $GOPATH/src/github.com/openblockchain/obc-peer/

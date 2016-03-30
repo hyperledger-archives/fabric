@@ -25,9 +25,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -36,6 +33,8 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms"
+	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
 	pb "github.com/openblockchain/obc-peer/protos"
 )
 
@@ -115,22 +114,22 @@ func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 	gw := gzip.NewWriter(inputbuf)
 	tw := tar.NewWriter(gw)
 
-	var err error
-	spec.ChaincodeID.Name, err = generateHashcode(spec, tw)
+	platform, err := platforms.Find(spec.Type)
 	if err != nil {
-		tw.Close()
-		gw.Close()
-		return nil, fmt.Errorf("Error generating hashcode: %s", err)
+		return nil, err
 	}
-	err = writeChaincodePackage(spec, tw)
+
+	err = platform.WritePackage(spec, tw)
 	if err != nil {
-		tw.Close()
-		gw.Close()
-		return nil, fmt.Errorf("Error writing chaincode package: %s", err)
+		return nil, err
 	}
 
 	tw.Close()
 	gw.Close()
+
+	if err != nil {
+		return nil, err
+	}
 
 	chaincodePkgBytes := inputbuf.Bytes()
 
@@ -229,53 +228,6 @@ func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, er
 	return inputbuf, nil
 }
 
-//tw is expected to have the chaincode in it from GenerateHashcode. This method
-//will just package rest of the bytes
-func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
-
-	var urlLocation string
-	if strings.HasPrefix(spec.ChaincodeID.Path, "http://") {
-		urlLocation = spec.ChaincodeID.Path[7:]
-	} else if strings.HasPrefix(spec.ChaincodeID.Path, "https://") {
-		urlLocation = spec.ChaincodeID.Path[8:]
-	} else {
-		urlLocation = spec.ChaincodeID.Path
-	}
-
-	if urlLocation == "" {
-		return fmt.Errorf("empty url location")
-	}
-
-	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
-		urlLocation = urlLocation[:len(urlLocation)-1]
-	}
-	toks := strings.Split(urlLocation, "/")
-	if toks == nil || len(toks) == 0 {
-		return fmt.Errorf("cannot get path components from %s", urlLocation)
-	}
-
-	chaincodeGoName := toks[len(toks)-1]
-	if chaincodeGoName == "" {
-		return fmt.Errorf("could not get chaincode name from path %s", urlLocation)
-	}
-
-	//let the executable's name be chaincode ID's name
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
-
-	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
-	dockerFileSize := int64(len([]byte(dockerFileContents)))
-
-	//Make headers identical by using zero time
-	var zeroTime time.Time
-	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: zeroTime, AccessTime: zeroTime, ChangeTime: zeroTime})
-	tw.Write([]byte(dockerFileContents))
-	err := writeGopathSrc(tw, urlLocation)
-	if err != nil {
-		return fmt.Errorf("Error writing Chaincode package contents: %s", err)
-	}
-	return nil
-}
-
 func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 	startTime := time.Now()
 
@@ -284,7 +236,7 @@ func (vm *VM) writePeerPackage(tw *tar.Writer) error {
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
 	tw.Write([]byte(dockerFileContents))
-	err := writeGopathSrc(tw, "")
+	err := cutil.WriteGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing Peer package contents: %s", err)
 	}
@@ -300,84 +252,9 @@ func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
 	tw.Write([]byte(dockerFileContents))
-	err := writeGopathSrc(tw, "")
+	err := cutil.WriteGopathSrc(tw, "")
 	if err != nil {
 		return fmt.Errorf("Error writing obcca package contents: %s", err)
 	}
-	return nil
-}
-
-func writeGopathSrc(tw *tar.Writer, excludeDir string) error {
-	gopath := os.Getenv("GOPATH")
-	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
-		gopath = gopath[:len(gopath)]
-	}
-	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
-	vmLogger.Info("rootDirectory = %s", rootDirectory)
-
-	//append "/" if necessary
-	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir)-1 {
-		excludeDir = excludeDir + "/"
-	}
-
-	rootDirLen := len(rootDirectory)
-	walkFn := func(path string, info os.FileInfo, err error) error {
-
-		// If path includes .git, ignore
-		if strings.Contains(path, ".git") {
-			return nil
-		}
-
-		if info.Mode().IsDir() {
-			return nil
-		}
-
-		//exclude any files with excludeDir prefix. They should already be in the tar
-		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen+1 { //1 for "/"
-			return nil
-		}
-		// Because of scoping we can reference the external rootDirectory variable
-		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
-		//newPath := path[len(rootDirectory):]
-		if len(newPath) == 0 {
-			return nil
-		}
-
-		fr, err := os.Open(path)
-		if err != nil {
-			return fmt.Errorf("Error opening path %s: %s", path, err)
-		}
-		defer fr.Close()
-
-		h, err := tar.FileInfoHeader(info, newPath)
-		if err != nil {
-			vmLogger.Error(fmt.Sprintf("Error getting FileInfoHeader: %s", err))
-			return fmt.Errorf("Error getting file header %s: %s", newPath, err)
-		}
-		//Let's take the variance out of the tar, make headers identical everywhere by using zero time
-		oldname := h.Name
-		var zeroTime time.Time
-		h.AccessTime = zeroTime
-		h.ModTime = zeroTime
-		h.ChangeTime = zeroTime
-		h.Name = newPath
-		if err = tw.WriteHeader(h); err != nil {
-			return fmt.Errorf("Error write header for (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
-		}
-		if _, err := io.Copy(tw, fr); err != nil {
-			return fmt.Errorf("Error copy (path: %s, oldname:%s,newname:%s,sz:%d) : %s", path, oldname, newPath, h.Size, err)
-		}
-		return nil
-	}
-
-	if err := filepath.Walk(rootDirectory, walkFn); err != nil {
-		vmLogger.Info("Error walking rootDirectory: %s", err)
-		return err
-	}
-	// Write the tar file out
-	if err := tw.Close(); err != nil {
-		return err
-	}
-	//ioutil.WriteFile("/tmp/chaincode_deployment.tar", inputbuf.Bytes(), 0644)
 	return nil
 }
