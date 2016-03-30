@@ -55,6 +55,7 @@ It has these top-level messages:
 	SyncStateSnapshot
 	SyncStateDeltasRequest
 	SyncStateDeltas
+	Whitelist
 	ServerStatus
 */
 package protos
