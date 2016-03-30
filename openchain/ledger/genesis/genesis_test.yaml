@@ -95,7 +95,7 @@ peer:
         key:
             file: testdata/server1.key
         # The server name use to verify the hostname returned by TLS handshake
-        server-host-override:
+        serverhostoverride:
 
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
@@ -159,7 +159,7 @@ validator:
         key:
             file: testdata/server1.key
         # The server name use to verify the hostname returned by TLS handshake
-        server-host-override:
+        serverhostoverride:
     # Peer discovery settings.  Controls how this peer discovers other peers
     discovery:
 

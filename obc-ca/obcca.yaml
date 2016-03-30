@@ -87,5 +87,5 @@ pki:
                          key:
                                 file: testdata/server1.key
                          # The server name use to verify the hostname returned by TLS handshake
-                         server-host-override:
+                         serverhostoverride:
                  devops-address: 0.0.0.0:30303

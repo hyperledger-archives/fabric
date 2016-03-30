@@ -79,8 +79,8 @@ func getDevopsClient(peerAddress string) (obc.DevopsClient, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("pki.validity-period.tls.enabled") {
 		var sn string
-		if viper.GetString("pki.validity-period.tls.server-host-override") != "" {
-			sn = viper.GetString("pki.validity-period.tls.server-host-override")
+		if viper.GetString("pki.validity-period.tls.serverhostoverride") != "" {
+			sn = viper.GetString("pki.validity-period.tls.serverhostoverride")
 		}
 		var creds credentials.TransportAuthenticator
 		if viper.GetString("pki.validity-period.tls.cert.file") != "" {
