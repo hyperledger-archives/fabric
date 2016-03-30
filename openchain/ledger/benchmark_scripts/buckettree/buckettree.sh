@@ -20,7 +20,7 @@ function runTest {
 
   setupAndCompileTest
 
-  for i in `seq 0 9`; do
+  for i in `seq 0 999`; do
     EXISTING_KEYS_IN_DB=$(($i*$NumKeysToInsert))
     echo "executing with existing keys=$EXISTING_KEYS_IN_DB"
     CHART_COLUMN_VALUE=$EXISTING_KEYS_IN_DB
@@ -50,7 +50,6 @@ NumBuckets=10009;KVSize=50;runTest
 NumBuckets=100003;KVSize=50;runTest
 NumBuckets=1000003;KVSize=50;runTest
 
-: '
 NumBuckets=1009;KVSize=100;runTest
 NumBuckets=10009;KVSize=100;runTest
 NumBuckets=100003;KVSize=100;runTest
@@ -80,4 +79,3 @@ NumBuckets=1009;KVSize=5000;runTest
 NumBuckets=10009;KVSize=5000;runTest
 NumBuckets=100003;KVSize=5000;runTest
 NumBuckets=1000003;KVSize=5000;runTest
-'

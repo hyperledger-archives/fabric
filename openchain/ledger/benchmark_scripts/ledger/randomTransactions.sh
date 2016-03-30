@@ -41,18 +41,12 @@ function runTest {
 }
 
 KeyPrefix=key_
-#MaxKeySuffix=1000000
-MaxKeySuffix=1000
+MaxKeySuffix=1000000
 
 CLEAR_OS_CACHE=false
 export LEDGER_STATE_DATASTRUCTURE_NAME="raw"
-#TestNumber=1;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
-#TestNumber=2;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
-
-TestNumber=1;KVSize=100;BatchSize=100;NumBatches=10;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
-TestNumber=2;KVSize=100;BatchSize=100;NumBatches=10;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
-
-: '
+TestNumber=1;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
+TestNumber=2;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
 TestNumber=3;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=4;NumWritesToLedger=1;runTest
 
 export LEDGER_STATE_DATASTRUCTURE_NAME="buckettree"
@@ -70,4 +64,3 @@ export LEDGER_STATE_DATASTRUCTURE_NAME="buckettree"
 TestNumber=10;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
 TestNumber=11;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
 TestNumber=12;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=4;NumWritesToLedger=1;runTest
-'
