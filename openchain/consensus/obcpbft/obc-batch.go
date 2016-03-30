@@ -58,6 +58,12 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	close(op.startup)
 
 	op.pbft = newPbftCore(id, config, op, startupInfo)
+
+	queueSize := config.GetInt("executor.queuesize")
+	if queueSize <= int(op.pbft.L) {
+		logger.Error("Replica %d has executor queue size %d less than PBFT log size %d, this indicates a misconfiguration", id, queueSize, op.pbft.L)
+	}
+
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))

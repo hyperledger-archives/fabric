@@ -280,11 +280,12 @@ func (obcex *obcExecutor) queueThread() {
 		var id *BlockInfo
 		var seqNo uint64
 		var sync bool
-		execInfo := transaction.execInfo
 
-		if nil == execInfo {
-			execInfo = &ExecutionInfo{}
+		if nil == transaction.execInfo {
+			transaction.execInfo = &ExecutionInfo{}
 		}
+
+		execInfo := transaction.execInfo
 
 		switch {
 		case transaction.sync:
