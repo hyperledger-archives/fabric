@@ -26,3 +26,34 @@ func isJSON(s string) bool {
 	var js map[string]interface{}
 	return json.Unmarshal([]byte(s), &js) == nil
 }
+
+// formatRPCError formats the ERROR response to aid in JSON RPC 2.0 implementation
+func formatRPCError(code int64, msg string, data string) rpcResult {
+	err := &rpcError{Code: code, Message: msg, Data: data}
+	error := rpcResult{Status: "Error", Error: err}
+
+	return error
+}
+
+// formatRPCOK formats the OK response to aid in JSON RPC 2.0 implementation
+func formatRPCOK(msg string) rpcResult {
+	result := rpcResult{Status: "OK", Message: msg}
+
+	return result
+}
+
+// formatRPCResponse consumes either an RPC ERROR or OK rpcResult and formats it
+// in accordance with the JSON RPC 2.0 specification.
+func formatRPCResponse(res rpcResult, id *int64) rpcResponse {
+	var response rpcResponse
+
+	// Format a successful response
+	if res.Status == "OK" {
+		response = rpcResponse{Jsonrpc: "2.0", Result: &res, ID: id}
+	} else {
+		// Format an error response
+		response = rpcResponse{Jsonrpc: "2.0", Error: res.Error, ID: id}
+	}
+
+	return response
+}
