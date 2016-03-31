@@ -32,8 +32,8 @@ message Transaction {
         CHAINCODE_DEPLOY = 1;
         // call a chaincode `Invoke` function as a transaction
         CHAINCODE_INVOKE = 2;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 6;
+        CHAINCODE_QUERY = 3;
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     //store ChaincodeID as bytes so its encrypted value can be stored
