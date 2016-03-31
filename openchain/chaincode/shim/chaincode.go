@@ -34,6 +34,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"github.com/openblockchain/obc-peer/openchain/chaincode/shim/crypto/ecdsa"
 	pb "github.com/openblockchain/obc-peer/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -57,7 +58,8 @@ type Chaincode interface {
 
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
-	UUID string
+	UUID            string
+	securityContext *pb.ChaincodeSecurityContext
 }
 
 // Peer address derived from command line or env var
@@ -151,6 +153,8 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
 	chaincodeID := &pb.ChaincodeID{Name: viper.GetString("chaincode.id.name")}
+	chaincodeLogger.Debug("Chaincode ID: %s", viper.GetString("chaincode.id.name"))
+
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
@@ -219,6 +223,27 @@ func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode
 	return err
 }
 
+// -- init stub ---
+func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext) {
+	stub.UUID = uuid
+	stub.securityContext = secContext
+}
+
+// --------- Security functions ----------
+//CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
+
+// ------------- Call Chaincode functions ---------------
+// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
+}
+
+// QueryChaincode function can be invoked by a chaincode to query another chaincode.
+func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
+}
+
+// --------- State functions ----------
 // GetState function can be invoked by a chaincode to get a state from the ledger.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)
@@ -294,16 +319,6 @@ func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
 func (iter *StateRangeQueryIterator) Close() error {
 	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
 	return err
-}
-
-// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
-func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
-}
-
-// QueryChaincode function can be invoked by a chaincode to query another chaincode.
-func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }
 
 // TABLE FUNCTIONALITY
@@ -519,6 +534,35 @@ func (stub *ChaincodeStub) DeleteRow(tableName string, key []Column) error {
 	}
 
 	return nil
+}
+
+// VerifySignature ...
+func (stub *ChaincodeStub) VerifySignature(certificate, signature, message []byte) (bool, error) {
+	// Instantiate a new SignatureVerifier
+	sv := ecdsa.NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	return sv.Verify(certificate, signature, message)
+}
+
+// GetCallerCertificate returns caller certificate
+func (stub *ChaincodeStub) GetCallerCertificate() ([]byte, error) {
+	return stub.securityContext.CallerCert, nil
+}
+
+// GetCallerMetadata returns caller metadata
+func (stub *ChaincodeStub) GetCallerMetadata() ([]byte, error) {
+	return stub.securityContext.Metadata, nil
+}
+
+// GetBinding returns tx binding
+func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
+	return stub.securityContext.Binding, nil
+}
+
+// GetPayload returns tx payload
+func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
+	return stub.securityContext.Payload, nil
 }
 
 func (stub *ChaincodeStub) getTable(tableName string) (*Table, error) {

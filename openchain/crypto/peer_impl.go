@@ -123,6 +123,10 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 	return nil, utils.ErrNotImplemented
 }
 
+func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error) {
+	return utils.Hash(append(tx.Cert, tx.Nonce...)), nil
+}
+
 // Private methods
 
 func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {

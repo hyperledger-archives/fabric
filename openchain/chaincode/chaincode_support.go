@@ -31,8 +31,6 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	google_protobuf "google/protobuf"
-
 	"github.com/openblockchain/obc-peer/openchain/container"
 	"github.com/openblockchain/obc-peer/openchain/crypto"
 	"github.com/openblockchain/obc-peer/openchain/ledger"
@@ -205,17 +203,6 @@ func (chaincodeSupport *ChaincodeSupport) deregisterHandler(chaincodehandler *Ha
 	return nil
 }
 
-// GetExecutionContext returns the execution context.  DEPRECATED. TO be removed.
-func (chaincodeSupport *ChaincodeSupport) GetExecutionContext(context context.Context, requestContext *pb.ChaincodeRequestContext) (*pb.ChaincodeExecutionContext, error) {
-	//chaincodeId := &pb.ChaincodeIdentifier{Url: "github."}
-	timeStamp := &google_protobuf.Timestamp{Seconds: time.Now().UnixNano(), Nanos: 0}
-	executionContext := &pb.ChaincodeExecutionContext{ChaincodeId: requestContext.GetId(),
-		Timestamp: timeStamp}
-
-	chaincodeLog.Debug("returning execution context: %s", executionContext)
-	return executionContext, nil
-}
-
 // Based on state of chaincode send either init or ready to move to ready state
 func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Context, uuid string, chaincode string, f *string, initArgs []string, timeout time.Duration, tx *pb.Transaction, depTx *pb.Transaction) error {
 	chaincodeSupport.handlerMap.Lock()
@@ -318,7 +305,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.stopChaincode(context, cID)
+		errIgnore := chaincodeSupport.StopChaincode(context, cID)
 		if errIgnore != nil {
 			chaincodeLog.Debug("error on stop %s(%s)", errIgnore, err)
 		}
@@ -326,7 +313,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	return alreadyRunning, err
 }
 
-func (chaincodeSupport *ChaincodeSupport) stopChaincode(context context.Context, cID *pb.ChaincodeID) error {
+func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, cID *pb.ChaincodeID) error {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return fmt.Errorf("chaincode name not set")
@@ -462,7 +449,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
-			errIgnore := chaincodeSupport.stopChaincode(context, cID)
+			errIgnore := chaincodeSupport.StopChaincode(context, cID)
 			if errIgnore != nil {
 				chaincodeLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}

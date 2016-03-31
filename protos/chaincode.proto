@@ -93,26 +93,13 @@ message ChaincodeInvocationSpec {
 
 }
 
-// TODO: Merge this with ChaincodeID.
-message ChaincodeIdentifier {
-    // URL for accessing the Chaincode, eg. https://github.com/user/SampleContract
-    string Url = 1;
-}
-
-
-// Used by the peer to identify the requesting chaincode and allows for proper
-// access to state.
-message ChaincodeRequestContext {
-    ChaincodeIdentifier Id = 1;
-}
-
-// Provided by the peer to the chaincode to identify the requesting chaincode
-// and allow for proper access to state.
-message ChaincodeExecutionContext {
-
-    ChaincodeIdentifier ChaincodeId = 1;
-    google.protobuf.Timestamp Timestamp = 2;
-
+message ChaincodeSecurityContext {
+    bytes callerCert = 1;
+    bytes callerSign = 2;
+    bytes payload = 3;
+    bytes binding = 4;
+    bytes metadata = 5;
+    bytes parentMetadata = 6;
 }
 
 message ChaincodeMessage {
@@ -144,6 +131,7 @@ message ChaincodeMessage {
     google.protobuf.Timestamp timestamp = 2;
     bytes payload = 3;
     string uuid = 4;
+    ChaincodeSecurityContext securityContext = 5;
 }
 
 message PutStateInfo {
@@ -178,9 +166,6 @@ message RangeQueryStateResponse {
 // Interface that provides support to chaincode execution. ChaincodeContext
 // provides the context necessary for the server to respond appropriately.
 service ChaincodeSupport {
-
-    // Return the datetime.
-    rpc GetExecutionContext(ChaincodeRequestContext) returns (ChaincodeExecutionContext) {}
 
     rpc Register(stream ChaincodeMessage) returns (stream ChaincodeMessage) {}
 

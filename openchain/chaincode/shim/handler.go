@@ -223,7 +223,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Call chaincode's Run
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
-		stub.UUID = msg.Uuid
+		stub.init(msg.Uuid, msg.SecurityContext)
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
@@ -289,7 +289,8 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 
 		// Call chaincode's Run
 		// Create the ChaincodeStub which the chaincode can use to callback
-		stub := &ChaincodeStub{UUID: msg.Uuid}
+		stub := new(ChaincodeStub)
+		stub.init(msg.Uuid, msg.SecurityContext)
 		res, err := handler.cc.Run(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
@@ -336,7 +337,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		// Call chaincode's Query
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
-		stub.UUID = msg.Uuid
+		stub.init(msg.Uuid, msg.SecurityContext)
 		res, err := handler.cc.Query(stub, input.Function, input.Args)
 
 		// delete isTransaction entry

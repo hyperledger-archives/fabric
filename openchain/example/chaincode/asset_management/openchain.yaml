@@ -1,3 +1,96 @@
+# CA server parameters
+#
+server:
+        # current version of the CA
+        version: "0.1"
+
+        # limits the number of operating system threads used by the CA
+        gomaxprocs: 2
+
+        # path to the OBC state directory and CA state subdirectory
+        # rootpath: "."
+        # cadir: ".obcca"
+
+        # port the CA services are listening on
+        port: ":50051"
+
+        # TLS certificate and key file paths
+        tls:
+#              certfile: "/var/openchain/production/.obcca/tlsca.cert"
+#              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
+
+security:
+    # Can be 256 or 384
+    # Must be the same as in openchain.yaml
+    level: 256
+
+# Enabling/disabling different logging levels of the CA.
+#
+logging:
+        trace: 0
+        info: 1
+        warning: 1
+        error: 1
+        panic: 1
+
+# Default users to be registered with the CA on first launch.  The role is a binary OR
+# of the different roles a user can have:
+#
+# - simple client such as a wallet: CLIENT
+# - non-validating peer: PEER
+# - validating client: VALIDATOR
+# - auditing client: AUDITOR
+#
+eca:
+        users:
+                # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD>
+                lukas: 1 NPKYL39uKbkj
+                system_chaincode_invoker: 1 DRJ20pEql15a
+                diego: 1 DRJ23pEQl16a
+                jim: 1 6avZQLwcUe9b
+                binhn: 1 7avZQLwcUe9q
+
+                vp: 4 f3489fy98ghf
+
+                test_vp0: 4 MwYpmSRjupbT
+                test_vp1: 4 5wgHK9qqYaPy
+                test_vp2: 4 vQelbRvja7cJ
+                test_vp3: 4 9LKqKH5peurL
+                test_vp4: 4 Pqh90CEW5juZ
+                test_vp5: 4 FfdvDkAdY81P
+                test_vp6: 4 QiXJgHyV4t7A
+                test_vp7: 4 twoKZouEyLyB
+                test_vp8: 4 BxP7QNh778gI
+                test_vp9: 4 wu3F1EwJWHvQ
+
+                test_user0: 1 MS9qrN8hFjlE
+                test_user1: 1 jGlNl6ImkuDo
+                test_user2: 1 zMflqOKezFiA
+                test_user3: 1 vWdLCE00vJy0
+                test_user4: 1 4nXSrfoYGFCP
+                test_user5: 1 yg5DVhm0er1z
+                test_user6: 1 b7pmSxzKNFiw
+                test_user7: 1 YsWZD4qQmYxo
+                test_user8: 1 W8G0usrU7jRk
+                test_user9: 1 H80SiB5ODKKQ
+
+pki:
+          validity-period:
+                 # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
+                 update: false
+                 chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
+                 # TLS Settings for communications to update the validity period
+                 tls:
+                         enabled: false
+                         cert:
+                                file: testdata/server1.pem
+                         key:
+                                file: testdata/server1.key
+                         # The server name use to verify the hostname returned by TLS handshake
+                         server-host-override:
+                 devops-address: 0.0.0.0:40404
+
+
 ###############################################################################
 #
 #    CLI section
@@ -60,7 +153,7 @@ logging:
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
     peer:      debug
-    crypto:    info
+    crypto:    debug
     status:    warning
     stop:      warning
     login:     warning
@@ -105,15 +198,15 @@ peer:
         RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/openblockchain/obc-peer/openchain.yaml $GOPATH/bin
 
     # The Address this Peer will listen on
-    listenAddress: 0.0.0.0:30303
+    listenAddress: 0.0.0.0:40404
     # The Address this Peer will bind to for providing services
-    address: 0.0.0.0:30303
+    address: 0.0.0.0:40404
     # Whether the Peer should programmatically determine the address to bind to.
     # This case is useful for docker containers.
     addressAutoDetect: false
 
     # Peer port to accept connections on
-    port:    30303
+    port:    40404
     # Peer's setting for GOMAXPROCS
     gomaxprocs: 2
     workers: 2
@@ -146,7 +239,7 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops ( this value is case-insensitive)
+        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
         # if the given value is not recognized, we will default to noops
         consensus: noops
 
@@ -207,10 +300,10 @@ peer:
         # testNodes:
         #    - node   : 1
         #      ip     : 127.0.0.1
-        #      port   : 30303
+        #      port   : 40404
         #    - node   : 2
         #      ip     : 127.0.0.1
-        #      port   : 30303
+        #      port   : 40404
 
         # Should the discovered nodes and their reputations
         # be stored in DB and persisted between restarts
@@ -237,7 +330,7 @@ peer:
         touchMaxNodes: 100
 
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/production
+    # fileSystemPath: .openchain/production
 
 ###############################################################################
 #
@@ -278,7 +371,7 @@ chaincode:
     # development mode where user runs the chaincode, the name can be any string
     id:
         path:
-        name:
+        name: mycc
 
     golang:
 
@@ -372,7 +465,7 @@ security:
     # Enable security will force every entity on the network to enroll with obc-ca
     # and maintain a valid set of certificates in order to communicate with
     # other peers
-    enabled: false
+    enabled: true
     # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
     # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
@@ -382,7 +475,7 @@ security:
     # To enable privacy of transactions (requires security to be enabled). This
     # encrypts the transaction content during transit and at rest. The state
     # data is also encrypted
-    privacy: false
+    privacy: true
 
     # Can be 256 or 384. If you change here, you have to change also
     # the same property in obcca.yaml to the same value
@@ -392,4 +485,4 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  200
+        size:  2
