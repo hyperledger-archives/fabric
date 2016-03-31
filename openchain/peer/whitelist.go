@@ -22,6 +22,7 @@ package peer
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/openblockchain/obc-peer/openchain/util"
 	pb "github.com/openblockchain/obc-peer/protos"
@@ -33,22 +34,22 @@ const whitelistFile = "/tmp/whitelist.dat"
 
 // Gatekeeper is used to manage the list of validating peers a validator should connect to
 type Gatekeeper interface {
-	CheckWhitelistExists() (size int, err error)
+	CheckWhitelistExists() (size int)
 	LoadWhitelist() (err error)
-	SaveWhitelist() error
-	GetWhitelist() (whitelistedMap map[pb.PeerID]int, sortedValues []*pb.PeerID, err error)
-	GetWhitelistCap() (cap int, err error)
-	SetWhitelistCap(cap int) error
+	SaveWhitelist() (err error)
+	GetWhitelist() (whitelistedMap map[string]int, sortedKeys []string, sortedValues []*pb.PeerID)
+	GetWhitelistCap() (cap int)
+	SetWhitelistCap(cap int)
 }
 
 // CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
-func (p *PeerImpl) CheckWhitelistExists() (size int, err error) {
-	return len(p.whitelist.SortedKeys), nil
+func (p *PeerImpl) CheckWhitelistExists() (size int) {
+	return len(p.whitelist.SortedKeys)
 }
 
 // LoadWhitelist loads the validator's whitelist of validating peers from disk into memory
 // Sets p.whitelist and p.whitelistedMap
-func (p *PeerImpl) LoadWhitelist() error {
+func (p *PeerImpl) LoadWhitelist() (err error) {
 	data, err := util.LoadFromDisk(whitelistFile)
 	if err != nil {
 		return err
@@ -60,36 +61,45 @@ func (p *PeerImpl) LoadWhitelist() error {
 	}
 
 	peerLogger.Debug("Whitelist now reads: %+v", p.whitelist)
-	p.whitelistedMap = createMapFromWhitelist(p.whitelist)
+	p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
 
 	return err
 }
 
 // SaveWhitelist stores to disk the list of validating peers this validator should connect to
 // Is called when the handlerMap is locked by RegisterHandler
-func (p *PeerImpl) SaveWhitelist() error {
+func (p *PeerImpl) SaveWhitelist() (err error) {
 	// filter the handlerMap structure for connected VPs
-	handlerMapVP := filterHandlerMapForVP(p.handlerMap.m)
+	vpMap := filterHandlers(p.handlerMap.m)
 
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
-	if (p.whitelist.Cap == -1) || (int32(len(handlerMapVP)) < (p.whitelist.Cap - 1)) {
+	if (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
 		return nil
 	}
 
-	peerLogger.Debug("Handler map now has %d VP connections, time to persist the whitelist...", len(handlerMapVP))
+	peerLogger.Debug("Handler map now has %d VP connections, time to persist the whitelist...", len(vpMap))
 
-	// order the filtered map to generate IDs
-	ownEndpoint, _ := p.GetPeerEndpoint()
-	p.whitelist.SortedKeys, p.whitelist.SortedValues = sortHandlerMapForVP(handlerMapVP, ownEndpoint.GetID())
-	peerLogger.Debug("Whitelist reads: %+v", p.whitelist)
-	p.whitelistedMap = createMapFromWhitelist(p.whitelist)
+	// add self to map
+	ownEP, _ := p.GetPeerEndpoint()
+	vpMap = addSelfToMap(ownEP, vpMap)
 
+	// derive sorted lists
+	p.whitelist.SortedKeys, p.whitelist.SortedValues = sortWhitelist(vpMap)
+
+	// then save to memory
+	peerLogger.Debug("Whitelist (w. self, sorted) now reads: %+v", p.whitelist)
+
+	// build whitelisted map
+	p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
+
+	// marshal whitelist
 	data, err := proto.Marshal(p.whitelist)
 	if err != nil {
 		return fmt.Errorf("Unable to marshal whitelist: %v", err)
 	}
 
+	// save to disk
 	err = util.SaveToDisk(whitelistFile, data)
 	if err != nil {
 		return err
@@ -98,85 +108,87 @@ func (p *PeerImpl) SaveWhitelist() error {
 	return nil
 }
 
-// GetWhitelist retrieves the sorted list of PeerID.Names and PeerIDs of the validating peers in the whitelist
-func (p *PeerImpl) GetWhitelist() (whitelistedMap map[pb.PeerID]int, sortedValues []*pb.PeerID, err error) {
+// GetWhitelist retrieves the map and sorted list of whitelisted peer keys
+func (p *PeerImpl) GetWhitelist() (whitelistedMap map[string]int, sortedKeys []string, sortedValues []*pb.PeerID) {
 	whitelistedMap = p.whitelistedMap
-	sortedValues = p.whitelist.GetSortedValues()
+	sortedKeys = p.whitelist.SortedKeys
+	sortedValues = p.whitelist.SortedValues
 	return
 }
 
 // GetWhitelistCap allows the consensus plugin to get the expected number of maximum validators on the network
-func (p *PeerImpl) GetWhitelistCap() (cap int, err error) {
-	return int(p.whitelist.Cap), nil
+func (p *PeerImpl) GetWhitelistCap() (cap int) {
+	return int(p.whitelist.Cap)
 }
 
 // SetWhitelistCap allows the consensus plugin to set the expected number of maximum validators on the network
-func (p *PeerImpl) SetWhitelistCap(cap int) error {
+func (p *PeerImpl) SetWhitelistCap(cap int) {
 	p.whitelist.Cap = int32(cap)
 	peerLogger.Debug("Whitelist cap set to: %d", p.whitelist.Cap)
-	return nil
 }
 
-// filterHandlerMapForVP filters this peer's handlerMap for connected validating peers
+// filterHandlers filters this peer's handlerMap for connected validating peers
 // Is called by SaveWhitelist
-func filterHandlerMapForVP(inMap map[pb.PeerID]MessageHandler) (outMap map[*pb.PeerID]*MessageHandler) {
-	outMap = make(map[*pb.PeerID]*MessageHandler)
-	for k, v := range inMap {
+func filterHandlers(handlerMap map[pb.PeerID]MessageHandler) (vpMap map[string]*pb.PeerID) {
+	vpMap = make(map[string]*pb.PeerID)
+
+	for k, v := range handlerMap {
 		ep, err := v.To()
 		if err != nil {
 			peerLogger.Debug("Error retrieving endpoint for handler %v", k)
 			continue
 		}
-		peerLogger.Debug("Current endpoint under inspection: %+v", ep)
 		if ep.Type == pb.PeerEndpoint_VALIDATOR {
-			key := k
-			value := v
-			outMap[&key] = &value
+			temp := k
+			vpMap[ep.GetID().Name] = &temp
 		}
 	}
+
 	return
 }
 
-// sortHandlerMapForVP adds our own PeerID to the list and returns an alphabetically sorted slice of VP keys
-func sortHandlerMapForVP(inMap map[*pb.PeerID]*MessageHandler, ownPeerID *pb.PeerID) (sortedKeys []string, sortedValues []*pb.PeerID) {
-	sortedKeys = make([]string, len(inMap)+1)
-	sortedValues = make([]*pb.PeerID, len(inMap)+1)
+// addSelfToList adds this peer's key and *PeerID to the map of validating peers
+func addSelfToMap(ep *pb.PeerEndpoint, vpMap map[string]*pb.PeerID) map[string]*pb.PeerID {
+	vpMap[ep.GetID().Name] = ep.GetID()
+	return vpMap
+}
 
+// sortWhitelist takes a map, sorts the keys alphabetically, and returns the corresponding values in a separate list as well
+func sortWhitelist(vpMap map[string]*pb.PeerID) (sortedKeys []string, sortedValues []*pb.PeerID) {
+	sortedKeys = make([]string, len(vpMap))
+	sortedValues = make([]*pb.PeerID, len(vpMap))
+
+	// get the keys
 	i := 0
-	for k := range inMap {
-		sortedKeys[i] = k.Name
+	for key := range vpMap {
+		sortedKeys[i] = key
 		i++
 	}
-	sortedKeys[i] = ownPeerID.Name
+
+	// sort the keys
 	sort.Strings(sortedKeys)
 
-	for k, v := range sortedKeys {
-		if v == ownPeerID.Name {
-			sortedValues[k] = ownPeerID
-		} else {
-			for j := range inMap {
-				if v == j.Name {
-					temp := j
-					sortedValues[k] = temp
-				}
+	// sort the values
+	for i, key := range sortedKeys {
+		for k, v := range vpMap {
+			if strings.Compare(key, k) == 0 {
+				temp := v
+				sortedValues[i] = temp
 			}
 		}
 	}
 
-	peerLogger.Debug("Sorted keys: %+v", sortedKeys)
-	peerLogger.Debug("Sorted values: %+v", sortedValues)
-
 	return
 }
 
-// createMapFromWhitelist builds a map holding whitelisted pb.PeerIDs for easy 'comma OK' checks
-func createMapFromWhitelist(inList *pb.Whitelist) (outMap map[pb.PeerID]int) {
-	outMap = make(map[pb.PeerID]int)
-	for k, v := range inList.GetSortedValues() {
-		temp := v
-		outMap[*temp] = k
+// createMapFromWhitelist builds a map holding whitelisted keys for easy 'comma OK' checks
+func createMapFromWhitelist(sortedKeys []string) (whitelistedMap map[string]int) {
+	whitelistedMap = make(map[string]int, len(sortedKeys))
+
+	for i, key := range sortedKeys {
+		whitelistedMap[key] = i
 	}
 
-	peerLogger.Debug("Whitelisted map now reads: %+v", outMap)
+	peerLogger.Debug("Whitelisted map now reads: %+v", whitelistedMap)
 	return
 }

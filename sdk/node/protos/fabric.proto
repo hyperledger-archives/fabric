@@ -245,6 +245,7 @@ message SyncStateDeltas {
 // Whitelist holds the PeerIDs of the whitelisted validating peers
 message Whitelist {
     int32 cap = 1;
-    repeated string sortedKeys = 2;
-    repeated PeerID sortedValues = 3;
+    bool security = 2;
+    repeated string sortedKeys = 3;
+    repeated PeerID sortedValues = 4;
 }

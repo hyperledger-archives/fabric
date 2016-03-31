@@ -352,8 +352,8 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	for _, peerEndpoint := range peersMessage.Peers {
 		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// if this is THIS peer's endpoint do nothing
-		} else if _, ok := p.whitelistedMap[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false && (len(p.whitelistedMap) > 0) { // prevent outgoing connections
-			// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT connect to it
+		} else if _, ok := p.whitelistedMap[getHandlerKeyFromPeerEndpoint(peerEndpoint).Name]; ok == false && (len(p.whitelistedMap) > 0) { // prevent outgoing connections
+			// if we have a whitelist *and* this PeerEndpoint.ID.Name is not in it, do NOT connect to it
 			peerLogger.Debug("Did not connect to non-whitelisted peer: %v", *getHandlerKeyFromPeerEndpoint(peerEndpoint))
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// start chat with peer
@@ -388,10 +388,11 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 		return newDuplicateHandlerError(messageHandler)
 	}
 	remotePeerEndpoint, _ := messageHandler.To()
-	if _, ok := p.whitelistedMap[*getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint)]; ok == false && (len(p.whitelistedMap) > 0) { // prevent incoming (& outgoing...) connections
-		// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT accept connections from it
-		peerLogger.Debug("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
-		return nil
+	if _, ok := p.whitelistedMap[getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint).Name]; ok == false && (len(p.whitelistedMap) > 0) { // prevent incoming (& outgoing...) connections
+		// if we have a whitelist *and* this PeerEndpoint.ID.Name is not in it, do NOT accept connections from it
+		err = fmt.Errorf("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
+		peerLogger.Debug(err.Error())
+		return fmt.Errorf(err.Error())
 	}
 	p.handlerMap.m[*key] = messageHandler
 	peerLogger.Debug("Registered handler with key: %s", key)
