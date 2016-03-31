@@ -1157,7 +1157,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 		msg.SecurityContext.Binding = binding
 		msg.SecurityContext.Metadata = tx.Metadata
 
-		if tx.Type == pb.Transaction_CHAINCODE_EXECUTE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
+		if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
 			cis := &pb.ChaincodeInvocationSpec{}
 			if err := proto.Unmarshal(tx.Payload, cis); err != nil {
 				chaincodeLogger.Debug("Failed getting payload [%s]", err)

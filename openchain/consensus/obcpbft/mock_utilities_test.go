@@ -44,7 +44,7 @@ func (ns *noopSecurity) Verify(peerID *pb.PeerID, signature []byte, message []by
 // Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
 func createOcMsgWithChainTx(iter int64) (msg *pb.OpenchainMessage) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
 		Timestamp: txTime,
 		Payload:   []byte(fmt.Sprint(iter)),
 	}
