@@ -202,7 +202,7 @@
         "/chaincode": {
            "post": {
               "summary": "Service endpoint for Chaincode operations",
-              "description": "The /chaincode endpoint receives requests to deploy, invoke, and query a target Chaincode. This service endpoint implements the JSON RPC 2.0 specification with the payload identifiying the desired Chaincode operation within the 'method' field.",
+              "description": "The /chaincode endpoint receives requests to deploy, invoke, and query a target Chaincode. This service endpoint implements the JSON RPC 2.0 specification with the payload identifying the desired Chaincode operation within the 'method' field.",
               "tags": [
                   "Chaincode"
               ],
