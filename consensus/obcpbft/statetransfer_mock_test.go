@@ -383,7 +383,7 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 		if remoteBlockHeight < 1 {
 			break
 		}
-		rds, err := mock.GetRemoteStateDeltas(peerID, 0, remoteBlockHeight-1)
+		rds, err := mock.getRemoteStateDeltas(peerID, 0, remoteBlockHeight-1, SyncSnapshot)
 		if nil != err {
 			return nil, err
 		}
@@ -427,6 +427,10 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 }
 
 func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+	return mock.getRemoteStateDeltas(peerID, start, finish, SyncDeltas)
+}
+
+func (mock *MockLedger) getRemoteStateDeltas(peerID *protos.PeerID, start, finish uint64, requestType mockRequest) (<-chan *protos.SyncStateDeltas, error) {
 	rl, ok := mock.remoteLedgers.GetLedgerByPeerID(peerID)
 
 	if !ok {
@@ -441,7 +445,7 @@ func (mock *MockLedger) GetRemoteStateDeltas(peerID *protos.PeerID, start, finis
 	}
 
 	res := make(chan *protos.SyncStateDeltas, size) // Allows the thread to exit even if the consumer doesn't finish
-	ft := mock.filter(SyncDeltas, peerID)
+	ft := mock.filter(requestType, peerID)
 	switch ft {
 	case Corrupt:
 		fallthrough
