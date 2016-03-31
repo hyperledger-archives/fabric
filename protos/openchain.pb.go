@@ -27,23 +27,25 @@ const (
 	Transaction_CHAINCODE_DEPLOY Transaction_Type = 1
 	// call a chaincode `Invoke` function as a transaction
 	Transaction_CHAINCODE_INVOKE    Transaction_Type = 2
-	Transaction_CHAINCODE_QUERY     Transaction_Type = 4
-	Transaction_CHAINCODE_TERMINATE Transaction_Type = 6
+	// call a chaincode `query` function
+	Transaction_CHAINCODE_QUERY     Transaction_Type = 3
+	// terminate a chaincode; not implemented yet
+	Transaction_CHAINCODE_TERMINATE Transaction_Type = 4
 )
 
 var Transaction_Type_name = map[int32]string{
 	0: "UNDEFINED",
 	1: "CHAINCODE_DEPLOY",
 	2: "CHAINCODE_INVOKE",
-	4: "CHAINCODE_QUERY",
-	6: "CHAINCODE_TERMINATE",
+	3: "CHAINCODE_QUERY",
+	4: "CHAINCODE_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
 	"UNDEFINED":           0,
 	"CHAINCODE_DEPLOY":    1,
 	"CHAINCODE_INVOKE":    2,
-	"CHAINCODE_QUERY":     4,
-	"CHAINCODE_TERMINATE": 6,
+	"CHAINCODE_QUERY":     3,
+	"CHAINCODE_TERMINATE": 4,
 }
 
 func (x Transaction_Type) String() string {
