@@ -74,7 +74,7 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
-	if (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
+	if p.whitelist.Persisted || (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
 		return nil
 	}
 
@@ -92,6 +92,8 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 
 	// build whitelisted map
 	p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
+
+	p.whitelist.Persisted = true
 
 	// marshal whitelist
 	data, err := proto.Marshal(p.whitelist)

@@ -536,6 +536,7 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 }
 
 func (p *PeerImpl) chatWithPeer(peerAddress string) error {
+	var err2 error
 	if len(peerAddress) == 0 {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
@@ -567,6 +568,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		}
 
 	}
+	return err2
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
