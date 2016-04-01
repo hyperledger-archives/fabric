@@ -1,4 +1,4 @@
-from golang:1.6
+from openblockchain/baseimage
 
 RUN apt-get update && apt-get install pkg-config autoconf libtool -y
 RUN cd /tmp && git clone https://github.com/bitcoin/secp256k1.git && cd secp256k1/
@@ -10,7 +10,7 @@ RUN ./tests
 RUN make install
 
 WORKDIR /tmp
-RUN apt-get install libtool libboost-all-dev -y
+RUN apt-get install libtool libboost1.55-all-dev -y
 RUN git clone https://github.com/libbitcoin/libbitcoin-consensus.git
 WORKDIR /tmp/libbitcoin-consensus
 RUN ./autogen.sh
