@@ -113,10 +113,18 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 
 		return nil, err
 	}
+	
+	// Handle Critical Extenstion TCertEncEnrollmentID TODO validate encEnrollmentID
+	_ , err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
+	if err != nil {
+		client.error("Failed getting extension TCERT_ENC_ENROLLMENT_ID [%s].", err.Error())
+		
+		return nil, err
+	}
 
 	// Verify certificate against root
 	if _, err := utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
-		client.warning("Warning verifing certificate [%s].", err.Error())
+		client.error("Warning verifing certificate [%s].", err.Error())
 
 		return nil, err
 	}
@@ -149,6 +157,14 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 
 		return
 	}
+	
+	// Handle Critical Extenstion TCertEncEnrollmentID TODO validate encEnrollmentID
+	_, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
+	if err != nil {
+		client.error("Failed getting extension TCERT_ENC_ENROLLMENT_ID [%s].", err.Error())
+
+		return
+	}
 
 	// Verify certificate against root
 	if _, err = utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
@@ -171,6 +187,9 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return
 	}
 
+
+	
+	
 	// Compute ExpansionValue based on TCertIndex
 	TCertIndex := pt
 	//		TCertIndex := []byte(strconv.Itoa(i))
@@ -316,10 +335,17 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 			continue
 		}
 
+		// Handle Critical Extenstion TCertEncEnrollmentID TODO validate encEnrollmentID
+		_, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
+		if err != nil {
+			client.error("Failed getting extension TCERT_ENC_ENROLLMENT_ID [%s].", err.Error())
+			
+			continue
+		}
+	
 		// Verify certificate against root
 		if _, err := utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
-			client.warning("Warning verifing certificate [%s].", err.Error())
-
+			client.error("Warning verifing certificate [%s].", err.Error())
 			continue
 		}
 

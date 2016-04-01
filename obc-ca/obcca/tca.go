@@ -40,6 +40,7 @@ import (
 	pb "github.com/openblockchain/obc-peer/obc-ca/protos"
 	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
 	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/openblockchain/obc-peer/openchain/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -48,6 +49,7 @@ var (
 	// TCertEncTCertIndex is the ASN1 object identifier of the TCert index.
 	//
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
+	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
 )
 
 // TCA is the transaction certificate authority.
@@ -177,6 +179,12 @@ func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) 
 	return &pb.TCertCreateResp{&pb.Cert{raw}}, nil
 }
 
+func getPreKFrom(enrollmentCert *x509.Certificate) ([]byte, error) {
+	//Implement the code that returns an raw corresponding to the PreK of this ECert.
+	key := make([]byte, 40) 
+	rand.Reader.Read(key)
+	return key, nil
+}
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 //
 func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
@@ -215,41 +223,39 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
-
+	
 	num := int(in.Num)
 	if num == 0 {
 		num = 1
 	}
+	
+	// the batch of TCerts
 	var set [][]byte
 
 	for i := 0; i < num; i++ {
-		tidx := []byte(strconv.Itoa(i))
+		tidx := []byte(strconv.Itoa(2*i + 1))
 		tidx = append(tidx[:], nonce[:]...)
-
-		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
-		mac.Write([]byte{1})
-		extKey := mac.Sum(nil)[:32]
-
-		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
-		mac.Write([]byte{2})
-		mac = hmac.New(conf.GetDefaultHash(), mac.Sum(nil))
-		mac.Write(tidx)
-
+		
+		tcertid := util.GenerateIntUUID()
+		
+		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
+		// We need to design a structure to return each TCert and the associated Ks.
+		extensions, _, err := generateEncryptedExtensions(id, tcertid, cert, in.Attributes, kdfKey, tidx)
+		if err != nil {
+			return nil, err
+		}
+		
 		one := new(big.Int).SetInt64(1)
 		k := new(big.Int).SetBytes(mac.Sum(nil))
 		k.Mod(k, new(big.Int).Sub(pub.Curve.Params().N, one))
 		k.Add(k, one)
-
+		
 		tmpX, tmpY := pub.ScalarBaseMult(k.Bytes())
 		txX, txY := pub.Curve.Add(pub.X, pub.Y, tmpX, tmpY)
 		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
-
-		ext, err := CBCEncrypt(extKey, tidx)
-		if err != nil {
-			return nil, err
-		}
-
-		if raw, err = tcap.tca.createCertificate(id, &txPub, x509.KeyUsageDigitalSignature, in.Ts.Seconds, kdfKey, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext}); err != nil {
+		
+		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub,  x509.KeyUsageDigitalSignature, extensions...)
+		if raw, err = tcap.tca.createCertificateFromSpec(spec, in.Ts.Seconds, kdfKey); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
@@ -257,6 +263,89 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	}
 
 	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
+}
+
+func generateEncryptedExtensions(id string, tcertid *big.Int, enrollmentCert *x509.Certificate, attributes map[string]string, kdfKey []byte, tidx []byte) ([]pkix.Extension, [][]byte, error){
+	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
+	var ks [][]byte
+	
+	// Generate the extensions for the current TCert. Extensions contain:
+	// - encrypted TCertIndex
+	// - encrypted EnrollmentID
+	// - encrypted attributes
+	extensions := make([]pkix.Extension, len(attributes))
+
+	// Compute encrypted TCertIndex
+	mac := hmac.New(conf.GetDefaultHash(), kdfKey)
+	mac.Write([]byte{1})
+	extKey := mac.Sum(nil)[:32]
+	
+	mac = hmac.New(conf.GetDefaultHash(), kdfKey)
+	mac.Write([]byte{2})
+	mac = hmac.New(conf.GetDefaultHash(), mac.Sum(nil))
+	mac.Write(tidx)
+	
+	ext, err := CBCEncrypt(extKey, tidx)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	// Append the TCertIndex to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: ext})
+
+	// TODO: Check if we need to do the same logic as the one used for attribute encryption (compute preK_1 and then preK_0 using the string "enrollmentID").
+	var preKey []byte
+	preKey, err  = getPreKFrom(enrollmentCert)
+	
+	// Compute encrypted EnrollmentID
+	mac = hmac.New(conf.GetDefaultHash(), preKey)
+	mac.Write(tcertid.Bytes())
+	
+	enrollmentIdKey := mac.Sum(nil)
+	
+	//TODO: we need to check if it is better to use EBC encryption, it is not implemented right now in the project.
+	encEnrollmentID, err := CBCEncrypt(enrollmentIdKey, []byte(id))
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	// Append the encrypted EnrollmentID to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encEnrollmentID})
+	
+	// save k used to encrypt EnrollmentID
+	ks = append(ks, enrollmentIdKey)
+	
+	// Compute preK_1 to encrypt attributes - TODO compute preK_1 properly based on user's affiliation
+	preK_1, err := getPreKFrom(enrollmentCert)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	// Encrypt and append attributes to the extensions slice
+	for attributeName, attributeValue := range attributes {
+		mac = hmac.New(conf.GetDefaultHash(), preK_1)
+		mac.Write(tcertid.Bytes())
+		preK_0 := mac.Sum(nil)
+		
+		mac = hmac.New(conf.GetDefaultHash(), preK_0)
+		mac.Write([]byte(attributeName))
+		attributeKey := mac.Sum(nil)
+		
+		// TODO: should we encrypt the value of the attribute along with the attribute name? Something like enc(attributeName:attributeValue).
+		// Also, we need to check if it is better to use EBC encryption, it is not implemented right now in the project.
+		encryptedAttributed, err := CBCEncrypt(attributeKey, []byte(attributeValue))
+		if err != nil {
+			return nil, nil, err
+		}
+		
+		// Append the encrypted attribute to the extensions
+		extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encryptedAttributed})
+		
+		// save k used to encrypt attribute
+		ks = append(ks, attributeKey)
+	}
+	
+	return extensions, ks, nil
 }
 
 // ReadCertificate reads a transaction certificate from the TCA.

@@ -500,10 +500,11 @@ func (m *TCertCreateResp) GetCert() *Cert {
 }
 
 type TCertCreateSetReq struct {
-	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
-	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Num uint32                     `protobuf:"varint,3,opt,name=num" json:"num,omitempty"`
-	Sig *Signature                 `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
+	Ts         *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
+	Id         *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Num        uint32                     `protobuf:"varint,3,opt,name=num" json:"num,omitempty"`
+	Attributes map[string]string          `protobuf:"bytes,4,rep,name=attributes" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Sig        *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TCertCreateSetReq) Reset()         { *m = TCertCreateSetReq{} }
@@ -520,6 +521,13 @@ func (m *TCertCreateSetReq) GetTs() *google_protobuf.Timestamp {
 func (m *TCertCreateSetReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *TCertCreateSetReq) GetAttributes() map[string]string {
+	if m != nil {
+		return m.Attributes
 	}
 	return nil
 }
