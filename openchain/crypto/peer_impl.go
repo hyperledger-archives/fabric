@@ -147,8 +147,6 @@ func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID
 
 func (peer *peerImpl) init(eType NodeType, id string, pwd []byte) error {
 	if peer.isInitialized {
-		peer.error("Already initializaed.")
-
 		return utils.ErrAlreadyInitialized
 	}
 

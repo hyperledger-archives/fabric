@@ -25,31 +25,21 @@ import (
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	node.debug("Signing message [% x].", msg)
-
 	return utils.ECDSASign(signKey, msg)
 }
 
 func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	node.debug("Signing message [% x].", msg)
-
 	return utils.ECDSASign(node.enrollPrivKey, msg)
 }
 
 func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	node.debug("Signing message direct [% x].", msg)
-
 	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
 }
 
 func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	node.debug("Verifing signature [% x] against message [% x].", signature, msg)
-
 	return utils.ECDSAVerify(verKey, msg, signature)
 }
 
 func (node *nodeImpl) verifyWithEnrollmentCert(msg, signature []byte) (bool, error) {
-	node.debug("Verifing signature [% x] against message [% x].", signature, msg)
-
 	return utils.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
 }

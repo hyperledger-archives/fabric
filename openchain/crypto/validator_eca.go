@@ -51,8 +51,6 @@ func (validator *validatorImpl) getEnrollmentCert(id []byte) (*x509.Certificate,
 		return nil, err
 	}
 
-	validator.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
-
 	cert, err := utils.DERToX509Certificate(rawCert)
 	if err != nil {
 		validator.error("Failed parsing enrollment certificate for [%s]: [% x],[% x]", sid, rawCert, err)

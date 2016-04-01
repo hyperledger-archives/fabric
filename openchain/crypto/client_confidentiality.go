@@ -15,7 +15,7 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 		return errors.New("Failed encrypting payload. Invalid nonce.")
 	}
 
-	client.debug("confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
+	client.debug("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
 	switch tx.ConfidentialityProtocolVersion {
 	case "1.1":
 		client.debug("Using confidentiality protocol version 1.1")
@@ -64,10 +64,6 @@ func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 		}
 		tx.Metadata = encryptedMetadata
 	}
-
-	client.debug("Encrypted ChaincodeID [% x].", tx.ChaincodeID)
-	client.debug("Encrypted Payload [% x].", tx.Payload)
-	client.debug("Encrypted Metadata [% x].", tx.Metadata)
 
 	return nil
 }
@@ -157,10 +153,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 
 		return err
 	}
-	// TODO: change name to Key
 	tx.ToValidators = encMsgToValidators
-
-	client.debug("Message to Validator: [% x]", tx.ToValidators)
 
 	// Encrypt the rest of the fields
 

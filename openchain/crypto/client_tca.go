@@ -97,26 +97,24 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 }
 
 func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
-	client.debug("Validating TCert [% x]", der)
-
 	// DER to x509
 	x509Cert, err := utils.DERToX509Certificate(der)
 	if err != nil {
-		client.debug("Failed parsing certificate: [%s].", err)
+		client.debug("Failed parsing certificate [% x]: [%s].", der, err)
 
 		return nil, err
 	}
 
 	// Handle Critical Extension TCertEncTCertIndex
 	if _, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex); err != nil {
-		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", der, err)
 
 		return nil, err
 	}
 
 	// Verify certificate against root
 	if _, err := utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
-		client.warning("Warning verifing certificate [%s].", err.Error())
+		client.warning("Warning verifing certificate [% x]: [%s].", der, err)
 
 		return nil, err
 	}
@@ -132,12 +130,10 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
-	client.debug("Validating certificate [% x]", der)
-
 	// DER to x509
 	x509Cert, err := utils.DERToX509Certificate(der)
 	if err != nil {
-		client.debug("Failed parsing certificate: [%s].", err)
+		client.debug("Failed parsing certificate [% x]: [%s].", der, err)
 
 		return
 	}
@@ -298,12 +294,10 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 
 	j := 0
 	for i := 0; i < num; i++ {
-		client.debug("Validating certificate [%d], [% x]", i, certDERs[i])
-
 		// DER to x509
 		x509Cert, err := utils.DERToX509Certificate(certDERs[i])
 		if err != nil {
-			client.debug("Failed parsing certificate: [%s].", err)
+			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i], err)
 
 			continue
 		}
@@ -311,7 +305,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		// Handle Critical Extenstion TCertEncTCertIndex
 		tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex)
 		if err != nil {
-			client.error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+			client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", err)
 
 			continue
 		}
@@ -458,10 +452,9 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	}
 
 	// 2. Sign rawReq
-	client.debug("Signing req [% x]", rawReq)
 	r, s, err := client.ecdsaSignWithEnrollmentKey(rawReq)
 	if err != nil {
-		client.error("Failed creating signature [%s] [%s].", err.Error())
+		client.error("Failed creating signature for [% x]: [%s].", rawReq, err.Error())
 		return nil, nil, err
 	}
 
