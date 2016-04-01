@@ -32,7 +32,9 @@ message Transaction {
         CHAINCODE_DEPLOY = 1;
         // call a chaincode `Invoke` function as a transaction
         CHAINCODE_INVOKE = 2;
+        // call a chaincode `query` function
         CHAINCODE_QUERY = 3;
+        // terminate a chaincode; not implemented yet
         CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
