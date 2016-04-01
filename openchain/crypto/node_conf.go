@@ -114,8 +114,8 @@ func (conf *configuration) init() error {
 
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
-	if viper.IsSet("peer.pki.tls.server-host-override") {
-		ovveride := viper.GetString("peer.pki.tls.server-host-override")
+	if viper.IsSet("peer.pki.tls.serverhostoverride") {
+		ovveride := viper.GetString("peer.pki.tls.serverhostoverride")
 		if ovveride != "" {
 			conf.tlsServerName = ovveride
 		}

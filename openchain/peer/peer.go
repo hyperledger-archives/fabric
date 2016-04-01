@@ -179,8 +179,8 @@ func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, e
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
 		var sn string
-		if viper.GetString("peer.tls.server-host-override") != "" {
-			sn = viper.GetString("peer.tls.server-host-override")
+		if viper.GetString("peer.tls.serverhostoverride") != "" {
+			sn = viper.GetString("peer.tls.serverhostoverride")
 		}
 		var creds credentials.TransportAuthenticator
 		if viper.GetString("peer.tls.cert.file") != "" {
