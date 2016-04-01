@@ -1688,8 +1688,15 @@ func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
 	router.NotFound((*ServerOpenchainREST).NotFound)
 
 	// Start server
-	err := http.ListenAndServe(viper.GetString("rest.address"), router)
-	if err != nil {
-		restLogger.Error(fmt.Sprintf("ListenAndServe: %s", err))
+	if viper.GetBool("peer.tls.enabled") {
+		err := http.ListenAndServeTLS(viper.GetString("rest.address"), viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"), router)
+		if err != nil {
+			restLogger.Error(fmt.Sprintf("ListenAndServeTLS: %s", err))
+		}
+	} else {
+		err := http.ListenAndServe(viper.GetString("rest.address"), router)
+		if err != nil {
+			restLogger.Error(fmt.Sprintf("ListenAndServe: %s", err))
+		}
 	}
 }
