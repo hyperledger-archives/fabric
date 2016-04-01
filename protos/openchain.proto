@@ -28,11 +28,14 @@ import "google/protobuf/timestamp.proto";
 message Transaction {
     enum Type {
         UNDEFINED = 0;
-        CHAINCODE_NEW = 1;
-        CHAINCODE_UPDATE = 2;
-        CHAINCODE_EXECUTE = 3;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 5;
+        // deploy a chaincode to the network and call `Init` function
+        CHAINCODE_DEPLOY = 1;
+        // call a chaincode `Invoke` function as a transaction
+        CHAINCODE_INVOKE = 2;
+        // call a chaincode `query` function
+        CHAINCODE_QUERY = 3;
+        // terminate a chaincode; not implemented yet
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     //store ChaincodeID as bytes so its encrypted value can be stored
@@ -152,10 +155,7 @@ message OpenchainMessage {
         DISC_PEERS = 4;
         DISC_NEWMSG = 5;
 
-        CHAIN_STATUS = 6;
-        CHAIN_TRANSACTION = 7;
-        CHAIN_GET_TRANSACTIONS = 8;
-        CHAIN_QUERY = 9;
+        CHAIN_TRANSACTION = 6;
 
         SYNC_GET_BLOCKS = 11;
         SYNC_BLOCKS = 12;

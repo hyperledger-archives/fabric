@@ -90,7 +90,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	)
 
 	switch tx.Type {
-	case obc.Transaction_CHAINCODE_NEW:
+	case obc.Transaction_CHAINCODE_DEPLOY:
 		// Prepare chaincode stateKey and privateKey
 		stateKey, err = utils.GenAESKey()
 		if err != nil {
@@ -119,7 +119,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		}
 
 		break
-	case obc.Transaction_CHAINCODE_EXECUTE:
+	case obc.Transaction_CHAINCODE_INVOKE:
 		// Prepare chaincode stateKey and privateKey
 		stateKey = make([]byte, 0)
 

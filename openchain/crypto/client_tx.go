@@ -60,7 +60,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 
 func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err

@@ -487,9 +487,8 @@
                     "example": "UNDEFINED",
                     "enum":[
                         "UNDEFINED",
-                        "CHAINCODE_NEW",
-                        "CHAINCODE_UPDATE",
-                        "CHAINCODE_EXECUTE",
+                        "CHAINCODE_DEPLOY",
+                        "CHAINCODE_INVOKE",
                         "CHAINCODE_QUERY",
                         "CHAINCODE_TERMINATE"
                     ],

@@ -352,7 +352,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var f *string
 	var initargs []string
 
-	if t.Type == pb.Transaction_CHAINCODE_NEW {
+	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
 		cds := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
 		if err != nil {
@@ -362,7 +362,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		cMsg = cds.ChaincodeSpec.CtorMsg
 		f = &cMsg.Function
 		initargs = cMsg.Args
-	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		ci := &pb.ChaincodeInvocationSpec{}
 		err := proto.Unmarshal(t.Payload, ci)
 		if err != nil {
@@ -410,7 +410,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	//         5) query successfully retrives committed tx and calls sendInitOrReady
 	// See issue #710
 
-	if t.Type != pb.Transaction_CHAINCODE_NEW {
+	if t.Type != pb.Transaction_CHAINCODE_DEPLOY {
 		ledger, ledgerErr := ledger.GetLedger()
 		if ledgerErr != nil {
 			return cID, cMsg, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
