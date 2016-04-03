@@ -43,7 +43,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/hyperledger/fabric/events/producer"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/consensus/helper"
@@ -51,14 +50,16 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
+	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 var logger = logging.MustGetLogger("main")
 
 // Constants go here.
+const fabric = "hyperledger"
 const chainFuncName = "chaincode"
-const cmdRoot = "openchain"
+const cmdRoot = "core"
 const undefinedParamValue = ""
 
 // The main command describes the service and
@@ -72,7 +73,7 @@ var peerCmd = &cobra.Command{
 	Short: "Run openchain peer.",
 	Long:  `Runs the openchain peer that interacts with the openchain network.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("peer")
+		core.LoggingInit("peer")
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return serve(args)
@@ -84,7 +85,7 @@ var statusCmd = &cobra.Command{
 	Short: "Status of the openchain peer.",
 	Long:  `Outputs the status of the currently running openchain peer.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("status")
+		core.LoggingInit("status")
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return status()
@@ -96,7 +97,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stop openchain peer.",
 	Long:  `Stops the currently running openchain Peer, disconnecting from the openchain network.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("stop")
+		core.LoggingInit("stop")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
@@ -108,7 +109,7 @@ var loginCmd = &cobra.Command{
 	Short: "Login user on CLI.",
 	Long:  `Login the local user on CLI. Must supply username parameter.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("login")
+		core.LoggingInit("login")
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return login(args)
@@ -120,7 +121,7 @@ var vmCmd = &cobra.Command{
 	Short: "VM functionality of openchain.",
 	Long:  `Interact with the VM functionality of openchain.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("vm")
+		core.LoggingInit("vm")
 	},
 }
 
@@ -138,7 +139,7 @@ var networkCmd = &cobra.Command{
 	Short: "List of network peers.",
 	Long:  `Show a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit("network")
+		core.LoggingInit("network")
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return network()
@@ -162,7 +163,7 @@ var chaincodeCmd = &cobra.Command{
 	Short: fmt.Sprintf("%s specific commands.", chainFuncName),
 	Long:  fmt.Sprintf("%s specific commands.", chainFuncName),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		openchain.LoggingInit(chainFuncName)
+		core.LoggingInit(chainFuncName)
 	},
 }
 
@@ -210,7 +211,7 @@ func main() {
 	// Define command-line flags that are valid for all obc-peer commands and
 	// subcommands.
 	mainFlags := mainCmd.PersistentFlags()
-	mainFlags.String("logging-level", "", "Default logging level and overrides, see openchain.yaml for full syntax")
+	mainFlags.String("logging-level", "", "Default logging level and overrides, see core.yaml for full syntax")
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
 
 	// Set the flags on the peer command.
@@ -377,7 +378,7 @@ func serve(args []string) error {
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
-	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
+	pb.RegisterAdminServer(grpcServer, core.NewAdminServer())
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
@@ -392,11 +393,11 @@ func serve(args []string) error {
 	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
-	serverDevops := openchain.NewDevopsServer(peerServer)
+	serverDevops := core.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := openchain.NewOpenchainServerWithPeerInfo(peerServer)
+	serverOpenchain, err := core.NewOpenchainServerWithPeerInfo(peerServer)
 	if err != nil {
 		err = fmt.Errorf("Error creating OpenchainServer: %s", err)
 		return err
@@ -409,7 +410,7 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := openchain.GetRootNode()
+	rootNode, err := core.GetRootNode()
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
@@ -847,7 +848,7 @@ func network() (err error) {
 		return
 	}
 	openchainClient := pb.NewOpenchainClient(clientConn)
-	peers, err := openchainClient.GetPeers(context.Background(), &google_protobuf.Empty{})
+	peers, err := core.GetPeers(context.Background(), &google_protobuf.Empty{})
 
 	if err != nil {
 		err = fmt.Errorf("Error trying to get peers:", err)
