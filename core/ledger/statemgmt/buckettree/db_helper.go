@@ -20,9 +20,9 @@ under the License.
 package buckettree
 
 import (
-	"github.com/hyperledger/fabric/openchain/db"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
-	"github.com/hyperledger/fabric/openchain/ledger/util"
+	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/util"
 )
 
 func fetchDataNodeFromDB(dataKey *dataKey) (*dataNode, error) {

@@ -22,7 +22,7 @@ package obcpbft
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric/openchain/consensus"
+	"github.com/hyperledger/fabric/core/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"

@@ -6,8 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
-	"github.com/hyperledger/fabric/openchain/crypto/conf"
-	"github.com/hyperledger/fabric/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/ecies"
 	"reflect"
 	"testing"
 )

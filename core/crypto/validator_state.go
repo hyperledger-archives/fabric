@@ -27,7 +27,7 @@ import (
 	"crypto/cipher"
 	"encoding/asn1"
 	"encoding/binary"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 

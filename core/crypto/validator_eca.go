@@ -23,7 +23,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	obcca "github.com/hyperledger/fabric/obc-ca/protos"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"strconv"
 )

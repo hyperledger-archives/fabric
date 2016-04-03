@@ -29,9 +29,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/events/producer"
-	"github.com/hyperledger/fabric/openchain/db"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/state"
+	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/tecbot/gorocksdb"
 
 	"github.com/hyperledger/fabric/protos"

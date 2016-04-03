@@ -37,11 +37,11 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
-	"github.com/hyperledger/fabric/openchain/crypto"
-	"github.com/hyperledger/fabric/openchain/ledger"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/state"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
+	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

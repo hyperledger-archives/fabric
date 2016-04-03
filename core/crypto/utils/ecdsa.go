@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/openchain/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/conf"
 	"math/big"
 )
 

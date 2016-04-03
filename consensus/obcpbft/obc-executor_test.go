@@ -26,8 +26,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/hyperledger/fabric/openchain/consensus"
-	//"github.com/hyperledger/fabric/openchain/consensus/statetransfer"
+	"github.com/hyperledger/fabric/core/consensus"
+	//"github.com/hyperledger/fabric/core/consensus/statetransfer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

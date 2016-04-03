@@ -24,10 +24,10 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/openchain/chaincode"
-	"github.com/hyperledger/fabric/openchain/consensus"
-	"github.com/hyperledger/fabric/openchain/consensus/controller"
-	"github.com/hyperledger/fabric/openchain/peer"
+	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/core/consensus/controller"
+	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"
 )

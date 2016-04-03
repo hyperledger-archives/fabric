@@ -24,8 +24,8 @@ import (
 	"crypto/x509"
 
 	"fmt"
-	"github.com/hyperledger/fabric/openchain/crypto/ecies"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 

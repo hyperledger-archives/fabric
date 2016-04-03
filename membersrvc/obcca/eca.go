@@ -37,12 +37,12 @@ import (
 	"strings"
 	"time"
 
-	ecies "github.com/hyperledger/fabric/openchain/crypto/ecies/generic"
+	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/hyperledger/fabric/obc-ca/protos"
-	"github.com/hyperledger/fabric/openchain/crypto/conf"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

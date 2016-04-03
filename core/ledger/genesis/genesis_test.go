@@ -30,8 +30,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/hyperledger/fabric/openchain/chaincode"
-	"github.com/hyperledger/fabric/openchain/ledger"
+	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 )

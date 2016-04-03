@@ -20,8 +20,8 @@ under the License.
 package ledger
 
 import (
-	"github.com/hyperledger/fabric/openchain/db"
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
 )
 

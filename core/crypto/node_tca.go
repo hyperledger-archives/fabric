@@ -23,7 +23,7 @@ import (
 	obcca "github.com/hyperledger/fabric/obc-ca/protos"
 
 	"errors"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

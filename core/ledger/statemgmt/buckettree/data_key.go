@@ -22,8 +22,8 @@ package buckettree
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
-	"github.com/hyperledger/fabric/openchain/ledger/util"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/util"
 )
 
 type dataKey struct {

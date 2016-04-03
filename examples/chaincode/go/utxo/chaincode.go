@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
-	"github.com/hyperledger/fabric/openchain/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 // The UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64

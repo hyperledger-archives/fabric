@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"github.com/hyperledger/fabric/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/ecies"
 	"io"
 )
 

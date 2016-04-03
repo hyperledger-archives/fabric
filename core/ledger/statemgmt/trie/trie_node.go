@@ -24,8 +24,8 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-	ledgerUtil "github.com/hyperledger/fabric/openchain/ledger/util"
-	"github.com/hyperledger/fabric/openchain/util"
+	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
+	"github.com/hyperledger/fabric/core/util"
 )
 
 type trieNode struct {

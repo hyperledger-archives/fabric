@@ -1,7 +1,7 @@
 #!/bin/bash
 source ../common.sh
 
-PKG_PATH="github.com/hyperledger/fabric/openchain/ledger"
+PKG_PATH="github.com/hyperledger/fabric/core/ledger"
 FUNCTION_NAME="BenchmarkLedgerSingleKeyTransaction"
 NUM_CPUS=4
 CHART_DATA_COLUMN="Number of Bytes"

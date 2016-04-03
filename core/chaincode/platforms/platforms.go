@@ -3,7 +3,7 @@ package platforms
 import (
 	"archive/tar"
 	"fmt"
-	"github.com/hyperledger/fabric/openchain/chaincode/platforms/golang"
+	"github.com/hyperledger/fabric/core/chaincode/platforms/golang"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

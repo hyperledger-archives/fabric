@@ -1,7 +1,7 @@
 #!/bin/bash
 source ../common.sh
 
-PKG_PATH="github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+PKG_PATH="github.com/hyperledger/fabric/core/ledger/statemgmt"
 FUNCTION_NAME="BenchmarkCryptoHash"
 NUM_CPUS=1
 CHART_DATA_COLUMN="Number of Bytes"

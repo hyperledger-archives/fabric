@@ -96,7 +96,7 @@ peer:
         COPY src $GOPATH/src
         RUN mkdir -p /var/openchain/db
         WORKDIR $GOPATH/src/github.com/hyperledger/fabric/
-        RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/openchain.yaml $GOPATH/bin
+        RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/core.yaml $GOPATH/bin
 
 
     # The Address this Peer will listen on
@@ -315,7 +315,7 @@ ledger:
 
       # Deploy chaincodes into the genesis block
       # chaincode:
-      #     path: github.com/hyperledger/fabric/openchain/example/chaincode/chaincode_example01
+      #     path: github.com/hyperledger/fabric/core/example/chaincode/chaincode_example01
       #     type: GOLANG
       #     constructor:
       #       func: init

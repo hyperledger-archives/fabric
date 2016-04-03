@@ -27,8 +27,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/consensus"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/protos"
 )
 

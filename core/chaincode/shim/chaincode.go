@@ -34,7 +34,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/openchain/chaincode/shim/crypto/ecdsa"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"

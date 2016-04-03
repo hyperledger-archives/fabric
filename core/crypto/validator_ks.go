@@ -22,7 +22,7 @@ package crypto
 import (
 	"database/sql"
 	"fmt"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 func (validator *validatorImpl) initKeyStore() error {

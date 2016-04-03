@@ -20,7 +20,7 @@ under the License.
 package trie
 
 import (
-	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/core/db"
 )
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {

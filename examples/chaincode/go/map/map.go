@@ -24,7 +24,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/fabric/openchain/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 // This chaincode implements a simple map that is stored in the state.

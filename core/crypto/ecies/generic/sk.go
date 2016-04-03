@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/ecies"
 	"io"
 )
 

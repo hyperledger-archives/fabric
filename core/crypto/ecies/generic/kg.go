@@ -21,7 +21,7 @@ package generic
 
 import (
 	"crypto/elliptic"
-	"github.com/hyperledger/fabric/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/ecies"
 	"io"
 )
 

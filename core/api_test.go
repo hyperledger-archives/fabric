@@ -27,8 +27,8 @@ import (
 
 	"google/protobuf"
 
-	"github.com/hyperledger/fabric/openchain/ledger"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"

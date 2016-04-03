@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
-	"github.com/hyperledger/fabric/openchain/crypto/conf"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 

@@ -47,7 +47,7 @@ func TestDevops_Build(t *testing.T) {
 	devopsServer := NewDevopsServer(nil)
 
 	// Build the spec
-	chaincodePath := "github.com/hyperledger/fabric/openchain/example/chaincode/chaincode_example01"
+	chaincodePath := "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example01"
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}}
 
 	buildResult, err := devopsServer.Build(context.Background(), spec)
@@ -65,7 +65,7 @@ func TestDevops_Deploy(t *testing.T) {
 	devopsServer := NewDevopsServer(nil)
 
 	// Build the spec
-	chaincodePath := "github.com/hyperledger/fabric/openchain/example/chaincode/chaincode_example01"
+	chaincodePath := "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example01"
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}}
 
 	buildResult, err := devopsServer.Deploy(context.Background(), spec)
@@ -83,7 +83,7 @@ func TestDevops_Spec_NoVersion(t *testing.T) {
 	devopsServer := NewDevopsServer(nil)
 
 	// Build the spec
-	chaincodePath := "github.com/hyperledger/fabric/openchain/example/chaincode/chaincode_example01"
+	chaincodePath := "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example01"
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}}
 
 	buildResult, err := devopsServer.Deploy(context.Background(), spec)

@@ -29,8 +29,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/hyperledger/fabric/openchain/config"
-	"github.com/hyperledger/fabric/openchain/container"
+	"github.com/hyperledger/fabric/core/config"
+	"github.com/hyperledger/fabric/core/container"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
