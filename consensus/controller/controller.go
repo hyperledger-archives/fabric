@@ -24,9 +24,9 @@ import (
 	"github.com/spf13/viper"
 	"strings"
 
-	"github.com/hyperledger/fabric/core/consensus"
-	"github.com/hyperledger/fabric/core/consensus/noops"
-	"github.com/hyperledger/fabric/core/consensus/obcpbft"
+	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/noops"
+	"github.com/hyperledger/fabric/consensus/obcpbft"
 )
 
 var logger *logging.Logger // package-level logger

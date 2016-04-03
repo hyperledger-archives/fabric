@@ -25,8 +25,8 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/chaincode"
-	"github.com/hyperledger/fabric/core/consensus"
-	"github.com/hyperledger/fabric/core/consensus/controller"
+	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/controller"
 	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"

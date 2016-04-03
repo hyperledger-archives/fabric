@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
-	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"

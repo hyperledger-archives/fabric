@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"

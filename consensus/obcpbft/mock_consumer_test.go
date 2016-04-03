@@ -20,7 +20,7 @@ under the License.
 package obcpbft
 
 import (
-	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/spf13/viper"
