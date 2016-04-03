@@ -14,17 +14,17 @@
 # to run setup.sh to create the developer environment.
 
 # This is the mount point for the sync_folders of the source
-SRCMOUNT = "/openchain"
+SRCMOUNT = "/hyperledger"
 
 if not ENV.has_key?('GOPATH')
   abort("GOPATH is not set")
 end
 
 HOST_GOPATH = ENV['GOPATH']
-HOST_OBC_PEER_DIR = HOST_GOPATH + "/src/github.com/openblockchain/obc-peer" 
+HOST_OBC_PEER_DIR = HOST_GOPATH + "/src/github.com/hyperledger/fabric" 
 
 if not Dir.exists?(HOST_OBC_PEER_DIR)
-  abort("obc-peer directory '" + HOST_OBC_PEER_DIR + "' does not exist")
+  abort("hyperledger directory '" + HOST_OBC_PEER_DIR + "' does not exist")
 end
 
 $script = <<SCRIPT
@@ -32,7 +32,7 @@ set -x
 
 export DOCKER_STORAGE_BACKEND="#{ENV['DOCKER_STORAGE_BACKEND']}"
 
-cd #{SRCMOUNT}/obc-dev-env
+cd #{SRCMOUNT}/devenv
 ./setup.sh
 
 SCRIPT
@@ -45,10 +45,10 @@ Vagrant.configure('2') do |config|
   config.vm.network :forwarded_port, guest: 30303, host: 30303 # Openchain gRPC services
 
   config.vm.synced_folder "..", "#{SRCMOUNT}"
-  config.vm.synced_folder "#{HOST_OBC_PEER_DIR}", "/opt/gopath/src/github.com/openblockchain/obc-peer"
+  config.vm.synced_folder "#{HOST_OBC_PEER_DIR}", "/opt/gopath/src/github.com/hyperledger/fabric"
 
   config.vm.provider :virtualbox do |vb|
-    vb.name = "openchain"
+    vb.name = "hyperledger"
     vb.customize ['modifyvm', :id, '--memory', '4096']
     vb.cpus = 2
 

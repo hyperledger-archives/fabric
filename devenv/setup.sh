@@ -32,7 +32,7 @@ fi
 set -e
 
 BASEIMAGE_RELEASE=`cat /etc/obc-baseimage-release`
-DEVENV_REVISION=`(cd /openchain/obc-dev-env; git rev-parse --short HEAD)`
+DEVENV_REVISION=`(cd /hyperledger/devenv; git rev-parse --short HEAD)`
 
 # Update system
 apt-get update -qq
@@ -163,27 +163,27 @@ PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 ./installGolang.sh
 
 # Run go install - CGO flags for RocksDB
-cd $GOPATH/src/github.com/openblockchain/obc-peer
+cd $GOPATH/src/github.com/hyperledger/fabric
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 
 # Copy protobuf dir so we can build the protoc-gen-go binary. Then delete the directory.
 mkdir -p $GOPATH/src/github.com/golang/protobuf/
-cp -r $GOPATH/src/github.com/openblockchain/obc-peer/vendor/github.com/golang/protobuf/ $GOPATH/src/github.com/golang/
+cp -r $GOPATH/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $GOPATH/src/github.com/golang/
 go install -a github.com/golang/protobuf/protoc-gen-go
 rm -rf $GOPATH/src/github.com/golang/protobuf
 
 # Compile proto files
-# /openchain/obc-dev-env/compile_protos.sh
+# /hyperledger/hyperledger-dev-env/compile_protos.sh
 
 # Create directory for the DB
-sudo mkdir -p /var/openchain
-sudo chown -R vagrant:vagrant /var/openchain
+sudo mkdir -p /var/hyperledger
+sudo chown -R vagrant:vagrant /var/hyperledger
 
 # Ensure permissions are set for GOPATH
 sudo chown -R vagrant:vagrant $GOPATH
 
 # Update limits.conf to increase nofiles for RocksDB
-sudo cp /openchain/obc-dev-env/limits.conf /etc/security/limits.conf
+sudo cp /hyperledger/hyperledger-dev-env/limits.conf /etc/security/limits.conf
 
 # Set our shell prompt to something less ugly than the default from packer
-echo "PS1=\"\u@obc-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
+echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
