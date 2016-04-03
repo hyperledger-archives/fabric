@@ -26,10 +26,10 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/openchain"
-	"github.com/hyperledger/fabric/openchain/chaincode"
-	"github.com/hyperledger/fabric/openchain/container"
-	"github.com/hyperledger/fabric/openchain/ledger"
+	"github.com/hyperledger/fabric/core"
+	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/container"
+	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 )
@@ -231,7 +231,7 @@ func deploySystemChaincodeEnabled() bool {
 
 func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
 	//TODO It should be configurable, not hardcoded
-	vpChaincodePath := "github.com/hyperledger/fabric/openchain/system_chaincode/validity_period_update"
+	vpChaincodePath := "github.com/hyperledger/fabric/core/system_chaincode/validity_period_update"
 	vpFunction := "init"
 
 	//TODO: this should be the login token for the component in charge of the validity period update.

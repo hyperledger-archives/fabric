@@ -31,9 +31,9 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/openchain/container"
-	"github.com/hyperledger/fabric/openchain/crypto"
-	"github.com/hyperledger/fabric/openchain/ledger"
+	"github.com/hyperledger/fabric/core/container"
+	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

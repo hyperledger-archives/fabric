@@ -22,7 +22,7 @@ package state
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 func TestCompositeRangeScanIterator(t *testing.T) {

@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
-	"github.com/hyperledger/fabric/openchain/ledger"
+	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/ledger"
 	obc "github.com/hyperledger/fabric/protos"
 )
 

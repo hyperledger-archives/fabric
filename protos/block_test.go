@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/util"
 )
 
 func Test_Block_CreateNew(t *testing.T) {

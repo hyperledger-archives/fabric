@@ -22,7 +22,7 @@ package crypto
 import (
 	"crypto/x509"
 	"database/sql"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"io/ioutil"
 	"os"
 	"path/filepath"

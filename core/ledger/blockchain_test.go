@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
+	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/protos"
 )
 

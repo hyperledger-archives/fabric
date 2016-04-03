@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	cutil "github.com/hyperledger/fabric/openchain/container/util"
+	cutil "github.com/hyperledger/fabric/core/container/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -42,7 +42,7 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	}
 
 	//let the executable's name be chaincode ID's name
-	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger/fabric/openchain.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
+	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger/fabric/core.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))

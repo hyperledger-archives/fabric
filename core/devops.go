@@ -27,12 +27,12 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/openchain/chaincode"
-	"github.com/hyperledger/fabric/openchain/chaincode/platforms"
-	"github.com/hyperledger/fabric/openchain/container"
-	"github.com/hyperledger/fabric/openchain/crypto"
-	"github.com/hyperledger/fabric/openchain/peer"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/chaincode/platforms"
+	"github.com/hyperledger/fabric/core/container"
+	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/peer"
+	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

@@ -65,8 +65,8 @@ script:
  - cat /$HOME/gopath/src/github.com/hyperledger/fabric/build-result.txt
  
  - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
- - cd $HOME/gopath/src/github.com/hyperledger/fabric/openchain/peer/bddtests/
- - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/openchain/peer/bddtests/compose-defaults.yml
+ - cd $HOME/gopath/src/github.com/hyperledger/fabric/core/peer/bddtests/
+ - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/core/peer/bddtests/compose-defaults.yml
  #- behave -n  "chaincode example 02 single peer"
  
  - behave

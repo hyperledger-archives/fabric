@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {

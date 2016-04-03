@@ -20,8 +20,8 @@ under the License.
 package ecdsa
 
 import (
-	"github.com/hyperledger/fabric/openchain/crypto/conf"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"testing"
 )
 

@@ -22,7 +22,7 @@ package protos
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/util"
 )
 
 // Bytes returns this transaction as an array of bytes.

@@ -24,8 +24,8 @@ import (
 	"encoding/binary"
 	"strconv"
 
-	"github.com/hyperledger/fabric/openchain/db"
-	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"

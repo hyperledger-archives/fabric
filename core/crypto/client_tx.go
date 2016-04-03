@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 

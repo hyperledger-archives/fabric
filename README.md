@@ -74,7 +74,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/openchain/peer/bddtests
+cd $GOPATH/src/github.com/hyperledger/fabric/core/peer/bddtests
 behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
@@ -84,8 +84,8 @@ behave -D logs=Y
 
 Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
 ```
-go test github.com/hyperledger/fabric/openchain/container -run=BuildImage_Peer
-go test github.com/hyperledger/fabric/openchain/container -run=BuildImage_Obcca
+go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
+go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
 ## Writing Chaincode

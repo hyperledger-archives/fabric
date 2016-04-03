@@ -20,7 +20,7 @@ under the License.
 package state
 
 import (
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 // CompositeRangeScanIterator - an implementation of interface 'statemgmt.RangeScanIterator'

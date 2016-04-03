@@ -22,7 +22,7 @@ package state
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestStateChanges(t *testing.T) {

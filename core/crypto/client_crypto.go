@@ -21,7 +21,7 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 func (client *clientImpl) registerCryptoEngine() (err error) {

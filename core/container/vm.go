@@ -33,8 +33,8 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/openchain/chaincode/platforms"
-	cutil "github.com/hyperledger/fabric/openchain/container/util"
+	"github.com/hyperledger/fabric/core/chaincode/platforms"
+	cutil "github.com/hyperledger/fabric/core/container/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

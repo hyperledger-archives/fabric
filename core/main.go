@@ -44,13 +44,13 @@ import (
 	"google.golang.org/grpc/grpclog"
 
 	"github.com/hyperledger/fabric/events/producer"
-	"github.com/hyperledger/fabric/openchain"
-	"github.com/hyperledger/fabric/openchain/chaincode"
-	"github.com/hyperledger/fabric/openchain/consensus/helper"
-	"github.com/hyperledger/fabric/openchain/crypto"
-	"github.com/hyperledger/fabric/openchain/ledger/genesis"
-	"github.com/hyperledger/fabric/openchain/peer"
-	"github.com/hyperledger/fabric/openchain/rest"
+	"github.com/hyperledger/fabric/core"
+	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/consensus/helper"
+	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/ledger/genesis"
+	"github.com/hyperledger/fabric/core/peer"
+	"github.com/hyperledger/fabric/core/rest"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 source ../common.sh
 
-PKG_PATH="github.com/hyperledger/fabric/openchain/ledger/statemgmt/buckettree"
+PKG_PATH="github.com/hyperledger/fabric/core/ledger/statemgmt/buckettree"
 FUNCTION_NAME="BenchmarkStateHash"
 NUM_CPUS=1
 CHART_DATA_COLUMN="NUM EXISTING KEYS"

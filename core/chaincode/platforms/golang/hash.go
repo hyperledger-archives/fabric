@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	cutil "github.com/hyperledger/fabric/openchain/container/util"
-	"github.com/hyperledger/fabric/openchain/util"
+	cutil "github.com/hyperledger/fabric/core/container/util"
+	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
 

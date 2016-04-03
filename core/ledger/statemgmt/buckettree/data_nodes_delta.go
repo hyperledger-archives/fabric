@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 // Code for managing changes in data nodes

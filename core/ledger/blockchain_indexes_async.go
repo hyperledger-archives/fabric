@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/tecbot/gorocksdb"
 )

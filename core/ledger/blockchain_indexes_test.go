@@ -22,7 +22,7 @@ package ledger
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"github.com/hyperledger/fabric/protos"
 )
 

@@ -20,7 +20,7 @@ under the License.
 package trie
 
 import (
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 type levelDeltaMap map[string]*trieNode

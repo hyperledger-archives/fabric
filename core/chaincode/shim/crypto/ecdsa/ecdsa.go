@@ -22,7 +22,7 @@ package ecdsa
 import (
 	"crypto/ecdsa"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/openchain/chaincode/shim/crypto"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto"
 	"math/big"
 )
 

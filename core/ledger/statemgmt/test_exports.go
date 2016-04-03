@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 // AssertIteratorContains - tests wether the iterator (itr) contains expected results (provided in map)

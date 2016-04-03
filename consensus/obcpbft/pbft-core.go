@@ -27,8 +27,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/hyperledger/fabric/openchain" // Needed for logging format init
-	"github.com/hyperledger/fabric/openchain/util"
+	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
+	"github.com/hyperledger/fabric/core/util"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"

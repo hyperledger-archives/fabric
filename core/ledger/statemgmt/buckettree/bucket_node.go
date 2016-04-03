@@ -23,8 +23,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/openchain/ledger/util"
-	openchainUtil "github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/core/ledger/util"
+	openchainUtil "github.com/hyperledger/fabric/core/util"
 )
 
 type bucketNode struct {

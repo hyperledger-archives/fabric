@@ -22,7 +22,7 @@ package statemgmt
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestStateDeltaMarshalling(t *testing.T) {

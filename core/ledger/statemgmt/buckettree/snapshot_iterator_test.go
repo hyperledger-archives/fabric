@@ -22,9 +22,9 @@ package buckettree
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/db"
-	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestStateSnapshotIterator(t *testing.T) {

@@ -22,7 +22,7 @@ package buckettree
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestBucketNodeComputeHash(t *testing.T) {

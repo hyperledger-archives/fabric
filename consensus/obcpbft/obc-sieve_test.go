@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric/openchain/consensus"
+	"github.com/hyperledger/fabric/core/consensus"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
