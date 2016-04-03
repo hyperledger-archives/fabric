@@ -152,7 +152,7 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 }
 
 // GetSecureContext returns the security context from the context object or error
-// Security context is nil if security is off from openchain.yaml file
+// Security context is nil if security is off from core.yaml file
 // func GetSecureContext(ctxt context.Context) (crypto.Peer, error) {
 // 	var err error
 // 	temp := ctxt.Value("security")
