@@ -1,18 +1,13 @@
-## Notice regarding the Linux Foundation's Hyperledger project
-
-The openblockchain project is IBM's proposed contribution to the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project. We have made it available as open source to enable others to explore our architecture and design. IBM's intention is to engage rigorously in the Linux Foundation's [Hyperledger](https://www.hyperledger.org/) project as the community establishes itself, and decides on a code base. Once established, we will transition our development focus to the [Hyperledger](https://www.hyperledger.org/) effort, and this code will be maintained as needed for IBM's use.
-
-While we invite contribution to the openblockchain project, we believe that the broader blockchain community's focus should be the [Hyperledger](https://www.hyperledger.org/) project.
-
-# Openchain - Peer
 
 ## Overview
+This project contains the core blockchain fabric code, development environment scripts
+and documents for the fabric and application developers.  
 
-This project contains the core blockchain fabric.  
+## License
+This software is made available under the [Apache License Version 2.0](LICENSE).
 
 ## Building the project
-
-Assuming you have followed the [development environment getting started instructions](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md)
+Assuming you have followed the [development environment getting started instructions](docs/dev-setup/devenv.md)
 
 To access your VM, run
 ```
@@ -23,7 +18,7 @@ From within the VM, follow these additional steps.
 
 ### Go build
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/core
 go build
 ```
 
@@ -31,32 +26,33 @@ go build
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    ./obc-peer
+    cd $GOPATH/src/github.com/hyperledger/fabric/core
+    ./peer
 
-You should see some output similar to below (**NOTE**: rootcommand below is hardcoded in the [main.go](./main.go). Current build will actually create an *obc-peer* executable file).
+You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
 
 ```
     Usage:
-      obc-peer [command]
+      peer [command]
 
     Available Commands:
-      peer        Run obc peer.
-      status      Status of the obc peer.
-      stop        Stops the obc peer.
-      chaincode    Compiles the specified chaincode.
+      peer        Run peer.
+      status      Status of the peer.
+      stop        Stops the peer.
+      chaincode   Compiles the specified chaincode.
       help        Help about any command
 
     Flags:
-      -h, --help[=false]: help for openchain
+      -h, --help[=false]: help for peer
 
 
-    Use "obc-peer [command] --help" for more information about a command.
+    Use "peer [command] --help" for more information about a command.
 ```
 
 The **peer** command will run peer process. You can then use the other commands to interact with this peer process. For example, status will show the peer status.
 
 ## Test
+New code must be accompanied by test cases both in unit and Behave tests.
 
 #### Unit Tests
 To run all unit tests, in one window, run `./obc-peer peer`. In a second window
@@ -88,25 +84,56 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
+## Code contributions <a name="contrib"></a>
+We are using the [GitHub Flow](https://guides.github.com/introduction/flow/) process to manage code contributions.
+
+Note the following GitHub Flow highlights:
+
+- Anything in the master branch is deployable
+- To work on something new, create a descriptively-named branch off of your fork ([more detail on fork](https://help.github.com/articles/syncing-a-fork/))
+- Commit to that branch locally, and regularly push your work to the same branch on the server
+- When you need feedback or help, or you think the branch is ready for merging,
+open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](https://github.com/openblockchain/obc-peer))
+- After your pull request has been reviewed and signed off, a committer can merge it into the master branch.
+
+We use the same approach&mdash;the [Developer's Certificate of Origin (DCO)](docs/biz/DCO1.1.txt)&mdash;that the Linux&reg; Kernel [community](http://elinux.org/Developer_Certificate_Of_Origin) uses to manage code contributions.
+We simply ask that when submitting a pull request, the developer must include a sign-off statement in the pull request description.
+
+Here is an example Signed-off-by line, which indicates that the submitter accepts the DCO:
+
+```
+Signed-off-by: John Doe <john.doe@hisdomain.com>
+```
+
+## Communication
+We use [Slack for communication](https://hyperledger.slack.com) and Google Hangouts&trade; for screen sharing between developers. Register with these tools to get connected.
+
+## Coding Golang
+- We require a file [header](docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
+- We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
+and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
+	- [golint](https://github.com/golang/lint)
+	- [go vet](https://golang.org/cmd/vet/)
+
 ## Writing Chaincode
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](docs/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Setting Up a Network
 
-To set up an Openchain network of several validating peers, follow the instructions on the [Devnet Setup](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
+To set up an development network of several validating peers, follow the instructions on the [Devnet Setup](docs/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
 
 ## Working with CLI, REST, and Node.js
 
-When you are ready to start interacting with the Openchain peer node through the available APIs and packages, follow the instructions on the [API Documentation](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20API.md) page.
+When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [API Documentation](docs/api/CoreAPI.md) page.
 
 ## Configuration
 
 Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](https://github.com/spf13/cobra) libraries.
 
-There is an **openchain.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'OPENCHAIN_'*. For example, logging level manipulation through the environment is shown below:
+There is an **core.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden at the command line by setting ENV variables that match the configuration setting, but by prefixing the tree with *'CORE_'*. For example, logging level manipulation through the environment is shown below:
 
-    OPENCHAIN_PEER_LOGGING_LEVEL=CRITICAL ./obc-peer
+    CORE_PEER_LOGGING_LEVEL=CRITICAL ./peer
 
 ## Logging
 
@@ -114,16 +141,16 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
-See [specific logging control] (https://github.com/openblockchain/obc-docs/blob/master/dev-setup/logging-control.md) when running OBC.
+See [specific logging control](docs/dev-setup/logging-control.md) when running OBC.
 
 ## Generating grpc code
 If you modify any .proto files, run the following command to generate new .pb.go files.
 ```
-/openchain/obc-dev-env/compile_protos.sh
+devenv/compile_protos.sh
 ```
 
 ## Adding or updating a Go packages
-Openchain uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
+The fabric uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
 ```
 # Add external packages.
 govendor add +external
@@ -142,7 +169,7 @@ govendor list
 ```
 
 ## Building outside of Vagrant
-This is not recommended, however some users may wish to build Openchain outside of Vagrant if they use an editor with built in Go tooling. The instructions are
+This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are
 
 1. Follow all steps required to setup and run a Vagrant image
 - Make you you have [Go 1.6](https://golang.org/) or later installed
