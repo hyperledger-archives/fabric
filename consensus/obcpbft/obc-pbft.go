@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const configPrefix = "OPENCHAIN_OBCPBFT"
+const configPrefix = "HYPERLEDGER_OBCPBFT"
 
 var pluginInstance consensus.Consenter // singleton service
 var config *viper.Viper

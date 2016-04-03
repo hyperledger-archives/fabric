@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const configPrefix = "OPENCHAIN_NOOPS"
+const configPrefix = "HYPERLEDGER_NOOPS"
 
 func loadConfig() (config *viper.Viper) {
 	config = viper.New()
@@ -39,7 +39,7 @@ func loadConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("./openchain/consensus/noops/")
+	config.AddConfigPath("./consensus/noops/")
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))

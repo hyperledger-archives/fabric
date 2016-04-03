@@ -43,7 +43,7 @@ func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
 	key := "general.mode"                       // for a key that exists
-	envName := "OPENCHAIN_OBCPBFT_GENERAL_MODE" // env override name
+	envName := "HYPERLEDGER_OBCPBFT_GENERAL_MODE" // env override name
 	overrideValue := "overide_test"             // value to override default value with
 
 	// test key

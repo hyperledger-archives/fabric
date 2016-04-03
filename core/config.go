@@ -58,11 +58,11 @@ func SetupTestConfig() {
 	flag.Parse()
 
 	// Now set the configuration file
-	viper.SetEnvPrefix("OPENCHAIN")
+	viper.SetEnvPrefix("HYPERLEDGER")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.SetConfigName("core") // name of config file (without extension)
 	viper.AddConfigPath("./")        // path to look for the config file in
 	viper.AddConfigPath("./../")     // path to look for the config file in
 	err := viper.ReadInConfig()      // Find and read the config file

@@ -4,9 +4,9 @@
 #   NOOPS PROPERTIES
 #
 # These properties may be passed as environment variables when starting up
-# a validating peer with prefix  OPENCHAIN_NOOPS. For example:
-#    OPENCHAIN_NOOPS_BLOCK_SIZE=1000
-#    OPENCHAIN_NOOPS_BLOCK_TIMEOUT=2
+# a validating peer with prefix  HYPERLEDGER_NOOPS. For example:
+#    HYPERLEDGER_NOOPS_BLOCK_SIZE=1000
+#    HYPERLEDGER_NOOPS_BLOCK_TIMEOUT=2
 #
 ###############################################################################
 
