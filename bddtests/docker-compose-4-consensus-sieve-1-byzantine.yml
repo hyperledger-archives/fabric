@@ -1,0 +1,55 @@
+obcca0:
+  extends:
+    file: compose-defaults.yml
+    service: obcca
+
+vp0:
+  extends:
+    file: docker-compose-4-consensus-base.yml
+    service: vpSieve
+  environment:
+    - OPENCHAIN_PEER_ID=vp0
+    - OPENCHAIN_SECURITY_ENROLLID=test_vp0
+    - OPENCHAIN_SECURITY_ENROLLSECRET=MwYpmSRjupbT
+  links:
+    - obcca0
+
+vp1:
+  extends:
+    file: docker-compose-4-consensus-base.yml
+    service: vpSieve
+  environment:
+    - OPENCHAIN_PEER_ID=vp1
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=test_vp1
+    - OPENCHAIN_SECURITY_ENROLLSECRET=5wgHK9qqYaPy
+  links:
+    - obcca0
+    - vp0
+
+vp2:
+  extends:
+    file: docker-compose-4-consensus-base.yml
+    service: vpSieve
+  environment:
+    - OPENCHAIN_PEER_ID=vp2
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=test_vp2
+    - OPENCHAIN_SECURITY_ENROLLSECRET=vQelbRvja7cJ
+  links:
+    - obcca0
+    - vp0
+
+vp3:
+  extends:
+    file: docker-compose-4-consensus-base.yml
+    service: vpSieve
+  environment:
+    - OPENCHAIN_PEER_ID=vp3
+    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - OPENCHAIN_SECURITY_ENROLLID=test_vp3
+    - OPENCHAIN_SECURITY_ENROLLSECRET=9LKqKH5peurL
+    - OPENCHAIN_OBCPBFT_GENERAL_BYZANTINE=true    
+  links:
+    - obcca0
+    - vp0
