@@ -33,7 +33,7 @@ import (
 
 	"crypto/rand"
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/membersrvc/obcca"
+	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/spf13/viper"
@@ -52,9 +52,9 @@ var (
 	invoker  Client
 
 	server *grpc.Server
-	eca    *obcca.ECA
-	tca    *obcca.TCA
-	tlsca  *obcca.TLSCA
+	eca    *ca.ECA
+	tca    *ca.TCA
+	tlsca  *ca.TLSCA
 
 	deployTxCreators  []createTxFunc
 	executeTxCreators []createTxFunc
@@ -982,11 +982,11 @@ func setup() {
 }
 
 func initPKI() {
-	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-	eca = obcca.NewECA()
-	tca = obcca.NewTCA(eca)
-	tlsca = obcca.NewTLSCA(eca)
+	eca = ca.NewECA()
+	tca = ca.NewTCA(eca)
+	tlsca = ca.NewTLSCA(eca)
 }
 
 func startPKI() {

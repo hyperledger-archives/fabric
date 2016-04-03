@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/hyperledger/fabric/membersrvc/protos"
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"bytes"
 	"crypto/ecdsa"
@@ -439,9 +439,9 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	// Execute the protocol
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
-	req := &obcca.TCertCreateSetReq{
+	req := &membersrvc.TCertCreateSetReq{
 		Ts:  &timestamp,
-		Id:  &obcca.Identity{Id: client.enrollID},
+		Id:  &membersrvc.Identity{Id: client.enrollID},
 		Num: uint32(num),
 		Sig: nil,
 	}
@@ -462,7 +462,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 	S, _ := s.MarshalText()
 
 	// 3. Append the signature
-	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
+	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
 
 	// 4. Send request
 	certSet, err := tcaP.CreateCertificateSet(context.Background(), req)

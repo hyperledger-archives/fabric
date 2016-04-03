@@ -27,7 +27,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/membersrvc/obcca"
+	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/container"
@@ -60,9 +60,9 @@ var (
 	bob           crypto.Client
 
 	server *grpc.Server
-	eca    *obcca.ECA
-	tca    *obcca.TCA
-	tlsca  *obcca.TLSCA
+	eca    *ca.ECA
+	tca    *ca.TCA
+	tlsca  *ca.TLSCA
 )
 
 func TestMain(m *testing.M) {
@@ -350,7 +350,7 @@ func whoIsTheOwner(asset string) ([]byte, error) {
 
 func setup() {
 	// Conf
-	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.SetConfigName("core") // name of config file (without extension)
 	viper.AddConfigPath(".")         // path to look for the config file in
 	err := viper.ReadInConfig()      // Find and read the config file
 	if err != nil {                  // Handle errors reading the config file
@@ -372,18 +372,18 @@ func setup() {
 		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
 	}
 
-	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "openchain", "production"))
-	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obcca"))
+	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "hyperledger", "production"))
+	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "ca"))
 
 	removeFolders()
 }
 
 func initOBCCA() {
-	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-	eca = obcca.NewECA()
-	tca = obcca.NewTCA(eca)
-	tlsca = obcca.NewTLSCA(eca)
+	eca = ca.NewECA()
+	tca = ca.NewTCA(eca)
+	tlsca = ca.NewTLSCA(eca)
 
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.pki.tls.enabled") {
@@ -541,10 +541,10 @@ func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.Cha
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), "obcca")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".obcca", err)
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), ".ca")); err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", ".ca", err)
 	}
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), "openchain")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".openchain", err)
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), ".fabric")); err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", ".fabric", err)
 	}
 }

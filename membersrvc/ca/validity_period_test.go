@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package obcca
+package ca
 
 import (
 	"encoding/json"
@@ -65,7 +65,7 @@ func TestMain(m *testing.M) {
 
 func setupTestConfig() {
 	viper.AutomaticEnv()
-	viper.SetConfigName("obcca_test") // name of config file (without extension)
+	viper.SetConfigName("ca_test") // name of config file (without extension)
 	viper.AddConfigPath("./")         // path to look for the config file in
 	viper.AddConfigPath("./..")       // path to look for the config file in
 	err := viper.ReadInConfig()       // Find and read the config file
@@ -129,8 +129,8 @@ func TestValidityPeriod(t *testing.T) {
 	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
 		t.Logf("Failed removing [%s] [%s]\n", viper.GetString("peer.fileSystemPath"), err)
 	}
-	if err := os.RemoveAll(".obcca"); err != nil {
-		t.Logf("Failed removing [%s] [%s]\n", ".obcca", err)
+	if err := os.RemoveAll(".ca"); err != nil {
+		t.Logf("Failed removing [%s] [%s]\n", ".ca", err)
 	}
 }
 

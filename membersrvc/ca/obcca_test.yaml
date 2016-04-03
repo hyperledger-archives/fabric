@@ -2,12 +2,12 @@
 server:
         version: "0.1"
         rootpath: "."
-        cadir: ".obcca"
+        cadir: ".ca"
         port: ":50951"
 
         tls:
-                certfile: ".obcca/tlsca.cert"
-                keyfile: ".obcca/tlsca.priv"
+                certfile: ".ca/tlsca.cert"
+                keyfile: ".ca/tlsca.priv"
 
 ###############################################################################
 #

@@ -8,16 +8,16 @@ server:
         gomaxprocs: 2
 
         # path to the OBC state directory and CA state subdirectory
-        rootpath: "/var/openchain/production"
-        cadir: ".obcca"
+        rootpath: "/var/hyperledger/production"
+        cadir: ".membersrvc"
         
         # port the CA services are listening on
         port: ":50051"
 
         # TLS certificate and key file paths
         tls:
-#              certfile: "/var/openchain/production/.obcca/tlsca.cert"
-#              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
+#              certfile: "/var/hyperledger/production/.membersrvc/tlsca.cert"
+#              keyfile: "/var/hyperledger/production/.membersrvc/tlsca.priv"
 
 security:
     # Can be 256 or 384

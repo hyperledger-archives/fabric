@@ -28,7 +28,7 @@ import (
 	"runtime"
 
 	"fmt"
-	"github.com/hyperledger/fabric/membersrvc/obcca"
+	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -37,7 +37,7 @@ import (
 
 func main() {
 	viper.AutomaticEnv()
-	viper.SetConfigName("obcca")
+	viper.SetConfigName("membersrvc")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./")
 	err := viper.ReadInConfig()
@@ -46,27 +46,27 @@ func main() {
 	}
 
 	var iotrace, ioinfo, iowarning, ioerror, iopanic io.Writer
-	if obcca.GetConfigInt("logging.trace") == 1 {
+	if ca.GetConfigInt("logging.trace") == 1 {
 		iotrace = os.Stdout
 	} else {
 		iotrace = ioutil.Discard
 	}
-	if obcca.GetConfigInt("logging.info") == 1 {
+	if ca.GetConfigInt("logging.info") == 1 {
 		ioinfo = os.Stdout
 	} else {
 		ioinfo = ioutil.Discard
 	}
-	if obcca.GetConfigInt("logging.warning") == 1 {
+	if ca.GetConfigInt("logging.warning") == 1 {
 		iowarning = os.Stdout
 	} else {
 		iowarning = ioutil.Discard
 	}
-	if obcca.GetConfigInt("logging.error") == 1 {
+	if ca.GetConfigInt("logging.error") == 1 {
 		ioerror = os.Stderr
 	} else {
 		ioerror = ioutil.Discard
 	}
-	if obcca.GetConfigInt("logging.panic") == 1 {
+	if ca.GetConfigInt("logging.panic") == 1 {
 		iopanic = os.Stdout
 	} else {
 		iopanic = ioutil.Discard
@@ -77,19 +77,19 @@ func main() {
 		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
 	}
 
-	obcca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
-	obcca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
+	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
+	ca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
-	eca := obcca.NewECA()
+	eca := ca.NewECA()
 	defer eca.Close()
 
-	tca := obcca.NewTCA(eca)
+	tca := ca.NewTCA(eca)
 	defer tca.Close()
 
-	tlsca := obcca.NewTLSCA(eca)
+	tlsca := ca.NewTLSCA(eca)
 	defer tlsca.Close()
 
-	runtime.GOMAXPROCS(obcca.GetConfigInt("server.gomaxprocs"))
+	runtime.GOMAXPROCS(ca.GetConfigInt("server.gomaxprocs"))
 
 	var opts []grpc.ServerOption
 	if viper.GetString("server.tls.certfile") != "" {
@@ -105,7 +105,7 @@ func main() {
 	tca.Start(srv)
 	tlsca.Start(srv)
 
-	sock, err := net.Listen("tcp", obcca.GetConfigString("server.port"))
+	sock, err := net.Listen("tcp", ca.GetConfigString("server.port"))
 	if err != nil {
 		panic(err)
 	}

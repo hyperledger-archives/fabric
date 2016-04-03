@@ -368,10 +368,10 @@ security:
     # and maintain a valid set of certificates in order to communicate with
     # other peers
     enabled: false
-    # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
+    # To enroll NVP or VP with membersrvc. These parameters are for 1 time use.
     # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
-    # sure the values are in obc-ca/obcca.yaml file eca.users
+    # sure the values are in membersrvc/membersrvc.yaml file eca.users
     enrollID: vp
     enrollSecret: f3489fy98ghf
     # To enable privacy of transactions (requires security to be enabled). This
@@ -380,7 +380,7 @@ security:
     privacy: false
 
     # Can be 256 or 384. If you change here, you have to change also
-    # the same property in obcca.yaml to the same value
+    # the same property in membersrvc.yaml to the same value
     level: 256
 
     # TCerts related configuration

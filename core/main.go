@@ -338,8 +338,8 @@ func serve(args []string) error {
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 
 		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in obcca.yaml, manually set pki.validity-period.update to false to prevent
-		// obcca from calling validity system chaincode -- though no harm otherwise
+		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
+		// membersrvc from calling validity system chaincode -- though no harm otherwise
 		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 		viper.Set("validator.validity-period.verification", "false")
 	}

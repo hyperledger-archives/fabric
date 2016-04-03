@@ -9,15 +9,15 @@ server:
 
         # path to the OBC state directory and CA state subdirectory
         # rootpath: "."
-        # cadir: ".obcca"
+        # cadir: ".ca"
 
         # port the CA services are listening on
         port: ":50051"
 
         # TLS certificate and key file paths
         tls:
-#              certfile: "/var/openchain/production/.obcca/tlsca.cert"
-#              keyfile: "/var/openchain/production/.obcca/tlsca.priv"
+#              certfile: "/var/hyperledger/production/.ca/tlsca.cert"
+#              keyfile: "/var/hyperledger/production/.ca/tlsca.priv"
 
 security:
     # Can be 256 or 384
@@ -466,10 +466,10 @@ security:
     # and maintain a valid set of certificates in order to communicate with
     # other peers
     enabled: true
-    # To enroll NVP or VP with obc-ca. These parameters are for 1 time use.
+    # To enroll NVP or VP with membersrvc. These parameters are for 1 time use.
     # They will not be valid on subsequent times without un-enroll first.
     # The values come from off-line registration with obc-ca. For testing, make
-    # sure the values are in obc-ca/obcca.yaml file eca.users
+    # sure the values are in membersrvc/membersrvc.yaml file eca.users
     enrollID: vp
     enrollSecret: f3489fy98ghf
     # To enable privacy of transactions (requires security to be enabled). This
@@ -478,7 +478,7 @@ security:
     privacy: true
 
     # Can be 256 or 384. If you change here, you have to change also
-    # the same property in obcca.yaml to the same value
+    # the same property in membersrvc.yaml to the same value
     level: 256
 
     # TCerts related configuration

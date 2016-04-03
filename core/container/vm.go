@@ -174,22 +174,22 @@ func (vm *VM) BuildPeerContainer() error {
 	return nil
 }
 
-// BuildObccaContainer builds the image for the obcca to be used in development network
+// BuildObccaContainer builds the image for the membersrvc to be used in development network
 func (vm *VM) BuildObccaContainer() error {
 	inputbuf, err := vm.getPackageBytes(vm.writeObccaPackage)
 
 	if err != nil {
-		return fmt.Errorf("Error building obcca container: %s", err)
+		return fmt.Errorf("Error building membersrvc container: %s", err)
 	}
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
-		Name:         "obcca",
+		Name:         "membersrvc",
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		vmLogger.Debug(fmt.Sprintf("Failed obcca docker build:\n%s\n", outputbuf.String()))
-		return fmt.Errorf("Error building obcca container: %s\n", err)
+		vmLogger.Debug(fmt.Sprintf("Failed membersrvc docker build:\n%s\n", outputbuf.String()))
+		return fmt.Errorf("Error building membersrvc container: %s\n", err)
 	}
 	return nil
 }
@@ -244,14 +244,14 @@ func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
 	startTime := time.Now()
 
 	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileContents = dockerFileContents + "WORKDIR membersrvc\nRUN go install && cp obcca.yaml $GOPATH/bin\n"
+	dockerFileContents = dockerFileContents + "WORKDIR membersrvc\nRUN go install && cp membersrvc.yaml $GOPATH/bin\n"
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
 	tw.Write([]byte(dockerFileContents))
 	err := cutil.WriteGopathSrc(tw, "")
 	if err != nil {
-		return fmt.Errorf("Error writing obcca package contents: %s", err)
+		return fmt.Errorf("Error writing membersrvc package contents: %s", err)
 	}
 	return nil
 }
