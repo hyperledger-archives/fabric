@@ -173,7 +173,7 @@ go install -a github.com/golang/protobuf/protoc-gen-go
 rm -rf $GOPATH/src/github.com/golang/protobuf
 
 # Compile proto files
-# /hyperledger/hyperledger-dev-env/compile_protos.sh
+# /hyperledger/devenv/compile_protos.sh
 
 # Create directory for the DB
 sudo mkdir -p /var/hyperledger
@@ -183,7 +183,7 @@ sudo chown -R vagrant:vagrant /var/hyperledger
 sudo chown -R vagrant:vagrant $GOPATH
 
 # Update limits.conf to increase nofiles for RocksDB
-sudo cp /hyperledger/hyperledger-dev-env/limits.conf /etc/security/limits.conf
+sudo cp /hyperledger/devenv/limits.conf /etc/security/limits.conf
 
 # Set our shell prompt to something less ugly than the default from packer
 echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
