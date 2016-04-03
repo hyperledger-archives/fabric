@@ -240,7 +240,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 
 //get args and env given chaincodeID
 func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
-	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
+	envs = []string{"HYPERLEDGER_CHAINCODE_ID_NAME=" + cID.Name}
 
 	//chaincode executable will be same as the name of the chaincode
 	args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}

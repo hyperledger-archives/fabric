@@ -67,7 +67,7 @@ var peerAddress string
 
 // Start entry point for chaincodes bootstrap.
 func Start(cc Chaincode) error {
-	viper.SetEnvPrefix("OPENCHAIN")
+	viper.SetEnvPrefix("HYPERLEDGER")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
