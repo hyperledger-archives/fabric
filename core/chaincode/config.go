@@ -58,7 +58,7 @@ func SetupTestConfig() {
 	flag.Parse()
 
 	// Now set the configuration file
-	viper.SetEnvPrefix("OPENCHAIN")
+	viper.SetEnvPrefix("HYPERLEDGER")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
