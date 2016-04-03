@@ -1,12 +1,17 @@
 
 ## Overview
-This project contains the core blockchain fabric code, development environment scripts
-and documents for the fabric and application developers.  
+This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications. 
 
-## License
+* [Building the project](#build)
+* [Code contributions](#contrib)
+* [Writing Chaincode](#chaincode)
+* [Setting Up a Network](#devnet)
+* [Building outside of Vagrant](#vagrant)
+
+## License <a name="license"></a>
 This software is made available under the [Apache License Version 2.0](LICENSE).
 
-## Building the project
+## Building the project <a name="build"></a>
 Assuming you have followed the [development environment getting started instructions](docs/dev-setup/devenv.md)
 
 To access your VM, run
@@ -14,15 +19,15 @@ To access your VM, run
 vagrant ssh
 ```
 
-From within the VM, follow these additional steps.
+From within the VM, you can build, run, and test your environment.
 
-### Go build
+#### 1. Go build
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/core
 go build
 ```
 
-## Run
+#### 2. Run
 
 To see what commands are available, simply execute the following command:
 
@@ -51,10 +56,10 @@ You should see some output similar to below (**NOTE**: The root command below is
 
 The **peer** command will run peer process. You can then use the other commands to interact with this peer process. For example, status will show the peer status.
 
-## Test
+#### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
-#### Unit Tests
+#### 3.1 Unit Tests
 To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
     cd $GOPATH/src/github.com/hyperledger/fabric
@@ -66,7 +71,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
     go test -test.v -run=TestGetFoo
 
-#### Behave Tests
+#### 3.2 Behave Tests
 OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
@@ -105,29 +110,29 @@ Here is an example Signed-off-by line, which indicates that the submitter accept
 Signed-off-by: John Doe <john.doe@hisdomain.com>
 ```
 
-## Communication
+## Communication <a name="communication"></a>
 We use [Slack for communication](https://hyperledger.slack.com) and Google Hangouts&trade; for screen sharing between developers. Register with these tools to get connected.
 
-## Coding Golang
+## Coding Golang <a name="coding"></a>
 - We require a file [header](docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
 - We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
 and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
 	- [golint](https://github.com/golang/lint)
 	- [go vet](https://golang.org/cmd/vet/)
 
-## Writing Chaincode
+## Writing Chaincode <a name="chaincode"></a>
 Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](docs/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
-## Setting Up a Network
+## Setting Up a Network <a name="devnet"></a>
 
 To set up an development network of several validating peers, follow the instructions on the [Devnet Setup](docs/dev-setup/devnet-setup.md) page. This network leverage Docker to manage multiple instances of validating peer on the same machine, allowing you to quickly test your chaincode.
 
 
-## Working with CLI, REST, and Node.js
+## Working with CLI, REST, and Node.js <a name="cli"></a>
 
 When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [API Documentation](docs/api/CoreAPI.md) page.
 
-## Configuration
+## Configuration <a name="config"></a>
 
 Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](https://github.com/spf13/cobra) libraries.
 
@@ -135,22 +140,26 @@ There is an **core.yaml** file that contains the configuration for the peer proc
 
     CORE_PEER_LOGGING_LEVEL=CRITICAL ./peer
 
-## Logging
+## Logging <a name="logging"></a>
 
 Logging utilizes the [go-logging](https://github.com/op/go-logging) library.  
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
-See [specific logging control](docs/dev-setup/logging-control.md) when running OBC.
+See [specific logging control](docs/dev-setup/logging-control.md) when running peer.
 
-## Generating grpc code
+## Generating grpc code <a name="grpc"></a>
+
 If you modify any .proto files, run the following command to generate new .pb.go files.
+
 ```
 devenv/compile_protos.sh
 ```
 
-## Adding or updating a Go packages
+## Adding or updating a Go packages <a name="vendoring"></a>
+
 The fabric uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
+
 ```
 # Add external packages.
 govendor add +external
@@ -168,7 +177,7 @@ govendor remove +vendor
 govendor list
 ```
 
-## Building outside of Vagrant
+## Building outside of Vagrant <a name="vagrant"></a>
 This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are
 
 1. Follow all steps required to setup and run a Vagrant image
