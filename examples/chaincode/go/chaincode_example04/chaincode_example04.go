@@ -36,8 +36,7 @@ type SimpleChaincode struct {
 func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
 	//This is the hashcode for github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
-	//chainCodeToCall := "74db26619d161b31aec095af0c354914" //with MD5
-	chainCodeToCall := "bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c" //with SHA3
+	chainCodeToCall := "3a46d4d629d8c1f931bb29c1b52ca9698cba5d75487771882068975b15f0440fb73bab315f5dad72eaaaeaead5ea6a211ac013cfb8d55c64547d348d51504e7d" //with SHA3
 	return chainCodeToCall, nil
 }
 
