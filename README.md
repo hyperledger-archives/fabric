@@ -23,7 +23,7 @@ From within the VM, follow these additional steps.
 
 ### Go build
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer
+cd $GOPATH/src/github.com/hyperledger/fabric
 go build
 ```
 
@@ -31,7 +31,7 @@ go build
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
+    cd $GOPATH/src/github.com/hyperledger/fabric
     ./obc-peer
 
 You should see some output similar to below (**NOTE**: rootcommand below is hardcoded in the [main.go](./main.go). Current build will actually create an *obc-peer* executable file).
@@ -61,8 +61,8 @@ The **peer** command will run peer process. You can then use the other commands 
 #### Unit Tests
 To run all unit tests, in one window, run `./obc-peer peer`. In a second window
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go test -timeout=20m $(go list github.com/openblockchain/obc-peer/... | grep -v /vendor/ | grep -v /examples/)
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
 
 Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
 
@@ -74,7 +74,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/peer/bddtests
+cd $GOPATH/src/github.com/hyperledger/fabric/openchain/peer/bddtests
 behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
@@ -84,8 +84,8 @@ behave -D logs=Y
 
 Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
 ```
-go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Peer
-go test github.com/openblockchain/obc-peer/openchain/container -run=BuildImage_Obcca
+go test github.com/hyperledger/fabric/openchain/container -run=BuildImage_Peer
+go test github.com/hyperledger/fabric/openchain/container -run=BuildImage_Obcca
 ```
 
 ## Writing Chaincode
@@ -159,7 +159,7 @@ INSTALL_PATH=/usr/local make install-shared
 ```
 - Run the following commands:
 ```
-cd $GOPATH/src/github.com/openblockchain/obc-peer
+cd $GOPATH/src/github.com/hyperledger/fabric
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options

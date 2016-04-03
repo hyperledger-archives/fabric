@@ -22,8 +22,8 @@ package obcpbft
 import (
 	"fmt"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/consensus/statetransfer"
+	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"

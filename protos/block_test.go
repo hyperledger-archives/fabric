@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger/fabric/openchain/util"
 )
 
 func Test_Block_CreateNew(t *testing.T) {

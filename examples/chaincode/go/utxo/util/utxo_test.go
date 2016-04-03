@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/openblockchain/obc-peer/examples/chaincode/go/utxo/consensus"
+	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/consensus"
 )
 
 // func TestMain(m *testing.M) {

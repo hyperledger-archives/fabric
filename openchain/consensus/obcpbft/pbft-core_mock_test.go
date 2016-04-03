@@ -20,7 +20,7 @@ under the License.
 package obcpbft
 
 import (
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type pbftEndpoint struct {

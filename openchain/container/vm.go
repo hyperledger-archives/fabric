@@ -33,9 +33,9 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms"
-	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/chaincode/platforms"
+	cutil "github.com/hyperledger/fabric/openchain/container/util"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 func newDockerClient() (client *docker.Client, err error) {

@@ -27,8 +27,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/ledger"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 //Execute - execute transaction or a query

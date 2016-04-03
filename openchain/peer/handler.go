@@ -28,8 +28,8 @@ import (
 	"github.com/looplab/fsm"
 	"github.com/spf13/viper"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 // Handler peer handler implementation.

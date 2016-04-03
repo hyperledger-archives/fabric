@@ -31,10 +31,10 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/container"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/container"
+	"github.com/hyperledger/fabric/openchain/crypto"
+	"github.com/hyperledger/fabric/openchain/ledger"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var chaincodeLog = logging.MustGetLogger("chaincode")

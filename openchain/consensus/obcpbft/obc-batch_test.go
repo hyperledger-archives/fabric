@@ -22,7 +22,7 @@ package obcpbft
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/hyperledger/fabric/openchain/consensus"
 
 	"github.com/spf13/viper"
 )

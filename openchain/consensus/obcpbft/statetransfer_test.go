@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	. "github.com/openblockchain/obc-peer/openchain/consensus/statetransfer" // Bad form, but here until we can figure out how to share tests across packages
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/consensus"
+	. "github.com/hyperledger/fabric/openchain/consensus/statetransfer" // Bad form, but here until we can figure out how to share tests across packages
+	"github.com/hyperledger/fabric/protos"
 )
 
 type testPartialStack struct {

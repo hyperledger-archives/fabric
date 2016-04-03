@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/openblockchain/obc-peer/examples/chaincode/go/utxo/util"
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
+	"github.com/hyperledger/fabric/openchain/chaincode/shim"
 )
 
 // The UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
@@ -31,7 +31,7 @@ import (
 // components to the Bitcoin libconsensus C library for script verification. A table of UTXOs is maintained to ensure
 // each transaction is valid.
 // Documentation can be found at
-// https://github.com/openblockchain/obc-peer/blob/master/examples/chaincode/go/utxo/README.md
+// https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/utxo/README.md
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {

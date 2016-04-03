@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 	gp "google/protobuf"
 )
 

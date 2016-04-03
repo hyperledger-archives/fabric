@@ -3,7 +3,7 @@ package golang
 import (
 	"archive/tar"
 	"fmt"
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 	"net/url"
 	"os"
 	"path/filepath"

@@ -32,7 +32,7 @@ then create the obc-ca Docker image by running command
 ```
 docker build -t obcca -f obc-ca/Dockerfile .
 ```
-or you can follow the instructions in the  [README](https://github.com/openblockchain/obc-peer/blob/master/README.md) document.
+or you can follow the instructions in the  [README](https://github.com/hyperledger/fabric/blob/master/README.md) document.
 
 You can verify that the images have been created and are available by running command
 ```

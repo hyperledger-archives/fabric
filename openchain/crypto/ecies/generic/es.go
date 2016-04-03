@@ -20,7 +20,7 @@ under the License.
 package generic
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/openchain/crypto/ecies"
 )
 
 type encryptionSchemeImpl struct {

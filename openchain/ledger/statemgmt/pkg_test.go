@@ -20,7 +20,7 @@ under the License.
 package statemgmt
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/openchain/ledger/testutil"
 	"os"
 	"testing"
 )

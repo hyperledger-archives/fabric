@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
+	"github.com/hyperledger/fabric/openchain/chaincode/shim"
 )
 
 var myLogger = logging.MustGetLogger("asset_mgm")

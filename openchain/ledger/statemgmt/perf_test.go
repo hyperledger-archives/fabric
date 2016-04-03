@@ -21,8 +21,8 @@ package statemgmt
 
 import (
 	"flag"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger/fabric/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/openchain/util"
 	"testing"
 )
 

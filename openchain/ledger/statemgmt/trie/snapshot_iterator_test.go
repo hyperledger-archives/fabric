@@ -22,9 +22,9 @@ package trie
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/openchain/ledger/testutil"
 )
 
 func TestStateSnapshotIterator(t *testing.T) {

@@ -24,9 +24,9 @@ import (
 	"crypto/x509"
 
 	"fmt"
-	"github.com/openblockchain/obc-peer/openchain/crypto/ecies"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/crypto/ecies"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 // Public Struct

@@ -27,8 +27,8 @@ import (
 	"crypto/cipher"
 	"encoding/asn1"
 	"encoding/binary"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
