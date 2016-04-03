@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/util"
+	"github.com/hyperledger/fabric/openchain/util"
 	"github.com/spf13/viper"
 )
 

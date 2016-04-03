@@ -14,9 +14,9 @@ import (
 
 	"github.com/spf13/viper"
 
-	cutil "github.com/openblockchain/obc-peer/openchain/container/util"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	cutil "github.com/hyperledger/fabric/openchain/container/util"
+	"github.com/hyperledger/fabric/openchain/util"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory

@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/openblockchain/obc-peer/obc-ca/protos"
+	obcca "github.com/hyperledger/fabric/obc-ca/protos"
 
 	"bytes"
 	"crypto/ecdsa"
@@ -28,7 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"

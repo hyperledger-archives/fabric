@@ -24,9 +24,9 @@ import (
 	"encoding/binary"
 	"strconv"
 
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/util"
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/openchain/util"
+	"github.com/hyperledger/fabric/protos"
 	"github.com/tecbot/gorocksdb"
 	"golang.org/x/net/context"
 )

@@ -29,7 +29,7 @@ import (
 
 	google_protobuf "google/protobuf"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var log = logging.MustGetLogger("server")

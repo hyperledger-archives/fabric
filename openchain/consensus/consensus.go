@@ -20,8 +20,8 @@ under the License.
 package consensus
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 // Consenter is used to receive messages from the network

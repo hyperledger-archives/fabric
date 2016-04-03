@@ -28,8 +28,8 @@ import (
 	"runtime"
 
 	"fmt"
-	"github.com/openblockchain/obc-peer/obc-ca/obcca"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
+	"github.com/hyperledger/fabric/obc-ca/obcca"
+	"github.com/hyperledger/fabric/openchain/crypto"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

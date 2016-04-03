@@ -25,12 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
+	"github.com/hyperledger/fabric/openchain/consensus"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {

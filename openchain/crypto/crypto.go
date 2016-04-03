@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	obc "github.com/openblockchain/obc-peer/protos"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 // Public Interfaces

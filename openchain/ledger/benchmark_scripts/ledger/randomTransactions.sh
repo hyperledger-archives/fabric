@@ -2,7 +2,7 @@
 source ../common.sh
 
 
-PKG_PATH="github.com/openblockchain/obc-peer/openchain/ledger"
+PKG_PATH="github.com/hyperledger/fabric/openchain/ledger"
 NUM_CPUS=4
 CHART_DATA_COLUMN="KVSize"
 

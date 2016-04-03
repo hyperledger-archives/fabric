@@ -28,13 +28,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/events/producer"
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/state"
+	"github.com/hyperledger/fabric/events/producer"
+	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/state"
 	"github.com/tecbot/gorocksdb"
 
-	"github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 )
 

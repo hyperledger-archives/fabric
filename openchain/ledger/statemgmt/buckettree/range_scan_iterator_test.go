@@ -22,8 +22,8 @@ package buckettree
 import (
 	"testing"
 
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/openchain/ledger/testutil"
 )
 
 func TestRangeScanIterator(t *testing.T) {

@@ -31,7 +31,7 @@ import (
 
 	"fmt"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 func newFuzzMock() *omniProto {

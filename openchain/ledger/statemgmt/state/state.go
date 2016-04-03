@@ -24,11 +24,11 @@ import (
 	"fmt"
 
 	"github.com/op/go-logging"
-	"github.com/openblockchain/obc-peer/openchain/db"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/buckettree"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/raw"
-	"github.com/openblockchain/obc-peer/openchain/ledger/statemgmt/trie"
+	"github.com/hyperledger/fabric/openchain/db"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/buckettree"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/raw"
+	"github.com/hyperledger/fabric/openchain/ledger/statemgmt/trie"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )

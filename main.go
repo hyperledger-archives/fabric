@@ -43,15 +43,15 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/openblockchain/obc-peer/events/producer"
-	"github.com/openblockchain/obc-peer/openchain"
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/consensus/helper"
-	"github.com/openblockchain/obc-peer/openchain/crypto"
-	"github.com/openblockchain/obc-peer/openchain/ledger/genesis"
-	"github.com/openblockchain/obc-peer/openchain/peer"
-	"github.com/openblockchain/obc-peer/openchain/rest"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/events/producer"
+	"github.com/hyperledger/fabric/openchain"
+	"github.com/hyperledger/fabric/openchain/chaincode"
+	"github.com/hyperledger/fabric/openchain/consensus/helper"
+	"github.com/hyperledger/fabric/openchain/crypto"
+	"github.com/hyperledger/fabric/openchain/ledger/genesis"
+	"github.com/hyperledger/fabric/openchain/peer"
+	"github.com/hyperledger/fabric/openchain/rest"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var logger = logging.MustGetLogger("main")

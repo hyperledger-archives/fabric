@@ -4,9 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/crypto/conf"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 func (client *clientImpl) encryptTx(tx *obc.Transaction) error {

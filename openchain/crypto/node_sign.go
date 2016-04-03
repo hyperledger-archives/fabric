@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
 	"math/big"
 )
 

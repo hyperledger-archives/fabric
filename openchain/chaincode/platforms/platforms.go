@@ -3,8 +3,8 @@ package platforms
 import (
 	"archive/tar"
 	"fmt"
-	"github.com/openblockchain/obc-peer/openchain/chaincode/platforms/golang"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/chaincode/platforms/golang"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type Platform interface {

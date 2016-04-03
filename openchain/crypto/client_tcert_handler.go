@@ -1,8 +1,8 @@
 package crypto
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 type tCertHandlerImpl struct {

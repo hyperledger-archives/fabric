@@ -20,8 +20,8 @@ under the License.
 package obcpbft
 
 import (
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/consensus"
+	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/spf13/viper"
 )

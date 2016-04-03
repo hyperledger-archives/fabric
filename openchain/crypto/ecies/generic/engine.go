@@ -30,7 +30,7 @@ import (
 	"io"
 
 	"crypto/subtle"
-	"github.com/openblockchain/obc-peer/openchain/crypto/conf"
+	"github.com/hyperledger/fabric/openchain/crypto/conf"
 	"golang.org/x/crypto/hkdf"
 )
 

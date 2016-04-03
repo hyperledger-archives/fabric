@@ -21,7 +21,7 @@ package ledger
 
 import (
 	"errors"
-	"github.com/openblockchain/obc-peer/openchain/ledger/testutil"
+	"github.com/hyperledger/fabric/openchain/ledger/testutil"
 	"testing"
 	"time"
 )

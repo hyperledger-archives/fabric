@@ -26,9 +26,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	//"github.com/openblockchain/obc-peer/openchain/consensus/statetransfer"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/consensus"
+	//"github.com/hyperledger/fabric/openchain/consensus/statetransfer"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 func newTestExecutor() (*obcExecutor, map[pb.PeerID]consensus.ReadOnlyLedger) {

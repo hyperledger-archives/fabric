@@ -24,12 +24,12 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
-	"github.com/openblockchain/obc-peer/openchain/chaincode"
-	"github.com/openblockchain/obc-peer/openchain/consensus"
-	"github.com/openblockchain/obc-peer/openchain/consensus/controller"
-	"github.com/openblockchain/obc-peer/openchain/peer"
+	"github.com/hyperledger/fabric/openchain/chaincode"
+	"github.com/hyperledger/fabric/openchain/consensus"
+	"github.com/hyperledger/fabric/openchain/consensus/controller"
+	"github.com/hyperledger/fabric/openchain/peer"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var logger *logging.Logger // package-level logger

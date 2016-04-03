@@ -1,7 +1,7 @@
 #!/bin/bash
 source ../common.sh
 
-PKG_PATH="github.com/openblockchain/obc-peer/openchain/ledger"
+PKG_PATH="github.com/hyperledger/fabric/openchain/ledger"
 FUNCTION_NAME="BenchmarkDB"
 NUM_CPUS=1
 CHART_DATA_COLUMN="Number of Bytes"

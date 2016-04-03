@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/openblockchain/obc-peer/protos"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type endpoint interface {

@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/openblockchain/obc-peer/openchain/crypto/utils"
-	"github.com/openblockchain/obc-peer/openchain/ledger"
-	obc "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/openchain/crypto/utils"
+	"github.com/hyperledger/fabric/openchain/ledger"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
 //We are temporarily disabling the validity period functionality
