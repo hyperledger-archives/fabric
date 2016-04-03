@@ -28,7 +28,7 @@ import (
 	"runtime"
 
 	"fmt"
-	"github.com/hyperledger/fabric/obc-ca/obcca"
+	"github.com/hyperledger/fabric/membersrvc/obcca"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"

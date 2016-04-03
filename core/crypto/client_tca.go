@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/hyperledger/fabric/obc-ca/protos"
+	obcca "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"bytes"
 	"crypto/ecdsa"

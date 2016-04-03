@@ -33,7 +33,7 @@ import (
 
 	"crypto/rand"
 	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/obc-ca/obcca"
+	"github.com/hyperledger/fabric/membersrvc/obcca"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/spf13/viper"

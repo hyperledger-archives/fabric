@@ -848,7 +848,7 @@ func network() (err error) {
 		return
 	}
 	openchainClient := pb.NewOpenchainClient(clientConn)
-	peers, err := core.GetPeers(context.Background(), &google_protobuf.Empty{})
+	peers, err := openchainClient.GetPeers(context.Background(), &google_protobuf.Empty{})
 
 	if err != nil {
 		err = fmt.Errorf("Error trying to get peers:", err)

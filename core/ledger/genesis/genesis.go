@@ -39,7 +39,7 @@ var genesisLogger = logging.MustGetLogger("genesis")
 var makeGenesisError error
 var once sync.Once
 
-// MakeGenesis creates the genesis block based on configuration in openchain.yaml
+// MakeGenesis creates the genesis block based on configuration in core.yaml
 // and adds it to the blockchain.
 func MakeGenesis() error {
 	once.Do(func() {
@@ -182,7 +182,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 	mode := viper.GetString("chaincode.chaincoderunmode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		if err := openchain.CheckSpec(spec); err != nil {
+		if err := core.CheckSpec(spec); err != nil {
 			genesisLogger.Debug("check spec failed: %s", err)
 			return nil, err
 		}

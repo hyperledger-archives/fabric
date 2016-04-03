@@ -37,7 +37,7 @@ import (
 	protobuf "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/hyperledger/fabric/obc-ca/protos"
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/conf"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"

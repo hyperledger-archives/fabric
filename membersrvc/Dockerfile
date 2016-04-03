@@ -3,7 +3,7 @@ from openblockchain/baseimage:latest
 RUN mkdir -p /var/openchain/db
 WORKDIR $GOPATH/src/github.com/hyperledger/fabric/
 COPY . .
-WORKDIR obc-ca
+WORKDIR membersrvc
 RUN pwd
-RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/obc-ca/obcca.yaml $GOPATH/bin
+RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/membersrvc/obcca.yaml $GOPATH/bin
 # RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install

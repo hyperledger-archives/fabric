@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	obcca "github.com/hyperledger/fabric/obc-ca/protos"
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	protobuf "google/protobuf"
 	"time"
 
@@ -266,7 +266,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
+func (node *nodeImpl) getECAClient() (*grpc.ClientConn, membersrvc.ECAPClient, error) {
 	node.debug("Getting ECA client...")
 
 	conn, err := node.getClientConn(node.conf.getECAPAddr(), node.conf.getECAServerName())
@@ -274,20 +274,20 @@ func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error)
 		node.error("Failed getting client connection: [%s]", err)
 	}
 
-	client := obcca.NewECAPClient(conn)
+	client := membersrvc.NewECAPClient(conn)
 
 	node.debug("Getting ECA client...done")
 
 	return conn, client, nil
 }
 
-func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
+func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*membersrvc.Cert, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
 
 	// Issue the request
-	cert, err := ecaP.ReadCACertificate(ctx, &obcca.Empty{}, opts...)
+	cert, err := ecaP.ReadCACertificate(ctx, &membersrvc.Empty{}, opts...)
 	if err != nil {
 		node.error("Failed requesting read certificate [%s].", err.Error())
 
@@ -297,7 +297,7 @@ func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc
 	return cert, nil
 }
 
-func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.CertPair, error) {
+func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *membersrvc.ECertReadReq, opts ...grpc.CallOption) (*membersrvc.CertPair, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
@@ -313,7 +313,7 @@ func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECer
 	return resp, nil
 }
 
-func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcca.Hash, opts ...grpc.CallOption) (*obcca.CertPair, error) {
+func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *membersrvc.Hash, opts ...grpc.CallOption) (*membersrvc.CertPair, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
@@ -326,7 +326,7 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcc
 		return nil, err
 	}
 
-	return &obcca.CertPair{Sign: resp.Cert, Enc: nil}, nil
+	return &membersrvc.CertPair{Sign: resp.Cert, Enc: nil}, nil
 }
 
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
@@ -362,12 +362,12 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	req := &obcca.ECertCreateReq{
+	req := &membersrvc.ECertCreateReq{
 		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:   &obcca.Identity{Id: id},
-		Tok:  &obcca.Token{Tok: []byte(pw)},
-		Sign: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: signPub},
-		Enc:  &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: encPub},
+		Id:   &membersrvc.Identity{Id: id},
+		Tok:  &membersrvc.Token{Tok: []byte(pw)},
+		Sign: &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: signPub},
+		Enc:  &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: encPub},
 		Sig:  nil}
 
 	resp, err := ecaP.CreateCertificatePair(context.Background(), req)
@@ -415,7 +415,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
+	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err = ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {

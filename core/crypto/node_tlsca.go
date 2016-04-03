@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	obcca "github.com/hyperledger/fabric/obc-ca/protos"
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -121,11 +121,11 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
-	req := &obcca.TLSCertCreateReq{
+	req := &membersrvc.TLSCertCreateReq{
 		Ts: &timestamp,
-		Id: &obcca.Identity{Id: id + "-" + uuid},
-		Pub: &obcca.PublicKey{
-			Type: obcca.CryptoType_ECDSA,
+		Id: &membersrvc.Identity{Id: id + "-" + uuid},
+		Pub: &membersrvc.PublicKey{
+			Type: membersrvc.CryptoType_ECDSA,
 			Key:  pubraw,
 		}, Sig: nil}
 	rawreq, _ := proto.Marshal(req)
@@ -135,7 +135,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
+	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
 
 	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {
@@ -155,7 +155,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	return priv, pbCert.Cert.Cert, nil
 }
 
-func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, error) {
+func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, membersrvc.TLSCAPClient, error) {
 	node.debug("Getting TLSCA client...")
 
 	conn, err := node.getClientConn(node.conf.getTLSCAPAddr(), node.conf.getTLSCAServerName())
@@ -163,14 +163,14 @@ func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, er
 		node.error("Failed getting client connection: [%s]", err)
 	}
 
-	client := obcca.NewTLSCAPClient(conn)
+	client := membersrvc.NewTLSCAPClient(conn)
 
 	node.debug("Getting TLSCA client...done")
 
 	return conn, client, nil
 }
 
-func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.TLSCertCreateResp, error) {
+func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *membersrvc.TLSCertCreateReq, opts ...grpc.CallOption) (*membersrvc.TLSCertCreateResp, error) {
 	conn, tlscaP, err := node.getTLSCAClient()
 	if err != nil {
 		node.error("Failed dialing in: %s", err)

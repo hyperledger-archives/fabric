@@ -22,7 +22,7 @@ package crypto
 import (
 	"crypto/x509"
 	"fmt"
-	obcca "github.com/hyperledger/fabric/obc-ca/protos"
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"strconv"
@@ -67,7 +67,7 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 	// Prepare the request
 	validator.debug("Reading certificate for hash [% x]", id)
 
-	req := &obcca.Hash{Hash: id}
+	req := &membersrvc.Hash{Hash: id}
 	responce, err := validator.callECAReadCertificateByHash(context.Background(), req)
 	if err != nil {
 		validator.error("Failed requesting enrollment certificate [%s].", err.Error())
@@ -100,7 +100,7 @@ func (validator *validatorImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byt
 		return nil, nil, err
 	}
 
-	if obcca.Role(role) != obcca.Role_VALIDATOR {
+	if membersrvc.Role(role) != membersrvc.Role_VALIDATOR {
 		validator.error("Invalid ECertSubjectRole in enrollment certificate for signing. Not a validator: [%s]", err)
 
 		return nil, nil, err

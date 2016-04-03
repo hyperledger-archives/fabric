@@ -44,7 +44,7 @@ import (
 
 	_ "fmt"
 
-	obcca "github.com/hyperledger/fabric/obc-ca/protos"
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 )
 
 var (
@@ -113,7 +113,7 @@ func requestTLSCertificate(t *testing.T) {
 
 	defer sockP.Close()
 
-	tlscaP := obcca.NewTLSCAPClient(sockP)
+	tlscaP := membersrvc.NewTLSCAPClient(sockP)
 
 	// Prepare the request
 	id := "peer"
@@ -130,11 +130,11 @@ func requestTLSCertificate(t *testing.T) {
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
 
-	req := &obcca.TLSCertCreateReq{
+	req := &membersrvc.TLSCertCreateReq{
 		&timestamp,
-		&obcca.Identity{Id: id + "-" + uuid},
-		&obcca.PublicKey{
-			Type: obcca.CryptoType_ECDSA,
+		&membersrvc.Identity{Id: id + "-" + uuid},
+		&membersrvc.PublicKey{
+			Type: membersrvc.CryptoType_ECDSA,
 			Key:  pubraw,
 		}, nil}
 
@@ -148,7 +148,7 @@ func requestTLSCertificate(t *testing.T) {
 
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &obcca.Signature{obcca.CryptoType_ECDSA, R, S}
+	req.Sig = &membersrvc.Signature{membersrvc.CryptoType_ECDSA, R, S}
 
 	resp, err := tlscaP.CreateCertificate(context.Background(), req)
 	if err != nil {
@@ -172,7 +172,7 @@ func storePrivateKeyInClear(alias string, privateKey interface{}, t *testing.T) 
 		t.Fail()
 	}
 
-	err = ioutil.WriteFile(filepath.Join(".obcca/", alias), rawKey, 0700)
+	err = ioutil.WriteFile(filepath.Join(".membersrvc/", alias), rawKey, 0700)
 	if err != nil {
 		t.Logf("Failed storing private key [%s]: [%s]", alias, err)
 		t.Fail()
@@ -180,7 +180,7 @@ func storePrivateKeyInClear(alias string, privateKey interface{}, t *testing.T) 
 }
 
 func storeCert(alias string, der []byte, t *testing.T) {
-	err := ioutil.WriteFile(filepath.Join(".obcca/", alias), utils.DERCertToPEM(der), 0700)
+	err := ioutil.WriteFile(filepath.Join(".membersrvc/", alias), utils.DERCertToPEM(der), 0700)
 	if err != nil {
 		t.Logf("Failed storing certificate [%s]: [%s]", alias, err)
 		t.Fail()

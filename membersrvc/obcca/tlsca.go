@@ -26,7 +26,7 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/hyperledger/fabric/obc-ca/protos"
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
