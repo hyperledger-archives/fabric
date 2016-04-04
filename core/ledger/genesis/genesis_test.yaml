@@ -49,7 +49,7 @@ peer:
         from openblockchain/baseimage
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
-        RUN mkdir -p /var/openchain/db
+        RUN mkdir -p /var/hyperledger/db
         WORKDIR $GOPATH/src/github.com/hyperledger/fabric/
         RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/core.yaml $GOPATH/bin
 
@@ -131,7 +131,7 @@ peer:
         touchMaxNodes: 100
 
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/test/genesis_test
+    fileSystemPath: /var/hyperledger/test/genesis_test
 
 ### NOTE: The validator section below is not needed and will be removed - BN
 ###############################################################################

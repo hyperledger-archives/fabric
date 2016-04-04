@@ -193,7 +193,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	}
 
 	// Retrieve the REST data storage path
-	// Returns /var/openchain/production/client/
+	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
 	restLogger.Info("Local data store for client loginToken: %s", localStore)
 
@@ -213,7 +213,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {
-		// If /var/openchain/production/client/ directory does not exist, create it
+		// If /var/hyperledger/production/client/ directory does not exist, create it
 		if _, err := os.Stat(localStore); err != nil {
 			if os.IsNotExist(err) {
 				// Directory does not exist, create it
@@ -260,7 +260,7 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 	enrollmentID := req.PathParams["id"]
 
 	// Retrieve the REST data storage path
-	// Returns /var/openchain/production/client/
+	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
 
 	// If the user is already logged in, return OK. Otherwise return error.
@@ -286,14 +286,14 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	enrollmentID := req.PathParams["id"]
 
 	// Retrieve the REST data storage path
-	// Returns /var/openchain/production/client/
+	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
 
 	// Construct the path to the login token and to the directory containing the
 	// cert and key.
-	// /var/openchain/production/client/loginToken_username
+	// /var/hyperledger/production/client/loginToken_username
 	loginTok := localStore + "loginToken_" + enrollmentID
-	// /var/openchain/production/crypto/client/username
+	// /var/hyperledger/production/crypto/client/username
 	cryptoDir := viper.GetString("peer.fileSystemPath") + "/crypto/client/" + enrollmentID
 
 	// Stat both paths to determine if the user is currently logged in
@@ -729,7 +729,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		}
 
 		// Retrieve the REST data storage path
-		// Returns /var/openchain/production/client/
+		// Returns /var/hyperledger/production/client/
 		localStore := getRESTFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -865,7 +865,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		}
 
 		// Retrieve the REST data storage path
-		// Returns /var/openchain/production/client/
+		// Returns /var/hyperledger/production/client/
 		localStore := getRESTFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -1001,7 +1001,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		}
 
 		// Retrieve the REST data storage path
-		// Returns /var/openchain/production/client/
+		// Returns /var/hyperledger/production/client/
 		localStore := getRESTFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -1365,7 +1365,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 		}
 
 		// Retrieve the REST data storage path
-		// Returns /var/openchain/production/client/
+		// Returns /var/hyperledger/production/client/
 		localStore := getRESTFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -1493,7 +1493,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 
 		// Retrieve the REST data storage path
-		// Returns /var/openchain/production/client/
+		// Returns /var/hyperledger/production/client/
 		localStore := getRESTFilePath()
 
 		// Check if the user is logged in before sending transaction
@@ -1640,7 +1640,7 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 	}
 }
 
-// NotFound returns a custom landing page when a given openchain end point
+// NotFound returns a custom landing page when a given hyperledger end point
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 	rw.WriteHeader(http.StatusNotFound)

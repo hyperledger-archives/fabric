@@ -5,7 +5,7 @@
 ###############################################################################
 peer:
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/test/ledge/statemgmt/state/testdb
+    fileSystemPath: /var/hyperledger/test/ledge/statemgmt/state/testdb
 
 ledger:
 

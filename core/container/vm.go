@@ -163,7 +163,7 @@ func (vm *VM) BuildPeerContainer() error {
 	}
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
-		Name:         "openchain-peer",
+		Name:         "hyperledger-peer",
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}

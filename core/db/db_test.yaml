@@ -5,4 +5,4 @@
 ###############################################################################
 peer:
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/test/db_test
+    fileSystemPath: /var/hyperledger/test/db_test

@@ -1,6 +1,6 @@
 from openblockchain/baseimage:latest
 # Copy GOPATH src and install Peer
-RUN mkdir -p /var/openchain/db
+RUN mkdir -p /var/hyperledger/db
 WORKDIR $GOPATH/src/github.com/hyperledger/fabric/
 COPY . .
 WORKDIR membersrvc

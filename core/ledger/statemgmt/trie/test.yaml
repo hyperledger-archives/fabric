@@ -5,4 +5,4 @@
 ###############################################################################
 peer:
     # Path on the file system where peer will store data
-    fileSystemPath: /var/openchain/test/ledger/statemgmt/trie/testdb
+    fileSystemPath: /var/hyperledger/test/ledger/statemgmt/trie/testdb

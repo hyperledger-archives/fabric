@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("openchain") // name of config file (without extension)
+	viper.SetConfigName("core") // name of config file (without extension)
 	viper.AddConfigPath("./")        // path to look for the config file in
 	viper.AddConfigPath("./..")      // path to look for the config file in
 	err := viper.ReadInConfig()      // Find and read the config file

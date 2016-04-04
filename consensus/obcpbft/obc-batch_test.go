@@ -22,7 +22,7 @@ package obcpbft
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric/core/consensus"
+	"github.com/hyperledger/fabric/consensus"
 
 	"github.com/spf13/viper"
 )

@@ -318,7 +318,7 @@ func startOpenchain(t *testing.T) error {
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
-	pb.RegisterAdminServer(grpcServer, openchain.NewAdminServer())
+	pb.RegisterAdminServer(grpcServer, core.NewAdminServer())
 
 	// Register ChaincodeSupport server...
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
@@ -333,11 +333,11 @@ func startOpenchain(t *testing.T) error {
 	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
-	serverDevops := openchain.NewDevopsServer(peerServer)
+	serverDevops := core.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := openchain.NewOpenchainServer()
+	serverOpenchain, err := core.NewOpenchainServer()
 	if err != nil {
 		return fmt.Errorf("Error creating OpenchainServer: %s", err)
 	}
@@ -347,7 +347,7 @@ func startOpenchain(t *testing.T) error {
 	// Create and register the REST service
 	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 
-	rootNode, err := openchain.GetRootNode()
+	rootNode, err := core.GetRootNode()
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}
