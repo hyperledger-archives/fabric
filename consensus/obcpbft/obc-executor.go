@@ -304,22 +304,17 @@ func (obcex *obcExecutor) queueThread() {
 		}
 
 		if nil != err {
-			logger.Error("%v encountered an error while processing transaction: %v", err)
+			logger.Error("%v encountered an error while processing transaction: %v", obcex.id, err)
 			continue
 		}
 
 		if sync {
-			logger.Debug("%v requested sync while processing transaction: %v", err)
+			logger.Debug("%v requested sync while processing transaction: %v", obcex.id, err)
 			seqNo, id, execInfo = obcex.sync()
 			if nil == id {
 				// id should only be nil during shutdown
 				continue
 			}
-		}
-
-		if nil != err {
-			logger.Error("%v encountered an error while performing state sync: %v", err)
-			continue
 		}
 
 		if execInfo.Checkpoint {
