@@ -311,7 +311,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	listenAddr := viper.GetString("peer.listenaddress")
+	listenAddr := viper.GetString("peer.listenAddress")
 
 	if "" == listenAddr {
 		logger.Debug("Listen address not specified, using peer endpoint address")
