@@ -390,7 +390,7 @@ def step_impl(context, chaincodeName, functionName, value):
     for container in containerDataList:
         # Change the SecurityContext per call
         chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
-        print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("OPENCHAIN_SECURITY_ENROLLID")))
+        print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
         request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
         print("POSTing path = {0}".format(request_url))
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=3)
