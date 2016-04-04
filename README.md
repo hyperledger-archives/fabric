@@ -24,7 +24,7 @@ From within the VM, you can build, run, and test your environment.
 
 #### 1. Go build
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/core
+cd $GOPATH/src/github.com/hyperledger/fabric
 go build -o peer
 ```
 
@@ -32,7 +32,7 @@ go build -o peer
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/github.com/hyperledger/fabric/core
+    cd $GOPATH/src/github.com/hyperledger/fabric
     ./peer
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
