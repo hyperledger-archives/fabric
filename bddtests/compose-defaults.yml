@@ -8,7 +8,7 @@ vp:
   command: fabric peer
 
 obcca:
-   image: obcca
+   image: membersrvc
    environment:
     - CORE_VM_ENDPOINT=http://172.17.0.1:4243
    command: membersrvc
