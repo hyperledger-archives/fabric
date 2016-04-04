@@ -35,7 +35,7 @@ git config --global core.autocrlf false
 ```
 If you continue with `core.autocrlf` set to `true`, the `vagrant up` command will fail with the error `./setup.sh: /bin/bash^M: bad interpreter: No such file or directory`
 
-#### Cloning the Open Blockchain Peer project
+#### Cloning the Peer project
 
 Create a fork of the [fabric](https://github.com/hyperledger/fabric) repository using the GitHub web interface. Next, clone your fork in the appropriate location.
 
