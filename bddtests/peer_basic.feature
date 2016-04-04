@@ -548,12 +548,13 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
- 	@tls
+ 	@TLS
 #	@doNotDecompose
 	Scenario: basic startup of 2 validating peers using TLS
 	    Given we compose "docker-compose-2-tls-basic.yml"
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
+
 
 #@doNotDecompose
 #@wip
