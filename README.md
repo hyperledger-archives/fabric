@@ -1,17 +1,18 @@
 
 ## Overview
-This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications. 
+This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
 
-* [Building the project](#build)
+* [Building the fabric core](#build)
+* [Building outside of Vagrant](#vagrant)
 * [Code contributions](#contrib)
 * [Writing Chaincode](#chaincode)
-* [Setting Up a Network](#devnet)
-* [Building outside of Vagrant](#vagrant)
+* [Setting up a Network](#devnet)
+
 
 ## License <a name="license"></a>
 This software is made available under the [Apache License Version 2.0](LICENSE).
 
-## Building the project <a name="build"></a>
+## Building the the fabric core <a name="build"></a>
 Assuming you have followed the [development environment getting started instructions](docs/dev-setup/devenv.md)
 
 To access your VM, run
@@ -24,7 +25,7 @@ From within the VM, you can build, run, and test your environment.
 #### 1. Go build
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/core
-go build
+go build -o peer
 ```
 
 #### 2. Run
@@ -60,7 +61,7 @@ The **peer** command will run peer process. You can then use the other commands 
 New code must be accompanied by test cases both in unit and Behave tests.
 
 #### 3.1 Unit Tests
-To run all unit tests, in one window, run `./obc-peer peer`. In a second window
+To run all unit tests, in one window, run `./peer peer`. In a second window
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
@@ -72,10 +73,10 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
     go test -test.v -run=TestGetFoo
 
 #### 3.2 Behave Tests
-OBC also has [Behave](http://pythonhosted.org/behave/) tests that will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
+[Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/core/peer/bddtests
+cd $GOPATH/src/github.com/hyperledger/fabric/bddtests
 behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
@@ -83,11 +84,41 @@ Some of the Behave tests run inside Docker containers. If a test fails and you w
 behave -D logs=Y
 ```
 
-Note, you must run the unit tests first to build the necessary Peer and OBCCA docker images. These images can also be individually built using the commands
+Note, you must run the unit tests first to build the necessary Peer and Member Services docker images. These images can also be individually built using the commands
 ```
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
+
+## Building outside of Vagrant <a name="vagrant"></a>
+This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are
+
+1. Follow all steps required to setup and run a Vagrant image
+- Make you you have [Go 1.6](https://golang.org/) or later installed
+- Set the maximum number of open files to 10000 or greater for your OS
+- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and it's dependencies:
+```
+apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
+cd /tmp
+git clone https://github.com/facebook/rocksdb.git
+cd rocksdb
+git checkout tags/v4.1
+PORTABLE=1 make shared_lib
+INSTALL_PATH=/usr/local make install-shared
+```
+- Run the following commands:
+```
+cd $GOPATH/src/github.com/hyperledger/fabric
+CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
+```
+- Make sure that the Docker daemon initialization includes the options
+```
+-H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+```
+- Be aware that the Docker bridge (the `OPENCHAIN_VM_ENDPOINT`) may not come
+up at the IP address currently assumed by the test environment
+(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
+
 
 ## Code contributions <a name="contrib"></a>
 We are using the [GitHub Flow](https://guides.github.com/introduction/flow/) process to manage code contributions.
@@ -176,32 +207,3 @@ govendor remove +vendor
 # List package.
 govendor list
 ```
-
-## Building outside of Vagrant <a name="vagrant"></a>
-This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are
-
-1. Follow all steps required to setup and run a Vagrant image
-- Make you you have [Go 1.6](https://golang.org/) or later installed
-- Set the maximum number of open files to 10000 or greater for your OS
-- Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and it's dependencies:
-```
-apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
-cd /tmp
-git clone https://github.com/facebook/rocksdb.git
-cd rocksdb
-git checkout tags/v4.1
-PORTABLE=1 make shared_lib
-INSTALL_PATH=/usr/local make install-shared
-```
-- Run the following commands:
-```
-cd $GOPATH/src/github.com/hyperledger/fabric
-CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
-```
-- Make sure that the Docker daemon initialization includes the options
-```
--H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
-```
-- Be aware that the Docker bridge (the `OPENCHAIN_VM_ENDPOINT`) may not come
-up at the IP address currently assumed by the test environment
-(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
