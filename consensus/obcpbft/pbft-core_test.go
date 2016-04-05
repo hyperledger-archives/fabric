@@ -757,7 +757,7 @@ func TestFallBehind(t *testing.T) {
 	defer net.stop()
 
 	execReq := func(iter int64, skipThree bool) {
-		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -832,7 +832,7 @@ func TestPbftF0(t *testing.T) {
 	net := makePBFTNetwork(1)
 	defer net.stop()
 
-	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+	// Create a message of type: `Message_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
