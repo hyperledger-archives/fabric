@@ -85,7 +85,7 @@ func (ep *eventProcessor) start() {
 
 		for h := range hl.handlers {
 			if rType := h.responseType(eType); rType != pb.Interest_DONTSEND {
-				//if Message is already a generic message, producer must have already converted
+				//if OpenchainMessage is already a generic message, producer must have already converted
 				if eType != "generic" {
 					switch rType {
 					case pb.Interest_JSON:

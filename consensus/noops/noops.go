@@ -92,17 +92,17 @@ func newNoops(c consensus.Stack) consensus.Consenter {
 	return i
 }
 
-// RecvMsg is called for Message_CHAIN_TRANSACTION and Message_CONSENSUS messages.
-func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
+// RecvMsg is called for OpenchainMessage_CHAIN_TRANSACTION and OpenchainMessage_CONSENSUS messages.
+func (i *Noops) RecvMsg(msg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Handling Message of type: %s ", msg.Type)
+		logger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
 	}
-	if msg.Type == pb.Message_CHAIN_TRANSACTION {
+	if msg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
 		if err := i.broadcastConsensusMsg(msg); nil != err {
 			return err
 		}
 	}
-	if msg.Type == pb.Message_CONSENSUS {
+	if msg.Type == pb.OpenchainMessage_CONSENSUS {
 		tx, err := i.getTxFromMsg(msg)
 		if nil != err {
 			return err
@@ -115,15 +115,15 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
-func (i *Noops) broadcastConsensusMsg(msg *pb.Message) error {
+func (i *Noops) broadcastConsensusMsg(msg *pb.OpenchainMessage) error {
 	t := &pb.Transaction{}
 	if err := proto.Unmarshal(msg.Payload, t); err != nil {
-		return fmt.Errorf("Error unmarshalling payload of received Message:%s.", msg.Type)
+		return fmt.Errorf("Error unmarshalling payload of received OpenchainMessage:%s.", msg.Type)
 	}
 
 	// Change the msg type to consensus and broadcast to the network so that
 	// other validators may execute the transaction
-	msg.Type = pb.Message_CONSENSUS
+	msg.Type = pb.OpenchainMessage_CONSENSUS
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Broadcasting %s", msg.Type)
 	}
@@ -237,7 +237,7 @@ func (i *Noops) processTransactions() error {
 	return nil
 }
 
-func (i *Noops) getTxFromMsg(msg *pb.Message) (*pb.Transaction, error) {
+func (i *Noops) getTxFromMsg(msg *pb.OpenchainMessage) (*pb.Transaction, error) {
 	txs := &pb.TransactionBlock{}
 	if err := proto.Unmarshal(msg.Payload, txs); err != nil {
 		return nil, err
@@ -282,14 +282,14 @@ func (i *Noops) notifyBlockAdded(block *pb.Block, delta *statemgmt.StateDelta) e
 		return fmt.Errorf("Fail to marshall BlockState structure: %v", err)
 	}
 	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Broadcasting Message_SYNC_BLOCK_ADDED to non-validators")
+		logger.Debug("Broadcasting OpenchainMessage_SYNC_BLOCK_ADDED to non-validators")
 	}
 
 	// Broadcast SYNC_BLOCK_ADDED to connected NVPs
 	// VPs already know about this newly added block since they participate
 	// in the execution. That is, they can compare their current block with
 	// the network block
-	msg := &pb.Message{Type: pb.Message_SYNC_BLOCK_ADDED,
+	msg := &pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCK_ADDED,
 		Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	if errs := i.stack.Broadcast(msg, pb.PeerEndpoint_NON_VALIDATOR); nil != errs {
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)

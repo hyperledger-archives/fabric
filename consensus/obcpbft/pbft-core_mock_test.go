@@ -59,14 +59,14 @@ type simpleConsumer struct {
 }
 
 func (sc *simpleConsumer) broadcast(msgPayload []byte) {
-	sc.pe.Broadcast(&pb.Message{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
+	sc.pe.Broadcast(&pb.OpenchainMessage{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
 }
 func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
 	handle, err := getValidatorHandle(receiverID)
 	if nil != err {
 		return err
 	}
-	sc.pe.Unicast(&pb.Message{Payload: msgPayload}, handle)
+	sc.pe.Unicast(&pb.OpenchainMessage{Payload: msgPayload}, handle)
 	return nil
 }
 

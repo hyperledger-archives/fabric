@@ -19,7 +19,7 @@ under the License.
 
 syntax = "proto3";
 
-import "fabric.proto";
+import "openchain.proto";
 
 package protos;
 

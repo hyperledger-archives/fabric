@@ -41,16 +41,16 @@ func (ns *noopSecurity) Verify(peerID *pb.PeerID, signature []byte, message []by
 	return nil
 }
 
-// Create a message of type `Message_CHAIN_TRANSACTION`
-func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
+// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+func createOcMsgWithChainTx(iter int64) (msg *pb.OpenchainMessage) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW,
 		Timestamp: txTime,
 		Payload:   []byte(fmt.Sprint(iter)),
 	}
 	txPacked, _ := proto.Marshal(tx)
-	msg = &pb.Message{
-		Type:    pb.Message_CHAIN_TRANSACTION,
+	msg = &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
 		Payload: txPacked,
 	}
 	return
@@ -67,8 +67,8 @@ type omniProto struct {
 	// Stack methods
 	GetNetworkInfoImpl         func() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error)
 	GetNetworkHandlesImpl      func() (self *pb.PeerID, network []*pb.PeerID, err error)
-	BroadcastImpl              func(msg *pb.Message, peerType pb.PeerEndpoint_Type) error
-	UnicastImpl                func(msg *pb.Message, receiverHandle *pb.PeerID) error
+	BroadcastImpl              func(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error
+	UnicastImpl                func(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 	SignImpl                   func(msg []byte) ([]byte, error)
 	VerifyImpl                 func(peerID *pb.PeerID, signature []byte, message []byte) error
 	GetBlockImpl               func(id uint64) (block *pb.Block, err error)
@@ -102,7 +102,7 @@ type omniProto struct {
 	verifyImpl     func(senderID uint64, signature []byte, message []byte) error
 
 	// Closable Consenter methods
-	RecvMsgImpl  func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
+	RecvMsgImpl  func(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
 	CloseImpl    func()
 	idleChanImpl func() <-chan struct{}
 	deliverImpl  func([]byte, *pb.PeerID)
@@ -127,14 +127,14 @@ func (op *omniProto) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID,
 
 	panic("Unimplemented")
 }
-func (op *omniProto) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+func (op *omniProto) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
 	if nil != op.BroadcastImpl {
 		return op.BroadcastImpl(msg, peerType)
 	}
 
 	panic("Unimplemented")
 }
-func (op *omniProto) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
+func (op *omniProto) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
 	if nil != op.UnicastImpl {
 		return op.UnicastImpl(msg, receiverHandle)
 	}
@@ -351,7 +351,7 @@ func (op *omniProto) verify(senderID uint64, signature []byte, message []byte) e
 	panic("Unimplemented")
 }
 
-func (op *omniProto) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+func (op *omniProto) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
 	if nil != op.RecvMsgImpl {
 		return op.RecvMsgImpl(ocMsg, senderHandle)
 	}

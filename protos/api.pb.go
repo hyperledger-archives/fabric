@@ -10,7 +10,7 @@ It is generated from these files:
 	chaincode.proto
 	devops.proto
 	events.proto
-	fabric.proto
+	openchain.proto
 	server_admin.proto
 
 It has these top-level messages:
@@ -46,7 +46,7 @@ It has these top-level messages:
 	PeerEndpoint
 	PeersMessage
 	HelloMessage
-	Message
+	OpenchainMessage
 	Response
 	BlockState
 	SyncBlockRange

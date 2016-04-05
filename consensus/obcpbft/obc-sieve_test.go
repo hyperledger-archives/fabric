@@ -50,7 +50,7 @@ func TestSieveNetwork(t *testing.T) {
 	net.endpoints[0].(*consumerEndpoint).consumer.RecvMsg(req0, net.endpoints[generateBroadcaster(validatorCount)].getHandle())
 	net.process()
 
-	testblock := func(ep endpoint, blockNo uint64, msg *pb.Message) {
+	testblock := func(ep endpoint, blockNo uint64, msg *pb.OpenchainMessage) {
 		cep := ep.(*consumerEndpoint)
 		block, err := cep.consumer.(*obcSieve).stack.GetBlock(blockNo)
 		if err != nil {
@@ -228,8 +228,8 @@ func TestSieveRequestHash(t *testing.T) {
 
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Payload: make([]byte, 1000)}
 	txPacked, _ := proto.Marshal(tx)
-	msg := &pb.Message{
-		Type:    pb.Message_CHAIN_TRANSACTION,
+	msg := &pb.OpenchainMessage{
+		Type:    pb.OpenchainMessage_CHAIN_TRANSACTION,
 		Payload: txPacked,
 	}
 

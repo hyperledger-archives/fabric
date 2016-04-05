@@ -27,7 +27,7 @@ import (
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
+	RecvMsg(msg *pb.OpenchainMessage, senderHandle *pb.PeerID) error
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -38,8 +38,8 @@ type Inquirer interface {
 
 // Communicator is used to send messages to other validators
 type Communicator interface {
-	Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error
-	Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error
+	Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error
+	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
 }
 
 // NetworkStack is used to retrieve network info and send messages

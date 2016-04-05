@@ -41,7 +41,7 @@ func (ce *consumerEndpoint) idleChan() <-chan struct{} {
 }
 
 func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
-	ce.consumer.RecvMsg(&pb.Message{Type: pb.Message_CONSENSUS, Payload: msg}, senderHandle)
+	ce.consumer.RecvMsg(&pb.OpenchainMessage{Type: pb.OpenchainMessage_CONSENSUS, Payload: msg}, senderHandle)
 }
 
 type completeStack struct {
