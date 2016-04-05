@@ -676,6 +676,10 @@ func (d *Handler) sendStateDeltas(syncStateDeltasRequest *pb.SyncStateDeltasRequ
 			peerLogger.Error(fmt.Sprintf("Error sending stateDelta for blockNum %d: %s", currBlockNum, err))
 			break
 		}
+		if stateDelta == nil {
+			peerLogger.Warning(fmt.Sprintf("Requested to send a stateDelta for blockNum %d which has been discarded", currBlockNum))
+			break
+		}
 		// Encode a SyncStateDeltas into the payload
 		stateDeltaBytes := stateDelta.Marshal()
 		syncStateDeltas := &pb.SyncStateDeltas{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum}, Deltas: [][]byte{stateDeltaBytes}}
