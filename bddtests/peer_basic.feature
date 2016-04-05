@@ -1,5 +1,5 @@
 #
-# Test openchain Peers
+# Test Hyperledger Peers
 #
 # Tags that can be used and will affect test internals:
 #
@@ -9,7 +9,7 @@
 
 #@chaincodeImagesUpToDate
 Feature: lanching 3 peers
-    As an openchain developer
+    As a HyperLedger developer
     I want to be able to launch a 3 peers
 
 #    @doNotDecompose
@@ -361,7 +361,7 @@ Feature: lanching 3 peers
 #    @doNotDecompose
 #    @wip
     @issue_567
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #567
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "3" seconds
@@ -412,7 +412,7 @@ Feature: lanching 3 peers
     #@doNotDecompose
     #@wip
   @issue_680
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "5" seconds
@@ -494,7 +494,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
     @issue_724
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #724
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #724
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "3" seconds
@@ -559,7 +559,7 @@ Feature: lanching 3 peers
 #@doNotDecompose
 #@wip
 #@skip
-   Scenario Outline: 4 peers and 1 obcca, consensus still works if one backup replica fails
+   Scenario Outline: 4 peers and 1 membersrvc, consensus still works if one backup replica fails
 
       Given we compose "<ComposeFile>"
       And I wait "10" seconds
@@ -623,7 +623,7 @@ Feature: lanching 3 peers
 #@doNotDecompose
 #@wip
 #@skip
- Scenario Outline: 4 peers and 1 obcca, consensus fails if 2 backup replicas fail
+ Scenario Outline: 4 peers and 1 membersrvc, consensus fails if 2 backup replicas fail
 
     Given we compose "<ComposeFile>"
     And I wait "10" seconds
@@ -685,7 +685,7 @@ Feature: lanching 3 peers
      #@doNotDecompose
      #@wip
      #@skip
-      Scenario Outline: 4 peers and 1 obcca, consensus still works if 1 peer (vp3) is byzantine
+      Scenario Outline: 4 peers and 1 membersrvc, consensus still works if 1 peer (vp3) is byzantine
 
          Given we compose "<ComposeFile>"
          And I wait "10" seconds
