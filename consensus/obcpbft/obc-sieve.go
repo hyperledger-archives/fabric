@@ -101,18 +101,18 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcSieve) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
+func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	op.pbft.lock()
 	defer op.pbft.unlock()
 
-	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 		op.broadcastMsg(&SieveMessage{&SieveMessage_Request{ocMsg.Payload}})
 		op.recvRequest(ocMsg.Payload)
 		return nil
 	}
 
-	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
+	if ocMsg.Type != pb.Message_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
@@ -163,8 +163,8 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 
 // send a message to a specific replica
 func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
+	ocMsg := &pb.Message{
+		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
 	receiverHandle, err := getValidatorHandle(receiverID)
@@ -208,8 +208,8 @@ func (op *obcSieve) viewChange(newView uint64) {
 
 func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 	msgPayload, _ := proto.Marshal(svMsg)
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
+	ocMsg := &pb.Message{
+		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
 	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)

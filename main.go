@@ -43,9 +43,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
-	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
@@ -298,8 +298,8 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 		}
 
 		grpcServer = grpc.NewServer(opts...)
-		ehServer := producer.NewOpenchainEventsServer(uint(viper.GetInt("peer.validator.events.buffersize")), viper.GetInt("peer.validator.events.timeout"))
-		pb.RegisterOpenchainEventsServer(grpcServer, ehServer)
+		ehServer := producer.NewEventsServer(uint(viper.GetInt("peer.validator.events.buffersize")), viper.GetInt("peer.validator.events.timeout"))
+		pb.RegisterEventsServer(grpcServer, ehServer)
 	}
 	return lis, grpcServer, err
 }
@@ -397,7 +397,7 @@ func serve(args []string) error {
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := core.NewOpenchainServerWithPeerInfo(peerServer)
+	serverOpenchain, err := rest.NewOpenchainServerWithPeerInfo(peerServer)
 	if err != nil {
 		err = fmt.Errorf("Error creating OpenchainServer: %s", err)
 		return err

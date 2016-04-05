@@ -38,7 +38,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
-	oc "github.com/hyperledger/fabric/core"
+	core "github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -51,15 +51,15 @@ var restLogger = logging.MustGetLogger("rest")
 // underlying ServerOpenchain object. serverDevops is a variable that holds
 // the pointer to the underlying Devops object. This is necessary due to
 // how the gocraft/web package implements context initialization.
-var serverOpenchain *oc.ServerOpenchain
-var serverDevops *oc.Devops
+var serverOpenchain *ServerOpenchain
+var serverDevops *core.Devops
 
 // ServerOpenchainREST defines the Openchain REST service object. It exposes
 // the methods available on the ServerOpenchain service and the Devops service
 // through a REST API.
 type ServerOpenchainREST struct {
-	server *oc.ServerOpenchain
-	devops *oc.Devops
+	server *ServerOpenchain
+	devops *core.Devops
 }
 
 // restResult defines the response payload for a general REST interface request.
@@ -601,7 +601,7 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		if err != nil {
 			// Failure
 			switch err {
-			case oc.ErrNotFound:
+			case ErrNotFound:
 				rw.WriteHeader(http.StatusNotFound)
 			default:
 				rw.WriteHeader(http.StatusInternalServerError)
@@ -627,7 +627,7 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 	// Check for Error
 	if err != nil {
 		switch err {
-		case oc.ErrNotFound:
+		case ErrNotFound:
 			rw.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
 		default:
@@ -1649,7 +1649,7 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 
 // StartOpenchainRESTServer initializes the REST service and adds the required
 // middleware and routes.
-func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops) {
+func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	// Initialize the REST service object
 	restLogger.Info("Initializing the REST service...")
 	router := web.New(ServerOpenchainREST{})

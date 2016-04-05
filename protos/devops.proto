@@ -22,7 +22,7 @@ syntax = "proto3";
 package protos;
 
 import "chaincode.proto";
-import "openchain.proto";
+import "fabric.proto";
 
 // Interface exported by the server.
 service Devops {
