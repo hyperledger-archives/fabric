@@ -106,6 +106,22 @@ func TestVM_BuildImage_ChaincodeLocal(t *testing.T) {
 	}
 }
 
+func TestVM_BuildImage_ChaincodeCar(t *testing.T) {
+	vm, err := NewVM()
+	if err != nil {
+		t.Fail()
+		t.Logf("Error getting VM: %s", err)
+		return
+	}
+	// Build the spec
+	chaincodePath := "/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/chaintool/org.hyperledger.chaincode.example02-0.1-SNAPSHOT.car"
+	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_CAR, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: &pb.ChaincodeInput{Function: "f"}}
+	if _, err := vm.BuildChaincodeContainer(spec); err != nil {
+		t.Fail()
+		t.Log(err)
+	}
+}
+
 func TestVM_BuildImage_ChaincodeRemote(t *testing.T) {
 	t.Skip("Works but needs user credentials. Not suitable for automated unit tests as is")
 	vm, err := NewVM()
