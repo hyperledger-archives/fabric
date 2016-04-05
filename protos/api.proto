@@ -21,7 +21,7 @@ syntax = "proto3";
 
 package protos;
 
-import "openchain.proto";
+import "fabric.proto";
 import "google/protobuf/empty.proto";
 
 // Interface exported by the server.

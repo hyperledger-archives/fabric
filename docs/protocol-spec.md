@@ -238,10 +238,10 @@ Each network of validating and non-validating peers makes up a chain. Many chain
 Open Blockchain peer-to-peer communication is built on [gRPC](http://www.grpc.io/docs/), which allows bi-directional stream-based messaging. It uses [Protocol Buffers](https://developers.google.com/protocol-buffers) to serialize data structures for data transfer between peers. Protocol buffers are a language-neutral, platform-neutral and extensible mechanism for serializing structured data. OBC data structures, messages, and services are described using [proto3 language](https://developers.google.com/protocol-buffers/docs/proto3) notation.
 
 ### 3.1 Message
-Messages passed between nodes are encapsulated by `OpenchainMessage` proto structure, which consists of 4 types: Discovery, Transaction, Synchronization, and Consensus. Each type may define more subtypes embedded in the `payload`.
+Messages passed between nodes are encapsulated by `Message` proto structure, which consists of 4 types: Discovery, Transaction, Synchronization, and Consensus. Each type may define more subtypes embedded in the `payload`.
 
 ```
-message OpenchainMessage {
+message Message {
    enum Type {
         UNDEFINED = 0;
 
@@ -812,7 +812,7 @@ There are 2 consensus plugins provided: `pbft` and `noops`:
 Definition:
 ```
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error
+	RecvMsg(msg *pb.Message) error
 }
 ```
 The plugin's entry point for (external) client requests, and consensus messages generated internally (i.e. from the consensus module) during the consensus process. The `controller.NewConsenter` creates the plugin `Consenter`. `RecvMsg` processes the incoming transactions in order to reach consensus.
@@ -860,8 +860,8 @@ Definition:
 
 ```
 type Communicator interface {
-	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+	Broadcast(msg *pb.Message) error
+	Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error
 }
 ```
 
@@ -1191,8 +1191,8 @@ Recall that the `helper.ConsesusHandler` object returned by `helper.NewConsensus
 ```
 type MessageHandler interface {
 	RemoteLedger
-	HandleMessage(msg *pb.OpenchainMessage) error
-	SendMessage(msg *pb.OpenchainMessage) error
+	HandleMessage(msg *pb.Message) error
+	SendMessage(msg *pb.Message) error
 	To() (pb.PeerEndpoint, error)
 	Stop() error
 }
@@ -1201,14 +1201,14 @@ type MessageHandler interface {
 Within the context of consensus, we focus only on the `HandleMessage` method. Signature:
 
 ```
-func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error
+func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error
 ```
 
-The function inspects the `Type` of the incoming `OpenchainMessage`. There are four cases:
+The function inspects the `Type` of the incoming `Message`. There are four cases:
 
-  1. Equal to `pb.OpenchainMessage_CONSENSUS`: passed to the handler's `consenter.RecvMsg` function.
-  2. Equal to `pb.OpenchainMessage_CHAIN_TRANSACTION` (i.e. an external deployment request): a response message is sent to the user first, then the message is passed to the `consenter.RecvMsg` function.
-  3. Equal to `pb.OpenchainMessage_CHAIN_QUERY` (i.e. a query): passed to the `helper.doChainQuery` method so as to get executed locally.
+  1. Equal to `pb.Message_CONSENSUS`: passed to the handler's `consenter.RecvMsg` function.
+  2. Equal to `pb.Message_CHAIN_TRANSACTION` (i.e. an external deployment request): a response message is sent to the user first, then the message is passed to the `consenter.RecvMsg` function.
+  3. Equal to `pb.Message_CHAIN_QUERY` (i.e. a query): passed to the `helper.doChainQuery` method so as to get executed locally.
   4. Otherwise: passed to the `HandleMessage` method of the next handler down the stack.
 
 

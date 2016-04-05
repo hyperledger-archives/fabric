@@ -85,10 +85,10 @@ func (op *obcBatch) Startup(seqNo uint64, id []byte) {
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
-func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID) error {
+func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	op.pbft.lock()
 	defer op.pbft.unlock()
-	if ocMsg.Type == pb.OpenchainMessage_CHAIN_TRANSACTION {
+	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
@@ -99,8 +99,8 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		} else { // backup
 			batchMsg := &BatchMessage{&BatchMessage_Request{ocMsg.Payload}}
 			packedBatchMsg, _ := proto.Marshal(batchMsg)
-			ocMsg := &pb.OpenchainMessage{
-				Type:    pb.OpenchainMessage_CONSENSUS,
+			ocMsg := &pb.Message{
+				Type:    pb.Message_CONSENSUS,
 				Payload: packedBatchMsg,
 			}
 			op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
@@ -108,7 +108,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.OpenchainMessage, senderHandle *pb.PeerID)
 		return nil
 	}
 
-	if ocMsg.Type != pb.OpenchainMessage_CONSENSUS {
+	if ocMsg.Type != pb.Message_CONSENSUS {
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
@@ -298,11 +298,11 @@ loopBatch:
 
 // Wraps a payload into a batch message, packs it and wraps it into
 // an openchain message. Called by broadcast before transmission.
-func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.OpenchainMessage {
+func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	batchMsg := &BatchMessage{&BatchMessage_PbftMessage{msgPayload}}
 	packedBatchMsg, _ := proto.Marshal(batchMsg)
-	ocMsg := &pb.OpenchainMessage{
-		Type:    pb.OpenchainMessage_CONSENSUS,
+	ocMsg := &pb.Message{
+		Type:    pb.Message_CONSENSUS,
 		Payload: packedBatchMsg,
 	}
 	return ocMsg
