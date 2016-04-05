@@ -63,4 +63,4 @@ Once complete, you should now be able to SSH into your new VM with the following
 
 Once inside the VM, you can find the peer project under $GOPATH/src/github.com/hyperledger/fabric (as well as /hyperledger).
 
-**NOTE:** any time you *git clone* any of the projects in your Host's WORKSPACE (under $GOPATH/src/github.com/hyperledger/fabric), the update will be instantly available within the VM fabric directory.
+**NOTE:** any time you *git clone* any of the projects in your Host's fabric directory (under $GOPATH/src/github.com/hyperledger/fabric), the update will be instantly available within the VM fabric directory.
