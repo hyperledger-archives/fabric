@@ -2,17 +2,17 @@
 ## Overview
 This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
 
-* [Building the fabric core](#build)
-* [Building outside of Vagrant](#vagrant)
-* [Code contributions](#contrib)
-* [Writing Chaincode](#chaincode)
-* [Setting up a Network](#devnet)
+* [Building the fabric core](#building-the-fabric-core-)
+* [Building outside of Vagrant](#building-outside-of-vagrant-)
+* [Code contributions](#code-contributions-)
+* [Writing Chaincode](#writing-chaincode-)
+* [Setting up a Network](#setting-up-a-network-)
 
 
 ## License <a name="license"></a>
 This software is made available under the [Apache License Version 2.0](LICENSE).
 
-## Building the the fabric core <a name="build"></a>
+## Building the fabric core <a name="build"></a>
 Assuming you have followed the [development environment getting started instructions](docs/dev-setup/devenv.md)
 
 To access your VM, run
@@ -152,7 +152,7 @@ and will not accept any deviations. You must run the following tools against you
 	- [go vet](https://golang.org/cmd/vet/)
 
 ## Writing Chaincode <a name="chaincode"></a>
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](docs/api/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](docs/API/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Setting Up a Network <a name="devnet"></a>
 
@@ -161,7 +161,7 @@ To set up an development network of several validating peers, follow the instruc
 
 ## Working with CLI, REST, and Node.js <a name="cli"></a>
 
-When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [API Documentation](docs/api/CoreAPI.md) page.
+When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [API Documentation](docs/API/CoreAPI.md) page.
 
 ## Configuration <a name="config"></a>
 
