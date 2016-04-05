@@ -55,11 +55,12 @@ Now change to the $GOPATH/src/github.com/hyperledger/fabric/devenv directory and
 
 **NOTE:** If you intend to run the development environment behind an HTTP Proxy, you need to configure the guest so that the provisioning process may complete.  You can achieve this via the *vagrant-proxyconf* plugin. Install with *vagrant plugin install vagrant-proxyconf* and then set the VAGRANT_HTTP_PROXY and VAGRANT_HTTPS_PROXY environment variables *before* you execute *vagrant up*. More details are available here: https://github.com/tmatilai/vagrant-proxyconf/
 
+**NOTE #2:** The first time this may take quite a while to complete (it could take 30 minutes or more depending on your environment). Let it do its thing as long you don't get any error message it's just cranking.
 
 Once complete, you should now be able to SSH into your new VM with the following command from the same directory.
 
     vagrant ssh
 
-Once inside the VM, you can find your WORKSPACE directory under /fabric and the obc-peer project under $GOPATH/src/github.com/hyperledger/fabric.
+Once inside the VM, you can find the peer project under $GOPATH/src/github.com/hyperledger/fabric (as well as /hyperledger).
 
-**NOTE:** any time you *git clone* any of the projects in your Host's WORKSPACE, the update will be instantly available within the VM fabric directory.
+**NOTE:** any time you *git clone* any of the projects in your Host's WORKSPACE (under $GOPATH/src/github.com/hyperledger/fabric), the update will be instantly available within the VM fabric directory.
