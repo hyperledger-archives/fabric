@@ -6,7 +6,7 @@ obcca:
 
 cli:
   image: openchain-peer
-  command: ./infiniteloop.sh
+  command: ./scripts/infiniteloop.sh
   environment:
     - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
     - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
