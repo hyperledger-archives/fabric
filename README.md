@@ -2,7 +2,7 @@
 ## Overview
 This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
 
-* [Building the fabric core](#building-the-the-fabric-core-)
+* [Building the fabric core](#building-the-fabric-core-)
 * [Building outside of Vagrant](#building-outside-of-vagrant-)
 * [Code contributions](#code-contributions-)
 * [Writing Chaincode](#writing-chaincode-)
@@ -12,7 +12,7 @@ This project contains the core blockchain fabric code, development environment s
 ## License <a name="license"></a>
 This software is made available under the [Apache License Version 2.0](LICENSE).
 
-## Building the the fabric core <a name="build"></a>
+## Building the fabric core <a name="build"></a>
 Assuming you have followed the [development environment getting started instructions](docs/dev-setup/devenv.md)
 
 To access your VM, run
