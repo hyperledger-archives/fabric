@@ -43,7 +43,7 @@ type handlerList struct {
 }
 
 //eventProcessor has a map of event type to handlers interested in that
-//event type. start() kicks of the event processor where it waits for OpenchainEvents
+//event type. start() kicks of the event processor where it waits for Events
 //from producers. We could easily generalize the one event handling loop to one
 //per handlerMap if necessary.
 //
@@ -52,7 +52,7 @@ type eventProcessor struct {
 	eventConsumers map[string]*handlerList
 
 	//we could generalize this with mutiple channels each with its own size
-	eventChannel chan *pb.OpenchainEvent
+	eventChannel chan *pb.Event
 
 	//milliseconds timeout for producer to send an event.
 	//if < 0, if buffer full, unblocks immediately and not send
@@ -92,7 +92,7 @@ func (ep *eventProcessor) start() {
 						if b, err := json.Marshal(e.Event); err != nil {
 							producerLogger.Error(fmt.Sprintf("could not marshall JSON for eObject %v(%s)", e.Event, eType))
 						} else {
-							e.Event = &pb.OpenchainEvent_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
+							e.Event = &pb.Event_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
 						}
 					case pb.Interest_PROTOBUF:
 					}
@@ -112,7 +112,7 @@ func initializeEvents(bufferSize uint, tout int) {
 		panic("should not be called twice")
 	}
 
-	gEventProcessor = &eventProcessor{eventConsumers: make(map[string]*handlerList), eventChannel: make(chan *pb.OpenchainEvent, bufferSize), timeout: tout}
+	gEventProcessor = &eventProcessor{eventConsumers: make(map[string]*handlerList), eventChannel: make(chan *pb.Event, bufferSize), timeout: tout}
 
 	addInternalEventTypes()
 
@@ -179,7 +179,7 @@ func deRegisterHandler(ie *pb.Interest, h *handler) error {
 //------------- producer API's -------------------------------
 
 //Send sends the event to interested consumers
-func Send(e *pb.OpenchainEvent) error {
+func Send(e *pb.Event) error {
 	if e.Event == nil {
 		producerLogger.Error("event not set")
 		return fmt.Errorf("event not set")
