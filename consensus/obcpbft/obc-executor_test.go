@@ -167,10 +167,12 @@ func TestExecutorRequestFlood(t *testing.T) {
 	<-obcex.IdleChan()
 
 	obcex.Execute(101, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
-	<-obcex.IdleChan()
 
-	if obcex.lastExec != 101 {
-		t.Fatalf("Expected executions")
+	<-obcex.IdleChan()
+	<-obcex.IdleChan() // Two calls guarantees that we have hit the select without the idle channel
+	expectedExecutions := uint64(101)
+	if obcex.lastExec != expectedExecutions {
+		t.Fatalf("Expected %d executions, got %d", expectedExecutions, obcex.lastExec)
 	}
 
 }

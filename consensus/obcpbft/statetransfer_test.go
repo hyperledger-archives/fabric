@@ -161,6 +161,36 @@ func TestCatchupSimple(t *testing.T) {
 
 }
 
+func TestCatchupWithoutDeltas(t *testing.T) {
+	mrls := createRemoteLedgers(1, 3)
+
+	deltasTransferred := false
+
+	// Test from blockheight of 1, with valid genesis block
+	ml := NewMockLedger(mrls, func(request mockRequest, peerID *protos.PeerID) mockResponse {
+		if request == SyncDeltas {
+			fmt.Println("ASDF")
+			deltasTransferred = true
+		}
+
+		return Normal
+	})
+	ml.PutBlock(0, SimpleGetBlock(0))
+
+	sts := newTestStateTransfer(ml, mrls)
+	sts.MaxStateDeltas = 0
+	defer sts.Stop()
+
+	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
+		t.Fatalf("Without deltas case: %s", err)
+	}
+
+	if deltasTransferred {
+		t.Fatalf("State delta retrieval should not occur during this test")
+	}
+
+}
+
 func TestCatchupSyncBlocksErrors(t *testing.T) {
 	for _, failureType := range []mockResponse{Timeout, Corrupt} {
 		mrls := createRemoteLedgers(1, 3)
@@ -320,6 +350,7 @@ func TestCatchupSyncDeltasError(t *testing.T) {
 		filter, result := makeSimpleFilter(SyncDeltas, failureType)
 		ml := NewMockLedger(mrls, filter)
 		ml.PutBlock(4, SimpleGetBlock(4))
+		ml.state = SimpleGetState(4)
 		sts := newTestStateTransfer(ml, mrls)
 		defer sts.Stop()
 		sts.StateDeltaRequestTimeout = 10 * time.Millisecond
