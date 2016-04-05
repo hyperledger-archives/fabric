@@ -34,7 +34,7 @@ It has these top-level messages:
 	Interest
 	Register
 	Generic
-	OpenchainEvent
+	Event
 	Transaction
 	TransactionBlock
 	TransactionResult

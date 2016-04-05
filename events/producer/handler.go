@@ -26,13 +26,13 @@ import (
 )
 
 type handler struct {
-	ChatStream       pb.OpenchainEvents_ChatServer
+	ChatStream       pb.Events_ChatServer
 	doneChan         chan bool
 	registered       bool
 	interestedEvents map[string]*pb.Interest
 }
 
-func newOpenchainEventHandler(stream pb.OpenchainEvents_ChatServer) (*handler, error) {
+func newEventHandler(stream pb.Events_ChatServer) (*handler, error) {
 	d := &handler{
 		ChatStream: stream,
 	}
@@ -95,8 +95,8 @@ func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
 }
 
 // HandleMessage handles the Openchain messages for the Peer.
-func (d *handler) HandleMessage(msg *pb.OpenchainEvent) error {
-	producerLogger.Debug("Handling OpenchainEvent")
+func (d *handler) HandleMessage(msg *pb.Event) error {
+	producerLogger.Debug("Handling Event")
 	eventsObj := msg.GetRegister()
 	if eventsObj == nil {
 		return fmt.Errorf("Invalid object from consumer %v", msg.GetEvent())
@@ -117,7 +117,7 @@ func (d *handler) HandleMessage(msg *pb.OpenchainEvent) error {
 }
 
 // SendMessage sends a message to the remote PEER through the stream
-func (d *handler) SendMessage(msg *pb.OpenchainEvent) error {
+func (d *handler) SendMessage(msg *pb.Event) error {
 	err := d.ChatStream.Send(msg)
 	if err != nil {
 		return fmt.Errorf("Error Sending message through ChatStream: %s", err)

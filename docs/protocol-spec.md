@@ -1229,7 +1229,7 @@ The event stream initializes the buffer and timeout parameters. The buffer holds
 
 
 #### 3.5.1.1 Event Producer
-The event producer exposes a function to send an event, `Send(e *pb.OpenchainEvent)`, where `OpenchainEvent` is either a pre-defined `Block` or a `Generic` event. More events will be defined in the future to include other elements of the fabric.
+The event producer exposes a function to send an event, `Send(e *pb.Event)`, where `Event` is either a pre-defined `Block` or a `Generic` event. More events will be defined in the future to include other elements of the fabric.
 
 ```
 message Generic {
@@ -1245,7 +1245,7 @@ The event consumer enables external applications to listen to events. Each event
 
 ```
 adapter = <adapter supplied by the client application to register and receive events>
-consumerClient = NewOpenchainEventsClient(<event consumer address>, adapter)
+consumerClient = NewEventsClient(<event consumer address>, adapter)
 consumerClient.Start()
 ...
 ...
@@ -1262,7 +1262,7 @@ The reference implementation provides Golang specific language binding.
 ```
       EventAdapter interface {
          GetInterestedEvents() ([]*ehpb.Interest, error)
-         Recv(msg *ehpb.OpenchainEvent) (bool,error)
+         Recv(msg *ehpb.Event) (bool,error)
          Disconnected(err error)
       }
 ```
@@ -1272,9 +1272,9 @@ Using gRPC as the event bus protocol allows the event consumer framework to be p
 
 This section details the message structures of the event system. Messages are described directly in Golang for simplicity.
 
-The core message used for communication between the event consumer and producer is the OpenchainEvent.
+The core message used for communication between the event consumer and producer is the Event.
 ```
-    message OpenchainEvent {
+    message Event {
         oneof Event {
             //consumer events
             Register register = 1;

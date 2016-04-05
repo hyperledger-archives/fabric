@@ -33,26 +33,26 @@ const defaultTimeout = time.Second * 3
 
 var producerLogger = logging.MustGetLogger("eventhub_producer")
 
-// OpenchainEventsServer implementation of the Peer service
-type OpenchainEventsServer struct {
+// EventsServer implementation of the Peer service
+type EventsServer struct {
 }
 
-//singleton - if we want to create multiple servers, we need to subsume events.gEventConsumers into OpenchainEventsServer
-var globalOpenchainEventsServer *OpenchainEventsServer
+//singleton - if we want to create multiple servers, we need to subsume events.gEventConsumers into EventsServer
+var globalEventsServer *EventsServer
 
-// NewOpenchainEventsServer returns a OpenchainEventsServer
-func NewOpenchainEventsServer(bufferSize uint, timeout int) *OpenchainEventsServer {
-	if globalOpenchainEventsServer != nil {
+// NewEventsServer returns a EventsServer
+func NewEventsServer(bufferSize uint, timeout int) *EventsServer {
+	if globalEventsServer != nil {
 		panic("Cannot create multiple event hub servers")
 	}
-	globalOpenchainEventsServer = new(OpenchainEventsServer)
+	globalEventsServer = new(EventsServer)
 	initializeEvents(bufferSize, timeout)
-	return globalOpenchainEventsServer
+	return globalEventsServer
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
-func (p *OpenchainEventsServer) Chat(stream pb.OpenchainEvents_ChatServer) error {
-	handler, err := newOpenchainEventHandler(stream)
+func (p *EventsServer) Chat(stream pb.Events_ChatServer) error {
+	handler, err := newEventHandler(stream)
 	if err != nil {
 		return fmt.Errorf("Error creating handler during handleChat initiation: %s", err)
 	}
