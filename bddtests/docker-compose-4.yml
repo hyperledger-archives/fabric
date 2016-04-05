@@ -3,14 +3,14 @@ vp0:
     file: compose-defaults.yml
     service: vp
   environment:
-    - OPENCHAIN_PEER_ID=vp0
+    - CORE_PEER_ID=vp0
 
 vp1:
   extends:
     service: vp0
   environment:
-    - OPENCHAIN_PEER_ID=vp1
-    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - CORE_PEER_ID=vp1
+    - CORE_PEER_DISCOVERY_ROOTNODE=vp0:30303
   links:
     - vp0
 
@@ -18,8 +18,8 @@ vp2:
   extends:
     service: vp0
   environment:
-    - OPENCHAIN_PEER_ID=vp2
-    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - CORE_PEER_ID=vp2
+    - CORE_PEER_DISCOVERY_ROOTNODE=vp0:30303
   links:
     - vp0
 
@@ -27,7 +27,7 @@ vp3:
   extends:
     service: vp0
   environment:
-    - OPENCHAIN_PEER_ID=vp3
-    - OPENCHAIN_PEER_DISCOVERY_ROOTNODE=vp0:30303
+    - CORE_PEER_ID=vp3
+    - CORE_PEER_DISCOVERY_ROOTNODE=vp0:30303
   links:
     - vp0
