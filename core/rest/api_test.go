@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package core
+package rest
 
 import (
 	"bytes"
@@ -40,11 +40,12 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("core") // name of config file (without extension)
-	viper.AddConfigPath("./")        // path to look for the config file in
-	viper.AddConfigPath("./..")      // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.SetConfigName("core")    // name of config file (without extension)
+	viper.AddConfigPath("./")      // path to look for the config file in
+	viper.AddConfigPath("./..")    // path to look for the config file in
+	viper.AddConfigPath("./../..") // path to look for the config file in
+	err := viper.ReadInConfig()    // Find and read the config file
+	if err != nil {                // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 }
