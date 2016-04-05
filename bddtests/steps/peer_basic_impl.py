@@ -8,7 +8,7 @@ import sys, requests, json
 
 import bdd_test_util
 
-OPENCHAIN_REST_PORT = 5000
+CORE_REST_PORT = 5000
 
 class ContainerData:
     def __init__(self, containerName, ipAddress, envFromInspect, composeService):
@@ -83,7 +83,7 @@ def buildUrl(context, ipAddress, path):
     schema = "http"
     if 'TLS' in context.tags:
         schema = "https"
-    return "{0}://{1}:{2}{3}".format(schema, ipAddress, OPENCHAIN_REST_PORT, path)
+    return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
 
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
