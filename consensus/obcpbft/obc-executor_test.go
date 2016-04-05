@@ -162,9 +162,16 @@ func TestExecutorRequestFlood(t *testing.T) {
 		BlockHash:   SimpleGetBlockHash(100),
 	}
 
-	biAsBytes, _ := proto.Marshal(bi)
-	obcex.ValidState(100, biAsBytes, nil, &ExecutionInfo{})
-	<-obcex.IdleChan()
+outer:
+	for {
+		select {
+		case <-obcex.IdleChan():
+			break outer
+		default:
+			biAsBytes, _ := proto.Marshal(bi)
+			obcex.ValidState(100, biAsBytes, nil, &ExecutionInfo{})
+		}
+	}
 
 	obcex.Execute(101, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
 
