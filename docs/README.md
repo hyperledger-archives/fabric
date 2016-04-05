@@ -7,10 +7,10 @@ When you are ready to start using OBC to build applications or to otherwise cont
 
 ## Documentation
 In addition to the <b>Getting started</b> documentation, the following topics are also available:
-- [Open Blockchain FAQs](https://github.com/openblockchain/obc-docs/tree/master/FAQ)
-- [Canonical use cases](https://github.com/openblockchain/obc-docs/blob/master/biz/usecases.md)
-- [Development environment set-up](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md)
-- [Chain code development environment](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md)
-- [Open Blockchain APIs](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20API.md)
-- [Open Blockchain network setup](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devnet-setup.md)
-- [Technical implementation details](https://github.com/openblockchain/obc-docs/tree/master/tech)
+- [Open Blockchain FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
+- [Canonical use cases](https://github.com/hyperledger/fabric/blob/master/docs/biz/usecases.md)
+- [Development environment set-up](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devenv.md)
+- [Chain code development environment](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md)
+- [Open Blockchain APIs](https://github.com/hyperledger/fabric/blob/master/docs/API/CoreAPI.md)
+- [Open Blockchain network setup](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devnet-setup.md)
+- [Technical implementation details](https://github.com/hyperledger/fabric/tree/master/docs/tech)
