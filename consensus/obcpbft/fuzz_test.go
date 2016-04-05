@@ -152,7 +152,7 @@ func TestMinimalFuzz(t *testing.T) {
 			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
-		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: int64(reqID), Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)

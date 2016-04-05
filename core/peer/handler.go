@@ -64,29 +64,29 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 	d.FSM = fsm.NewFSM(
 		"created",
 		fsm.Events{
-			{Name: pb.OpenchainMessage_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_DISC_GET_PEERS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_DISC_PEERS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_BLOCK_ADDED.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_GET_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_STATE_SNAPSHOT.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_STATE_GET_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
-			{Name: pb.OpenchainMessage_SYNC_STATE_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_DISC_HELLO.String(), Src: []string{"created"}, Dst: "established"},
+			{Name: pb.Message_DISC_GET_PEERS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_DISC_PEERS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_BLOCK_ADDED.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_GET_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_BLOCKS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_STATE_GET_SNAPSHOT.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_STATE_SNAPSHOT.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_STATE_GET_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
+			{Name: pb.Message_SYNC_STATE_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
 			"enter_state":                                                    func(e *fsm.Event) { d.enterState(e) },
-			"before_" + pb.OpenchainMessage_DISC_HELLO.String():              func(e *fsm.Event) { d.beforeHello(e) },
-			"before_" + pb.OpenchainMessage_DISC_GET_PEERS.String():          func(e *fsm.Event) { d.beforeGetPeers(e) },
-			"before_" + pb.OpenchainMessage_DISC_PEERS.String():              func(e *fsm.Event) { d.beforePeers(e) },
-			"before_" + pb.OpenchainMessage_SYNC_BLOCK_ADDED.String():        func(e *fsm.Event) { d.beforeBlockAdded(e) },
-			"before_" + pb.OpenchainMessage_SYNC_GET_BLOCKS.String():         func(e *fsm.Event) { d.beforeSyncGetBlocks(e) },
-			"before_" + pb.OpenchainMessage_SYNC_BLOCKS.String():             func(e *fsm.Event) { d.beforeSyncBlocks(e) },
-			"before_" + pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT.String(): func(e *fsm.Event) { d.beforeSyncStateGetSnapshot(e) },
-			"before_" + pb.OpenchainMessage_SYNC_STATE_SNAPSHOT.String():     func(e *fsm.Event) { d.beforeSyncStateSnapshot(e) },
-			"before_" + pb.OpenchainMessage_SYNC_STATE_GET_DELTAS.String():   func(e *fsm.Event) { d.beforeSyncStateGetDeltas(e) },
-			"before_" + pb.OpenchainMessage_SYNC_STATE_DELTAS.String():       func(e *fsm.Event) { d.beforeSyncStateDeltas(e) },
+			"before_" + pb.Message_DISC_HELLO.String():              func(e *fsm.Event) { d.beforeHello(e) },
+			"before_" + pb.Message_DISC_GET_PEERS.String():          func(e *fsm.Event) { d.beforeGetPeers(e) },
+			"before_" + pb.Message_DISC_PEERS.String():              func(e *fsm.Event) { d.beforePeers(e) },
+			"before_" + pb.Message_SYNC_BLOCK_ADDED.String():        func(e *fsm.Event) { d.beforeBlockAdded(e) },
+			"before_" + pb.Message_SYNC_GET_BLOCKS.String():         func(e *fsm.Event) { d.beforeSyncGetBlocks(e) },
+			"before_" + pb.Message_SYNC_BLOCKS.String():             func(e *fsm.Event) { d.beforeSyncBlocks(e) },
+			"before_" + pb.Message_SYNC_STATE_GET_SNAPSHOT.String(): func(e *fsm.Event) { d.beforeSyncStateGetSnapshot(e) },
+			"before_" + pb.Message_SYNC_STATE_SNAPSHOT.String():     func(e *fsm.Event) { d.beforeSyncStateSnapshot(e) },
+			"before_" + pb.Message_SYNC_STATE_GET_DELTAS.String():   func(e *fsm.Event) { d.beforeSyncStateGetDeltas(e) },
+			"before_" + pb.Message_SYNC_STATE_DELTAS.String():       func(e *fsm.Event) { d.beforeSyncStateDeltas(e) },
 		},
 	)
 
@@ -98,7 +98,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			return nil, fmt.Errorf("Error getting new HelloMessage: %s", err)
 		}
 		if err := d.SendMessage(helloMessage); err != nil {
-			return nil, fmt.Errorf("Error creating new Peer Handler, error returned sending %s: %s", pb.OpenchainMessage_DISC_HELLO, err)
+			return nil, fmt.Errorf("Error creating new Peer Handler, error returned sending %s: %s", pb.Message_DISC_HELLO, err)
 		}
 	}
 
@@ -141,11 +141,11 @@ func (d *Handler) Stop() error {
 func (d *Handler) beforeHello(e *fsm.Event) {
 	peerLogger.Debug("Received %s, parsing out Peer identification", e.Event)
 	// Parse out the PeerEndpoint information
-	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+	if _, ok := e.Args[0].(*pb.Message); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	msg := e.Args[0].(*pb.OpenchainMessage)
+	msg := e.Args[0].(*pb.Message)
 
 	helloMessage := &pb.HelloMessage{}
 	err := proto.Unmarshal(msg.Payload, helloMessage)
@@ -168,7 +168,7 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 
 	if d.initiatedStream == false {
 		// Did NOT intitiate the stream, need to send back HELLO
-		peerLogger.Debug("Received %s, sending back %s", e.Event, pb.OpenchainMessage_DISC_HELLO.String())
+		peerLogger.Debug("Received %s, sending back %s", e.Event, pb.Message_DISC_HELLO.String())
 		// Send back out PeerID information in a Hello
 		helloMessage, err := d.Coordinator.NewOpenchainDiscoveryHello()
 		if err != nil {
@@ -202,8 +202,8 @@ func (d *Handler) beforeGetPeers(e *fsm.Event) {
 		e.Cancel(fmt.Errorf("Error Marshalling PeersMessage: %s", err))
 		return
 	}
-	peerLogger.Debug("Sending back %s", pb.OpenchainMessage_DISC_PEERS.String())
-	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_PEERS, Payload: data}); err != nil {
+	peerLogger.Debug("Sending back %s", pb.Message_DISC_PEERS.String())
+	if err := d.SendMessage(&pb.Message{Type: pb.Message_DISC_PEERS, Payload: data}); err != nil {
 		e.Cancel(err)
 	}
 }
@@ -211,11 +211,11 @@ func (d *Handler) beforeGetPeers(e *fsm.Event) {
 func (d *Handler) beforePeers(e *fsm.Event) {
 	peerLogger.Debug("Received %s, grabbing peers message", e.Event)
 	// Parse out the PeerEndpoint information
-	if _, ok := e.Args[0].(*pb.OpenchainMessage); !ok {
+	if _, ok := e.Args[0].(*pb.Message); !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
 	}
-	msg := e.Args[0].(*pb.OpenchainMessage)
+	msg := e.Args[0].(*pb.Message)
 
 	peersMessage := &pb.PeersMessage{}
 	err := proto.Unmarshal(msg.Payload, peersMessage)
@@ -229,14 +229,14 @@ func (d *Handler) beforePeers(e *fsm.Event) {
 
 	// // Can be used to demonstrate Broadcast function
 	// if viper.GetString("peer.id") == "jdoe" {
-	// 	d.Coordinator.Broadcast(&pb.OpenchainMessage{Type: pb.OpenchainMessage_UNDEFINED})
+	// 	d.Coordinator.Broadcast(&pb.Message{Type: pb.Message_UNDEFINED})
 	// }
 
 }
 
 func (d *Handler) beforeBlockAdded(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -250,8 +250,8 @@ func (d *Handler) when(stateToCheck string) bool {
 }
 
 // HandleMessage handles the Openchain messages for the Peer.
-func (d *Handler) HandleMessage(msg *pb.OpenchainMessage) error {
-	peerLogger.Debug("Handling OpenchainMessage of type: %s ", msg.Type)
+func (d *Handler) HandleMessage(msg *pb.Message) error {
+	peerLogger.Debug("Handling Message of type: %s ", msg.Type)
 	if d.FSM.Cannot(msg.Type.String()) {
 		return fmt.Errorf("Peer FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Type.String(), len(msg.Payload), d.FSM.Current())
 	}
@@ -267,7 +267,7 @@ func (d *Handler) HandleMessage(msg *pb.OpenchainMessage) error {
 }
 
 // SendMessage sends a message to the remote PEER through the stream
-func (d *Handler) SendMessage(msg *pb.OpenchainMessage) error {
+func (d *Handler) SendMessage(msg *pb.Message) error {
 	//make sure Sends are serialized. Also make sure everyone uses SendMessage
 	//instead of calling Send directly on the grpc stream
 	d.chatMutex.Lock()
@@ -288,8 +288,8 @@ func (d *Handler) start() error {
 	for {
 		select {
 		case <-tickChan:
-			if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS}); err != nil {
-				peerLogger.Error(fmt.Sprintf("Error sending %s during handler discovery tick: %s", pb.OpenchainMessage_DISC_GET_PEERS, err))
+			if err := d.SendMessage(&pb.Message{Type: pb.Message_DISC_GET_PEERS}); err != nil {
+				peerLogger.Error(fmt.Sprintf("Error sending %s during handler discovery tick: %s", pb.Message_DISC_GET_PEERS, err))
 			}
 			// // TODO: For testing only, remove eventually.  Test the blocks transfer functionality.
 			// syncBlocksChannel, _ := d.RequestBlocks(&pb.SyncBlockRange{Start: 0, End: 0})
@@ -368,16 +368,16 @@ func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.S
 	if err != nil {
 		return nil, fmt.Errorf("Error marshaling syncBlockRange during GetBlocks: %s", err)
 	}
-	peerLogger.Debug("Sending %s with Range %s", pb.OpenchainMessage_SYNC_GET_BLOCKS.String(), syncBlockRange)
-	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
-		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.OpenchainMessage_SYNC_GET_BLOCKS, err)
+	peerLogger.Debug("Sending %s with Range %s", pb.Message_SYNC_GET_BLOCKS.String(), syncBlockRange)
+	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
+		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.Message_SYNC_GET_BLOCKS, err)
 	}
 	return d.syncBlocks, nil
 }
 
 func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -395,7 +395,7 @@ func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
 
 func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -455,7 +455,7 @@ func (d *Handler) sendBlocks(syncBlockRange *pb.SyncBlockRange) {
 			peerLogger.Error(fmt.Sprintf("Error marshalling syncBlocks for BlockNum = %d: %s", currBlockNum, err))
 			break
 		}
-		if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_BLOCKS, Payload: syncBlocksBytes}); err != nil {
+		if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_BLOCKS, Payload: syncBlocksBytes}); err != nil {
 			peerLogger.Error(fmt.Sprintf("Error sending blockNum %d: %s", currBlockNum, err))
 			break
 		}
@@ -483,9 +483,9 @@ func (d *Handler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error marshaling syncStateSnapshotRequest during GetStateSnapshot: %s", err)
 	}
-	peerLogger.Debug("Sending %s with syncStateSnapshotRequest = %s", pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT.String(), syncStateSnapshotRequest)
-	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT, Payload: syncStateSnapshotRequestBytes}); err != nil {
-		return nil, fmt.Errorf("Error sending %s during GetStateSnapshot: %s", pb.OpenchainMessage_SYNC_STATE_GET_SNAPSHOT, err)
+	peerLogger.Debug("Sending %s with syncStateSnapshotRequest = %s", pb.Message_SYNC_STATE_GET_SNAPSHOT.String(), syncStateSnapshotRequest)
+	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_STATE_GET_SNAPSHOT, Payload: syncStateSnapshotRequestBytes}); err != nil {
+		return nil, fmt.Errorf("Error sending %s during GetStateSnapshot: %s", pb.Message_SYNC_STATE_GET_SNAPSHOT, err)
 	}
 
 	return d.snapshotRequestHandler.channel, nil
@@ -494,7 +494,7 @@ func (d *Handler) RequestStateSnapshot() (<-chan *pb.SyncStateSnapshot, error) {
 // beforeSyncStateGetSnapshot triggers the sending of State Snapshot deltas to remote Peer.
 func (d *Handler) beforeSyncStateGetSnapshot(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -514,7 +514,7 @@ func (d *Handler) beforeSyncStateGetSnapshot(e *fsm.Event) {
 // beforeSyncStateSnapshot will write the State Snapshot deltas to the respective channel.
 func (d *Handler) beforeSyncStateSnapshot(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -583,7 +583,7 @@ func (d *Handler) sendStateSnapshot(syncStateSnapshotRequest *pb.SyncStateSnapsh
 			peerLogger.Error(fmt.Sprintf("Error marshalling syncStateSnapsot for BlockNum = %d: %s", currBlockNumber, err))
 			break
 		}
-		if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_SNAPSHOT, Payload: syncStateSnapshotBytes}); err != nil {
+		if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_STATE_SNAPSHOT, Payload: syncStateSnapshotBytes}); err != nil {
 			peerLogger.Error(fmt.Sprintf("Error sending syncStateSnapsot for BlockNum = %d: %s", currBlockNumber, err))
 			break
 		}
@@ -596,7 +596,7 @@ func (d *Handler) sendStateSnapshot(syncStateSnapshotRequest *pb.SyncStateSnapsh
 		peerLogger.Error(fmt.Sprintf("Error marshalling terminating syncStateSnapsot message for correlationId = %d, BlockNum = %d: %s", syncStateSnapshotRequest.CorrelationId, currBlockNumber, err))
 		return
 	}
-	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_SNAPSHOT, Payload: syncStateSnapshotBytes}); err != nil {
+	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_STATE_SNAPSHOT, Payload: syncStateSnapshotBytes}); err != nil {
 		peerLogger.Error(fmt.Sprintf("Error sending terminating syncStateSnapsot for correlationId = %d, BlockNum = %d: %s", syncStateSnapshotRequest.CorrelationId, currBlockNumber, err))
 		return
 	}
@@ -624,9 +624,9 @@ func (d *Handler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan 
 	if err != nil {
 		return nil, fmt.Errorf("Error marshaling syncStateDeltasRequest during RequestStateDeltas: %s", err)
 	}
-	peerLogger.Debug("Sending %s with syncStateDeltasRequest = %s", pb.OpenchainMessage_SYNC_STATE_GET_DELTAS.String(), syncStateDeltasRequest)
-	if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_GET_DELTAS, Payload: syncStateDeltasRequestBytes}); err != nil {
-		return nil, fmt.Errorf("Error sending %s during RequestStateDeltas: %s", pb.OpenchainMessage_SYNC_STATE_GET_DELTAS, err)
+	peerLogger.Debug("Sending %s with syncStateDeltasRequest = %s", pb.Message_SYNC_STATE_GET_DELTAS.String(), syncStateDeltasRequest)
+	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_STATE_GET_DELTAS, Payload: syncStateDeltasRequestBytes}); err != nil {
+		return nil, fmt.Errorf("Error sending %s during RequestStateDeltas: %s", pb.Message_SYNC_STATE_GET_DELTAS, err)
 	}
 
 	return d.syncStateDeltasRequestHandler.channel, nil
@@ -635,7 +635,7 @@ func (d *Handler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan 
 // beforeSyncStateGetDeltas triggers the sending of Get SyncStateDeltas to remote Peer.
 func (d *Handler) beforeSyncStateGetDeltas(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
@@ -688,7 +688,7 @@ func (d *Handler) sendStateDeltas(syncStateDeltasRequest *pb.SyncStateDeltasRequ
 			peerLogger.Error(fmt.Sprintf("Error marshalling syncStateDeltas for BlockNum = %d: %s", currBlockNum, err))
 			break
 		}
-		if err := d.SendMessage(&pb.OpenchainMessage{Type: pb.OpenchainMessage_SYNC_STATE_DELTAS, Payload: syncStateDeltasBytes}); err != nil {
+		if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_STATE_DELTAS, Payload: syncStateDeltasBytes}); err != nil {
 			peerLogger.Error(fmt.Sprintf("Error sending stateDeltas for blockNum %d: %s", currBlockNum, err))
 			break
 		}
@@ -697,7 +697,7 @@ func (d *Handler) sendStateDeltas(syncStateDeltasRequest *pb.SyncStateDeltasRequ
 
 func (d *Handler) beforeSyncStateDeltas(e *fsm.Event) {
 	peerLogger.Debug("Received message: %s", e.Event)
-	msg, ok := e.Args[0].(*pb.OpenchainMessage)
+	msg, ok := e.Args[0].(*pb.Message)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))
 		return
