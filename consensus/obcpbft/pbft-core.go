@@ -510,7 +510,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
-	if !instance.timerActive {
+	if !instance.timerActive && instance.activeView {
 		instance.startTimer(instance.requestTimeout)
 	}
 
