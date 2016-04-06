@@ -212,7 +212,7 @@ func TestCheckpoint(t *testing.T) {
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -284,7 +284,7 @@ func TestLostPrePrepare(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	req := &Request{
@@ -332,7 +332,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	makePP := func(iter int64) *PrePrepare {
@@ -384,7 +384,7 @@ func TestViewChange(t *testing.T) {
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -436,7 +436,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	makePP := func(iter int64) *PrePrepare {
@@ -507,7 +507,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	broadcaster := uint64(generateBroadcaster(validatorCount))
@@ -618,7 +618,7 @@ func TestNewViewTimeout(t *testing.T) {
 	broadcaster := uint64(generateBroadcaster(validatorCount))
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 	msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: broadcaster}}}
 	msgPacked, _ := proto.Marshal(msg)
@@ -759,7 +759,7 @@ func TestFallBehind(t *testing.T) {
 	execReq := func(iter int64, skipThree bool) {
 		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -834,7 +834,7 @@ func TestPbftF0(t *testing.T) {
 
 	// Create a message of type: `Message_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
@@ -887,7 +887,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 	defer instance.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	req := &Request{
