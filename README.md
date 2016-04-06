@@ -1,13 +1,18 @@
-
 ## Overview
-This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
+This project contains the core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications.
 
 * [Building the fabric core](#building-the-fabric-core-)
 * [Building outside of Vagrant](#building-outside-of-vagrant-)
 * [Code contributions](#code-contributions-)
+* [Communication](#communication-)
+* [Coding Golang](#coding-golang-)
 * [Writing Chaincode](#writing-chaincode-)
-* [Setting up a Network](#setting-up-a-network-)
-
+* [Setting Up a Network](#setting-up-a-network-)
+* [Working with CLI, REST, and Node.js](#working-with-cli-rest-and-nodejs-)
+* [Configuration](#configuration-)
+* [Logging](#logging-)
+* [Generating grpc code](#generating-grpc-code-)
+* [Adding or updating Go packages](#adding-or-updating-go-packages-)
 
 ## License <a name="license"></a>
 This software is made available under the [Apache License Version 2.0](LICENSE).
@@ -187,7 +192,7 @@ If you modify any .proto files, run the following command to generate new .pb.go
 devenv/compile_protos.sh
 ```
 
-## Adding or updating a Go packages <a name="vendoring"></a>
+## Adding or updating Go packages <a name="vendoring"></a>
 
 The fabric uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the obc-peer project. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
 
