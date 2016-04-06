@@ -1,10 +1,10 @@
 ## USAGE
 
 &nbsp;
-#####What are the expected performance figures for OBC?
+#####What are the expected performance figures for the Hyperledger fabric?
 The performance of a chain network depends on multiple factors, such as the encryption method used, transaction message size, security level set, business logic running, number of validators, proximity of the validating nodes, the consensus algorithm deployed, etc.
 
-The current performance goal for OBC is to achieve 100,000 transactions per second in a standard production environment of approximately 15 validating nodes running in close proximity. The OBC team is committed to continue to invest in improving the performance and the scalability of the system.
+The current performance goal for the Hyperledger fabric is to achieve 100,000 transactions per second in a standard production environment of approximately 15 validating nodes running in close proximity. The Hyperledger fabric team is committed to continue to invest in improving the performance and the scalability of the system.
 
 &nbsp;
 ##### Do I have to own a validating node to transact on a chain network? 
