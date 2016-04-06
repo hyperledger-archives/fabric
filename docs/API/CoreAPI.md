@@ -1,4 +1,4 @@
-# Open Blockchain APIs - CLI, REST, and Node.js
+# Hyperledger Fabric APIs - CLI, REST, and Node.js
 
 ## Overview
 
