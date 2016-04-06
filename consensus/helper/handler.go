@@ -67,7 +67,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	return handler, nil
 }
 
-// HandleMessage handles the incoming Openchain messages for the Peer
+// HandleMessage handles the incoming Fabric messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 	if msg.Type == pb.Message_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()

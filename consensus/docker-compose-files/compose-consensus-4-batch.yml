@@ -1,15 +1,15 @@
 vp0:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=batch
+    - CORE_PBFT_GENERAL_MODE=batch
 
 vp1:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=batch
+    - CORE_PBFT_GENERAL_MODE=batch
 
 vp2:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=batch
+    - CORE_PBFT_GENERAL_MODE=batch
 
 vp3:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=batch
+    - CORE_PBFT_GENERAL_MODE=batch

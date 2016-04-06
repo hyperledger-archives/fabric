@@ -49,7 +49,7 @@ vp3:
     - CORE_PEER_DISCOVERY_ROOTNODE=vp0:30303
     - CORE_SECURITY_ENROLLID=test_vp3
     - CORE_SECURITY_ENROLLSECRET=9LKqKH5peurL
-    - CORE_OBCPBFT_GENERAL_BYZANTINE=true    
+    - CORE_PBFT_GENERAL_BYZANTINE=true    
   links:
     - membersrvc0
     - vp0
