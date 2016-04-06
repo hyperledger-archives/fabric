@@ -7,7 +7,7 @@ See [Logging Control](logging-control.md) for information on controlling
 logging output from the `obc-peer` and chaincodes.
 
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.  In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in openchain.yaml variables paddr of eca, tca and tlsca.
 
 ### Setting up Docker image
 To create a Docker image for Open Blockchain, named `openchain`,
@@ -49,6 +49,13 @@ By default, we are using a consensus plugin called `NOOPS`, which doesn't really
 ```
 docker run --rm -it -e OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243 -e OPENCHAIN_PEER_ID=vp0 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=true openchain-peer obc-peer peer
 ```
+
+If started with security, enviroment variables regarding security enabling, CA address and peer's ID and password have to be changed:
+
+```
+docker run --rm -it -e OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243 -e OPENCHAIN_PEER_ID=vp0 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=true -e OPENCHAIN_SECURITY_ENABLED=true -e OPENCHAIN_SECURITY_PRIVACY=true -e OPENCHAIN_PKI_ECA_PADDR=172.17.0.1:50051 -e OPENCHAIN_PKI_TCA_PADDR=172.17.0.1:50051 -e OPENCHAIN_PKI_TLSCA_PADDR=172.17.0.1:50051 -e OPENCHAIN_SECURITY_ENROLLID=vp0 -e OPENCHAIN_SECURITY_ENROLLSECRET=XX  openchain-peer obc-peer peer
+```
+Additionally, validating peer (enrollID and enrollSecret) has to be added to obcca.yaml file (in obc-peer/obc-ca).
 
 ####Start up the second validating peer:
 We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (eg 172.17.0.2). We'll use "vp2" as the ID for the second validating peer.
