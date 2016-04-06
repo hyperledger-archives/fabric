@@ -1,6 +1,6 @@
 #Writing, Building, and Running Chaincode in a Development Environment
 
-Chaincode developers need a way to test and debug their chaincode without having to set up a complete Openchain network. This document describes how to write, build, and test chaincode in a local development environment.
+Chaincode developers need a way to test and debug their chaincode without having to set up a complete Hypderledger fabric network. This document describes how to write, build, and test chaincode in a local development environment.
 
 Multiple terminal windows inside the Vagrant development environment are required. One Vagrant terminal runs the validating peer; another Vagrant terminal runs the chaincode; the third Vagrant terminal runs the CLI or REST API commands to execute transactions. When running with security enabled, an additional fourth Vagrant terminal window is required to run the <b>Certificate Authority (CA)</b> server. Detailed instructions are provided in the sections below:
 
@@ -69,7 +69,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The Openchain REST interface port is defined as port 5000 in the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
+The Hyperledger fabric REST interface port is defined as port 5000 in the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
 
 #### **Note on security functionality**
 
