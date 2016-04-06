@@ -2,38 +2,38 @@
 
 ## Overview
 
-This document covers the available APIs for interacting with an Open Blockchain peer node. Three interface choices are provided:
+This document covers the available APIs for interacting with a Hyperledger fabric peer node. Three interface choices are provided:
 
-1. [CLI](#open-blockchain-cli)
-2. [REST API](#open-blockchain-rest-api)
+1. [CLI](#hyperledger_fabric-cli)
+2. [REST API](#hyperledger-fabric-rest-api)
 3. [Node.js Application](#nodejs-application)
 
-**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md#security-setup-optional) before proceeding.
+**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/API/SandboxSetup.md#security-setup-optional) before proceeding.
 
-## Open Blockchain CLI:
+## Hyperledger Fabric CLI:
 
 To view the currently available CLI commands, execute the following:
 
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     ./obc-peer
 
-You will see output similar to the example below (**NOTE:** rootcommand below is hardcoded in [main.go](https://github.com/openblockchain/obc-peer/blob/master/main.go). Currently, the build will create an *obc-peer* executable file).
+You will see output similar to the example below (**NOTE:** rootcommand below is hardcoded in [main.go](https://github.com/hyperledger/fabric/blob/master/main.go). Currently, the build will create an *obc-peer* executable file).
 
 ```
     Usage:
       obc-peer [command]
 
     Available Commands:
-      peer        Run openchain peer.
-      status      Status of the openchain peer.
-      stop        Stop openchain peer.
+      peer        Run hyperledger fabric peer.
+      status      Status of the hyperledger fabric peer.
+      stop        Stop hyperledger fabric peer.
       login       Login user on CLI.
-      vm          VM functionality of openchain.
+      vm          VM functionality of hyperledger fabric.
       chaincode   chaincode specific commands.
       help        Help about any command
 
     Flags:
-      -h, --help[=false]: help for openchain
+      -h, --help[=false]: help for hyperledger fabric
 
 
     Use "obc-peer [command] --help" for more information about a command.
@@ -48,10 +48,10 @@ below:
 Command | **stdout** result in the event of success
 --- | ---
 `peer`   | N/A
-`status` | String form of [StatusCode](https://github.com/openblockchain/obc-peer/blob/master/protos/server_admin.proto#L36)
-`stop`   | String form of [StatusCode](https://github.com/openblockchain/obc-peer/blob/master/protos/server_admin.proto#L36)
+`status` | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
+`stop`   | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
 `login`  | N/A
-`vm`     | String form of [StatusCode](https://github.com/openblockchain/obc-peer/blob/master/protos/server_admin.proto#L36)
+`vm`     | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
 `chaincode deploy` | The chaincode container name (hash) required for subsequent `chaincode invoke` and `chaincode query` commands
 `chaincode invoke` | The transaction ID (UUID)
 `chaincode query`  | By default, the query result is formatted as a printable string. Command line options support writing this value as raw bytes (-r, --raw), or formatted as the hexadecimal representation of the raw bytes (-x, --hex). If the query response is empty then nothing is output.
@@ -63,7 +63,7 @@ Deploy creates the docker image for the chaincode and subsequently deploys the p
 
 `./obc-peer chaincode deploy -p github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
-The response to the chaincode deploy command is defined by ChaincodeDeploymentSpec inside [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+The response to the chaincode deploy command is defined by ChaincodeDeploymentSpec inside [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L79).
 
 ```
 message ChaincodeDeploymentSpec {
@@ -80,7 +80,7 @@ With security enabled, modify the command to include the -u parameter passing th
 
 ### Verify Results
 
-To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validator or a peer node. In the example below, 172.17.0.2 is the IP address of a validator or a peer node and 5000 is the REST interface port defined in [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml).
+To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validator or a peer node. In the example below, 172.17.0.2 is the IP address of a validator or a peer node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml).
 
 `curl 172.17.0.2:5000/chain`
 
@@ -93,7 +93,7 @@ An example of the response is below.
 }
 ```
 
-The returned BlockchainInfo message is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
+The returned BlockchainInfo message is defined inside [openchain.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L96).
 
 ```
 message BlockchainInfo {
@@ -123,7 +123,7 @@ The response will have the following form:
 }
 ```
 
-The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
+The returned Block message structure is defined inside [openchain.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L96).
 
 ```
 message Block {
@@ -137,15 +137,15 @@ message Block {
 }
 ```
 
-For additional information on the Open Blockchain CLI commands, please see the OBC protocol specification section on [CLI](https://github.com/openblockchain/obc-docs/blob/master/protocol-spec.md#63-cli).
+For additional information on the Hyperledger fabric CLI commands, please see the Hyperledger fabric protocol specification section on [CLI](https://github.com/hyperledger/fabric/tree/master/docs/protocol-spec.md#63-cli).
 
-## Open Blockchain REST API:
+## Hyperledger fabric REST API:
 
-You can work with the Open Blockchain REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
+You can work with the Hyperledger fabric REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
-**Note:** The Open Blockchain REST interface port is defined as port 5000 in the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
+**Note:** The Hyperledger fabric REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
 
-**Note on test blockchain** If you want to test the REST APIs locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
+**Note on test blockchain** If you want to test the REST APIs locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
 
 ```
     cd /opt/gopath/src/github.com/openblockchain/obc-peer
@@ -154,7 +154,7 @@ You can work with the Open Blockchain REST API through any tool of your choice. 
 
 ### REST Endpoints
 
-To learn about the Open Blockchain REST API through Swagger, please take a look at the Swagger document [here](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
+To learn about the Hyperledger fabric REST API through Swagger, please take a look at the Swagger document [here](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
 * [Block](#block)
   * GET /chain/blocks/{Block}
@@ -181,7 +181,7 @@ To learn about the Open Blockchain REST API through Swagger, please take a look 
 
 * **GET /chain/blocks/{Block}**
 
-Use the Block API to retrieve the contents of various blocks from the blockchain. The returned Block message structure is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
+Use the Block API to retrieve the contents of various blocks from the blockchain. The returned Block message structure is defined inside [openchain.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L96).
 
 ```
 message Block {
@@ -197,7 +197,7 @@ message Block {
 
 * **GET /chain**
 
-Use the Chain API to retrieve the current state of the blockchain. The returned BlockchainInfo message is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto).
+Use the Chain API to retrieve the current state of the blockchain. The returned BlockchainInfo message is defined inside [openchain.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L96).
 
 ```
 message BlockchainInfo {
@@ -215,7 +215,7 @@ message BlockchainInfo {
 
 **[DEPRECATED] The /devops endpoints have been deprecated and are superseded by the [/chaincode](#chaincode) endpoint. Please use the [/chaincode](#chaincode) endpoint to deploy, invoke, and query chaincodes. [DEPRECATED]**
 
-Use the Devops APIs to deploy, invoke, and query chaincodes. The required ChaincodeSpec and ChaincodeInvocationSpec payloads are defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto).
+Use the Devops APIs to deploy, invoke, and query chaincodes. The required ChaincodeSpec and ChaincodeInvocationSpec payloads are defined in [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L79).
 
 ```
 message ChaincodeSpec {
@@ -242,7 +242,7 @@ message ChaincodeInvocationSpec {
 }
 ```
 
-**Note:** The deploy transaction requires a 'path' parameter to locate the chaincode source-code in the file system, build it, and deploy it to the validating peers. On the other hand, invoke and query transactions require a 'name' parameter to reference the chaincode that has already been deployed. These 'path' and 'name' parameters are specified in the ChaincodeID, defined in [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto). The only exception to the aforementioned rule is when the peer is running in chaincode development mode (as opposed to production mode), i.e. the user starts the peer with `--peer-chaincodedev` and runs the chaincode manually in a separate terminal window. In that case, the deploy transaction requires a 'name' parameter that is specified by the end user.
+**Note:** The deploy transaction requires a 'path' parameter to locate the chaincode source-code in the file system, build it, and deploy it to the validating peers. On the other hand, invoke and query transactions require a 'name' parameter to reference the chaincode that has already been deployed. These 'path' and 'name' parameters are specified in the ChaincodeID, defined in [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L79). The only exception to the aforementioned rule is when the peer is running in chaincode development mode (as opposed to production mode), i.e. the user starts the peer with `--peer-chaincodedev` and runs the chaincode manually in a separate terminal window. In that case, the deploy transaction requires a 'name' parameter that is specified by the end user.
 
 ```
 message ChaincodeID {
@@ -270,7 +270,7 @@ An example of a valid ChaincodeSpec message for a deployment transaction is show
   }
 ```
 
-An example of a valid ChaincodeInvocationSpec message for an invocation transaction is shown below. Consult [chaincode.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/chaincode.proto) for more information.
+An example of a valid ChaincodeInvocationSpec message for an invocation transaction is shown below. Consult [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L79) for more information.
 
 ```
 {
@@ -600,7 +600,7 @@ The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certifica
 
 * **GET /transactions/{UUID}**
 
-Use the /transactions/{UUID} endpoint to retrieve an individual transaction matching the UUID from the blockchain. The returned transaction message is defined inside [openchain.proto](https://github.com/openblockchain/obc-peer/blob/master/protos/openchain.proto) .
+Use the /transactions/{UUID} endpoint to retrieve an individual transaction matching the UUID from the blockchain. The returned transaction message is defined inside [openchain.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L96).
 
 ```
 message Transaction {
@@ -626,11 +626,11 @@ message Transaction {
 }
 ```
 
-For additional information on the Open Blockchain REST endpoints and more detailed examples, please see the OBC protocol specification section on the [REST API](https://github.com/openblockchain/obc-docs/blob/master/protocol-spec.md#62-rest-api).
+For additional information on the Hyperledger fabric REST endpoints and more detailed examples, please see the Hyperledger fabric protocol specification section on the [REST API](https://github.com/hyperledger/fabric/blob/master/docs/protocol-spec.md#62-rest-api).
 
 ### To set up Swagger-UI
 
-[Swagger](http://swagger.io/) is a convenient package that allows you to describe and document your REST API in a single file. The Open Blockchain REST API is described in [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). To interact with the peer node directly through the Swagger-UI, you can upload the Open Blockchain Swagger definition to the [Swagger service](http://swagger.io/). Alternatively, you may set up a Swagger installation on your machine by following the instructions below.
+[Swagger](http://swagger.io/) is a convenient package that allows you to describe and document your REST API in a single file. The Hyperledger fabric REST API is described in [rest_api.json](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json). To interact with the peer node directly through the Swagger-UI, you can upload the Hyperledger fabric Swagger definition to the [Swagger service](http://swagger.io/). Alternatively, you may set up a Swagger installation on your machine by following the instructions below.
 
 1. You can use Node.js to serve up the rest_api.json locally. To do so, make sure you have Node.js installed on your local machine. If it is not installed, please download the [Node.js](https://nodejs.org/en/download/) package and install it.
 
@@ -662,7 +662,7 @@ For additional information on the Open Blockchain REST endpoints and more detail
     ./obc-peer peer
     ```
 
-8. If you need to construct a test blockchain on the local peer node, run the the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/openblockchain/obc-peer/blob/master/openchain/api_test.go). This test will create a blockchain with 5 blocks. Subsequently restart the peer process.
+8. If you need to construct a test blockchain on the local peer node, run the the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a blockchain with 5 blocks. Subsequently restart the peer process.
 
     ```
     cd /opt/gopath/src/github.com/openblockchain/obc-peer
@@ -673,23 +673,23 @@ For additional information on the Open Blockchain REST endpoints and more detail
 
 ## Node.js Application
 
-You can interface with the obc-peer process from a Node.js application. One way to accomplish that is by relying on the Swagger API description document, [rest_api.json](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json) and the [swagger-js plugin](https://github.com/swagger-api/swagger-js). Another way to accomplish that relies upon the IBM Blockchain [JS SDK](https://github.com/IBM-Blockchain/ibm-blockchain-js). Use the approach that you find the most convenient.
+You can interface with the obc-peer process from a Node.js application. One way to accomplish that is by relying on the Swagger API description document, [rest_api.json](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json ) and the [swagger-js plugin](https://github.com/swagger-api/swagger-js). Another way to accomplish that relies upon the IBM Blockchain [JS SDK](https://github.com/IBM-Blockchain/ibm-blockchain-js). Use the approach that you find the most convenient.
 
-### [OpenchainSample_1](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20Samples/openchain_1.js)
+### [OpenchainSample_1](https://github.com/hyperledger/fabric/blob/master/docs/API/Openchain Samples/openchain_1.js)
 
 * Demonstrates interfacing with a peer node from a Node.js application.
 * Utilizes the Node.js swagger-js plugin: https://github.com/swagger-api/swagger-js
 
 **To run:**
 
-1. Build and install [obc-peer](https://github.com/openblockchain/obc-peer/blob/master/README.md).
+1. Build and install [hyperledger](https://github.com/hyperledger/fabric/blob/master/README.md#building-the-fabric-core-).
 
     ```
     cd $GOPATH/src/github.com/openblockchain/obc-peer
     go build
     ```
 
-2. Run a local peer node only (not a complete Open Blockchain network) with:
+2. Run a local peer node only (not a complete Hyperledger fabric network) with:
 
     `./obc-peer peer`
 
@@ -700,7 +700,7 @@ You can interface with the obc-peer process from a Node.js application. One way 
     go test -v -run TestServerOpenchain_API_GetBlockCount github.com/openblockchain/obc-peer/openchain
     ```
 
-4. Set up a Node.js HTTP server to serve up the Open Blockchain API Swagger document:
+4. Set up a Node.js HTTP server to serve the Hyperledger fabric API Swagger document:
 
     ```
     npm install http-server -g
@@ -708,14 +708,14 @@ You can interface with the obc-peer process from a Node.js application. One way 
     http-server -a 0.0.0.0 -p 5554 --cors
     ```
 
-5. Download and unzip [OpenchainSample_1.zip](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20Samples/OpenchainSample_1.zip)
+5. Download and unzip [OpenchainSample_1.zip](https://github.com/hyperledger/fabric/blob/master/docs/API/Openchain Samples/OpenchainSample_1.zip)
 
     ```
     unzip OpenchainSample_1.zip -d OpenchainSample_1
     cd OpenchainSample_1
     ```
 
-6. Update the api_url variable within [openchain.js](https://github.com/openblockchain/obc-docs/blob/master/api/Openchain%20Samples/openchain_1.js) to the appropriate URL if it is not already the default
+6. Update the api_url variable within [openchain.js](https://github.com/hyperledger/fabric/blob/master/docs/API/Openchain Samples/openchain_1.js) to the appropriate URL if it is not already the default
 
     `var api_url = 'http://localhost:5554/rest_api.json';`
 
