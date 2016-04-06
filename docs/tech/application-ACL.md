@@ -1,4 +1,4 @@
-# Openchain - Application Access Control Lists
+# Hyperledger Fabric - Application Access Control Lists
 
 ## Overview
 
