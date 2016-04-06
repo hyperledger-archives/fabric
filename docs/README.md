@@ -7,10 +7,10 @@ When you are ready to start using OBC to build applications or to otherwise cont
 
 ## Documentation
 In addition to the <b>Getting started</b> documentation, the following topics are also available:
-- [Open Blockchain FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
+- [Hyperledger Fabric FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
 - [Canonical use cases](https://github.com/hyperledger/fabric/blob/master/docs/biz/usecases.md)
 - [Development environment set-up](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devenv.md)
 - [Chain code development environment](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md)
-- [Open Blockchain APIs](https://github.com/hyperledger/fabric/blob/master/docs/API/CoreAPI.md)
-- [Open Blockchain network setup](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devnet-setup.md)
+- [Hyperledger Fabric APIs](https://github.com/hyperledger/fabric/blob/master/docs/API/CoreAPI.md)
+- [Hyperledger network setup](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devnet-setup.md)
 - [Technical implementation details](https://github.com/hyperledger/fabric/tree/master/docs/tech)
