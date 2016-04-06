@@ -82,6 +82,9 @@ docker run --rm busybox echo All good
 
 /hyperledger/scripts/provision/docker.sh $BASEIMAGE_RELEASE
 
+# Run our common setup
+/hyperledger/scripts/provision/common.sh
+
 # Install Python, pip, behave, nose
 #
 # install python-dev and libyaml-dev to get compiled speedups

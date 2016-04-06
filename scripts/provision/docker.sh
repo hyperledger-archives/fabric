@@ -49,12 +49,32 @@
 
 NAME=openblockchain/baseimage
 RELEASE=$1
-
 FQN=$NAME:$RELEASE
+
+CURDIR=`dirname $0`
+
 docker pull $FQN
-GUESTENV=`mktemp`
-# extract the interactive environment
-docker run -i $FQN /bin/bash -l -c printenv > $GUESTENV
-# and then inject the environment for use under standard RUN directives with a :latest tag
-echo -e "FROM $FQN\n`for i in \`cat $GUESTENV\`; do echo ENV $i; done`"  | docker build -t $NAME:latest -
-rm $GUESTENV
+
+TMP=`mktemp -d`
+DOCKERFILE=$TMP/Dockerfile
+
+LOCALSCRIPTS=$TMP/scripts
+REMOTESCRIPTS=/hyperledger/scripts/provision
+
+mkdir -p $LOCALSCRIPTS
+cp -R $CURDIR/* $LOCALSCRIPTS
+
+# extract the FQN environment and run our common.sh to create the :latest tag
+cat <<EOF > $DOCKERFILE
+FROM $FQN
+`for i in \`docker run -i $FQN /bin/bash -l -c printenv\`;
+do
+   echo ENV $i
+done`
+COPY scripts $REMOTESCRIPTS
+RUN $REMOTESCRIPTS/common.sh
+EOF
+
+docker build -t $NAME:latest $TMP
+
+rm -rf $TMP
