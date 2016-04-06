@@ -1,4 +1,4 @@
-# Open Blockchain (OBC) Certificate Authority (CA) Setup
+# Hyperledger Fabric Certificate Authority (CA) Setup
 
 Each of the CA services is split into two [GRPC](http://www.grpc.io) interfaces, namely a public one (indicated by a _P_ suffix) and an administrator one (indicated by an _A_ suffix).
 
