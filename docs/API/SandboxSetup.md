@@ -17,15 +17,15 @@ See [Logging Control](../dev-setup/logging-control.md) for information on contro
 logging output from the `obc-peer` and chaincodes.
 
 ###Security Setup (optional)
-From your command line terminal, move to the `/obc-dev-env` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
 To set up the local development environment with security enabled, you must first build and run the <b>Certificate Authority (CA)</b> server:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer/obc-ca
-    go build -o obcca-server
-    ./obcca-server
+    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
+    go build -o membersrvc
+    ./membersrvc
 
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the 'users' section of the configuration file. To register additional users with the CA for testing, modify the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml) file to include additional enrollmentID and enrollmentPW pairs. Note the integer that precedes the enrollmentPW. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
@@ -38,26 +38,26 @@ From your command line terminal, move to the `/obc-dev-env` subdirectory of your
 
 Build and run the peer process to enable security and privacy after setting <b>security.enabled</b> and <b>security.privacy</b> settings to 'true'.
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    go build
-    ./obc-peer peer --peer-chaincodedev   
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    go build -o peer
+    ./peer peer --peer-chaincodedev   
 
 Alternatively, enable security and privacy on the peer with environment variables:
 
-    OPENCHAIN_SECURITY_ENABLED=true OPENCHAIN_SECURITY_PRIVACY=true ./obc-peer peer --peer-chaincodedev
+    OPENCHAIN_SECURITY_ENABLED=true OPENCHAIN_SECURITY_PRIVACY=true ./peer peer --peer-chaincodedev
 
 ###Vagrant Terminal 2 (chaincode)
 
-From your command line terminal, move to the `/obc-dev-env` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
 Build the <b>chaincode_example02</b> code, which is provided in the source code repository:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02
+    cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
     go build
 
-When you are ready to start creating your own chaincode, create a new subdirectory inside of /openchain/example/chaincode to store your chaincode files. You can copy the <b>chaincode_example02</b> file to the new directory and modify it.
+When you are ready to start creating your own chaincode, create a new subdirectory inside of /fabric/examples/go/chaincode to store your chaincode files. You can copy the <b>chaincode_example02</b> file to the new directory and modify it.
 
 Run the following chaincode command to start and register the chaincode with the validating peer (started in Vagrant terminal 1):
 
@@ -69,22 +69,22 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The Hyperledger fabric REST interface port is defined as port 5000 in the [openchain.yaml](https://github.com/openblockchain/obc-peer/blob/master/openchain.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
+The Hyperledger fabric REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
 
 #### **Note on security functionality**
 
 Current security implementation assumes that end user authentication takes place at the application layer and is not handled by the fabric. Authentication may be performed through any means considered appropriate for the target application. Upon successful user authentication, the application will perform user registration with the CA exactly once. If registration is attempted a second time for the same user, an error will result. During registration, the application sends a request to the certificate authority to verify the user registration and if successful, the CA responds with the user certificates and keys. The enrollment and transaction certificates received from the CA will be stored locally inside <b>/var/openchain/production/crypto/client/</b> directory. This directory resides on a specific peer node which allows the user to transact only through this specific peer while using the stored crypto material. If the end user needs to perform transactions through more then one peer node, the application is responsible for replicating the crypto material to other peer nodes. This is necessary as registering a given user with the CA a second time will fail.
 
-With security enabled, the CLI commands and REST payloads must be modified to include the <b>enrollmentID</b> of a registered user who is logged in; otherwise an error will result. A registered user can be logged in through the CLI or the REST API by following the instructions below. To log in through the CLI, issue the following commands, where 'username' is one of the <b>enrollmentID</b> values listed in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml) file.
+With security enabled, the CLI commands and REST payloads must be modified to include the <b>enrollmentID</b> of a registered user who is logged in; otherwise an error will result. A registered user can be logged in through the CLI or the REST API by following the instructions below. To log in through the CLI, issue the following commands, where 'username' is one of the <b>enrollmentID</b> values listed in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file.
 
-From your command line terminal, move to the `/obc-dev-env` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
 Register the user though the CLI, substituting for `<username>` appropriately:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    ./obc-peer login <username>
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    ./peer login <username>
 
 The command will prompt for a password, which must match the <b>enrollmentPW</b> listed for the target user in the 'users' section of the [obcca.yaml](https://github.com/openblockchain/obc-peer/blob/master/obc-ca/obcca.yaml) file. If the password entered does not match the <b>enrollmentPW</b>, an error will result.
 
@@ -112,8 +112,8 @@ POST localhost:3000/registrar
 
 First, send a chaincode deploy transaction, only once, to the validating peer. The CLI connects to the validating peer using the properties defined in the openchain.yaml file. **Note:** The deploy transaction typically requires a 'path' parameter to locate, build, and deploy the chaincode. However, because these instructions are specific to local development mode and the chaincode is deployed manually, the 'name' parameter is used instead.
 
-    cd  $GOPATH/src/github.com/openblockchain/obc-peer
- 	./obc-peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+    cd  $GOPATH/src/github.com/hyperledger/fabric
+ 	./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 Alternatively, you can run the chaincode deploy transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
 
@@ -127,7 +127,7 @@ POST host:port/chaincode
   "params": {
     "type": 1,
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -152,7 +152,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and the REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element.
 
- 	  ./obc-peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	  ./peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 <b>REST Request:</b>
 ```
@@ -164,7 +164,7 @@ POST host:port/chaincode
   "params": {
     "type": 1,
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -185,7 +185,7 @@ The deploy transaction initializes the chaincode by executing a target initializ
 
 Run the chaincode invoking transaction on the CLI as many times as desired. The <b>-n</b> argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-	./obc-peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	./peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 Alternatively, run the chaincode invoking transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
 
@@ -224,7 +224,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element.
 
-	 ./obc-peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	 ./peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 <b> REST Request:</b>
 ```
@@ -304,7 +304,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element:
 
-    ./obc-peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+    ./peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 <b>REST Request:</b>
 ```
@@ -332,12 +332,12 @@ POST host:port/chaincode
 
 After the completion of a chaincode test with security enabled, remove the temporary files that were created by the CA server process. To remove the client enrollment certificate, enrollment key, transaction certificate chain, etc., run the following commands. Note, that you must run these commands if you want to register a user who has already been registered previously.
 
-From your command line terminal, move to the `/obc-dev-env` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
 And then run:
 
-    rm -rf /var/openchain/production/
-    cd $GOPATH/src/github.com/openblockchain/obc-peer/obc-ca
+    rm -rf /var/hyperledger/production
+    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
     rm -rf .obcca
