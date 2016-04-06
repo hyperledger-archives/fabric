@@ -1,6 +1,10 @@
 
 ## Overview
-This project contains the core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
+Fabric is a project in Incubation that was proposed by Tamas Blummer (DAH) and Christopher Ferris (IBM) (see [Proposal](https://docs.google.com/document/d/1XECRVN9hXGrjAjysrnuNSdggzAKYm6XESR6KmABwhkE)).
+
+Information on what Incubation entails can be found in the [Hyperledger Project Lifecycle document](https://docs.google.com/document/d/1asqGu-6xlldY4uwmnkgJs3uhqUDa_wCdv9-cGUEEIOY).
+
+This project contains a core blockchain fabric code, development environment scripts and documents for developers to contribute fabric code or work on their own applications.
 
 * [Building the fabric core](#building-the-fabric-core-)
 * [Building outside of Vagrant](#building-outside-of-vagrant-)
