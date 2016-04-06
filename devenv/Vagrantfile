@@ -16,10 +16,6 @@
 # This is the mount point for the sync_folders of the source
 SRCMOUNT = "/hyperledger"
 
-if not ENV.has_key?('GOPATH')
-  abort("GOPATH is not set")
-end
-
 $script = <<SCRIPT
 set -x
 
