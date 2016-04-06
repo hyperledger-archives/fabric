@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const configPrefix = "HYPERLEDGER_NOOPS"
+const configPrefix = "CORE_NOOPS"
 
 func loadConfig() (config *viper.Viper) {
 	config = viper.New()
