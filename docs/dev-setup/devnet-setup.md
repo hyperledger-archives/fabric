@@ -2,12 +2,12 @@
 
 This document covers setting up an Openchain network on your local machine for development using Docker containers.
 
-All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md).
+All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](devenv.md).
 See [Logging Control](logging-control.md) for information on controlling
 logging output from the `obc-peer` and chaincodes.
 
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.
 
 ### Setting up Docker image
 To create a Docker image for Open Blockchain, named `openchain`,
@@ -60,7 +60,7 @@ docker run --rm -it -e OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243 -e OPENCHAIN
 You can start up a few more validating peers in the similar manner as you wish. Remember to change the ID.
 
 ### Deploy, Invoke, and Query a Chaincode
-**Note:** When security is enabled, modify the CLI commands to deploy, invoke, or query a chaincode to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the security setup instructions described [here](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md#note-on-security-functionality). On the CLI the username is passed with the -u parameter.
+**Note:** When security is enabled, modify the CLI commands to deploy, invoke, or query a chaincode to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the security setup instructions described [here](../API/SandboxSetup.md#note-on-security-functionality). On the CLI the username is passed with the -u parameter.
 
 We deploy chaincode to the network with CLI. We can use the sample chaincode to test the network. You may find the chaincode here  $GOPATH/src/github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02
 
