@@ -46,7 +46,6 @@ service ECAA { // admin service
 //
 service TCAP { // public service
     rpc ReadCACertificate(Empty) returns (Cert);
-    rpc CreateCertificate(TCertCreateReq) returns (TCertCreateResp);
     rpc CreateCertificateSet(TCertCreateSetReq) returns (TCertCreateSetResp);
     rpc ReadCertificate(TCertReadReq) returns (Cert);
     rpc ReadCertificateSet(TCertReadSetReq) returns (CertSet);
@@ -148,6 +147,8 @@ enum Role {
 message RegisterUserReq {
     Identity id = 1;
     Role role = 2;
+    string account = 3;                                                        
+    string affiliation = 4; 
 }
 
 message ReadUserSetReq {
@@ -214,7 +215,8 @@ message TCertCreateSetReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2; // corresponding ECert retrieved from ECA
     uint32 num = 3; // number of certs to create
-    Signature sig = 4; // sign(priv, ts | id | params | num)
+    map<string, string> attributes = 4; // map with the attributes to add to each TCert. The key of the map is the name of the attribute and the value for that key is the value of the attribute.
+    Signature sig = 5; // sign(priv, ts | id | attributes | num)
 }
 
 message TCertCreateSetResp {

@@ -39,7 +39,6 @@ import (
 )
 
 // CA is the base certificate authority.
-//
 type CA struct {
 	db *sql.DB
 
@@ -50,8 +49,96 @@ type CA struct {
 	raw  []byte
 }
 
+// The certificate spec defines the parameter used to create a new certificate.
+type CertificateSpec struct { 
+	id string
+	serialNumber *big.Int
+	pub interface{}
+	usage x509.KeyUsage
+	NotBefore *time.Time
+	NotAfter *time.Time
+	ext *[]pkix.Extension
+}
+
+// AffiliationGroup struct
+type AffiliationGroup struct { 
+	name string
+	parentId int64
+	parent *AffiliationGroup
+	preKey []byte
+}
+
+// Create a new certificate spec
+func NewCertificateSpec(id string, serialNumber * big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time,  ext *[]pkix.Extension) *CertificateSpec {
+	spec := new(CertificateSpec)
+	spec.id = id
+	spec.serialNumber = serialNumber
+	spec.pub = pub
+	spec.usage = usage
+	spec.NotBefore = notBefore
+	spec.NotAfter = notAfter
+	spec.ext = ext
+	return spec
+}
+
+// Create a new certificate spec with notBefore a minute ago and not after 90 days from notBefore.
+func NewDefaultPeriodCertificateSpec(id string, serialNumber * big.Int, pub interface{}, usage x509.KeyUsage, opt...pkix.Extension) *CertificateSpec {
+	notBefore := time.Now().Add(-1 * time.Minute)
+	notAfter := notBefore.Add(time.Hour * 24 * 90)
+	return NewCertificateSpec(id, serialNumber, pub, usage, &notBefore, &notAfter, &opt)
+}
+
+// Create a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore.
+func NewDefaultCertificateSpec(id string, pub interface{}, usage x509.KeyUsage, opt...pkix.Extension) *CertificateSpec {
+	serialNumber := big.NewInt(1)
+	return NewDefaultPeriodCertificateSpec(id, serialNumber, pub, usage, opt...)
+}
+
+func (spec *CertificateSpec) GetId() string { 
+	return spec.id
+}
+
+func (spec *CertificateSpec) GetSerialNumber() *big.Int { 
+	return spec.serialNumber
+}
+
+func (spec *CertificateSpec) GetPublicKey() interface{} { 
+	return spec.pub
+}
+
+func (spec *CertificateSpec) GetUsage() x509.KeyUsage { 
+	return spec.usage
+}
+
+func (spec *CertificateSpec) GetNotBefore() *time.Time { 
+	return spec.NotBefore
+}
+
+func (spec *CertificateSpec) GetNotAfter() *time.Time { 
+	return spec.NotAfter
+}
+
+func (spec *CertificateSpec) GetOrganization() string { 
+	return "IBM"
+}
+
+func (spec *CertificateSpec) GetCountry() string { 
+	return "US"
+}
+
+func (spec *CertificateSpec) GetSubjectKeyId() *[]byte { 
+	return &[]byte{1, 2, 3, 4}
+}
+
+func (spec *CertificateSpec) GetSignatureAlgorithm() x509.SignatureAlgorithm {
+	return x509.ECDSAWithSHA384
+}
+
+func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension { 
+	return spec.ext
+}
+
 // NewCA sets up a new CA.
-//
 func NewCA(name string) *CA {
 	ca := new(CA)
 	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
@@ -77,6 +164,9 @@ func NewCA(name string) *CA {
 		Panic.Panicln(err)
 	}
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
+		Panic.Panicln(err)
+	}
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS AffiliationGroups (row INTEGER PRIMARY KEY, name VARCHAR(64), parent INTEGER, FOREIGN KEY(parent) REFERENCES AffiliationGroups(row))"); err != nil {
 		Panic.Panicln(err)
 	}
 	ca.db = db
@@ -105,7 +195,6 @@ func NewCA(name string) *CA {
 }
 
 // Close closes down the CA.
-//
 func (ca *CA) Close() {
 	ca.db.Close()
 }
@@ -192,9 +281,14 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 }
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
-	Trace.Println("Creating certificate for " + id + ".")
+	spec := NewDefaultCertificateSpec(id, pub, usage, opt...)
+	return ca.createCertificateFromSpec(spec, timestamp, kdfKey)
+}
 
-	raw, err := ca.newCertificate(id, pub, usage, opt)
+func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
+	Trace.Println("Creating certificate for " + spec.GetId() + ".")
+
+	raw, err := ca.newCertificateFromSpec(spec)
 	if err != nil {
 		Error.Println(err)
 		return nil, err
@@ -202,7 +296,7 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 
 	hash := utils.NewHash()
 	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, raw, hash.Sum(nil), kdfKey); err != nil {
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", spec.GetId(), timestamp, spec.GetUsage(), raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)
 	}
 
@@ -210,33 +304,38 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 }
 
 func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
-	notBefore := time.Now().Add(-1 * time.Minute)
-	notAfter := notBefore.Add(time.Hour * 24 * 90)
+	spec := NewDefaultCertificateSpec(id, pub, usage, ext...)
+	return ca.newCertificateFromSpec(spec)
+}
+
+func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
+	notBefore := spec.GetNotBefore()
+	notAfter := spec.GetNotAfter()
 
 	parent := ca.cert
 	isCA := parent == nil
 
 	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: spec.GetSerialNumber(),
 		Subject: pkix.Name{
-			CommonName:   id,
-			Organization: []string{"IBM"},
-			Country:      []string{"US"},
+			CommonName:   spec.GetId(),
+			Organization: []string{spec.GetOrganization()},
+			Country:      []string{spec.GetCountry()},
 		},
-		NotBefore: notBefore,
-		NotAfter:  notAfter,
+		NotBefore: *notBefore,
+		NotAfter:  *notAfter,
 
-		SubjectKeyId:       []byte{1, 2, 3, 4},
-		SignatureAlgorithm: x509.ECDSAWithSHA384,
-		KeyUsage:           usage,
+		SubjectKeyId:       *spec.GetSubjectKeyId(),
+		SignatureAlgorithm: spec.GetSignatureAlgorithm(),
+		KeyUsage:           spec.GetUsage(),
 
 		BasicConstraintsValid: true,
 		IsCA: isCA,
 	}
 
-	if len(ext) > 0 {
-		tmpl.Extensions = ext
-		tmpl.ExtraExtensions = ext
+	if len(*spec.GetExtensions()) > 0 {
+		tmpl.Extensions = *spec.GetExtensions()
+		tmpl.ExtraExtensions = *spec.GetExtensions()
 	}
 	if isCA {
 		parent = &tmpl
@@ -246,7 +345,7 @@ func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ex
 		rand.Reader,
 		&tmpl,
 		parent,
-		pub,
+		spec.GetPublicKey(),
 		ca.priv,
 	)
 	if isCA && err != nil {
@@ -364,4 +463,36 @@ func (ca *CA) readRole(id string) int {
 	ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
 
 	return role
+}
+
+func (ca *CA) readAffiliationGroups() ([]*AffiliationGroup, error) {
+	Trace.Println("Reading affilition groups.")
+	
+	rows, err := ca.db.Query("SELECT row, name, parent FROM AffiliationGroups"); 
+	if err != nil { 
+		return nil, err;
+	}
+	defer rows.Close()
+	groups := make(map[int64]*AffiliationGroup)
+	
+	for rows.Next()  {
+		group := new(AffiliationGroup)
+		var id int64 
+		if e := rows.Scan(&id, &group.name, &group.parentId); e != nil {
+			return nil, err
+		}
+		groups[id] = group
+	}
+	
+	
+    group_list := make([]*AffiliationGroup, len(groups))
+    idx := 0
+    for  _, each_group := range groups {
+       each_group.parent = groups[each_group.parentId]	
+       group_list[idx] = each_group
+       idx++
+    }
+	
+	
+	return group_list, nil
 }

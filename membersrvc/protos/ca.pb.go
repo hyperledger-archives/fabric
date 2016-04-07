@@ -217,8 +217,10 @@ func (m *Signature) String() string { return proto.CompactTextString(m) }
 func (*Signature) ProtoMessage()    {}
 
 type RegisterUserReq struct {
-	Id   *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Role Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Id          *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Role        Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Account     string    `protobuf:"bytes,3,opt,name=account" json:"account,omitempty"`
+	Affiliation string    `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
 }
 
 func (m *RegisterUserReq) Reset()         { *m = RegisterUserReq{} }
@@ -500,10 +502,11 @@ func (m *TCertCreateResp) GetCert() *Cert {
 }
 
 type TCertCreateSetReq struct {
-	Ts  *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
-	Id  *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	Num uint32                     `protobuf:"varint,3,opt,name=num" json:"num,omitempty"`
-	Sig *Signature                 `protobuf:"bytes,4,opt,name=sig" json:"sig,omitempty"`
+	Ts         *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
+	Id         *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Num        uint32                     `protobuf:"varint,3,opt,name=num" json:"num,omitempty"`
+	Attributes map[string]string          `protobuf:"bytes,4,rep,name=attributes" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Sig        *Signature                 `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *TCertCreateSetReq) Reset()         { *m = TCertCreateSetReq{} }
@@ -520,6 +523,13 @@ func (m *TCertCreateSetReq) GetTs() *google_protobuf.Timestamp {
 func (m *TCertCreateSetReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *TCertCreateSetReq) GetAttributes() map[string]string {
+	if m != nil {
+		return m.Attributes
 	}
 	return nil
 }
@@ -1242,7 +1252,6 @@ var _ECAA_serviceDesc = grpc.ServiceDesc{
 
 type TCAPClient interface {
 	ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error)
-	CreateCertificate(ctx context.Context, in *TCertCreateReq, opts ...grpc.CallOption) (*TCertCreateResp, error)
 	CreateCertificateSet(ctx context.Context, in *TCertCreateSetReq, opts ...grpc.CallOption) (*TCertCreateSetResp, error)
 	ReadCertificate(ctx context.Context, in *TCertReadReq, opts ...grpc.CallOption) (*Cert, error)
 	ReadCertificateSet(ctx context.Context, in *TCertReadSetReq, opts ...grpc.CallOption) (*CertSet, error)
@@ -1261,15 +1270,6 @@ func NewTCAPClient(cc *grpc.ClientConn) TCAPClient {
 func (c *tCAPClient) ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error) {
 	out := new(Cert)
 	err := grpc.Invoke(ctx, "/protos.TCAP/ReadCACertificate", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *tCAPClient) CreateCertificate(ctx context.Context, in *TCertCreateReq, opts ...grpc.CallOption) (*TCertCreateResp, error) {
-	out := new(TCertCreateResp)
-	err := grpc.Invoke(ctx, "/protos.TCAP/CreateCertificate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1325,7 +1325,6 @@ func (c *tCAPClient) RevokeCertificateSet(ctx context.Context, in *TCertRevokeSe
 
 type TCAPServer interface {
 	ReadCACertificate(context.Context, *Empty) (*Cert, error)
-	CreateCertificate(context.Context, *TCertCreateReq) (*TCertCreateResp, error)
 	CreateCertificateSet(context.Context, *TCertCreateSetReq) (*TCertCreateSetResp, error)
 	ReadCertificate(context.Context, *TCertReadReq) (*Cert, error)
 	ReadCertificateSet(context.Context, *TCertReadSetReq) (*CertSet, error)
@@ -1343,18 +1342,6 @@ func _TCAP_ReadCACertificate_Handler(srv interface{}, ctx context.Context, dec f
 		return nil, err
 	}
 	out, err := srv.(TCAPServer).ReadCACertificate(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _TCAP_CreateCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(TCertCreateReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(TCAPServer).CreateCertificate(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1428,10 +1415,6 @@ var _TCAP_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadCACertificate",
 			Handler:    _TCAP_ReadCACertificate_Handler,
-		},
-		{
-			MethodName: "CreateCertificate",
-			Handler:    _TCAP_CreateCertificate_Handler,
 		},
 		{
 			MethodName: "CreateCertificateSet",

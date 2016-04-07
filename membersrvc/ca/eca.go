@@ -410,3 +410,34 @@ func (ecaa *ECAA) PublishCRL(context.Context, *pb.ECertCRLReq) (*pb.CAStatus, er
 
 	return nil, errors.New("not yet implemented")
 }
+
+func (ecaa *ECA) generateEnrollId(id string, role string, affiliation string) (string, error) {
+	if id == "" || role == "" || affiliation == "" {
+		return "", errors.New("Please provide all the input parameters, id, role and affiliation")	
+	}
+		
+	if strings.Contains(id, "\\") || strings.Contains(role, "\\") || strings.Contains(affiliation, "\\") {
+		return "", errors.New("Do not include the escape character \\ as part of the values")
+	}
+		
+	return id+"\\"+affiliation+"\\"+role, nil
+}
+
+func (ecaa *ECA) parseEnrollId(enrollId string) (id string, role string, affiliation string, err error) {
+	
+	if enrollId == "" {
+		return  "", "", "", errors.New("Input parameter missing")
+	}
+	
+	enrollIdSections := strings.Split(enrollId, "\\")
+	
+	if(len(enrollIdSections) != 3) {
+		return "", "", "", errors.New ("Either the userId, Role or affiliation is missing from the enrollmentID")
+	}
+	
+	id = enrollIdSections[0]
+	role = enrollIdSections[1]
+	affiliation = enrollIdSections[2]
+	err = nil
+	return
+}
