@@ -125,7 +125,7 @@ CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go instal
 ```
 -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
 ```
-- Be aware that the Docker bridge (the `OPENCHAIN_VM_ENDPOINT`) may not come
+- Be aware that the Docker bridge (the `CORE_VM_ENDPOINT`) may not come
 up at the IP address currently assumed by the test environment
 (`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
 

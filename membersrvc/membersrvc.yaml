@@ -3,14 +3,14 @@
 server:
         # current version of the CA
         version: "0.1"
-        
+
         # limits the number of operating system threads used by the CA
         gomaxprocs: 2
 
         # path to the OBC state directory and CA state subdirectory
         rootpath: "/var/hyperledger/production"
         cadir: ".membersrvc"
-        
+
         # port the CA services are listening on
         port: ":50051"
 
@@ -21,7 +21,7 @@ server:
 
 security:
     # Can be 256 or 384
-    # Must be the same as in openchain.yaml
+    # Must be the same as in core.yaml
     level: 256
 
 # Enabling/disabling different logging levels of the CA.
@@ -32,7 +32,7 @@ logging:
         warning: 1
         error: 1
         panic: 1
-        
+
 # Default users to be registered with the CA on first launch.  The role is a binary OR
 # of the different roles a user can have:
 #

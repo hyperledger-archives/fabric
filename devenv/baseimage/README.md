@@ -3,7 +3,7 @@ This directory contains the infrastructure for creating a new baseimage used as 
 
 ![Baseimage Architectural Overview](./images/packer-overview.png)
 
-The purpose of this baseimage is to act as a bridge between a raw ubuntu/trusty64 configuration and the customizations required for supporting an openchain environment.  Some of the FOSS components that need to be added to Ubuntu do not have convenient native packages.  Therefore, they are built from source.  However, the build process is generally expensive (often taking in excess of 30 minutes) so it is fairly inefficient to JIT assemble these components on demand.
+The purpose of this baseimage is to act as a bridge between a raw ubuntu/trusty64 configuration and the customizations required for supporting a hyperledger environment.  Some of the FOSS components that need to be added to Ubuntu do not have convenient native packages.  Therefore, they are built from source.  However, the build process is generally expensive (often taking in excess of 30 minutes) so it is fairly inefficient to JIT assemble these components on demand.
 
 Therefore, the expensive FOSS components are built into this baseimage once and subsequently cached on the public repositories so that workflows may simply consume the objects without requiring a local build cycle.
 
