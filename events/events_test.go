@@ -44,18 +44,18 @@ type Adapter struct {
 
 var peerAddress string
 var adapter *Adapter
-var obcEHClient *consumer.OpenchainEventsClient
+var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}, nil
 	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
 }
 
-func (a *Adapter) Recv(msg *ehpb.OpenchainEvent) (bool, error) {
+func (a *Adapter) Recv(msg *ehpb.Event) (bool, error) {
 	//fmt.Printf("Adapter received %v\n", msg.Event)
 	switch x := msg.Event.(type) {
-	case *ehpb.OpenchainEvent_Block:
-	case *ehpb.OpenchainEvent_Generic:
+	case *ehpb.Event_Block:
+	case *ehpb.Event_Generic:
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
@@ -79,7 +79,7 @@ func (a *Adapter) Disconnected(err error) {
 	}
 }
 
-func createTestBlock() *ehpb.OpenchainEvent {
+func createTestBlock() *ehpb.Event {
 	emsg := producer.CreateBlockEvent(&ehpb.Block{Transactions: []*ehpb.Transaction{}})
 	return emsg
 }
@@ -158,15 +158,15 @@ func TestMain(m *testing.M) {
 
 	// Register EventHub server
 	// use a buffer of 100 and blocking timeout
-	ehServer := producer.NewOpenchainEventsServer(100, 0)
-	ehpb.RegisterOpenchainEventsServer(grpcServer, ehServer)
+	ehServer := producer.NewEventsServer(100, 0)
+	ehpb.RegisterEventsServer(grpcServer, ehServer)
 
 	fmt.Printf("Starting events server\n")
 	go grpcServer.Serve(lis)
 
 	done := make(chan struct{})
 	adapter = &Adapter{notfy: done}
-	obcEHClient = consumer.NewOpenchainEventsClient(peerAddress, adapter)
+	obcEHClient = consumer.NewEventsClient(peerAddress, adapter)
 	if err = obcEHClient.Start(); err != nil {
 		fmt.Printf("could not start chat %s\n", err)
 		obcEHClient.Stop()

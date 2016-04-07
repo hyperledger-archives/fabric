@@ -1,5 +1,5 @@
 # Local build binaries
-obc-peer
+fabric
 node-cli/node-cli
 *.pyc
 /build/_workspace

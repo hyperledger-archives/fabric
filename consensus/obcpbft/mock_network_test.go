@@ -107,12 +107,12 @@ func (ep *testEndpoint) GetNetworkHandles() (self *pb.PeerID, network []*pb.Peer
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (ep *testEndpoint) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
+func (ep *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 	ep.net.broadcastFilter(ep, msg.Payload)
 	return nil
 }
 
-func (ep *testEndpoint) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
+func (ep *testEndpoint) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
 	receiverID, err := getValidatorID(receiverHandle)
 	if err != nil {
 		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)

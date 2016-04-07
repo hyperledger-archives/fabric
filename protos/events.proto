@@ -19,7 +19,7 @@ under the License.
 
 syntax = "proto3";
 
-import "openchain.proto";
+import "fabric.proto";
 
 package protos;
 
@@ -55,10 +55,10 @@ message Generic {
     bytes payload = 2;
 }
 
-//OpenchainEvent is used by
+//Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events 
-message OpenchainEvent {
+message Event {
     //TODO need timestamp
     oneof Event {
         //consumer events
@@ -71,7 +71,7 @@ message OpenchainEvent {
 }
 
 // Interface exported by the events server
-service OpenchainEvents {
-    // event chatting using OpenchainEvent
-    rpc Chat(stream OpenchainEvent) returns (stream OpenchainEvent) {}
+service Events {
+    // event chatting using Event
+    rpc Chat(stream Event) returns (stream Event) {}
 }

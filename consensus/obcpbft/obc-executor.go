@@ -153,7 +153,7 @@ func (obcex *obcExecutor) Execute(seqNo uint64, txs []*pb.Transaction, execInfo 
 		obcex.drainExecutionQueue()
 		obcex.executionQueue <- &transaction{
 			seqNo: seqNo,
-			// nil txRaw indicates a missed request
+			sync:  true,
 		}
 		obcex.executionQueue <- request // queue request
 	}
@@ -192,7 +192,7 @@ func (obcex *obcExecutor) SkipTo(seqNo uint64, id []byte, peerIDs []*pb.PeerID, 
 
 }
 
-// A channel which only reads when the executor thread is otherwise idle
+// A channel which only reads when the executor thread is otherwise idle, intended to use only for testing
 func (obcex *obcExecutor) IdleChan() <-chan struct{} {
 	return obcex.threadIdle
 }
@@ -263,6 +263,7 @@ func (obcex *obcExecutor) queueThread() {
 				idle = false
 			case obcex.threadIdle <- struct{}{}:
 				logger.Debug("%v responding to idle request", obcex.id)
+				idle = false
 				continue
 
 			}
@@ -303,22 +304,17 @@ func (obcex *obcExecutor) queueThread() {
 		}
 
 		if nil != err {
-			logger.Error("%v encountered an error while processing transaction: %v", err)
+			logger.Error("%v encountered an error while processing transaction: %v", obcex.id, err)
 			continue
 		}
 
 		if sync {
-			logger.Debug("%v requested sync while processing transaction: %v", err)
+			logger.Debug("%v requested sync while processing transaction: %v", obcex.id, err)
 			seqNo, id, execInfo = obcex.sync()
 			if nil == id {
 				// id should only be nil during shutdown
 				continue
 			}
-		}
-
-		if nil != err {
-			logger.Error("%v encountered an error while performing state sync: %v", err)
-			continue
 		}
 
 		if execInfo.Checkpoint {
@@ -403,7 +399,7 @@ func (obcex *obcExecutor) prepareCommit(tx *transaction) error {
 
 // commits the result from prepareCommit
 func (obcex *obcExecutor) commit(tx *transaction) ([]byte, error) {
-	logger.Debug("%v committing transaction %p", obcex.id, tx)
+	logger.Debug("%v committing transaction %p for sequence number %d", obcex.id, tx, tx.seqNo)
 	if block, err := obcex.executorStack.CommitTxBatch(tx, nil); err != nil {
 		obcex.rollback(tx)
 		return nil, fmt.Errorf("Failed to commit transaction batch %p to the ledger: %v", tx, err)

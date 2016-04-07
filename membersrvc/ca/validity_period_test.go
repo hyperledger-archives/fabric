@@ -36,9 +36,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
-	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/genesis"
@@ -66,10 +66,10 @@ func TestMain(m *testing.M) {
 func setupTestConfig() {
 	viper.AutomaticEnv()
 	viper.SetConfigName("ca_test") // name of config file (without extension)
-	viper.AddConfigPath("./")         // path to look for the config file in
-	viper.AddConfigPath("./..")       // path to look for the config file in
-	err := viper.ReadInConfig()       // Find and read the config file
-	if err != nil {                   // Handle errors reading the config file
+	viper.AddConfigPath("./")      // path to look for the config file in
+	viper.AddConfigPath("./..")    // path to look for the config file in
+	err := viper.ReadInConfig()    // Find and read the config file
+	if err != nil {                // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 }
@@ -337,7 +337,7 @@ func startOpenchain(t *testing.T) error {
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
 	// Register the ServerOpenchain server
-	serverOpenchain, err := core.NewOpenchainServer()
+	serverOpenchain, err := rest.NewOpenchainServer()
 	if err != nil {
 		return fmt.Errorf("Error creating OpenchainServer: %s", err)
 	}

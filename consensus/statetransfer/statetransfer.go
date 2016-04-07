@@ -116,6 +116,8 @@ type StateTransferState struct {
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
 	StateSnapshotRequestTimeout time.Duration // How long to wait for a peer to respond to a state snapshot request
 
+	MaxStateDeltas int // The maximum number of state deltas to attempt to retrieve before giving up and performing a full state snapshot retrieval, only public for testing
+
 	stateTransferListeners     []Listener  // A list of listeners to call when state transfer is initiated/errored/completed
 	stateTransferListenersLock *sync.Mutex // Used to lock the above list when adding a listener
 }
@@ -329,6 +331,11 @@ func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *S
 	sts.StateSnapshotRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.fullstate"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.fullstate timeout: %s", err))
+	}
+
+	sts.MaxStateDeltas = config.GetInt("statetransfer.maxdeltas")
+	if sts.MaxStateDeltas <= 0 {
+		panic(fmt.Errorf("sts.maxdeltas must be greater than 0"))
 	}
 
 	return sts
@@ -807,6 +814,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		}
 		logger.Debug("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
 		*blocksValid = false // We retrieved a new hash, we will need to sync to a new block
+
 	}
 
 	if !*blocksValid {
@@ -839,6 +847,11 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		*blocksValid = true
 	} else {
 		logger.Debug("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+	}
+
+	if *currentStateBlockNumber+uint64(sts.MaxStateDeltas) < (*blockHReply).blockNumber {
+		return fmt.Errorf("%v has a state for block %d which is too far out of date to play forward to block %d, max deltas are %d, invalidating",
+			sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.MaxStateDeltas)
 	}
 
 	stateHash, err := sts.stack.GetCurrentStateHash()

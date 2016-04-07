@@ -34,22 +34,22 @@ import (
 	ehpb "github.com/hyperledger/fabric/protos"
 )
 
-//OpenchainEventsClient holds the stream and adapter for consumer to work with
-type OpenchainEventsClient struct {
+//EventsClient holds the stream and adapter for consumer to work with
+type EventsClient struct {
 	peerAddress string
-	stream      ehpb.OpenchainEvents_ChatClient
+	stream      ehpb.Events_ChatClient
 	adapter     EventAdapter
 }
 
 const defaultTimeout = time.Second * 3
 
-//NewOpenchainEventsClient Returns a new grpc.ClientConn to the configured local PEER.
-func NewOpenchainEventsClient(peerAddress string, adapter EventAdapter) *OpenchainEventsClient {
-	return &OpenchainEventsClient{peerAddress, nil, adapter}
+//NewEventsClient Returns a new grpc.ClientConn to the configured local PEER.
+func NewEventsClient(peerAddress string, adapter EventAdapter) *EventsClient {
+	return &EventsClient{peerAddress, nil, adapter}
 }
 
-//newOpenchainEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
-func newOpenchainEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
+//newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
+func newEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if viper.GetBool("peer.tls.enabled") {
 		var sn string
@@ -75,8 +75,8 @@ func newOpenchainEventsClientConnectionWithAddress(peerAddress string) (*grpc.Cl
 	return grpc.Dial(peerAddress, opts...)
 }
 
-func (ec *OpenchainEventsClient) register(ies []*ehpb.Interest) error {
-	emsg := &ehpb.OpenchainEvent{Event: &ehpb.OpenchainEvent_Register{Register: &ehpb.Register{Events: ies}}}
+func (ec *EventsClient) register(ies []*ehpb.Interest) error {
+	emsg := &ehpb.Event{Event: &ehpb.Event_Register{Register: &ehpb.Register{Events: ies}}}
 	var err error
 	if err = ec.stream.Send(emsg); err != nil {
 		fmt.Printf("error on Register send %s\n", err)
@@ -92,7 +92,7 @@ func (ec *OpenchainEventsClient) register(ies []*ehpb.Interest) error {
 			return
 		}
 		switch in.Event.(type) {
-		case *ehpb.OpenchainEvent_Register:
+		case *ehpb.Event_Register:
 		case nil:
 			err = fmt.Errorf("invalid nil object for register")
 		default:
@@ -107,7 +107,7 @@ func (ec *OpenchainEventsClient) register(ies []*ehpb.Interest) error {
 	return err
 }
 
-func (ec *OpenchainEventsClient) processEvents() error {
+func (ec *EventsClient) processEvents() error {
 	defer ec.stream.CloseSend()
 	for {
 		in, err := ec.stream.Recv()
@@ -134,8 +134,8 @@ func (ec *OpenchainEventsClient) processEvents() error {
 }
 
 //Start establishes connection with Event hub and registers interested events with it
-func (ec *OpenchainEventsClient) Start() error {
-	conn, err := newOpenchainEventsClientConnectionWithAddress(ec.peerAddress)
+func (ec *EventsClient) Start() error {
+	conn, err := newEventsClientConnectionWithAddress(ec.peerAddress)
 	if err != nil {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
 	}
@@ -149,7 +149,7 @@ func (ec *OpenchainEventsClient) Start() error {
 		return fmt.Errorf("must supply interested events")
 	}
 
-	serverClient := ehpb.NewOpenchainEventsClient(conn)
+	serverClient := ehpb.NewEventsClient(conn)
 	ec.stream, err = serverClient.Chat(context.Background())
 	if err != nil {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
@@ -165,6 +165,6 @@ func (ec *OpenchainEventsClient) Start() error {
 }
 
 //Stop terminates connection with event hub
-func (ec *OpenchainEventsClient) Stop() error {
+func (ec *EventsClient) Stop() error {
 	return ec.stream.CloseSend()
 }

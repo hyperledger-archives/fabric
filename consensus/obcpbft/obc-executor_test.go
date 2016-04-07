@@ -162,15 +162,24 @@ func TestExecutorRequestFlood(t *testing.T) {
 		BlockHash:   SimpleGetBlockHash(100),
 	}
 
-	biAsBytes, _ := proto.Marshal(bi)
-	obcex.ValidState(100, biAsBytes, nil, &ExecutionInfo{})
-	<-obcex.IdleChan()
+outer:
+	for {
+		select {
+		case <-obcex.IdleChan():
+			break outer
+		default:
+			biAsBytes, _ := proto.Marshal(bi)
+			obcex.ValidState(100, biAsBytes, nil, &ExecutionInfo{})
+		}
+	}
 
 	obcex.Execute(101, []*pb.Transaction{&pb.Transaction{}}, &ExecutionInfo{})
-	<-obcex.IdleChan()
 
-	if obcex.lastExec != 101 {
-		t.Fatalf("Expected executions")
+	<-obcex.IdleChan()
+	<-obcex.IdleChan() // Two calls guarantees that we have hit the select without the idle channel
+	expectedExecutions := uint64(101)
+	if obcex.lastExec != expectedExecutions {
+		t.Fatalf("Expected %d executions, got %d", expectedExecutions, obcex.lastExec)
 	}
 
 }

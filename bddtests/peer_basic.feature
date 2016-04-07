@@ -1,5 +1,5 @@
 #
-# Test openchain Peers
+# Test Hyperledger Peers
 #
 # Tags that can be used and will affect test internals:
 #
@@ -9,17 +9,18 @@
 
 #@chaincodeImagesUpToDate
 Feature: lanching 3 peers
-    As an openchain developer
+    As a HyperLedger developer
     I want to be able to launch a 3 peers
 
 #    @doNotDecompose
 #    @wip
+   @issue_767
   Scenario: Range query test, single peer, issue #767
     Given we compose "docker-compose-1.yml"
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      When I deploy chaincode "github.com/openblockchain/obc-peer/examples/chaincode/go/map" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/map" with ctor "init" to "vp0"
       ||
       ||
 
@@ -55,7 +56,7 @@ Feature: lanching 3 peers
       When I query chaincode "map" function name "keys" on "vp0":
         ||
         ||
-      Then I should get a JSON response with "OK" = "["key2","key1"]"
+      Then I should get a JSON response with "OK" = "["key1","key2"]"
 
       When I invoke chaincode "map" function name "remove" on "vp0"
         | arg1 | |
@@ -73,12 +74,13 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+  @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/behave_chaincode/go/table" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/hyperledger/fabric/core/behave_chaincode/go/table" with ctor "init" to "vp0"
       ||
       ||
       Then I should have received a chaincode name
@@ -225,7 +227,7 @@ Feature: lanching 3 peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 | arg2 |
         | foo2 | 65   |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]}]"
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 | arg2 |
@@ -235,7 +237,7 @@ Feature: lanching 3 peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]}]"
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
         ||
@@ -291,7 +293,7 @@ Feature: lanching 3 peers
 	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
@@ -333,7 +335,7 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
@@ -359,7 +361,7 @@ Feature: lanching 3 peers
 #    @doNotDecompose
 #    @wip
     @issue_567
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #567
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #567
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "3" seconds
@@ -375,7 +377,7 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
         And I wait "2" seconds
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
@@ -409,8 +411,8 @@ Feature: lanching 3 peers
 
     #@doNotDecompose
     #@wip
-    #@skip
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #680 (State transfer)
+  @issue_680
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "5" seconds
@@ -428,7 +430,7 @@ Feature: lanching 3 peers
 
 
             # Deploy
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
                     | arg1 |  arg2 | arg3 | arg4 |
                     |  a   |  100  |  b   |  200 |
 	        Then I should have received a chaincode name
@@ -492,7 +494,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
     @issue_724
-	Scenario Outline: chaincode example02 with 4 peers and 1 obcca, issue #724
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #724
 
 	    Given we compose "<ComposeFile>"
 	    And I wait "3" seconds
@@ -508,7 +510,7 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
         And I wait "2" seconds
-	    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
 		     | arg1 |  arg2 | arg3 | arg4 |
 		     |  a   |  100  |  b   |  200 |
 	    Then I should have received a chaincode name
@@ -546,17 +548,18 @@ Feature: lanching 3 peers
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
- 	@tls
+ 	@TLS
 #	@doNotDecompose
 	Scenario: basic startup of 2 validating peers using TLS
 	    Given we compose "docker-compose-2-tls-basic.yml"
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
+
 #@doNotDecompose
 #@wip
 #@skip
-   Scenario Outline: 4 peers and 1 obcca, consensus still works if one backup replica fails
+   Scenario Outline: 4 peers and 1 membersrvc, consensus still works if one backup replica fails
 
       Given we compose "<ComposeFile>"
       And I wait "10" seconds
@@ -573,7 +576,7 @@ Feature: lanching 3 peers
        Then I should get a JSON response with "height" = "1"
 
       # Deploy
-      When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
          | arg1 |  arg2 | arg3 | arg4 |
          |  a   |  100  |  b   |  200 |
        Then I should have received a chaincode name
@@ -620,7 +623,7 @@ Feature: lanching 3 peers
 #@doNotDecompose
 #@wip
 #@skip
- Scenario Outline: 4 peers and 1 obcca, consensus fails if 2 backup replicas fail
+ Scenario Outline: 4 peers and 1 membersrvc, consensus fails if 2 backup replicas fail
 
     Given we compose "<ComposeFile>"
     And I wait "10" seconds
@@ -637,7 +640,7 @@ Feature: lanching 3 peers
      Then I should get a JSON response with "height" = "1"
 
     # Deploy
-    When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
        | arg1 |  arg2 | arg3 | arg4 |
        |  a   |  100  |  b   |  200 |
      Then I should have received a chaincode name
@@ -682,7 +685,7 @@ Feature: lanching 3 peers
      #@doNotDecompose
      #@wip
      #@skip
-      Scenario Outline: 4 peers and 1 obcca, consensus still works if 1 peer (vp3) is byzantine
+      Scenario Outline: 4 peers and 1 membersrvc, consensus still works if 1 peer (vp3) is byzantine
 
          Given we compose "<ComposeFile>"
          And I wait "10" seconds
@@ -699,7 +702,7 @@ Feature: lanching 3 peers
           Then I should get a JSON response with "height" = "1"
 
          # Deploy
-         When I deploy chaincode "github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02" with ctor "init" to "vp0"
+         When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
             | arg1 |  arg2 | arg3 | arg4 |
             |  a   |  100  |  b   |  200 |
           Then I should have received a chaincode name

@@ -42,9 +42,9 @@ func init() {
 func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
-	key := "general.mode"                       // for a key that exists
-	envName := "HYPERLEDGER_OBCPBFT_GENERAL_MODE" // env override name
-	overrideValue := "overide_test"             // value to override default value with
+	key := "general.mode"                  // for a key that exists
+	envName := "CORE_PBFT_GENERAL_MODE" // env override name
+	overrideValue := "overide_test"        // value to override default value with
 
 	// test key
 	if ok := config.IsSet("general.mode"); !ok {
@@ -757,7 +757,7 @@ func TestFallBehind(t *testing.T) {
 	defer net.stop()
 
 	execReq := func(iter int64, skipThree bool) {
-		// Create a message of type `OpenchainMessage_CHAIN_TRANSACTION`
+		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
 		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
@@ -832,7 +832,7 @@ func TestPbftF0(t *testing.T) {
 	net := makePBFTNetwork(1)
 	defer net.stop()
 
-	// Create a message of type: `OpenchainMessage_CHAIN_TRANSACTION`
+	// Create a message of type: `Message_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
@@ -866,4 +866,37 @@ func TestPbftF0(t *testing.T) {
 				pep.id, pep.sc.lastExecution, txPacked)
 		}
 	}
+}
+
+// Make sure the request timer doesn't inflate the view timeout by firing during view change
+func TestRequestTimerDuringViewChange(t *testing.T) {
+	mock := &omniProto{
+		validateImpl: func(txRaw []byte) error { return nil },
+		signImpl:     func(msg []byte) ([]byte, error) { return msg, nil },
+		verifyImpl:   func(senderID uint64, signature []byte, message []byte) error { return nil },
+		broadcastImpl: func(msg []byte) {
+			t.Errorf("Should not send the view change message during a view change")
+		},
+	}
+	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	instance.requestTimeout = time.Millisecond
+	instance.activeView = false
+	defer instance.close()
+
+	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	txPacked, _ := proto.Marshal(tx)
+
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   txPacked,
+		ReplicaId: 1, // Not the primary
+	}
+
+	instance.recvRequest(req)
+
+	time.Sleep(100 * time.Millisecond)
 }

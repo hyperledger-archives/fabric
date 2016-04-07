@@ -20,7 +20,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/utxo/
 docker build -t utxo:0.1.0 .
 ```
 
-Next, modify the `openchain.yaml` file in the obc-peer project to point to the local Docker image that was built in the previous step. In the openchain.yaml file find `chaincode.golang.Dockerfile` and change it from from `golang:1.6` to `utxo:0.1.0`
+Next, modify the `core.yaml` file in the obc-peer project to point to the local Docker image that was built in the previous step. In the core.yaml file find `chaincode.golang.Dockerfile` and change it from from `golang:1.6` to `utxo:0.1.0`
 
 Start the peer using the following commands
 ```
@@ -54,7 +54,7 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 
 Using the Docker image that we just built, start a peer within a container in `chaincodedev` mode.
 ```
-docker run -it -p 30303:30303 openchain-peer obc-peer peer --peer-chaincodedev
+docker run -it -p 30303:30303 openchain-peer peer peer --peer-chaincodedev
 ```
 
 

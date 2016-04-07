@@ -113,9 +113,9 @@ message NonHashData {
 
 // Interface exported by the server.
 service Peer {
-    // Accepts a stream of OpenchainMessage during chat session, while receiving
-    // other OpenchainMessage (e.g. from other peers).
-    rpc Chat(stream OpenchainMessage) returns (stream OpenchainMessage) {}
+    // Accepts a stream of Message during chat session, while receiving
+    // other Message (e.g. from other peers).
+    rpc Chat(stream Message) returns (stream Message) {}
 }
 message PeerAddress {
     string host = 1;
@@ -142,7 +142,7 @@ message HelloMessage {
   PeerEndpoint peerEndpoint = 1;
   BlockchainInfo blockchainInfo = 2;
 }
-message OpenchainMessage {
+message Message {
     enum Type {
         UNDEFINED = 0;
 
@@ -183,7 +183,7 @@ message Response {
     StatusCode status = 1;
     bytes msg = 2;
 }
-// BlockState is the payload of OpenchainMessage.SYNC_BLOCK_ADDED. When a VP
+// BlockState is the payload of Message.SYNC_BLOCK_ADDED. When a VP
 // commits a new block to the ledger, it will notify its connected NVPs of the
 // block and the delta state. The NVP may call the ledger APIs to apply the
 // block and the delta state to its ledger if the block's previousBlockHash
@@ -192,7 +192,7 @@ message BlockState {
     Block block = 1;
     bytes stateDelta = 2;
 }
-// SyncBlockRange is the payload of OpenchainMessage.SYNC_GET_BLOCKS, where
+// SyncBlockRange is the payload of Message.SYNC_GET_BLOCKS, where
 // start and end indicate the starting and ending blocks inclusively. The order
 // in which blocks are returned is defined by the start and end values. For
 // example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
@@ -201,7 +201,7 @@ message SyncBlockRange {
     uint64 start = 1;
     uint64 end = 2;
 }
-// SyncBlocks is the payload of OpenchainMessage.SYNC_BLOCKS, where the range
+// SyncBlocks is the payload of Message.SYNC_BLOCKS, where the range
 // indicates the blocks responded to the request SYNC_GET_BLOCKS
 message SyncBlocks {
     SyncBlockRange range = 1;
@@ -213,7 +213,7 @@ message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
 
-// SyncState is the payload of OpenchainMessage.SYNC_SNAPSHOT, which is a response
+// SyncState is the payload of Message.SYNC_SNAPSHOT, which is a response
 // to penchainMessage.SYNC_GET_SNAPSHOT. It contains the snapshot or a chunk of the
 // snapshot on stream, and in which case, the sequence indicate the order
 // starting at 0.  The terminating message will have len(delta) == 0.
@@ -224,7 +224,7 @@ message SyncStateSnapshot {
     SyncStateSnapshotRequest request = 4;
 }
 
-// SyncStateRequest is the payload of OpenchainMessage.SYNC_GET_STATE.
+// SyncStateRequest is the payload of Message.SYNC_GET_STATE.
 // blockNumber indicates the block number for the delta which is being
 // requested. If no payload is included with SYNC_GET_STATE, it represents
 // a request for a snapshot of the current state.
@@ -232,8 +232,8 @@ message SyncStateDeltasRequest {
     SyncBlockRange range = 1;
 }
 
-// SyncStateDeltas is the payload of the OpenchainMessage.SYNC_STATE in response to
-// the OpenchainMessage.SYNC_GET_STATE message.
+// SyncStateDeltas is the payload of the Message.SYNC_STATE in response to
+// the Message.SYNC_GET_STATE message.
 message SyncStateDeltas {
     SyncBlockRange range = 1;
     repeated bytes deltas = 2;

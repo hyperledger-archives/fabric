@@ -83,106 +83,106 @@ func (m *Generic) Reset()         { *m = Generic{} }
 func (m *Generic) String() string { return proto.CompactTextString(m) }
 func (*Generic) ProtoMessage()    {}
 
-// OpenchainEvent is used by
+// Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
-type OpenchainEvent struct {
+type Event struct {
 	// TODO need timestamp
 	//
 	// Types that are valid to be assigned to Event:
-	//	*OpenchainEvent_Register
-	//	*OpenchainEvent_Block
-	//	*OpenchainEvent_Generic
-	Event isOpenchainEvent_Event `protobuf_oneof:"Event"`
+	//	*Event_Register
+	//	*Event_Block
+	//	*Event_Generic
+	Event isEvent_Event `protobuf_oneof:"Event"`
 }
 
-func (m *OpenchainEvent) Reset()         { *m = OpenchainEvent{} }
-func (m *OpenchainEvent) String() string { return proto.CompactTextString(m) }
-func (*OpenchainEvent) ProtoMessage()    {}
+func (m *Event) Reset()         { *m = Event{} }
+func (m *Event) String() string { return proto.CompactTextString(m) }
+func (*Event) ProtoMessage()    {}
 
-type isOpenchainEvent_Event interface {
-	isOpenchainEvent_Event()
+type isEvent_Event interface {
+	isEvent_Event()
 }
 
-type OpenchainEvent_Register struct {
+type Event_Register struct {
 	Register *Register `protobuf:"bytes,1,opt,name=register,oneof"`
 }
-type OpenchainEvent_Block struct {
+type Event_Block struct {
 	Block *Block `protobuf:"bytes,2,opt,name=block,oneof"`
 }
-type OpenchainEvent_Generic struct {
+type Event_Generic struct {
 	Generic *Generic `protobuf:"bytes,3,opt,name=generic,oneof"`
 }
 
-func (*OpenchainEvent_Register) isOpenchainEvent_Event() {}
-func (*OpenchainEvent_Block) isOpenchainEvent_Event()    {}
-func (*OpenchainEvent_Generic) isOpenchainEvent_Event()  {}
+func (*Event_Register) isEvent_Event() {}
+func (*Event_Block) isEvent_Event()    {}
+func (*Event_Generic) isEvent_Event()  {}
 
-func (m *OpenchainEvent) GetEvent() isOpenchainEvent_Event {
+func (m *Event) GetEvent() isEvent_Event {
 	if m != nil {
 		return m.Event
 	}
 	return nil
 }
 
-func (m *OpenchainEvent) GetRegister() *Register {
-	if x, ok := m.GetEvent().(*OpenchainEvent_Register); ok {
+func (m *Event) GetRegister() *Register {
+	if x, ok := m.GetEvent().(*Event_Register); ok {
 		return x.Register
 	}
 	return nil
 }
 
-func (m *OpenchainEvent) GetBlock() *Block {
-	if x, ok := m.GetEvent().(*OpenchainEvent_Block); ok {
+func (m *Event) GetBlock() *Block {
+	if x, ok := m.GetEvent().(*Event_Block); ok {
 		return x.Block
 	}
 	return nil
 }
 
-func (m *OpenchainEvent) GetGeneric() *Generic {
-	if x, ok := m.GetEvent().(*OpenchainEvent_Generic); ok {
+func (m *Event) GetGeneric() *Generic {
+	if x, ok := m.GetEvent().(*Event_Generic); ok {
 		return x.Generic
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*OpenchainEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _OpenchainEvent_OneofMarshaler, _OpenchainEvent_OneofUnmarshaler, []interface{}{
-		(*OpenchainEvent_Register)(nil),
-		(*OpenchainEvent_Block)(nil),
-		(*OpenchainEvent_Generic)(nil),
+func (*Event) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Event_OneofMarshaler, _Event_OneofUnmarshaler, []interface{}{
+		(*Event_Register)(nil),
+		(*Event_Block)(nil),
+		(*Event_Generic)(nil),
 	}
 }
 
-func _OpenchainEvent_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*OpenchainEvent)
+func _Event_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Event)
 	// Event
 	switch x := m.Event.(type) {
-	case *OpenchainEvent_Register:
+	case *Event_Register:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Register); err != nil {
 			return err
 		}
-	case *OpenchainEvent_Block:
+	case *Event_Block:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Block); err != nil {
 			return err
 		}
-	case *OpenchainEvent_Generic:
+	case *Event_Generic:
 		b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Generic); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("OpenchainEvent.Event has unexpected type %T", x)
+		return fmt.Errorf("Event.Event has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _OpenchainEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*OpenchainEvent)
+func _Event_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Event)
 	switch tag {
 	case 1: // Event.register
 		if wire != proto.WireBytes {
@@ -190,7 +190,7 @@ func _OpenchainEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto
 		}
 		msg := new(Register)
 		err := b.DecodeMessage(msg)
-		m.Event = &OpenchainEvent_Register{msg}
+		m.Event = &Event_Register{msg}
 		return true, err
 	case 2: // Event.block
 		if wire != proto.WireBytes {
@@ -198,7 +198,7 @@ func _OpenchainEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto
 		}
 		msg := new(Block)
 		err := b.DecodeMessage(msg)
-		m.Event = &OpenchainEvent_Block{msg}
+		m.Event = &Event_Block{msg}
 		return true, err
 	case 3: // Event.generic
 		if wire != proto.WireBytes {
@@ -206,7 +206,7 @@ func _OpenchainEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto
 		}
 		msg := new(Generic)
 		err := b.DecodeMessage(msg)
-		m.Event = &OpenchainEvent_Generic{msg}
+		m.Event = &Event_Generic{msg}
 		return true, err
 	default:
 		return false, nil
@@ -221,97 +221,97 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for OpenchainEvents service
+// Client API for Events service
 
-type OpenchainEventsClient interface {
-	// event chatting using OpenchainEvent
-	Chat(ctx context.Context, opts ...grpc.CallOption) (OpenchainEvents_ChatClient, error)
+type EventsClient interface {
+	// event chatting using Event
+	Chat(ctx context.Context, opts ...grpc.CallOption) (Events_ChatClient, error)
 }
 
-type openchainEventsClient struct {
+type eventsClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewOpenchainEventsClient(cc *grpc.ClientConn) OpenchainEventsClient {
-	return &openchainEventsClient{cc}
+func NewEventsClient(cc *grpc.ClientConn) EventsClient {
+	return &eventsClient{cc}
 }
 
-func (c *openchainEventsClient) Chat(ctx context.Context, opts ...grpc.CallOption) (OpenchainEvents_ChatClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_OpenchainEvents_serviceDesc.Streams[0], c.cc, "/protos.OpenchainEvents/Chat", opts...)
+func (c *eventsClient) Chat(ctx context.Context, opts ...grpc.CallOption) (Events_ChatClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Events_serviceDesc.Streams[0], c.cc, "/protos.Events/Chat", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &openchainEventsChatClient{stream}
+	x := &eventsChatClient{stream}
 	return x, nil
 }
 
-type OpenchainEvents_ChatClient interface {
-	Send(*OpenchainEvent) error
-	Recv() (*OpenchainEvent, error)
+type Events_ChatClient interface {
+	Send(*Event) error
+	Recv() (*Event, error)
 	grpc.ClientStream
 }
 
-type openchainEventsChatClient struct {
+type eventsChatClient struct {
 	grpc.ClientStream
 }
 
-func (x *openchainEventsChatClient) Send(m *OpenchainEvent) error {
+func (x *eventsChatClient) Send(m *Event) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *openchainEventsChatClient) Recv() (*OpenchainEvent, error) {
-	m := new(OpenchainEvent)
+func (x *eventsChatClient) Recv() (*Event, error) {
+	m := new(Event)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// Server API for OpenchainEvents service
+// Server API for Events service
 
-type OpenchainEventsServer interface {
-	// event chatting using OpenchainEvent
-	Chat(OpenchainEvents_ChatServer) error
+type EventsServer interface {
+	// event chatting using Event
+	Chat(Events_ChatServer) error
 }
 
-func RegisterOpenchainEventsServer(s *grpc.Server, srv OpenchainEventsServer) {
-	s.RegisterService(&_OpenchainEvents_serviceDesc, srv)
+func RegisterEventsServer(s *grpc.Server, srv EventsServer) {
+	s.RegisterService(&_Events_serviceDesc, srv)
 }
 
-func _OpenchainEvents_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(OpenchainEventsServer).Chat(&openchainEventsChatServer{stream})
+func _Events_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(EventsServer).Chat(&eventsChatServer{stream})
 }
 
-type OpenchainEvents_ChatServer interface {
-	Send(*OpenchainEvent) error
-	Recv() (*OpenchainEvent, error)
+type Events_ChatServer interface {
+	Send(*Event) error
+	Recv() (*Event, error)
 	grpc.ServerStream
 }
 
-type openchainEventsChatServer struct {
+type eventsChatServer struct {
 	grpc.ServerStream
 }
 
-func (x *openchainEventsChatServer) Send(m *OpenchainEvent) error {
+func (x *eventsChatServer) Send(m *Event) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *openchainEventsChatServer) Recv() (*OpenchainEvent, error) {
-	m := new(OpenchainEvent)
+func (x *eventsChatServer) Recv() (*Event, error) {
+	m := new(Event)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-var _OpenchainEvents_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protos.OpenchainEvents",
-	HandlerType: (*OpenchainEventsServer)(nil),
+var _Events_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.Events",
+	HandlerType: (*EventsServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Chat",
-			Handler:       _OpenchainEvents_Chat_Handler,
+			Handler:       _Events_Chat_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

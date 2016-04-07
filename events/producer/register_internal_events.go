@@ -34,13 +34,13 @@ const (
 	BlockType    = "block"
 )
 
-func getMessageType(e *pb.OpenchainEvent) string {
+func getMessageType(e *pb.Event) string {
 	switch e.Event.(type) {
-	case *pb.OpenchainEvent_Register:
+	case *pb.Event_Register:
 		return "register"
-	case *pb.OpenchainEvent_Block:
+	case *pb.Event_Block:
 		return "block"
-	case *pb.OpenchainEvent_Generic:
+	case *pb.Event_Generic:
 		return "generic"
 	default:
 		return ""

@@ -1,15 +1,13 @@
-﻿# Open Blockchain Protocol Specification
-
-_Draft 0.01_
+﻿# Hyperledger Fabric Protocol Specification
 
 ## Preface
-This document is the protocol specification of Open Blockchain (OBC), a permissioned blockchain implementation for industry use-cases. It is not intended to be a complete explanation of the implementation, but rather a description of the interfaces and relationships between components in the system and the application.
+This document is the protocol specification for the Hyperledger fabric, a permissioned blockchain implementation for industry use-cases. It is not intended to be a complete explanation of the implementation, but rather a description of the interfaces and relationships between components in the system and the application.
 
 ### Intended Audience
 The intended audience for this specification includes the following groups:
 
 - Blockchain vendors who want to implement blockchain systems that conform to this specification
-- Tool developers who want to extend the capabilities of Open Blockchain
+- Tool developers who want to extend the capabilities of the Hyperledger fabric
 - Application developers who want to leverage blockchain technologies to enrich their applications
 
 ### Authors
@@ -26,8 +24,8 @@ ________________________________________________________
 ## Table of Contents
 #### 1. Introduction
 
-   - 1.1 What is Open Blockchain?
-   - 1.2 Why Open Blockchain?
+   - 1.1 What is the Hyperledger fabric?
+   - 1.2 Why the Hyperledger fabric?
    - 1.3 Terminology
 
 #### 2. Fabric
@@ -144,20 +142,20 @@ ________________________________________________________
 ________________________________________________________
 
 ## 1. Introduction
-This document specifies the principles, architecture, and protocol of Open Blockchain, a blockchain implementation suitable for industrial use-cases.
+This document specifies the principles, architecture, and protocol of the Hyperledger fabric, a blockchain implementation suitable for industrial use-cases.
 
-### 1.1 What is Open Blockchain?
-Open Blockchain is a ledger of digital events, called transactions, shared among  different participants, each having a stake in the system. The ledger can only be updated by consensus of the participants, and, once recorded, information can never be altered. Each recorded event is cryptographically verifiable with proof of agreement from the participants.
+### 1.1 What is the Hyperledger fabric?
+The Hyperledger fabric is a ledger of digital events, called transactions, shared among  different participants, each having a stake in the system. The ledger can only be updated by consensus of the participants, and, once recorded, information can never be altered. Each recorded event is cryptographically verifiable with proof of agreement from the participants.
 
-Open Blockchain transactions are secured, private, and confidential. Each participant registers with proof of identity to the network membership services to gain access to the system. Transactions are issued with derived certificates unlinkable to the individual participant, offering a complete anonymity on the network. Transaction content is encrypted with sophisticated key derivation functions to ensure only intended participants may see the content, protecting the confidentiality of the business transactions.
+Hyperledger fabric transactions are secured, private, and confidential. Each participant registers with proof of identity to the network membership services to gain access to the system. Transactions are issued with derived certificates unlinkable to the individual participant, offering a complete anonymity on the network. Transaction content is encrypted with sophisticated key derivation functions to ensure only intended participants may see the content, protecting the confidentiality of the business transactions.
 
-Open Blockchain ledger allows compliance with regulations as ledger entries are auditable in whole or in part. In collaboration with participants, auditors may obtain time-based certificates to allow viewing the ledger and linking transactions to provide an accurate assessment of the operations.
+The Hyperledger fabric ledger allows compliance with regulations as ledger entries are auditable in whole or in part. In collaboration with participants, auditors may obtain time-based certificates to allow viewing the ledger and linking transactions to provide an accurate assessment of the operations.
 
-Technologically, Open Blockchain is a fabric of blockchain, where Bitcoin could be a simple application built on Open Blockchain. It is a modular architecture allowing components to be plug-and-play by implementing this protocol specification. It features powerful container technology to host any main stream language for smart contracts development. Leveraging familiar and proven technologies is the motto of the fabric architecture.
+The Hyperledger fabric is a fabric of blockchain, where Bitcoin could be a simple application built on the Hyperledger fabric. It is a modular architecture allowing components to be plug-and-play by implementing this protocol specification. It features powerful container technology to host any main stream language for smart contracts development. Leveraging familiar and proven technologies is the motto of the fabric architecture.
 
-### 1.2 Why Open Blockchain?
+### 1.2 Why the Hyperledger fabric?
 
-Early blockchain technology serves a set of purposes but is often not well-suited for the needs of specific industries. To meet the demands of modern markets, Open Blockchain is based on an industry-focused design that addresses the multiple and varied requirements of specific industry use cases , extending the learning of the pioneers in this field while also addressing issues such as scalability. Open Blockchain provides a new approach to enable permissioned networks, privacy, and confidentially on multiple blockchain networks.
+Early blockchain technology serves a set of purposes but is often not well-suited for the needs of specific industries. To meet the demands of modern markets, the Hyperledger fabric is based on an industry-focused design that addresses the multiple and varied requirements of specific industry use cases , extending the learning of the pioneers in this field while also addressing issues such as scalability. The Hyperledger fabric provides a new approach to enable permissioned networks, privacy, and confidentially on multiple blockchain networks.
 
 ### 1.3 Terminology
 The following terminology is defined within the limited scope of this specification to help readers understand clearly and precisely the concepts described here.
@@ -170,11 +168,11 @@ The following terminology is defined within the limited scope of this specificat
 
 **World State** is the collection of variables containing the results of executed transactions.
 
-**Chaincode** is an application-level code (a.k.a [smart contract](https://en.wikipedia.org/wiki/Smart_contract)) stored on the ledger as a part of a transaction. Chaincode runs transactions that may modify the world state.
+**Chaincode** is an application-level code (a.k.a. [smart contract](https://en.wikipedia.org/wiki/Smart_contract)) stored on the ledger as a part of a transaction. Chaincode runs transactions that may modify the world state.
 
-**Validating Peer** is a computer node on the OBC network responsible for running consensus, validating transactions, and maintaining the ledger.
+**Validating Peer** is a computer node on the Hyperledger fabric network responsible for running consensus, validating transactions, and maintaining the ledger.
 
-**Non-validating Peer** is a computer node on the OBC network which functions as a proxy connecting transactors to the neighboring validating peers. A non-validating peer doesn't execute transactions but does verify them. It also hosts the event stream server and the REST service.
+**Non-validating Peer** is a computer node on the Hyperledger fabric network which functions as a proxy connecting transactors to the neighboring validating peers. A non-validating peer doesn't execute transactions but does verify them. It also hosts the event stream server and the REST service.
 
 **Permissioned Ledger** is a blockchain network where each entity or node is required to be a member of the network. Anonymous nodes are not allowed to connect.
 
@@ -188,7 +186,7 @@ The following terminology is defined within the limited scope of this specificat
 
 ## 2. Fabric
 
-Open Blockchain fabric is made up of the core components described in the subsections below.
+The Hyperledger fabric is made up of the core components described in the subsections below.
 
 ### 2.1 Architecture
 The reference architecture is aligned in 3 categories: Membership, Blockchain, and Chaincode services. These categories are logical structures, not a physical depiction of partitioning of components into separate processes, address spaces or (virtual) machines.
@@ -208,16 +206,16 @@ Chaincode services provides a secured and lightweight way to sandbox the chainco
 Validating peers and chaincodes can emit events on the network that applications may listen for and take actions on. There is a set of pre-defined events, and chaincodes can generate custom events. Events are consumed by 1 or more event adapters. Adapters may further deliver events using other vehicles such as Web hooks or Kafka.
 
 ### 2.1.5 Application Programming Interface (API)
-The primary interface to OBC is a REST API and its variations over Swagger 2.0. The API allows applications to register users, query the blockchain, and to issue transactions. There is a set of APIs specifically for chaincode to interact with the stack to execute transactions and query transaction results.
+The primary interface to the Hyperledger fabric is a REST API and its variations over Swagger 2.0. The API allows applications to register users, query the blockchain, and to issue transactions. There is a set of APIs specifically for chaincode to interact with the stack to execute transactions and query transaction results.
 
 ### 2.1.6 Command Line Interface (CLI)
 CLI includes a subset of the REST API to enable developers to quickly test chaincodes or query for status of transactions. CLI is implemented in Golang and operable on multiple OS platforms.
 
 ### 2.2 Topology
-A deployment of Open Blockchain may consist of a membership service, many validating peers, non-validating peers, and 1 or more applications. All of these components make up a chain. There can be multiple chains; each one having its own operating parameters and security requirements.
+A deployment of the Hyperledger fabric can consist of a membership service, many validating peers, non-validating peers, and 1 or more applications. All of these components make up a chain. There can be multiple chains; each one having its own operating parameters and security requirements.
 
 ### 2.2.1 Single Validating Peer
-Functionally, a non-validating peer is a subset of a validating peer; that is, every capability on a non-validating peer may be enabled on a validating peer, so the simplest blockchain network of OBC may consist of a single validating peer node. This configuration is most appropriate for a development environment, where a single validating peer may be started up during the edit-compile-debug cycle.
+Functionally, a non-validating peer is a subset of a validating peer; that is, every capability on a non-validating peer may be enabled on a validating peer, so the simplest Hyperledger fabric network may consist of a single validating peer node. This configuration is most appropriate for a development environment, where a single validating peer may be started up during the edit-compile-debug cycle.
 
 ![Single Validating Peer](images/top-single-peer.png)
 
@@ -235,13 +233,13 @@ Each network of validating and non-validating peers makes up a chain. Many chain
 
 
 ## 3. Protocol
-Open Blockchain peer-to-peer communication is built on [gRPC](http://www.grpc.io/docs/), which allows bi-directional stream-based messaging. It uses [Protocol Buffers](https://developers.google.com/protocol-buffers) to serialize data structures for data transfer between peers. Protocol buffers are a language-neutral, platform-neutral and extensible mechanism for serializing structured data. OBC data structures, messages, and services are described using [proto3 language](https://developers.google.com/protocol-buffers/docs/proto3) notation.
+The Hyperledger fabric peer-to-peer communication is built on [gRPC](http://www.grpc.io/docs/), which allows bi-directional stream-based messaging. It uses [Protocol Buffers](https://developers.google.com/protocol-buffers) to serialize data structures for data transfer between peers. Protocol buffers are a language-neutral, platform-neutral and extensible mechanism for serializing structured data. Hyperledger fabric data structures, messages, and services are described using [proto3 language](https://developers.google.com/protocol-buffers/docs/proto3) notation.
 
 ### 3.1 Message
-Messages passed between nodes are encapsulated by `OpenchainMessage` proto structure, which consists of 4 types: Discovery, Transaction, Synchronization, and Consensus. Each type may define more subtypes embedded in the `payload`.
+Messages passed between nodes are encapsulated by `Message` proto structure, which consists of 4 types: Discovery, Transaction, Synchronization, and Consensus. Each type may define more subtypes embedded in the `payload`.
 
 ```
-message OpenchainMessage {
+message Message {
    enum Type {
         UNDEFINED = 0;
 
@@ -276,7 +274,7 @@ message OpenchainMessage {
 The `payload` is an opaque byte array containing other objects such as `Transaction` or `Response` depending on the type of the message. For example, if the `type` is `CHAIN_TRANSACTION`, the `payload` is a `Transaction` object.
 
 ### 3.1.1 Discovery Messages
-Upon start up, a peer runs discovery protocol if `OPENCHAIN_PEER_DISCOVERY_ROOTNODE` is specified. `OPENCHAIN_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
+Upon start up, a peer runs discovery protocol if `CORE__PEER_DISCOVERY_ROOTNODE` is specified. `CORE_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
 
 ```
 message HelloMessage {
@@ -587,11 +585,11 @@ The *world state* of a peer refers to the collection of the *states* of all the 
 For the purpose of the description below, `chaincodeID` is assumed to be a valid utf8 string and `ckey` and the `value` can be a sequence of one or more arbitrary bytes.
 
 #### 3.2.2.1 Hashing the world state
-During the functioning of an OBC network, many occasions such as committing transactions and synchronizing peers may require computing a crypto-hash of the world state observed by a peer. For instance, the consensus protocol may require to ensure that a *minimum* number of peers in the network observe the same world state.
+During the functioning of a Hyperledger fabric network, many occasions such as committing transactions and synchronizing peers may require computing a crypto-hash of the world state observed by a peer. For instance, the consensus protocol may require to ensure that a *minimum* number of peers in the network observe the same world state.
 
 Since, computing the crypto-hash of the world state could be an expensive operation, this is highly desirable to organize the world state such that it enables an efficient crypto-hash computation of the world state when a change occurs in the world state. Further, different organization designs may be suitable under different workloads conditions.
 
-Since the OBC is expected to function under a variety of scenarios leading to different workloads conditions, a pluggable mechanism is supported for organizing the world state.
+Because the Hyperledger fabric is expected to function under a variety of scenarios leading to different workloads conditions, a pluggable mechanism is supported for organizing the world state.
 
 #### 3.2.2.1.1 Bucket-tree
 
@@ -787,12 +785,12 @@ Chaincode may query another chaincode in the same transaction context by sending
 
 ### 3.4 Pluggable Consensus Framework
 
-Open Blockchain consensus framework defines the interfaces that every consensus _plugin_ implements:
+The Hyperledger fabric consensus framework defines the interfaces that every consensus _plugin_ implements:
 
   - `consensus.Consenter`: interface that  allows consensus plugin to receive messages from the network.
   - `consensus.CPI`:  _Consensus Programming Interface_ (`CPI`) is used by consensus plugin to interact with rest of the stack. This interface is split in two parts:
 	  - `consensus.Communicator`: used to send (broadcast and unicast) messages to other validating peers.
-	  - `consensus.LedgerStack`: which is used as an interface to the Open Blockchain execution framework as well as the ledger.
+	  - `consensus.LedgerStack`: which is used as an interface to the Hyperledger fabric execution framework as well as the ledger.
 
 As described below in more details, `consensus.LedgerStack` encapsulates, among other interfaces, the `consensus.Executor` interface, which is the key part of the consensus framework. Namely, `consensus.Executor` interface allows for a (batch of) transaction to be started, executed, rolled back if necessary, previewed, and potentially committed. A particular property that every consensus plugin needs to satisfy is that batches (blocks)  of transactions are committed to the ledger (via `consensus.Executor.CommitTxBatch`) in total order across all validating peers (see `consensus.Executor` interface description below for more details).
 
@@ -812,7 +810,7 @@ There are 2 consensus plugins provided: `pbft` and `noops`:
 Definition:
 ```
 type Consenter interface {
-	RecvMsg(msg *pb.OpenchainMessage) error
+	RecvMsg(msg *pb.Message) error
 }
 ```
 The plugin's entry point for (external) client requests, and consensus messages generated internally (i.e. from the consensus module) during the consensus process. The `controller.NewConsenter` creates the plugin `Consenter`. `RecvMsg` processes the incoming transactions in order to reach consensus.
@@ -860,8 +858,8 @@ Definition:
 
 ```
 type Communicator interface {
-	Broadcast(msg *pb.OpenchainMessage) error
-	Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+	Broadcast(msg *pb.Message) error
+	Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error
 }
 ```
 
@@ -892,7 +890,7 @@ type LedgerStack interface {
 }
 ```
 
-A key member of the `CPI` interface, `LedgerStack` groups interaction of consensus with the rest of the Open Blockchain blockchain fabric, such as the execution of transactions, querying, and updating the ledger.  This interface supports querying the local blockchain and state, updating the local blockchain and state, and querying the blockchain and state of other nodes in the consensus network. It consists of three parts: `Executor`, `Ledger` and `RemoteLedgers` interfaces. These are described in the following.
+A key member of the `CPI` interface, `LedgerStack` groups interaction of consensus with the rest of the Hyperledger fabric, such as the execution of transactions, querying, and updating the ledger.  This interface supports querying the local blockchain and state, updating the local blockchain and state, and querying the blockchain and state of other nodes in the consensus network. It consists of three parts: `Executor`, `Ledger` and `RemoteLedgers` interfaces. These are described in the following.
 
 ### 3.4.7 `Executor` interface
 
@@ -1121,7 +1119,7 @@ Signature:
 func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 ```
 
-This function reads the `peer.validator.consensus` value in `obc-peer/openchain.yaml` configuration file, which is the  configuration file for the `obc-peer` process. The value of the `peer.validator.consensus` key defines whether the validating peer will run with the `noops` consensus plugin or the `obcpbft` one. (Notice that this should eventually be changed to either `noops` or `custom`. In case of `custom`, the validating peer will run with the consensus plugin defined in `obc-peer/openchain/consensus/config.yaml`.)
+This function reads the `peer.validator.consensus` value in `core.yaml` configuration file, which is the  configuration file for the `peer` process. The value of the `peer.validator.consensus` key defines whether the validating peer will run with the `noops` consensus plugin or the `obcpbft` one. (Notice that this should eventually be changed to either `noops` or `custom`. In case of `custom`, the validating peer will run with the consensus plugin defined in `consensus/config.yaml`.)
 
 The plugin author needs to edit the function's body so that it routes to the right constructor for their package. For example, for `obcpbft` we point to the `obcpft.GetPlugin` constructor.
 
@@ -1149,7 +1147,7 @@ type ConsensusHandler struct {
 
 Within the context of consensus, we focus only on the `coordinator` and `consenter` fields. The `coordinator`, as the name implies, is used to coordinate between the peer's message handlers. This is, for instance, the object that is accessed when the peer wishes to `Broadcast`. The `consenter` receives the messages for which consensus needs to be reached and processes them.
 
-Notice that `obc-peer/openchain/peer/peer.go` defines the `peer.MessageHandler` (interface), and `peer.MessageHandlerCoordinator` (interface) types.
+Notice that `fabric/peer/peer.go` defines the `peer.MessageHandler` (interface), and `peer.MessageHandlerCoordinator` (interface) types.
 
 #### 3.4.11.3 helper.NewConsensusHandler
 
@@ -1191,8 +1189,8 @@ Recall that the `helper.ConsesusHandler` object returned by `helper.NewConsensus
 ```
 type MessageHandler interface {
 	RemoteLedger
-	HandleMessage(msg *pb.OpenchainMessage) error
-	SendMessage(msg *pb.OpenchainMessage) error
+	HandleMessage(msg *pb.Message) error
+	SendMessage(msg *pb.Message) error
 	To() (pb.PeerEndpoint, error)
 	Stop() error
 }
@@ -1201,14 +1199,14 @@ type MessageHandler interface {
 Within the context of consensus, we focus only on the `HandleMessage` method. Signature:
 
 ```
-func (handler *ConsensusHandler) HandleMessage(msg *pb.OpenchainMessage) error
+func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error
 ```
 
-The function inspects the `Type` of the incoming `OpenchainMessage`. There are four cases:
+The function inspects the `Type` of the incoming `Message`. There are four cases:
 
-  1. Equal to `pb.OpenchainMessage_CONSENSUS`: passed to the handler's `consenter.RecvMsg` function.
-  2. Equal to `pb.OpenchainMessage_CHAIN_TRANSACTION` (i.e. an external deployment request): a response message is sent to the user first, then the message is passed to the `consenter.RecvMsg` function.
-  3. Equal to `pb.OpenchainMessage_CHAIN_QUERY` (i.e. a query): passed to the `helper.doChainQuery` method so as to get executed locally.
+  1. Equal to `pb.Message_CONSENSUS`: passed to the handler's `consenter.RecvMsg` function.
+  2. Equal to `pb.Message_CHAIN_TRANSACTION` (i.e. an external deployment request): a response message is sent to the user first, then the message is passed to the `consenter.RecvMsg` function.
+  3. Equal to `pb.Message_CHAIN_QUERY` (i.e. a query): passed to the `helper.doChainQuery` method so as to get executed locally.
   4. Otherwise: passed to the `HandleMessage` method of the next handler down the stack.
 
 
@@ -1229,7 +1227,7 @@ The event stream initializes the buffer and timeout parameters. The buffer holds
 
 
 #### 3.5.1.1 Event Producer
-The event producer exposes a function to send an event, `Send(e *pb.OpenchainEvent)`, where `OpenchainEvent` is either a pre-defined `Block` or a `Generic` event. More events will be defined in the future to include other elements of the fabric.
+The event producer exposes a function to send an event, `Send(e *pb.Event)`, where `Event` is either a pre-defined `Block` or a `Generic` event. More events will be defined in the future to include other elements of the fabric.
 
 ```
 message Generic {
@@ -1245,7 +1243,7 @@ The event consumer enables external applications to listen to events. Each event
 
 ```
 adapter = <adapter supplied by the client application to register and receive events>
-consumerClient = NewOpenchainEventsClient(<event consumer address>, adapter)
+consumerClient = NewEventsClient(<event consumer address>, adapter)
 consumerClient.Start()
 ...
 ...
@@ -1262,7 +1260,7 @@ The reference implementation provides Golang specific language binding.
 ```
       EventAdapter interface {
          GetInterestedEvents() ([]*ehpb.Interest, error)
-         Recv(msg *ehpb.OpenchainEvent) (bool,error)
+         Recv(msg *ehpb.Event) (bool,error)
          Disconnected(err error)
       }
 ```
@@ -1272,9 +1270,9 @@ Using gRPC as the event bus protocol allows the event consumer framework to be p
 
 This section details the message structures of the event system. Messages are described directly in Golang for simplicity.
 
-The core message used for communication between the event consumer and producer is the OpenchainEvent.
+The core message used for communication between the event consumer and producer is the Event.
 ```
-    message OpenchainEvent {
+    message Event {
         oneof Event {
             //consumer events
             Register register = 1;
@@ -1315,8 +1313,8 @@ membership management infrastructure, i.e., a set of entities that are
 responsible for identifying an individual user (using any form of identification
 considered in the system, e.g., credit cards, id-cards), open an account for
 that user to be able to register, and issue the necessary credentials to
-successfully create transactions and deploy or invoke chain-codes successfully
-through Open Blockchain.
+successfully create transactions and deploy or invoke chaincode successfully
+through the Hyperledger fabric.
 ![figure-architecture](./images/sec-sec-arch.png)
  * Peers, that are classified as validating peers, and non-validating peers.
    Validating peers (also known as validators) order and process (check validity, execute,
@@ -1340,19 +1338,19 @@ through Open Blockchain.
    While it can be the case that peers can play the role of *online wallet* for a set of
    users, in the following sessions the security of online wallets is detailed separately.
 
-Users who wish to make use of Open Blockchain, open an account at the membership management
+Users who wish to make use of the Hyperledger fabric, open an account at the membership management
 administration, by proving ownership of identity as discussed in previous sections, new chaincodes
-are announced to the Blockchain by the chaincode creator (developer) through the means
+are announced to the blockchain network by the chaincode creator (developer) through the means
 of a deployment transaction that the client-software would construct on behalf of the developer.
 Such transaction is first received by a peer or validator, and afterwards circulated
 in the entire network of validators, this transaction is executed and finds its place to
-the Blockchain. Users can also invoke a function of an already deployed chain-code
+the blockchain network. Users can also invoke a function of an already deployed chain-code
 through an invocation transaction.
 
 The next section provides a summary of the business goals of the system that drive the security requirements. We then overview the security components and their operation and show how this design fulfills the security requirements.  
 
 ### 4.1 Business security requirements
-This section presents business security requirements that are relevant to the context of Open Blockchain.
+This section presents business security requirements that are relevant to the context of the Hyperledger fabric.
 **Incorporation of identity and role management.**
 
 In order to adequately support real business applications it is necessary to progress beyond ensuring cryptographic continuity. A workable B2B system must consequently move towards addressing proven/demonstrated identities or other attributes relevant to conducting business. Business transactions and consumer interactions with financial institutions need to be unambiguously mapped to account holders. Business contracts typically require demonstrable affiliation with specific institutions and/or possession of other specific properties of transacting parties. Accountability and non-frameability are two reasons that identity management is a critical component of such systems.
@@ -1366,9 +1364,9 @@ In addition a B2B system should be renewable and flexible in order to accommodat
 In B2B relationships there is a strong need for transactional privacy, i.e., allowing the end-user of a system to control the degree to which it interacts and shares information with its environment. For example, a corporation doing business through a transactional B2B system requires that its transactions are not visible to other corporations or industrial partners that are not authorized to share classified information with.
 
 
-Transactional privacy in Open Blockchain is offered by the mechanisms to achieve two properties with respect to non authorized users:
+Transactional privacy in the Hyperledger fabric is offered by the mechanisms to achieve two properties with respect to non authorized users:
 
-* Transaction anonymity, where the owner of a transaction is hidden among the so called *anonymity set*, which in Open Blockchain case, is the set of Open Blockchain users.
+* Transaction anonymity, where the owner of a transaction is hidden among the so called *anonymity set*, which in the Hyperledger fabric, is the set of Hyperledger fabric users.
 
 * Transaction unlinkability, where two or more transactions of the same user should not be linked as such.
 
@@ -1430,7 +1428,7 @@ Such a key agreement public key, Key_Agreement_TCertPub_Key, can be generated by
 The structure of a Transaction Certificate (TCert) is as follows:
 * TCertID – transaction certificate ID (preferably generated by TCA randomly in order to avoid unintended linkability via the Hidden Enrollment ID field).
 * Hidden Enrollment ID: AES_Encrypt<sub>K</sub>(enrollmentID), where key K = [HMAC(Pre-K, TCertID)]<sub>256-bit truncation</sub> and where three distinct key distribution scenarios for Pre-K are defined below as (a), (b) and (c).
-* Hidden Private Keys Extraction: AES_Encrypt TCertOwner_EncryptKey(TCertIndex || known padding/parity check vector) where || denotes concatenation, and where each batch has a unique (per batch) time-stamp/random offset that is added to a counter (initialized at 1 in this implementation) in order to generate TCertIndex. The counter can be incremented by 2 each time in order to accommodate generation by the TCA of the public keys and recovery by the TCert owner of the private keys of both types, i.e., signature key pairs and key agreement key pairs.
+* Hidden Private Keys Extraction: AES_Encrypt<sub>TCertOwner_EncryptKey</sub>(TCertIndex || known padding/parity check vector) where || denotes concatenation, and where each batch has a unique (per batch) time-stamp/random offset that is added to a counter (initialized at 1 in this implementation) in order to generate TCertIndex. The counter can be incremented by 2 each time in order to accommodate generation by the TCA of the public keys and recovery by the TCert owner of the private keys of both types, i.e., signature key pairs and key agreement key pairs.
 * Sign Verification Public Key – TCert signature verification public key.
 * Key Agreement Public Key – TCert key agreement public key.
 * Validity period – the time window during which the transaction certificate can be used for the outer/external signature of a transaction.
@@ -1483,9 +1481,9 @@ In this implementation the enrollment process for validators is the same as that
 
 *Client:* Request for TCerts batch needs to include (in addition to count), ECert and signature of request using ECert private key (where Ecert private key is pulled from Local Storage).
 
-*TCA generates TCerts for batch:* Generates key derivation function key, KeyDF_Key, as HMAC(TCA_KDF_Key, EnrollPub_Key). Generates each TCert public key (using TCertPub_Key = EnrollPub_Key + ExpansionValue G, where 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex) and 384-bit Expansion_Key = HMAC(KeyDF_Key, “2”)). Generates each AES_Encrypt TCertOwner_EncryptKey(TCertIndex || known padding/parity check vector), where || denotes concatenation and where TCertOwner_EncryptKey is derived as [HMAC(KeyDF_Key, “1”)]<sub>256-bit truncation</sub>.
+*TCA generates TCerts for batch:* Generates key derivation function key, KeyDF_Key, as HMAC(TCA_KDF_Key, EnrollPub_Key). Generates each TCert public key (using TCertPub_Key = EnrollPub_Key + ExpansionValue G, where 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex) and 384-bit Expansion_Key = HMAC(KeyDF_Key, “2”)). Generates each AES_Encrypt<sub>TCertOwner_EncryptKey</sub>(TCertIndex || known padding/parity check vector), where || denotes concatenation and where TCertOwner_EncryptKey is derived as [HMAC(KeyDF_Key, “1”)]<sub>256-bit truncation</sub>.
 
-*Client:* Deriving TCert private key from a TCert in order to be able to deploy or invoke or query: KeyDF_Key and ECert private key need to be pulled from Local Storage. KeyDF_Key is used to derive TCertOwner_EncryptKey as [HMAC(KeyDF_Key, “1”)]<sub>256-bit truncation</sub>; then TCertOwner_EncryptKey is used to decrypt the TCert field AES_Encrypt TCertOwner_EncryptKey(TCertIndex || known padding/parity check vector); then TCertIndex is used to derive TCert private key: TCertPriv_Key = (EnrollPriv_Key + ExpansionValue) modulo n, where 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex) and 384-bit Expansion_Key = HMAC(KeyDF_Key, “2”).
+*Client:* Deriving TCert private key from a TCert in order to be able to deploy or invoke or query: KeyDF_Key and ECert private key need to be pulled from Local Storage. KeyDF_Key is used to derive TCertOwner_EncryptKey as [HMAC(KeyDF_Key, “1”)]<sub>256-bit truncation</sub>; then TCertOwner_EncryptKey is used to decrypt the TCert field AES_Encrypt<sub>TCertOwner_EncryptKey</sub>(TCertIndex || known padding/parity check vector); then TCertIndex is used to derive TCert private key: TCertPriv_Key = (EnrollPriv_Key + ExpansionValue) modulo n, where 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex) and 384-bit Expansion_Key = HMAC(KeyDF_Key, “2”).
 
 #### 4.2.2 Expiration and revocation of certificates
 
@@ -1503,7 +1501,7 @@ Revocation is supported in the form of Certificate Revocation Lists (CRLs). CRLs
 
 ### 4.3 Transaction security offerings at the infrastructure level
 
-Transactions in Open Blockchain are user-messages submitted to be included
+Transactions in the Hyperledger fabric are user-messages submitted to be included
 in the ledger. As discussed in previous sections, these messages have a
 specific structure, and enable users to deploy new chaincodes, invoke existing
 chaincodes, or query the state of existing chaincodes.
@@ -1517,18 +1515,17 @@ but while efficiently tracing the transactions a particular individual under cer
 mechanisms that marry user-privacy with accountability and non-repudiation.
 
 On the other hand, membership services alone cannot offer full privacy of user-activities within
-Open Blockhain. First of all, for privacy provisions offered by Open Blockchain to be complete,
+the Hyperledger fabric. First of all, for privacy provisions offered by the Hyperledger fabric to be complete,
 privacy-preserving authentication mechanisms need to be accompanied by transaction confidentiality.
 This becomes clear if one considers that the content of a chaincode, may leak information on who may have
 created it, and thus break the privacy of that chaincode's creator. The first subsection
 discusses transaction confidentiality.
 
 <!-- @Binh, @Frank: PLEASE REVIEW THIS PARAGRAPH -->
-Enforcing access control on the invocation of chaincodes is another requirement
-associated to the security of chaincodes. This being among crucial security
-requirements of enterprise Blockain, Open Blockchain exposes to the application
-(e.g., chain-code creator) the means for the latter to perform its own
-invocation access control while leveraging Open Blockchain membership services.
+<!-- Edited by joshhus ... April 6, 2016 -->
+Enforcing access control for the invocation of chaincode is an important security requirement.
+The Hyperledger fabric exposes to the application (e.g., chaincode creator) the means for the application
+to perform its own invocation access control, while leveraging the Hyperledger fabric membership services.
 Section 4.4 elaborates on this.
 
 <!--Enforcing access control on the invocation of chaincodes is another requirement associated
@@ -1549,13 +1546,13 @@ and details each security mechanism separately.
 
 #### 4.3.1 Security Lifecycle of Transactions
 Transactions are created on the client side. The client can be either plain
-Open Blockchain client, or a more specialized application, i.e., piece of
+Hyperledger fabric client, or a more specialized application, i.e., piece of
 software that handles (server) or invokes (client) specific chaincodes
-through the blockchain. Such applications are built on top of the Open
-Blockchain platform (client) and are detailed in Section 4.4.
+through the blockchain. Such applications are built on top of the Hyperledger fabric
+platform (client) and are detailed in Section 4.4.
 
 Developers of new chaincodes create a new deploy transaction by passing to
-the Open Blockchain infrastructure
+the Hyperledger fabric infrastructure
 * the confidentiality/security version or type they want the transaction to conform with,
 * the set of users who wish to be given access to parts of the chaincode and
   a proper representation of their (read) access rights <!-- (read-access code/state/activity, invocation-access) -->
@@ -1620,7 +1617,7 @@ access to an entity to any subset of the following parts of a chain-code:
    when one or more functions of its are invoked
 4. all the above
 
-Notice, that this design offers the application the capability to leverage Open Blockchain
+Notice, that this design offers the application the capability to leverage the Hyperledger fabric
 membership service infrastructure and its public key infrastructure to build their own access
 control policies and enforcement mechanisms.
 
@@ -1843,7 +1840,7 @@ deemed as invalid by the protocol (since can only be shown to be derived from ol
 be appropriate for asset management systems, this does not abide with the needs of a Blockchain systems with more generic
 use than asset management.
 
-In Open Blockchain for replay attack protection a hybrid approach is adopted.
+In the Hyperledger fabric, replay attack protection uses a hybrid approach.
 That is, users add in the transaction a nonce that is generated in a different manner
 depending on whether the transaction is anonymous (followed and signed by a transaction certificate) or not
 (followed and signed by a long term enrollment certificate). More specifically:
@@ -1944,7 +1941,7 @@ application data to the underlying transaction. Bindings are a concept that have
 known as *channel bindings*, that *allows applications to establish that the two end-points of a secure channel at one network layer are the same as at a higher layer
 by binding authentication at the higher layer to the channel at the lower layer.
 This allows applications to delegate session protection to lower layers, which has various performance benefits.*
-Open Blockchain transaction bindings offer the ability to uniquely identify the fabric layer of the transaction that serves as the container that
+Hyperledger fabric transaction bindings offer the ability to uniquely identify the fabric layer of the transaction that serves as the container that
 application data uses to be added to the ledger.
 
 ```
@@ -2077,7 +2074,7 @@ Application ACLs are included in the code-metadata section, that is also passed 
 Function *hello* is responsible for checking that *sigma* is indeed a valid signature issued by TCert<sub>u<sub>i</sub></sub>, on '*M* || *txBinding'*.
 
 #### 4.4.2 Read access control
-This section deals with the way Open Blockchain infrastructure offers support to the application to
+This section describes how the Hyperledger fabric infrastructure offers support to the application to
 enforce its own read-access control policies at the level of users. As in the case of invocation access
 control, the first part describes the infrastructure features that can be leveraged by the application for this
 purpose, and the last part details on the way applications should use these tools.
@@ -2134,24 +2131,23 @@ the code-metadata fields near it), and provide those to containers for deploymen
 ### 4.5 Online wallet service
 
 
-This section shows the security design of an Open Blockchain wallet service, that is, a node where end-users can register,
-move their key material to, and perform transactions through.
-Since the wallet service is in possession of the user's key material, it is clear that without a secure authorization
-mechanism in place a malicious wallet service could successfully impersonate the user in the Open Blockchain.
+This section describes the security design of a Hyperledger fabric wallet service, which in this case is a node where end-users can register, move their key material to, and perform transactions through.
+Because the wallet service is in possession of the user's key material, it is clear that without a secure authorization
+mechanism in place a malicious wallet service could successfully impersonate the user in the Hyperledger fabric.
 We thus emphasize that this design corresponds to a wallet service that is **trusted** to only perform transactions
 on behalf of its clients, with the consent of the latter.
 There are two cases for the registration of an end-user to an online wallet service:
 
-1. when the user has registered with the Open Blockchain registration authority and acquired his/her <enrollID, enrollPWD>,
+1. When the user has registered with the Hyperledger fabric registration authority and acquired his/her <enrollID, enrollPWD>,
    but has not installed the client to trigger and complete the enrollment process;
-2. when the user has already installed the client, and completed the enrollment phase.
+2. When the user has already installed the client, and completed the enrollment phase.
 
-Initially, the user interracts with the online wallet service to issue credentials that would allow him to authenticate
+Initially, the user interacts with the online wallet service to issue credentials that would allow him to authenticate
 to the wallet service. That is, the user is given a username, and password, where username identifies the user in the
 membership service, denoted by AccPub, and password is the associated secret, denoted by AccSec, that is **shared** by
 both user and service.
 
-To enroll with the Open Blockchain, through the online wallet service, a user u will need to provide the following request
+To enroll with the Hyperledger fabric through the online wallet service, a user must provide the following request
 object to the wallet service:
 
 
@@ -2162,12 +2158,11 @@ object to the wallet service:
         AccSecProof<sub>u</sub>  /* proof of AccSec<sub>u</sub>\*/
      }
 
-OBCSecCtx, refers to user Open Blockchain credentials, which depending on the stage of his enrollment process with Open Blockchain
-it can be either his enrollment id and password, <enrollID, enrollPWD> or his enrollment certificate and associated secret key(s)
+OBCSecCtx refers to user Hyperledger fabric credentials, which depending on the stage of his enrollment process with the Hyperledger fabric, can be either his enrollment ID and password, <enrollID, enrollPWD> or his enrollment certificate and associated secret key(s)
 (ECert<sub>u</sub>, sk<sub>u</sub>),  where  sk<sub>u</sub> denotes for simplicity signing and decryption secret of the user.
 The content of AccSecProof<sub>u</sub> is an HMAC on the rest fields of request using the shared secret. Nonce-based methods
-similar to what we have in Open Blockchain can be used to protect against replays.
-OBCSecCtx would give the online wallet service the necessary information to enroll the user to Open Blockchain or issue needed TCerts.
+similar to what we have in the Hyperledger fabric can be used to protect against replays.
+OBCSecCtx would give the online wallet service the necessary information to enroll the user in the Hyperledger fabric or issue required TCerts.
 
 For subsequent requests, the user u should provide to the wallet service a request of similar format.
 
@@ -2182,7 +2177,7 @@ Here, TxDetails refer to the information needed by the online service to constru
 the type, and user-specified content of the transaction.
 
 AccSecProof<sub>u</sub> is again an HMAC on the rest fields of request using the shared secret.
-Nonce-based methods similar to what we have in Open Blockchain can be used to protect against replays.
+Nonce-based methods similar to what we have in the Hyperledger fabric can be used to protect against replays.
 
 TLS connections can be used in each case with server side authentication to secure the request at the
 network layer (confidentiality, replay attack protection, etc)
@@ -2198,7 +2193,7 @@ In the current implementation the only trust anchor is the TLS CA self-signed ce
 
 
 ### 4.7 Restrictions in the current release
-This section lists the restrictions of the current release of Open Blockchain.
+This section lists the restrictions of the current release of the Hyperledger fabric.
 A particular focus is given on client operations and the design of transaction confidentiality,
 as depicted in Sections 4.7.1 and 4.7.2.
 
@@ -2251,7 +2246,7 @@ for confidential chaincodes, one needs to design the state encryption mechanism 
 semantically secure, and yet, identical if the plaintext state is the same.
 
 
-To overcome this challenge, Open Blockchain utilizes a key hierarchy that reduces the number of ciphertexts
+To overcome this challenge, the Hyperledger fabric utilizes a key hierarchy that reduces the number of ciphertexts
 that are encrypted under the same key. At the same time, as some of these keys are used for the generation of IVs,
 this allows the validating parties to generate exactly the same ciphertext when executing the same transaction
 (this is necessary to remain agnostic to the underlying consensus algorithm) and offers the possibility of controlling audit by disclosing to auditing entities only the most relevant keys.
@@ -2423,7 +2418,7 @@ Signature:
 func (pbft *pbftCore) close()
 ```
 
-The `close` method terminates all background operations.  This interface is mostly exposed for testing, because during operation of the obc peer, there is never a need to terminate the PBFT instance.
+The `close` method terminates all background operations. This interface is mostly exposed for testing, because during operation of the Hyperledger fabric, there is never a need to terminate the PBFT instance.
 
 ### 5.3 Inner Consensus Programming Interface
 
@@ -2502,7 +2497,7 @@ The design goal of Sieve is to augment PBFT consensus protocol with two main des
 
 - Enabling *consensus on the output state of replicas*, in addition to the consensus on the input state provided by PBFT. To achieve this, Sieve adopts the Execute-Verify (Eve) pattern introduced in [5].
 
-- As OBC allows execution of arbitrary chaincode, such chaincode may introduce *non-deterministic* transactions. Although non-deterministic transaction should in principle be disallowed by, e.g., careful inspection of chaincode, using domain specific languages (DSLs), or by otherwise enforcing determinism, the design goal of Sieve is to provide a separate *consensus fabric-level* protection against *non-deterministic* transactions that can be used in combination with the above mentioned approaches.
+- Because the Hyperledger fabric allows execution of arbitrary chaincode, such chaincode may introduce *non-deterministic* transactions. Although non-deterministic transaction should in principle be disallowed by, e.g., careful inspection of chaincode, using domain specific languages (DSLs), or by otherwise enforcing determinism, the design goal of Sieve is to provide a separate *consensus fabric-level* protection against *non-deterministic* transactions that can be used in combination with the above mentioned approaches.
 
 	To this end, Sieve detects and *sieves out non-deterministic transactions* (that manifest themselves as such). Hence, Sieve does not require all input transactions to consensus (i.e., the replicated state machine) to be deterministic. This feature of Sieve is new and has not been implemented by any existing Byzantine fault tolerant consensus protocols.
 
@@ -2523,12 +2518,12 @@ Under adverse conditions, a request that diverged between correct replicas may a
 
 ## 6. Application Programming Interface
 
-The primary interface to OBC is a REST API. The REST API allows applications to register users, query the blockchain, and to issue transactions. A CLI is also provided to cover a subset of the available APIs for development purposes. The CLI enables developers to quickly test chaincodes or query for status of transactions.
+The primary interface to the Hyperledger fabric is a REST API. The REST API allows applications to register users, query the blockchain, and to issue transactions. A CLI is also provided to cover a subset of the available APIs for development purposes. The CLI enables developers to quickly test chaincodes or query for status of transactions.
 
 Applications interact with a non-validating peer node through the REST API, which will require some form of authentication to ensure the entity has proper privileges. The application is responsible for implementing the appropriate authentication mechanism and the peer node will subsequently sign the outgoing messages with the client identity.
 
 ![Reference architecture](images/refarch-api.png) <p>
-The OBC API design covers the categories below, though the implementation is incomplete for some of them in the current release. The [REST API](#62-rest-api) section will describe the APIs currently supported.
+The Hyperledger fabric API design covers the categories below, though the implementation is incomplete for some of them in the current release. The [REST API](#62-rest-api) section will describe the APIs currently supported.
 
 *  Identity - Enrollment to acquire or to revoke a certificate
 *  Address - Target and source of a transaction
@@ -2540,19 +2535,19 @@ The OBC API design covers the categories below, though the implementation is inc
 *  Event Stream - Sub/pub events on the blockchain
 
 ## 6.1 REST Service
-The Open Blockchain REST service can be enabled (via configuration) on either validating or non-validating peers, but it is recommended to only enabled the REST service on non-validating peers on production networks.
+The Hyperledger fabric REST service can be enabled (via configuration) on either validating or non-validating peers, but it is recommended to only enabled the REST service on non-validating peers on production networks.
 
 ```
 func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops)
 ```
 
-This function reads the `rest.address` value in `obc-peer/openchain.yaml` configuration file, which is the configuration file for the `obc-peer` process. The value of the `rest.address` key defines the default address and port on which the peer will listen for HTTP REST requests.
+This function reads the `rest.address` value in the `core.yaml` configuration file, which is the configuration file for the `peer` process. The value of the `rest.address` key defines the default address and port on which the peer will listen for HTTP REST requests.
 
 It is assumed that the REST service receives requests from applications which have already authenticated the end user.
 
 ## 6.2 REST API
 
-You can work with the OBC REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). To obtain the OBC REST API Swagger description, click [here](https://github.com/openblockchain/obc-peer/blob/master/openchain/rest/rest_api.json). The currently available APIs are summarized in the following section.
+You can work with the Hyperledger fabric REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). To obtain the Hyperledger fabric REST API Swagger description, click [here](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json). The currently available APIs are summarized in the following section.
 
 ### 6.2.1 REST Endpoints
 
@@ -2664,7 +2659,7 @@ POST host:port/chaincode
   "params": {
     "type": "GOLANG",
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -2699,7 +2694,7 @@ POST host:port/chaincode
   "params": {
     "type": "GOLANG",
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -3034,38 +3029,38 @@ Transaction Retrieval Response:
 
 ## 6.3 CLI
 
-The OBC CLI includes a subset of the available APIs to enable developers to quickly test and debug chaincodes or query for status of transactions. CLI is implemented in Golang and operable on multiple OS platforms. The currently available CLI commands are summarized in the following section.
+The Hyperledger fabric CLI includes a subset of the available APIs to enable developers to quickly test and debug chaincodes or query for status of transactions. CLI is implemented in Golang and operable on multiple OS platforms. The currently available CLI commands are summarized in the following section.
 
 ### 6.3.1 CLI Commands
 
-To see what CLI commands are currently available in the Open Blockchain implementation, execute the following:
+To see what CLI commands are currently available in the Hyperledger fabric implementation, execute the following:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    ./obc-peer
+    cd $GOPATH/src/github.com/hyperledger/fabic
+    ./peer
 
 You will receive a response similar to below:
 
 ```
     Usage:
-      obc-peer [command]
+      peer [command]
 
     Available Commands:
-      peer        Run openchain peer.
-      status      Status of the openchain peer.
-      stop        Stop openchain peer.
+      peer        Run the hyperledger fabric peer.
+      status      Status of the Hyperledger fabric peer.
+      stop        Stop the Hyperledger fabric peer.
       login       Login user on CLI.
-      vm          VM functionality of openchain.
+      vm          VM functionality on the Hyperledger fabric.
       chaincode   chaincode specific commands.
       help        Help about any command
 
     Flags:
-      -h, --help[=false]: help for openchain
+      -h, --help[=false]: help for the Hyperledger fabric
 
 
-    Use "obc-peer [command] --help" for more information about a command.
+    Use "peer [command] --help" for more information about a command.
 ```
 
-Some of the available command line arguments for the `obc-peer` command are listed below:
+Some of the available command line arguments for the `peer` command are listed below:
 
 * `-c` - constructor: function to trigger in order to initialize the chaincode state upon deployment.
 
@@ -3079,20 +3074,20 @@ Some of the available command line arguments for the `obc-peer` command are list
 
 Not all of the above commands are fully implemented in the current release. The commands that are helpful for chaincode development and debugging and are fully supported are described below.
 
-Note, that any configuration settings for the peer node listed in `obc-peer/openchain.yaml` configuration file, which is the  configuration file for the `obc-peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `OPENCHAIN_PEER_ID=vp1` and `OPENCHAIN_PEER_ADDRESSAUTODETECT=true` on the command line.
+Note, that any configuration settings for the peer node listed in the `core.yaml` configuration file, which is the  configuration file for the `peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `CORE_PEER_ID=vp1` and `CORE_PEER_ADDRESSAUTODETECT=true` on the command line.
 
 #### 6.3.1.1 peer
 
-The CLI `peer` command will execute the Open Blockchain peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete Open Blockchain network. An example for starting the peer in development mode is below.
+The CLI `peer` command will execute the Hyperledger fabric peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete Hyperledger fabric network. An example for starting the peer in development mode follows:
 
 ```
-./obc-peer peer --peer-chaincodedev
+./peer peer --peer-chaincodedev
 ```
 
 To start the peer process in production mode, modify the above command as follows:
 
 ```
-./obc-peer peer
+./peer peer
 ```
 
 #### 6.3.1.2 login
@@ -3100,20 +3095,20 @@ To start the peer process in production mode, modify the above command as follow
 The CLI `login` command will login a user, that is already registered with the CA, through the CLI. To login through the CLI, issue the following command, where `username` is the enrollment ID of a registered user.
 
 ```
-./obc-peer login <username>
+./peer login <username>
 ```
 
 The example below demonstrates the login process for user `jim`.
 
 ```
-./obc-peer login jim
+./peer login jim
 ```
 
 The command will prompt for a password, which must match the enrollment password for this user registered with the certificate authority. If the password entered does not match the registered password, an error will result.
 
 ```
 22:21:31.246 [main] login -> INFO 001 CLI client login...
-22:21:31.247 [main] login -> INFO 002 Local data store for client loginToken: /var/openchain/production/client/
+22:21:31.247 [main] login -> INFO 002 Local data store for client loginToken: /var/hyperledger/production/client/
 Enter password for user 'jim': ************
 22:21:40.183 [main] login -> INFO 003 Logging in user 'jim' on CLI interface...
 22:21:40.623 [main] login -> INFO 004 Storing login token for user 'jim'.
@@ -3125,13 +3120,13 @@ Enter password for user 'jim': ************
 The CLI `deploy` command creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
 
 ```
-./obc-peer chaincode deploy -p github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode deploy -u jim -p github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 #### 6.3.1.4 chaincode invoke
@@ -3139,13 +3134,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `invoke` command executes a specified function within the target chaincode. An example is below.
 
 ```
-./obc-peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 #### 6.3.1.5 chaincode query
@@ -3153,13 +3148,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `query` command triggers a specified query method within the target chaincode. The response that is returned depends on the chaincode implementation. An example is below.
 
 ```
-./obc-peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 
@@ -3172,12 +3167,12 @@ With security enabled, the command must be modified to pass an enrollment id of 
 <tr>
 <td width="50%"><img src="images/refarch-app.png"></td>
 <td valign="top">
-An OBC application follows a MVC-B architecture – Model, View, Control, BlockChain.
+A Hyperledger fabric application follows a MVC-B architecture – Model, View, Control, BlockChain.
 <p><p>
 
 <ul>
   <li>VIEW LOGIC – Mobile or Web UI interacting with control logic.</li>
-  <li>CONTROL LOGIC – Coordinates between UI, Data Model and OBC APIs to drive transitions and chain-code.</li>
+  <li>CONTROL LOGIC – Coordinates between UI, Data Model and Hyperledger fabric APIs to drive transitions and chain-code.</li>
   <li>DATA MODEL – Application Data Model – manages off-chain data, including Documents and large files.</li>
   <li>BLOCKCHAIN  LOGIC – Blockchain logic are extensions of the Controller Logic and Data Model, into the Blockchain realm.    Controller logic is enhanced by chaincode, and the data model is enhanced with transactions on the blockchain.</li>
 </ul>

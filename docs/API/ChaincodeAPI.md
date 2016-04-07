@@ -22,4 +22,4 @@ It's possible for one deployed chaincode to call another deployed chaincode usin
 
 ## Future APIs
 
-The APIs available today are just a start. Future APIs will allow chaincode to query transactions, blocks, and possibly previous state. Open an issue in the [repository](https://github.com/openblockchain/obc-peer/issues) to add your support for APIs you would like to see.
+The APIs available today are just a start. Future APIs will allow chaincode to query transactions, blocks, and possibly previous state. Open an issue in the [repository](https://github.com/hyperledger/fabric/issues) to add your support for APIs you would like to see.

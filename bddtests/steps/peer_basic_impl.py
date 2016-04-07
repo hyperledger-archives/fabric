@@ -8,7 +8,7 @@ import sys, requests, json
 
 import bdd_test_util
 
-OPENCHAIN_REST_PORT = 5000
+CORE_REST_PORT = 5000
 
 class ContainerData:
     def __init__(self, containerName, ipAddress, envFromInspect, composeService):
@@ -79,8 +79,11 @@ def ipFromContainerNamePart(namePart, containerDataList):
 		raise Exception("Could not find container with namePart = {0}".format(namePart))
 	return ip
 
-def buildUrl(ipAddress, path):
-	return "http://{0}:{1}{2}".format(ipAddress, OPENCHAIN_REST_PORT, path)
+def buildUrl(context, ipAddress, path):
+    schema = "http"
+    if 'TLS' in context.tags:
+        schema = "https"
+    return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
 
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
@@ -98,9 +101,9 @@ def step_impl(context, composeYamlFile):
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, path)
+    request_url = buildUrl(context, ipAddress, path)
     print("Requesting path = {0}".format(request_url))
-    resp = requests.get(request_url, headers={'Accept': 'application/json'})
+    resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
     assert resp.status_code == 200, "Failed to GET url %s:  %s" % (request_url,resp.text)
     context.response = resp
     print("")
@@ -128,7 +131,7 @@ def step_impl(context, seconds):
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
 def step_impl(context, chaincodePath, ctor, containerName):
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/devops/deploy")
+    request_url = buildUrl(context, ipAddress, "/devops/deploy")
     print("Requesting path = {0}".format(request_url))
     args = []
     if 'table' in context:
@@ -152,7 +155,7 @@ def step_impl(context, chaincodePath, ctor, containerName):
     if 'userName' in context:
         chaincodeSpec["secureContext"] = context.userName
 
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec))
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
     context.response = resp
     chaincodeName = resp.json()['message']
@@ -205,10 +208,10 @@ def invokeChaincode(context, devopsFunc, functionName, containerName):
         "chaincodeSpec" : context.chaincodeSpec
     }
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/devops/{0}".format(devopsFunc))
+    request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("POSTing path = {0}".format(request_url))
 
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
     context.response = resp
     print("RESULT from {0} of chaincode from peer {1}".format(functionName, containerName))
@@ -231,10 +234,10 @@ def step_impl(context, seconds):
 def step_impl(context, seconds, containerName):
     assert 'transactionID' in context, "transactionID not found in context"
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+    request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
     print("GETing path = {0}".format(request_url))
 
-    resp = requests.get(request_url, headers={'Accept': 'application/json'})
+    resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
     context.response = resp
 
@@ -246,12 +249,12 @@ def multiRequest(context, seconds, containerDataList, pathBuilderFunc):
     maxTime = datetime.now() + timedelta(seconds = int(seconds))
     for container in containerDataList:
         ipAddress = container.ipAddress
-        request_url = buildUrl(ipAddress, pathBuilderFunc(context, container))
+        request_url = buildUrl(context, ipAddress, pathBuilderFunc(context, container))
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
             print("GETing path = {0}".format(request_url))
-            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             respMap[container.containerName] = resp
         else:
             raise Exception("Max time exceeded waiting for multiRequest with current response map = {0}".format(respMap))
@@ -268,12 +271,12 @@ def step_impl(context, seconds):
     maxTime = datetime.now() + timedelta(seconds = int(seconds))
     for container in context.compose_containers:
         ipAddress = container.ipAddress
-        request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+        request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
             print("GETing path = {0}".format(request_url))
-            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             if resp.status_code == 404:
                 # Pause then try again
                 respMap[container.containerName] = 404
@@ -319,12 +322,12 @@ def step_impl(context, seconds):
     maxTime = datetime.now() + timedelta(seconds = int(seconds))
     for container in containerDataList:
         ipAddress = container.ipAddress
-        request_url = buildUrl(ipAddress, "/transactions/{0}".format(context.transactionID))
+        request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
             print("GETing path = {0}".format(request_url))
-            resp = requests.get(request_url, headers={'Accept': 'application/json'})
+            resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             if resp.status_code == 404:
                 # Pause then try again
                 respMap[container.containerName] = 404
@@ -360,9 +363,9 @@ def step_impl(context, chaincodeName, functionName):
     }
     responses = []
     for container in context.compose_containers:
-        request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
+        request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
         print("POSTing path = {0}".format(request_url))
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         responses.append(resp)
     context.responses = responses
@@ -390,10 +393,10 @@ def step_impl(context, chaincodeName, functionName, value):
     for container in containerDataList:
         # Change the SecurityContext per call
         chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
-        print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("OPENCHAIN_SECURITY_ENROLLID")))
-        request_url = buildUrl(container.ipAddress, "/devops/{0}".format(functionName))
+        print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
+        request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
         print("POSTing path = {0}".format(request_url))
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=3)
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=3, verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))
@@ -438,10 +441,10 @@ def step_impl(context, userName, secret):
 
     # Login to each container specified
     for ipAddress in ipAddressList:
-        request_url = buildUrl(ipAddress, "/registrar")
+        request_url = buildUrl(context, ipAddress, "/registrar")
         print("POSTing path = {0}".format(request_url))
 
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         context.response = resp
         print("message = {0}".format(resp.json()))
@@ -468,10 +471,10 @@ def step_impl(context):
         }
 
         ipAddress = ipFromContainerNamePart(peer, context.compose_containers)
-        request_url = buildUrl(ipAddress, "/registrar")
+        request_url = buildUrl(context, ipAddress, "/registrar")
         print("POSTing to service = {0}, path = {1}".format(peer, request_url))
 
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         context.response = resp
         print("message = {0}".format(resp.json()))

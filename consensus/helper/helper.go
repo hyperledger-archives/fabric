@@ -90,7 +90,7 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 }
 
 // Broadcast sends a message to all validating peers
-func (h *Helper) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
+func (h *Helper) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 	errors := h.coordinator.Broadcast(msg, peerType)
 	if len(errors) > 0 {
 		return fmt.Errorf("Couldn't broadcast successfully")
@@ -99,7 +99,7 @@ func (h *Helper) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Ty
 }
 
 // Unicast sends a message to a specified receiver
-func (h *Helper) Unicast(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error {
+func (h *Helper) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
 	return h.coordinator.Unicast(msg, receiverHandle)
 }
 

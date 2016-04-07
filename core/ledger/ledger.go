@@ -27,11 +27,11 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/events/producer"
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
+	"github.com/hyperledger/fabric/events/producer"
+	"github.com/op/go-logging"
 	"github.com/tecbot/gorocksdb"
 
 	"github.com/hyperledger/fabric/protos"
@@ -234,7 +234,7 @@ func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 }
 
 // GetStateDelta will return the state delta for the specified block if
-// available.
+// available.  If not available because it has been discarded, returns nil,nil.
 func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, error) {
 	if blockNumber >= ledger.GetBlockchainSize() {
 		return nil, ErrOutOfBounds

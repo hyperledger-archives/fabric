@@ -1,14 +1,14 @@
 vp:
-  image: openchain-peer
+  image: hyperledger-peer
   environment:
-    - OPENCHAIN_PEER_ADDRESSAUTODETECT=true
-    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=http://172.17.0.1:4243
     # TODO:  This is currently required due to BUG in variant logic based upon log level.
-    - OPENCHAIN_LOGGING_LEVEL=DEBUG
-  command: obc-peer peer
+    - CORE_LOGGING_LEVEL=DEBUG
+  command: fabric peer
 
-obcca:
-   image: obcca
+membersrvc:
+   image: membersrvc
    environment:
-    - OPENCHAIN_VM_ENDPOINT=http://172.17.0.1:4243
-   command: obc-ca
+    - CORE_VM_ENDPOINT=http://172.17.0.1:4243
+   command: membersrvc

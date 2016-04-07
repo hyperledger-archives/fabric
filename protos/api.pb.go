@@ -10,7 +10,7 @@ It is generated from these files:
 	chaincode.proto
 	devops.proto
 	events.proto
-	openchain.proto
+	fabric.proto
 	server_admin.proto
 
 It has these top-level messages:
@@ -34,7 +34,7 @@ It has these top-level messages:
 	Interest
 	Register
 	Generic
-	OpenchainEvent
+	Event
 	Transaction
 	TransactionBlock
 	TransactionResult
@@ -46,7 +46,7 @@ It has these top-level messages:
 	PeerEndpoint
 	PeersMessage
 	HelloMessage
-	OpenchainMessage
+	Message
 	Response
 	BlockState
 	SyncBlockRange

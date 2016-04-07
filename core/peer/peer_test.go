@@ -76,10 +76,10 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 				t.Errorf("stream closed with unexpected error: %s", err)
 				return
 			}
-			if in.Type == pb.OpenchainMessage_DISC_HELLO {
-				t.Logf("Received message: %s, sending %s", in.Type, pb.OpenchainMessage_DISC_GET_PEERS)
-				stream.Send(&pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_GET_PEERS})
-			} else if in.Type == pb.OpenchainMessage_DISC_PEERS {
+			if in.Type == pb.Message_DISC_HELLO {
+				t.Logf("Received message: %s, sending %s", in.Type, pb.Message_DISC_GET_PEERS)
+				stream.Send(&pb.Message{Type: pb.Message_DISC_GET_PEERS})
+			} else if in.Type == pb.Message_DISC_PEERS {
 				//stream.Send(&pb.DiscoveryMessage{Type: pb.DiscoveryMessage_PEERS})
 				t.Logf("Received message: %s", in.Type)
 				t.Logf("Closing stream and channel")
@@ -100,7 +100,7 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	}
 }
 
-func sendLargeMsg(t testing.TB) (*pb.OpenchainMessage, error) {
+func sendLargeMsg(t testing.TB) (*pb.Message, error) {
 	vm, err := container.NewVM()
 	if err != nil {
 		t.Fail()
@@ -115,7 +115,7 @@ func sendLargeMsg(t testing.TB) (*pb.OpenchainMessage, error) {
 		return nil, err
 	}
 	payload, err := ioutil.ReadAll(inputbuf)
-	return &pb.OpenchainMessage{Type: pb.OpenchainMessage_DISC_NEWMSG, Payload: payload}, nil
+	return &pb.Message{Type: pb.Message_DISC_NEWMSG, Payload: payload}, nil
 
 }
 
