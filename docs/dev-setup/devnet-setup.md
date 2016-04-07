@@ -1,6 +1,6 @@
 ## Setting Up a Network For Development
 
-This document covers setting up a Hyperledger fabric network on your local machine for development using Docker containers.
+This document covers setting up a network on your local machine for development using Docker containers.
 
 All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](devenv.md).
 See [Logging Control](logging-control.md) for information on controlling
@@ -10,7 +10,7 @@ logging output from the `obc-peer` and chaincodes.
 **Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.
 
 ### Setting up Docker image
-To create a Docker image for the Hyperledger fabric, named `openchain`,
+To create a Docker image for the fabric, named `openchain`,
 first clean out any active `openchain` containers (peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old `openchain` images with `docker images` and `docker rmi` commands.
 
 Now we are ready to build a new `openchain` docker image:
@@ -114,7 +114,7 @@ OPENCHAIN_PEER_ADDRESS=172.17.0.2:30303 ./obc-peer chaincode query -u jim -l gol
 ```
 
 ### Using Consensus Plugin
-A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the Hyperledger fabric, perform the following configuration:
+A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
 
 1. In `openchain.yaml`, set the `peer.validator.consensus` value to `obcpbft`
 2. In `openchain.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
