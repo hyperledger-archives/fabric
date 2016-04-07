@@ -1,6 +1,6 @@
 #Writing, Building, and Running Chaincode in a Development Environment
 
-Chaincode developers need a way to test and debug their chaincode without having to set up a complete Hypderledger fabric network. This document describes how to write, build, and test chaincode in a local development environment.
+Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. This document describes how to write, build, and test chaincode in a local development environment.
 
 Multiple terminal windows inside the Vagrant development environment are required. One Vagrant terminal runs the validating peer; another Vagrant terminal runs the chaincode; the third Vagrant terminal runs the CLI or REST API commands to execute transactions. When running with security enabled, an additional fourth Vagrant terminal window is required to run the <b>Certificate Authority (CA)</b> server. Detailed instructions are provided in the sections below:
 
@@ -13,7 +13,7 @@ Multiple terminal windows inside the Vagrant development environment are require
     * [Chaincode query via CLI and REST](#chaincode-query-via-cli-and-rest)
 * [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled)
 
-See [Logging Control](../dev-setup/logging-control.md) for information on controlling
+See the [logging control](../dev-setup/logging-control.md) reference for information on controlling
 logging output from the `peer` and chaincodes.
 
 ###Security Setup (optional)
@@ -30,7 +30,7 @@ To set up the local development environment with security enabled, you must firs
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the 'users' section of the configuration file. To register additional users with the CA for testing, modify the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional enrollmentID and enrollmentPW pairs. Note the integer that precedes the enrollmentPW. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
 ###Vagrant Terminal 1 (validating peer)
-**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' before building the peer executable. Alternatively, you can enable security by running the peer with environment variable OPENCHAIN_SECURITY_ENABLED=true. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.privacy</b> value to 'true' as well. Alternatively, you can enable privacy by running the peer with environment variable OPENCHAIN_SECURITY_PRIVACY=true.
+**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' before building the peer executable. Alternatively, you can enable security by running the peer with environment variable CORE_SECURITY_ENABLED=true. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.privacy</b> value to 'true' as well. Alternatively, you can enable privacy by running the peer with environment variable CORE_SECURITY_PRIVACY=true.
 
 From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
@@ -44,7 +44,7 @@ Build and run the peer process to enable security and privacy after setting <b>s
 
 Alternatively, enable security and privacy on the peer with environment variables:
 
-    OPENCHAIN_SECURITY_ENABLED=true OPENCHAIN_SECURITY_PRIVACY=true ./peer peer --peer-chaincodedev
+    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer peer --peer-chaincodedev
 
 ###Vagrant Terminal 2 (chaincode)
 
@@ -61,7 +61,7 @@ When you are ready to start creating your own chaincode, create a new subdirecto
 
 Run the following chaincode command to start and register the chaincode with the validating peer (started in Vagrant terminal 1):
 
-    OPENCHAIN_CHAINCODE_ID_NAME=mycc OPENCHAIN_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+    CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
 
 The chaincode console will display the message "Received REGISTERED, ready for invocations", which indicates that the chaincode is ready to receive requests. Follow the steps below to send a chaincode deploy, invoke or query transaction. If the "Received REGISTERED" message is not displayed, then an error has occurred during the deployment; revisit the previous steps to resolve the issue.
 
@@ -69,7 +69,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The Hyperledger fabric REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
+The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another port number of your choice.
 
 #### **Note on security functionality**
 
@@ -257,7 +257,7 @@ The invoking transaction runs the specified chaincode function name "invoke" wit
 
 Run a query on the chaincode to retrieve the desired values. The <b>-n</b> argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-    ./obc-peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+    ./peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 The response should be similar to the following:
 
@@ -339,5 +339,3 @@ From your command line terminal, move to the `/devenv` subdirectory of your work
 And then run:
 
     rm -rf /var/hyperledger/production
-    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
-    rm -rf membersrvc
