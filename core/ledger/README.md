@@ -1,6 +1,6 @@
 ## Ledger Package
 
-This package implements the ledger for Openchain which includes the blockchain and global state.
+This package implements the ledger, which includes the blockchain and global state.
 
 If you're looking for API to work with the blockchain or state, look in `ledger.go`. This is the file where all public functions are exposed and is extensively documented. The sections in the file are:
 

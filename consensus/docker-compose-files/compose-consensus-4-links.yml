@@ -1,26 +1,28 @@
 vp0:
   links:
-    - obcca
+    - membersrvc
+  ports:
+    - 5000:5000
 
 vp1:
   links:
     - vp0
-    - obcca
+    - membersrvc
 
 vp2:
   links:
     - vp0
-    - obcca
+    - membersrvc
 
 vp3:
   links:
     - vp0
-    - obcca
+    - membersrvc
 
 cli:
   links:
-    - obcca
     - vp0
     - vp1
     - vp2
     - vp3
+    - membersrvc

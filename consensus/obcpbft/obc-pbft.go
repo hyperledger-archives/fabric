@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const configPrefix = "CORE_OBCPBFT"
+const configPrefix = "CORE_PBFT"
 
 var pluginInstance consensus.Consenter // singleton service
 var config *viper.Viper

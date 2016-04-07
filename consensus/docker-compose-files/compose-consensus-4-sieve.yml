@@ -1,15 +1,15 @@
 vp0:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=sieve
+    - CORE_PBFT_GENERAL_MODE=sieve
 
 vp1:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=sieve
+    - CORE_PBFT_GENERAL_MODE=sieve
 
 vp2:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=sieve
+    - CORE_PBFT_GENERAL_MODE=sieve
 
 vp3:
   environment:
-    - OPENCHAIN_OBCPBFT_GENERAL_MODE=sieve
+    - CORE_PBFT_GENERAL_MODE=sieve

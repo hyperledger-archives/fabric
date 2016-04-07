@@ -45,7 +45,7 @@ ParseConfigForDockerfile() {
 			tag=''
 			break
 		fi
-		
+
 		# Dockerfile lives under peer tag in yaml, get to "peer" first
 		if [[ $line == "peer"* ]]
 		then
@@ -92,21 +92,21 @@ PrepareDocker() {
 #
 BuildDockerImage() {
 	echo "--> Building Docker Image - HOST=$DOCKER_HOST"
-	./docker -H $DOCKER_HOST build -t openchain-peer .
+	./docker -H $DOCKER_HOST build -t hyperledger-peer .
 }
 
 # Params - Docker host, PeerID, Host, Port
-RestartAsRoot() { 
+RestartAsRoot() {
 	./docker -H $1 stop -t 0 $2 || true
 	./docker -H $1 rm $2 || true
-	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $5:5000 -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=$COMPANION_HOST -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303 -e OPENCHAIN_VM_DOCKER_TLS_ENABLED=true -e OPENCHAIN_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e OPENCHAIN_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  OPENCHAIN_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
+	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $5:5000 -p $4:30303 -e CORE_VM_ENDPOINT=$COMPANION_HOST -e CORE_PEER_ID=$2 -e CORE_PEER_ADDRESSAUTODETECT=false -e CORE_PEER_ADDRESS=$3:$4 -e CORE_PEER_LISTENADDRESS=0.0.0.0:30303 -e CORE_VM_DOCKER_TLS_ENABLED=true -e CORE_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e CORE_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  CORE_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
 }
 
 # Params - Docker host, PeerID, Host, Port, Root Node
 RestartAsPeer() {
 	./docker -H $1 stop -t 0 $2 || true
 	./docker -H $1 rm $2 || true
-	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $6:5000 -p $4:30303 -e OPENCHAIN_VM_ENDPOINT=$COMPANION_HOST -e OPENCHAIN_PEER_ID=$2 -e OPENCHAIN_PEER_ADDRESSAUTODETECT=false -e OPENCHAIN_PEER_DISCOVERY_ROOTNODE=$5 -e OPENCHAIN_PEER_ADDRESS=$3:$4 -e OPENCHAIN_PEER_LISTENADDRESS=0.0.0.0:30303  -e OPENCHAIN_VM_DOCKER_TLS_ENABLED=true -e OPENCHAIN_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e OPENCHAIN_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  OPENCHAIN_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
+	./docker -H $1 run --name=$2 --restart=unless-stopped -d -it -p $6:5000 -p $4:30303 -e CORE_VM_ENDPOINT=$COMPANION_HOST -e CORE_PEER_ID=$2 -e CORE_PEER_ADDRESSAUTODETECT=false -e CORE_PEER_DISCOVERY_ROOTNODE=$5 -e CORE_PEER_ADDRESS=$3:$4 -e CORE_PEER_LISTENADDRESS=0.0.0.0:30303  -e CORE_VM_DOCKER_TLS_ENABLED=true -e CORE_VM_DOCKER_TLS_CERT_FILE="/companion_certs/cert.pem" -e CORE_VM_DOCKER_TLS_CACERT_FILE="/companion_certs/cacert.pem" -e  CORE_VM_DOCKER_TLS_KEY_FILE="/companion_certs/key.pem" openchain-peer obc-peer peer
 }
 
 Run() {
@@ -131,7 +131,7 @@ Run() {
 }
 
 PrepareFiles
-ParseConfigForDockerfile openchain.yaml > Dockerfile
+ParseConfigForDockerfile core.yaml > Dockerfile
 PrepareDocker
 BuildDockerImage
 Run

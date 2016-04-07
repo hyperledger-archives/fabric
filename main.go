@@ -65,13 +65,13 @@ const undefinedParamValue = ""
 // The main command describes the service and
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
-	Use: "obc-peer",
+	Use: "peer",
 }
 
 var peerCmd = &cobra.Command{
 	Use:   "peer",
-	Short: "Run openchain peer.",
-	Long:  `Runs the openchain peer that interacts with the openchain network.`,
+	Short: "Runs the peer.",
+	Long:  `Runs a peer that interacts with the network.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("peer")
 	},
@@ -82,8 +82,8 @@ var peerCmd = &cobra.Command{
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Status of the openchain peer.",
-	Long:  `Outputs the status of the currently running openchain peer.`,
+	Short: "Returns status of the peer.",
+	Long:  `Returns the status of the currently running peer.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("status")
 	},
@@ -94,8 +94,8 @@ var statusCmd = &cobra.Command{
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop openchain peer.",
-	Long:  `Stops the currently running openchain Peer, disconnecting from the openchain network.`,
+	Short: "Stops the running peer.",
+	Long:  `Stops the currently running peer, disconnecting from the network.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("stop")
 	},
@@ -106,8 +106,8 @@ var stopCmd = &cobra.Command{
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Login user on CLI.",
-	Long:  `Login the local user on CLI. Must supply username parameter.`,
+	Short: "Logs in a user on CLI.",
+	Long:  `Logs in the local user on CLI. Must supply username as a parameter.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("login")
 	},
@@ -116,28 +116,28 @@ var loginCmd = &cobra.Command{
 	},
 }
 
-var vmCmd = &cobra.Command{
-	Use:   "vm",
-	Short: "VM functionality of openchain.",
-	Long:  `Interact with the VM functionality of openchain.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("vm")
-	},
-}
-
-var vmPrimeCmd = &cobra.Command{
-	Use:   "prime",
-	Short: "Prime the VM functionality of openchain.",
-	Long:  `Primes the VM functionality of openchain by preparing the necessary VM construction artifacts.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return stop()
-	},
-}
+// var vmCmd = &cobra.Command{
+// 	Use:   "vm",
+// 	Short: "Accesses VM specific functionality.",
+// 	Long:  `Accesses VM specific functionality.`,
+// 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+// 		core.LoggingInit("vm")
+// 	},
+// }
+//
+// var vmPrimeCmd = &cobra.Command{
+// 	Use:   "prime",
+// 	Short: "Primes the VM functionality.",
+// 	Long:  `Primes the VM functionality by preparing the necessary VM construction artifacts.`,
+// 	RunE: func(cmd *cobra.Command, args []string) error {
+// 		return stop()
+// 	},
+// }
 
 var networkCmd = &cobra.Command{
 	Use:   "network",
-	Short: "List of network peers.",
-	Long:  `Show a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
+	Short: "Lists all network peers.",
+	Long:  `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("network")
 	},
@@ -245,8 +245,8 @@ func main() {
 	mainCmd.AddCommand(stopCmd)
 	mainCmd.AddCommand(loginCmd)
 
-	vmCmd.AddCommand(vmPrimeCmd)
-	mainCmd.AddCommand(vmCmd)
+	// vmCmd.AddCommand(vmPrimeCmd)
+	// mainCmd.AddCommand(vmCmd)
 
 	mainCmd.AddCommand(networkCmd)
 
