@@ -48,6 +48,7 @@ type completeStack struct {
 	*consumerEndpoint
 	*noopSecurity
 	*MockLedger
+	*mockPersist
 }
 
 type pbftConsumer interface {
