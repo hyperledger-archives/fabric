@@ -266,7 +266,7 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 	return nil
 }
 
-func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
+func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
@@ -277,6 +277,17 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	defer slice.Free()
 	data := append([]byte(nil), slice.Data()...)
 	return data, nil
+}
+
+func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte, value []byte) error {
+	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
+	err := openchainDB.DB.PutCF(opt, cfHandler, key, value)
+	if err != nil {
+		fmt.Println("Error while trying to write key:", key)
+		return err
+	}
+	return nil
 }
 
 func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
