@@ -140,8 +140,13 @@ func NewECA() *ECA {
 				Bytes: raw,
 			})
 	}
+	eca.populateAffiliationGroupsTable()
+	eca.populateUsersTable()
+	return eca
+}
 
-	// populate user table
+func (eca *ECA)populateUsersTable() { 
+		// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
 		vals := strings.Fields(flds)
@@ -149,10 +154,30 @@ func NewECA() *ECA {
 		if err != nil {
 			Panic.Panicln(err)
 		}
-		eca.registerUser(id, role, vals[1])
+	
+		var affiliation, affiliation_role string
+		if len(vals) >= 4 { 
+			affiliation = vals[2]	
+			affiliation_role = vals[3]
+		}
+		eca.registerUser(id, affiliation, affiliation_role, role, vals[1])
 	}
+}
 
-	return eca
+func (eca *ECA) populateAffiliationGroupsTable() { 
+	// populate affiliation groups
+	affiliation_groups := viper.GetStringMapString("eca.affiliation_groups")
+	for name, flds := range affiliation_groups {
+		vals := strings.Fields(flds)
+		var parentName string
+		if len(vals) == 0 {
+			parentName = ""
+		} else { 
+			parentName = vals[0]
+		}
+		Info.Println("New affiliation group " + name + " parentName " + parentName)
+		eca.registerAffiliationGroup(name, parentName)
+	}
 }
 
 // Start starts the ECA.
@@ -188,9 +213,10 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 	// validate token
 	var tok, prev []byte
 	var role, state int
+	var enrollId string
 
 	id := in.Id.Id
-	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev)
+	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollId)
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
 	}
@@ -258,13 +284,15 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		// create new certificate pair
 		ts := time.Now().Add(-1 * time.Minute).UnixNano()
 
-		sraw, err := ecap.eca.createCertificate(id, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		spec := NewDefaultCertificateSpecWithCommonName(id, enrollId,  skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		sraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
-		eraw, err := ecap.eca.createCertificate(id, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, ts, nil, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		spec = NewDefaultCertificateSpecWithCommonName(id, enrollId, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		eraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)
@@ -336,9 +364,8 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
-	tok, err := ecaa.eca.registerUser(in.Id.Id, int(in.Role))
-
-	return &pb.Token{[]byte(tok)}, err
+   tok, err :=  ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, int(in.Role))
+   return &pb.Token{[]byte(tok)}, err
 }
 
 // ReadUserSet returns a list of users matching the parameters set in the read request.
@@ -409,35 +436,4 @@ func (ecaa *ECAA) PublishCRL(context.Context, *pb.ECertCRLReq) (*pb.CAStatus, er
 	Trace.Println("grpc ECAA:CreateCRL")
 
 	return nil, errors.New("not yet implemented")
-}
-
-func (ecaa *ECA) generateEnrollId(id string, role string, affiliation string) (string, error) {
-	if id == "" || role == "" || affiliation == "" {
-		return "", errors.New("Please provide all the input parameters, id, role and affiliation")	
-	}
-		
-	if strings.Contains(id, "\\") || strings.Contains(role, "\\") || strings.Contains(affiliation, "\\") {
-		return "", errors.New("Do not include the escape character \\ as part of the values")
-	}
-		
-	return id+"\\"+affiliation+"\\"+role, nil
-}
-
-func (ecaa *ECA) parseEnrollId(enrollId string) (id string, role string, affiliation string, err error) {
-	
-	if enrollId == "" {
-		return  "", "", "", errors.New("Input parameter missing")
-	}
-	
-	enrollIdSections := strings.Split(enrollId, "\\")
-	
-	if(len(enrollIdSections) != 3) {
-		return "", "", "", errors.New ("Either the userId, Role or affiliation is missing from the enrollmentID")
-	}
-	
-	id = enrollIdSections[0]
-	role = enrollIdSections[1]
-	affiliation = enrollIdSections[2]
-	err = nil
-	return
 }
