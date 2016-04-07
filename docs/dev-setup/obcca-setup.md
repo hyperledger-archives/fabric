@@ -1,8 +1,8 @@
-# Open Blockchain (OBC) Certificate Authority (CA) Setup
+# Certificate Authority (CA) Setup
 
 ## Overview
 
-The _Open Blockchain Certificate Authority (OBC CA)_ provides a number of certificate services to users of a blockchain.  More specifically, these services relate to _user enrollment_, _transactions_ deployed or invoked on the blockchain, and _TLS_-secured connections between users or components of the blockchain.
+The _Certificate Authority_ (CA) provides a number of certificate services to users of a blockchain.  More specifically, these services relate to _user enrollment_, _transactions_ deployed or invoked on the blockchain, and _TLS_-secured connections between users or components of the blockchain.
 
 ### Enrollment Certificate Authority
 
