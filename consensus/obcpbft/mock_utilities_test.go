@@ -41,6 +41,22 @@ func (ns *noopSecurity) Verify(peerID *pb.PeerID, signature []byte, message []by
 	return nil
 }
 
+type mockPersist struct {
+	store map[string][]byte
+}
+
+func (p *mockPersist) ReadState(key string) ([]byte, error) {
+	if val, ok := p.store[key]; ok {
+		return val, nil
+	}
+	return nil, fmt.Errorf("cannot find key %s", key)
+}
+
+func (p *mockPersist) StoreState(key string, value []byte) error {
+	p.store[key] = value
+	return nil
+}
+
 // Create a message of type `Message_CHAIN_TRANSACTION`
 func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}

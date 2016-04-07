@@ -99,6 +99,11 @@ type RemoteLedgers interface {
 	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
+type StatePersistor interface {
+	StoreState(key string, value []byte) error
+	ReadState(key string) ([]byte, error)
+}
+
 // LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
 type LedgerStack interface {
 	Executor
@@ -111,4 +116,5 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	LedgerStack
+	StatePersistor
 }

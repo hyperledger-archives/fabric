@@ -24,10 +24,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core"
-	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/peer"
@@ -356,4 +356,14 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 		Start: start,
 		End:   finish,
 	})
+}
+
+func (h *Helper) StoreState(key string, value []byte) error {
+	db := db.GetDBHandle()
+	return db.Put(db.PersistCF, []byte("consensus."+key), value)
+}
+
+func (h *Helper) ReadState(key string) ([]byte, error) {
+	db := db.GetDBHandle()
+	return db.Get(db.PersistCF, []byte("consensus."+key))
 }
