@@ -267,7 +267,6 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	// Generate nonce for TCertIndex
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
 	rand.Reader.Read(nonce[:8])
-	binary.LittleEndian.PutUint64(nonce[8:], uint64(in.Ts.Seconds))
 
 	mac := hmac.New(conf.GetDefaultHash(), tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
@@ -283,7 +282,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	var set [][]byte
 
 	for i := 0; i < num; i++ {
-		tcertid := util.GenerateIntUUID()
+		tcertid := util.GenerateIntUUID()	
 		
 		// Compute TCertIndex
 		tidx := []byte(strconv.Itoa(2 * i + 1))
@@ -353,7 +352,7 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 	
 	// Compute encrypted EnrollmentID
 	mac = hmac.New(conf.GetDefaultHash(), preK_0)
-	mac.Write([]byte("enrollementID"))
+	mac.Write([]byte("enrollmentID"))
 	enrollmentIdKey := mac.Sum(nil)[:32]
 	
 	enrollmentID := []byte(enrollmentCert.Subject.CommonName)
