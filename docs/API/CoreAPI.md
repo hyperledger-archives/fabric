@@ -7,13 +7,13 @@ This document covers the available APIs for interacting with a peer node. Three 
 1. [CLI](#cli)
 2. [REST API](#rest-api)
 3. [Node.js Application](#nodejs-application)
-   * [Using Swagger JS Plugin](#openchainsample_1)
-   * [Marbles Demo Application](#marbles-demo)
-   * [Commercial Paper Demo](#commercial-paper-demo)
+   * [Using Swagger JS Plugin](#using-swagger-js-plugin)
+   * [Marbles Demo Application](#marbles-demo-application)
+   * [Commercial Paper Demo Application](#commercial-paper-demo-application)
 
 **Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional) before proceeding.
 
-## CLI:
+## CLI
 
 To view the currently available CLI commands, execute the following:
 
@@ -145,7 +145,7 @@ message Block {
 
 For additional information on the available CLI commands, please see the [protocol specification](https://github.com/hyperledger/fabric/blob/master/docs/protocol-spec.md) section 6.3 on CLI.
 
-## REST API:
+## REST API
 
 You can work with the REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
@@ -219,9 +219,9 @@ message BlockchainInfo {
 * **POST /devops/invoke**
 * **POST /devops/query**
 
-**[DEPRECATED] The /devops endpoints have been deprecated and are superseded by the [/chaincode](#chaincode) endpoint. Please use the [/chaincode](#chaincode) endpoint to deploy, invoke, and query chaincodes. [DEPRECATED]**
+**[DEPRECATED] The /devops endpoints have been deprecated and are superseded by the [/chaincode](#chaincode) endpoint. Please use the [/chaincode](#chaincode) endpoint to deploy, invoke, and query a chaincode. [DEPRECATED]**
 
-Use the Devops APIs to deploy, invoke, and query chaincodes. The required [ChaincodeSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L60) and [ChaincodeInvocationSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L89) payloads are defined in [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto).
+Use the Devops APIs to deploy, invoke, and query a chaincode. The required [ChaincodeSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L60) and [ChaincodeInvocationSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L89) payloads are defined in [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto).
 
 ```
 message ChaincodeSpec {
@@ -344,9 +344,9 @@ The response to a query request depends on the chaincode implementation. It may 
 
 * **POST /chaincode**
 
-Use the /chaincode endpoint to deploy, invoke, and query a target Chaincode. This endpoint supersedes the [/devops](#devops-deprecated) endpoints and should be used for all chaincode operations. This service endpoint implements the [JSON RPC 2.0 specification](http://www.jsonrpc.org/specification) with the payload identifying the desired Chaincode operation within the `method` field. The supported methods are `deploy`, `invoke`, and `query`.
+Use the /chaincode endpoint to deploy, invoke, and query a target chaincode. This endpoint supersedes the [/devops](#devops-deprecated) endpoints and should be used for all chaincode operations. This service endpoint implements the [JSON RPC 2.0 specification](http://www.jsonrpc.org/specification) with the payload identifying the desired chaincode operation within the `method` field. The supported methods are `deploy`, `invoke`, and `query`.
 
-The /chaincode endpoint implements the the [JSON RPC 2.0 specification](http://www.jsonrpc.org/specification) and as such, must have the required fields of `jsonrpc`, `method`, and in our case `params` supplied within the payload. The client should also add the `id` element within the payload if they wish to receive a response to the request. If the `id` element is missing from the request payload, the request is assumed to be a notification and the server will not produce a response.
+The /chaincode endpoint implements the [JSON RPC 2.0 specification](http://www.jsonrpc.org/specification) and as such, must have the required fields of `jsonrpc`, `method`, and in our case `params` supplied within the payload. The client should also add the `id` element within the payload if they wish to receive a response to the request. If the `id` element is missing from the request payload, the request is assumed to be a notification and the server will not produce a response.
 
 The following sample payloads may be used to deploy, invoke, and query a sample chaincode. To deploy a chaincode, supply the ChaincodeSpec identifying the chaincode to deploy within the request payload.
 
@@ -731,7 +731,7 @@ You can interface with the obc-peer process from a Node.js application. One way 
 
 You will observe several responses on the console and the program will appear to hang for a few moments at the end. This is expected, as is it waiting for the invocation transaction to complete in order to then execute a query. You can take a look at the sample output of the program inside the 'openchain_test' file located inside Sample_1 directory.
 
-### [Marbles Demo](https://github.com/IBM-Blockchain/marbles)
+### [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles)
 
 * Demonstrates an alternative way of interfacing with a peer node from a Node.js app.
 * Demonstrates deploying a Blockchain application as a Bluemix service.
@@ -740,7 +740,7 @@ Hold on to your hats everyone, this application is going to demonstrate transfer
 
 For more inforation on the IBM Blockchain marbles demo, set-up, and instructions, please visit [this page](https://github.com/IBM-Blockchain/marbles).
 
-### [Commercial Paper Demo](https://github.com/IBM-Blockchain/cp-web)
+### [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web)
 
 * Demonstrates an alternative way of interfacing with a peer node from a Node.js app.
 * Demonstrates deploying a Blockchain application as a Bluemix service.
