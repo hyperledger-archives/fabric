@@ -670,7 +670,7 @@ For additional information on the REST endpoints and more detailed examples, ple
 
 ## Node.js Application
 
-You can interface with the obc-peer process from a Node.js application. One way to accomplish that is by relying on the Swagger API description document, [rest_api.json](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json ) and the [swagger-js plugin](https://github.com/swagger-api/swagger-js). Another way to accomplish that relies upon the IBM Blockchain [JS SDK](https://github.com/IBM-Blockchain/ibm-blockchain-js). Use the approach that you find the most convenient.
+You can interface with the peer process from a Node.js application. One way to accomplish that is by relying on the Swagger API description document, [rest_api.json](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json ) and the [swagger-js plugin](https://github.com/swagger-api/swagger-js). Another way to accomplish that relies upon the IBM Blockchain [JS SDK](https://github.com/IBM-Blockchain/ibm-blockchain-js). Use the approach that you find the most convenient.
 
 ### [Using Swagger JS Plugin](https://github.com/hyperledger/fabric/blob/master/docs/API/Samples/Sample_1.js)
 
