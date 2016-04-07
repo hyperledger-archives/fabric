@@ -52,6 +52,11 @@ var (
 	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
 	
+	// TCertEncAttributesBase is the base ASN1 object identifier for attributes. 
+	// When generating an extension to include the attribute an index will be 
+	// appended to this Object Identifier.
+	TCertEncAttributesBase = asn1.ObjectIdentifier{2, 3, 4, 5, 6, 7}
+	
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
@@ -364,8 +369,8 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 	// save k used to encrypt EnrollmentID
 	ks = append(ks, enrollmentIdKey)
 	
-	//TODO: verify if we need to do a copy of the identifier or not to avoid passing a reference to the Extension
-	TCertEncAttributes := asn1.ObjectIdentifier{2, 3, 4, 5, 6, 7, 0}
+	
+	attributeIdentifierIndex := 1
 	
 	// Encrypt and append attributes to the extensions slice
 	for attributeName, attributeValue := range attributes {
@@ -380,8 +385,9 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 		if err != nil {
 			return nil, nil, err
 		}
-		
-		TCertEncAttributes[len(TCertEncAttributes) - 1] = TCertEncAttributes[len(TCertEncAttributes) - 1] + 1
+
+		TCertEncAttributes := append(TCertEncAttributesBase, attributeIdentifierIndex)
+		attributeIdentifierIndex++
 		
 		// Append the encrypted attribute to the extensions
 		extensions = append(extensions, pkix.Extension{Id: TCertEncAttributes, Critical: true, Value: encryptedAttributed})
