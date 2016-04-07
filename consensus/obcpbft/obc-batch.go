@@ -297,7 +297,7 @@ loopBatch:
 }
 
 // Wraps a payload into a batch message, packs it and wraps it into
-// an openchain message. Called by broadcast before transmission.
+// a Fabric message. Called by broadcast before transmission.
 func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	batchMsg := &BatchMessage{&BatchMessage_PbftMessage{msgPayload}}
 	packedBatchMsg, _ := proto.Marshal(batchMsg)

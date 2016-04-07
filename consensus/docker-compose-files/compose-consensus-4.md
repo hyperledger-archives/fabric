@@ -1,38 +1,39 @@
 The set of *compose-consensus-4* files can be used with docker-compose to create a network of validating peers primarily for use in testing and development of consensus protocols.
 
 6 Docker containers are created and linked such that the containers can communicate with each other using hostnames. Currently, the entire network runs on one physical machine **inside a Vagrant box**. The containers created are:
-* obcca (obcpeer_obcca_1) - the obc-ca server
-* cli (obcpeer_cli_1) - you can attach to this container and issue CLI or REST API commands
-* vp0 (obcpeer_vp0_1), vp1 (obcpeer_vp1_1), vp2 (obcpeer_vp2_1), vp3 (obcpeer_vp3_1) - 4 validating peers all running the same consensus protocol ( this is customizable by specifying different docker-compose files. See below. )
+* membersrvc (dockercomposefiles_membersrvc_1) - the obc-ca server
+* cli (dockercomposefiles_cli_1) - you can attach to this container and issue CLI or REST API commands
+* vp0 (dockercomposefiles_vp0_1), vp1 (dockercomposefiles_vp1_1), vp2 (dockercomposefiles_vp2_1), vp3 (dockercomposefiles_vp3_1) - 4 validating peers all running the same consensus protocol ( this is customizable by specifying different docker-compose files. See below. )
 The first name is the **hostname** of the container. The name in parenthesis is the **container name** automatically assigned by Docker.
 
 **Note:** When you deploy a chaincode, each peer will create another Docker container.
 
-Unless otherwise noted, you are at $GOPATH/src/github.com/openchain/obc-peer
+Unless otherwise noted, you are at $GOPATH/src/github.com/hyperledger/fabric/consensus/docker-compose-files
 
 ### Issues
 This is what is not working right
-* cannot create a directory. Specifically when I run **obcpeer login xxx** . It says *cannot create /var/openchain/production/client*. I get around it by creating the directory manually and redoing the command. You might not see this error, especially if you've run obc-peer before. This will be fixed in a separate pull request.
+* cannot create a directory. Specifically when I run **fabric peer login xxx** . It says *cannot create /var/hyperledger/production/client*. I get around it by creating the directory manually and redoing the command. You might not see this error, especially if you've run **fabric** before. This will be fixed in a separate pull request.
 
 ### The *infiniteloop.sh* shell script
 We use the cli container as the spot to run the client and issue CLI or REST API calls. In order for the container to stay up until we connect to it, we need to have it start and wait. *infiniteloop.sh* is just an infinite echo/sleep loop that keeps the container up until we can do a `Docker exec` to it.
 
-On some operating systems, you'll need to set execute permission on the script file.
+On some operating systems, you'll need to set execute permission on the script file. Do this before you create the Docker images.
 
 ### Manual Configuration
- 1. When you login to the client, use one of the _test_user**x**_ IDs defined in _obc-ca/obcca.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/openblockchain/obc-docs/blob/master/api/SandboxSetup.md) document.
+ 1. When you login to the client, use one of the _test_user**x**_ IDs defined in _membersrvc/membersrvc.yaml_. You can find more details about IDs and roles in the [SandboxSetup](https://github.com/hyperledger/fabric/blob/master/api/SandboxSetup.md) document.
 
 
- ### Create Docker images for the obc-peer server and the obc-ca server.
-From $GOPATH/src/github.com/openchain/obc-peer , create the obc-peer Docker image by running command
+ ### Create Docker images for the fabric and membersrvc servers
+From $GOPATH/src/github.com/hyperledger/fabric/consensus/docker-compose-files , create the hyperledger-peer Docker image by running command.
 ```
-docker build -t openchain-peer .
+docker build -t hyperledger-peer -f ./Dockerfile ../..
 ```
-then create the obc-ca Docker image by running command
+then create the membersrvc Docker image by running command
 ```
-docker build -t obcca -f obc-ca/Dockerfile .
+docker build -t membersrvc -f ../../membersrvc/Dockerfile ../..
 ```
 or you can follow the instructions in the  [README](https://github.com/hyperledger/fabric/blob/master/README.md) document.
+(Note that we are specifying `../..` because the Docker context is _$GOPATH/src/github.com/hyperledger/fabric_ and not the current directory _$GOPATH/src/github.com/hyperledger/fabric/consensus/docker-compose-files_ )
 
 You can verify that the images have been created and are available by running command
 ```
@@ -58,13 +59,13 @@ The *-d* option runs the containers as background processes. If you do not set t
 ### Connect to the cli container and run your tests
 From another Vagrant terminal, run this command
 ```
-docker exec -it obcpeer_cli_1 bash
+docker exec -it dockercomposefiles_cli_1 bash
 ```
 You'll get a bash prompt inside the container. From here, you can issue any CLI or REST API command. When you are done, run command
 ```
 exit
 ```
-which returns out out of the obcpeer_cli_1 container. Note that the container is still running.
+which returns out out of the dockercomposefiles_cli_1 container. Note that the container is still running.
 
 ### More useful Docker commands
 * show all containers in the docker-compose group
