@@ -2138,7 +2138,7 @@ We thus emphasize that this design corresponds to a wallet service that is **tru
 on behalf of its clients, with the consent of the latter.
 There are two cases for the registration of an end-user to an online wallet service:
 
-1. When the user has registered with the registration authority and acquired his/her <i>enrollID, enrollPWD</i>,
+1. When the user has registered with the registration authority and acquired his/her `<enrollID, enrollPWD>`,
    but has not installed the client to trigger and complete the enrollment process;
 2. When the user has already installed the client, and completed the enrollment phase.
 
@@ -2158,7 +2158,7 @@ object to the wallet service:
         AccSecProof<sub>u</sub>  /* proof of AccSec<sub>u</sub>\*/
      }
 
-OBCSecCtx refers to user credentials, which depending on the stage of his enrollment process, can be either his enrollment ID and password, <i>enrollID, enrollPWD</i> or his enrollment certificate and associated secret key(s)
+OBCSecCtx refers to user credentials, which depending on the stage of his enrollment process, can be either his enrollment ID and password, `<enrollID, enrollPWD>` or his enrollment certificate and associated secret key(s)
 (ECert<sub>u</sub>, sk<sub>u</sub>),  where  sk<sub>u</sub> denotes for simplicity signing and decryption secret of the user.
 The content of AccSecProof<sub>u</sub> is an HMAC on the rest fields of request using the shared secret. Nonce-based methods
 similar to what we have in the fabric can be used to protect against replays.
