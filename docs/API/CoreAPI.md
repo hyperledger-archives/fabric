@@ -69,24 +69,15 @@ Deploy creates the docker image for the chaincode and subsequently deploys the p
 
 `./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
-The response to the chaincode deploy command is defined by ChaincodeDeploymentSpec inside [chaincode.proto](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L79).
-
-```
-message ChaincodeDeploymentSpec {
-    ChaincodeSpec chaincodeSpec = 1;
-    // Controls when the chaincode becomes executable.
-    google.protobuf.Timestamp effectiveDate = 2;
-    bytes codePackage = 3;
-}
-```
+The response to the chaincode deploy command will contain the chaincode identifier (hash) which will be required on subsequent `chaincode invoke` and `chaincode query` commands in order to identify the deployed chaincode.
 
 With security enabled, modify the command to include the -u parameter passing the username of a logged in user as follows:
 
-`./obc-peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
+`./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
 ### Verify Results
 
-To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validator or a peer node. In the example below, 172.17.0.2 is the IP address of a validator or a peer node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml).
+To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validating or a non-validating node. In the example below, 172.17.0.2 is the IP address of a validating or a non-validating node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml).
 
 `curl 172.17.0.2:5000/chain`
 
@@ -109,25 +100,9 @@ message BlockchainInfo {
 }
 ```
 
-To verify that a specific block is inside the blockchain, use the `/chain/blocks/{Block}` REST endpoint. Likewise, target the IP address of either a validator or a peer node on port 5000.
+To verify that a specific block is inside the blockchain, use the `/chain/blocks/{Block}` REST endpoint. Likewise, target the IP address of either a validating or a non-validating node on port 5000.
 
 `curl 172.17.0.2:5000/chain/blocks/0`
-
-The response will have the following form:
-
-```
-{
-    "transactions":[{
-        "type":1,
-        "chaincodeID": {
-            "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01"
-        },
-        "payload":"ClwIARJYCk9naXRod...",
-        "uuid":"abdcec99-ae5e-415e-a8be-1fca8e38ba71"
-    }],
-    "stateHash":"PY5YcQRu2g1vjiAqHHshoAhnq8CFP3MqzMslcEAJbnmXDtD+LopmkrUHrPMOGSF5UD7Kxqhbg1XUjmQAi84paw=="
-}
-```
 
 The returned Block message structure is defined inside [fabric.proto](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L84).
 
@@ -143,6 +118,22 @@ message Block {
 }
 ```
 
+An example of a returned Block structure is below.
+
+```
+{
+    "transactions":[{
+        "type":1,
+        "chaincodeID": {
+            "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+        },
+        "payload":"ClwIARJYCk9naXRod...",
+        "uuid":"abdcec99-ae5e-415e-a8be-1fca8e38ba71"
+    }],
+    "stateHash":"PY5YcQRu2g1vjiAqHHshoAhnq8CFP3MqzMslcEAJbnmXDtD+LopmkrUHrPMOGSF5UD7Kxqhbg1XUjmQAi84paw=="
+}
+```
+
 For additional information on the available CLI commands, please see the [protocol specification](https://github.com/hyperledger/fabric/blob/master/docs/protocol-spec.md) section 6.3 on CLI.
 
 ## REST API
@@ -151,7 +142,7 @@ You can work with the REST API through any tool of your choice. For example, the
 
 **Note:** The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
 
-**Note on constructing a test blockchain** If you want to test the REST APIs locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
+**Note on constructing a test blockchain** If you want to test the REST API locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
 
 ```
     cd /opt/gopath/src/github.com/hyperledger/fabric/core/rest
@@ -160,7 +151,7 @@ You can work with the REST API through any tool of your choice. For example, the
 
 ### REST Endpoints
 
-To learn about the REST API through Swagger, please take a look at the Swagger document [here](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
+To learn about the REST API through Swagger, please take a look at the Swagger document [here](https://github.com/hyperledger/fabric/blob/master/core/rest/rest_api.json). You can upload the service description file to the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
 * [Block](#block)
   * GET /chain/blocks/{Block}
@@ -313,7 +304,7 @@ With security enabled, modify each of the above payloads to include the secureCo
 
 **Note:** The deployment transaction will take a little time as the docker image is being created.
 
-The response to a deploy request is either a message containing a confirmation of successful execution or an error, containing a reason for the failure. The response to a deployment request also contains the assigned chaincode name (hash), which is to be used in subsequent invocation and query transactions. An example is below:
+The response to a deploy request is either a message containing a confirmation of successful execution or an error, containing a reason for the failure. The response to a successful deployment request also contains the assigned chaincode name (hash), which is to be used in subsequent invocation and query transactions. An example is below:
 
 ```
 {
@@ -331,7 +322,7 @@ The response to an invoke request is either a message containing a confirmation 
 }
 ```
 
-The response to a query request depends on the chaincode implementation. It may contain a string formatted value of a state variable, any string message, or not have an output. An example is below:
+The response to a successful query request depends on the chaincode implementation. It may contain a string formatted value of a state variable, any string message, or not have an output. An example is below:
 
 ```
 {
@@ -348,7 +339,7 @@ Use the /chaincode endpoint to deploy, invoke, and query a target chaincode. Thi
 
 The /chaincode endpoint implements the [JSON RPC 2.0 specification](http://www.jsonrpc.org/specification) and as such, must have the required fields of `jsonrpc`, `method`, and in our case `params` supplied within the payload. The client should also add the `id` element within the payload if they wish to receive a response to the request. If the `id` element is missing from the request payload, the request is assumed to be a notification and the server will not produce a response.
 
-The following sample payloads may be used to deploy, invoke, and query a sample chaincode. To deploy a chaincode, supply the ChaincodeSpec identifying the chaincode to deploy within the request payload.
+The following sample payloads may be used to deploy, invoke, and query a sample chaincode. To deploy a chaincode, supply the [ChaincodeSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L60) identifying the chaincode to deploy within the request payload.
 
 Chaincode Deployment Request without security enabled:
 
@@ -397,7 +388,7 @@ POST host:port/chaincode
 }
 ```
 
-The response to a chaincode deployment request will contain a `status` element confirming successful completion of the request. The response will likewise contain the generated chaincode hash which must be used in subsequent invocation and query requests sent to this chaincode.
+The response to a chaincode deployment request will contain a `status` element confirming successful completion of the request. The response to a successful deployment request will likewise contain the generated chaincode hash which must be used in subsequent invocation and query requests sent to this chaincode.
 
 Chaincode Deployment Response:
 
@@ -412,7 +403,7 @@ Chaincode Deployment Response:
 }
 ```
 
-To invoke a chaincode, supply the ChaincodeSpec identifying the chaincode to invoke within the request payload.
+To invoke a chaincode, supply the [ChaincodeSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L60) identifying the chaincode to invoke within the request payload. Note the chaincode `name` field, which is the hash returned from the deployment request.
 
 Chaincode Invocation Request without security enabled:
 
@@ -457,7 +448,7 @@ Chaincode Invocation Request with security enabled (add `secureContext` element)
 }
 ```
 
-The response to a chaincode invocation request will contain a `status` element confirming successful completion of the request. The response will likewise contain the transaction id number for that specific transaction. The client may use the returned transaction id number to check on the status of the transaction after the transaction has been submitted to the system.
+The response to a chaincode invocation request will contain a `status` element confirming successful completion of the request. The response will likewise contain the transaction id number for that specific transaction. The client may use the returned transaction id number to check on the status of the transaction after it has been submitted to the system, as the transaction execution is asynchronous.
 
 Chaincode Invocation Response:
 
@@ -472,7 +463,7 @@ Chaincode Invocation Response:
 }
 ```
 
-To query a chaincode, supply the ChaincodeSpec identifying the chaincode to query within the request payload.
+To query a chaincode, supply the [ChaincodeSpec](https://github.com/hyperledger/fabric/blob/master/protos/chaincode.proto#L60) identifying the chaincode to query within the request payload. Note the chaincode `name` field, which is the hash returned from the deployment request.
 
 Chaincode Query Request without security enabled:
 
@@ -536,7 +527,7 @@ Chaincode Query Response:
 
 * **GET /network/peers**
 
-Use the Network APIs to retrieve information about the network of peer nodes comprising the blockchain fabric.
+Use the Network APIs to retrieve information about the network of peer nodes comprising the blockchain network.
 
 The /network/peers endpoint returns a list of all existing network connections for the target peer node. The list includes both validating and non-validating peers. The list of peers is returned as type [`PeersMessage`](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L138), containing an array of [`PeerEndpoint`](https://github.com/hyperledger/fabric/blob/master/protos/fabric.proto#L127).
 
@@ -596,7 +587,7 @@ The response to the registration request is either a confirmation of successful 
 
 The GET /registrar/{enrollmentID} endpoint is used to confirm whether a given user is registered with the CA. If so, a confirmation will be returned. Otherwise, an authorization error will result.
 
-The DELETE /registrar/{enrollmentID} endpoint is used to delete login tokens for a target user. If the login tokens are deleted successfully, a confirmation will be returned. Otherwise, an authorization error will result. No payload is required for this endpoint.
+The DELETE /registrar/{enrollmentID} endpoint is used to delete login tokens for a target user. If the login tokens are deleted successfully, a confirmation will be returned. Otherwise, an authorization error will result. No payload is required for this endpoint. Note, that registration with the CA is a one time process for a given user, utilizing a single-use registrationID and registrationPW. If the user registration is deleted through this API, the user will not be able to register with the CA a second time.
 
 The GET /registrar/{enrollmentID}/ecert endpoint is used to retrieve the enrollment certificate of a given user from local storage. If the target user has already registered with the CA, the response will include a URL-encoded version of the enrollment certificate. If the target user has not yet registered, an error will be returned. If the client wishes to use the returned enrollment certificate after retrieval, keep in mind that it must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
@@ -632,7 +623,7 @@ message Transaction {
 }
 ```
 
-For additional information on the Hyperledger fabric REST endpoints and more detailed examples, please see the [protocol specification](https://github.com/hyperledger/fabric/blob/master/docs/protocol-spec.md) section on the REST API.
+For additional information on the REST endpoints and more detailed examples, please see the [protocol specification](https://github.com/hyperledger/fabric/blob/master/docs/protocol-spec.md) section 6.2 on the REST API.
 
 ### To set up Swagger-UI
 
@@ -688,14 +679,14 @@ You can interface with the obc-peer process from a Node.js application. One way 
 
 **To run:**
 
-1. Build and install [hyperledger](https://github.com/hyperledger/fabric/blob/master/README.md#building-the-fabric-core-).
+1. Build and install the [fabric core](https://github.com/hyperledger/fabric/blob/master/README.md#building-the-fabric-core-).
 
     ```
     cd /opt/gopath/src/github.com/hyperledger/fabric
     go build -o peer
     ```
 
-2. Run a local peer node only (not a complete Hyperledger fabric network) with:
+2. Run a local peer node only (not a complete network) with:
 
     `./peer`
 
@@ -706,7 +697,7 @@ You can interface with the obc-peer process from a Node.js application. One way 
     go test -v -run TestServerOpenchain_API_GetBlockCount
     ```
 
-4. Set up a Node.js HTTP server to serve the Hyperledger fabric API Swagger document:
+4. Start up an http-server on your local machine to serve up the rest_api.json.
 
     ```
     npm install http-server -g
@@ -729,7 +720,7 @@ You can interface with the obc-peer process from a Node.js application. One way 
 
     `node ./openchain.js`
 
-You will observe several responses on the console and the program will appear to hang for a few moments at the end. This is expected, as is it waiting for the invocation transaction to complete in order to then execute a query. You can take a look at the sample output of the program inside the 'openchain_test' file located inside Sample_1 directory.
+You will observe several responses on the console and the program will appear to hang for a few moments at the end. This is expected, as is it waiting for the invocation transaction to complete in order to then execute a query. You can take a look at the sample output of the program inside the 'openchain_test' file located in the Sample_1 directory.
 
 ### [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles)
 
