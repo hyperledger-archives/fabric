@@ -234,6 +234,11 @@ peer:
     # Path on the file system where peer will store data
     fileSystemPath: /var/hyperledger/production
 
+
+    profile:
+        enabled:     false
+        listenAddress: 0.0.0.0:6060
+
 ###############################################################################
 #
 #    VM section

@@ -55,6 +55,8 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -465,6 +467,14 @@ func serve(args []string) error {
 	//start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
+	}
+
+	if viper.GetBool("peer.profile.enabled") {
+		go func() {
+			profileListenAddress := viper.GetString("peer.profile.listenAddress")
+			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
+			http.ListenAndServe(profileListenAddress, nil)
+		}()
 	}
 
 	// Block until grpc server exits
