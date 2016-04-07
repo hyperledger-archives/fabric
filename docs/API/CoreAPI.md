@@ -31,7 +31,6 @@ You will see output similar to the example below (**NOTE:** rootcommand below is
       status      Returns status of the peer.
       stop        Stops the running peer.
       login       Logs in a user on CLI.
-      vm          Accesses VM specific functionality.
       network     Lists all network peers.
       chaincode   chaincode specific commands.
       help        Help about any command
