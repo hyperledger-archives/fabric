@@ -27,7 +27,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"io/ioutil"
 	"math"
