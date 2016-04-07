@@ -116,23 +116,23 @@ var loginCmd = &cobra.Command{
 	},
 }
 
-var vmCmd = &cobra.Command{
-	Use:   "vm",
-	Short: "Accesses VM specific functionality.",
-	Long:  `Accesses VM specific functionality.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("vm")
-	},
-}
-
-var vmPrimeCmd = &cobra.Command{
-	Use:   "prime",
-	Short: "Primes the VM functionality.",
-	Long:  `Primes the VM functionality by preparing the necessary VM construction artifacts.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return stop()
-	},
-}
+// var vmCmd = &cobra.Command{
+// 	Use:   "vm",
+// 	Short: "Accesses VM specific functionality.",
+// 	Long:  `Accesses VM specific functionality.`,
+// 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+// 		core.LoggingInit("vm")
+// 	},
+// }
+//
+// var vmPrimeCmd = &cobra.Command{
+// 	Use:   "prime",
+// 	Short: "Primes the VM functionality.",
+// 	Long:  `Primes the VM functionality by preparing the necessary VM construction artifacts.`,
+// 	RunE: func(cmd *cobra.Command, args []string) error {
+// 		return stop()
+// 	},
+// }
 
 var networkCmd = &cobra.Command{
 	Use:   "network",
@@ -245,8 +245,8 @@ func main() {
 	mainCmd.AddCommand(stopCmd)
 	mainCmd.AddCommand(loginCmd)
 
-	vmCmd.AddCommand(vmPrimeCmd)
-	mainCmd.AddCommand(vmCmd)
+	// vmCmd.AddCommand(vmPrimeCmd)
+	// mainCmd.AddCommand(vmCmd)
 
 	mainCmd.AddCommand(networkCmd)
 
