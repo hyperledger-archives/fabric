@@ -742,3 +742,5 @@ This application is a demonstration of how a commercial paper trading network mi
 * An interface for creating new commercial papers to trade.
 * A Trade Center for buying and selling existing trades.
 * A special interface just for auditors of the network to examine trades.
+
+For more inforation on the IBM Blockchain commercial paper demo, set-up, and instructions, please visit [this page](https://github.com/IBM-Blockchain/cp-web).
