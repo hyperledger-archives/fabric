@@ -37,8 +37,15 @@ const blockchainCF = "blockchainCF"
 const stateCF = "stateCF"
 const stateDeltaCF = "stateDeltaCF"
 const indexesCF = "indexesCF"
+const persistCF = "persistCF"
 
-var columnfamilies = []string{blockchainCF, stateCF, stateDeltaCF, indexesCF}
+var columnfamilies = []string{
+	blockchainCF,
+	stateCF,
+	stateDeltaCF,
+	indexesCF,
+	persistCF,
+}
 
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
@@ -47,6 +54,7 @@ type OpenchainDB struct {
 	StateCF      *gorocksdb.ColumnFamilyHandle
 	StateDeltaCF *gorocksdb.ColumnFamilyHandle
 	IndexesCF    *gorocksdb.ColumnFamilyHandle
+	PersistCF    *gorocksdb.ColumnFamilyHandle
 }
 
 var openchainDB *OpenchainDB
@@ -111,7 +119,7 @@ func GetDBHandle() *OpenchainDB {
 
 // GetFromBlockchainCF get value for given key from column family - blockchainCF
 func (openchainDB *OpenchainDB) GetFromBlockchainCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.BlockchainCF, key)
+	return openchainDB.Get(openchainDB.BlockchainCF, key)
 }
 
 // GetFromBlockchainCFSnapshot get value for given key from column family in a DB snapshot - blockchainCF
@@ -121,17 +129,17 @@ func (openchainDB *OpenchainDB) GetFromBlockchainCFSnapshot(snapshot *gorocksdb.
 
 // GetFromStateCF get value for given key from column family - stateCF
 func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateCF, key)
+	return openchainDB.Get(openchainDB.StateCF, key)
 }
 
 // GetFromStateDeltaCF get value for given key from column family - stateDeltaCF
 func (openchainDB *OpenchainDB) GetFromStateDeltaCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateDeltaCF, key)
+	return openchainDB.Get(openchainDB.StateDeltaCF, key)
 }
 
 // GetFromIndexesCF get value for given key from column family - indexCF
 func (openchainDB *OpenchainDB) GetFromIndexesCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.IndexesCF, key)
+	return openchainDB.Get(openchainDB.IndexesCF, key)
 }
 
 // GetBlockchainCFIterator get iterator for column family - blockchainCF
@@ -199,15 +207,23 @@ func openDB() (*OpenchainDB, error) {
 	defer opts.Destroy()
 
 	opts.SetCreateIfMissing(false)
-	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
-		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
-		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
+
+	cfNames := []string{"default"}
+	cfNames = append(cfNames, columnfamilies...)
+	var cfOpts []*gorocksdb.Options
+	for _ = range cfNames {
+		cfOpts = append(cfOpts, opts)
+	}
+
+	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath, cfNames, cfOpts)
+
 	if err != nil {
 		fmt.Println("Error opening DB", err)
 		return nil, err
 	}
 	isOpen = true
-	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4]}, nil
+	// XXX should we close cfHandlers[0]?
+	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4], cfHandlers[5]}, nil
 }
 
 // CloseDB releases all column family handles and closes rocksdb
@@ -215,6 +231,8 @@ func (openchainDB *OpenchainDB) CloseDB() {
 	openchainDB.BlockchainCF.Destroy()
 	openchainDB.StateCF.Destroy()
 	openchainDB.StateDeltaCF.Destroy()
+	openchainDB.IndexesCF.Destroy()
+	openchainDB.PersistCF.Destroy()
 	openchainDB.DB.Close()
 	isOpen = false
 }
