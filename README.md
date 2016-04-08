@@ -111,7 +111,7 @@ apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
 cd /tmp
 git clone https://github.com/facebook/rocksdb.git
 cd rocksdb
-git checkout tags/v4.1
+git checkout v4.1
 PORTABLE=1 make shared_lib
 INSTALL_PATH=/usr/local make install-shared
 ```
