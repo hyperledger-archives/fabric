@@ -31,7 +31,7 @@ Note the following GitHub Flow highlights:
 - When you need feedback or help, or you think the branch is ready for merging,
 open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](https://github.com/hyperledger/fabric#3-test))
 - Did we mention tests? All code changes should be accompanied by new or modified tests.
-- After your pull request has been reviewed and signed off, a committer can merge it into the master branch.
+- After your pull request has been reviewed and signed off, a maintainer can merge it into the master branch.
 
 ### Becoming a maintainer
 This project is managed under open governance model as described in our  [charter](https://www.hyperledger.org/about/charter). Projects or sub-projects will be lead by a set of maintainers. New projects can designate an initial set of maintainers that will be approved by the Technical Steering Committee when the project is first approved. The project's maintainers will, from time-to-time, consider adding a new maintainer. An existing maintainer will post a pull request to the [MAINTAINERS.txt](MAINTAINERS.txt) file. If a majority of the maintainers concur in the comments, the pull request is then merged and the individual becomes a maintainer.
