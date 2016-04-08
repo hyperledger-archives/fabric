@@ -61,6 +61,7 @@ message ChaincodeSpec {
         GOLANG = 1;
         NODE = 2;
         CAR = 3;
+        JAVA = 4;
     }
 
     Type type = 1;
