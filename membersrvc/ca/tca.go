@@ -35,6 +35,7 @@ import (
 
 	protobuf "google/protobuf"
 
+    "github.com/spf13/viper"
 	"github.com/golang/protobuf/proto"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/conf"
@@ -50,11 +51,6 @@ var (
 	
 	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
-	
-	// TCertEncAttributesBase is the base ASN1 object identifier for attributes. 
-	// When generating an extension to include the attribute an index will be 
-	// appended to this Object Identifier.
-	TCertEncAttributesBase = asn1.ObjectIdentifier{2, 3, 4, 5, 6, 7}
 	
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
@@ -314,6 +310,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
+		Info.Println("TCert number %v", i)
 		extensions, _, err := tcap.generateEncryptedExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
@@ -363,36 +360,40 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 	}
 	
 	// Append the encrypted EnrollmentID to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: true, Value: encEnrollmentID})
+	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
 	
 	// save k used to encrypt EnrollmentID
 	ks = append(ks, enrollmentIdKey)
 	
-	
-	attributeIdentifierIndex := 1
+	attributeIdentifierIndex := 9
 	
 	// Encrypt and append attributes to the extensions slice
 	for attributeName, attributeValue := range attributes {
-		mac = hmac.New(conf.GetDefaultHash(), preK_0)
-		mac.Write([]byte(attributeName))
-		attributeKey := mac.Sum(nil)[:32]
+		// TODO: should we put the value of the attribute along with the attribute name in the TCert? 
+		// Something like enc(attributeName:attributeValue).
+		value := []byte(attributeValue)
 		
-		// TODO: should we encrypt the value of the attribute along with the attribute name? Something like enc(attributeName:attributeValue).
-		attribute := []byte(attributeValue)
-		attribute = append(attribute, Padding...)
-		encryptedAttributed, err := CBCEncrypt(attributeKey, attribute)
-		if err != nil {
-			return nil, nil, err
+		if viper.GetBool("tca.attribute-encryption.enabled") {
+			mac = hmac.New(conf.GetDefaultHash(), preK_0)
+			mac.Write([]byte(attributeName))
+			attributeKey := mac.Sum(nil)[:32]
+			
+			value = append(value, Padding...)
+			value, err = CBCEncrypt(attributeKey, value)
+			if err != nil {
+				return nil, nil, err
+			}
+			
+			// save k used to encrypt attribute
+			ks = append(ks, attributeKey)
 		}
-
-		TCertEncAttributes := append(TCertEncAttributesBase, attributeIdentifierIndex)
+		
+		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex}
+		Info.Println("attribute: [name:%v, value:%v, oid:%v]", attributeName, attributeValue, TCertEncAttributes)
 		attributeIdentifierIndex++
 		
-		// Append the encrypted attribute to the extensions
-		extensions = append(extensions, pkix.Extension{Id: TCertEncAttributes, Critical: true, Value: encryptedAttributed})
-		
-		// save k used to encrypt attribute
-		ks = append(ks, attributeKey)
+		// Append the attribute to the extensions
+		extensions = append(extensions, pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value})
 	}
 	
 	return extensions, ks, nil

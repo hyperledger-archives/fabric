@@ -51,7 +51,7 @@ eca:
                   bank_c: banks
                   institution_a: institutions
         users:
-                # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD>
+                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <affiliation_role>
                 lukas: 1 NPKYL39uKbkj bank_a	00001
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
                 diego: 1 DRJ23pEQl16a institution_a	00003
@@ -81,6 +81,10 @@ eca:
                 test_user7: 1 YsWZD4qQmYxo institution_a	00013
                 test_user8: 1 W8G0usrU7jRk bank_a	00014
                 test_user9: 1 H80SiB5ODKKQ institution_b	00015
+
+tca:
+          attribute-encryption:
+                 enabled: false
 
 pki:
           validity-period:

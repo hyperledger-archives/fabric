@@ -43,7 +43,7 @@ func (client *clientImpl) initTCertEngine() (err error) {
 
 	// init TCerPool
 	client.debug("Using multithreading [%t]", client.conf.IsMultithreadingEnabled())
-	client.debug("TCert batch size [%d]", client.conf.getTCertBathSize())
+	client.debug("TCert batch size [%d]", client.conf.getTCertBatchSize())
 
 	if client.conf.IsMultithreadingEnabled() {
 		client.tCertPool = new(tCertPoolMultithreadingImpl)
@@ -111,6 +111,25 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 
 		return nil, err
 	}
+	
+	// Handle Critical Extension TCertEncEnrollmentID TODO validate encEnrollmentID
+	_ , err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
+	if err != nil {
+		client.error("Failed getting extension TCERT_ENC_ENROLLMENT_ID [%s].", err.Error())
+
+		return nil, err
+	}
+	
+	// Handle Critical Extension TCertAttributes
+//	for i := 0; i < len(x509Cert.Extensions) - 2; i++ {
+//		attributeExtensionIdentifier := append(utils.TCertEncAttributesBase, i + 9)
+//		_ , err = utils.GetCriticalExtension(x509Cert, attributeExtensionIdentifier)
+//		if err != nil {
+//			client.error("Failed getting extension TCERT_ATTRIBUTE_%s [%s].", i, err.Error())
+//	
+//			return nil, err
+//		}
+//	} 
 
 	// Verify certificate against root
 	if _, err := utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
@@ -443,6 +462,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 		Ts:  &timestamp,
 		Id:  &membersrvc.Identity{Id: client.enrollID},
 		Num: uint32(num),
+		Attributes: client.conf.getTCertAttributes(),
 		Sig: nil,
 	}
 	rawReq, err := proto.Marshal(req)

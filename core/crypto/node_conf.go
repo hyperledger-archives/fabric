@@ -62,7 +62,8 @@ type configuration struct {
 	tlsServerName string
 
 	multiThreading bool
-	tCertBathSize  int
+	tCertBatchSize  int
+	tCertAttributes map[string]string
 }
 
 func (conf *configuration) init() error {
@@ -121,12 +122,12 @@ func (conf *configuration) init() error {
 		}
 	}
 
-	// Set tCertBathSize
-	conf.tCertBathSize = 200
+	// Set tCertBatchSize
+	conf.tCertBatchSize = 200
 	if viper.IsSet("security.tcert.batch.size") {
 		ovveride := viper.GetInt("security.tcert.batch.size")
 		if ovveride != 0 {
-			conf.tCertBathSize = ovveride
+			conf.tCertBatchSize = ovveride
 		}
 	}
 
@@ -134,6 +135,12 @@ func (conf *configuration) init() error {
 	conf.multiThreading = false
 	if viper.IsSet("security.multithreading.enabled") {
 		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
+	}
+	
+	// Set attributes
+	conf.tCertAttributes = make(map[string]string)
+	if viper.IsSet("security.tcert.attributes") {
+		conf.tCertAttributes = viper.GetStringMapString("security.tcert.attributes")
 	}
 
 	return nil
@@ -271,14 +278,11 @@ func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 	return "tca.kdf.key"
 }
 
-//func (conf *configuration) getRole() string {
-//	return viper.GetString(Role)
-//}
-//
-//func (conf *configuration) getAffiliation() string {
-//	return viper.GetString(Affiliation)
-//}
-
-func (conf *configuration) getTCertBathSize() int {
-	return conf.tCertBathSize
+func (conf *configuration) getTCertBatchSize() int {
+	return conf.tCertBatchSize
 }
+
+func (conf *configuration) getTCertAttributes() map[string]string {
+	return conf.tCertAttributes
+}
+
