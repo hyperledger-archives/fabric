@@ -455,6 +455,7 @@ func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, o
     var err error
 	var enrollID string
   	enrollID, err = ca.validateAndGenerateEnrollId(id,affiliation, affiliation_role, role)
+
     if err != nil { 
     	return "", err
     }
@@ -482,11 +483,11 @@ func (ca *CA) registerUserWithErollId(id string, enrollId string, role int, opt 
 	}
 
 	_ , err = ca.db.Exec("INSERT INTO Users (id, enrollmentId, token, role, state) VALUES (?, ?, ?, ?, ?)", id, enrollId, tok, role, 0)
-	
+
 	if err != nil {
 		Error.Println(err)
 	}
-	
+
 	return tok, err
 	
 }
@@ -497,7 +498,6 @@ func (ca *CA) registerAffiliationGroup(name string, parentName string) (error) {
 	var parentId int
 	var err error
 	var count int
-	
 	err = ca.db.QueryRow("SELECT count(row) FROM AffiliationGroups WHERE name=?", name).Scan(&count)
 	if err != nil {
 			return err

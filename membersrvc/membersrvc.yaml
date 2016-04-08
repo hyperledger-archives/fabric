@@ -43,13 +43,13 @@ logging:
 #
 eca:
         affiliation_groups:
-                  banks_and_institutions:
-                  banks: banks_and_institutions
-                  institutions: banks_and_institutions
-                  bank_a: banks
-                  bank_b: banks
-                  bank_c: banks
-                  institution_a: institutions
+           banks_and_institutions:
+              banks:
+                  bank_a:
+                  bank_b:
+                  bank_c:              		
+              institutions:
+                  institution_a:
         users:
                 # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <affiliation_role>
                 lukas: 1 NPKYL39uKbkj bank_a	00001
