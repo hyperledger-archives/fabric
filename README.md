@@ -130,25 +130,7 @@ up at the IP address currently assumed by the test environment
 
 
 ## Code contributions <a name="contrib"></a>
-We are using the [GitHub Flow](https://guides.github.com/introduction/flow/) process to manage code contributions.
-
-Note the following GitHub Flow highlights:
-
-- Anything in the master branch is deployable
-- To work on something new, create a descriptively-named branch off of your fork ([more detail on fork](https://help.github.com/articles/syncing-a-fork/))
-- Commit to that branch locally, and regularly push your work to the same branch on the server
-- When you need feedback or help, or you think the branch is ready for merging,
-open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](https://github.com/hyperledger/fabric#3-test))
-- After your pull request has been reviewed and signed off, a committer can merge it into the master branch.
-
-We use the same approach&mdash;the [Developer's Certificate of Origin (DCO)](docs/biz/DCO1.1.txt)&mdash;that the Linux&reg; Kernel [community](http://elinux.org/Developer_Certificate_Of_Origin) uses to manage code contributions.
-We simply ask that when submitting a pull request, the developer must include a sign-off statement in the pull request description.
-
-Here is an example Signed-off-by line, which indicates that the submitter accepts the DCO:
-
-```
-Signed-off-by: John Doe <john.doe@hisdomain.com>
-```
+We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## Communication <a name="communication"></a>
 We use [Slack for communication](https://hyperledger.slack.com) and Google Hangouts&trade; for screen sharing between developers. Register with these tools to get connected.
