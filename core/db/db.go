@@ -40,11 +40,11 @@ const indexesCF = "indexesCF"
 const persistCF = "persistCF"
 
 var columnfamilies = []string{
-	blockchainCF,
-	stateCF,
-	stateDeltaCF,
-	indexesCF,
-	persistCF,
+	blockchainCF, // blocks of the block chain
+	stateCF,      // world state
+	stateDeltaCF, // open transaction state
+	indexesCF,    // tx uuid -> blockno
+	persistCF,    // persistent per-peer state (consensus)
 }
 
 // OpenchainDB encapsulates rocksdb's structures
