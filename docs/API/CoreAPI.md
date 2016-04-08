@@ -602,11 +602,10 @@ Use the /transactions/{UUID} endpoint to retrieve an individual transaction matc
 message Transaction {
     enum Type {
         UNDEFINED = 0;
-        CHAINCODE_NEW = 1;
-        CHAINCODE_UPDATE = 2;
-        CHAINCODE_EXECUTE = 3;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 5;
+        CHAINCODE_DEPLOY = 1;
+        CHAINCODE_INVOKE = 2;
+        CHAINCODE_QUERY = 3;
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     bytes chaincodeID = 2;
