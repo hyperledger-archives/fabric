@@ -310,7 +310,6 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
-		Info.Println("TCert number %v", i)
 		extensions, _, err := tcap.generateEncryptedExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
@@ -389,7 +388,6 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 		}
 		
 		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
-		Info.Println("attribute: [name:%v, value:%v, oid:%v]", attributeName, attributeValue, TCertEncAttributes)
   		// Append the attribute to the extensions
 		extensions[count] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
 		count++
