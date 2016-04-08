@@ -40,6 +40,7 @@ type Helper struct {
 	secOn       bool
 	secHelper   crypto.Peer
 	curBatch    []*pb.Transaction // TODO, remove after issue 579
+	PersistHelper
 }
 
 // NewHelper constructs the consensus helper object
@@ -358,12 +359,14 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 	})
 }
 
-func (h *Helper) StoreState(key string, value []byte) error {
+type PersistHelper interface{}
+
+func (h *PersistHelper) StoreState(key string, value []byte) error {
 	db := db.GetDBHandle()
 	return db.Put(db.PersistCF, []byte("consensus."+key), value)
 }
 
-func (h *Helper) ReadState(key string) ([]byte, error) {
+func (h *PersistHelper) ReadState(key string) ([]byte, error) {
 	db := db.GetDBHandle()
 	return db.Get(db.PersistCF, []byte("consensus."+key))
 }
