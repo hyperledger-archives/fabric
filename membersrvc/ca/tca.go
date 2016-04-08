@@ -366,7 +366,7 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 	ks = append(ks, enrollmentIdKey)
 	
 	attributeIdentifierIndex := 9
-	
+	count := 0
 	// Encrypt and append attributes to the extensions slice
 	for attributeName, attributeValue := range attributes {
 		// TODO: should we put the value of the attribute along with the attribute name in the TCert? 
@@ -388,12 +388,11 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 			ks = append(ks, attributeKey)
 		}
 		
-		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex}
+		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
 		Info.Println("attribute: [name:%v, value:%v, oid:%v]", attributeName, attributeValue, TCertEncAttributes)
-		attributeIdentifierIndex++
-		
-		// Append the attribute to the extensions
-		extensions = append(extensions, pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value})
+  		// Append the attribute to the extensions
+		extensions[count] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
+		count++
 	}
 	
 	return extensions, ks, nil
