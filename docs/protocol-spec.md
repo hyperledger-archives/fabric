@@ -274,7 +274,7 @@ message Message {
 The `payload` is an opaque byte array containing other objects such as `Transaction` or `Response` depending on the type of the message. For example, if the `type` is `CHAIN_TRANSACTION`, the `payload` is a `Transaction` object.
 
 ### 3.1.1 Discovery Messages
-Upon start up, a peer runs discovery protocol if `OPENCHAIN_PEER_DISCOVERY_ROOTNODE` is specified. `OPENCHAIN_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
+Upon start up, a peer runs discovery protocol if `CORE__PEER_DISCOVERY_ROOTNODE` is specified. `CORE_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
 
 ```
 message HelloMessage {
@@ -1119,7 +1119,7 @@ Signature:
 func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 ```
 
-This function reads the `peer.validator.consensus` value in `core.yaml` configuration file, which is the  configuration file for the `obc-peer` process. The value of the `peer.validator.consensus` key defines whether the validating peer will run with the `noops` consensus plugin or the `obcpbft` one. (Notice that this should eventually be changed to either `noops` or `custom`. In case of `custom`, the validating peer will run with the consensus plugin defined in `obc-peer/openchain/consensus/config.yaml`.)
+This function reads the `peer.validator.consensus` value in `core.yaml` configuration file, which is the  configuration file for the `peer` process. The value of the `peer.validator.consensus` key defines whether the validating peer will run with the `noops` consensus plugin or the `obcpbft` one. (Notice that this should eventually be changed to either `noops` or `custom`. In case of `custom`, the validating peer will run with the consensus plugin defined in `consensus/config.yaml`.)
 
 The plugin author needs to edit the function's body so that it routes to the right constructor for their package. For example, for `obcpbft` we point to the `obcpft.GetPlugin` constructor.
 
@@ -1147,7 +1147,7 @@ type ConsensusHandler struct {
 
 Within the context of consensus, we focus only on the `coordinator` and `consenter` fields. The `coordinator`, as the name implies, is used to coordinate between the peer's message handlers. This is, for instance, the object that is accessed when the peer wishes to `Broadcast`. The `consenter` receives the messages for which consensus needs to be reached and processes them.
 
-Notice that `obc-peer/openchain/peer/peer.go` defines the `peer.MessageHandler` (interface), and `peer.MessageHandlerCoordinator` (interface) types.
+Notice that `fabric/peer/peer.go` defines the `peer.MessageHandler` (interface), and `peer.MessageHandlerCoordinator` (interface) types.
 
 #### 3.4.11.3 helper.NewConsensusHandler
 
@@ -1524,7 +1524,7 @@ discusses transaction confidentiality.
 <!-- @Binh, @Frank: PLEASE REVIEW THIS PARAGRAPH -->
 <!-- Edited by joshhus ... April 6, 2016 -->
 Enforcing access control for the invocation of chaincode is an important security requirement.
-The fabric exposes to the application (e.g., chaincode creator) the means for the application 
+The fabric exposes to the application (e.g., chaincode creator) the means for the application
 to perform its own invocation access control, while leveraging the fabric's membership services.
 Section 4.4 elaborates on this.
 
@@ -1545,10 +1545,10 @@ and details each security mechanism separately.
 
 
 #### 4.3.1 Security Lifecycle of Transactions
-Transactions are created on the client side. The client can be either plain 
+Transactions are created on the client side. The client can be either plain
 client, or a more specialized application, i.e., piece of
 software that handles (server) or invokes (client) specific chaincodes
-through the blockchain. Such applications are built on top of the 
+through the blockchain. Such applications are built on top of the
 platform (client) and are detailed in Section 4.4.
 
 Developers of new chaincodes create a new deploy transaction by passing to
@@ -1617,7 +1617,7 @@ access to an entity to any subset of the following parts of a chain-code:
    when one or more functions of its are invoked
 4. all the above
 
-Notice, that this design offers the application the capability to leverage the fabric's 
+Notice, that this design offers the application the capability to leverage the fabric's
 membership service infrastructure and its public key infrastructure to build their own access
 control policies and enforcement mechanisms.
 
@@ -1840,7 +1840,7 @@ deemed as invalid by the protocol (since can only be shown to be derived from ol
 be appropriate for asset management systems, this does not abide with the needs of a Blockchain systems with more generic
 use than asset management.
 
-In the fabric, replay attack protection uses a hybrid approach. 
+In the fabric, replay attack protection uses a hybrid approach.
 That is, users add in the transaction a nonce that is generated in a different manner
 depending on whether the transaction is anonymous (followed and signed by a transaction certificate) or not
 (followed and signed by a long term enrollment certificate). More specifically:
@@ -2541,7 +2541,7 @@ The REST service can be enabled (via configuration) on either validating or non-
 func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops)
 ```
 
-This function reads the `rest.address` value in the `core.yaml` configuration file, which is the configuration file for the `obc-peer` process. The value of the `rest.address` key defines the default address and port on which the peer will listen for HTTP REST requests.
+This function reads the `rest.address` value in the `core.yaml` configuration file, which is the configuration file for the `peer` process. The value of the `rest.address` key defines the default address and port on which the peer will listen for HTTP REST requests.
 
 It is assumed that the REST service receives requests from applications which have already authenticated the end user.
 
@@ -2659,7 +2659,7 @@ POST host:port/chaincode
   "params": {
     "type": "GOLANG",
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -2694,7 +2694,7 @@ POST host:port/chaincode
   "params": {
     "type": "GOLANG",
     "chaincodeID":{
-        "path":"github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02"
+        "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
     "ctorMsg": {
         "function":"init",
@@ -3035,14 +3035,14 @@ The CLI includes a subset of the available APIs to enable developers to quickly 
 
 To see what CLI commands are currently available in the implementation, execute the following:
 
-    cd $GOPATH/src/github.com/openblockchain/obc-peer
-    ./obc-peer
+    cd $GOPATH/src/github.com/hyperledger/fabic
+    ./peer
 
 You will receive a response similar to below:
 
 ```
     Usage:
-      obc-peer [command]
+      peer [command]
 
     Available Commands:
       peer        Run the peer.
@@ -3054,13 +3054,13 @@ You will receive a response similar to below:
       help        Help about any command
 
     Flags:
-      -h, --help[=false]: help 
+      -h, --help[=false]: help
 
 
-    Use "obc-peer [command] --help" for more information about a command.
+    Use "peer [command] --help" for more information about a command.
 ```
 
-Some of the available command line arguments for the `obc-peer` command are listed below:
+Some of the available command line arguments for the `peer` command are listed below:
 
 * `-c` - constructor: function to trigger in order to initialize the chaincode state upon deployment.
 
@@ -3074,20 +3074,20 @@ Some of the available command line arguments for the `obc-peer` command are list
 
 Not all of the above commands are fully implemented in the current release. The commands that are helpful for chaincode development and debugging and are fully supported are described below.
 
-Note, that any configuration settings for the peer node listed in the `core.yaml` configuration file, which is the  configuration file for the `obc-peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `OPENCHAIN_PEER_ID=vp1` and `OPENCHAIN_PEER_ADDRESSAUTODETECT=true` on the command line.
+Note, that any configuration settings for the peer node listed in the `core.yaml` configuration file, which is the  configuration file for the `peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `CORE_PEER_ID=vp1` and `CORE_PEER_ADDRESSAUTODETECT=true` on the command line.
 
 #### 6.3.1.1 peer
 
 The CLI `peer` command will execute the peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete network. An example for starting the peer in development mode follows:
 
 ```
-./obc-peer peer --peer-chaincodedev
+./peer peer --peer-chaincodedev
 ```
 
 To start the peer process in production mode, modify the above command as follows:
 
 ```
-./obc-peer peer
+./peer peer
 ```
 
 #### 6.3.1.2 login
@@ -3095,20 +3095,20 @@ To start the peer process in production mode, modify the above command as follow
 The CLI `login` command will login a user, that is already registered with the CA, through the CLI. To login through the CLI, issue the following command, where `username` is the enrollment ID of a registered user.
 
 ```
-./obc-peer login <username>
+./peer login <username>
 ```
 
 The example below demonstrates the login process for user `jim`.
 
 ```
-./obc-peer login jim
+./peer login jim
 ```
 
 The command will prompt for a password, which must match the enrollment password for this user registered with the certificate authority. If the password entered does not match the registered password, an error will result.
 
 ```
 22:21:31.246 [main] login -> INFO 001 CLI client login...
-22:21:31.247 [main] login -> INFO 002 Local data store for client loginToken: /var/openchain/production/client/
+22:21:31.247 [main] login -> INFO 002 Local data store for client loginToken: /var/hyperledger/production/client/
 Enter password for user 'jim': ************
 22:21:40.183 [main] login -> INFO 003 Logging in user 'jim' on CLI interface...
 22:21:40.623 [main] login -> INFO 004 Storing login token for user 'jim'.
@@ -3120,13 +3120,13 @@ Enter password for user 'jim': ************
 The CLI `deploy` command creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
 
 ```
-./obc-peer chaincode deploy -p github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode deploy -u jim -p github.com/openblockchain/obc-peer/openchain/example/chaincode/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 #### 6.3.1.4 chaincode invoke
@@ -3134,13 +3134,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `invoke` command executes a specified function within the target chaincode. An example is below.
 
 ```
-./obc-peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 #### 6.3.1.5 chaincode query
@@ -3148,13 +3148,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `query` command triggers a specified query method within the target chaincode. The response that is returned depends on the chaincode implementation. An example is below.
 
 ```
-./obc-peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./obc-peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 
