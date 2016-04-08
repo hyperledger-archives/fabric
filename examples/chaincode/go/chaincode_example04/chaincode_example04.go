@@ -36,11 +36,12 @@ type SimpleChaincode struct {
 func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
 	//This is the hashcode for github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
-	chainCodeToCall := "3a46d4d629d8c1f931bb29c1b52ca9698cba5d75487771882068975b15f0440fb73bab315f5dad72eaaaeaead5ea6a211ac013cfb8d55c64547d348d51504e7d" //with SHA3
+	chainCodeToCall := "5844bc142dcc9e788785e026e22c855957b2c754c912702c58d997dedbc9a042f05d152f6db0fbd7810d95c1b880c210566c9de3093aae0ab76ad2d90e9cfaa5" //with SHA3
+
 	return chainCodeToCall, nil
 }
 
-func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var event string // Indicates whether event has happened. Initially 0
 	var eventVal int // State of event
 	var err error
@@ -65,8 +66,8 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 	return nil, nil
 }
 
-// Transaction invokes another chaincode and changes event state
-func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+// This chaincode invokes another chaincode - chaincode_example02, upon receipt of an event and changes event state
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var event string // Event entity
 	var eventVal int // State of event
 	var err error
@@ -107,22 +108,6 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	err = stub.PutState(event, []byte(strconv.Itoa(eventVal)))
 	if err != nil {
 		return nil, err
-	}
-
-	return nil, nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode invokes another chaincode - chaincode_example02, upon receipt of an event
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize
-		return t.init(stub, args)
-	} else if function == "invoke" {
-		// Transaction
-		return t.invoke(stub, args)
 	}
 
 	return nil, nil

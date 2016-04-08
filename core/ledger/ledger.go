@@ -412,7 +412,7 @@ func sendProducerBlockEvent(block *protos.Block) {
 	// can be very large.
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
-		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
+		if transaction.Type == protos.Transaction_CHAINCODE_DEPLOY {
 			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {

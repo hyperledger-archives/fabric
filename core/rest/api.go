@@ -104,7 +104,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 	// individual transaction.
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
-		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
+		if transaction.Type == pb.Transaction_CHAINCODE_DEPLOY {
 			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {

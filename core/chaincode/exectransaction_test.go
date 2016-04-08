@@ -226,7 +226,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
+	uuid, _, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return fmt.Errorf("Error invoking <%s>: %s", chaincodeID, err)
 	}
@@ -240,7 +240,7 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	f = "delete"
 	delArgs := []string{"a"}
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: delArgs}}
-	uuid, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_EXECUTE)
+	uuid, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return fmt.Errorf("Error deleting state in <%s>: %s", chaincodeID, err)
 	}
@@ -309,7 +309,7 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 	e := func(qnum int, typ pb.Transaction_Type) {
 		defer wg.Done()
 		var spec *pb.ChaincodeSpec
-		if typ == pb.Transaction_CHAINCODE_EXECUTE {
+		if typ == pb.Transaction_CHAINCODE_INVOKE {
 			f := "invoke"
 			args := []string{"a", "b", "10"}
 
@@ -333,7 +333,7 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 	//execute transactions sequentially..
 	go func() {
 		for i := 0; i < numTrans; i++ {
-			e(i, pb.Transaction_CHAINCODE_EXECUTE)
+			e(i, pb.Transaction_CHAINCODE_INVOKE)
 		}
 	}()
 
@@ -646,7 +646,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode
 	var uuid string
-	uuid, _, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_EXECUTE)
+	uuid, _, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_INVOKE)
 
 	if err != nil {
 		t.Fail()
@@ -759,7 +759,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode
 	var retVal []byte
-	_, retVal, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_EXECUTE)
+	_, retVal, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_INVOKE)
 
 	if err != nil {
 		t.Fail()

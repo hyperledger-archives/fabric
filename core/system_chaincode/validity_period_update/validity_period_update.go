@@ -53,7 +53,7 @@ type systemChaincode struct {
 const system_validity_period_key = "system.validity.period"
 
 // Initialize the in the ledger (this needs to be run only once!!!!)
-func (t *systemChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var vp int64 = 0
 
 	// Initialize the validity period in the ledger (this needs to be run only once!!!!)
@@ -66,7 +66,7 @@ func (t *systemChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 }
 
 // Transaction updates system validity period on the ledger
-func (t *systemChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *systemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	// FIXME: this chaincode needs to be executed by an authorized party. In order to guarantee this, two verifications
 	// need to be perfomed:
 	// 1. The identity of the caller should be available somehow for the chaincode to perform a check.
@@ -89,20 +89,6 @@ func (t *systemChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 	}
 	
 	return nil, nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode will update the system validity period on the ledger
-func (t *systemChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		return t.init(stub, args)
-	} else if function == "invoke" {
-		return t.invoke(stub, args)
-	}
-
-	return nil, errors.New("Received unknown function invocation")
 }
 
 // Query callback representing the query of a chaincode
