@@ -472,14 +472,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 					return
 				}
 
-				var ttyp pb.Message_Type
-				if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
-					ttyp = pb.Message_CHAIN_TRANSACTION
-				} else {
-					ttyp = pb.Message_CHAIN_QUERY
-				}
-
-				msg := &pb.Message{Type: ttyp, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
+				msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
 				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
 				if err = stream.Send(msg); err != nil {
 					peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
@@ -564,14 +557,7 @@ func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction)
 		}
 	}()
 
-	var ttyp pb.Message_Type
-	if transaction.Type == pb.Transaction_CHAINCODE_EXECUTE || transaction.Type == pb.Transaction_CHAINCODE_NEW {
-		ttyp = pb.Message_CHAIN_TRANSACTION
-	} else {
-		ttyp = pb.Message_CHAIN_QUERY
-	}
-
-	msg := &pb.Message{Type: ttyp, Payload: data, Timestamp: util.CreateUtcTimestamp()}
+	msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
 	if err = stream.Send(msg); err != nil {
 		peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))

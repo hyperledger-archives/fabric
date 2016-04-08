@@ -226,7 +226,7 @@ func TestSieveRequestHash(t *testing.T) {
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper)
 	defer net.stop()
 
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Payload: make([]byte, 1000)}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Payload: make([]byte, 1000)}
 	txPacked, _ := proto.Marshal(tx)
 	msg := &pb.Message{
 		Type:    pb.Message_CHAIN_TRANSACTION,

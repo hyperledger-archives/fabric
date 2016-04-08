@@ -187,11 +187,11 @@ func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []by
 
 	var enc crypto.StateEncryptor
 	var err error
-	if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_NEW {
+	if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_DEPLOY {
 		if enc, err = secHelper.GetStateEncryptor(handler.deployTXSecContext, handler.deployTXSecContext); err != nil {
 			return nil, fmt.Errorf("error getting crypto encryptor for deploy tx :%s", err)
 		}
-	} else if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_EXECUTE || txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_QUERY {
+	} else if txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_INVOKE || txctx.transactionSecContext.Type == pb.Transaction_CHAINCODE_QUERY {
 		if enc, err = secHelper.GetStateEncryptor(handler.deployTXSecContext, txctx.transactionSecContext); err != nil {
 			return nil, fmt.Errorf("error getting crypto encryptor %s", err)
 		}
@@ -1001,7 +1001,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 
 			// Create the transaction object
 			chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: chaincodeSpec}
-			transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_EXECUTE)
+			transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_INVOKE)
 
 			// Launch the new chaincode if not already running
 			_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
@@ -1157,7 +1157,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 		msg.SecurityContext.Binding = binding
 		msg.SecurityContext.Metadata = tx.Metadata
 
-		if tx.Type == pb.Transaction_CHAINCODE_EXECUTE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
+		if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
 			cis := &pb.ChaincodeInvocationSpec{}
 			if err := proto.Unmarshal(tx.Payload, cis); err != nil {
 				chaincodeLogger.Debug("Failed getting payload [%s]", err)
