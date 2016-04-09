@@ -335,10 +335,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	var ks [][]byte
 	extensions := make([]pkix.Extension, len(attributes))
 	
-	// Append the TCertIndex to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
-	
-	// Compute preK_1 to encrypt attributes and enrollment ID - TODO compute preK_1 properly based on user's affiliation
+	// Compute preK_1 to encrypt attributes and enrollment ID
 	preK_1, err := tcap.tca.getPreKFrom(enrollmentCert)
 	if err != nil {
 		return nil, nil, err
@@ -361,9 +358,6 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		return nil, nil, err
 	}
 	
-	// Append the encrypted EnrollmentID to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
-	
 	// save k used to encrypt EnrollmentID
 	ks = append(ks, enrollmentIdKey)
 	
@@ -374,8 +368,6 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	for attributeName, attributeValue := range attributes {
 		count++
 
-		// TODO: should we put the value of the attribute along with the attribute name in the TCert? 
-		// Something like enc(attributeName:attributeValue).
 		value := []byte(attributeValue)
 		
 		//Save the position of the attribute extension on the header.
@@ -396,23 +388,37 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 			ks = append(ks, attributeKey)
 		}
 		
+		// Generate an ObjectIdentifier for the extension holding the attribute
 		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
-  		// Append the attribute to the extensions
-		extensions[count] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
+		
+  		// Add the attribute extension to the extensions array
+		extensions[count - 1] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
 	}
 	
+	// Append the TCertIndex to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
+	
+	// Append the encrypted EnrollmentID to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
+	
+	// Append the attributes header if there was attributes to include in the TCert
 	if len(attributes) > 0 {
-		var header []byte
-		var headerString string
-		for k,v := range attributesHeader	{
-			v_str := strconv.Itoa(v)
-			headerString = headerString + k + "->" + v_str + "#"
-		}
-		header = []byte(headerString)
-		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: header})
+		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: buildAttributesHeader(attributesHeader)})
 	}
 	
 	return extensions, ks, nil
+}
+
+func buildAttributesHeader(attributesHeader map[string]int) []byte{
+	var header []byte
+	var headerString string
+	for k,v := range attributesHeader	{
+		v_str := strconv.Itoa(v)
+		headerString = headerString + k + "->" + v_str + "#"
+	}
+	header = []byte(headerString)
+	
+	return header
 }
 
 // ReadCertificate reads a transaction certificate from the TCA.

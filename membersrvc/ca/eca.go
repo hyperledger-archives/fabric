@@ -220,6 +220,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	id := in.Id.Id
 	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollId)
+
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
 	}

@@ -502,24 +502,25 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 func (client *clientImpl) parseHeader(header string) (map[string]int, error) { 
 	tokens :=  strings.Split(header, "#")
 	answer := make(map[string]int)
+	
 	for _, token := range tokens {
 		pair:= strings.Split(token, "->")
-		if len(pair) != 2 {
-			return nil, errors.New("Header attributes invalid format.")
+		
+		if len(pair) == 2 {
+			key := pair[0]
+			valueStr := pair[1]
+			value, err := strconv.Atoi(valueStr)
+			if err != nil { 
+				return nil, err
+			}
+			answer[key] = value
 		}
-		key := pair[0]
-		valueStr := pair[1]
-		value, err := strconv.Atoi(valueStr)
-		if err != nil { 
-			return nil, err
-		}
-		answer[key] = value
 	}
+	
 	return answer, nil
 	
 }
 // Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-//
 func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
 	tcert, err := utils.DERToX509Certificate(tcertder)
 	if err != nil {
@@ -529,7 +530,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 	}
 	
 	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if header_raw, err = utils.GetExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
 
 		return nil, err
@@ -545,6 +546,8 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 	
 	position := header[attributeName]
 	
+
+	
 	if position == 0 {
 		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
 	}
@@ -552,7 +555,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
     
     var value []byte
-    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+    if value, err = utils.GetExtension(tcert, oid); err != nil {
 		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
 		return nil, err
 	}

@@ -433,7 +433,7 @@ func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 }
 
 func (ca *CA) requireAffiliation(role int) (bool) { 
-	return role != 4 && role != 8  
+	return role != 4 && role != 8 
 }
 
 func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role int) (string, error) {
