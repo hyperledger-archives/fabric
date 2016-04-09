@@ -30,6 +30,24 @@ import (
 type SimpleChaincode struct {
 }
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	// Create table one
+	err := createTableOne(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table one during init. %s", err)
+	}
+
+	// Create table two
+	err = createTableTwo(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table two during init. %s", err)
+	}
+
+	// Create table three
+	err = createTableThree(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table three during init. %s", err)
+	}
+
 	return nil,nil
 }
 
@@ -233,26 +251,6 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		}
 
 		return nil, nil
-
-	case "init":
-
-		// Create table one
-		err := createTableOne(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table one during init. %s", err)
-		}
-
-		// Create table two
-		err = createTableTwo(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table two during init. %s", err)
-		}
-
-		// Create table three
-		err = createTableThree(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table three during init. %s", err)
-		}
 
 	default:
 		return nil, errors.New("Unsupported operation")

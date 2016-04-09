@@ -13,7 +13,7 @@ Feature: lanching 3 peers
     I want to be able to launch a 3 peers
 
 #    @doNotDecompose
-#    @wip
+    @wip
    @issue_767
   Scenario: Range query test, single peer, issue #767
     Given we compose "docker-compose-1.yml"
@@ -73,7 +73,7 @@ Feature: lanching 3 peers
       Then I should get a JSON response with "OK" = "["key2"]"
 
 #    @doNotDecompose
-#    @wip
+    @wip
   @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
