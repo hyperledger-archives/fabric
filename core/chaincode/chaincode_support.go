@@ -257,7 +257,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (ar
 }
 
 // launchAndWaitForRegister will launch container if not already running
-func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, sysCC bool, cID *pb.ChaincodeID, uuid string) (bool, error) {
+func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, uuid string) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
@@ -287,8 +287,10 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 
 	chaincodeLog.Debug("start container: %s", vmname)
 
+	vmtype,_ := chaincodeSupport.getVMType(cds)
+
 	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
-	resp, err := container.VMCProcess(context, "Docker", sir)
+	resp, err := container.VMCProcess(context, vmtype, sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
 		if err == nil {
 			err = resp.(container.VMCResp).Err
@@ -449,7 +451,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 
 	//launch container if it is a System container or not in dev mode
 	if (!chaincodeSupport.userRunsCC || cds.SystemChaincode) && (chrte == nil || chrte.handler == nil) {
-		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds.SystemChaincode, cID, t.Uuid)
+		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid)
 		if err != nil {
 			chaincodeLog.Debug("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
