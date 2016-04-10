@@ -39,17 +39,6 @@ import (
 )
 
 func newDockerClient() (client *docker.Client, err error) {
-	//QQ: is this ok using config properties here so deep ? ie, should we read these in main and stow them away ?
-	endpoint := viper.GetString("vm.endpoint")
-	vmLogger.Info("Creating VM with endpoint: %s", endpoint)
-	if viper.GetBool("vm.docker.tls.enabled") {
-		cert := viper.GetString("vm.docker.tls.cert.file")
-		key := viper.GetString("vm.docker.tls.key.file")
-		ca := viper.GetString("vm.docker.tls.ca.file")
-		client, err = docker.NewTLSClient(endpoint, cert, key, ca)
-	} else {
-		client, err = docker.NewClient(endpoint)
-	}
 	return
 }
 

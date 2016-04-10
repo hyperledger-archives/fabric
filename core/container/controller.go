@@ -26,13 +26,16 @@ import (
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+
+	"github.com/hyperledger/fabric/core/container/dockercontroller"
+	"github.com/hyperledger/fabric/core/container/inproccontroller"
 )
 
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
-	build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
-	stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
+	Build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
+	Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
+	Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
 
 type refCountedLock struct {
@@ -72,9 +75,11 @@ func (vmc *VMController) newVM(typ string) vm {
 
 	switch typ {
 	case DOCKER:
-		v = &dockerVM{}
-	case "":
-		v = &dockerVM{}
+		v = &dockercontroller.DockerVM{}
+	case SYSTEM:
+		v = &inproccontroller.InprocVM{}
+	default:
+		v = &dockercontroller.DockerVM{}
 	}
 	return v
 }
@@ -142,7 +147,7 @@ type CreateImageReq struct {
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.build(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
+	if err := v.Build(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -166,7 +171,7 @@ type StartImageReq struct {
 
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
+	if err := v.Start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -191,7 +196,7 @@ type StopImageReq struct {
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
+	if err := v.Stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}

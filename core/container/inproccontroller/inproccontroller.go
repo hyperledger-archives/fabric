@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package container
+package inproccontroller
 
 import (
 	"fmt"
@@ -25,17 +25,15 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 
-	////////////HACK-A-TON/////////
-	//"chaincodes/inprocchaincodesample"
-
 	"golang.org/x/net/context"
 )
 
 type inprocChaincode struct {
-	chaincode shim.Chaincode
-	running bool
-	args []string
-	env []string
+	name		string
+	chaincode	shim.Chaincode
+	running		bool
+	args		[]string
+	env		[]string
 }
 
 var (
@@ -44,19 +42,17 @@ var (
 
 func init() {
 	typeRegistry = make(map[string]*inprocChaincode)
-	//////////HACK-A-TON///////////
-	//typeRegistry["chaincodes/inprocchaincodesample"] = &inprocChaincode{chaincode: &inprocchaincodesample.InProcChaincode{}, running: false}
 }
 
-//inProcVM is a vm. It is identified by a executable name
-type inProcVM struct {
+//InprocVM is a vm. It is identified by a executable name
+type InprocVM struct {
 	id string
 }
 
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *inProcVM) build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+func (vm *InprocVM) Build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	ipc := typeRegistry[id]
 	if ipc == nil {
 		return fmt.Errorf("%s not registered", id)
@@ -70,7 +66,7 @@ func (vm *inProcVM) build(ctxt context.Context, id string, args []string, env []
 	return nil
 }
 
-func (vm *inProcVM) start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	ipc := typeRegistry[id]
 	if ipc == nil {
 		return fmt.Errorf("%s not registered", id)
@@ -78,12 +74,15 @@ func (vm *inProcVM) start(ctxt context.Context, id string, args []string, env []
 	if ipc.running {
 		return fmt.Errorf("%s running", id)
 	}
+	//TODO VALIDITY CHECKS ?
+	ipc.name = id
 	
-	//TODO err := shim.Start(ipc.chaincode)
+	//TODO start shim
+
 	return nil
 }
 
-func (vm *inProcVM) stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
+func (vm *InprocVM) Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
 	ipc := typeRegistry[id]
 	if ipc == nil {
 		return fmt.Errorf("%s not registered", id)
