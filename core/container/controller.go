@@ -53,6 +53,12 @@ type VMController struct {
 //singleton...acess through NewVMController
 var vmcontroller *VMController
 
+//constants for supported containers
+const (
+	DOCKER = "Docker"
+	SYSTEM = "System"
+)
+
 //NewVMController - creates/returns singleton
 func init() {
 	vmcontroller = new(VMController)

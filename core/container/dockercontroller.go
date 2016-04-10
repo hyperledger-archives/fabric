@@ -144,7 +144,3 @@ func (vm *dockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 	return err
 }
 
-//constants for supported containers
-const (
-	DOCKER = "Docker"
-)

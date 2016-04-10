@@ -257,7 +257,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (ar
 }
 
 // launchAndWaitForRegister will launch container if not already running
-func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cID *pb.ChaincodeID, uuid string) (bool, error) {
+func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, sysCC bool, cID *pb.ChaincodeID, uuid string) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
@@ -358,8 +358,9 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	var f *string
 	var initargs []string
 
+	var cds *pb.ChaincodeDeploymentSpec
 	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
-		cds := &pb.ChaincodeDeploymentSpec{}
+		cds = &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(t.Payload, cds)
 		if err != nil {
 			return nil, nil, err
@@ -438,11 +439,17 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 				return cID, cMsg, fmt.Errorf("failed tx preexecution%s - %s", chaincode, err)
 			}
 		}
+		err := proto.Unmarshal(depTx.Payload, cds)
+		if err != nil {
+			return cID, cMsg, fmt.Errorf("failed to unmarshal deployment transactions for %s - %s", chaincode, err)
+		}
 	}
 
 	//from here on : if we launch the container and get an error, we need to stop the container
-	if !chaincodeSupport.userRunsCC && (chrte == nil || chrte.handler == nil) {
-		_, err = chaincodeSupport.launchAndWaitForRegister(context, cID, t.Uuid)
+
+	//launch container if it is a System container or not in dev mode
+	if (!chaincodeSupport.userRunsCC || cds.SystemChaincode) && (chrte == nil || chrte.handler == nil) {
+		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds.SystemChaincode, cID, t.Uuid)
 		if err != nil {
 			chaincodeLog.Debug("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
@@ -473,13 +480,17 @@ func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
 	return chaincodeSupport.secHelper
 }
 
+//getVMType - just returns a string for now. Another possibility is to use a factory method to 
+//return a VM executor
+func (chaincodeSupport *ChaincodeSupport) getVMType (cds *pb.ChaincodeDeploymentSpec) (string,error) {
+	if cds.SystemChaincode {
+		return container.SYSTEM, nil
+	}
+	return container.DOCKER, nil
+}
+
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
 func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
-	if chaincodeSupport.userRunsCC {
-		chaincodeLog.Debug("user runs chaincode, not deploying chaincode")
-		return nil, nil
-	}
-
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
 	err := proto.Unmarshal(t.Payload, cds)
@@ -491,6 +502,12 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	if err != nil {
 		return cds, err
 	}
+
+	if chaincodeSupport.userRunsCC {
+		chaincodeLog.Debug("user runs chaincode, not deploying chaincode")
+		return nil, nil
+	}
+
 	chaincodeSupport.runningChaincodes.Lock()
 	//if its in the map, there must be a connected stream...and we are trying to build the code ?!
 	if _, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode); ok {
@@ -509,9 +526,12 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 	cir := &container.CreateImageReq{ID: vmname, Args: args, Reader: targz, Env: envs}
 
+	vmtype,_ := chaincodeSupport.getVMType(cds)
+
 	chaincodeLog.Debug("deploying chaincode %s", vmname)
+
 	//create image and create container
-	_, err = container.VMCProcess(context, "Docker", cir)
+	_, err = container.VMCProcess(context, vmtype, cir)
 	if err != nil {
 		err = fmt.Errorf("Error starting container: %s", err)
 	}

@@ -77,11 +77,11 @@ message ChaincodeSpec {
 // Specify the deployment of a chaincode.
 // TODO: Define `codePackage`.
 message ChaincodeDeploymentSpec {
-
     ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
+    bool systemChaincode = 4;
 
 }
 

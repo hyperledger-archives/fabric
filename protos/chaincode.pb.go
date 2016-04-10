@@ -201,8 +201,9 @@ func (m *ChaincodeSpec) GetCtorMsg() *ChaincodeInput {
 type ChaincodeDeploymentSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
 	// Controls when the chaincode becomes executable.
-	EffectiveDate *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
-	CodePackage   []byte                     `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
+	EffectiveDate   *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
+	CodePackage     []byte                     `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
+	SystemChaincode bool                       `protobuf:"varint,4,opt,name=systemChaincode" json:"systemChaincode,omitempty"`
 }
 
 func (m *ChaincodeDeploymentSpec) Reset()         { *m = ChaincodeDeploymentSpec{} }
