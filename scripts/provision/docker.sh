@@ -97,6 +97,11 @@ do
 done`
 COPY scripts $REMOTESCRIPTS
 RUN $REMOTESCRIPTS/common.sh
+RUN add-apt-repository ppa:openjdk-r/ppa -y
+RUN apt-get update && apt-get install openjdk-8-jdk -y
+RUN wget https://services.gradle.org/distributions/gradle-2.12-bin.zip -P /tmp --quiet
+RUN unzip -q /tmp/gradle-2.12-bin.zip -d /opt && rm /tmp/gradle-2.12-bin.zip
+RUN ln -s /opt/gradle-2.12/bin/gradle /usr/bin
 EOF
 
 docker build -t $NAME:latest $TMP
