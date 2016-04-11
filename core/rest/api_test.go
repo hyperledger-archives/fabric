@@ -71,6 +71,12 @@ func (p *peerInfo) GetPeers() (*protos.PeersMessage, error) {
 	return peersMessage, nil
 }
 
+func (p *peerInfo) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
+	pe := &protos.PeerEndpoint{ID: &protos.PeerID{Name: viper.GetString("peer.id")}, Address: "localhost:30303", Type: protos.PeerEndpoint_VALIDATOR}
+	return pe, nil
+}
+
+
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
 	// Construct a ledger with 0 blocks.
 	ledger := ledger.InitTestLedger(t)
