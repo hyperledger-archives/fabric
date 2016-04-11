@@ -321,11 +321,10 @@ Messages with type `CHAIN_TRANSACTION` or `CHAIN_QUERY` carry a `Transaction` ob
 message Transaction {
     enum Type {
         UNDEFINED = 0;
-        CHAINCODE_NEW = 1;
-        CHAINCODE_UPDATE = 2;
-        CHAINCODE_EXECUTE = 3;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 5;
+        CHAINCODE_DEPLOY = 1;
+        CHAINCODE_INVOKE = 2;
+        CHAINCODE_QUERY = 3;
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     string uuid = 5;
@@ -354,9 +353,8 @@ enum ConfidentialityLevel {
 **Definition of fields:**
 - `type` - The type of the transaction, which is 1 of the following:
 	- `UNDEFINED` - Reserved for future use.
-    - `CHAINCODE_NEW` - Represents the deployment of a new chaincode.
-	- `CHAINCODE_UPDATE` - Reserved for future use.
-	- `CHAINCODE_EXECUTE` - Represents a chaincode function execution that may read and modify the world state.
+  - `CHAINCODE_DEPLOY` - Represents the deployment of a new chaincode.
+	- `CHAINCODE_INVOKE` - Represents a chaincode function execution that may read and modify the world state.
 	- `CHAINCODE_QUERY` - Represents a chaincode function execution that may only read the world state.
 	- `CHAINCODE_TERMINATE` - Marks a chaincode as inactive so that future functions of the chaincode can no longer be invoked.
 - `chaincodeID` - The ID of a chaincode which is a hash of the chaincode source, path to the source code, constructor function, and parameters.
@@ -413,7 +411,7 @@ message ChaincodeInput {
 The peer, receiving the `chaincodeSpec`, wraps it in an appropriate transaction message and broadcasts to the network.
 
 ### 3.1.2.3 Deploy Transaction
-Transaction `type` of a deploy transaction is `CHAINCODE_NEW` and the payload contains an object of `ChaincodeDeploymentSpec`.
+Transaction `type` of a deploy transaction is `CHAINCODE_DEPLOY` and the payload contains an object of `ChaincodeDeploymentSpec`.
 
 ```
 message ChaincodeDeploymentSpec {
@@ -430,7 +428,7 @@ message ChaincodeDeploymentSpec {
 The validating peers always verify the hash of the `codePackage` when they deploy the chaincode to make sure the package has not been tampered with since the deploy transaction entered the network.
 
 ### 3.1.2.4 Invoke Transaction
-Transaction `type` of an invoke transaction is `CHAINCODE_EXECUTE` and the `payload` contains an object of `ChaincodeInvocationSpec`.
+Transaction `type` of an invoke transaction is `CHAINCODE_INVOKE` and the `payload` contains an object of `ChaincodeInvocationSpec`.
 
 ```
 message ChaincodeInvocationSpec {
@@ -2535,7 +2533,7 @@ The fabric API design covers the categories below, though the implementation is 
 *  Event Stream - Sub/pub events on the blockchain
 
 ## 6.1 REST Service
-The REST service can be enabled (via configuration) on either validating or non-validating peers, but it is recommended to only enabled the REST service on non-validating peers on production networks.
+The REST service can be enabled (via configuration) on either validating or non-validating peers, but it is recommended to only enable the REST service on non-validating peers on production networks.
 
 ```
 func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops)
@@ -2966,7 +2964,7 @@ Enrollment Certificate Retrieval Response:
 }
 ```
 
-The `/registrar/{enrollmentID}/tcert` endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1 and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded.
+The `/registrar/{enrollmentID}/tcert` endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1; and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded.
 
 Transaction Certificate Retrieval Request:
 ```
@@ -3072,7 +3070,7 @@ Some of the available command line arguments for the `peer` command are listed b
 
 * `-u` - username: enrollment ID of a logged in user invoking the transaction.
 
-Not all of the above commands are fully implemented in the current release. The commands that are helpful for chaincode development and debugging and are fully supported are described below.
+Not all of the above commands are fully implemented in the current release. The fully supported commands that are helpful for chaincode development and debugging are described below.
 
 Note, that any configuration settings for the peer node listed in the `core.yaml` configuration file, which is the  configuration file for the `peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `CORE_PEER_ID=vp1` and `CORE_PEER_ADDRESSAUTODETECT=true` on the command line.
 
