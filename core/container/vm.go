@@ -38,10 +38,6 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-func newDockerClient() (client *docker.Client, err error) {
-	return
-}
-
 // VM implemenation of VM management functionality.
 type VM struct {
 	Client *docker.Client
@@ -49,7 +45,7 @@ type VM struct {
 
 // NewVM creates a new VM instance.
 func NewVM() (*VM, error) {
-	client, err := newDockerClient()
+	client, err := cutil.NewDockerClient()
 	if err != nil {
 		return nil, err
 	}

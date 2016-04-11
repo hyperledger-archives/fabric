@@ -32,6 +32,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/container"
+	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
@@ -257,7 +258,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (ar
 }
 
 // launchAndWaitForRegister will launch container if not already running
-func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, uuid string) (bool, error) {
+func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, uuid string) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
@@ -290,7 +291,24 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	vmtype,_ := chaincodeSupport.getVMType(cds)
 
 	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
-	resp, err := container.VMCProcess(context, vmtype, sir)
+
+	//in proc controller expects a ccintf.HandlerFunc for constructing
+	//the chaincodesupport side of process.
+	//We could convert docker to use this model...no harm in leaving it as is
+	//Future containers can use this model if they are not doing grpc. 
+	//E.g., we could run chaincode in another process and use true IPC
+	//we just have to marshal and unmarshal proto.ChaincodeMessage
+	//
+	//At this point the management of the communication channel (and hence
+	//the lifetime) is entirely upto container package (see inprocontroller
+	//for example)
+	ccHandler := ccintf.HandlerFunc(func(stream ccintf.ChaincodeStream) {
+		HandleChaincodeStream(chaincodeSupport, ctxt, stream)
+	})
+
+	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), ccHandler)
+
+	resp, err := container.VMCProcess(ipcCtxt, vmtype, sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
 		if err == nil {
 			err = resp.(container.VMCResp).Err
@@ -313,7 +331,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(context conte
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.StopChaincode(context, cID)
+		errIgnore := chaincodeSupport.StopChaincode(ctxt, cID)
 		if errIgnore != nil {
 			chaincodeLog.Debug("error on stop %s(%s)", errIgnore, err)
 		}
@@ -543,7 +561,7 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 
 // Register the bidi stream entry point called by chaincode to register with the Peer.
 func (chaincodeSupport *ChaincodeSupport) Register(stream pb.ChaincodeSupport_RegisterServer) error {
-	return HandleChaincodeStream(chaincodeSupport, stream)
+	return HandleChaincodeStream(chaincodeSupport, stream.Context(), stream)
 }
 
 // createTransactionMessage creates a transaction message.

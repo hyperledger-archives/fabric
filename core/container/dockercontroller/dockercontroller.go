@@ -50,7 +50,7 @@ func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client,
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *DockerVM) Build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+func (vm *DockerVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,

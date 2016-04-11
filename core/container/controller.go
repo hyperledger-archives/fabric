@@ -33,7 +33,7 @@ import (
 
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
-	Build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
+	Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
 	Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
 }
@@ -147,7 +147,7 @@ type CreateImageReq struct {
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.Build(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
+	if err := v.Deploy(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}

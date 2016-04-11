@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 
 	"golang.org/x/net/context"
@@ -52,7 +53,7 @@ type InprocVM struct {
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *InprocVM) Build(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	ipc := typeRegistry[id]
 	if ipc == nil {
 		return fmt.Errorf("%s not registered", id)
@@ -77,6 +78,13 @@ func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []
 	//TODO VALIDITY CHECKS ?
 	ipc.name = id
 	
+        ccHandler, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.HandlerFunc)
+	if !ok || ccHandler == nil {
+		return fmt.Errorf("in-process communication generator not supplied")
+	}
+
+	//TODO just for syntax, needs to be solidified
+        ccHandler( &inProcStream{} )
 	//TODO start shim
 
 	return nil
