@@ -31,7 +31,7 @@ fi
 # Stop on first error
 set -e
 
-BASEIMAGE_RELEASE=`cat /etc/obc-baseimage-release`
+BASEIMAGE_RELEASE=`cat /etc/hyperledger-baseimage-release`
 DEVENV_REVISION=`(cd /hyperledger/devenv; git rev-parse --short HEAD)`
 
 # Update system
