@@ -21,8 +21,10 @@ package buckettree
 
 import (
 	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/perfstat"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/util"
+	"time"
 )
 
 func fetchDataNodeFromDB(dataKey *dataKey) (*dataNode, error) {
@@ -38,6 +40,7 @@ func fetchDataNodeFromDB(dataKey *dataKey) (*dataNode, error) {
 }
 
 func fetchBucketNodeFromDB(bucketKey *bucketKey) (*bucketNode, error) {
+	defer perfstat.UpdateTimeStat("timeSpent", time.Now())
 	openchainDB := db.GetDBHandle()
 	nodeBytes, err := openchainDB.GetFromStateCF(bucketKey.getEncodedBytes())
 	if err != nil {

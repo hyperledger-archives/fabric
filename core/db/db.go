@@ -193,14 +193,20 @@ func openDB() (*OpenchainDB, error) {
 	if isOpen {
 		return openchainDB, nil
 	}
+
 	dbPath := getDBPath()
+
+	blockBasedTableOpt := gorocksdb.NewDefaultBlockBasedTableOptions()
+	cache := gorocksdb.NewLRUCache(1024 * 1024 * 1024)
+	blockBasedTableOpt.SetBlockCache(cache)
 	opts := gorocksdb.NewDefaultOptions()
+	opts.SetBlockBasedTableFactory(blockBasedTableOpt)
 	defer opts.Destroy()
+
 	opts.SetCreateIfMissing(false)
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
 		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
 		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
-
 	if err != nil {
 		fmt.Println("Error opening DB", err)
 		return nil, err
@@ -276,6 +282,7 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 
 func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
+	opt.SetFillCache(true)
 	defer opt.Destroy()
 	return openchainDB.DB.NewIteratorCF(opt, cfHandler)
 }
