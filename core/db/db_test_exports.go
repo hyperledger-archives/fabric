@@ -127,3 +127,8 @@ func (testDB *TestDBWrapper) GetEstimatedNumKeys(t testing.TB) map[string]string
 	result["indexCF"] = openchainDB.DB.GetPropertyCF("rocksdb.estimate-num-keys", openchainDB.IndexesCF)
 	return result
 }
+
+func (testDB *TestDBWrapper) GetDBStats() string {
+	openchainDB := GetDBHandle()
+	return openchainDB.DB.GetProperty("rocksdb.stats")
+}

@@ -49,6 +49,12 @@ func constructRootBucketKey() *bucketKey {
 	return newBucketKey(0, 1)
 }
 
+func decodeBucketKey(keyBytes []byte) bucketKey {
+	level, numBytesRead := proto.DecodeVarint(keyBytes[1:])
+	bucketNumber, _ := proto.DecodeVarint(keyBytes[numBytesRead+1:])
+	return bucketKey{int(level), int(bucketNumber)}
+}
+
 func (bucketKey *bucketKey) getParentKey() *bucketKey {
 	return newBucketKey(bucketKey.level-1, conf.computeParentBucketNumber(bucketKey.bucketNumber))
 }

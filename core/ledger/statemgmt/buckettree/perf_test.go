@@ -21,10 +21,11 @@ package buckettree
 
 import (
 	"flag"
-	"github.com/op/go-logging"
+	"testing"
+
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/testutil"
-	"testing"
+	"github.com/op/go-logging"
 )
 
 func BenchmarkStateHash(b *testing.B) {

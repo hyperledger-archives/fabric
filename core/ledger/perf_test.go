@@ -23,12 +23,14 @@ import (
 	"flag"
 	"strconv"
 	"testing"
+	"time"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/perfstat"
 	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -135,18 +137,11 @@ func BenchmarkLedgerPopulate(b *testing.B) {
 			var transactions []*protos.Transaction
 			for j := 0; j < *batchSize; j++ {
 				ledger.TxBegin("txUuid")
-
-				b.StopTimer()
 				keyNumber := batchID*(*batchSize) + j
 				key := *keyPrefix + strconv.Itoa(keyNumber)
-				b.StartTimer()
-
 				ledger.SetState(chaincode, key, value)
 				ledger.TxFinished("txUuid", true)
-
-				b.StopTimer()
 				transactions = append(transactions, tx)
-				b.StartTimer()
 			}
 			ledger.CommitTxBatch(1, transactions, nil, []byte("proof"))
 		}
@@ -179,41 +174,32 @@ func BenchmarkLedgerRandomTransactions(b *testing.B) {
 	value := testutil.ConstructRandomBytes(b, *kvSize-(len(chaincode)+len(*keyPrefix)))
 
 	b.ResetTimer()
-
+	startTime := time.Now()
 	for i := 0; i < b.N; i++ {
 		for batchID := 0; batchID < *numBatches; batchID++ {
 			ledger.BeginTxBatch(1)
 			// execute one batch
 			var transactions []*protos.Transaction
 			for j := 0; j < *batchSize; j++ {
-				b.StopTimer()
 				randomKeySuffixGen := testutil.NewTestRandomNumberGenerator(*maxKeySuffix)
-				b.StartTimer()
-
 				ledger.TxBegin("txUuid")
 				for k := 0; k < *numReadsFromLedger; k++ {
-					b.StopTimer()
 					randomKey := *keyPrefix + strconv.Itoa(randomKeySuffixGen.Next())
-					b.StartTimer()
 					ledger.GetState(chaincode, randomKey, true)
 				}
 				for k := 0; k < *numWritesToLedger; k++ {
-					b.StopTimer()
 					randomKey := *keyPrefix + strconv.Itoa(randomKeySuffixGen.Next())
-					b.StartTimer()
-
 					ledger.SetState(chaincode, randomKey, value)
 				}
 				ledger.TxFinished("txUuid", true)
-
-				b.StopTimer()
 				transactions = append(transactions, tx)
-				b.StartTimer()
 			}
 			ledger.CommitTxBatch(1, transactions, nil, []byte("proof"))
 		}
 	}
 	b.StopTimer()
+	perfstat.UpdateTimeStat("timeSpent", startTime)
+	perfstat.PrintStats()
 	b.Logf("DB stats afters populating: %s", testDBWrapper.GetEstimatedNumKeys(b))
 }
 
@@ -246,5 +232,5 @@ func disableLogging() {
 	testutil.SetLogLevel(logging.INFO, "state")
 	testutil.SetLogLevel(logging.ERROR, "statemgmt")
 	testutil.SetLogLevel(logging.INFO, "buckettree")
-	testutil.SetLogLevel(logging.ERROR, "db")
+	testutil.SetLogLevel(logging.INFO, "db")
 }
