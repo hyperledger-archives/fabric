@@ -37,7 +37,7 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 type AssetManagementChaincode struct {
 }
 
-func (t *AssetManagementChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Info("[AssetManagementChaincode] Init")
 	if len(args) != 0 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
@@ -200,13 +200,10 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 }
 
 // Run callback representing the invocation of a chaincode
-func (t *AssetManagementChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions
-	if function == "init" {
-		// Initialize the administrator of this asset management service
-		return t.init(stub, args)
-	} else if function == "assign" {
+	if function == "assign" {
 		// Assign ownership
 		return t.assign(stub, args)
 	} else if function == "transfer" {
