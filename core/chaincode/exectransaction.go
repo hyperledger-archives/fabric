@@ -50,7 +50,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		}
 	}
 
-	if t.Type == pb.Transaction_CHAINCODE_NEW {
+	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
 		_, err := chain.DeployChaincode(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
@@ -64,7 +64,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 			return nil, fmt.Errorf("%s", err)
 		}
 		markTxFinish(ledger, t, true)
-	} else if t.Type == pb.Transaction_CHAINCODE_EXECUTE || t.Type == pb.Transaction_CHAINCODE_QUERY {
+	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
 		if err != nil {
@@ -87,7 +87,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		}
 
 		var ccMsg *pb.ChaincodeMessage
-		if t.Type == pb.Transaction_CHAINCODE_EXECUTE {
+		if t.Type == pb.Transaction_CHAINCODE_INVOKE {
 			ccMsg, err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to transaction message(%s)", err)

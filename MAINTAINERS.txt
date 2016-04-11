@@ -1,0 +1,6 @@
+Maintainers
+
+Binh Nguyen binhn binhn@us.ibm.com
+Sheehan Anderson srderson sheehan@us.ibm.com
+Tamas Blummer tamasblummer tamas@digitalasset.com
+Robert Fajta rfajta robert@digitalasset.com 

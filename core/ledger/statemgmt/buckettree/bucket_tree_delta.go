@@ -43,6 +43,10 @@ func (bucketTreeDelta *bucketTreeDelta) getOrCreateBucketNode(bucketKey *bucketK
 	return bucketNode
 }
 
+func (bucketTreeDelta *bucketTreeDelta) isEmpty() bool {
+	return bucketTreeDelta.byLevel == nil || len(bucketTreeDelta.byLevel) == 0
+}
+
 func (bucketTreeDelta *bucketTreeDelta) getBucketNodesAt(level int) []*bucketNode {
 	bucketNodes := []*bucketNode{}
 	byBucketNumber := bucketTreeDelta.byLevel[level]

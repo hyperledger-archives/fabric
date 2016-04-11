@@ -126,7 +126,7 @@
                 "only": [
                     "virtualbox-iso"
                 ],
-                "artifact": "obc/{{user `artifact`}}",
+                "artifact": "hyperledger/{{user `artifact`}}",
                 "artifact_type": "vagrant.box",
                 "metadata": {
                     "provider": "virtualbox",

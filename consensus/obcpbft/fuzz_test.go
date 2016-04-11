@@ -154,7 +154,7 @@ func TestMinimalFuzz(t *testing.T) {
 
 		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: int64(reqID), Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)

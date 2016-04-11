@@ -108,7 +108,7 @@ ldconfig
 cd ~/
 
 # Make our versioning persistent
-echo $BASEIMAGE_RELEASE > /etc/obc-baseimage-release
+echo $BASEIMAGE_RELEASE > /etc/hyperledger-baseimage-release
 
 # clean up our environment
 apt-get -y autoremove

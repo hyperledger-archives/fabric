@@ -1166,7 +1166,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1253,7 +1253,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1390,7 +1390,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1502,7 +1502,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
