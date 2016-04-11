@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
 )
 
 // The UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
@@ -37,13 +37,15 @@ import (
 type SimpleChaincode struct {
 }
 
-// Run callback representing the invocation of a chaincode
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+// Init does nothing in the UTXO chaincode
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	return nil, nil
+}
+
+// Invoke callback representing the invocation of a chaincode
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
-
-	case "init":
-		// Do nothing
 
 	case "execute":
 		utxo := util.MakeUTXO(MakeChaincodeStore(stub))
@@ -75,7 +77,6 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		return nil, errors.New("Unsupported operation")
 	}
 
-	return nil, nil
 }
 
 // Query callback representing the query of a chaincode
