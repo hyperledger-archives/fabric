@@ -200,8 +200,6 @@ var chaincodeQueryCmd = &cobra.Command{
 }
 
 func main() {
-	runtime.GOMAXPROCS(2)
-
 	// For environment variables.
 	viper.SetEnvPrefix(cmdRoot)
 	viper.AutomaticEnv()
@@ -264,6 +262,8 @@ func main() {
 	chaincodeCmd.AddCommand(chaincodeQueryCmd)
 
 	mainCmd.AddCommand(chaincodeCmd)
+
+	runtime.GOMAXPROCS(viper.GetInt("peer.gomaxprocs"))
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
