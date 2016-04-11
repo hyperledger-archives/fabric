@@ -56,15 +56,14 @@ func (stateImpl *StateImpl) Initialize(configs map[string]interface{}) error {
 		stateImpl.persistedStateHash = rootBucketNode.computeCryptoHash()
 		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
 	}
-	stateImpl.bucketCache = newBucketCache()
+
+	bucketCacheMaxSize, ok := configs["bucketCacheSize"].(int)
+	if !ok {
+		bucketCacheMaxSize = defaultBucketCacheMaxSize
+	}
+	stateImpl.bucketCache = newBucketCache(bucketCacheMaxSize)
 	stateImpl.bucketCache.loadAllBucketNodesFromDB()
 	return nil
-
-	// We can create a cache and keep all the bucket nodes pre-loaded.
-	// Since, the bucket nodes do not contain actual data and max possible
-	// buckets are pre-determined, the memory demand may not be very high or can easily
-	// be controlled - by keeping seletive buckets in the cache (most likely first few levels of the bucket tree - because,
-	// higher the level of the bucket, more are the chances that the bucket would be required for recomputation of hash)
 }
 
 // Get - method implementation for interface 'statemgmt.HashableState'
@@ -268,6 +267,9 @@ func (stateImpl *StateImpl) addBucketNodeChangesForPersistence(writeBatch *goroc
 }
 
 func (stateImpl *StateImpl) updateBucketCache() {
+	if stateImpl.bucketTreeDelta == nil || stateImpl.bucketTreeDelta.isEmpty() {
+		return
+	}
 	stateImpl.bucketCache.lock.Lock()
 	defer stateImpl.bucketCache.lock.Unlock()
 	secondLastLevel := conf.getLowestLevel() - 1

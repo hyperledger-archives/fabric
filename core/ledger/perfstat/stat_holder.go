@@ -22,19 +22,20 @@ package perfstat
 import (
 	"bytes"
 	"fmt"
-	"github.com/op/go-logging"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
-const ENABLE_STATS = false
-const PRINT_PERIODICALLY = true
-const PRINT_INTERVAL = 10000 //Millisecond
-const COMMON_PREFIX = "github.com/hyperledger/fabric/core/ledger"
-const COMMON_PREFIX_LEN = len(COMMON_PREFIX)
+const enableStats = false
+const printPeriodically = true
+const printInterval = 10000 //Millisecond
+const commonPrefix = "github.com/hyperledger/fabric/core/ledger"
+const commonPrefixLen = len(commonPrefix)
 
 var holder *statsHolder
 var once sync.Once
@@ -46,17 +47,18 @@ type statsHolder struct {
 }
 
 func init() {
-	if !ENABLE_STATS {
+	if !enableStats {
 		return
 	}
 	holder = &statsHolder{m: make(map[string]*stat)}
-	if PRINT_PERIODICALLY {
+	if printPeriodically {
 		go printStatsPeriodically()
 	}
 }
 
+// UpdateTimeStat updates the stats for time spent at a particular point in the code
 func UpdateTimeStat(id string, startTime time.Time) {
-	if !ENABLE_STATS {
+	if !enableStats {
 		return
 	}
 	path := getCallerInfo()
@@ -65,8 +67,9 @@ func UpdateTimeStat(id string, startTime time.Time) {
 	stat.updateDataStat(time.Since(startTime).Nanoseconds())
 }
 
+// UpdateDataStat updates the stats for data at a particular point in the code
 func UpdateDataStat(id string, value int64) {
-	if !ENABLE_STATS {
+	if !enableStats {
 		return
 	}
 	path := getCallerInfo()
@@ -75,8 +78,9 @@ func UpdateDataStat(id string, value int64) {
 	stat.updateDataStat(value)
 }
 
+// ResetStats resets all the stats data
 func ResetStats() {
-	if !ENABLE_STATS {
+	if !enableStats {
 		return
 	}
 	holder.rwLock.Lock()
@@ -108,19 +112,20 @@ func getOrCreateStat(name string, file string, line int) *stat {
 func printStatsPeriodically() {
 	for {
 		PrintStats()
-		time.Sleep(time.Duration(int64(PRINT_INTERVAL) * time.Millisecond.Nanoseconds()))
+		time.Sleep(time.Duration(int64(printInterval) * time.Millisecond.Nanoseconds()))
 	}
 }
 
+// PrintStats prints the stats in the log file.
 func PrintStats() {
-	if !ENABLE_STATS {
+	if !enableStats {
 		return
 	}
 	holder.rwLock.RLock()
 	defer holder.rwLock.RUnlock()
 	logger.Info("Stats.......Start")
 	var paths []string
-	for k, _ := range holder.m {
+	for k := range holder.m {
 		paths = append(paths, k)
 	}
 	sort.Strings(paths)
@@ -139,7 +144,7 @@ func getCallerInfo() string {
 	for i := range pc {
 		f := runtime.FuncForPC(pc[i])
 		funcName := f.Name()
-		if strings.HasPrefix(funcName, COMMON_PREFIX) {
+		if strings.HasPrefix(funcName, commonPrefix) {
 			j = i
 		} else {
 			break
@@ -149,7 +154,7 @@ func getCallerInfo() string {
 	for i := j; i >= 0; i-- {
 		f := runtime.FuncForPC(pc[i])
 		funcName := f.Name()
-		funcNameShort := funcName[COMMON_PREFIX_LEN:]
+		funcNameShort := funcName[commonPrefixLen:]
 		path.WriteString(funcNameShort)
 		if i > 0 {
 			path.WriteString(" -> ")

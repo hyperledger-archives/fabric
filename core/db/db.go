@@ -195,12 +195,7 @@ func openDB() (*OpenchainDB, error) {
 	}
 
 	dbPath := getDBPath()
-
-	blockBasedTableOpt := gorocksdb.NewDefaultBlockBasedTableOptions()
-	cache := gorocksdb.NewLRUCache(1024 * 1024 * 1024)
-	blockBasedTableOpt.SetBlockCache(cache)
 	opts := gorocksdb.NewDefaultOptions()
-	opts.SetBlockBasedTableFactory(blockBasedTableOpt)
 	defer opts.Destroy()
 
 	opts.SetCreateIfMissing(false)
