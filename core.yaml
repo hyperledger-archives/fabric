@@ -141,7 +141,7 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops ( this value is case-insensitive)
+        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
         # if the given value is not recognized, we will default to noops
         consensus: noops
 
@@ -348,11 +348,17 @@ ledger:
         # configurations for 'bucketree'. These CANNOT be changed after the DB
         # has been created. 'numBuckets' defines the number of bins that the
         # state key-values are to be divided
-        numBuckets: 10009
+        numBuckets: 1000003
         # 'maxGroupingAtEachLevel' defines the number of bins that are grouped
         #together to construct next level of the merkle-tree (this is applied
         # repeatedly for constructing the entire tree).
-        maxGroupingAtEachLevel: 10
+        maxGroupingAtEachLevel: 5
+        # 'bucketCacheSize' defines the size (in MBs) of the cache that is used to keep
+        # the buckets (from root upto secondlast level) in memory. This cache helps
+        # in making state hash computation faster. A value less than or equals to zero
+        # leads to disabling this caching. This caching helps more if transactions
+        # perform significant writes.
+        bucketCacheSize: 100
 
         # configurations for 'trie'
         # 'tire' has no additional configurations exposed as yet

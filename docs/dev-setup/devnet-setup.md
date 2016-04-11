@@ -1,6 +1,6 @@
 ## Setting Up a Network For Development
 
-This document covers setting up a Hyperledger fabric network on your local machine for development using Docker containers.
+This document covers setting up a network on your local machine for development using Docker containers.
 
 All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](devenv.md).
 See [Logging Control](logging-control.md) for information on controlling
@@ -114,7 +114,7 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode query -u jim -l golang -n <n
 ```
 
 ### Using Consensus Plugin
-A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the Hyperledger fabric, perform the following configuration:
+A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
 
 1. In `core.yaml`, set the `peer.validator.consensus` value to `obcpbft`
 2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.

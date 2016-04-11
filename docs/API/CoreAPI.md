@@ -566,7 +566,7 @@ message PeerID {
 
 Use the Registrar APIs to manage end user registration with the CA. These API endpoints are used to register a user with the CA, determine whether a given user is registered, and to remove any login tokens for a target user preventing them from executing any further transactions. The Registrar APIs are also used to retrieve user enrollment and transaction certificates from the system.
 
-The /registrar enpoint is used to register a user with the CA. The required Secret payload is defined in [devops.proto](https://github.com/hyperledger/fabric/blob/master/protos/devops.proto#L50).
+The /registrar endpoint is used to register a user with the CA. The required Secret payload is defined in [devops.proto](https://github.com/hyperledger/fabric/blob/master/protos/devops.proto#L50).
 
 ```
 message Secret {
@@ -590,7 +590,7 @@ The DELETE /registrar/{enrollmentID} endpoint is used to delete login tokens for
 
 The GET /registrar/{enrollmentID}/ecert endpoint is used to retrieve the enrollment certificate of a given user from local storage. If the target user has already registered with the CA, the response will include a URL-encoded version of the enrollment certificate. If the target user has not yet registered, an error will be returned. If the client wishes to use the returned enrollment certificate after retrieval, keep in mind that it must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
-The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1 and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
+The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1; and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
 #### Transactions
 
@@ -602,11 +602,10 @@ Use the /transactions/{UUID} endpoint to retrieve an individual transaction matc
 message Transaction {
     enum Type {
         UNDEFINED = 0;
-        CHAINCODE_NEW = 1;
-        CHAINCODE_UPDATE = 2;
-        CHAINCODE_EXECUTE = 3;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 5;
+        CHAINCODE_DEPLOY = 1;
+        CHAINCODE_INVOKE = 2;
+        CHAINCODE_QUERY = 3;
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     bytes chaincodeID = 2;
