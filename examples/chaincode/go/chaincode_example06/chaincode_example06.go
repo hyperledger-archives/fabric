@@ -29,7 +29,7 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub,  function string, args []string) ([]byte, error) {
 	attributes, err := stub.CertAttributes()
 	if err != nil { 
 		return nil, err
@@ -52,7 +52,7 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 }
 
 // Transaction makes payment of X units from A to B
-func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode)Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var A string    // Entities
 	var err error
 
@@ -97,10 +97,10 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 	// Handle different functions
 	if function == "init" {
 		// Initialize the entities and their asset holdings
-		return t.init(stub, args)
+		return t.Init(stub, function, args)
 	} else if function == "invoke" {
 		// Transaction makes payment of X units from A to B
-		return t.invoke(stub, args)
+		return t.Invoke(stub, function, args)
 	} else if function == "delete" {
 		// Deletes an entity from its state
 		return t.delete(stub, args)
