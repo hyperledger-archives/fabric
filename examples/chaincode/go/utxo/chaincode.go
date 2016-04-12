@@ -24,7 +24,6 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
-	"github.com/golang/protobuf/proto"
 )
 
 // The UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
@@ -45,7 +44,6 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 // Invoke callback representing the invocation of a chaincode
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
 	switch function {
 
 	case "execute":
