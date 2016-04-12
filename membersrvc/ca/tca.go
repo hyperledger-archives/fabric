@@ -49,11 +49,8 @@ var (
 	// TCertEncTCertIndex is the ASN1 object identifier of the TCert index.
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
 	
-	// TCertEncEnrollmentID is the ASN1 object identifier of the enrollment id.
+	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
-	
-	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
-	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 	
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
@@ -313,7 +310,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
-		extensions, _, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
+		extensions, _, err := tcap.generateEncryptedExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +327,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes map[string]string) ([]pkix.Extension, [][]byte, error){
+func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes map[string]string) ([]pkix.Extension, [][]byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
 	var ks [][]byte
 	extensions := make([]pkix.Extension, len(attributes))
@@ -369,17 +366,11 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	
 	attributeIdentifierIndex := 9
 	count := 0
-	attributesHeader := make(map[string]int)
 	// Encrypt and append attributes to the extensions slice
 	for attributeName, attributeValue := range attributes {
-		count++
-
 		// TODO: should we put the value of the attribute along with the attribute name in the TCert? 
 		// Something like enc(attributeName:attributeValue).
 		value := []byte(attributeValue)
-		
-		//Save the position of the attribute extension on the header.
-		attributesHeader[attributeName] = count
 		
 		if viper.GetBool("tca.attribute-encryption.enabled") {
 			mac = hmac.New(conf.GetDefaultHash(), preK_0)
@@ -399,17 +390,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
   		// Append the attribute to the extensions
 		extensions[count] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
-	}
-	
-	if len(attributes) > 0 {
-		var header []byte
-		var headerString string
-		for k,v := range attributesHeader	{
-			v_str := strconv.Itoa(v)
-			headerString = headerString + k + "->" + v_str + "#"
-		}
-		header = []byte(headerString)
-		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: header})
+		count++
 	}
 	
 	return extensions, ks, nil
