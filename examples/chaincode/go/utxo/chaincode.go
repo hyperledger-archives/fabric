@@ -44,11 +44,10 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 // Invoke callback representing the invocation of a chaincode
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
 	switch function {
 
 	case "execute":
-		utxo := util.MakeUTXO(MakeChaincodeStore(stub))
+
 		if len(args) < 1 {
 			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a bitcoin transaction")
 		}
@@ -58,6 +57,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 			return nil, fmt.Errorf("Error decoding TX as base64:  %s", err)
 		}
 
+		utxo := util.MakeUTXO(MakeChaincodeStore(stub))
 		execResult, err := utxo.Execute(txData)
 		if err != nil {
 			return nil, fmt.Errorf("Error executing TX:  %s", err)
@@ -81,7 +81,30 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 // Query callback representing the query of a chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, errors.New("Unsupported operation")
+
+	switch function {
+
+	case "getTran":
+
+		if len(args) < 1 {
+			return nil, errors.New("queryBTC operation must include single argument, the TX hash hex")
+		}
+
+		utxo := util.MakeUTXO(MakeChaincodeStore(stub))
+		tx, err := utxo.Query(args[0])
+		if err != nil {
+			return nil, fmt.Errorf("Error querying for transaction:  %s", err)
+		}
+		if tx == nil {
+			var data []byte
+			return data, nil
+		}
+		return tx, nil
+
+	default:
+		return nil, errors.New("Unsupported operation")
+	}
+
 }
 
 func main() {

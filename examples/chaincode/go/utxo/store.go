@@ -51,3 +51,18 @@ func (s *Store) PutState(key util.Key, value *util.TX_TXOUT) error {
 	}
 	return s.stub.PutState(keyToString(&key), data)
 }
+
+func (s *Store) GetTran(key string) ([]byte, bool, error) {
+	data, err := s.stub.GetState(key)
+	if err != nil {
+		return nil, false, fmt.Errorf("Error getting state from stub:  %s", err)
+	}
+	if data == nil {
+		return nil, false, nil
+	}
+	return data, true, nil
+}
+
+func (s *Store) PutTran(key string, value []byte) error {
+	return s.stub.PutState(key, value)
+}

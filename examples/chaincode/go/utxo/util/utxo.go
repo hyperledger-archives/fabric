@@ -103,6 +103,15 @@ func (u *UTXO) Execute(txData []byte) (*ExecResult, error) {
 			u.Store.DelState(*keyToPrevOutput)
 			execResult.SumPriorOutputs += value.Value
 		}
+
+		hex := hex.EncodeToString(txHash[:])
+		fmt.Printf("PUT TRAN %s", hex)
+		u.Store.PutTran(hex, txData)
 	}
 	return execResult, nil
+}
+
+func (u *UTXO) Query(txHashHex string) ([]byte, error) {
+	tx, _, err := u.Store.GetTran(txHashHex)
+	return tx, err
 }
