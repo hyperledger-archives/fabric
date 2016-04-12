@@ -25,7 +25,7 @@ Next, modify the `core.yaml` file in the obc-peer project to point to the local 
 Start the peer using the following commands
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
-./obc-peer peer
+./peer peer
 ```
 
 In a second window, deploy the example UTXO chaincode
