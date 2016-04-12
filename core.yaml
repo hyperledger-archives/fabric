@@ -281,6 +281,7 @@ chaincode:
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             from openblockchain/baseimage
+            #from utxo:0.1.0
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 

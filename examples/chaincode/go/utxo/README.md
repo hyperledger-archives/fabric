@@ -25,7 +25,7 @@ Next, modify the `core.yaml` file in the obc-peer project to point to the local 
 Start the peer using the following commands
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
-./obc-peer peer
+./peer peer
 ```
 
 In a second window, deploy the example UTXO chaincode
@@ -54,7 +54,7 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 
 Using the Docker image that we just built, start a peer within a container in `chaincodedev` mode.
 ```
-docker run -it -p 30303:30303 hyperledger-peer fabric peer --peer-chaincodedev
+docker run -it -p 30303:30303 -p 31315:31315 hyperledger-peer fabric peer --peer-chaincodedev
 ```
 
 

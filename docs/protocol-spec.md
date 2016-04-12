@@ -274,7 +274,7 @@ message Message {
 The `payload` is an opaque byte array containing other objects such as `Transaction` or `Response` depending on the type of the message. For example, if the `type` is `CHAIN_TRANSACTION`, the `payload` is a `Transaction` object.
 
 ### 3.1.1 Discovery Messages
-Upon start up, a peer runs discovery protocol if `CORE__PEER_DISCOVERY_ROOTNODE` is specified. `CORE_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
+Upon start up, a peer runs discovery protocol if `CORE_PEER_DISCOVERY_ROOTNODE` is specified. `CORE_PEER_DISCOVERY_ROOTNODE` is the IP address of another peer on the network (any peer) that serves as the starting point for discovering all the peers on the network. The protocol sequence begins with `DISC_HELLO`, whose `payload` is a `HelloMessage` object, containing its endpoint:
 
 ```
 message HelloMessage {
@@ -565,11 +565,11 @@ message TransactionResult {
 
 * `TransactionResult.uuid` - The ID of the transaction.
 
-* `result` - The return value of the transaction.
+* `TransactionResult.result` - The return value of the transaction.
 
-* `errorCode` - A code that can be used to log errors associated with the transaction.
+* `TransactionResult.errorCode` - A code that can be used to log errors associated with the transaction.
 
-* `error` - A string that can be used to log errors associated with the transaction.
+* `TransactionResult.error` - A string that can be used to log errors associated with the transaction.
 
 
 #### 3.2.1.4 Transaction Execution
@@ -1553,7 +1553,8 @@ Developers of new chaincodes create a new deploy transaction by passing to
 the fabric infrastructure:
 * the confidentiality/security version or type they want the transaction to conform with,
 * the set of users who wish to be given access to parts of the chaincode and
-  a proper representation of their (read) access rights <!-- (read-access code/state/activity, invocation-access) -->
+  a proper representation of their (read) access rights
+<!-- (read-access code/state/activity, invocation-access) -->
 * the chaincode specification,
 * code metadata, containing information that should be passed to the chaincode
   at the time of its execution
@@ -1606,10 +1607,12 @@ provisions, you can find in Section 4.7.
 
 The goal is to achieve a design that will allow for granting or restricting
 access to an entity to any subset of the following parts of a chain-code:
-1. chaincode content<!--& roles of users in that chaincode-->, i.e., complete (source) code of the
+1. chaincode content, i.e., complete (source) code of the
    chaincode,
-2. chaincode function headers, <!--access control lists, -->i.e., the prototypes of the functions included
-   in a chaincode, <!--and their respective list of (anonymous) identifiers of users who should be
+<!--& roles of users in that chaincode-->
+2. chaincode function headers, i.e., the prototypes of the functions included in a chaincode,
+<!--access control lists, -->
+<!--and their respective list of (anonymous) identifiers of users who should be
    able to invoke each function-->
 3. chaincode [invocations &] state, i.e., successive updates to the state of a specific chaincode,
    when one or more functions of its are invoked
