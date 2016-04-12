@@ -565,11 +565,11 @@ message TransactionResult {
 
 * `TransactionResult.uuid` - The ID of the transaction.
 
-* `result` - The return value of the transaction.
+* `TransactionResult.result` - The return value of the transaction.
 
-* `errorCode` - A code that can be used to log errors associated with the transaction.
+* `TransactionResult.errorCode` - A code that can be used to log errors associated with the transaction.
 
-* `error` - A string that can be used to log errors associated with the transaction.
+* `TransactionResult.error` - A string that can be used to log errors associated with the transaction.
 
 
 #### 3.2.1.4 Transaction Execution
