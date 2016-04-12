@@ -190,8 +190,8 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	}
 
 	ctor := spec.CtorMsg
-	if ctor == nil || ctor.Function == "" {
-		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
+	if ctor == nil {
+		return "", fmt.Errorf("Cannot generate hashcode from nil ctor")
 	}
 
 	//code root will point to the directory where the code exists

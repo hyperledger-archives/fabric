@@ -21,6 +21,7 @@ package genesis
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -77,10 +78,10 @@ func MakeGenesis() error {
 		genesis := viper.GetStringMap("ledger.blockchain.genesisBlock")
 
 		if genesis == nil {
-			genesisLogger.Info("No genesis block chaincodes defined.")
+			genesisLogger.Info("No genesis block defined.")
 		} else {
 			
-			chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
+			chaincodes, chaincodesOK := genesis["chaincodes"].(map[interface{}]interface{})
 			if !chaincodesOK {
 				genesisLogger.Info("No genesis block chaincodes defined.")
 				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
@@ -90,13 +91,15 @@ func MakeGenesis() error {
 			genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
 	
 			
-			for i := 0; i < len(chaincodes); i++ {
-				genesisLogger.Debug("Chaincode %d is %s", i, chaincodes[i])
+			for i := range chaincodes {
+				name := i.(string)
+				genesisLogger.Debug("Chaincode %s", name)
 	
-				chaincodeMap, chaincodeMapOK := chaincodes[i].(map[interface{}]interface{})
+				chaincode := chaincodes[name]
+				chaincodeMap, chaincodeMapOK := chaincode.(map[interface{}]interface{})
 				if !chaincodeMapOK {
-					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincodes[i])
-					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincodes[i])
+					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincode)
+					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincode)
 					return
 				}
 	
@@ -134,25 +137,17 @@ func MakeGenesis() error {
 	
 					ctorFunc, ctorFuncOK := constructorMap["func"].(string)
 					if !ctorFuncOK {
-						genesisLogger.Error("Invalid chaincode constructor function defined in genesis configuration:", constructorMap["func"])
-						makeGenesisError = fmt.Errorf("Invalid chaincode constructor function args defined in genesis configuration: %s", constructorMap["func"])
-						return
+						genesisLogger.Warning("Chaincode constructor function not defined or improperly defined in genesis configuration..ignoring")
 					}
 	
-					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
+					ctorArgs, ctorArgsOK := constructorMap["args"].(string)
 					if !ctorArgsOK {
-						genesisLogger.Error("Invalid chaincode constructor args defined in genesis configuration:", constructorMap["args"])
-						makeGenesisError = fmt.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
-						return
+						genesisLogger.Warning("Chaincode constructor args not defined or improperly defined in genesis configuration...ignoring")
 					}
 	
 					genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
 					genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
-					var ctorArgsStringArray []string
-					for j := 0; j < len(ctorArgs); j++ {
-						ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
-					}
-	
+					ctorArgsStringArray := strings.Split(ctorArgs, " ")
 					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
 				}
 	
@@ -194,7 +189,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 			return nil, err
 		}
 	}
-	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes, SystemChaincode: true}
 	return chaincodeDeploymentSpec, nil
 }
 

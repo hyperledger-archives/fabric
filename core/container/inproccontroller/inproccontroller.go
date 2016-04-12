@@ -25,6 +25,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/op/go-logging"
 
 	"golang.org/x/net/context"
 )
@@ -45,6 +46,8 @@ func init() {
 	typeRegistry = make(map[string]*inprocChaincode)
 }
 
+var inprocLogger = logging.MustGetLogger("inproccontroller")
+
 //InprocVM is a vm. It is identified by a executable name
 type InprocVM struct {
 	id string
@@ -55,14 +58,11 @@ type InprocVM struct {
 //talk to docker daemon using docker Client and build the image
 func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	ipc := typeRegistry[id]
-	if ipc == nil {
-		return fmt.Errorf("%s not registered", id)
+	if ipc != nil {
+		return fmt.Errorf(fmt.Sprintf("%s already registered",id))
 	}
-	if ipc.running {
-		return fmt.Errorf("%s running", id)
-	}
-	ipc.args = args
-	ipc.env = env
+	typeRegistry[id] = &inprocChaincode{name: id, chaincode: nil, running: false, args: args, env: env}
+	inprocLogger.Debug("registered : %s", id)
 
 	return nil
 }
@@ -70,22 +70,25 @@ func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env [
 func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	ipc := typeRegistry[id]
 	if ipc == nil {
-		return fmt.Errorf("%s not registered", id)
+		return fmt.Errorf(fmt.Sprintf("%s not registered",id))
 	}
 	if ipc.running {
-		return fmt.Errorf("%s running", id)
+		return fmt.Errorf(fmt.Sprintf("Removed container %s", id))
 	}
 	//TODO VALIDITY CHECKS ?
 	ipc.name = id
 	
+	inprocLogger.Debug("extracting handler for : %s", id)
+
         ccHandler, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.HandlerFunc)
 	if !ok || ccHandler == nil {
 		return fmt.Errorf("in-process communication generator not supplied")
 	}
-
+	inprocLogger.Debug("extracted handler for : %s", id)
 	//TODO just for syntax, needs to be solidified
-        ccHandler( &inProcStream{} )
+        //ccHandler( &inProcStream{} )
 	//TODO start shim
+	inprocLogger.Debug("TODO START CHAINCODE for %s", id)
 
 	return nil
 }
