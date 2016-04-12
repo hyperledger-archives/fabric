@@ -1555,7 +1555,8 @@ Developers of new chaincodes create a new deploy transaction by passing to
 the Hyperledger fabric infrastructure
 * the confidentiality/security version or type they want the transaction to conform with,
 * the set of users who wish to be given access to parts of the chaincode and
-  a proper representation of their (read) access rights <!-- (read-access code/state/activity, invocation-access) -->
+  a proper representation of their (read) access rights
+<!-- (read-access code/state/activity, invocation-access) -->
 * the chaincode specification,
 * code metadata, containing information that should be passed to the chaincode
   at the time of its execution
@@ -1608,10 +1609,12 @@ provisions, you can find in Section 4.7.
 
 The goal is to achieve a design that will allow for granting or restricting
 access to an entity to any subset of the following parts of a chain-code:
-1. chaincode content<!--& roles of users in that chaincode-->, i.e., complete (source) code of the
+1. chaincode content, i.e., complete (source) code of the
    chaincode,
-2. chaincode function headers, <!--access control lists, -->i.e., the prototypes of the functions included
-   in a chaincode, <!--and their respective list of (anonymous) identifiers of users who should be
+<!--& roles of users in that chaincode-->
+2. chaincode function headers, i.e., the prototypes of the functions included in a chaincode,
+<!--access control lists, -->
+<!--and their respective list of (anonymous) identifiers of users who should be
    able to invoke each function-->
 3. chaincode [invocations &] state, i.e., successive updates to the state of a specific chaincode,
    when one or more functions of its are invoked
