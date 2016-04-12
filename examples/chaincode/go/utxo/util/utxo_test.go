@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/consensus"
+	"github.com/golang/protobuf/proto"
 )
 
 // func TestMain(m *testing.M) {
@@ -146,12 +147,19 @@ func TestParse_UTXOTransactionBytes(t *testing.T) {
 				t.Fatalf("Error executing TX:  %s", err)
 			}
 			if execResult.IsCoinbase == false {
-				if execResult.SumCurrentOutputs != execResult.SumPriorOutputs {
-					t.Fatalf("sumOfCurrentOutputs != sumOfPriorOutputs: sumOfCurrentOutputs = %d, sumOfPriorOutputs = %d", execResult.SumCurrentOutputs, execResult.SumPriorOutputs)
+				if execResult.SumCurrentOutputs > execResult.SumPriorOutputs {
+					t.Fatalf("sumOfCurrentOutputs > sumOfPriorOutputs: sumOfCurrentOutputs = %d, sumOfPriorOutputs = %d", execResult.SumCurrentOutputs, execResult.SumPriorOutputs)
 				}
+			}
+
+			txHash := utxo.GetTransactionHash(txAsUTXOBytes)
+			retrievedTx := utxo.Query(hex.EncodeToString(txHash))
+			if !proto.Equal(newTX, retrievedTx) {
+				t.Fatal("Expected TX to be equal. ")
 			}
 		}
 	}
+
 }
 
 func TestParse_LibbitconTX(t *testing.T) {

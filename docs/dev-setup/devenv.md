@@ -47,11 +47,12 @@ git clone https://github.com/<username>/fabric.git
 ```
 
 
-#### Boostrapping the VM using Vagrant    
+#### Boostrapping the VM using Vagrant
 
-Now change to the $GOPATH/src/github.com/hyperledger/fabric/devenv directory and run the following command:
-
-    vagrant up
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
+vagrant up
+```
 
 **NOTE:** If you intend to run the development environment behind an HTTP Proxy, you need to configure the guest so that the provisioning process may complete.  You can achieve this via the *vagrant-proxyconf* plugin. Install with *vagrant plugin install vagrant-proxyconf* and then set the VAGRANT_HTTP_PROXY and VAGRANT_HTTPS_PROXY environment variables *before* you execute *vagrant up*. More details are available here: https://github.com/tmatilai/vagrant-proxyconf/
 

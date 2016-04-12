@@ -33,7 +33,7 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string // Sum of asset holdings across accounts. Initially 0
 	var sumVal int // Sum of holdings
 	var err error
@@ -60,7 +60,7 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 }
 
 // Transaction queries another chaincode and updates its own state
-func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string             // Sum entity
 	var Aval, Bval, sumVal int // value of sum entity - to be computed
 	var err error
@@ -113,22 +113,6 @@ func (t *SimpleChaincode) invoke(stub *shim.ChaincodeStub, args []string) ([]byt
 
 	fmt.Printf("Invoke chaincode successful. Got sum %d\n", sumVal)
 	return []byte(strconv.Itoa(sumVal)), nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode queries another chaincode - chaincode_example02, upon receipt of an event
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize
-		return t.init(stub, args)
-	} else if function == "invoke" {
-		// Transaction queries another chaincode
-		return t.invoke(stub, args)
-	}
-
-	return nil, nil
 }
 
 // Query callback representing the query of a chaincode

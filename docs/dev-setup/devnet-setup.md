@@ -1,6 +1,6 @@
 ## Setting Up a Network For Development
 
-This document covers setting up a Hyperledger fabric network on your local machine for development using Docker containers.
+This document covers setting up a network on your local machine for development using Docker containers.
 
 All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](devenv.md).
 See [Logging Control](logging-control.md) for information on controlling
@@ -47,14 +47,14 @@ By default, we are using a consensus plugin called `NOOPS`, which doesn't really
 #### Start up the first validating peer:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer fabric peer
 ```
 
 ####Start up the second validating peer:
 We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (eg 172.17.0.2). We'll use "vp2" as the ID for the second validating peer.
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer fabric peer
 ```
 
 You can start up a few more validating peers in the similar manner as you wish. Remember to change the ID.
@@ -114,7 +114,7 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode query -u jim -l golang -n <n
 ```
 
 ### Using Consensus Plugin
-A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the Hyperledger fabric, perform the following configuration:
+A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
 
 1. In `core.yaml`, set the `peer.validator.consensus` value to `obcpbft`
 2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
@@ -123,4 +123,4 @@ A consensus plugin might require some specific configuration that you need to se
 
 See `core.yaml` and `consensus/obcpbft/config.yaml` for more detail.
 
-All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS=`pbft` or `CORE_PBFT_GENERAL_MODE=sieve`
+All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS=pbft` or `CORE_PBFT_GENERAL_MODE=sieve`

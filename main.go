@@ -237,7 +237,7 @@ func main() {
 	viper.AddConfigPath("./")    // Path to look for the config file in
 	err := viper.ReadInConfig()  // Find and read the config file
 	if err != nil {              // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error when reading %s config file: %s \n", cmdRoot, err))
+		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
 
 	mainCmd.AddCommand(peerCmd)
@@ -452,7 +452,7 @@ func serve(args []string) error {
 func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		return
 	}
 
@@ -469,7 +469,7 @@ func status() (err error) {
 func stop() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		return
 	}
 
@@ -491,13 +491,13 @@ func login(args []string) (err error) {
 
 	// Check for username argument
 	if len(args) == 0 {
-		err = fmt.Errorf("Must supply username")
+		err = errors.New("Must supply username")
 		return
 	}
 
 	// Check for other extraneous arguments
 	if len(args) != 1 {
-		err = fmt.Errorf("Must supply username as the 1st and only parameter")
+		err = errors.New("Must supply username as the 1st and only parameter")
 		return
 	}
 
@@ -609,7 +609,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		var f interface{}
 		err = json.Unmarshal([]byte(chaincodeCtorJSON), &f)
 		if err != nil {
-			err = fmt.Errorf("Chaincode argument error : %s", err)
+			err = fmt.Errorf("Chaincode argument error: %s", err)
 			return
 		}
 		m := f.(map[string]interface{})
@@ -627,7 +627,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 			}
 		}
 	} else {
-		err = fmt.Errorf("Empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
+		err = errors.New("Empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 		return
 	}
 
@@ -844,14 +844,14 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 func network() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer:", err)
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		return
 	}
 	openchainClient := pb.NewOpenchainClient(clientConn)
 	peers, err := openchainClient.GetPeers(context.Background(), &google_protobuf.Empty{})
 
 	if err != nil {
-		err = fmt.Errorf("Error trying to get peers:", err)
+		err = fmt.Errorf("Error trying to get peers: %s", err)
 		return
 	}
 
