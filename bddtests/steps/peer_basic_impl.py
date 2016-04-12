@@ -114,6 +114,12 @@ def step_impl(context, attribute, expectedValue):
     foundValue = context.response.json()[attribute]
     assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
 
+@then(u'I should get a JSON response with array "{attribute}" contains "{expectedValue}" elements')
+def step_impl(context, attribute, expectedValue):
+    assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
+    foundValue = context.response.json()[attribute]
+    assert (len(foundValue) == int(expectedValue)), "For attribute %s, expected array of size (%s), instead found (%s)" % (attribute, expectedValue, len(foundValue))
+
 
 @given(u'I wait "{seconds}" seconds')
 def step_impl(context, seconds):

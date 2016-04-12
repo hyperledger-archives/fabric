@@ -12,6 +12,20 @@ Feature: lanching 3 peers
     As a HyperLedger developer
     I want to be able to launch a 3 peers
 
+#    @wip
+  Scenario: Peers list test, single peer issue #827
+    Given we compose "docker-compose-1.yml"
+      And I wait "1" seconds
+      When requesting "/network/peers" from "vp0"
+      Then I should get a JSON response with array "peers" contains "1" elements
+
+#    @wip
+  Scenario: Peers list test,3 peers issue #827
+    Given we compose "docker-compose-3.yml"
+      And I wait "1" seconds
+      When requesting "/network/peers" from "vp0"
+      Then I should get a JSON response with array "peers" contains "3" elements
+
 #    @doNotDecompose
     @wip
    @issue_767

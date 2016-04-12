@@ -1621,9 +1621,10 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 	return result
 }
 
-// GetPeers returns a list of all peer nodes currently connected to the target peer.
+// GetPeers returns a list of all peer nodes currently connected to the target peer, including itself
 func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) {
 	peers, err := s.server.GetPeers(context.Background(), &google_protobuf.Empty{})
+	currentPeer, err1 := s.server.GetPeerEndpoint(context.Background(), &google_protobuf.Empty{})
 
 	encoder := json.NewEncoder(rw)
 
@@ -1633,10 +1634,28 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 		restLogger.Error(fmt.Sprintf("{\"Error\": \"Querying network peers -- %s\"}", err))
+	} else if err1 != nil {
+		// Failure
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err1)
+		restLogger.Error(fmt.Sprintf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1))
 	} else {
+		currentPeerFound := false
+		peersList := peers.Peers
+		for _, peer := range peers.Peers {
+			for _, cPeer := range currentPeer.Peers {
+				if *peer.GetID() == *cPeer.GetID() {
+					currentPeerFound = true
+				}
+			}
+		}
+		if currentPeerFound == false {
+			peersList = append(peersList, currentPeer.Peers...)
+		}
+		peersMessage := &pb.PeersMessage{Peers: peersList}
 		// Success
 		rw.WriteHeader(http.StatusOK)
-		encoder.Encode(peers)
+		encoder.Encode(peersMessage)
 	}
 }
 
