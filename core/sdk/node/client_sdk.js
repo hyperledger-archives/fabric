@@ -1,4 +1,3 @@
-
 var urlParser = require("url");
 
 /**
@@ -16,7 +15,7 @@ function ChainClientMgr() {
    this.defaultTimeout = 60 * 1000;  // 1 minute
    // If running in bluemix, initialize from VCAP_SERVICES environment variable
    if (process.env.VCAP_SERVICES) {
-      // TODO: From marbles app   
+      // TODO: From marbles app
    }
 }
 
@@ -159,18 +158,18 @@ function MemberServices(config) {
  * Get a member by name.  The member
  */
 MemberServices.prototype.getMember = function(name) {
-   
+
 };
 
 /**
  * Registration request
  */
 MemberServices.prototype.register = function(registrationRequest,cb) {
-   
+
 };
 
 MemberServices.prototype.enroll = function(,cb) {
-   
+
 };
 
 export.NewChainClientMgr = NewChainClientMgr;
