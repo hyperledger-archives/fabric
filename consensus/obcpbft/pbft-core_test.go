@@ -1062,3 +1062,106 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 }
+
+func TestReplicaCrash1(t *testing.T) {
+	validatorCount := 4
+	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
+		pep.pbft.K = 2
+		pep.pbft.L = 2 * pep.pbft.K
+	})
+	defer net.stop()
+
+	mkreq := func(n int64) *Request {
+		txTime := &gp.Timestamp{Seconds: n, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, _ := proto.Marshal(tx)
+
+		return &Request{
+			Timestamp: &gp.Timestamp{Seconds: n, Nanos: 0},
+			Payload:   txPacked,
+			ReplicaId: uint64(generateBroadcaster(validatorCount)),
+		}
+	}
+
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(1))
+	net.process()
+
+	for id := 0; id < 2; id++ {
+		pe := net.pbftEndpoints[id]
+		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc, []byte("GENESIS"))
+		pe.pbft.N = 4
+		pe.pbft.f = (4 - 1) / 3
+		pe.pbft.K = 2
+		pe.pbft.L = 2 * pe.pbft.K
+	}
+
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(2))
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(3))
+	net.process()
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 3 {
+			t.Errorf("Expected 3 executions on replica %d, got %d", pep.id, pep.sc.executions)
+			continue
+		}
+	}
+}
+
+func TestReplicaCrash2(t *testing.T) {
+	validatorCount := 4
+	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
+		pep.pbft.K = 2
+		pep.pbft.L = 2 * pep.pbft.K
+	})
+	defer net.stop()
+
+	filterMsg := true
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if dst == 3 { // 3 is byz
+			return nil
+		}
+		pm := &Message{}
+		err := proto.Unmarshal(msg, pm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// filter commits to all but 1
+		if filterMsg && dst != -1 && dst != 1 && pm.GetCommit() != nil {
+			return nil
+		}
+		return msg
+	}
+
+	mkreq := func(n int64) *Request {
+		txTime := &gp.Timestamp{Seconds: n, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		txPacked, _ := proto.Marshal(tx)
+
+		return &Request{
+			Timestamp: &gp.Timestamp{Seconds: n, Nanos: 0},
+			Payload:   txPacked,
+			ReplicaId: uint64(generateBroadcaster(validatorCount)),
+		}
+	}
+
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(1))
+	net.process()
+
+	filterMsg = false
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(2))
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(3))
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(4))
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(5))
+	net.process()
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.id != 3 && pep.sc.executions != 1 {
+			t.Errorf("Expected execution on replica %d", pep.id)
+			continue
+		}
+		if pep.id == 3 && pep.sc.executions > 0 {
+			t.Errorf("Expected no execution")
+			continue
+		}
+	}
+}
