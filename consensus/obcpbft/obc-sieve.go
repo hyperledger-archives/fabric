@@ -349,7 +349,7 @@ func (op *obcSieve) Validate(seqNo uint64, id []byte) (commit bool, correctedID 
 		op.pbft.lock()
 		defer op.pbft.unlock()
 		// for simplicity's sake, we use the pbft timer
-		op.pbft.startTimer(op.pbft.requestTimeout)
+		op.pbft.startTimer(op.pbft.requestTimeout, "waiting for verify")
 		op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
 
 		op.recvVerify(verify)
