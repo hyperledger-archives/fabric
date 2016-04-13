@@ -79,7 +79,7 @@ message TransactionResult {
 // transactions - The ordered list of transactions in the block.
 // stateHash - The state hash after running transactions in this block.
 // previousBlockHash - The hash of the previous block in the chain.
-// consensusMetadata - Consensus modules may optionaly store any
+// consensusMetadata - Consensus modules may optionally store any
 // additional metadata in this field.
 // nonHashData - Data stored with the block, but not included in the blocks
 // hash. This allows this data to be different per peer or discarded without
