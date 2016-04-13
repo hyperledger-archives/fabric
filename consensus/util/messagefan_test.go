@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package helper
+package util
 
 import (
 	"fmt"
@@ -31,12 +31,12 @@ func TestFanIn(t *testing.T) {
 	Channels := 500
 	Messages := 100
 
-	fh := NewFanHelper()
+	fh := NewMessageFan()
 
 	for i := 0; i < Channels; i++ {
 		c := make(chan *Message, Messages/2)
 		pid := &pb.PeerID{Name: fmt.Sprintf("%d", i)}
-		fh.registerChannel(pid, c)
+		fh.RegisterChannel(pid, c)
 		go func() {
 			for j := 0; j < Messages; j++ {
 				c <- &Message{}
@@ -65,4 +65,21 @@ func TestFanIn(t *testing.T) {
 	default:
 	}
 
+}
+
+func TestFanChannelClose(t *testing.T) {
+	fh := NewMessageFan()
+	c := make(chan *Message)
+	pid := &pb.PeerID{Name: "1"}
+	fh.RegisterChannel(pid, c)
+	close(c)
+
+	for i := 0; i < 100; i++ {
+		if len(fh.ins) == 0 {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	t.Fatalf("Channel was not cleaned up")
 }

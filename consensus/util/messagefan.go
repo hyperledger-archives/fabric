@@ -17,13 +17,21 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package helper
+package util
 
 import (
 	"sync"
 
+	"github.com/op/go-logging"
+
 	pb "github.com/hyperledger/fabric/protos"
 )
+
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/util")
+}
 
 // Messages encapsulates an OpenchainMessage with sender information
 type Message struct {
@@ -31,23 +39,23 @@ type Message struct {
 	senderHandle *pb.PeerID
 }
 
-// FanHelper contains the reference to the peer's MessageHandlerCoordinator
-type FanHelper struct {
+// MessageFan contains the reference to the peer's MessageHandlerCoordinator
+type MessageFan struct {
 	ins  map[*pb.PeerID]<-chan *Message
 	out  chan *Message
 	lock sync.Mutex
 }
 
-// NewFanHelper will return an initialized FanHelper
-func NewFanHelper() *FanHelper {
-	return &FanHelper{
+// NewMessageFan will return an initialized MessageFan
+func NewMessageFan() *MessageFan {
+	return &MessageFan{
 		ins: make(map[*pb.PeerID]<-chan *Message),
 		out: make(chan *Message),
 	}
 }
 
 // registerChannel is intended to be invoked by Handler to add a channel to be fan-ed in
-func (fan *FanHelper) registerChannel(sender *pb.PeerID, channel <-chan *Message) {
+func (fan *MessageFan) RegisterChannel(sender *pb.PeerID, channel <-chan *Message) {
 	fan.lock.Lock()
 	defer fan.lock.Unlock()
 
@@ -74,6 +82,6 @@ func (fan *FanHelper) registerChannel(sender *pb.PeerID, channel <-chan *Message
 }
 
 // GetOutChannel returns a read only channel which the registered channels fan into
-func (fan *FanHelper) GetOutChannel() <-chan *Message {
+func (fan *MessageFan) GetOutChannel() <-chan *Message {
 	return fan.out
 }
