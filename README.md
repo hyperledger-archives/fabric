@@ -133,7 +133,7 @@ up at the IP address currently assumed by the test environment
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## Communication <a name="communication"></a>
-We use [Slack for communication](https://hyperledger.slack.com) and Google Hangouts&trade; for screen sharing between developers. Register with these tools to get connected.
+We use [Hyperledger Slack](https://hyperledger.slack.com)  for communication and Google Hangouts&trade; for screen sharing between developers. Register at [hyperledgerproject](hyperledgerproject.slack.com/signup) or email tbenzies@linuxfoundation.org.
 
 ## Coding Golang <a name="coding"></a>
 - We require a file [header](docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
