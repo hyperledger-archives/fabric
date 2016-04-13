@@ -469,6 +469,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte
 		Attributes: client.conf.getTCertAttributes(),
 		Sig: nil,
 	}
+	
 	rawReq, err := proto.Marshal(req)
 	if err != nil {
 		client.error("Failed marshaling request [%s] [%s].", err.Error())
@@ -530,7 +531,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 	}
 	
 	var header_raw []byte
-	if header_raw, err = utils.GetExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
 
 		return nil, err
@@ -546,8 +547,6 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 	
 	position := header[attributeName]
 	
-
-	
 	if position == 0 {
 		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
 	}
@@ -555,7 +554,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
     
     var value []byte
-    if value, err = utils.GetExtension(tcert, oid); err != nil {
+    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
 		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
 		return nil, err
 	}

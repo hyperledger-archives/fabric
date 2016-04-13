@@ -293,7 +293,7 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	}
 	
 	var header_raw []byte
-	if header_raw, err = utils.GetExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -323,7 +323,7 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
 	}
 	
 	var header_raw []byte
-	if header_raw, err = utils.GetExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -346,7 +346,7 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
     
     var value []byte
-    if value, err = utils.GetExtension(tcert, oid); err != nil {
+    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
 		return nil, err
 	}
     return value, nil

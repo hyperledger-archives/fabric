@@ -137,15 +137,15 @@ func GetCriticalExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]
 }
 
 // GetExtension returns a requested extension.
-func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
-	for _, ext := range cert.Extensions {
-		if IntArrayEquals(ext.Id, oid) {
-			return ext.Value, nil
-		}
-	}
-
-	return nil, errors.New("Failed retrieving extension.")
-}
+//func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
+//	for _, ext := range cert.Extensions {
+//		if IntArrayEquals(ext.Id, oid) {
+//			return ext.Value, nil
+//		}
+//	}
+//
+//	return nil, errors.New("Failed retrieving extension.")
+//}
 
 // NewSelfSignedCert create a self signed certificate
 func NewSelfSignedCert() ([]byte, interface{}, error) {

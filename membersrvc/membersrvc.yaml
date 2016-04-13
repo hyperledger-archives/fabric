@@ -51,7 +51,7 @@ eca:
               institutions:
                   institution_a:
         users:
-                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <affiliation_role>
+                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
                 lukas: 1 NPKYL39uKbkj bank_a	00001
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
                 diego: 1 DRJ23pEQl16a institution_a	00003
