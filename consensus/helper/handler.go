@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/chaincode"
@@ -36,12 +37,17 @@ func init() {
 	logger = logging.MustGetLogger("consensus/handler")
 }
 
+const (
+	DefaultConsensusQueueSize int = 1000
+)
+
 // ConsensusHandler handles consensus messages.
 // It also implements the Stack.
 type ConsensusHandler struct {
 	//	*Helper
-	coordinator peer.MessageHandlerCoordinator
-	peerHandler peer.MessageHandler
+	consenterChan chan *util.Message
+	coordinator   peer.MessageHandlerCoordinator
+	peerHandler   peer.MessageHandler
 }
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
@@ -60,14 +66,31 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 
-	return handler, err
+	consensusQueueSize := viper.GetInt("peer.validator.consensus.buffersize")
+
+	if consensusQueueSize <= 0 {
+		logger.Error("peer.validator.consensus.buffersize is set to %d, but this must be a positive integer, defaulting to %d", consensusQueueSize, DefaultConsensusQueueSize)
+		consensusQueueSize = DefaultConsensusQueueSize
+	}
+
+	handler.consenterChan = make(chan *util.Message, consensusQueueSize)
+
+	return handler, nil
 }
 
 // HandleMessage handles the incoming Fabric messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 	if msg.Type == pb.Message_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()
-		return getEngineImpl().consenter.RecvMsg(msg, senderPE.ID)
+		select {
+		case handler.consenterChan <- &util.Message{
+			Msg:    msg,
+			Sender: senderPE.ID,
+		}:
+			return nil
+		default:
+			return fmt.Errorf("Message channel for %v full, rejecting", senderPE)
+		}
 	} else if msg.Type == pb.Message_CHAIN_TRANSACTION {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(msg.Payload, tx)
@@ -114,7 +137,15 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 
 	// Pass the message to the plugin handler (ie PBFT)
 	selfPE, _ := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
-	return getEngineImpl().consenter.RecvMsg(msg, selfPE.ID)
+	select {
+	case handler.consenterChan <- &util.Message{
+		Msg:    msg,
+		Sender: selfPE.ID,
+	}:
+		return nil
+	default:
+		return fmt.Errorf("Message channel for %v full, rejecting", selfPE.ID)
+	}
 }
 
 func (handler *ConsensusHandler) doChainQuery(tx *pb.Transaction) error {

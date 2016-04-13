@@ -35,8 +35,8 @@ func init() {
 
 // Messages encapsulates an OpenchainMessage with sender information
 type Message struct {
-	msg          *pb.OpenchainMessage
-	senderHandle *pb.PeerID
+	Msg    *pb.OpenchainMessage
+	Sender *pb.PeerID
 }
 
 // MessageFan contains the reference to the peer's MessageHandlerCoordinator

@@ -141,9 +141,13 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
-        # if the given value is not recognized, we will default to noops
-        consensus: noops
+        consensus:
+            # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
+            # if the given value is not recognized, we will default to noops
+            plugin: noops
+
+            # total number of consensus messages which will be buffered per connection before delivery is rejected
+            buffersize: 1000
 
         events:
             # The address that the Event service will be enabled on the validator
