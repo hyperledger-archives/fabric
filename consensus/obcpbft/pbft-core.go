@@ -100,6 +100,7 @@ type pbftCore struct {
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 	timerExpiredCount  uint64              // How many times the newViewTimer has expired, used in conjuection with timerResetCount to prevent racing
 	timerResetCount    uint64              // How many times the newViewTimer has been reset, used in conjuection with timerExpiredCount to prevent racing
+	newViewTimerReason string              // what triggered the timer
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -272,7 +273,7 @@ func (instance *pbftCore) timerHander() {
 			if instance.timerResetCount > instance.timerExpiredCount {
 				logger.Debug("Replica %d view change timer has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
 			} else {
-				logger.Info("Replica %d view change timer expired, sending view change", instance.id)
+				logger.Info("Replica %d view change timer expired, sending view change: %s", instance.id, instance.newViewTimerReason)
 				instance.sendViewChange()
 			}
 			logger.Debug("Replica %d done processing view timer", instance.id)
@@ -515,7 +516,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
 	if !instance.timerActive && instance.activeView {
-		instance.startTimer(instance.requestTimeout)
+		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
 	}
 
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
@@ -624,7 +625,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	if !instance.timerActive {
-		instance.startTimer(instance.requestTimeout)
+		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
 	}
 
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
@@ -739,6 +740,8 @@ func (instance *pbftCore) executeOutstanding() {
 		}
 	}
 
+	logger.Debug("replica %d certstore %+v", instance.id, instance.certStore)
+
 	return
 }
 
@@ -820,9 +823,15 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if len(instance.outstandingReqs) > 0 {
-		instance.startTimer(instance.requestTimeout)
+		reqs := func() []string {
+			var r []string
+			for s := range instance.outstandingReqs {
+				r = append(r, s)
+			}
+			return r
+		}()
+		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
 	}
-
 	return true
 }
 
@@ -1102,7 +1111,7 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 	return nil
 }
 
-func (instance *pbftCore) startTimer(timeout time.Duration) {
+func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
 	if !instance.newViewTimer.Reset(timeout) && instance.timerActive {
 		// A false return from Reset indicates the timer fired or was stopped
 		// The instance.timerActive == true indicates that it was not stopped
@@ -1110,10 +1119,11 @@ func (instance *pbftCore) startTimer(timeout time.Duration) {
 		// to prevent the view change thread from initiating a view change if
 		// it has not already done so
 		instance.timerResetCount++
-		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now", instance.id, timeout, instance.timerResetCount)
+		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now: %s", instance.id, timeout, instance.timerResetCount, reason)
 	} else {
-		logger.Debug("Replica %d starting new view timer for %s", instance.id, timeout)
+		logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
 	}
+	instance.newViewTimerReason = reason
 	instance.timerActive = true
 }
 
