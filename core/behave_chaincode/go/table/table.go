@@ -405,7 +405,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 	case "getRowTableFour":
 		if len(args) < 1 {
-			return nil, errors.New("getRowTableTwo failed. Must include 1 key")
+			return nil, errors.New("getRowTableFour failed. Must include 1 key")
 		}
 
 		col1Val := args[0]
