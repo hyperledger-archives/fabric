@@ -466,7 +466,7 @@ message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
 ```
-The `correlationId` is used by the requesting peer to keep track of the response messages. A receiving peer replies with `SYNC_BLOCKS` message whose `payload` is an instance of `SyncStateSnapshot`
+The `correlationId` is used by the requesting peer to keep track of the response messages. A receiving peer replies with `SYNC_STATE_SNAPSHOT` message whose `payload` is an instance of `SyncStateSnapshot`
 ```
 message SyncStateSnapshot {
     bytes delta = 1;
