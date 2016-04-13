@@ -3116,6 +3116,12 @@ Enter password for user 'jim': ************
 22:21:40.624 [main] login -> INFO 005 Login successful for user 'jim'.
 ```
 
+You can also pass a password for the user with `-p` parameter. An example is below.
+
+```
+./peer login jim -p 123456
+```
+
 #### 6.3.1.3 chaincode deploy
 
 The CLI `deploy` command creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
