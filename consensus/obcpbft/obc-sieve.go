@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/helper/persist"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -54,6 +55,8 @@ type obcSieve struct {
 	executor        Executor
 	validResultChan chan *validResult
 	executeChan     chan *pbftExecute
+
+	persist.PersistHelper
 }
 
 type pbftExecute struct {

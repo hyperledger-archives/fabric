@@ -429,6 +429,14 @@ func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
 	panic("Unimplemented")
 }
 
+func (op *omniProto) ReadState(key string) ([]byte, error) {
+	panic("Unimplemented")
+}
+
+func (op *omniProto) StoreState(key string, value []byte) error {
+	panic("Unimplemented")
+}
+
 /*
 
 	op := &omniProto{
