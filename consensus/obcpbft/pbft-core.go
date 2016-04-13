@@ -218,6 +218,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
+	// XXX fetch latest checkpoint
 	instance.chkpts[0] = base64.StdEncoding.EncodeToString(startupID)
 
 	// create non-running timer XXX ugly
@@ -519,6 +520,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
+	instance.persistRequest(digest)
 	if !instance.timerActive && instance.activeView {
 		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
 	}
@@ -604,10 +606,20 @@ func (instance *pbftCore) persistPSet() {
 func (instance *pbftCore) persistPQSet(key string, set []*ViewChange_PQ) {
 	raw, err := proto.Marshal(&PQset{set})
 	if err != nil {
-		logger.Warning("could not persist pset: %s", err)
+		logger.Warning("could not persist pqset: %s", err)
 		return
 	}
 	instance.consumer.StoreState(key, raw)
+}
+
+func (instance *pbftCore) persistRequest(digest string) {
+	req := instance.reqStore[digest]
+	raw, err := proto.Marshal(req)
+	if err != nil {
+		logger.Warning("could not persist request: %s", err)
+		return
+	}
+	instance.consumer.StoreState("req."+digest, raw)
 }
 
 func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
@@ -660,6 +672,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 
 		instance.reqStore[digest] = preprep.Request
 		instance.outstandingReqs[digest] = preprep.Request
+		instance.persistRequest(digest)
 	}
 
 	if !instance.timerActive {
@@ -1102,6 +1115,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 
 	instance.reqStore[digest] = req
 	delete(instance.missingReqs, digest)
+	instance.persistRequest(digest)
 
 	return instance.processNewView()
 }
