@@ -279,8 +279,9 @@ func (obcex *obcExecutor) queueThread() {
 
 		var err error
 		var id *BlockInfo
-		var seqNo uint64
 		var sync bool
+
+		seqNo := transaction.seqNo
 
 		if nil == transaction.execInfo {
 			transaction.execInfo = &ExecutionInfo{}
@@ -293,7 +294,6 @@ func (obcex *obcExecutor) queueThread() {
 			logger.Info("%v executor queue apparently has a gap in it, initiating state transfer", obcex.id)
 			sync = true
 		case execInfo.Null:
-			seqNo = transaction.seqNo
 			id, err = obcex.getCurrentInfo()
 			if nil != err {
 				logger.Critical("Requested to send a checkpoint for a Null request, but could not create one: %v", err)
