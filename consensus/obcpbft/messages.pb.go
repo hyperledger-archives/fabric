@@ -18,6 +18,7 @@ It has these top-level messages:
 	SieveId
 	Checkpoint
 	ViewChange
+	PQset
 	NewView
 	FetchRequest
 	BatchMessage
@@ -462,6 +463,21 @@ type ViewChange_PQ struct {
 func (m *ViewChange_PQ) Reset()         { *m = ViewChange_PQ{} }
 func (m *ViewChange_PQ) String() string { return proto.CompactTextString(m) }
 func (*ViewChange_PQ) ProtoMessage()    {}
+
+type PQset struct {
+	Qset []*ViewChange_PQ `protobuf:"bytes,1,rep,name=qset" json:"qset,omitempty"`
+}
+
+func (m *PQset) Reset()         { *m = PQset{} }
+func (m *PQset) String() string { return proto.CompactTextString(m) }
+func (*PQset) ProtoMessage()    {}
+
+func (m *PQset) GetQset() []*ViewChange_PQ {
+	if m != nil {
+		return m.Qset
+	}
+	return nil
+}
 
 type NewView struct {
 	View      uint64            `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`

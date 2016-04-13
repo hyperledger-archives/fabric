@@ -168,7 +168,8 @@ func (instance *pbftCore) sendViewChange() error {
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}}, true)
+	instance.recvViewChange(vc)
+	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
 }
 
 func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
@@ -259,7 +260,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 	logger.Info("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	err = instance.innerBroadcast(&Message{&Message_NewView{nv}}, false)
+	err = instance.innerBroadcast(&Message{&Message_NewView{nv}})
 	if err != nil {
 		return err
 	}
@@ -393,6 +394,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		if n > instance.seqNo {
 			instance.seqNo = n
 		}
+		instance.persistQSet()
 	}
 
 	if instance.primary(instance.view) != instance.id {
@@ -406,7 +408,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
-			instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
+			instance.recvPrepare(prep)
+			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {
 		instance.resubmitRequests()
