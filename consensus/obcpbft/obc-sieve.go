@@ -26,7 +26,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/helper/persist"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -56,7 +55,7 @@ type obcSieve struct {
 	validResultChan chan *validResult
 	executeChan     chan *pbftExecute
 
-	persist.PersistHelper
+	persistForward
 }
 
 type pbftExecute struct {
@@ -77,6 +76,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.validResultChan = make(chan *validResult)
 	op.startup = make(chan []byte)
 	op.executor = NewOBCExecutor(config, op, stack)
+	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
 	startupInfo := <-op.startup

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/helper/persist"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -44,8 +43,7 @@ type obcBatch struct {
 	batchTimeout     time.Duration
 
 	executor Executor
-
-	persist.PersistHelper
+	persistForward
 }
 
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
@@ -55,6 +53,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.startup = make(chan []byte)
 
 	op.executor = NewOBCExecutor(config, op, stack)
+	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
 	startupInfo := <-op.startup

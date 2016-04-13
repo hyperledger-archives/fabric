@@ -45,14 +45,22 @@ type mockPersist struct {
 	store map[string][]byte
 }
 
-func (p *mockPersist) ReadState(key string) ([]byte, error) {
+func (p *mockPersist) initialize() {
+	if p.store == nil {
+		p.store = make(map[string][]byte)
+	}
+}
+
+func (p mockPersist) ReadState(key string) ([]byte, error) {
+	p.initialize()
 	if val, ok := p.store[key]; ok {
 		return val, nil
 	}
 	return nil, fmt.Errorf("cannot find key %s", key)
 }
 
-func (p *mockPersist) StoreState(key string, value []byte) error {
+func (p mockPersist) StoreState(key string, value []byte) error {
+	p.initialize()
 	p.store[key] = value
 	return nil
 }
@@ -430,11 +438,11 @@ func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
 }
 
 func (op *omniProto) ReadState(key string) ([]byte, error) {
-	panic("Unimplemented")
+	return nil, nil
 }
 
 func (op *omniProto) StoreState(key string, value []byte) error {
-	panic("Unimplemented")
+	return nil
 }
 
 /*
