@@ -116,6 +116,10 @@ message view_change {
     bytes signature = 7;
 }
 
+message PQset {
+        repeated view_change.PQ set = 1;
+}
+
 message new_view {
     uint64 view = 1;
     repeated view_change vset = 2;

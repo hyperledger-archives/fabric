@@ -552,8 +552,9 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
 			cert.digest = digest
+			instance.persistQSet()
 
-			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
+			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}})
 			return instance.maybeSendCommit(digest, instance.view, n)
 		}
 	}
@@ -578,6 +579,35 @@ outer:
 		// Trigger request processing again.
 		instance.recvRequest(req)
 	}
+}
+
+func (instance *pbftCore) persistQSet() {
+	var qset []*ViewChange_PQ
+
+	for _, q := range instance.calcQSet() {
+		qset = append(qset, q)
+	}
+
+	instance.persistPQSet("qset", qset)
+}
+
+func (instance *pbftCore) persistPSet() {
+	var pset []*ViewChange_PQ
+
+	for _, p := range instance.calcPSet() {
+		pset = append(pset, p)
+	}
+
+	instance.persistPQSet("pset", pset)
+}
+
+func (instance *pbftCore) persistPQSet(key string, set []*ViewChange_PQ) {
+	raw, err := proto.Marshal(&PQset{set})
+	if err != nil {
+		logger.Warning("could not persist pset: %s", err)
+		return
+	}
+	instance.consumer.StoreState(key, raw)
 }
 
 func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
@@ -608,9 +638,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
 		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
+		// XXX send view change?
 	} else {
 		cert.prePrepare = preprep
 		cert.digest = preprep.RequestDigest
+		instance.persistQSet()
 	}
 
 	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
@@ -646,7 +678,8 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		cert.sentPrepare = true
-		return instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
+		instance.recvPrepare(prep)
+		return instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 	}
 
 	return nil
@@ -680,6 +713,7 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 		}
 	}
 	cert.prepare = append(cert.prepare, prep)
+	instance.persistPSet()
 
 	return instance.maybeSendCommit(prep.RequestDigest, prep.View, prep.SequenceNumber)
 }
@@ -700,7 +734,8 @@ func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) err
 
 		cert.sentCommit = true
 
-		return instance.innerBroadcast(&Message{&Message_Commit{commit}}, true)
+		instance.recvCommit(commit)
+		return instance.innerBroadcast(&Message{&Message_Commit{commit}})
 	}
 
 	return nil
@@ -771,7 +806,8 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	}
 	instance.chkpts[seqNo] = idAsString
 
-	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
+	instance.recvCheckpoint(chkpt)
+	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
@@ -1033,7 +1069,7 @@ func (instance *pbftCore) fetchRequests() (err error) {
 			RequestDigest: digest,
 			ReplicaId:     instance.id,
 		}}}
-		instance.innerBroadcast(msg, false)
+		instance.innerBroadcast(msg)
 	}
 
 	return
@@ -1076,7 +1112,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
 
 // Marshals a Message and hands it to the Stack. If toSelf is true,
 // the message is also dispatched to the local instance's RecvMsgSync.
-func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
+func (instance *pbftCore) innerBroadcast(msg *Message) error {
 	msgRaw, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("[innerBroadcast] Cannot marshal message: %s", err)
@@ -1104,12 +1140,6 @@ func (instance *pbftCore) innerBroadcast(msg *Message, toSelf bool) error {
 		}
 	} else {
 		instance.consumer.broadcast(msgRaw)
-	}
-
-	// We call ourselves synchronously, so that testing can run
-	// synchronous.
-	if toSelf {
-		instance.recvMsgSync(msg, instance.id)
 	}
 	return nil
 }
