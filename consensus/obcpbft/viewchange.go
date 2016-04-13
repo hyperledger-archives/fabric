@@ -63,7 +63,7 @@ func (instance *pbftCore) calcPSet() map[uint64]*ViewChange_PQ {
 			continue
 		}
 
-		digest := cert.prePrepare.RequestDigest
+		digest := cert.digest
 		if !instance.prepared(digest, idx.v, idx.n) {
 			continue
 		}
@@ -100,7 +100,7 @@ func (instance *pbftCore) calcQSet() map[qidx]*ViewChange_PQ {
 			continue
 		}
 
-		digest := cert.prePrepare.RequestDigest
+		digest := cert.digest
 		if !instance.prePrepared(digest, idx.v, idx.n) {
 			continue
 		}
@@ -389,6 +389,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		}
 		cert := instance.getCert(instance.view, n)
 		cert.prePrepare = preprep
+		cert.digest = d
 		if n > instance.seqNo {
 			instance.seqNo = n
 		}
