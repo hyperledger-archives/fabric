@@ -11,3 +11,4 @@ ledger:
       configs:
         numBuckets: 1000003
         maxGroupingAtEachLevel: 5
+        bucketCacheSize: 100
