@@ -149,7 +149,7 @@ func (obcex *obcExecutor) Execute(seqNo uint64, txs []*pb.Transaction, execInfo 
 	case obcex.executionQueue <- request:
 		logger.Debug("%v queued request for sequence number %d", obcex.id, seqNo)
 	default:
-		logger.Error("%v error queueing request (queue full) for sequence number %d", obcex.id, seqNo)
+		logger.Warning("%v error queueing request (queue full) for sequence number %d", obcex.id, seqNo)
 		obcex.drainExecutionQueue()
 		obcex.executionQueue <- &transaction{
 			seqNo: seqNo,
