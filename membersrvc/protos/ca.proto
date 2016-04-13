@@ -292,11 +292,18 @@ message Cert {
     bytes cert = 1; // DER / ASN.1 encoded
 }
 
+// TCert
+//
+message TCert {
+	bytes cert = 1; // DER / ASN.1 encoded
+	map<string, bytes> keys = 2; // map with the keys used to encrypt the TCert extensions (EnrollmentID, TCertIndex and attributes)
+}
+
 message CertSet {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2;
     bytes key = 3;
-    repeated bytes certs = 4; // DER / ASN.1 encoded
+    repeated TCert certs = 4; 
 }
 
 message CertSets {

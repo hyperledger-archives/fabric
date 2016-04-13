@@ -41,6 +41,7 @@ It has these top-level messages:
 	TLSCertReadReq
 	TLSCertRevokeReq
 	Cert
+	TCert
 	CertSet
 	CertSets
 	CertPair
@@ -886,11 +887,29 @@ func (m *Cert) Reset()         { *m = Cert{} }
 func (m *Cert) String() string { return proto.CompactTextString(m) }
 func (*Cert) ProtoMessage()    {}
 
+// TCert
+//
+type TCert struct {
+	Cert []byte            `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
+	Keys map[string][]byte `protobuf:"bytes,2,rep,name=keys" json:"keys,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *TCert) Reset()         { *m = TCert{} }
+func (m *TCert) String() string { return proto.CompactTextString(m) }
+func (*TCert) ProtoMessage()    {}
+
+func (m *TCert) GetKeys() map[string][]byte {
+	if m != nil {
+		return m.Keys
+	}
+	return nil
+}
+
 type CertSet struct {
 	Ts    *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
 	Id    *Identity                  `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 	Key   []byte                     `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
-	Certs [][]byte                   `protobuf:"bytes,4,rep,name=certs,proto3" json:"certs,omitempty"`
+	Certs []*TCert                   `protobuf:"bytes,4,rep,name=certs" json:"certs,omitempty"`
 }
 
 func (m *CertSet) Reset()         { *m = CertSet{} }
@@ -907,6 +926,13 @@ func (m *CertSet) GetTs() *google_protobuf.Timestamp {
 func (m *CertSet) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *CertSet) GetCerts() []*TCert {
+	if m != nil {
+		return m.Certs
 	}
 	return nil
 }

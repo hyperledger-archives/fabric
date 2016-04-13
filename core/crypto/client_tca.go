@@ -318,9 +318,9 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	j := 0
 	for i := 0; i < num; i++ {
 		// DER to x509
-		x509Cert, err := utils.DERToX509Certificate(certDERs[i])
+		x509Cert, err := utils.DERToX509Certificate(certDERs[i].Cert)
 		if err != nil {
-			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i], err)
+			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
 			continue
 		}
@@ -454,7 +454,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	return nil
 }
 
-func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, [][]byte, error) {
+func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membersrvc.TCert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
