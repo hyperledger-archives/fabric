@@ -123,6 +123,7 @@ type msgID struct { // our index through certStore
 }
 
 type msgCert struct {
+	digest      string
 	prePrepare  *PrePrepare
 	sentPrepare bool
 	prepare     []*Prepare
@@ -547,6 +548,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			}
 			cert := instance.getCert(instance.view, n)
 			cert.prePrepare = preprep
+			cert.digest = digest
 
 			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}}, false)
 			return instance.maybeSendCommit(digest, instance.view, n)
@@ -564,7 +566,7 @@ func (instance *pbftCore) resubmitRequests() {
 outer:
 	for d, req := range instance.outstandingReqs {
 		for _, cert := range instance.certStore {
-			if cert.prePrepare != nil && cert.prePrepare.RequestDigest == d {
+			if cert.digest == d {
 				continue outer
 			}
 		}
@@ -601,10 +603,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
-	if cert.prePrepare != nil && cert.prePrepare.RequestDigest != preprep.RequestDigest {
-		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.prePrepare.RequestDigest)
+	if cert.digest != "" && cert.digest != preprep.RequestDigest {
+		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
 	} else {
 		cert.prePrepare = preprep
+		cert.digest = preprep.RequestDigest
 	}
 
 	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
@@ -683,7 +686,7 @@ func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) err
 
 	if instance.prepared(digest, v, n) && !cert.sentCommit {
 		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
-			instance.id, cert.prePrepare.View, cert.prePrepare.SequenceNumber)
+			instance.id, v, n)
 
 		commit := &Commit{
 			View:           v,
@@ -782,7 +785,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 	// we now have the right sequence number that doesn't create holes
 
-	digest := cert.prePrepare.RequestDigest
+	digest := cert.digest
 	req := instance.reqStore[digest]
 
 	if !instance.committed(digest, idx.v, idx.n) {
@@ -840,10 +843,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 		if idx.n <= h {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
-			if nil != cert.prePrepare {
-				// This block is always entered unless this is a 'fall behind' situation, in which case, requests were already cleared
-				delete(instance.reqStore, cert.prePrepare.RequestDigest)
-			}
+			delete(instance.reqStore, cert.digest)
 			delete(instance.certStore, idx)
 		}
 	}
