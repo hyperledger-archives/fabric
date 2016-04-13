@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric/consensus"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
 	"github.com/hyperledger/fabric/core/util"
 
@@ -60,6 +61,8 @@ type innerStack interface {
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
+
+	consensus.StatePersistor
 }
 
 type pbftCore struct {

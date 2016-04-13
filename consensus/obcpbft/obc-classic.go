@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/helper/persist"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -36,6 +37,8 @@ type obcClassic struct {
 	startup chan []byte
 
 	executor Executor
+
+	persist.PersistHelper
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {

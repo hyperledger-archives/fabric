@@ -56,6 +56,7 @@ type simpleConsumer struct {
 	skipOccurred     bool
 	lastExecution    []byte
 	checkpointResult func(seqNo uint64, txs []byte)
+	*mockPersist
 }
 
 func (sc *simpleConsumer) broadcast(msgPayload []byte) {

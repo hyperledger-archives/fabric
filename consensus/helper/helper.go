@@ -25,9 +25,9 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/helper/persist"
 	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
-	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/peer"
@@ -40,7 +40,7 @@ type Helper struct {
 	secOn       bool
 	secHelper   crypto.Peer
 	curBatch    []*pb.Transaction // TODO, remove after issue 579
-	PersistHelper
+	persist.PersistHelper
 }
 
 // NewHelper constructs the consensus helper object
@@ -357,16 +357,4 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 		Start: start,
 		End:   finish,
 	})
-}
-
-type PersistHelper interface{}
-
-func (h *PersistHelper) StoreState(key string, value []byte) error {
-	db := db.GetDBHandle()
-	return db.Put(db.PersistCF, []byte("consensus."+key), value)
-}
-
-func (h *PersistHelper) ReadState(key string) ([]byte, error) {
-	db := db.GetDBHandle()
-	return db.Get(db.PersistCF, []byte("consensus."+key))
 }
