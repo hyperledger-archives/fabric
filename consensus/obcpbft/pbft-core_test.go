@@ -1108,10 +1108,15 @@ func TestReplicaCrash1(t *testing.T) {
 }
 
 func TestReplicaCrash2(t *testing.T) {
+	millisUntilTimeout := 800 * time.Millisecond
+
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
-		pep.pbft.K = 2
-		pep.pbft.L = 2 * pep.pbft.K
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.newViewTimeout = millisUntilTimeout
+		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
+		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
+		pe.pbft.K = 2
+		pe.pbft.L = 2 * pe.pbft.K
 	})
 	defer net.stop()
 
@@ -1151,12 +1156,13 @@ func TestReplicaCrash2(t *testing.T) {
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(2))
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(3))
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(4))
-	net.pbftEndpoints[0].pbft.recvRequest(mkreq(5))
-	net.process()
+	//	net.pbftEndpoints[0].pbft.recvRequest(mkreq(5))
+	go net.processContinually()
+	time.Sleep(5 * time.Second)
 
 	for _, pep := range net.pbftEndpoints {
-		if pep.id != 3 && pep.sc.executions != 1 {
-			t.Errorf("Expected execution on replica %d", pep.id)
+		if pep.id != 3 && pep.sc.executions != 4 {
+			t.Errorf("Expected 4 executions on replica %d, got %d", pep.id, pep.sc.executions)
 			continue
 		}
 		if pep.id == 3 && pep.sc.executions > 0 {
