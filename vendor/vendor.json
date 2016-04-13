@@ -138,9 +138,11 @@
 			"revisionTime": "2015-09-03T16:45:19-07:00"
 		},
 		{
+			"checksumSHA1": "WI+JevQX15p9zqngb1BMHvrPAgU=",
+			"origin": "github.com/hyperledger/fabric/vendor/github.com/howeyc/gopass",
 			"path": "github.com/howeyc/gopass",
-			"revision": "ae71a9cc54fddb61d946abe9191d05a24ac0e21b",
-			"revisionTime": "2015-11-20T18:16:12-06:00"
+			"revision": "66487b23f2880ba32e185121d2cd51a338ea069a",
+			"revisionTime": "2016-03-03T20:01:16Z"
 		},
 		{
 			"path": "github.com/inconshreveable/mousetrap",
@@ -316,5 +318,6 @@
 			"revision": "7ad95dd0798a40da1ccdff6dff35fd177b5edf40",
 			"revisionTime": "2015-06-24T11:29:02+01:00"
 		}
-	]
+	],
+	"rootPath": "github.com/hyperledger/fabric"
 }

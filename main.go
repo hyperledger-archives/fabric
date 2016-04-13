@@ -514,7 +514,11 @@ func login(args []string) (err error) {
 
 	// User is not logged in, prompt for password
 	fmt.Printf("Enter password for user '%s': ", args[0])
-	pw := gopass.GetPasswdMasked()
+	var pw []byte
+	if pw, err = gopass.GetPasswdMasked(); err != nil {
+		err = fmt.Errorf("Error trying to read password from console: %s", err)
+		return
+	}
 
 	// Log in the user
 	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
