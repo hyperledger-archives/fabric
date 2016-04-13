@@ -23,21 +23,35 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"strings"
+	"sync"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/noops"
 	"github.com/hyperledger/fabric/consensus/obcpbft"
+	"github.com/hyperledger/fabric/consensus/util"
 )
 
 var logger *logging.Logger // package-level logger
+var messageFan *util.MessageFan
+var consenter consensus.Consenter
+var lock sync.Mutex
 
 func init() {
 	logger = logging.MustGetLogger("consensus/controller")
+	messageFan = util.NewMessageFan()
 }
 
-// NewConsenter constructs a Consenter object
-func NewConsenter(stack consensus.Stack) (consenter consensus.Consenter) {
-	plugin := strings.ToLower(viper.GetString("peer.validator.consensus"))
+// NewConsenter constructs a Consenter object if not already present
+func NewConsenter(stack consensus.Stack) consensus.Consenter {
+	lock.Lock()
+	defer lock.Unlock()
+	// TODO, construct this singleton at initialization, not driven by Handler
+
+	if consenter != nil {
+		return consenter
+	}
+
+	plugin := strings.ToLower(viper.GetString("peer.validator.consensus.plugin"))
 	if plugin == "pbft" {
 		//logger.Info("Running with consensus plugin %s", plugin)
 		consenter = obcpbft.GetPlugin(stack)
@@ -45,5 +59,13 @@ func NewConsenter(stack consensus.Stack) (consenter consensus.Consenter) {
 		//logger.Info("Running with default consensus plugin (noops)")
 		consenter = noops.GetNoops(stack)
 	}
-	return
+
+	go func() {
+		// The channel never closes, so this should never break
+		for msg := range messageFan.GetOutChannel() {
+			consenter.RecvMsg(msg.Msg, msg.Sender)
+		}
+	}()
+
+	return consenter
 }
