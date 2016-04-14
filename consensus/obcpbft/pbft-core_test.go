@@ -75,7 +75,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 			t.Fatalf("Expected to ignore malicious pre-prepare")
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(1, loadConfig(), mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -127,7 +127,7 @@ func TestIncompletePayload(t *testing.T) {
 			return nil
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(1, loadConfig(), mock)
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -183,10 +183,7 @@ type checkpointConsumer struct {
 	execWait *sync.WaitGroup
 }
 
-func (cc *checkpointConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
-	if execInfo.Checkpoint {
-		// For this particular case, we don't want the simple blocking behavior of execute
-	}
+func (cc *checkpointConsumer) execute(seqNo uint64, tx []byte) {
 }
 
 func TestCheckpoint(t *testing.T) {
@@ -869,7 +866,7 @@ func TestSendQueueThrottling(t *testing.T) {
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(1, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -894,7 +891,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 // From issue #687
 func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(1, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -1040,7 +1037,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 			t.Errorf("Should not send the view change message during a view change")
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(1, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -1088,7 +1085,7 @@ func TestReplicaCrash1(t *testing.T) {
 
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
-		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc, []byte("GENESIS"))
+		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2

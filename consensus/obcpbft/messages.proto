@@ -84,11 +84,6 @@ message block_info {
     bytes block_hash = 2;
 }
 
-message sieve_id {
-    uint64 block_number = 1;
-    bytes obc_id = 2;
-}
-
 message checkpoint {
     uint64 sequence_number = 1;
     uint64 replica_id = 2;

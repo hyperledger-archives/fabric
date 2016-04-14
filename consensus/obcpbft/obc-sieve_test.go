@@ -33,6 +33,10 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+func (op *obcSieve) getPBFTCore() *pbftCore {
+	return op.pbft
+}
+
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
 	return newObcSieve(id, config, stack)
@@ -206,7 +210,6 @@ func TestSieveNonDeterministic(t *testing.T) {
 	results := make([][]byte, len(net.endpoints))
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		<-cep.idleChan()
 		block, err := cep.consumer.(*obcSieve).stack.GetBlock(1)
 		if err != nil {
 			t.Fatalf("Expected replica %d to have one block", cep.id)
