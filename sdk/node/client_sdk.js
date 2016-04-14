@@ -135,6 +135,22 @@ Chain.prototype.addPeer = function(endpoint) {
 };
 
 /**
+ * Get the member whose credentials are used to register and enroll other users, or undefined if not set.
+ * @param {Member} The member whose credentials are used to perform registration, or undefined if not set.
+ */
+Chain.prototype.getRegistrarMember = function() {
+	return this.registrarMember;
+};
+
+/**
+ * Set the member whose credentials are used to register and enroll other users.
+ * @param {Member} registrarMember The member whose credentials are used to perform registration.
+ */
+Chain.prototype.setRegistrarMember = function(registrarMember) {
+	this.registrarMember = registrarMember;
+};
+
+/**
  * Get the peers for this chain.
  */
 Chain.prototype.getPeers  = function() {
@@ -198,12 +214,23 @@ Chain.prototype.setWallet  = function(wallet) {
 Chain.prototype.getMember = function(name,cb) {
 	var self = this;
 	cb = cb || nullCB;
+	if (!self.wallet) return cb(Error("No wallet was found.  You must first call Chain.configureWallet or Chain.setWallet"));
+	if (!self.memberServices) return cb(Error("No member services was found.  You must first call Chain.configureMemberServices or Chain.setMemberServices"));
+	self._getMember(name,function(err,member) {
+		if (err) return cb(err);
+		if (!self.registrarMember) return cb(null,member);
+		member.registerAndEnroll(self.registrarMember,function(err) {
+			if (err) return cb(err);
+			cb(null,member);
+		});
+	});
+};
+
+Chain.prototype._getMember = function(name,cb) {
+	var self = this;
 	// Try to get the member state from the cache
 	var member = self.members[name];
 	if (member) return cb(null,member);
-	// Not found in the cache.  Need to make sure there is a wallet and member services for this chain.
-	if (!self.wallet) return cb(Error("No wallet was found.  You must first call Chain.configureWallet or Chain.setWallet"));
-	if (!self.memberServices) return cb(Error("No member services was found.  You must first call Chain.configureMemberServices or Chain.setMemberServices"));
 	// Create the member and try to restore it's state from the wallet (if found).
 	member = new Member(name,this);
 	member.restoreState(function(err) {
@@ -257,8 +284,13 @@ Member.prototype.isEnrolled = function() {
 Member.prototype.register = function(registrarMember,cb) {
 	var self = this;
 	cb = cb || nullCB;
-	if (self.isRegistered()) return cb(Error(self.getName()+" is already registered"));
+	var enrollmentSecret = this.state.enrollmentSecret;
+	if (enrollmentSecret) {
+		debug("previously registered, enrollmentSecret=%s",enrollmentSecret);
+		return cb(null,enrollmentSecret);
+	}
 	self.memberServices.register( {name:self.getName()}, function(err,enrollmentSecret) {
+		debug("memberServices.register err=%s, secret=%s",err,enrollmentSecret);
 		if (err) return cb(err);
 		self.state.enrollmentSecret = enrollmentSecret;
 		self.saveState(function(err) {
@@ -276,12 +308,20 @@ Member.prototype.register = function(registrarMember,cb) {
 Member.prototype.enroll = function(enrollmentSecret, cb) {
 	var self = this;
 	cb = cb || nullCB;
-	if (self.isEnrolled()) return cb(Error(self.getName()+" is already enrolled"));
+	var enrollment = self.state.enrollment;
+	if (enrollment) {
+		debug("previously enrolled, enrollment=%j",enrollment);
+		return cb(null,enrollment);
+	}
 	var req = {name: self.getName(), enrollmentSecret: enrollmentSecret};
 	self.memberServices.enroll( req, function(err,enrollment) {
+		debug("memberServices.enroll err=%s, enrollment=%j",err,enrollment);
 		if (err) return cb(err);
 		self.state.enrollment = enrollment;
-		cb(null,enrollment);
+		self.saveState(function(err) {
+			if (err) return cb(err);
+			cb(null,enrollment);
+		});
 	});
 };
 
@@ -652,21 +692,18 @@ if(!String.prototype.endsWith) {
 
 
 function test() {
-	var enrollSecret = "vgPnEsLebTxo";
 	var chainMgr = NewChainMgr();
 	var chain = chainMgr.getChain("test1",true);
 	chain.configureWallet({dir:"/tmp/wallet"});
 	chain.setMemberServicesUrl("grpc://localhost:50051");
-	chain.getMember("user3",function(err,member) {
-		if (err) return console.log("can't get member: %s",err);
-		if (!member.isRegistered()) {
-			debug("enrolling");
-			member.enroll(enrollSecret,function(err) {
-				debug("enrolled: err="+err);
-			});
-		} else {
-			debug("already enrolled");
-		}
+	// Get the administrator member
+	chain.getMember("webAppAdmin",function(err,webAppAdmin) {
+		if (err) return debug("failed to get webAppAdmin member");
+		chain.setRegistrarMember(webAppAdmin);
+		chain.getMember("user1",function(err,user) {
+			if (err) return debug("can't get member: %j",err);
+			debug("got %s: %s",user.getName(),user);
+		});
 	});
 }
 
