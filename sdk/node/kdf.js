@@ -18,7 +18,7 @@
  * © Copyright IBM Corp. 2016
  */
 
-var debug = require('debug')('kdf');
+var debug = require('debug')('hlc');
 
 var sjcl = require('sjcl');
 var sha3_384 = require('js-sha3').sha3_384;

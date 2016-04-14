@@ -12,10 +12,10 @@
  *          the server side transaction processing path depending on how different the implementation is.
  */
 
+var debug = require('debug')('hlc');   // 'hlc' stands for 'HyperLedger Client'
 var fs = require('fs');
 var urlParser = require("url");
 var grpc = require("grpc");
-var debug = require('debug')('hlclient');   // 'hlclient' stands for 'hyperledger client'
 //crypto stuff
 var jsrsa = require('jsrsasign');
 var KEYUTIL = jsrsa.KEYUTIL;
@@ -213,7 +213,7 @@ Chain.prototype.getMember = function(name,cb) {
 };
 
 /**
- * Constructor for a member who is neither registered nor enrolled.
+ * Constructor for a member.
  * @param name The member name.
  * @returns {Member} A member who is neither registered nor enrolled.
  */
@@ -324,7 +324,7 @@ Member.prototype.restoreState = function(cb) {
 	var self = this;
 	self.wallet.getValue(self.walletName, function(err,memberStr) {
 		if (err) return cb(err);
-		console.log("HERE: restoreState: name=%s, memberStr=%s",self.getName(),memberStr);
+		debug("restoreState: name=%s, memberStr=%s",self.getName(),memberStr);
 		if (memberStr) {
 			// The member was found in the wallet, so restore the state.
 			self.fromString(memberStr);
@@ -660,14 +660,13 @@ function test() {
 	chain.getMember("user3",function(err,member) {
 		if (err) return console.log("can't get member: %s",err);
 		if (!member.isRegistered()) {
-			console.log("enrolling");
+			debug("enrolling");
 			member.enroll(enrollSecret,function(err) {
-				console.log("enrolled: err="+err);
+				debug("enrolled: err="+err);
 			});
 		} else {
-			console.log("already enrolled");
+			debug("already enrolled");
 		}
-		
 	});
 }
 
