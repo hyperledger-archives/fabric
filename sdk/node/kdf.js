@@ -151,7 +151,7 @@ function hkdf(ikm, keyBitLength, salt, info, Hash) {
     ret = sjcl.bitArray.concat(ret, curOut);
   }
   return sjcl.bitArray.clamp(ret, keyBitLength);
-};
+}
 
 function bitsToBytes(arr) {
     var out = [], bl = sjcl.bitArray.bitLength(arr), i, tmp;
@@ -163,7 +163,7 @@ function bitsToBytes(arr) {
         tmp <<= 8;
     }
     return out;
-};
+}
 
 /** Convert from an array of bytes to a bitArray. */
 function bytesToBits(bytes) {
@@ -179,21 +179,21 @@ function bytesToBits(bytes) {
         out.push(sjcl.bitArray.partial(8 * (i & 3), tmp));
     }
     return out;
-};
+}
 
 function hexToBytes(hex) {
     for (var bytes = [], c = 0; c < hex.length; c += 2)
         bytes.push(parseInt(hex.substr(c, 2), 16));
     return bytes;
-};
+}
 
 function zeroBuffer(length) {
     var buf = new Buffer(length);
 
     buf.fill(0);
 
-    return buf
-};
+    return buf;
+}
 
 exports.aesCFBDecryt = function(key,encryptedBytes){
     
@@ -217,7 +217,7 @@ exports.aesCFBDecryt = function(key,encryptedBytes){
     
     return decryptedBytes.slice(16,decryptedBytes.length-numMissingBytes);
     
-}
+};
 
 exports.hkdf = function(ikm, keyBitLength, salt, info, algorithm){
     
@@ -231,10 +231,10 @@ exports.hkdf = function(ikm, keyBitLength, salt, info, algorithm){
             hashSize = 32;
             break;
         case "sha3-384":
-            hash = hash_sha3_384
+            hash = hash_sha3_384;
             hashSize = 48;
             break;
-    };
+    }
     
     if (!salt)
         salt = zeroBuffer(hashSize);
@@ -246,4 +246,4 @@ exports.hkdf = function(ikm, keyBitLength, salt, info, algorithm){
     
     return bitsToBytes(key);
     
-}
+};
