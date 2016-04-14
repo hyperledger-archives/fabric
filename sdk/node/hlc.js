@@ -332,6 +332,11 @@ Member.prototype.enroll = function(enrollmentSecret, cb) {
 Member.prototype.registerAndEnroll = function(registrarMember,cb) {
 	var self = this;
 	cb = cb || nullCB;
+	var enrollment = self.state.enrollment;
+	if (enrollment) {
+		debug("previously enrolled, enrollment=%j",enrollment);
+		return cb(null,enrollment);
+	}
 	self.register(registrarMember, function(err,enrollmentSecret) {
 		if (err) return cb(err);
 		self.enroll(enrollmentSecret, cb);
@@ -339,12 +344,16 @@ Member.prototype.registerAndEnroll = function(registrarMember,cb) {
 };
 
 /**
- * Get a transaction manager.
+ * Get a transaction contexts.
  * @param anonymousMode Get a transaction manager which will perform transactions anonymously.
  * @return {TransactionMgr} A transaction manager.
  */
-Member.prototype.getTransactionMgr = function(anonymousMode) {
-	return new TransactionMgrImpl(this);
+Member.prototype.getTransactionContexts = function(cb) {
+	var self = this;
+	self.memberServices.getTransactionContexts({name:self.getName(),enrollment:self.state.enrollment,num:1}, function(err,resp) {
+		if (err) return cb(err);
+		cb(resp);
+	});
 };
 
 /**
@@ -511,7 +520,7 @@ MemberServices.prototype.enroll = function (req, cb) {
         });
     eCertCreateRequest.setEnc(encPubKey);
 
-    self.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
+    self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
         if (err) return cb(err);
         var cipherText = eCertCreateResp.tok.tok;
         // cipherText = ephemeralPubKeyBytes + encryptedTokBytes + macBytes
@@ -564,7 +573,7 @@ MemberServices.prototype.enroll = function (req, cb) {
                 s: new Buffer(sig.s.toString())
             }
             ));
-        self.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
+        self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
             if (err) return cb(err);
             debug(eCertCreateResp);
             this.enroll = {
@@ -579,14 +588,54 @@ MemberServices.prototype.enroll = function (req, cb) {
 
 };
 
-MemberServices.prototype.createCertificatePair = function (eCertCreateRequest, cb) {
-    this.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
-        if (err) {
-            debug('error:\n', err);
-            return cb(err);
+/**
+ * Generically this gets an array of opaque transaction context objects, where each transaction context
+ * can be passed into the sign and encrypt functions of MemberServices.
+ * For default member services, each transaction context is a tcert.
+ * @param {Object} req Request of the form: {name,enrollment,num} where
+ * 'name' is the member name,
+ * 'enrollment' is what was returned by enroll, and
+ * 'num' is the number of transaction contexts to obtain.
+ * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of opaque transaction contexts as 2nd arg.
+ */
+MemberServices.prototype.getTransactionContexts = function (req, cb) {
+    var self = this;
+    cb = cb || nullCB;
+
+    var timestamp = new timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
+    
+    // create the proto
+    var tCertCreateSetReq = new caProtos.TCertCreateSetReq();
+    tCertCreateSetReq.setTs(timestamp);
+    tCertCreateSetReq.setId({ id: req.name });
+    tCertCreateSetReq.setNum(req.num);
+    
+    // serialize proto
+    var buf = tCertCreateSetReq.toBuffer();
+    
+    // sign the transaction using enrollmentKey
+    var EC = elliptic.ec;
+    var curve = elliptic.curves.p384;
+    var ecdsa = new EC(curve);
+    var signKey = ecdsa.keyFromPrivate(req.enrollment.key, 'hex');
+    // debug(new Buffer(sha3_384(buf),'hex'));
+    var sig = ecdsa.sign(new Buffer(sha3_256(buf), 'hex'), signKey);
+
+    tCertCreateSetReq.setSig(new caProtos.Signature(
+        {
+            type: caProtos.CryptoType.ECDSA,
+            r: new Buffer(sig.r.toString()),
+            s: new Buffer(sig.s.toString())
         }
-        cb(null, eCertCreateResp);
+        ));
+
+    // send the request
+    self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, tCertCreateSetResp) {
+        if (err) return cb(err);
+        debug('tCertCreateSetResp:\n', tCertCreateSetResp);
+        cb(null, tCertCreateSetResp.certs);
     });
+
 };
 
 /**
@@ -696,13 +745,17 @@ function test() {
 	var chain = chainMgr.getChain("test1",true);
 	chain.configureWallet({dir:"/tmp/wallet"});
 	chain.setMemberServicesUrl("grpc://localhost:50051");
-	// Get the administrator member
+	// Get the web app administrator member which is set as the chain registrar
+	// whose credentials are (or will be) used to authorize registering other web users.
 	chain.getMember("webAppAdmin",function(err,webAppAdmin) {
 		if (err) return debug("failed to get webAppAdmin member");
 		chain.setRegistrarMember(webAppAdmin);
 		chain.getMember("user1",function(err,user) {
 			if (err) return debug("can't get member: %j",err);
 			debug("got %s: %s",user.getName(),user);
+			user.getTransactionContexts(function(err,resp) {
+				debug("getTransactionContexts results: %s: %s",err,resp);
+			});
 		});
 	});
 }
