@@ -748,10 +748,10 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	idAsString := base64.StdEncoding.EncodeToString(id)
 
 	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
-		instance.id, instance.view, instance.lastExec, idAsString)
+		instance.id, instance.view, seqNo, idAsString)
 
 	chkpt := &Checkpoint{
-		SequenceNumber: instance.lastExec,
+		SequenceNumber: seqNo,
 		ReplicaId:      instance.id,
 		Id:             idAsString,
 	}

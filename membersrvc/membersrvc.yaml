@@ -5,7 +5,8 @@ server:
         version: "0.1"
 
         # limits the number of operating system threads used by the CA
-        gomaxprocs: 2
+        # set to negative to use the system default setting
+        gomaxprocs: -1
 
         # path to the OBC state directory and CA state subdirectory
         rootpath: "/var/hyperledger/production"
