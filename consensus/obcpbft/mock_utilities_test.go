@@ -117,19 +117,18 @@ type omniProto struct {
 	// Inner Stack methods
 	broadcastImpl  func(msgPayload []byte)
 	unicastImpl    func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl    func(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
-	validStateImpl func(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
+	executeImpl    func(seqNo uint64, txRaw []byte)
+	getStateImpl   func() []byte
+	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64)
 	validateImpl   func(txRaw []byte) error
 	viewChangeImpl func(curView uint64)
 	signImpl       func(msg []byte) ([]byte, error)
 	verifyImpl     func(senderID uint64, signature []byte, message []byte) error
 
 	// Closable Consenter methods
-	RecvMsgImpl  func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
-	CloseImpl    func()
-	idleChanImpl func() <-chan struct{}
-	deliverImpl  func([]byte, *pb.PeerID)
+	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
+	CloseImpl   func()
+	deliverImpl func([]byte, *pb.PeerID)
 
 	// Orderer methods
 	CheckpointImpl func(seqNo uint64, id []byte)
@@ -321,25 +320,17 @@ func (op *omniProto) unicast(msgPayload []byte, receiverID uint64) (err error) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo) {
+func (op *omniProto) execute(seqNo uint64, txRaw []byte) {
 	if nil != op.executeImpl {
-		op.executeImpl(seqNo, txRaw, execInfo)
+		op.executeImpl(seqNo, txRaw)
 		return
 	}
 
 	panic("Unimplemented")
 }
-func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo) {
+func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64) {
 	if nil != op.skipToImpl {
-		op.skipToImpl(seqNo, snapshotID, peers, execInfo)
-		return
-	}
-
-	panic("Unimplemented")
-}
-func (op *omniProto) validState(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo) {
-	if nil != op.validStateImpl {
-		op.validStateImpl(seqNo, id, peers, execInfo)
+		op.skipToImpl(seqNo, snapshotID, peers)
 		return
 	}
 
@@ -392,14 +383,6 @@ func (op *omniProto) Close() {
 	panic("Unimplemented")
 }
 
-func (op *omniProto) idleChan() <-chan struct{} {
-	if nil != op.idleChanImpl {
-		return op.idleChanImpl()
-	}
-
-	panic("Unimplemented")
-}
-
 func (op *omniProto) Checkpoint(seqNo uint64, id []byte) {
 	if nil != op.CheckpointImpl {
 		op.CheckpointImpl(seqNo, id)
@@ -432,6 +415,14 @@ func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID
 func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
 	if nil != op.deliverImpl {
 		op.deliverImpl(msg, target)
+	}
+
+	panic("Unimplemented")
+}
+
+func (op *omniProto) getState() []byte {
+	if nil != op.getStateImpl {
+		return op.getStateImpl()
 	}
 
 	panic("Unimplemented")

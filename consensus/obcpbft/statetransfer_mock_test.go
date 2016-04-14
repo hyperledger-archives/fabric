@@ -620,6 +620,11 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	}
 }
 
+func (mock *MockLedger) GetBlockchainHead() []byte {
+	h, _ := mock.HashBlock(mock.blocks[mock.blockHeight-1])
+	return h
+}
+
 // Used when the actual transaction content is irrelevant, useful for testing
 // state transfer, and other situations without requiring a simulated network
 type MockRemoteLedger struct {
@@ -643,6 +648,11 @@ func (mock *MockRemoteLedger) GetBlockchainSize() (uint64, error) {
 
 func (mock *MockRemoteLedger) GetCurrentStateHash() (stateHash []byte, err error) {
 	return SimpleEncodeUint64(SimpleGetState(mock.blockHeight - 1)), nil
+}
+
+func (mock *MockRemoteLedger) GetBlockchainHead() []byte {
+	b, _ := mock.GetBlock(mock.blockHeight)
+	return SimpleHashBlock(b)
 }
 
 func SimpleEncodeUint64(num uint64) []byte {

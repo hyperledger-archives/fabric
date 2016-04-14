@@ -29,10 +29,10 @@ import (
 
 type endpoint interface {
 	stop()
-	idleChan() <-chan struct{}
 	deliver([]byte, *pb.PeerID)
 	getHandle() *pb.PeerID
 	getID() uint64
+	isBusy() bool
 }
 
 type taggedMsg struct {
@@ -196,21 +196,6 @@ func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
 	}
 }
 
-func (net *testnet) idleFan() <-chan struct{} {
-	res := make(chan struct{})
-
-	go func() {
-		for _, inst := range net.endpoints {
-			<-inst.idleChan()
-		}
-		net.debugMsg("TEST: closing idleChan\n")
-		// Only close to the channel after all the consenters have written to us
-		close(res)
-	}()
-
-	return res
-}
-
 func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 	if !ok {
 		net.debugMsg("TEST: message channel closed, exiting\n")
@@ -233,21 +218,26 @@ func (net *testnet) process() error {
 		case <-net.closed:
 			return nil
 		default:
-			net.debugMsg("TEST: processing message or testing for idle\n")
-			select {
-			case <-net.idleFan():
-				net.debugMsg("TEST: exiting process loop because of idleness\n")
+			var busy []int
+			for i, ep := range net.endpoints {
+				if ep.isBusy() {
+					busy = append(busy, i)
+				}
+			}
+			if len(busy) == 0 {
 				return nil
+			}
+
+			net.debugMsg("TEST: some replicas are busy, waiting: %v\n", busy)
+			select {
 			case msg, ok := <-net.msgs:
 				if !net.processMessageFromChannel(msg, ok) {
 					return nil
 				}
-			case <-time.After(10 * time.Second):
-				// Things should never take this long
-				panic("Test waiting for new messages took 10 seconds, this generally indicates a deadlock condition")
-			case <-net.closed:
-				return nil
+			case <-time.After(100 * time.Millisecond):
+				continue
 			}
+			return nil
 		}
 	}
 

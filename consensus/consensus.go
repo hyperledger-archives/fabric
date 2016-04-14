@@ -59,6 +59,7 @@ type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
+	GetBlockchainHead() []byte
 }
 
 // UtilLedger contains additional useful utility functions for interrogating the blockchain

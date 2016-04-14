@@ -359,3 +359,7 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 		End:   finish,
 	})
 }
+
+func (h *Helper) GetBlockchainHead() []byte {
+	return ledger.GetBlockchainInfo().CurrentBlockHash
+}

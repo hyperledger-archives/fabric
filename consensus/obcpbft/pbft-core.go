@@ -53,9 +53,9 @@ func init() {
 type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipTo(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
-	validState(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
+	execute(seqNo uint64, txRaw []byte)
+	getState() []byte
+	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
 
@@ -159,7 +159,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID []byte) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -219,7 +219,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	instance.hChkpts = make(map[uint64]uint64)
 
 	// XXX fetch latest checkpoint
-	instance.chkpts[0] = base64.StdEncoding.EncodeToString(startupID)
+	instance.chkpts[0] = "XXX GENESIS"
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
@@ -800,8 +800,6 @@ func (instance *pbftCore) executeOutstanding() {
 }
 
 func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
-	instance.lock()
-	defer instance.unlock()
 	if seqNo%instance.K != 0 {
 		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
 		return
@@ -854,27 +852,18 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
 		// This is necessary in case the null request is on a checkpoint boundary
-		if idx.n%instance.K == 0 {
-			execInfo := &ExecutionInfo{
-				Checkpoint: true,
-				Null:       true,
-			}
-			instance.unlock()
-			instance.consumer.execute(idx.n, nil, execInfo)
-			instance.lock()
-		}
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 		delete(instance.outstandingReqs, digest)
 
-		execInfo := &ExecutionInfo{
-			Checkpoint: idx.n%instance.K == 0, // Only checkpoint if this sequence number is a multiple of the checkpoint period
-		}
-
 		instance.unlock() // If this thread wants to call back into 'Checkpoint', then it will need to claim the lock again
-		instance.consumer.execute(idx.n, req.Payload, execInfo)
+		instance.consumer.execute(idx.n, req.Payload)
 		instance.lock()
+	}
+
+	if instance.lastExec%instance.K == 0 {
+		instance.Checkpoint(idx.n, instance.consumer.getState())
 	}
 
 	if len(instance.outstandingReqs) > 0 {
@@ -1005,11 +994,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
 		instance.activeView = true // TODO, verify this with experts
-		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
-	} else {
-		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
-			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		instance.consumer.validState(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
+		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
 	}
 }
 

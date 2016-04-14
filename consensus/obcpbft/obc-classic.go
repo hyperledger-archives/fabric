@@ -33,25 +33,17 @@ type obcClassic struct {
 	stack consensus.Stack
 	pbft  *pbftCore
 
-	startup chan []byte
-
-	executor Executor
 	persistForward
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{stack: stack}
 
-	op.startup = make(chan []byte)
-
-	op.executor = NewOBCExecutor(config, op, stack)
 	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
-	startupInfo := <-op.startup
-	close(op.startup)
 
-	op.pbft = newPbftCore(id, config, op, startupInfo)
+	op.pbft = newPbftCore(id, config, op)
 
 	queueSize := config.GetInt("executor.queuesize")
 	if queueSize <= int(op.pbft.L) {
@@ -59,10 +51,6 @@ func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcCl
 	}
 
 	return op
-}
-
-func (op *obcClassic) Startup(seqNo uint64, id []byte) {
-	op.startup <- id
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
@@ -139,28 +127,22 @@ func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) 
 }
 
 // validate checks whether the request is valid syntactically
-// not used in obc-classic at the moment
 func (op *obcClassic) validate(txRaw []byte) error {
-	return nil
+	tx := &pb.Transaction{}
+	err := proto.Unmarshal(txRaw, tx)
+	return err
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcClassic) execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo) {
-	if err := op.validate(txRaw); err != nil {
-		err = fmt.Errorf("Request in transaction did not validate: %s", err)
-		logger.Error(err.Error())
-		return
-	}
-
+func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 	tx := &pb.Transaction{}
 	err := proto.Unmarshal(txRaw, tx)
 	if err != nil {
-		err = fmt.Errorf("Unable to unmarshal transaction: %v", err)
-		logger.Error(err.Error())
+		logger.Error("Unable to unmarshal transaction: %v", err)
 		return
 	}
 
-	op.executor.Execute(seqNo, []*pb.Transaction{tx}, execInfo)
+	// XXX execute
 }
 
 // called when a view-change happened in the underlying PBFT
@@ -172,12 +154,12 @@ func (op *obcClassic) Checkpoint(seqNo uint64, id []byte) {
 	op.pbft.Checkpoint(seqNo, id)
 }
 
-func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
+func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64) {
+	//	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
-func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
+func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64) {
+	//	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
 }
 
 // Unnecessary
@@ -185,10 +167,6 @@ func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedI
 	return
 }
 
-func (op *obcClassic) idleChan() <-chan struct{} {
-	return op.executor.IdleChan()
-}
-
-func (op *obcClassic) getPBFTCore() *pbftCore {
-	return op.pbft
+func (op *obcClassic) getState() []byte {
+	return op.stack.GetBlockchainHead()
 }

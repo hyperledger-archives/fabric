@@ -36,8 +36,8 @@ func (ce *consumerEndpoint) stop() {
 	ce.consumer.Close()
 }
 
-func (ce *consumerEndpoint) idleChan() <-chan struct{} {
-	return ce.consumer.idleChan()
+func (ce *consumerEndpoint) isBusy() bool {
+	return ce.consumer.getPBFTCore().timerActive
 }
 
 func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
@@ -55,7 +55,6 @@ type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
-	idleChan() <-chan struct{}
 	Close()
 }
 
