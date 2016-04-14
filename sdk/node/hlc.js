@@ -1,5 +1,6 @@
 /**
- * The Hyperledger client SDK provides APIs through which a client can interact with an existing hyperledger blockchain.
+ * "hlc" stands for "HyperLedger Client".
+ * The Hyperledger Client SDK provides APIs through which a client can interact with a hyperledger blockchain.
  * 
  * These APIs have been designed to support two pluggable components.
  * 1) Pluggable wallet which is used to retrieve and store keys associated with a member.
@@ -738,26 +739,3 @@ if(!String.prototype.endsWith) {
         return this.length >= s.length && this.substr(this.length - s.length) === s;
     };
 }
-
-
-function test() {
-	var chainMgr = NewChainMgr();
-	var chain = chainMgr.getChain("test1",true);
-	chain.configureWallet({dir:"/tmp/wallet"});
-	chain.setMemberServicesUrl("grpc://localhost:50051");
-	// Get the web app administrator member which is set as the chain registrar
-	// whose credentials are (or will be) used to authorize registering other web users.
-	chain.getMember("webAppAdmin",function(err,webAppAdmin) {
-		if (err) return debug("failed to get webAppAdmin member");
-		chain.setRegistrarMember(webAppAdmin);
-		chain.getMember("user1",function(err,user) {
-			if (err) return debug("can't get member: %j",err);
-			debug("got %s: %s",user.getName(),user);
-			user.getTransactionContexts(function(err,resp) {
-				debug("getTransactionContexts results: %s: %s",err,resp);
-			});
-		});
-	});
-}
-
-test();
