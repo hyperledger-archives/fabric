@@ -109,8 +109,8 @@ peer:
 
     # Peer port to accept connections on
     port:    30303
-    # Peer's setting for GOMAXPROCS
-    gomaxprocs: 2
+    # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
+    gomaxprocs: -1
     workers: 2
 
     # Sync related configuration

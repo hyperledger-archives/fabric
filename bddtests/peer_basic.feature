@@ -86,8 +86,8 @@ Feature: lanching 3 peers
         ||
       Then I should get a JSON response with "OK" = "["key2"]"
 
-#    @doNotDecompose
-    @wip
+# @doNotDecompose
+  @wip
   @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
@@ -251,7 +251,7 @@ Feature: lanching 3 peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
         ||
@@ -299,6 +299,23 @@ Feature: lanching 3 peers
         | foo2 |
       Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:-38  int64:-66  uint32:77  uint64:88  bytes:"hello"  bool:true ]}"
 
+      When I invoke chaincode "table_test" function name "insertRowTableFour" on "vp0"
+        | arg1   |
+        | foobar |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "17"
+
+      When I query chaincode "table_test" function name "getRowTableFour" on "vp0":
+        | arg1   |
+        | foobar |
+      Then I should get a JSON response with "OK" = "{[string:"foobar" ]}"
+
+      When I query chaincode "table_test" function name "getRowsTableFour" on "vp0":
+        | arg1   |
+        | foobar |
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foobar"}}]}]"
 
 #    @doNotDecompose
 #    @wip

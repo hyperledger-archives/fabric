@@ -146,6 +146,11 @@ var networkCmd = &cobra.Command{
 	},
 }
 
+// login related variables.
+var (
+	loginPW string
+)
+
 // Chaincode-related variables.
 var (
 	chaincodeLang     string
@@ -200,8 +205,6 @@ var chaincodeQueryCmd = &cobra.Command{
 }
 
 func main() {
-	runtime.GOMAXPROCS(2)
-
 	// For environment variables.
 	viper.SetEnvPrefix(cmdRoot)
 	viper.AutomaticEnv()
@@ -243,6 +246,10 @@ func main() {
 	mainCmd.AddCommand(peerCmd)
 	mainCmd.AddCommand(statusCmd)
 	mainCmd.AddCommand(stopCmd)
+
+	// Set the flags on the login command.
+	loginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
+
 	mainCmd.AddCommand(loginCmd)
 
 	// vmCmd.AddCommand(vmPrimeCmd)
@@ -264,6 +271,8 @@ func main() {
 	chaincodeCmd.AddCommand(chaincodeQueryCmd)
 
 	mainCmd.AddCommand(chaincodeCmd)
+
+	runtime.GOMAXPROCS(viper.GetInt("peer.gomaxprocs"))
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
@@ -512,9 +521,18 @@ func login(args []string) (err error) {
 		return
 	}
 
-	// User is not logged in, prompt for password
-	fmt.Printf("Enter password for user '%s': ", args[0])
-	pw := gopass.GetPasswdMasked()
+	// If the '--password' flag is not specified, need read it from the terminal
+	if loginPW == "" {
+		// User is not logged in, prompt for password
+		fmt.Printf("Enter password for user '%s': ", args[0])
+		var pw []byte
+		if pw, err = gopass.GetPasswdMasked(); err != nil {
+			err = fmt.Errorf("Error trying to read password from console: %s", err)
+			return
+		} else {
+			loginPW = string(pw)
+		}
+	}
 
 	// Log in the user
 	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
@@ -528,7 +546,7 @@ func login(args []string) (err error) {
 	devopsClient := pb.NewDevopsClient(clientConn)
 
 	// Build the login spec and login
-	loginSpec := &pb.Secret{EnrollId: args[0], EnrollSecret: string(pw)}
+	loginSpec := &pb.Secret{EnrollId: args[0], EnrollSecret: loginPW}
 	loginResult, err := devopsClient.Login(context.Background(), loginSpec)
 
 	// Check if login is successful

@@ -466,7 +466,7 @@ message SyncStateSnapshotRequest {
   uint64 correlationId = 1;
 }
 ```
-The `correlationId` is used by the requesting peer to keep track of the response messages. A receiving peer replies with `SYNC_BLOCKS` message whose `payload` is an instance of `SyncStateSnapshot`
+The `correlationId` is used by the requesting peer to keep track of the response messages. A receiving peer replies with `SYNC_STATE_SNAPSHOT` message whose `payload` is an instance of `SyncStateSnapshot`
 ```
 message SyncStateSnapshot {
     bytes delta = 1;
@@ -3114,6 +3114,12 @@ Enter password for user 'jim': ************
 22:21:40.183 [main] login -> INFO 003 Logging in user 'jim' on CLI interface...
 22:21:40.623 [main] login -> INFO 004 Storing login token for user 'jim'.
 22:21:40.624 [main] login -> INFO 005 Login successful for user 'jim'.
+```
+
+You can also pass a password for the user with `-p` parameter. An example is below.
+
+```
+./peer login jim -p 123456
 ```
 
 #### 6.3.1.3 chaincode deploy
