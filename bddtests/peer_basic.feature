@@ -433,7 +433,7 @@ Feature: lanching 3 peers
         |   docker-compose-4-consensus-sieve.yml   |      60      |
 
 
-    #@doNotDecompose
+    @doNotDecompose
     #@wip
   @issue_680
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)
@@ -511,8 +511,8 @@ Feature: lanching 3 peers
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
         |   docker-compose-4-consensus-classic.yml   |      60      |
-        |   docker-compose-4-consensus-batch.yml     |      60      |
-        |   docker-compose-4-consensus-sieve.yml     |      60      |
+        #|   docker-compose-4-consensus-batch.yml     |      60      |
+        #|   docker-compose-4-consensus-sieve.yml     |      60      |
 
 
 #    @doNotDecompose

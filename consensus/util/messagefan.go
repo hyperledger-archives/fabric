@@ -35,7 +35,7 @@ func init() {
 
 // Messages encapsulates an OpenchainMessage with sender information
 type Message struct {
-	Msg    *pb.OpenchainMessage
+	Msg    *pb.Message
 	Sender *pb.PeerID
 }
 
