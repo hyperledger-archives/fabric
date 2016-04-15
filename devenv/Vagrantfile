@@ -27,6 +27,7 @@ cd #{SRCMOUNT}/devenv
 
 SCRIPT
 
+Vagrant.require_version ">= 1.7.4"
 Vagrant.configure('2') do |config|
   config.vm.box = "hyperledger/fabric-baseimage"
   config.vm.box_version = ENV['USE_LOCAL_BASEIMAGE'] ? "0":"0.0.9" # Vagrant does not support versioning local images, the local version is always implicitly version 0
