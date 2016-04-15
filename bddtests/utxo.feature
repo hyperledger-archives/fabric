@@ -12,9 +12,10 @@ Feature: utxo
     As an openchain developer
     I want to be able to launch a 3 peers
 
-    @doNotDecompose
-#    @wip
-  Scenario: Range query test, single peer, issue #767
+  #@doNotDecompose
+  @wip
+  @issueUtxo
+  Scenario: UTXO chaincode test
     Given we compose "docker-compose-1.yml"
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
