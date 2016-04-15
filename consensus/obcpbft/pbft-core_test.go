@@ -42,9 +42,9 @@ func init() {
 func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
-	key := "general.mode"                  // for a key that exists
+	key := "general.mode"               // for a key that exists
 	envName := "CORE_PBFT_GENERAL_MODE" // env override name
-	overrideValue := "overide_test"        // value to override default value with
+	overrideValue := "overide_test"     // value to override default value with
 
 	// test key
 	if ok := config.IsSet("general.mode"); !ok {
@@ -371,6 +371,61 @@ func TestInconsistentPrePrepare(t *testing.T) {
 			t.Errorf("Expected no execution")
 			continue
 		}
+	}
+}
+
+// This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeCheckpointSelection(t *testing.T) {
+	instance := &pbftCore{
+		f:  1,
+		N:  4,
+		id: 0,
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 5
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 5
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 15
+	vset[2] = &ViewChange{
+		H: 10,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 15,
+				Id:             "fifteen",
+			},
+		},
+	}
+
+	checkpoint, ok, _ := instance.selectInitialCheckpoint(vset)
+
+	if !ok {
+		t.Fatalf("Failed to pick correct a checkpoint for view change")
+	}
+
+	expected := uint64(10)
+	if checkpoint.SequenceNumber != expected {
+		t.Fatalf("Expected to pick checkpoint %d, but picked %d", expected, checkpoint.SequenceNumber)
 	}
 }
 

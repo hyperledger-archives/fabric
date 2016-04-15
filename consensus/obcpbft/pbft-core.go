@@ -755,7 +755,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 		ReplicaId:      instance.id,
 		Id:             idAsString,
 	}
-	instance.chkpts[instance.lastExec] = idAsString
+	instance.chkpts[seqNo] = idAsString
 
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 }
@@ -938,6 +938,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.skipInProgress = false
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
+		instance.activeView = true // TODO, verify this with experts
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
 	} else {
 		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
