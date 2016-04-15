@@ -32,13 +32,13 @@ import (
 )
 
 var logger *logging.Logger // package-level logger
-var messageFan *util.MessageFan
+var MessageFan *util.MessageFan
 var consenter consensus.Consenter
 var lock sync.Mutex
 
 func init() {
 	logger = logging.MustGetLogger("consensus/controller")
-	messageFan = util.NewMessageFan()
+	MessageFan = util.NewMessageFan()
 }
 
 // NewConsenter constructs a Consenter object if not already present
@@ -61,8 +61,11 @@ func NewConsenter(stack consensus.Stack) consensus.Consenter {
 	}
 
 	go func() {
+		logger.Debug("Starting up message thread for consenter")
+
 		// The channel never closes, so this should never break
-		for msg := range messageFan.GetOutChannel() {
+		for msg := range MessageFan.GetOutChannel() {
+			logger.Debug("Received message from %v delivering to consenter", msg.Sender)
 			consenter.RecvMsg(msg.Msg, msg.Sender)
 		}
 	}()

@@ -73,7 +73,10 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		consensusQueueSize = DefaultConsensusQueueSize
 	}
 
+	pe, _ := handler.peerHandler.To()
+
 	handler.consenterChan = make(chan *util.Message, consensusQueueSize)
+	controller.MessageFan.RegisterChannel(pe.ID, handler.consenterChan)
 
 	return handler, nil
 }
@@ -89,7 +92,9 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 		}:
 			return nil
 		default:
-			return fmt.Errorf("Message channel for %v full, rejecting", senderPE)
+			err := fmt.Errorf("Message channel for %v full, rejecting", senderPE.ID)
+			logger.Error("Failed to queue consensus message because: %v", err)
+			return err
 		}
 	} else if msg.Type == pb.Message_CHAIN_TRANSACTION {
 		tx := &pb.Transaction{}
@@ -111,6 +116,11 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 
 func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Transaction) error {
 	var response *pb.Response
+	defer func() {
+		payload, _ := proto.Marshal(response)
+		handler.SendMessage(&pb.Message{Type: pb.Message_RESPONSE, Payload: payload})
+	}()
+
 	// Verify transaction signature if security is enabled
 	secHelper := handler.coordinator.GetSecHelper()
 	if nil != secHelper {
@@ -121,19 +131,8 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
 			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			logger.Debug("Failed to verify transaction %v", err)
+			return err
 		}
-	}
-	// Send response back to the requester
-	// response will not be nil on error
-	if nil == response {
-		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
-	}
-	payload, _ := proto.Marshal(response)
-	handler.SendMessage(&pb.Message{Type: pb.Message_RESPONSE, Payload: payload})
-
-	// If we fail to marshal or verify the tx, don't send it to consensus plugin
-	if response.Status == pb.Response_FAILURE {
-		return nil
 	}
 
 	// Pass the message to the plugin handler (ie PBFT)
@@ -143,9 +142,14 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 		Msg:    msg,
 		Sender: selfPE.ID,
 	}:
+		logger.Debug("Queued new transaction from %v to channel", selfPE.ID)
+		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
 		return nil
 	default:
-		return fmt.Errorf("Message channel for %v full, rejecting", selfPE.ID)
+		err := fmt.Errorf("Message channel for %v full, rejecting", selfPE.ID)
+		logger.Error("Failed to queue new transaction because %v: ", err)
+		response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+		return err
 	}
 }
 
