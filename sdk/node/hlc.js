@@ -2,11 +2,21 @@
  * "hlc" stands for "HyperLedger Client".
  * The Hyperledger Client SDK provides APIs through which a client can interact with a hyperledger blockchain.
  * 
+ * Terminology:
+ * 1) member - an identity for participating in the blockchain.  There are different types of members (users, peers, etc).
+ * 2) member services - services related to obtaining and managing members
+ * 3) registration - The act of adding a new member identity (with specific privileges) to the system.
+ *               This is done by a member with the 'registrar' privilege.  The member is called a registrar.
+ *               The registrar specifies the new member privileges when registering the new member.
+ * 4) enrollment - Think of this as completing the registration process.  It may be done by the new member with a secret
+ *               that it has obtained out-of-band from a registrar, or it may be performed by a middle-man who has
+ *               delegated authority to act on behalf of the new member.
+ * 
  * These APIs have been designed to support two pluggable components.
- * 1) Pluggable wallet which is used to retrieve and store keys associated with a member.
- *    Call Chain.setWallet() to override the default wallet implementation.
- *    For the default implementations, see FileWallet and SqlWallet (TBD).
- * 2) Pluggable member services which is used to register and enroll members.
+ * 1) Pluggable key value store which is used to retrieve and store keys associated with a member.
+ *    Call Chain.setKeyValStore() to override the default key value store implementation.
+ *    For the default implementations, see FileKeyValStore and SqlKeyValStore (TBD).
+ * 2) Pluggable member service which is used to register and enroll members.
  *    Call Chain.setMemberService() to override the default implementation.
  *    For the default implementation, see MemberServices.
  *    NOTE: This makes member services pluggable from the client side, but more work is needed to make it compatible on
@@ -17,6 +27,7 @@ var debug = require('debug')('hlc');   // 'hlc' stands for 'HyperLedger Client'
 var fs = require('fs');
 var urlParser = require("url");
 var grpc = require("grpc");
+var util = require('util');
 //crypto stuff
 var jsrsa = require('jsrsasign');
 var KEYUTIL = jsrsa.KEYUTIL;
@@ -26,30 +37,21 @@ var sha3_256 = require('js-sha3').sha3_256;
 var sha3_384 = require('js-sha3').sha3_384;
 var kdf = require(__dirname+'/kdf');
 
-var caProtos = grpc.load(__dirname + "/protos/ca.proto").protos;
-var timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
-
-function NewChainMgr() {
-	return new ChainMgr();
-}
-
-function NewMemberServices(url) {
-	return new MemberServices(url);
-}
-
-exports.NewChainMgr = NewChainMgr;
-exports.NewMemberServices = NewMemberServices;
+var _caProtos = grpc.load(__dirname + "/protos/ca.proto").protos;
+var _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
+var _chains = {};
 
 /**
- * Constructor for the chain client manager to manage one or more chain clients
+ * Create a new chain.  If it already exists, throws an Error. 
+ * @param name {string} Name of the chain.  It can be any name and has value only for the client.
+ * @returns
  */
-function ChainMgr() {
-   this.chains = {};
-   this.defaultTimeout = 60 * 1000;  // 1 minute
-   // If running in bluemix, initialize from VCAP_SERVICES environment variable
-   if (process.env.VCAP_SERVICES) {
-      // TODO: From marbles app   
-   }
+function newChain(name) {
+	var chain = _chains[name];
+	if (chain) throw Error(util.format("chain %s already exists",name));
+	chain = new Chain(name);
+	_chains[name] = chain;
+	return chain;
 }
 
 /**
@@ -58,51 +60,31 @@ function ChainMgr() {
  * @param {boolean} create If the chain doesn't already exist, specifies whether to create it.
  * @return {Chain} Returns the chain, or null if it doesn't exist and create is false.
  */
-ChainMgr.prototype.getChain = function (chainName, create) {
-   var chain = this.chains[chainName];
+function getChain(chainName, create) {
+   var chain = _chains[chainName];
    if (!chain && create) {
-      chain = new Chain(chainName,this);
-      this.chains[chainName] = chain;
+	   chain = newChain(name);
    }
    return chain;
 };
 
 /**
- * Get the default timeout in milliseconds.
- * @return {int} Returns the default timeout in milliseconds.
+ * Stop/cleanup everything pertaining to this module.
  */
-ChainMgr.prototype.getDefaultTimeoutInMs = function () {
-   return this.timeout;
-};
-
-/**
- * Set the default timeout in milliseconds.
- * @param {int} The default timeout milliseconds.
- */
-ChainMgr.prototype.setDefaultTimeoutInMs = function (timeout) {
-   this.timeout = timeout;
-};
-
-/**
- * Shutdown/cleanup everything related to the chain manager
- */
-ChainMgr.prototype.shutdown = function () {
-   var self = this;
+function stop() {
    // Shutdown each chain
-   for (var chainName in self.chains) {
-      self.chains[chainName].shutdown();
+   for (var chainName in _chains) {
+      _chains[chainName].shutdown();
    }
 };
 
 /**
  * The chain constructor.
  * @param {string} name The name of the chain.  This can be any name that the client chooses.
- * @param {ChainMgr} mgr The manager used to create this chain.
  * @returns {Chain} A chain client
  */
-function Chain(name,mgr) {
+function Chain(name) {
    this.name = name;
-   this.mgr = mgr;
    this.peers = [];
    this.members = {};  // TODO: Make this an LRU cache to limit the number of members cached in memory
 }
@@ -113,14 +95,6 @@ function Chain(name,mgr) {
  */
 Chain.prototype.getName = function() {
    return this.name;
-};
-
-/**
- * Get the chain manager
- * @returns {ChainMgr} The manager used to create this chain.
- */
-Chain.prototype.getChainMgr = function() {
-   return this.mgr;
 };
 
 /**
@@ -136,22 +110,6 @@ Chain.prototype.addPeer = function(endpoint) {
 };
 
 /**
- * Get the member whose credentials are used to register and enroll other users, or undefined if not set.
- * @param {Member} The member whose credentials are used to perform registration, or undefined if not set.
- */
-Chain.prototype.getRegistrarMember = function() {
-	return this.registrarMember;
-};
-
-/**
- * Set the member whose credentials are used to register and enroll other users.
- * @param {Member} registrarMember The member whose credentials are used to perform registration.
- */
-Chain.prototype.setRegistrarMember = function(registrarMember) {
-	this.registrarMember = registrarMember;
-};
-
-/**
  * Get the peers for this chain.
  */
 Chain.prototype.getPeers  = function() {
@@ -159,11 +117,27 @@ Chain.prototype.getPeers  = function() {
 };
 
 /**
+ * Get the member whose credentials are used to register and enroll other users, or undefined if not set.
+ * @param {Member} The member whose credentials are used to perform registration, or undefined if not set.
+ */
+Chain.prototype.getRegistrar = function() {
+	return this.registrar;
+};
+
+/**
+ * Set the member whose credentials are used to register and enroll other users.
+ * @param {Member} registrar The member whose credentials are used to perform registration.
+ */
+Chain.prototype.setRegistrar = function(registrar) {
+	this.registrar = registrar;
+};
+
+/**
  * Set the member services URL
  * @param {string} url Member services URL of the form: "grpc://host:port" or "grpcs://host:port"
  */
 Chain.prototype.setMemberServicesUrl = function(url) {
-	this.setMemberServices(NewMemberServices(url));
+	this.setMemberServices(newMemberServices(url));
 };
 
 /**
@@ -182,14 +156,14 @@ Chain.prototype.setMemberServices = function(memberServices) {
 };
 
 /**
- * Configure the wallet.
- * @param {Object} config Configuration for the default wallet of the form: TBD 
+ * Configure the key value store.
+ * @param {Object} config Configuration for the default key value store of the form: TBD 
  */
-Chain.prototype.configureWallet  = function(config) {
+Chain.prototype.configureKeyValStore  = function(config) {
 	if (config.dir) {
-		this.wallet = new FileWallet(config.dir);
+		this.keyValStore = new FileKeyValStore(config.dir);
 	} else {
-		throw Error("invalid wallet config; no 'dir'");
+		throw Error("invalid key value store config; no 'dir'");
 	}
 };
 
@@ -197,15 +171,15 @@ Chain.prototype.configureWallet  = function(config) {
  * Get the member services associated this chain.
  * @returns {MemberServices} Return the current member services, or undefined if not set.
  */
-Chain.prototype.getWallet  = function() {
-   return this.wallet;
+Chain.prototype.getKeyValStore  = function() {
+   return this.keyValStore;
 };
 
 /**
- * Set the wallet.  This allows the default implementation of the wallet to be overridden.
+ * Set the key value store.  This allows the default implementation of the key value store to be overridden.
  */
-Chain.prototype.setWallet  = function(wallet) {
-   this.wallet = wallet;
+Chain.prototype.setKeyValStore  = function(keyValStore) {
+   this.keyValStore = keyValStore;
 };
 
 /**
@@ -215,12 +189,12 @@ Chain.prototype.setWallet  = function(wallet) {
 Chain.prototype.getMember = function(name,cb) {
 	var self = this;
 	cb = cb || nullCB;
-	if (!self.wallet) return cb(Error("No wallet was found.  You must first call Chain.configureWallet or Chain.setWallet"));
+	if (!self.keyValStore) return cb(Error("No key value store was found.  You must first call Chain.configureKeyValStore or Chain.setKeyValStore"));
 	if (!self.memberServices) return cb(Error("No member services was found.  You must first call Chain.configureMemberServices or Chain.setMemberServices"));
 	self._getMember(name,function(err,member) {
 		if (err) return cb(err);
-		if (!self.registrarMember) return cb(null,member);
-		member.registerAndEnroll(self.registrarMember,function(err) {
+		if (!self.registrar) return cb(null,member);
+		member.registerAndEnroll(self.registrar,function(err) {
 			if (err) return cb(err);
 			cb(null,member);
 		});
@@ -232,7 +206,7 @@ Chain.prototype._getMember = function(name,cb) {
 	// Try to get the member state from the cache
 	var member = self.members[name];
 	if (member) return cb(null,member);
-	// Create the member and try to restore it's state from the wallet (if found).
+	// Create the member and try to restore it's state from the key value store (if found).
 	member = new Member(name,this);
 	member.restoreState(function(err) {
 		if (err) return cb(err);
@@ -249,8 +223,8 @@ function Member(name,chain) {
 	this.state = {name:name};
 	this.chain = chain;
 	this.memberServices = chain.getMemberServices();
-	this.wallet = chain.getWallet();
-	this.walletName = toWalletName(name);
+	this.keyValStore = chain.getKeyValStore();
+	this.keyValStoreName = toKeyValStoreName(name);
 }
 
 /**
@@ -282,7 +256,7 @@ Member.prototype.isEnrolled = function() {
  * @param req Registration request with the following fields: name, role 
  * @param cb Callback of the form: {function(err,enrollmentSecret)}
  */
-Member.prototype.register = function(registrarMember,cb) {
+Member.prototype.register = function(registrar,cb) {
 	var self = this;
 	cb = cb || nullCB;
 	var enrollmentSecret = this.state.enrollmentSecret;
@@ -330,7 +304,7 @@ Member.prototype.enroll = function(enrollmentSecret, cb) {
  * Perform both registration and enrollment.
  * @param cb Callback of the form: {function(err,{key,cert,chainKey})}
  */
-Member.prototype.registerAndEnroll = function(registrarMember,cb) {
+Member.prototype.registerAndEnroll = function(registrar,cb) {
 	var self = this;
 	cb = cb || nullCB;
 	var enrollment = self.state.enrollment;
@@ -338,7 +312,7 @@ Member.prototype.registerAndEnroll = function(registrarMember,cb) {
 		debug("previously enrolled, enrollment=%j",enrollment);
 		return cb(null,enrollment);
 	}
-	self.register(registrarMember, function(err,enrollmentSecret) {
+	self.register(registrar, function(err,enrollmentSecret) {
 		if (err) return cb(err);
 		self.enroll(enrollmentSecret, cb);
 	});
@@ -358,25 +332,25 @@ Member.prototype.getTransactionContexts = function(cb) {
 };
 
 /**
- * Save the state of this member to the wallet.
+ * Save the state of this member to the key value store.
  * @param cb Callback of the form: {function(err}
  */
 Member.prototype.saveState = function(cb) {
 	var self = this;
-	self.wallet.setValue(self.walletName,self.toString(),cb);
+	self.keyValStore.setValue(self.keyValStoreName,self.toString(),cb);
 };
 
 /**
- * Restore the state of this member from the wallet, if found in the wallet.
+ * Restore the state of this member from the key value store (if found).  If not found, do nothing.
  * @param cb Callback of the form: {function(err}
  */
 Member.prototype.restoreState = function(cb) {
 	var self = this;
-	self.wallet.getValue(self.walletName, function(err,memberStr) {
+	self.keyValStore.getValue(self.keyValStoreName, function(err,memberStr) {
 		if (err) return cb(err);
 		debug("restoreState: name=%s, memberStr=%s",self.getName(),memberStr);
 		if (memberStr) {
-			// The member was found in the wallet, so restore the state.
+			// The member was found in the key value store, so restore the state.
 			self.fromString(memberStr);
 		}
 		cb();
@@ -454,10 +428,10 @@ function MemberServices(url) {
 	} else {
 		throw Error("invalid protocol: "+protocol);
 	}
-    this.ecaaClient = new caProtos.ECAA(addr,creds);
-    this.ecapClient = new caProtos.ECAP(addr,creds);
-    this.tcapClient = new caProtos.TCAP(addr,creds);
-    this.tlscapClient = new caProtos.TLSCAP(addr,creds);
+    this.ecaaClient = new _caProtos.ECAA(addr,creds);
+    this.ecapClient = new _caProtos.ECAP(addr,creds);
+    this.tcapClient = new _caProtos.TCAP(addr,creds);
+    this.tlscapClient = new _caProtos.TLSCAP(addr,creds);
 }
 
 /**
@@ -469,7 +443,7 @@ MemberServices.prototype.register = function(req,cb) {
 	var self = this;
 	if (!req.name) return cb(new Error("missing req.name"));
 	var role = req.role || 1;
-    var protoReq = new caProtos.RegisterUserReq();
+    var protoReq = new _caProtos.RegisterUserReq();
     protoReq.setId({ id: req.name });
     protoReq.setRole(role);
     self.ecaaClient.registerUser(protoReq, function (err, token) {
@@ -499,24 +473,24 @@ MemberServices.prototype.enroll = function (req, cb) {
     var spki2 = new asn1.x509.SubjectPublicKeyInfo(ecKeypair2.pubKeyObj);
     
     // create the proto message
-    var eCertCreateRequest = new caProtos.ECertCreateReq();
-    var timestamp = new timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
+    var eCertCreateRequest = new _caProtos.ECertCreateReq();
+    var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
     eCertCreateRequest.setTs(timestamp);
     eCertCreateRequest.setId({ id: req.name });
     eCertCreateRequest.setTok({ tok: new Buffer(req.enrollmentSecret) });
 
     // public signing key (ecdsa)
-    var signPubKey = new caProtos.PublicKey(
+    var signPubKey = new _caProtos.PublicKey(
         {
-            type: caProtos.CryptoType.ECDSA,
+            type: _caProtos.CryptoType.ECDSA,
             key: new Buffer(spki.getASN1Object().getEncodedHex(), 'hex')
         });
     eCertCreateRequest.setSign(signPubKey);
     
     // public encryption key (ecdsa)
-    var encPubKey = new caProtos.PublicKey(
+    var encPubKey = new _caProtos.PublicKey(
         {
-            type: caProtos.CryptoType.ECDSA,
+            type: _caProtos.CryptoType.ECDSA,
             key: new Buffer(spki2.getASN1Object().getEncodedHex(), 'hex')
         });
     eCertCreateRequest.setEnc(encPubKey);
@@ -567,9 +541,9 @@ MemberServices.prototype.enroll = function (req, cb) {
         // debug(new Buffer(sha3_384(buf),'hex'));
         var sig = ecdsa.sign(new Buffer(sha3_256(buf), 'hex'), signKey);
 
-        eCertCreateRequest.setSig(new caProtos.Signature(
+        eCertCreateRequest.setSig(new _caProtos.Signature(
             {
-                type: caProtos.CryptoType.ECDSA,
+                type: _caProtos.CryptoType.ECDSA,
                 r: new Buffer(sig.r.toString()),
                 s: new Buffer(sig.s.toString())
             }
@@ -603,10 +577,10 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     var self = this;
     cb = cb || nullCB;
 
-    var timestamp = new timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
+    var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
     
     // create the proto
-    var tCertCreateSetReq = new caProtos.TCertCreateSetReq();
+    var tCertCreateSetReq = new _caProtos.TCertCreateSetReq();
     tCertCreateSetReq.setTs(timestamp);
     tCertCreateSetReq.setId({ id: req.name });
     tCertCreateSetReq.setNum(req.num);
@@ -614,7 +588,7 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     // serialize proto
     var buf = tCertCreateSetReq.toBuffer();
     
-    // sign the transaction using enrollmentKey
+    // sign the transaction using enrollment key
     var EC = elliptic.ec;
     var curve = elliptic.curves.p384;
     var ecdsa = new EC(curve);
@@ -622,9 +596,9 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     // debug(new Buffer(sha3_384(buf),'hex'));
     var sig = ecdsa.sign(new Buffer(sha3_256(buf), 'hex'), signKey);
 
-    tCertCreateSetReq.setSig(new caProtos.Signature(
+    tCertCreateSetReq.setSig(new _caProtos.Signature(
         {
-            type: caProtos.CryptoType.ECDSA,
+            type: _caProtos.CryptoType.ECDSA,
             r: new Buffer(sig.r.toString()),
             s: new Buffer(sig.s.toString())
         }
@@ -638,6 +612,10 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     });
 
 };
+
+function newMemberServices(url) {
+	return new MemberServices(url);
+}
 
 /**
  * Constructor for a transaction manager.
@@ -666,10 +644,13 @@ TransactionMgrImpl.prototype.setPrivate = function(privateMode) {
 };
 
 /**
- * A local file-based wallet.
+ * A local file-based key value store.
  */
-function FileWallet(dir) {
+function FileKeyValStore(dir) {
 	this.dir = dir;
+	if (!fs.existsSync(dir)) {
+	    fs.mkdirSync(dir);
+	}
 }
 
 /**
@@ -677,7 +658,7 @@ function FileWallet(dir) {
  * @param name
  * @param cb function(err,value)
  */
-FileWallet.prototype.getValue = function(name,cb) {
+FileKeyValStore.prototype.getValue = function(name,cb) {
 	var path = this.dir + '/' + name;
 	fs.readFile(path,'utf8',function(err,data) {
 		if (err) {
@@ -693,13 +674,22 @@ FileWallet.prototype.getValue = function(name,cb) {
  * @param name
  * @param cb function(err)
  */
-FileWallet.prototype.setValue = function(name,value,cb) {
+FileKeyValStore.prototype.setValue = function(name,value,cb) {
 	var path = this.dir + '/' + name;
 	fs.writeFile(path,value,cb);
 };
 
-function toWalletName(name) {
+function toKeyValStoreName(name) {
    return "member."+name;	
+}
+
+/**
+ * Create and load peers for bluemix.
+ */
+function bluemixInit() {
+   var vcap = process.env.VCAP_SERVICES;
+   if (!vcap) return false; // not in bluemix
+   // TODO: Pilfer logic from marbles app   
 }
 
 function nullCB() {}
@@ -739,3 +729,8 @@ if(!String.prototype.endsWith) {
         return this.length >= s.length && this.substr(this.length - s.length) === s;
     };
 }
+
+exports.newChain = newChain;
+exports.getChain = getChain;
+exports.newMemberServices = newMemberServices;
+exports.bluemixInit = bluemixInit;
