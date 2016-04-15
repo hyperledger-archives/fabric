@@ -320,7 +320,9 @@ func (obcex *obcExecutor) queueThread() {
 		if execInfo.Checkpoint {
 			idAsBytes, _ := obcex.createID(id)
 			logger.Debug("%v sending checkpoint: %x", obcex.id, idAsBytes)
-			obcex.orderer.Checkpoint(seqNo, idAsBytes)
+			go func() {
+				obcex.orderer.Checkpoint(seqNo, idAsBytes)
+			}()
 		}
 	}
 }
