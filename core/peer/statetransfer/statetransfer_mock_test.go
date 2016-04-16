@@ -104,16 +104,13 @@ func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, netw
 	return
 }
 
-func (hd *HashLedgerDirectory) GetNetworkHandles() (self *protos.PeerID, network []*protos.PeerID, err error) {
-	oSelf, oNetwork, err := hd.GetNetworkInfo()
-	if nil != err {
-		return
-	}
-
-	self = oSelf.ID
-	network = make([]*protos.PeerID, len(oNetwork))
-	for i, endpoint := range oNetwork {
-		network[i] = endpoint.ID
+func (hd *HashLedgerDirectory) GetConnectedValidators() (handles []*protos.PeerID, err error) {
+	handles = make([]*protos.PeerID, len(hd.remoteLedgers))
+	i := 0
+	for k := range hd.remoteLedgers {
+		temp := k
+		handles[i] = &temp
+		i++
 	}
 	return
 }
