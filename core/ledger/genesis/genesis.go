@@ -117,17 +117,9 @@ func MakeGenesis() error {
 					return
 				}
 	
-				chaincodeType, chaincodeTypeOK := chaincodeMap["type"].(string)
-				if !chaincodeTypeOK {
-					genesisLogger.Error("Invalid chaincode type defined in genesis configuration:", chaincodeMap["type"])
-					makeGenesisError = fmt.Errorf("Invalid chaincode type defined in genesis configuration: %s", chaincodeMap["type"])
-					return
-				}
-	
-				chaincodeID := &protos.ChaincodeID{Path: path, Name: ""}
+				chaincodeID := &protos.ChaincodeID{Path: path, Name: name}
 	
 				genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
-				genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)
 	
 				constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
 				if !constructorMapOK {
@@ -139,7 +131,7 @@ func MakeGenesis() error {
 				var spec protos.ChaincodeSpec
 				if constructorMap == nil {
 					genesisLogger.Debug("Genesis chaincode has no constructor.")
-					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID}
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_SYSTEM, ChaincodeID: chaincodeID}
 				} else {
 	
 					ctorFunc, ctorFuncOK := constructorMap["func"].(string)
@@ -155,7 +147,7 @@ func MakeGenesis() error {
 					genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
 					genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
 					ctorArgsStringArray := strings.Split(ctorArgs, " ")
-					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_SYSTEM, ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
 				}
 	
 				transaction, _, deployErr := DeployLocal(context.Background(), &spec)
@@ -193,7 +185,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 			return nil, err
 		}
 	}
-	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes, SystemChaincode: true}
+	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
 	return chaincodeDeploymentSpec, nil
 }
 

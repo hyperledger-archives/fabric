@@ -454,7 +454,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 	//from here on : if we launch the container and get an error, we need to stop the container
 
 	//launch container if it is a System container or not in dev mode
-	if (!chaincodeSupport.userRunsCC || cds.SystemChaincode) && (chrte == nil || chrte.handler == nil) {
+	if (!chaincodeSupport.userRunsCC || cds.ChaincodeSpec.Type == pb.ChaincodeSpec_SYSTEM) && (chrte == nil || chrte.handler == nil) {
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid)
 		if err != nil {
 			chaincodeLog.Debug("launchAndWaitForRegister failed %s", err)
@@ -489,7 +489,7 @@ func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
 //getVMType - just returns a string for now. Another possibility is to use a factory method to 
 //return a VM executor
 func (chaincodeSupport *ChaincodeSupport) getVMType (cds *pb.ChaincodeDeploymentSpec) (string,error) {
-	if cds.SystemChaincode {
+	if cds.ChaincodeSpec.Type == pb.ChaincodeSpec_SYSTEM {
 		return container.SYSTEM, nil
 	}
 	return container.DOCKER, nil

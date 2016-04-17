@@ -91,9 +91,6 @@ func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 	if spec == nil || spec.ChaincodeID == nil {
 		return nil, fmt.Errorf("invalid chaincode spec")
 	}
-	if spec.ChaincodeID.Name != "" {
-		return nil, fmt.Errorf("chaincode name exists")
-	}
 
 	inputbuf := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(inputbuf)
