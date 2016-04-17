@@ -30,6 +30,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"syscall"
+	"path/filepath"
+	"bytes"
 
 	"golang.org/x/net/context"
 
@@ -87,10 +90,14 @@ var statusCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("status")
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return status()
+	Run: func(cmd *cobra.Command, args []string) {
+		status()
 	},
 }
+
+var (
+	stopPidFile string
+)
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
@@ -242,6 +249,8 @@ func main() {
 
 	mainCmd.AddCommand(peerCmd)
 	mainCmd.AddCommand(statusCmd)
+
+	stopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
 	mainCmd.AddCommand(stopCmd)
 	mainCmd.AddCommand(loginCmd)
 
@@ -432,6 +441,10 @@ func serve(args []string) error {
 		serve <- grpcErr
 	}()
 
+	if err := writePid(viper.GetString("peer.fileSystemPath") + "/peer.pid", os.Getpid()); err != nil {
+		return err
+	}
+
 	// Deploy the genesis block if needed.
 	if viper.GetBool("peer.validator.enabled") {
 		makeGenesisError := genesis.MakeGenesis()
@@ -452,15 +465,20 @@ func serve(args []string) error {
 func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
+		logger.Info("Error trying to connect to local peer: %s", err)
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
-		return
+		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
+		return err
 	}
 
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.GetStatus(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
-		return
+		logger.Info("Error trying to get status from local peer: %s", err)
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
+		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
+		return err
 	}
 	fmt.Println(status)
 	return nil
@@ -469,19 +487,35 @@ func status() (err error) {
 func stop() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
-		return
-	}
+		pidFile := stopPidFile + "/peer.pid"
+		//fmt.Printf("Stopping local peer using process pid from %s \n", pidFile)
+		logger.Info("Error trying to connect to local peer: %s", err)
+		logger.Info("Stopping local peer using process pid from %s", pidFile)
+		pid, ferr := readPid(pidFile)
+		if ferr != nil {
+			err = fmt.Errorf("Error trying to read pid from %s: %s", pidFile, ferr)
+			return
+		}
+		killerr := syscall.Kill(pid, syscall.SIGTERM)
+		if killerr != nil {
+			err = fmt.Errorf("Error trying to kill -9 pid %d: %s", pid, killerr)
+			return
+		}
+		return nil
+	} else {
+		logger.Info("Stopping peer using grpc")
+		serverClient := pb.NewAdminClient(clientConn)
 
-	logger.Info("Stopping peer...")
-	serverClient := pb.NewAdminClient(clientConn)
-
-	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-	if err != nil {
-		return
+		status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+		if err != nil {
+			fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
+			return nil
+		} else {
+			err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
+			fmt.Println(status)
+			return err
+		}
 	}
-	fmt.Println(status)
-	return nil
 }
 
 // login confirms the enrollmentID and secret password of the client with the
@@ -858,4 +892,73 @@ func network() (err error) {
 	jsonOutput, _ := json.Marshal(peers)
 	fmt.Println(string(jsonOutput))
 	return nil
+}
+
+func writePid (fileName string, pid int) error {
+	err := os.MkdirAll(filepath.Dir(fileName), 0755)
+	if err != nil {
+		return err
+	}
+
+	fd, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("can't lock '%s', lock is held", fd.Name())
+	}
+
+	if _, err := fd.Seek(0, 0); err != nil {
+		return err
+	}
+
+	if err := fd.Truncate(0); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(fd, "%d", pid); err != nil {
+		return err
+	}
+
+	if err := fd.Sync(); err != nil {
+		return err
+	}
+
+	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); err != nil {
+		return fmt.Errorf("can't release lock '%s', lock is held", fd.Name())
+	}
+	return nil
+}
+
+func readPid (fileName string) (int, error) {
+	fd, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return 0, err
+	}
+	defer fd.Close()
+	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return 0, fmt.Errorf("can't lock '%s', lock is held", fd.Name())
+	}
+
+	if _, err := fd.Seek(0, 0); err != nil {
+		return 0, err
+	}
+
+	data, err := ioutil.ReadAll(fd)
+	if err != nil {
+		return 0, err
+	}
+
+	pid, err := strconv.Atoi(string(bytes.TrimSpace(data)))
+	if err != nil {
+		return 0, fmt.Errorf("error parsing pid from %s: %s", fd, err)
+	}
+
+	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); err != nil {
+		return 0, fmt.Errorf("can't release lock '%s', lock is held", fd.Name())
+	}
+
+	return pid, nil
+
 }
