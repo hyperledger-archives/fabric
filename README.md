@@ -175,7 +175,7 @@ See [specific logging control](docs/dev-setup/logging-control.md) instructions w
 If you modify any .proto files, run the following command to generate new .pb.go files.
 
 ```
-devenv/compile_protos.sh
+$GOPATH/src/github.com/hyperledger/fabric/devenv/compile_protos.sh
 ```
 
 ## Adding or updating Go packages <a name="vendoring"></a>
