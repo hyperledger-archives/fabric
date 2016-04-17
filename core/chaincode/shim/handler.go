@@ -33,6 +33,7 @@ import (
 type PeerChaincodeStream interface {
 	Send(*pb.ChaincodeMessage) error
 	Recv() (*pb.ChaincodeMessage, error)
+	CloseSend() error
 }
 
 type nextStateInfo struct {
@@ -140,9 +141,8 @@ func (handler *Handler) deleteIsTransaction(uuid string) {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
+func newChaincodeHandler(peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
 	v := &Handler{
-		To:         to,
 		ChatStream: peerChatStream,
 		cc:         chaincode,
 	}

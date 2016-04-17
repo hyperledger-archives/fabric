@@ -17,30 +17,32 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ccintf
-
-//This package defines the interfaces that support runtime and
-//communication between chaincode and peer (chaincode support).
-//Currently inproccontroller uses it. dockercontroller does not.
+package shim
 
 import (
-	"golang.org/x/net/context"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-// ChaincodeStream interface for stream between Peer and chaincode instance.
-type ChaincodeStream interface {
-	Send(*pb.ChaincodeMessage) error
-	Recv() (*pb.ChaincodeMessage, error)
+// PeerChaincodeStream interface for stream between Peer and chaincode instance.
+type inProcStream struct {
+	recv	<-chan *pb.ChaincodeMessage
+	send	chan<- *pb.ChaincodeMessage
 }
 
-//type HandlerFunc func(ChaincodeStream)
-
-type CCSupport interface {
-	HandleChaincodeStream(context.Context, ChaincodeStream) error
+func newInProcStream( recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) *inProcStream {
+	return &inProcStream{recv, send}
 }
 
-func GetCCHandlerKey() string {
-	return "CCHANDLER"
+func(s *inProcStream) Send(msg *pb.ChaincodeMessage) error {
+	s.send<-msg
+	return nil
 }
 
+func(s *inProcStream) Recv() (*pb.ChaincodeMessage, error) {
+	msg := <- s.recv
+	return msg, nil
+}
+
+func(s *inProcStream) CloseSend() error {
+	return nil
+}

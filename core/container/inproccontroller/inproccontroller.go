@@ -22,16 +22,21 @@ package inproccontroller
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/op/go-logging"
+	pb "github.com/hyperledger/fabric/protos"
+
+	//HAAAACK
+	tr "github.com/hyperledger/fabric/core/system_chaincode/timer"
 
 	"golang.org/x/net/context"
 )
 
 type inprocChaincode struct {
-	name		string
+	id		string
 	chaincode	shim.Chaincode
 	running		bool
 	args		[]string
@@ -61,8 +66,28 @@ func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env [
 	if ipc != nil {
 		return fmt.Errorf(fmt.Sprintf("%s already registered",id))
 	}
-	typeRegistry[id] = &inprocChaincode{name: id, chaincode: nil, running: false, args: args, env: env}
+	//..........................................................HAAACK............
+	typeRegistry[id] = &inprocChaincode{id: id, chaincode: &tr.SystemTimerChaincode{}, running: false, args: args, env: env}
 	inprocLogger.Debug("registered : %s", id)
+
+	return nil
+}
+
+func (vm *InprocVM) launchInProc(ctxt context.Context, ipc *inprocChaincode, ccSupport ccintf.CCSupport) error {
+	peerRcvCCSend := make(chan *pb.ChaincodeMessage)
+	ccRcvPeerSend := make(chan *pb.ChaincodeMessage)
+	go func() {
+		inprocLogger.Debug("start chaincode %s", ipc.id)
+		fmt.Sprintf("start chaincode %s\n", ipc.id)
+		shim.StartInProc(ipc.env, ipc.args, ipc.chaincode,ccRcvPeerSend, peerRcvCCSend)
+	}()
+	go func() {
+		inprocStream := newInProcStream(peerRcvCCSend, ccRcvPeerSend)
+		inprocLogger.Debug("start chaincode-support for  %s", ipc.id)
+		fmt.Sprintf("start chaincode-support for  %s\n", ipc.id)
+		ccSupport.HandleChaincodeStream(ctxt, inprocStream)
+		inprocLogger.Debug("aft start chaincode-support for  %s", ipc.id)
+	}()
 
 	return nil
 }
@@ -76,20 +101,19 @@ func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []
 		return fmt.Errorf(fmt.Sprintf("Removed container %s", id))
 	}
 	//TODO VALIDITY CHECKS ?
-	ipc.name = id
+	ipc.id = id
 	
 	inprocLogger.Debug("extracting handler for : %s", id)
 
-        ccHandler, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.HandlerFunc)
-	if !ok || ccHandler == nil {
+        ccSupport, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.CCSupport)
+	if !ok || ccSupport == nil {
 		return fmt.Errorf("in-process communication generator not supplied")
 	}
 	inprocLogger.Debug("extracted handler for : %s", id)
-	//TODO just for syntax, needs to be solidified
-        //ccHandler( &inProcStream{} )
-	//TODO start shim
-	inprocLogger.Debug("TODO START CHAINCODE for %s", id)
+	fmt.Sprintf("extracted handler for : %s\n", id)
+	vm.launchInProc(ctxt, ipc, ccSupport)
 
+	time.Sleep(2*time.Second)
 	return nil
 }
 

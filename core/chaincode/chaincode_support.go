@@ -292,21 +292,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 
 	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
 
-	//in proc controller expects a ccintf.HandlerFunc for constructing
-	//the chaincodesupport side of process.
-	//We could convert docker to use this model...no harm in leaving it as is
-	//Future containers can use this model if they are not doing grpc. 
-	//E.g., we could run chaincode in another process and use true IPC
-	//we just have to marshal and unmarshal proto.ChaincodeMessage
-	//
-	//At this point the management of the communication channel (and hence
-	//the lifetime) is entirely upto container package (see inprocontroller
-	//for example)
-	ccHandler := ccintf.HandlerFunc(func(stream ccintf.ChaincodeStream) {
-		HandleChaincodeStream(chaincodeSupport, ctxt, stream)
-	})
-
-	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), ccHandler)
+	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), chaincodeSupport)
 
 	resp, err := container.VMCProcess(ipcCtxt, vmtype, sir)
 	if err != nil || (resp != nil && resp.(container.VMCResp).Err != nil) {
@@ -559,9 +545,14 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	return cds, err
 }
 
+// HandleChaincodeStream implements ccintf.HandleChaincodeStream for all vms to call with appropriate stream
+func (chaincodeSupport *ChaincodeSupport) HandleChaincodeStream(ctxt context.Context, stream ccintf.ChaincodeStream) error {
+	return HandleChaincodeStream(chaincodeSupport, ctxt, stream)
+}
+
 // Register the bidi stream entry point called by chaincode to register with the Peer.
 func (chaincodeSupport *ChaincodeSupport) Register(stream pb.ChaincodeSupport_RegisterServer) error {
-	return HandleChaincodeStream(chaincodeSupport, stream.Context(), stream)
+	return chaincodeSupport.HandleChaincodeStream(stream.Context(), stream)
 }
 
 // createTransactionMessage creates a transaction message.

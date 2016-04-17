@@ -50,16 +50,23 @@ func MakeGenesis() error {
 			return
 		}
 
-		if ledger.GetBlockchainSize() > 0 {
-			// genesis block already exists
-			return
+		var genesisBlockExists bool 
+		if ledger.GetBlockchainSize() == 0 {
+			genesisLogger.Info("Creating genesis block.")
+			ledger.BeginTxBatch(0)
+		} else {
+			genesisBlockExists = true
 		}
 
-		genesisLogger.Info("Creating genesis block.")
-
-		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
 		
+		defer func() {
+			if !genesisBlockExists && makeGenesisError == nil {
+				genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
+				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
+			}
+		}()
+
 		//We are disabling the validity period deployment for now, we shouldn't even allow it if it's enabled in the configuration
 		allowDeployValidityPeriod := false
 		
@@ -163,9 +170,6 @@ func MakeGenesis() error {
 			}//for
 
 		}//else
-
-		genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
-		ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 
 	})
 	return makeGenesisError
