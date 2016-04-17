@@ -11,8 +11,21 @@ protoc --go_out=plugins=grpc:$GOPATH/src /usr/include/google/protobuf/empty.prot
 cd $GOPATH/src/github.com/hyperledger/fabric/protos
 protoc --go_out=plugins=grpc:. *.proto
 
-# Compile all other protos
-cd $GOPATH/src/github.com/hyperledger/fabric/
-for f in $(find $GOPATH/src/github.com/hyperledger/fabric/  -name '*.proto'); do
-	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/ --go_out=plugins=grpc:. $f
+
+# Compile core protos
+cd $GOPATH/src/github.com/hyperledger/fabric/core/
+for f in $(find $GOPATH/src/github.com/hyperledger/fabric/core/  -name '*.proto'); do
+	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/core/ --go_out=plugins=grpc:. $f
+done
+
+# Compile consensus protos
+cd $GOPATH/src/github.com/hyperledger/fabric/consensus/
+for f in $(find $GOPATH/src/github.com/hyperledger/fabric/consensus/  -name '*.proto'); do
+	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/consensus/ --go_out=plugins=grpc:. $f
+done
+
+# Compile membership services protos
+cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc/
+for f in $(find $GOPATH/src/github.com/hyperledger/fabric/membersrvc/  -name '*.proto'); do
+	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/membersrvc/ --go_out=plugins=grpc:. $f
 done
