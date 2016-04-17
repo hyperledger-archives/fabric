@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/op/go-logging"
+	"github.com/hyperledger/fabric/core/container/ccintf"
 	cutil "github.com/hyperledger/fabric/core/container/util"
 	"github.com/fsouza/go-dockerclient"
 	"golang.org/x/net/context"
@@ -142,3 +143,14 @@ func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 	return err
 }
 
+//GetVMFromName generates the docker image from peer information given the hashcode. This is needed to
+//keep image name's unique in a single host, multi-peer environment (such as a development environment)
+func (vm *DockerVM) GetVMName(ccid ccintf.CCID) (string, error) {
+	if ccid.NetworkID != "" {
+		return fmt.Sprintf("%s-%s-%s", ccid.NetworkID, ccid.PeerID, ccid.ID), nil
+	} else if ccid.PeerID != "" {
+		return fmt.Sprintf("%s-%s", ccid.PeerID, ccid.ID), nil
+	} else {
+		return ccid.ID, nil
+	}
+}

@@ -97,7 +97,10 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
 func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer) *ChaincodeSupport {
-	s := &ChaincodeSupport{name: chainname, runningChaincodes: &runningChaincodes{chaincodeMap: make(map[string]*chaincodeRTEnv)}, secHelper: secHelper}
+        pnid := viper.GetString("peer.networkId")
+        pid := viper.GetString("peer.id")
+
+	s := &ChaincodeSupport{name: chainname, runningChaincodes: &runningChaincodes{chaincodeMap: make(map[string]*chaincodeRTEnv)}, secHelper: secHelper, peerNetworkID: pnid, peerID: pid}
 
 	//initialize global chain
 	chains[chainname] = s
@@ -140,6 +143,8 @@ type ChaincodeSupport struct {
 	chaincodeInstallPath string
 	userRunsCC           bool
 	secHelper            crypto.Peer
+	peerNetworkID        string
+	peerID               string
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -283,14 +288,11 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 		return alreadyRunning, err
 	}
 
-	//creat a StartImageReq obj and send it to VMCProcess
-	vmname := container.GetVMFromName(chaincode)
-
-	chaincodeLog.Debug("start container: %s", vmname)
+	chaincodeLog.Debug("start container: %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 
 	vmtype,_ := chaincodeSupport.getVMType(cds)
 
-	sir := container.StartImageReq{ID: vmname, Args: args, Env: env}
+	sir := container.StartImageReq{ CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Env: env}
 
 	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), chaincodeSupport)
 
@@ -310,10 +312,10 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	select {
 	case ok := <-notfy:
 		if !ok {
-			err = fmt.Errorf("registration failed for %s(tx:%s)", vmname, uuid)
+			err = fmt.Errorf("registration failed for %s(networkid:%s,peerid:%s,tx:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID, uuid)
 		}
 	case <-time.After(chaincodeSupport.ccStartupTimeout):
-		err = fmt.Errorf("Timeout expired while starting chaincode %s(tx:%s)", vmname, uuid)
+		err = fmt.Errorf("Timeout expired while starting chaincode %s(networkid:%s,peerid:%s,tx:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID, uuid)
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
@@ -331,10 +333,8 @@ func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context,
 		return fmt.Errorf("chaincode name not set")
 	}
 
-	vmname := container.GetVMFromName(chaincode)
-
 	//stop the chaincode
-	sir := container.StopImageReq{ID: vmname, Timeout: 0}
+	sir := container.StopImageReq{CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Timeout: 0}
 
 	_, err := container.VMCProcess(context, "Docker", sir)
 	if err != nil {
@@ -528,13 +528,12 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 		return cds, fmt.Errorf("error getting args for chaincode %s", err)
 	}
 
-	vmname := container.GetVMFromName(chaincode)
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	cir := &container.CreateImageReq{ID: vmname, Args: args, Reader: targz, Env: envs}
+	cir := &container.CreateImageReq{CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Reader: targz, Env: envs}
 
 	vmtype,_ := chaincodeSupport.getVMType(cds)
 
-	chaincodeLog.Debug("deploying chaincode %s", vmname)
+	chaincodeLog.Debug("deploying chaincode %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 
 	//create image and create container
 	_, err = container.VMCProcess(context, vmtype, cir)

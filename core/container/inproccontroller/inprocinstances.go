@@ -17,34 +17,17 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package ccintf
-
-//This package defines the interfaces that support runtime and
-//communication between chaincode and peer (chaincode support).
-//Currently inproccontroller uses it. dockercontroller does not.
+package inproccontroller
 
 import (
-	"golang.org/x/net/context"
-	pb "github.com/hyperledger/fabric/protos"
+	tr "github.com/hyperledger/fabric/core/system_chaincode/timer"
 )
 
-// ChaincodeStream interface for stream between Peer and chaincode instance.
-type ChaincodeStream interface {
-	Send(*pb.ChaincodeMessage) error
-	Recv() (*pb.ChaincodeMessage, error)
-}
+var (
+	typeRegistry map[string] *inprocContainer
+)
 
-type CCSupport interface {
-	HandleChaincodeStream(context.Context, ChaincodeStream) error
-}
-
-func GetCCHandlerKey() string {
-	return "CCHANDLER"
-}
-
-//CCID encapsulates chaincode ID
-type CCID struct {
-	ID           string
-	NetworkID    string
-	PeerID       string
+func init() {
+	typeRegistry = make(map[string]*inprocContainer)
+	typeRegistry["system_timer"] = &inprocContainer{ chaincode: &tr.SystemTimerChaincode{} }
 }

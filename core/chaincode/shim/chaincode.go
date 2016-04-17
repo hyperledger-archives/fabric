@@ -106,7 +106,7 @@ func Start(cc Chaincode) error {
 // Start entry point for chaincodes bootstrap.
 func StartInProc(env []string, args []string, cc Chaincode,recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
 	logging.SetLevel(logging.DEBUG, "chaincode")
-	chaincodeLogger.Debug("in proc")
+	chaincodeLogger.Debug("in proc %v", args)
 
 	var chaincodename string
 	for _, v := range env {

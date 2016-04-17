@@ -24,9 +24,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
+	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/container/dockercontroller"
 	"github.com/hyperledger/fabric/core/container/inproccontroller"
 )
@@ -36,6 +36,7 @@ type vm interface {
 	Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
 	Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
+	GetVMName(ccID ccintf.CCID) (string, error)
 }
 
 type refCountedLock struct {
@@ -125,7 +126,7 @@ func (vmc *VMController) unlockContainer(id string) {
 //take context
 type VMCReqIntf interface {
 	do(ctxt context.Context, v vm) VMCResp
-	getID() string
+	getCCID() ccintf.CCID
 }
 
 //VMCResp - response from requests. resp field is a anon interface.
@@ -137,7 +138,7 @@ type VMCResp struct {
 
 //CreateImageReq - properties for creating an container image
 type CreateImageReq struct {
-	ID           string
+	ccintf.CCID
 	Reader       io.Reader
 	AttachStdin  bool
 	AttachStdout bool
@@ -147,7 +148,14 @@ type CreateImageReq struct {
 
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.Deploy(ctxt, bp.ID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
+
+	id,err := v.GetVMName(bp.getCCID())
+
+	if err != nil {
+		return VMCResp{Err: err}
+	}
+
+	if err = v.Deploy(ctxt, id, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -156,13 +164,13 @@ func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
-func (bp CreateImageReq) getID() string {
-	return bp.ID
+func (bp CreateImageReq) getCCID() ccintf.CCID {
+	return bp.CCID
 }
 
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
-	ID           string
+	ccintf.CCID
 	Args         []string
 	Env          []string
 	AttachStdin  bool
@@ -171,7 +179,14 @@ type StartImageReq struct {
 
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.Start(ctxt, si.ID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
+
+	id,err := v.GetVMName(si.getCCID())
+
+	if err != nil {
+		return VMCResp{Err: err}
+	}
+
+	if err = v.Start(ctxt, id, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -180,13 +195,13 @@ func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
-func (si StartImageReq) getID() string {
-	return si.ID
+func (si StartImageReq) getCCID() ccintf.CCID {
+	return si.CCID
 }
 
 //StopImageReq - properties for stopping a container.
 type StopImageReq struct {
-	ID      string
+	ccintf.CCID
 	Timeout uint
 	//by default we will kill the container after stopping
 	Dontkill bool
@@ -196,7 +211,14 @@ type StopImageReq struct {
 
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
-	if err := v.Stop(ctxt, si.ID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
+
+	id,err := v.GetVMName(si.getCCID())
+
+	if err != nil {
+		return VMCResp{Err: err}
+	}
+
+	if err = v.Stop(ctxt, id, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -205,8 +227,8 @@ func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	return resp
 }
 
-func (si StopImageReq) getID() string {
-	return si.ID
+func (si StopImageReq) getCCID() ccintf.CCID {
+	return si.CCID
 }
 
 //VMCProcess should be used as follows
@@ -228,7 +250,12 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	var resp interface{}
 	go func() {
 		defer close(c)
-		id := req.getID()
+
+		id,err := v.GetVMName(req.getCCID())
+		if err != nil {
+			resp = VMCResp{Err: err}
+			return
+		}
 		vmcontroller.lockContainer(id)
 		resp = req.do(ctxt, v)
 		vmcontroller.unlockContainer(id)
@@ -242,11 +269,4 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 		<-c
 		return nil, ctxt.Err()
 	}
-}
-
-//GetVMFromName generates the docker image from peer information given the hashcode. This is needed to
-//keep image name's unique in a single host, multi-peer environment (such as a development environment)
-func GetVMFromName(name string) string {
-	vmName := fmt.Sprintf("%s-%s-%s", viper.GetString("peer.networkId"), viper.GetString("peer.id"), name)
-	return vmName
 }

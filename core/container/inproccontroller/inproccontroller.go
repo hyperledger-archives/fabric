@@ -29,26 +29,14 @@ import (
 	"github.com/op/go-logging"
 	pb "github.com/hyperledger/fabric/protos"
 
-	//HAAAACK
-	tr "github.com/hyperledger/fabric/core/system_chaincode/timer"
-
 	"golang.org/x/net/context"
 )
 
-type inprocChaincode struct {
-	id		string
+type inprocContainer struct {
 	chaincode	shim.Chaincode
 	running		bool
 	args		[]string
 	env		[]string
-}
-
-var (
-	typeRegistry map[string] *inprocChaincode
-)
-
-func init() {
-	typeRegistry = make(map[string]*inprocChaincode)
 }
 
 var inprocLogger = logging.MustGetLogger("inproccontroller")
@@ -63,33 +51,51 @@ type InprocVM struct {
 //talk to docker daemon using docker Client and build the image
 func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	ipc := typeRegistry[id]
-	if ipc != nil {
-		return fmt.Errorf(fmt.Sprintf("%s already registered",id))
+	if ipc == nil {
+		return fmt.Errorf(fmt.Sprintf("%s not registered. Please register the system chaincode in inprocinstances.go",id))
 	}
-	//..........................................................HAAACK............
-	typeRegistry[id] = &inprocChaincode{id: id, chaincode: &tr.SystemTimerChaincode{}, running: false, args: args, env: env}
+
+	if ipc.chaincode == nil {
+		return fmt.Errorf(fmt.Sprintf("%s system chaincode does not contain chaincode instance",id))
+	}
+
+	ipc.args = args
+	ipc.env = env
+
+	//FUTURE ... here is where we might check code for safety
 	inprocLogger.Debug("registered : %s", id)
 
 	return nil
 }
 
-func (vm *InprocVM) launchInProc(ctxt context.Context, ipc *inprocChaincode, ccSupport ccintf.CCSupport) error {
+func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args []string, env []string, ccSupport ccintf.CCSupport) error {
 	peerRcvCCSend := make(chan *pb.ChaincodeMessage)
 	ccRcvPeerSend := make(chan *pb.ChaincodeMessage)
+	var err error
 	go func() {
-		inprocLogger.Debug("start chaincode %s", ipc.id)
-		fmt.Sprintf("start chaincode %s\n", ipc.id)
-		shim.StartInProc(ipc.env, ipc.args, ipc.chaincode,ccRcvPeerSend, peerRcvCCSend)
+		inprocLogger.Debug("start chaincode %s", id)
+		fmt.Sprintf("start chaincode %s\n", id)
+		if args == nil {
+			args = ipc.args
+		}
+		if env == nil {
+			env = ipc.env
+		}
+		err := shim.StartInProc(env, args, ipc.chaincode,ccRcvPeerSend, peerRcvCCSend)
+		if err != nil {
+			err = fmt.Errorf("start chaincode err %s", err)
+			inprocLogger.Error(fmt.Sprintf("%s", err))
+		}
 	}()
 	go func() {
 		inprocStream := newInProcStream(peerRcvCCSend, ccRcvPeerSend)
-		inprocLogger.Debug("start chaincode-support for  %s", ipc.id)
-		fmt.Sprintf("start chaincode-support for  %s\n", ipc.id)
+		inprocLogger.Debug("start chaincode-support for  %s", id)
+		fmt.Sprintf("start chaincode-support for  %s\n", id)
 		ccSupport.HandleChaincodeStream(ctxt, inprocStream)
-		inprocLogger.Debug("aft start chaincode-support for  %s", ipc.id)
+		inprocLogger.Debug("aft start chaincode-support for  %s", id)
 	}()
 
-	return nil
+	return err
 }
 
 func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
@@ -101,17 +107,13 @@ func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []
 		return fmt.Errorf(fmt.Sprintf("Removed container %s", id))
 	}
 	//TODO VALIDITY CHECKS ?
-	ipc.id = id
 	
-	inprocLogger.Debug("extracting handler for : %s", id)
-
         ccSupport, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.CCSupport)
 	if !ok || ccSupport == nil {
 		return fmt.Errorf("in-process communication generator not supplied")
 	}
-	inprocLogger.Debug("extracted handler for : %s", id)
-	fmt.Sprintf("extracted handler for : %s\n", id)
-	vm.launchInProc(ctxt, ipc, ccSupport)
+
+	 ipc.launchInProc(ctxt, id, args, env, ccSupport)
 
 	time.Sleep(2*time.Second)
 	return nil
@@ -127,4 +129,9 @@ func (vm *InprocVM) Stop(ctxt context.Context, id string, timeout uint, dontkill
 	}
 	//TODO 
 	return nil
+}
+
+//GetVMFromName ignores the peer and network name as it just needs to be unique in process
+func (vm *InprocVM) GetVMName(ccid ccintf.CCID) (string, error) {
+	return ccid.ID,nil
 }
