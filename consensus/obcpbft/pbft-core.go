@@ -256,7 +256,7 @@ func (instance *pbftCore) close() {
 	default:
 		close(instance.closed)
 	}
-	instance.newViewTimer.Stop()
+	instance.stopTimer()
 	instance.unlock()
 }
 
