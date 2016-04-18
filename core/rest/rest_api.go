@@ -21,6 +21,7 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"google/protobuf"
 	"io"
@@ -73,7 +74,37 @@ type rpcRequest struct {
 	Jsonrpc *string           `json:"jsonrpc,omitempty"`
 	Method  *string           `json:"method,omitempty"`
 	Params  *pb.ChaincodeSpec `json:"params,omitempty"`
-	ID      *int64            `json:"id,omitempty"`
+	ID      *rpcID            `json:"id,omitempty"`
+}
+
+type rpcID struct {
+	StringValue *string
+	IntValue    *int64
+}
+
+func (id *rpcID) UnmarshalJSON(b []byte) error {
+	var err error
+	s, n := "", int64(0)
+
+	if err = json.Unmarshal(b, &s); err == nil {
+		id.StringValue = &s
+		return nil
+	}
+	if err = json.Unmarshal(b, &n); err == nil {
+		id.IntValue = &n
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s into Go value of type int64 or string", string(b))
+}
+
+func (id *rpcID) MarshalJSON() ([]byte, error) {
+	if id.StringValue != nil {
+		return json.Marshal(id.StringValue)
+	}
+	if id.IntValue != nil {
+		return json.Marshal(id.IntValue)
+	}
+	return nil, errors.New("cannot marshal rpcID")
 }
 
 // rpcResponse defines the JSON RPC 2.0 response payload for the /chaincode endpoint.
@@ -81,7 +112,7 @@ type rpcResponse struct {
 	Jsonrpc string     `json:"jsonrpc,omitempty"`
 	Result  *rpcResult `json:"result,omitempty"`
 	Error   *rpcError  `json:"error,omitempty"`
-	ID      *int64     `json:"id"`
+	ID      *rpcID     `json:"id"`
 }
 
 // rpcResult defines the structure for an rpc sucess/error result message.
