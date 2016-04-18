@@ -25,9 +25,11 @@ general:
     # overall throughput in normal case operation.
     K: 10
 
-   # Affects the log size which is K * logmultiplier
-   # For high volume/high latency environments, a higher log size may increase throughput
-    logmultiplier: 2
+    # Affects the receive log size which is K * logmultiplier
+    # The primary will only send sequence numbers which fall within K * logmultiplier/2 of
+    # its high watermark, so this cannot be set to less than 2
+    # For high volume/high latency environments, a higher log size may increase throughput
+    logmultiplier: 4
 
     # How many requests should the primary send per pre-prepare when in "batch" mode
     batchsize: 2

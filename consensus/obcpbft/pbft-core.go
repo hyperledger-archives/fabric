@@ -169,7 +169,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	}
 
 	instance.K = uint64(config.GetInt("general.K"))
+
 	instance.logMultiplier = uint64(config.GetInt("general.logmultiplier"))
+	if instance.logMultiplier < 2 {
+		panic("Log multiplier must be greater than or equal to 2")
+	}
+	instance.L = instance.logMultiplier * instance.K // log size
 
 	instance.byzantine = config.GetBool("general.byzantine")
 
@@ -183,7 +188,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	}
 
 	instance.activeView = true
-	instance.L = instance.logMultiplier * instance.K // log size
 	instance.replicaCount = instance.N
 
 	logger.Info("PBFT type = %T", instance.consumer)
@@ -528,7 +532,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			}
 		}
 
-		if instance.inWV(instance.view, n) && !haveOther {
+		// If we are the primary, have not already processed this request, and are within the first half of the log
+		if instance.inWV(instance.view, n) && !haveOther && n <= instance.h+instance.L/2 {
 			logger.Debug("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
