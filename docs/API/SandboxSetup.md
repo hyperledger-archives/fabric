@@ -17,7 +17,7 @@ See the [logging control](../dev-setup/logging-control.md) reference for informa
 logging output from the `peer` and chaincodes.
 
 ###Security Setup (optional)
-From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
@@ -32,7 +32,7 @@ Running the above commands builds and runs the CA server with the default setup,
 ###Vagrant Terminal 1 (validating peer)
 **Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' before building the peer executable. Alternatively, you can enable security by running the peer with environment variable CORE_SECURITY_ENABLED=true. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.privacy</b> value to 'true' as well. Alternatively, you can enable privacy by running the peer with environment variable CORE_SECURITY_PRIVACY=true.
 
-From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
@@ -48,7 +48,7 @@ Alternatively, enable security and privacy on the peer with environment variable
 
 ###Vagrant Terminal 2 (chaincode)
 
-From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
@@ -77,7 +77,7 @@ Current security implementation assumes that end user authentication takes place
 
 With security enabled, the CLI commands and REST payloads must be modified to include the <b>enrollmentID</b> of a registered user who is logged in; otherwise an error will result. A registered user can be logged in through the CLI or the REST API by following the instructions below. To log in through the CLI, issue the following commands, where 'username' is one of the <b>enrollmentID</b> values listed in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file.
 
-From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
@@ -332,7 +332,7 @@ POST host:port/chaincode
 
 After the completion of a chaincode test with security enabled, remove the temporary files that were created by the CA server process. To remove the client enrollment certificate, enrollment key, transaction certificate chain, etc., run the following commands. Note, that you must run these commands if you want to register a user who has already been registered previously.
 
-From your command line terminal, move to the `/devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
     vagrant ssh
 
