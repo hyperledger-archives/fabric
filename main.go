@@ -381,7 +381,8 @@ func serve(args []string) error {
 
 	if viper.GetBool("peer.validator.enabled") {
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithHandler(helper.NewConsensusHandler)
+		peerServer, err = peer.NewPeerWithEngine(helper.GetEngine)
+		//speerServer, err = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
 		logger.Debug("Running as non-validating peer")
 		peerServer, err = peer.NewPeerWithHandler(peer.NewPeerHandler)
