@@ -281,8 +281,8 @@ func (net *testnet) clearMessages() {
 }
 
 func (net *testnet) stop() {
+	close(net.closed)
 	for _, ep := range net.endpoints {
 		ep.stop()
 	}
-	close(net.closed)
 }
