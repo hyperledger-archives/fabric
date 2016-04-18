@@ -23,6 +23,10 @@ security:
     # Can be 256 or 384
     # Must be the same as in core.yaml
     level: 256
+    
+    # Can be SHA2 or SHA3
+    # Must be the sam as in core.yaml
+    hashAlgorithm: SHA3
 
 # Enabling/disabling different logging levels of the CA.
 #

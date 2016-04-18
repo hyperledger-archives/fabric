@@ -58,6 +58,7 @@ type configuration struct {
 	tlscaPAddressProperty     string
 
 	securityLevel int
+	hashAlgorithm string
 
 	tlsServerName string
 
@@ -109,6 +110,14 @@ func (conf *configuration) init() error {
 		ovveride := viper.GetInt("security.level")
 		if ovveride != 0 {
 			conf.securityLevel = ovveride
+		}
+	}
+	
+	conf.hashAlgorithm = "SHA3"
+	if viper.IsSet("security.hashAlgorithm") {
+		ovveride := viper.GetString("security.hashAlgorithm")
+		if ovveride != "" {
+			conf.hashAlgorithm = ovveride
 		}
 	}
 
