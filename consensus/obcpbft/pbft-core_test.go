@@ -1070,7 +1070,7 @@ func TestReplicaCrash1(t *testing.T) {
 
 	mkreq := func(n int64) *Request {
 		txTime := &gp.Timestamp{Seconds: n, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, _ := proto.Marshal(tx)
 
 		return &Request{
@@ -1136,7 +1136,7 @@ func TestReplicaCrash2(t *testing.T) {
 
 	mkreq := func(n int64) *Request {
 		txTime := &gp.Timestamp{Seconds: n, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, _ := proto.Marshal(tx)
 
 		return &Request{
