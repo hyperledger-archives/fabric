@@ -33,9 +33,9 @@ import (
 
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
-	Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error
-	Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error
+	Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
+	Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error
+	Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, dontkill bool, dontremove bool) error
 	GetVMName(ccID ccintf.CCID) (string, error)
 }
 
@@ -149,13 +149,7 @@ type CreateImageReq struct {
 func (bp CreateImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
 
-	id,err := v.GetVMName(bp.getCCID())
-
-	if err != nil {
-		return VMCResp{Err: err}
-	}
-
-	if err = v.Deploy(ctxt, id, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
+	if err := v.Deploy(ctxt, bp.CCID, bp.Args, bp.Env, bp.AttachStdin, bp.AttachStdout, bp.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -180,13 +174,7 @@ type StartImageReq struct {
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
 
-	id,err := v.GetVMName(si.getCCID())
-
-	if err != nil {
-		return VMCResp{Err: err}
-	}
-
-	if err = v.Start(ctxt, id, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
+	if err := v.Start(ctxt, si.CCID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -212,13 +200,7 @@ type StopImageReq struct {
 func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
 
-	id,err := v.GetVMName(si.getCCID())
-
-	if err != nil {
-		return VMCResp{Err: err}
-	}
-
-	if err = v.Stop(ctxt, id, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
+	if err := v.Stop(ctxt, si.CCID, si.Timeout, si.Dontkill, si.Dontremove); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}

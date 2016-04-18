@@ -290,9 +290,9 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 
 	chaincodeLog.Debug("start container: %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 
-	vmtype,_ := chaincodeSupport.getVMType(cds)
+	vmtype,_ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
 
-	sir := container.StartImageReq{ CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Env: env}
+	sir := container.StartImageReq{ CCID: ccintf.CCID{cds.ChaincodeSpec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Env: env}
 
 	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), chaincodeSupport)
 
@@ -319,7 +319,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.StopChaincode(ctxt, cID)
+		errIgnore := chaincodeSupport.StopChaincode(ctxt, cds.ChaincodeSpec)
 		if errIgnore != nil {
 			chaincodeLog.Debug("error on stop %s(%s)", errIgnore, err)
 		}
@@ -327,16 +327,18 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	return alreadyRunning, err
 }
 
-func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, cID *pb.ChaincodeID) error {
-	chaincode := cID.Name
+func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, spec *pb.ChaincodeSpec) error {
+	chaincode := spec.ChaincodeID.Name
 	if chaincode == "" {
 		return fmt.Errorf("chaincode name not set")
 	}
 
 	//stop the chaincode
-	sir := container.StopImageReq{CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Timeout: 0}
+	sir := container.StopImageReq{CCID: ccintf.CCID{spec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Timeout: 0}
 
-	_, err := container.VMCProcess(context, "Docker", sir)
+	vmtype,_ := chaincodeSupport.getVMType(spec)
+
+	_, err := container.VMCProcess(context, vmtype, sir)
 	if err != nil {
 		err = fmt.Errorf("Error stopping container: %s", err)
 		//but proceed to cleanup
@@ -468,7 +470,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
-			errIgnore := chaincodeSupport.StopChaincode(context, cID)
+			errIgnore := chaincodeSupport.StopChaincode(context, cds.ChaincodeSpec)
 			if errIgnore != nil {
 				chaincodeLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}
@@ -488,8 +490,8 @@ func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
 
 //getVMType - just returns a string for now. Another possibility is to use a factory method to 
 //return a VM executor
-func (chaincodeSupport *ChaincodeSupport) getVMType (cds *pb.ChaincodeDeploymentSpec) (string,error) {
-	if cds.ChaincodeSpec.Type == pb.ChaincodeSpec_SYSTEM {
+func (chaincodeSupport *ChaincodeSupport) getVMType (spec *pb.ChaincodeSpec) (string,error) {
+	if spec.Type == pb.ChaincodeSpec_SYSTEM {
 		return container.SYSTEM, nil
 	}
 	return container.DOCKER, nil
@@ -529,9 +531,9 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	}
 
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	cir := &container.CreateImageReq{CCID: ccintf.CCID{chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Reader: targz, Env: envs}
+	cir := &container.CreateImageReq{CCID: ccintf.CCID{cds.ChaincodeSpec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Reader: targz, Env: envs}
 
-	vmtype,_ := chaincodeSupport.getVMType(cds)
+	vmtype,_ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
 
 	chaincodeLog.Debug("deploying chaincode %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 

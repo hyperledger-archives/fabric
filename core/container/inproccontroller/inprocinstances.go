@@ -29,5 +29,5 @@ var (
 
 func init() {
 	typeRegistry = make(map[string]*inprocContainer)
-	typeRegistry["system_timer"] = &inprocContainer{ chaincode: &tr.SystemTimerChaincode{} }
+	typeRegistry["github.com/hyperledger/fabric/core/system_chaincode/timer"] = &inprocContainer{ chaincode: &tr.SystemTimerChaincode{} }
 }

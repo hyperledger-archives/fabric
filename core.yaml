@@ -316,12 +316,12 @@ ledger:
         genesisBlock:
 
             # Deploy chaincodes into the genesis block
-            chaincodes:
-                system_timer:
-                    path: github.com/hyperledger/fabric/core/system_chaincode/timer
-                    constructor:
-                        func:
-                        args:
+            #chaincodes:
+            #    system_timer:
+            #        path: github.com/hyperledger/fabric/core/system_chaincode/timer
+            #        constructor:
+            #            func:
+            #            args:
 
     # Setting the deploy-system-chaincode property to false will prevent the
     # deploying of system chaincode at genesis time.

@@ -71,7 +71,7 @@ func MakeGenesis() error {
 		allowDeployValidityPeriod := false
 		
 		if(deploySystemChaincodeEnabled() && allowDeployValidityPeriod){
-			vpTransaction, deployErr :=  deployUpdateValidityPeriodChaincode()
+			vpTransaction, deployErr :=  deployUpdateValidityPeriodChaincode(genesisBlockExists)
 			
 			if deployErr != nil {
 				genesisLogger.Error("Error deploying validity period system chaincode for genesis block.", deployErr)
@@ -150,7 +150,7 @@ func MakeGenesis() error {
 					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_SYSTEM, ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
 				}
 	
-				transaction, _, deployErr := DeployLocal(context.Background(), &spec)
+				transaction, _, deployErr := DeployLocal(context.Background(), &spec, genesisBlockExists)
 				if deployErr != nil {
 					genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
 					makeGenesisError = deployErr
@@ -190,7 +190,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Transaction, []byte, error) {
+func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool) (*protos.Transaction, []byte, error) {
 	// First build and get the deployment spec
 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
@@ -199,10 +199,28 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Trans
 		return nil, nil, err
 	}
 
-	transaction, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	var transaction *protos.Transaction
+	if gbexists {
+		ledger, err := ledger.GetLedger()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to get handle to ledger (%s)", err)
+		}
+		transaction, err = ledger.GetTransactionByUUID(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		if err != nil {
+			genesisLogger.Warning(fmt.Sprintf("cannot get deployment transaction for %s - %s", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name, err))
+			transaction = nil
+		} else {
+			genesisLogger.Debug("deployment transaction for %s exists", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		}
 	}
+
+	if transaction == nil {
+		transaction, err = protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		}
+	}
+
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	//ctx = context.WithValue(ctx, "security", secCxt)
@@ -220,7 +238,7 @@ func deploySystemChaincodeEnabled() bool {
 	return true
 } 
 
-func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
+func deployUpdateValidityPeriodChaincode(gbexists bool) (*protos.Transaction, error) {
 	//TODO It should be configurable, not hardcoded
 	vpChaincodePath := "github.com/hyperledger/fabric/core/system_chaincode/validity_period_update"
 	vpFunction := "init"
@@ -242,7 +260,7 @@ func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
 
 	validityPeriodSpec.SecureContext = string(vpToken)
 
-	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec)
+	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec, gbexists)
 
 	if deployErr != nil {
 		genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)

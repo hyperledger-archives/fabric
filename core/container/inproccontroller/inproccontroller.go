@@ -22,7 +22,6 @@ package inproccontroller
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -37,44 +36,64 @@ type inprocContainer struct {
 	running		bool
 	args		[]string
 	env		[]string
+	stopChan	chan struct{}
 }
 
-var inprocLogger = logging.MustGetLogger("inproccontroller")
+var (
+	inprocLogger = logging.MustGetLogger("inproccontroller")
+	instRegistry = make(map[string]*inprocContainer)
+)
 
 //InprocVM is a vm. It is identified by a executable name
 type InprocVM struct {
 	id string
 }
 
+func (vm *InprocVM) getInstance(ctxt context.Context, ipctemplate *inprocContainer, ccid ccintf.CCID, args []string, env []string) (*inprocContainer,error) {
+	ipc := instRegistry[ccid.ChaincodeSpec.ChaincodeID.Name]
+	if ipc != nil {
+		inprocLogger.Warning(fmt.Sprintf("chaincode instance exists for %s", ccid.ChaincodeSpec.ChaincodeID.Name))
+		return ipc, nil
+	}
+	ipc = &inprocContainer{ args: args, env: env, chaincode: ipctemplate.chaincode, stopChan: make(chan struct{}) }
+	instRegistry[ccid.ChaincodeSpec.ChaincodeID.Name] = ipc
+	inprocLogger.Debug("chaincode instance created for %s", ccid.ChaincodeSpec.ChaincodeID.Name)
+	return ipc, nil
+}
+
+
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *InprocVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
-	ipc := typeRegistry[id]
-	if ipc == nil {
-		return fmt.Errorf(fmt.Sprintf("%s not registered. Please register the system chaincode in inprocinstances.go",id))
+func (vm *InprocVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+	path := ccid.ChaincodeSpec.ChaincodeID.Path
+
+	ipctemplate := typeRegistry[path]
+	if ipctemplate == nil {
+		return fmt.Errorf(fmt.Sprintf("%s not registered. Please register the system chaincode in inprocinstances.go",path))
 	}
 
-	if ipc.chaincode == nil {
-		return fmt.Errorf(fmt.Sprintf("%s system chaincode does not contain chaincode instance",id))
+	if ipctemplate.chaincode == nil {
+		return fmt.Errorf(fmt.Sprintf("%s system chaincode does not contain chaincode instance",path))
 	}
 
-	ipc.args = args
-	ipc.env = env
+	_,err := vm.getInstance(ctxt, ipctemplate, ccid, args, env)
 
 	//FUTURE ... here is where we might check code for safety
-	inprocLogger.Debug("registered : %s", id)
+	inprocLogger.Debug("registered : %s", path)
 
-	return nil
+	return err
 }
 
 func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args []string, env []string, ccSupport ccintf.CCSupport) error {
 	peerRcvCCSend := make(chan *pb.ChaincodeMessage)
 	ccRcvPeerSend := make(chan *pb.ChaincodeMessage)
 	var err error
+	ccchan := make(chan struct{}, 1)
+	ccsupportchan := make(chan struct{}, 1)
 	go func() {
-		inprocLogger.Debug("start chaincode %s", id)
-		fmt.Sprintf("start chaincode %s\n", id)
+		defer close(ccchan)
+		inprocLogger.Debug("chaincode started for %s", id)
 		if args == nil {
 			args = ipc.args
 		}
@@ -83,29 +102,61 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 		}
 		err := shim.StartInProc(env, args, ipc.chaincode,ccRcvPeerSend, peerRcvCCSend)
 		if err != nil {
-			err = fmt.Errorf("start chaincode err %s", err)
+			err = fmt.Errorf("chaincode-support ended with err: %s", err)
 			inprocLogger.Error(fmt.Sprintf("%s", err))
 		}
-	}()
-	go func() {
-		inprocStream := newInProcStream(peerRcvCCSend, ccRcvPeerSend)
-		inprocLogger.Debug("start chaincode-support for  %s", id)
-		fmt.Sprintf("start chaincode-support for  %s\n", id)
-		ccSupport.HandleChaincodeStream(ctxt, inprocStream)
-		inprocLogger.Debug("aft start chaincode-support for  %s", id)
+		inprocLogger.Debug("chaincode ended with for  %s with err: %s", id, err)
 	}()
 
+	go func() {
+		defer close(ccsupportchan)
+		inprocStream := newInProcStream(peerRcvCCSend, ccRcvPeerSend)
+		inprocLogger.Debug("chaincode-support started for  %s", id)
+		err := ccSupport.HandleChaincodeStream(ctxt, inprocStream)
+		if err != nil {
+			err = fmt.Errorf("chaincode ended with err: %s", err)
+			inprocLogger.Error(fmt.Sprintf("%s", err))
+		}
+		inprocLogger.Debug("chaincode-support ended with for  %s with err: %s", id, err)
+	}()
+
+	select {
+	case <- ccchan :
+		close(peerRcvCCSend)
+		inprocLogger.Debug("chaincode %s quit", id)
+	case <- ccsupportchan :
+		close(ccRcvPeerSend)
+		inprocLogger.Debug("chaincode support %s quit", id)
+	case <- ipc.stopChan :
+		close(ccRcvPeerSend)
+		close(peerRcvCCSend)
+		inprocLogger.Debug("chaincode %s stopped", id)
+	}
+
+	
 	return err
 }
 
-func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool) error {
-	ipc := typeRegistry[id]
-	if ipc == nil {
-		return fmt.Errorf(fmt.Sprintf("%s not registered",id))
+
+func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error {
+	path := ccid.ChaincodeSpec.ChaincodeID.Path
+
+	ipctemplate := typeRegistry[path]
+
+	if ipctemplate == nil {
+		return fmt.Errorf(fmt.Sprintf("%s not registered",path))
 	}
+
+	ipc,err := vm.getInstance(ctxt, ipctemplate, ccid, args, env)
+
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("could not create instance for %s", ccid.ChaincodeSpec.ChaincodeID.Name))
+	}
+
 	if ipc.running {
-		return fmt.Errorf(fmt.Sprintf("Removed container %s", id))
+		return fmt.Errorf(fmt.Sprintf("chaincode running %s", path))
 	}
+
 	//TODO VALIDITY CHECKS ?
 	
         ccSupport, ok := ctxt.Value(ccintf.GetCCHandlerKey()).(ccintf.CCSupport)
@@ -113,25 +164,46 @@ func (vm *InprocVM) Start(ctxt context.Context, id string, args []string, env []
 		return fmt.Errorf("in-process communication generator not supplied")
 	}
 
-	 ipc.launchInProc(ctxt, id, args, env, ccSupport)
+	ipc.running = true
 
-	time.Sleep(2*time.Second)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				inprocLogger.Critical("caught panic from chaincode  %s", ccid.ChaincodeSpec.ChaincodeID.Name)
+			}
+		}()
+		ipc.launchInProc(ctxt, ccid.ChaincodeSpec.ChaincodeID.Name, args, env, ccSupport)
+	}()
+
 	return nil
 }
 
-func (vm *InprocVM) Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
-	ipc := typeRegistry[id]
+func (vm *InprocVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, dontkill bool, dontremove bool) error {
+	path := ccid.ChaincodeSpec.ChaincodeID.Path
+
+	ipctemplate := typeRegistry[path]
+	if ipctemplate == nil {
+		return fmt.Errorf("%s not registered", path)
+	}
+
+	ipc := instRegistry[ccid.ChaincodeSpec.ChaincodeID.Name]
+
 	if ipc == nil {
-		return fmt.Errorf("%s not registered", id)
+		return fmt.Errorf("%s not found", ccid.ChaincodeSpec.ChaincodeID.Name)
 	}
+
 	if !ipc.running {
-		return fmt.Errorf("%s not running", id)
+		return fmt.Errorf("%s not running", ccid.ChaincodeSpec.ChaincodeID.Name)
 	}
-	//TODO 
+
+	ipc.stopChan<- struct{}{}
+
+	delete(instRegistry, ccid.ChaincodeSpec.ChaincodeID.Name)
+	//TODO stop 
 	return nil
 }
 
 //GetVMFromName ignores the peer and network name as it just needs to be unique in process
 func (vm *InprocVM) GetVMName(ccid ccintf.CCID) (string, error) {
-	return ccid.ID,nil
+	return ccid.ChaincodeSpec.ChaincodeID.Name,nil
 }

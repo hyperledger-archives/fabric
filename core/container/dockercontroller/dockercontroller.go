@@ -53,7 +53,8 @@ func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client,
 //for docker inputbuf is tar reader ready for use by docker.Client
 //the stream from end client to peer could directly be this tar stream
 //talk to docker daemon using docker Client and build the image
-func (vm *DockerVM) Deploy(ctxt context.Context, id string, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+func (vm *DockerVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+	id,_ := vm.GetVMName(ccid)
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         id,
@@ -75,7 +76,8 @@ func (vm *DockerVM) Deploy(ctxt context.Context, id string, args []string, env [
 	return nil
 }
 
-func (vm *DockerVM) Start(ctxt context.Context, imageID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error {
+	imageID,_ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
 		dockerLogger.Debug("start - cannot create client %s", err)
@@ -104,7 +106,8 @@ func (vm *DockerVM) Start(ctxt context.Context, imageID string, args []string, e
 	return nil
 }
 
-func (vm *DockerVM) Stop(ctxt context.Context, id string, timeout uint, dontkill bool, dontremove bool) error {
+func (vm *DockerVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, dontkill bool, dontremove bool) error {
+	id,_ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
 		dockerLogger.Debug("start - cannot create client %s", err)
@@ -147,10 +150,10 @@ func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 //keep image name's unique in a single host, multi-peer environment (such as a development environment)
 func (vm *DockerVM) GetVMName(ccid ccintf.CCID) (string, error) {
 	if ccid.NetworkID != "" {
-		return fmt.Sprintf("%s-%s-%s", ccid.NetworkID, ccid.PeerID, ccid.ID), nil
+		return fmt.Sprintf("%s-%s-%s", ccid.NetworkID, ccid.PeerID, ccid.ChaincodeSpec.ChaincodeID.Name), nil
 	} else if ccid.PeerID != "" {
-		return fmt.Sprintf("%s-%s", ccid.PeerID, ccid.ID), nil
+		return fmt.Sprintf("%s-%s", ccid.PeerID, ccid.ChaincodeSpec.ChaincodeID.Name), nil
 	} else {
-		return ccid.ID, nil
+		return ccid.ChaincodeSpec.ChaincodeID.Name, nil
 	}
 }

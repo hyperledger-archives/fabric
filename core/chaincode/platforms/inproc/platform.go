@@ -41,7 +41,13 @@ func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	return nil
 }
 
+// WritePackage only computes the hash for the system chaincode. tw is not used
 func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
-	//nothing to do
+	var err error
+	spec.ChaincodeID.Name, err = generateHashcode(spec)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -44,7 +44,7 @@ func GetCCHandlerKey() string {
 
 //CCID encapsulates chaincode ID
 type CCID struct {
-	ID           string
-	NetworkID    string
-	PeerID       string
+	ChaincodeSpec *pb.ChaincodeSpec
+	NetworkID     string
+	PeerID        string
 }
