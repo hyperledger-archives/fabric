@@ -68,9 +68,12 @@ func TestExecutorNullRequest(t *testing.T) {
 		startSeqNo = seqNo
 		startID = id
 	}
+
+	done := make(chan struct{})
 	obcex.orderer.(*omniProto).CheckpointImpl = func(seqNo uint64, id []byte) {
 		endSeqNo = seqNo
 		endID = id
+		close(done)
 	}
 
 	obcex.Execute(1, nil, &ExecutionInfo{Null: true, Checkpoint: true})
@@ -80,6 +83,8 @@ func TestExecutorNullRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatalf("Executor did not become idle within 1 second")
 	}
+
+	<-done
 
 	if startSeqNo+1 != endSeqNo {
 		t.Fatalf("Executor did not increment seqNo with Null request %d to %d", startSeqNo, endSeqNo)
