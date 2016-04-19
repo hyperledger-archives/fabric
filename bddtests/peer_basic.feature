@@ -759,7 +759,7 @@ Feature: lanching 3 peers
           |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
 
 
-  @doNotDecompose
+  #@doNotDecompose
   @issue_1001
   Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #1001 (Channel instead of Chat stream for transcation ingestion)
 

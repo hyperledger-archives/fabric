@@ -729,8 +729,8 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response 
 	peerAddress := getValidatorStreamAddress()
 	var response *pb.Response
 	if viper.GetBool("peer.validator.enabled") { // send gRPC request to yourself
-		response = sendTransactionsToThisPeer(peerAddress, transaction)
-
+		//response = sendTransactionsToThisPeer(peerAddress, transaction)
+		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
 		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
