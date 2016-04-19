@@ -43,6 +43,28 @@ function runTest {
 KeyPrefix=key_
 MaxKeySuffix=1000000
 
+export LEDGER_STATE_DATASTRUCTURE_NAME="buckettree"
+
+# Before performing any of the following tests, manually delete the following folders from previous runs (if any)
+# ~/obc_perf/db (Contains the db from the test run)
+# ~/obc_perf/output/ledger (Contains the output from the test run)
+
+##################     Measure the effect of bucket-cache START    ############################
+# For enabling cache -
+# 1) Change the value of 0 of 'bucketCacheSize' in test.yaml to 100
+# 2) Comment the following three lines and uncomment the next three lines
+
+TestNumber=1;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
+TestNumber=2;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
+TestNumber=3;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=4;NumWritesToLedger=1;runTest
+
+#TestNumber=4;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
+#TestNumber=5;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
+#TestNumber=6;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=4;NumWritesToLedger=1;runTest
+##################     Measure the effect of bucket-cache END    ############################
+
+: '
+################### Compare with raw state implementation  START   ############################
 CLEAR_OS_CACHE=false
 export LEDGER_STATE_DATASTRUCTURE_NAME="raw"
 TestNumber=1;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
@@ -64,3 +86,5 @@ export LEDGER_STATE_DATASTRUCTURE_NAME="buckettree"
 TestNumber=10;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=1;runTest
 TestNumber=11;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=1;NumWritesToLedger=4;runTest
 TestNumber=12;KVSize=100;BatchSize=100;NumBatches=1000;NumReadsFromLedger=4;NumWritesToLedger=1;runTest
+################### Compare with raw state implementation  END   ############################
+'

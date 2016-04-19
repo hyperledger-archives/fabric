@@ -33,9 +33,9 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -50,14 +50,14 @@ var handler *Handler
 
 // Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
- 	// Init method will be called during deployment
- 	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- 	// Invoke will be called for every transaction
- 	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- 	// Query is to be used for read-only access to chaincode state
- 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- }
- 
+	// Init method will be called during deployment
+	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Invoke will be called for every transaction
+	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Query is to be used for read-only access to chaincode state
+	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+}
+
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
 	UUID            string
@@ -489,6 +489,26 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 	keyString, err := buildKeyString(tableName, key)
 	if err != nil {
 		return nil, err
+	}
+
+	table, err := stub.getTable(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Need to check for special case where table has a single column
+	if len(table.GetColumnDefinitions()) < 2 && len(key) > 0 {
+
+		row, err := stub.GetRow(tableName, key)
+		if err != nil {
+			return nil, err
+		}
+		rows := make(chan Row)
+		go func() {
+			rows <- row
+			close(rows)
+		}()
+		return rows, nil
 	}
 
 	iter, err := stub.RangeQueryState(keyString+"1", keyString+":")
