@@ -128,6 +128,24 @@ CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go instal
 up at the IP address currently assumed by the test environment
 (`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
 
+## Quick Start with Docker <a name="docker"></a>
+This way will give you a quick start with docker based hyperledger cluster (4 nodes), without any local configuration or building. You only need [Docker](https://docs.docker.com/engine/installation/) and [Docker-compose](https://docs.docker.com/compose/install/) at the local environment.  The instructions are below.
+
+- First, pull required docker images and compose files. You can also build your own `openblockchain/baseimage:latest` image following [devnet-setup.md](docs/dev-setup/devnet-setup.md#setting-up-docker-image).
+```sh
+$ docker pull yeasy/hyperledger:latest
+$ docker tag yeasy/hyperledger:latest openblockchain/baseimage:latest
+$ docker pull yeasy/hyperledger-peer:latest
+$ git clone https://github.com/yeasy/docker-compose-files.git
+```
+
+- Then you can start a 4 nodes hyperledger cluster with
+```
+$ cd docker-compose-files/hyperledger
+$ docker-compose up
+```
+
+After the cluster is synced, you can validate by deploying, invoking or querying chaincode from the container or from the host.
 
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
