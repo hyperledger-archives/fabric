@@ -759,6 +759,42 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	}
 }
 
+// Test for issue #1119
+func TestSendQueueThrottling(t *testing.T) {
+	prePreparesSent := 0
+
+	mock := &omniProto{}
+	instance := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	instance.consumer = &omniProto{
+		validateImpl: func(p []byte) error { return nil },
+		broadcastImpl: func(p []byte) {
+			prePreparesSent++
+		},
+	}
+	defer instance.close()
+
+	i := 0
+	sendReq := func() {
+		i++
+		instance.recvRequest(&Request{
+			Timestamp: &gp.Timestamp{Seconds: int64(i), Nanos: 0},
+			Payload:   []byte(fmt.Sprintf("%d", i)),
+		})
+	}
+
+	for j := 0; j < 4; j++ {
+		sendReq()
+	}
+
+	expected := 2
+	if prePreparesSent != expected {
+		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
+	}
+}
+
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
