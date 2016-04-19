@@ -9,7 +9,6 @@ services:
 go:
 - 1.6
 env:
-- GO15VENDOREXPERIMENT=1
 before_install:
 - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
 - export GIT_USER="$TRAVIS_REPO_SLUG"
