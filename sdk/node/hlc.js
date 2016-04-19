@@ -495,7 +495,7 @@ Member.prototype.toString = function() {
 };
 
 /**
- * A transaction emits events 'submitted', 'complete', and 'error'.
+ * A transaction context emits events 'submitted', 'complete', and 'error'.
  */
 function TransactionContext(member,tcert) {
 	this.member = member;
