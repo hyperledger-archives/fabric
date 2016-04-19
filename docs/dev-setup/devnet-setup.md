@@ -75,7 +75,7 @@ We deploy chaincode to the network with CLI. We can use the sample chaincode to 
 Now deploy the chaincode to the network. We can deploy to any validating peer by specifying CORE_PEER_ADDRESS:
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
