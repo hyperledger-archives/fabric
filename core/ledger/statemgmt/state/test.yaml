@@ -18,5 +18,5 @@ ledger:
     dataStructure:
       name: buckettree
       configs:
-      numBuckets: 10009
-      maxGroupingAtEachLevel: 10
+        numBuckets: 10009
+        maxGroupingAtEachLevel: 10
