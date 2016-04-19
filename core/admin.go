@@ -21,7 +21,7 @@ package core
 
 import (
 	"runtime"
-	"time"
+	"os"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -59,15 +59,7 @@ func worker(id int, die chan struct{}) {
 
 // GetStatus reports the status of the server
 func (*ServerAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
-	status := &pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN}
-	die := make(chan struct{})
-	log.Debug("Creating %d workers", viper.GetInt("peer.workers"))
-	for i := 0; i < viper.GetInt("peer.workers"); i++ {
-		go worker(i, die)
-	}
-	runtime.Gosched()
-	<-time.After(1 * time.Millisecond)
-	close(die)
+	status := &pb.ServerStatus{Status: pb.ServerStatus_STARTED}
 	log.Debug("returning status: %s", status)
 	return status, nil
 }
@@ -83,5 +75,11 @@ func (*ServerAdmin) StartServer(context.Context, *google_protobuf.Empty) (*pb.Se
 func (*ServerAdmin) StopServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STOPPED}
 	log.Debug("returning status: %s", status)
+
+
+	pidFile := viper.GetString("peer.fileSystemPath") + "/peer.pid"
+	log.Debug("Remove pid file  %s", pidFile)
+	os.Remove(pidFile)
+	defer os.Exit(0)
 	return status, nil
 }
