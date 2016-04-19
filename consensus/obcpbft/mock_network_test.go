@@ -207,10 +207,12 @@ func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 }
 
 func (net *testnet) process() error {
+	retry := true
 	for {
 		net.debugMsg("TEST: process looping\n")
 		select {
 		case msg, ok := <-net.msgs:
+			retry = true
 			net.debugMsg("TEST: processing message without testing for idle\n")
 			if !net.processMessageFromChannel(msg, ok) {
 				return nil
@@ -218,6 +220,10 @@ func (net *testnet) process() error {
 		case <-net.closed:
 			return nil
 		default:
+			if !retry {
+				return nil
+			}
+
 			var busy []int
 			for i, ep := range net.endpoints {
 				if ep.isBusy() {
@@ -225,15 +231,18 @@ func (net *testnet) process() error {
 				}
 			}
 			if len(busy) == 0 {
-				return nil
+				retry = false
+				continue
 			}
 
 			net.debugMsg("TEST: some replicas are busy, waiting: %v\n", busy)
 			select {
 			case msg, ok := <-net.msgs:
+				retry = true
 				if !net.processMessageFromChannel(msg, ok) {
 					return nil
 				}
+				continue
 			case <-time.After(100 * time.Millisecond):
 				continue
 			}
