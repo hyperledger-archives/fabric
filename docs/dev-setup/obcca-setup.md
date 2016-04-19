@@ -18,7 +18,7 @@ In addition to enrollment and transaction certificates, users of the blockchain 
 
 ## Configuration
 
-All CA services are provided by a single process, which can be configured to some extent by setting parameters in the CA configuration file obcca.yaml, which is located in root of the same directory as the CA binary.  More specifically, the following parameters can be set:
+All CA services are provided by a single process, which can be configured to some extent by setting parameters in the CA configuration file membersrvc.yaml, which is located in root of the same directory as the CA binary.  More specifically, the following parameters can be set:
 
 - `server.gomaxprocs`: limits the number of operating system threads used by the CA.
 - `server.rootpath`: the root path of the directory where the CA stores its state.
@@ -60,12 +60,14 @@ When the CA is started for the first time, it will generate all of its required 
 
 ## Build and Run
 
-The CA can be built with the following command executed in the `obc-ca` directory:
+The CA can be built with the following command executed in the `membersrvc` directory:
 
-	go build server.go
+    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
+    go build
 
 The CA can be started with the following command executed in the directory where the CA binary is located:
 
-	server
+    ./membersrvc
+
 	
-The CA looks for an `obcca.yaml` configuration file in the same location as the server binary.  If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
+The CA looks for an `membersrvc.yaml` configuration file in the same location as the server binary.  If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
