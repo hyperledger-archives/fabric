@@ -242,6 +242,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 
 	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
+		logger.Info("could not find consistent checkpoint: %+v", instance.viewChangeStore)
 		return
 	}
 
