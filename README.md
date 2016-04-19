@@ -1,3 +1,6 @@
+## Incubation Notice
+This is a Hyperledger project in Incubation. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what Incubation entails can be found in the Hyperledger Project Lifecycle [document](https://goo.gl/4edNRc).
+
 ## Overview
 This project contains the core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications.
 
