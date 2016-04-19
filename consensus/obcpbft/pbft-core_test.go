@@ -594,22 +594,6 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	}
 
 	for _, pep := range net.pbftEndpoints {
-		if pep.sc.executions > 0 {
-			t.Errorf("Expected no execution")
-			continue
-		}
-	}
-
-	for _, pep := range net.pbftEndpoints {
-		pep.pbft.sendViewChange()
-	}
-
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
-
-	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions < 1 {
 			t.Errorf("Expected execution")
 			continue
