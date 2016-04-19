@@ -60,14 +60,6 @@ func worker(id int, die chan struct{}) {
 // GetStatus reports the status of the server
 func (*ServerAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STARTED}
-	//die := make(chan struct{})
-	//log.Debug("Creating %d workers", viper.GetInt("peer.workers"))
-	//for i := 0; i < viper.GetInt("peer.workers"); i++ {
-	//	go worker(i, die)
-	//}
-	//runtime.Gosched()
-	//<-time.After(1 * time.Millisecond)
-	//close(die)
 	log.Debug("returning status: %s", status)
 	return status, nil
 }
