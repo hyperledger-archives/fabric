@@ -25,9 +25,21 @@ import (
 
 var (
 	defaultHash func() hash.Hash
+	hashAlgorithm string
+	hashLength int
 )
 
 // GetDefaultHash returns the default hash function used by the crypto layer
 func GetDefaultHash() func() hash.Hash {
 	return defaultHash
+}
+
+// GetHashAlgorithm returns the defualt hash algorithm used.
+func GetHashAlgorithm() string {
+	return hashAlgorithm
+}
+
+// GetHashLength returns the default hash length used.
+func GetHashLength() int {
+	return hashLength
 }

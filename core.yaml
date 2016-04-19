@@ -389,7 +389,11 @@ security:
     # Can be 256 or 384. If you change here, you have to change also
     # the same property in membersrvc.yaml to the same value
     level: 256
-
+ 
+    # Can be SHA2 or SHA3. If you change here, you have to change also
+    # the same property in membersrvc.yaml to the same value
+    hashAlgorithm: SHA3
+    
     # TCerts related configuration
     tcert:
       batch:
