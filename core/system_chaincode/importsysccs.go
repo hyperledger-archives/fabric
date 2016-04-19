@@ -17,17 +17,16 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package inproccontroller
+package system_chaincode
 
 import (
-	tr "github.com/hyperledger/fabric/core/system_chaincode/timer"
+	//import system chain codes here
+	"github.com/hyperledger/fabric/core/system_chaincode/api"
+	"github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
 )
 
-var (
-	typeRegistry map[string] *inprocContainer
-)
-
-func init() {
-	typeRegistry = make(map[string]*inprocContainer)
-	typeRegistry["github.com/hyperledger/fabric/core/system_chaincode/timer"] = &inprocContainer{ chaincode: &tr.SystemTimerChaincode{} }
+//RegisterSysCCs is the hook for system chaincodes where system chaincodes are registered with the fabric
+//note the chaincode must still be deployed and launched like a user chaincode will be
+func RegisterSysCCs() {
+	api.RegisterSysCC("github.com/hyperledger/fabric/core/system_chaincode/sample_syscc", &sample_syscc.SampleSysCC{})
 }

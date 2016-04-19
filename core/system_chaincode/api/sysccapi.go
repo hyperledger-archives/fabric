@@ -17,26 +17,27 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package timer
+package api
 
 import (
+	"fmt"
+	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	inproc "github.com/hyperledger/fabric/core/container/inproccontroller"
 )
 
-// SystemTimerChaincode example simple Chaincode implementation
-type SystemTimerChaincode struct {
-}
+var sysccLogger = logging.MustGetLogger("sysccapi")
 
-func (t *SystemTimerChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, nil
-}
-
-// Transaction makes payment of X units from A to B
-func (t *SystemTimerChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, nil
-}
-
-// Query callback representing the query of a chaincode
-func (t *SystemTimerChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, nil
+func RegisterSysCC(path string, o interface{}) error {
+	syscc := o.(shim.Chaincode)
+	if syscc == nil {
+		sysccLogger.Warning(fmt.Sprintf("invalid chaincode %v", o))
+		return fmt.Errorf(fmt.Sprintf("invalid chaincode %v", o))
+	}
+	err := inproc.Register(path, syscc)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("could not register (%s,%v): %s", path, syscc, err))
+	}
+	sysccLogger.Debug("system chaincode %s registered", path)
+	return err
 }

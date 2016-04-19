@@ -41,8 +41,20 @@ type inprocContainer struct {
 
 var (
 	inprocLogger = logging.MustGetLogger("inproccontroller")
+	typeRegistry = make(map[string]*inprocContainer)
 	instRegistry = make(map[string]*inprocContainer)
 )
+
+//Register registers system chaincode with given path. The deploy should be called to initialize
+func Register(path string, cc shim.Chaincode) error {
+	tmp := typeRegistry[path]
+	if tmp != nil {
+		return fmt.Errorf(fmt.Sprintf("%s is registered",path))
+	}
+
+	typeRegistry[path] = &inprocContainer{ chaincode: cc }
+	return nil
+}
 
 //InprocVM is a vm. It is identified by a executable name
 type InprocVM struct {

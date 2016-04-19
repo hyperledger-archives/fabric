@@ -318,7 +318,7 @@ ledger:
             # Deploy chaincodes into the genesis block
             #chaincodes:
             #    system_timer:
-            #        path: github.com/hyperledger/fabric/core/system_chaincode/timer
+            #        path: github.com/hyperledger/fabric/core/system_chaincode/<cc folder>
             #        constructor:
             #            func:
             #            args:
