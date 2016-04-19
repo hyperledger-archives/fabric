@@ -1,5 +1,5 @@
 /**
- * Temporary tester as it is developed.
+ * Temporary tester.  Should be added to a node test framework.
  */
 
 var hlc = require(__dirname+'/hlc');
@@ -17,8 +17,19 @@ chain.getMember("myWebAppAdmin",function(err,webAppAdmin) {
 	chain.getMember("user1",function(err,user) {
 		if (err) return console.log("can't get member: %j",err);
 		console.log("got %s: %s",user.getName(),user);
-		user.getTransactionContexts(function(err,resp) {
-			console.log("getTransactionContexts results: %s: %s",err,resp);
+		var deployRequest = {
+			chaincodeID: "cc1",  // Is this supposed to be generated automatically?  If so, let client do it
+			// TODO: fill out deployRequest
+		};
+		var tx = user.deploy(deployRequest);
+		tx.on('submitted',function() {
+			console.log("deploy submitted");
+		});
+		tx.on('complete',function(results) {
+			console.log("deploy complete: %j",results);
+		});
+		tx.on('error',function(err) {
+			console.log("deploy error: %s",err.stack);
 		});
 	});
 });

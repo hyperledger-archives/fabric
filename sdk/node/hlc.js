@@ -25,9 +25,11 @@
 
 var debug = require('debug')('hlc');   // 'hlc' stands for 'HyperLedger Client'
 var fs = require('fs');
-var urlParser = require("url");
-var grpc = require("grpc");
+var urlParser = require('url');
+var grpc = require('grpc');
+var events = require('events');
 var util = require('util');
+
 //crypto stuff
 var jsrsa = require('jsrsasign');
 var KEYUTIL = jsrsa.KEYUTIL;
@@ -37,9 +39,12 @@ var sha3_256 = require('js-sha3').sha3_256;
 var sha3_384 = require('js-sha3').sha3_384;
 var kdf = require(__dirname+'/kdf');
 
-var _caProtos = grpc.load(__dirname + "/protos/ca.proto").protos;
+var _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
+var _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
 var _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 var _chains = {};
+
+var DEFAULT_TCERT_BATCH_SIZE = 200;
 
 /**
  * Create a new chain.  If it already exists, throws an Error. 
@@ -66,7 +71,7 @@ function getChain(chainName, create) {
 	   chain = newChain(name);
    }
    return chain;
-};
+}
 
 /**
  * Stop/cleanup everything pertaining to this module.
@@ -76,7 +81,7 @@ function stop() {
    for (var chainName in _chains) {
       _chains[chainName].shutdown();
    }
-};
+}
 
 /**
  * The chain constructor.
@@ -87,6 +92,7 @@ function Chain(name) {
    this.name = name;
    this.peers = [];
    this.members = {};  // TODO: Make this an LRU cache to limit the number of members cached in memory
+   this.tcertBatchSize = DEFAULT_TCERT_BATCH_SIZE;
 }
 
 /**
@@ -182,6 +188,14 @@ Chain.prototype.setKeyValStore  = function(keyValStore) {
    this.keyValStore = keyValStore;
 };
 
+Chain.prototype.getTCertBatchSize = function() {
+	return this.tcertBatchSize;
+};
+
+Chain.prototype.setTCertBatchSize = function(batchSize) {
+	this.tcertBatchSize = batchSize;
+};
+
 /**
  * Get the user member named 'name'.
  * @param cb Callback of signature "function(err,Member)"
@@ -207,11 +221,26 @@ Chain.prototype._getMember = function(name,cb) {
 	var member = self.members[name];
 	if (member) return cb(null,member);
 	// Create the member and try to restore it's state from the key value store (if found).
-	member = new Member(name,this);
+	member = new Member(name,self);
 	member.restoreState(function(err) {
 		if (err) return cb(err);
 		cb(null,member);
 	});
+};
+
+/**
+ * Send a transaction to a peer.
+ * @param tx A transaction
+ * @param eventEmitter An event emitter
+ */
+Chain.prototype.sendTransaction = function(tx,eventEmitter) {
+   var self = this;
+   if (self.peers.length === 0) {
+      return eventEmitter.emit('error',new Error(util.format("chain %s has no peers",self.getName())));
+   }
+   // Always send to 1st peer for now.  TODO: failover
+   var peer = self.peers[0];
+   peer.sendTransaction(tx,eventEmitter);
 };
 
 /**
@@ -225,6 +254,8 @@ function Member(name,chain) {
 	this.memberServices = chain.getMemberServices();
 	this.keyValStore = chain.getKeyValStore();
 	this.keyValStoreName = toKeyValStoreName(name);
+	this.tcerts = [];
+	this.tcertBatchSize = chain.getTCertBatchSize();
 }
 
 /**
@@ -233,6 +264,31 @@ function Member(name,chain) {
  */
 Member.prototype.getName = function() {
 	return this.state.name;
+};
+
+/**
+ * Get the chain.
+ * @returns {Chain} The chain.
+ */
+Member.prototype.getChain = function() {
+	return this.chain;
+};
+
+/**
+ * Get the transaction certificate (tcert) batch size, which is the number of tcerts retrieved
+ * from member services each time (i.e. in a single batch).
+ * @returns The tcert batch size.
+ */
+Member.prototype.getTCertBatchSize = function() {
+   return this.tcertBatchSize;
+};
+
+/**
+ * Set the transaction certificate (tcert) batch size.
+ * @param batchSize
+ */
+Member.prototype.setTCertBatchSize = function(batchSize) {
+   this.tcertBatchSize = batchSize;
 };
 
 /**
@@ -315,19 +371,82 @@ Member.prototype.registerAndEnroll = function(registrar,cb) {
 	self.register(registrar, function(err,enrollmentSecret) {
 		if (err) return cb(err);
 		self.enroll(enrollmentSecret, cb);
-	});
+    });
 };
 
 /**
- * Get a transaction contexts.
- * @param anonymousMode Get a transaction manager which will perform transactions anonymously.
- * @return {TransactionMgr} A transaction manager.
+ * Issue a build request on behalf of this member.
+ * @param buildRequest {Object} 
+ * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
  */
-Member.prototype.getTransactionContexts = function(cb) {
+Member.prototype.build = function(buildRequest) {
+   var tx = this.newTransactionContext();
+   tx.build(buildRequest);
+   return tx;
+};
+
+/**
+ * Issue a deploy request on behalf of this member.
+ * @param deployRequest {Object} 
+ * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+ */
+Member.prototype.deploy = function(deployRequest) {
+   var tx = this.newTransactionContext();
+   tx.deploy(deployRequest);
+   return tx;
+};
+
+/**
+ * Issue a invoke request on behalf of this member.
+ * @param invokeRequest {Object} 
+ * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+ */
+Member.prototype.invoke = function(invokeRequest) {
+   var tx = this.newTransactionContext();
+   tx.invoke(invokeRequest);
+   return tx;
+};
+
+/**
+ * Issue a query request on behalf of this member.
+ * @param queryRequest {Object} 
+ * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+ */
+Member.prototype.query = function(queryRequest) {
+   var tx = this.newTransactionContext();
+   tx.query(queryRequest);
+   return tx;
+};
+
+/**
+ * Create a transaction context with which to issue build, deploy, invoke, or query transactions.
+ * Only call this if you want to use the same tcert for multiple transactions.
+ * @param {Object} tcert A transaction certificate from member services.  This is optional.
+ * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+ */
+Member.prototype.newTransactionContext = function(tcert) {
+   return new TransactionContext(this,tcert);
+};
+
+/**
+ * Get the next available transaction certificate.
+ * @param cb
+ * @returns
+ */
+Member.prototype.getNextTCert = function(cb) {
 	var self = this;
-	self.memberServices.getTransactionContexts({name:self.getName(),enrollment:self.state.enrollment,num:1}, function(err,resp) {
+	if (self.tcerts.length > 0) {
+		return cb(null,self.tcerts.shift());
+	}
+	var req = {
+		name         : self.getName(),
+		enrollment   : self.state.enrollment,
+		num          : self.getTCertBatchSize()
+	};
+	self.memberServices.getTransactionCerts(req, function(err,tcerts) {
 		if (err) return cb(err);
-		cb(resp);
+		self.tcerts = tcerts;
+		return cb(null,self.tcerts.shift());
 	});
 };
 
@@ -376,15 +495,100 @@ Member.prototype.toString = function() {
 };
 
 /**
+ * A transaction emits events 'submitted', 'complete', and 'error'.
+ */
+function TransactionContext(member,tcert) {
+	this.member = member;
+	this.chain = member.getChain();
+	this.tcert = tcert;
+	events.call(this);
+}
+util.inherits(TransactionContext, events);
+
+/**
+ * Get the member with which this transaction context is associated.
+ * @returns The member
+ */
+TransactionContext.prototype.getMember = function() {
+   return this.member;
+};
+
+/**
+ * Get the chain with which this transaction context is associated.
+ * @returns The chain
+ */
+TransactionContext.prototype.getChain = function() {
+   return this.chain;
+};
+
+/**
+ * Issue a build transaction.
+ * @param buildRequest {Object} A build request of the form: TBD
+ */
+TransactionContext.prototype.build = function(buildRequest) {
+   this._execute(newBuildOrDeployTransaction(buildRequest,true));
+};
+
+/**
+ * Issue a deploy transaction.
+ * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
+ */
+TransactionContext.prototype.deploy = function(deployRequest) {
+   this._execute(newBuildOrDeployTransaction(deployRequest,false));
+};
+
+/**
+ * Issue an invoke transaction.
+ * @param invokeRequest {Object} An invoke request of the form: XXX
+ */
+TransactionContext.prototype.invoke = function(invokeRequest) {
+   this._execute(newInvokeOrQueryTransaction(invokeRequest,true));
+};
+
+/**
+ * Issue an query transaction.
+ * @param queryRequest {Object} A query request of the form: XXX
+ */
+TransactionContext.prototype.query = function(queryRequest) {
+   this._execute(newInvokeOrQueryTransaction(queryRequest,false));
+};
+
+/**
+ * Execute a transaction
+ * @param tx {Object} The transaction minus the signature and any encryption.
+ * @param encrypt {boolean} Denotes whether the transaction should be encrypted or not.
+ */
+TransactionContext.prototype._execute = function(tx, encrypt) {
+   var self = this;
+   // Get the TCert
+   self._getMyTCert(function(err,tcert) {
+      if (err) return self.emit('error',err);
+      // TODO: sign the transaction and encrypt it if necessary
+      self.getChain().sendTransaction(tx,self);
+   });
+   return self;
+};
+
+TransactionContext.prototype._getMyTCert = function(cb) {
+   var self = this;
+   if (self.tcert) return cb(null,self.tcert);
+   this.member.getNextTCert(function(err,tcert) {
+	   if (err) return cb(err);
+	   self.tcert = tcert;
+	   return cb(null,tcert);
+   });
+};
+
+/**
  * Constructor for a peer given the endpoint config for the peer.
- * @param {Object} config The endpoint config of the form: { url: "grpcs://host:port", tls: { .... } }
- * TBD: The format of 'config.tls' depends upon the format expected by node's grpc module.
+ * @param {string} url The URL of 
  * @param {Chain} The chain of which this peer is a member.
  * @returns {Peer} The new peer.
  */
-function Peer(endpoint,chain) {
-   this.endpoint = endpoint;
+function Peer(url,chain) {
+   this.url = url;
    this.chain = chain;
+   this.ep = new Endpoint(url);
 }
 
 /**
@@ -400,7 +604,18 @@ Peer.prototype.getChain = function() {
  * @returns {string} Get the URL associated with the peer.
  */
 Peer.prototype.getUrl = function() {
+   return this.url;
+};
 
+/**
+ * Send a transaction to this peer.
+ * @param tx A transaction
+ * @param eventEmitter The event emitter
+ */
+Peer.prototype.sendTransaction = function(tx,eventEmitter) {
+   var self = this;
+   // TODO: implement, using eventEmitter to emit 'error', 'submitted', and 'complete' events
+   eventEmitter.emit('error',new Error("TODO: implement Peer.sendTransaction with Jeff's API"));
 };
 
 /**
@@ -411,27 +626,34 @@ Peer.prototype.remove = function() {
 };
 
 /**
+ * An endpoint currently takes only URL (currently).
+ * @param url
+ */
+function Endpoint(url) {
+   var purl = parseUrl(url);
+   var protocol = purl.protocol.toLowerCase();
+   if (protocol === 'grpc') {
+      this.addr = purl.host;
+      this.creds = grpc.credentials.createInsecure();
+   } else if (protocol === 'grpcs') {
+      this.addr = purl.host;
+      this.creds = grpc.credentials.createSsl();
+   } else {
+      throw Error("invalid protocol: "+protocol);
+   }
+}
+
+/**
  * MemberServices constructor
  * @param config The config information required by this member services implementation.
  * @returns {MemberServices} A MemberServices object.
  */
 function MemberServices(url) {
-	var purl = parseUrl(url);
-	var protocol = purl.protocol.toLowerCase();
-	var addr, creds;
-	if (protocol === 'grpc') {
-		addr = purl.host;
-		creds = grpc.credentials.createInsecure();
-	} else if (protocol === 'grpcs') {
-		addr = purl.host;
-		creds = grpc.credentials.createSsl();
-	} else {
-		throw Error("invalid protocol: "+protocol);
-	}
-    this.ecaaClient = new _caProtos.ECAA(addr,creds);
-    this.ecapClient = new _caProtos.ECAP(addr,creds);
-    this.tcapClient = new _caProtos.TCAP(addr,creds);
-    this.tlscapClient = new _caProtos.TLSCAP(addr,creds);
+	var ep = new Endpoint(url);
+    this.ecaaClient = new _caProto.ECAA(ep.addr,ep.creds);
+    this.ecapClient = new _caProto.ECAP(ep.addr,ep.creds);
+    this.tcapClient = new _caProto.TCAP(ep.addr,ep.creds);
+    this.tlscapClient = new _caProto.TLSCAP(ep.addr,ep.creds);
 }
 
 /**
@@ -443,7 +665,7 @@ MemberServices.prototype.register = function(req,cb) {
 	var self = this;
 	if (!req.name) return cb(new Error("missing req.name"));
 	var role = req.role || 1;
-    var protoReq = new _caProtos.RegisterUserReq();
+    var protoReq = new _caProto.RegisterUserReq();
     protoReq.setId({ id: req.name });
     protoReq.setRole(role);
     self.ecaaClient.registerUser(protoReq, function (err, token) {
@@ -473,24 +695,24 @@ MemberServices.prototype.enroll = function (req, cb) {
     var spki2 = new asn1.x509.SubjectPublicKeyInfo(ecKeypair2.pubKeyObj);
     
     // create the proto message
-    var eCertCreateRequest = new _caProtos.ECertCreateReq();
+    var eCertCreateRequest = new _caProto.ECertCreateReq();
     var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
     eCertCreateRequest.setTs(timestamp);
     eCertCreateRequest.setId({ id: req.name });
     eCertCreateRequest.setTok({ tok: new Buffer(req.enrollmentSecret) });
 
     // public signing key (ecdsa)
-    var signPubKey = new _caProtos.PublicKey(
+    var signPubKey = new _caProto.PublicKey(
         {
-            type: _caProtos.CryptoType.ECDSA,
+            type: _caProto.CryptoType.ECDSA,
             key: new Buffer(spki.getASN1Object().getEncodedHex(), 'hex')
         });
     eCertCreateRequest.setSign(signPubKey);
     
     // public encryption key (ecdsa)
-    var encPubKey = new _caProtos.PublicKey(
+    var encPubKey = new _caProto.PublicKey(
         {
-            type: _caProtos.CryptoType.ECDSA,
+            type: _caProto.CryptoType.ECDSA,
             key: new Buffer(spki2.getASN1Object().getEncodedHex(), 'hex')
         });
     eCertCreateRequest.setEnc(encPubKey);
@@ -541,9 +763,9 @@ MemberServices.prototype.enroll = function (req, cb) {
         // debug(new Buffer(sha3_384(buf),'hex'));
         var sig = ecdsa.sign(new Buffer(sha3_256(buf), 'hex'), signKey);
 
-        eCertCreateRequest.setSig(new _caProtos.Signature(
+        eCertCreateRequest.setSig(new _caProto.Signature(
             {
-                type: _caProtos.CryptoType.ECDSA,
+                type: _caProto.CryptoType.ECDSA,
                 r: new Buffer(sig.r.toString()),
                 s: new Buffer(sig.s.toString())
             }
@@ -564,23 +786,21 @@ MemberServices.prototype.enroll = function (req, cb) {
 };
 
 /**
- * Generically this gets an array of opaque transaction context objects, where each transaction context
- * can be passed into the sign and encrypt functions of MemberServices.
- * For default member services, each transaction context is a tcert.
+ * Get an array of transaction certificates (tcerts).
  * @param {Object} req Request of the form: {name,enrollment,num} where
  * 'name' is the member name,
  * 'enrollment' is what was returned by enroll, and
  * 'num' is the number of transaction contexts to obtain.
- * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of opaque transaction contexts as 2nd arg.
+ * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
  */
-MemberServices.prototype.getTransactionContexts = function (req, cb) {
+MemberServices.prototype.getTransactionCerts = function (req, cb) {
     var self = this;
     cb = cb || nullCB;
 
     var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
     
     // create the proto
-    var tCertCreateSetReq = new _caProtos.TCertCreateSetReq();
+    var tCertCreateSetReq = new _caProto.TCertCreateSetReq();
     tCertCreateSetReq.setTs(timestamp);
     tCertCreateSetReq.setId({ id: req.name });
     tCertCreateSetReq.setNum(req.num);
@@ -596,9 +816,9 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     // debug(new Buffer(sha3_384(buf),'hex'));
     var sig = ecdsa.sign(new Buffer(sha3_256(buf), 'hex'), signKey);
 
-    tCertCreateSetReq.setSig(new _caProtos.Signature(
+    tCertCreateSetReq.setSig(new _caProto.Signature(
         {
-            type: _caProtos.CryptoType.ECDSA,
+            type: _caProto.CryptoType.ECDSA,
             r: new Buffer(sig.r.toString()),
             s: new Buffer(sig.s.toString())
         }
@@ -608,7 +828,7 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
     self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, tCertCreateSetResp) {
         if (err) return cb(err);
         debug('tCertCreateSetResp:\n', tCertCreateSetResp);
-        cb(null, tCertCreateSetResp.certs);
+        cb(null, tCertCreateSetResp.certs.certs);
     });
 
 };
@@ -616,32 +836,6 @@ MemberServices.prototype.getTransactionContexts = function (req, cb) {
 function newMemberServices(url) {
 	return new MemberServices(url);
 }
-
-/**
- * Constructor for a transaction manager.
- * By default, make both anonymous and private.
- */
-function TransactionMgrImpl(member) {
-	this.member = member;
-	this.setAnonymous(true);
-	this.setPrivate(true);
-}
-
-TransactionMgrImpl.prototype.isAnonymous = function() {
-	return this.anonymous;
-};
-
-TransactionMgrImpl.prototype.setAnonymous = function(anonymous) {
-	this.anonymous = true;
-};
-
-TransactionMgrImpl.prototype.isPrivate = function() {
-	return this.privateMode;
-};
-
-TransactionMgrImpl.prototype.setPrivate = function(privateMode) {
-	this.privateMode = privateMode;
-};
 
 /**
  * A local file-based key value store.
@@ -678,6 +872,54 @@ FileKeyValStore.prototype.setValue = function(name,value,cb) {
 	var path = this.dir + '/' + name;
 	fs.writeFile(path,value,cb);
 };
+
+/**
+ * Issue a deploy transaction.
+ * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
+ */
+function newBuildOrDeployTransaction(request,isBuildRequest) {
+   var self = this;
+   var tx = new _fabricProto.Transaction();
+   if (isBuildRequest) {
+	   tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+   } else {
+	   tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+   }
+   tx.setChaincodeID(request.chaincodeID);
+   /* TODO
+   bytes chaincodeID = 2;
+    bytes payload = 3;
+    bytes metadata = 4;
+    string uuid = 5;
+    google.protobuf.Timestamp timestamp = 6;
+
+    ConfidentialityLevel confidentialityLevel = 7;
+    string confidentialityProtocolVersion = 8;
+    bytes nonce = 9;
+
+    bytes toValidators = 10;
+    bytes cert = 11;
+    bytes signature = 12;
+*/
+   return tx;
+}
+
+/**
+ * Issue a deploy transaction.
+ * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
+ */
+function newInvokeOrQueryTransaction(request,isInvokeRequest) {
+   var self = this;
+   // Create a deploy transaction
+   var tx = new _fabricProto.Transaction();
+   if (isInvokeRequest) {
+	   tx.setType(_fabricProto.Transaction.Type.CHAINCODE_INVOKE);
+   } else {
+	   tx.setType(_fabricProto.Transaction.Type.CHAINCODE_QUERY);
+   }
+   /* TODO: fill in. */
+   return tx;
+}
 
 function toKeyValStoreName(name) {
    return "member."+name;	
