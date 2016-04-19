@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/looplab/fsm"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/looplab/fsm"
 )
 
 // PeerChaincodeStream interface for stream between Peer and chaincode instance.

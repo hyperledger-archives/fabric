@@ -85,7 +85,7 @@ func (chaincodeSupport *ChaincodeSupport) preLaunchSetup(chaincode string) chan 
 	//NOTE: from this point, existence of handler for this chaincode means the chaincode
 	//is in the process of getting started (or has been started)
 	notfy := make(chan bool, 1)
-	chaincodeSupport.runningChaincodes.chaincodeMap[chaincode] = &chaincodeRTEnv { handler: &Handler{readyNotify: notfy} }
+	chaincodeSupport.runningChaincodes.chaincodeMap[chaincode] = &chaincodeRTEnv{handler: &Handler{readyNotify: notfy}}
 	return notfy
 }
 
@@ -97,8 +97,8 @@ func (chaincodeSupport *ChaincodeSupport) chaincodeHasBeenLaunched(chaincode str
 
 // NewChaincodeSupport creates a new ChaincodeSupport instance
 func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEndpoint, error), userrunsCC bool, ccstartuptimeout time.Duration, secHelper crypto.Peer) *ChaincodeSupport {
-        pnid := viper.GetString("peer.networkId")
-        pid := viper.GetString("peer.id")
+	pnid := viper.GetString("peer.networkId")
+	pid := viper.GetString("peer.id")
 
 	s := &ChaincodeSupport{name: chainname, runningChaincodes: &runningChaincodes{chaincodeMap: make(map[string]*chaincodeRTEnv)}, secHelper: secHelper, peerNetworkID: pnid, peerID: pid}
 
@@ -290,9 +290,9 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 
 	chaincodeLog.Debug("start container: %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 
-	vmtype,_ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
+	vmtype, _ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
 
-	sir := container.StartImageReq{ CCID: ccintf.CCID{cds.ChaincodeSpec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Env: env}
+	sir := container.StartImageReq{CCID: ccintf.CCID{ChaincodeSpec: cds.ChaincodeSpec, NetworkID: chaincodeSupport.peerNetworkID, PeerID: chaincodeSupport.peerID}, Args: args, Env: env}
 
 	ipcCtxt := context.WithValue(ctxt, ccintf.GetCCHandlerKey(), chaincodeSupport)
 
@@ -327,6 +327,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	return alreadyRunning, err
 }
 
+//StopChaincode stops a chaincode if running
 func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, spec *pb.ChaincodeSpec) error {
 	chaincode := spec.ChaincodeID.Name
 	if chaincode == "" {
@@ -334,9 +335,9 @@ func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context,
 	}
 
 	//stop the chaincode
-	sir := container.StopImageReq{CCID: ccintf.CCID{spec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Timeout: 0}
+	sir := container.StopImageReq{CCID: ccintf.CCID{ChaincodeSpec: spec, NetworkID: chaincodeSupport.peerNetworkID, PeerID: chaincodeSupport.peerID}, Timeout: 0}
 
-	vmtype,_ := chaincodeSupport.getVMType(spec)
+	vmtype, _ := chaincodeSupport.getVMType(spec)
 
 	_, err := container.VMCProcess(context, vmtype, sir)
 	if err != nil {
@@ -487,9 +488,9 @@ func (chaincodeSupport *ChaincodeSupport) getSecHelper() crypto.Peer {
 	return chaincodeSupport.secHelper
 }
 
-//getVMType - just returns a string for now. Another possibility is to use a factory method to 
+//getVMType - just returns a string for now. Another possibility is to use a factory method to
 //return a VM executor
-func (chaincodeSupport *ChaincodeSupport) getVMType (spec *pb.ChaincodeSpec) (string,error) {
+func (chaincodeSupport *ChaincodeSupport) getVMType(spec *pb.ChaincodeSpec) (string, error) {
 	if spec.Type == pb.ChaincodeSpec_SYSTEM {
 		return container.SYSTEM, nil
 	}
@@ -530,9 +531,9 @@ func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Contex
 	}
 
 	var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-	cir := &container.CreateImageReq{CCID: ccintf.CCID{cds.ChaincodeSpec, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID}, Args: args, Reader: targz, Env: envs}
+	cir := &container.CreateImageReq{CCID: ccintf.CCID{ChaincodeSpec: cds.ChaincodeSpec, NetworkID: chaincodeSupport.peerNetworkID, PeerID: chaincodeSupport.peerID}, Args: args, Reader: targz, Env: envs}
 
-	vmtype,_ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
+	vmtype, _ := chaincodeSupport.getVMType(cds.ChaincodeSpec)
 
 	chaincodeLog.Debug("deploying chaincode %s(networkid:%s,peerid:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID)
 

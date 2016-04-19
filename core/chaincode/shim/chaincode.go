@@ -103,8 +103,8 @@ func Start(cc Chaincode) error {
 	return err
 }
 
-// Start entry point for chaincodes bootstrap.
-func StartInProc(env []string, args []string, cc Chaincode,recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
+// StartInProc entry point for system chaincodes bootstrap.
+func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
 	logging.SetLevel(logging.DEBUG, "chaincode")
 	chaincodeLogger.Debug("in proc %v", args)
 
@@ -119,7 +119,7 @@ func StartInProc(env []string, args []string, cc Chaincode,recv <-chan *pb.Chain
 	if chaincodename == "" {
 		return fmt.Errorf("Error chaincode id not provided")
 	}
-	chaincodeLogger.Debug("starting chat with peer using name=%s", chaincodename) 
+	chaincodeLogger.Debug("starting chat with peer using name=%s", chaincodename)
 	stream := newInProcStream(recv, send)
 	err := chatWithPeer(chaincodename, stream, cc)
 	return err
@@ -253,6 +253,7 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 //CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
 
 // ------------- Call Chaincode functions ---------------
+
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
@@ -264,6 +265,7 @@ func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string,
 }
 
 // --------- State functions ----------
+
 // GetState function can be invoked by a chaincode to get a state from the ledger.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)

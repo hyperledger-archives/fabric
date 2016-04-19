@@ -25,20 +25,20 @@ import (
 
 // PeerChaincodeStream interface for stream between Peer and chaincode instance.
 type inProcStream struct {
-	recv	<-chan *pb.ChaincodeMessage
-	send	chan<- *pb.ChaincodeMessage
+	recv <-chan *pb.ChaincodeMessage
+	send chan<- *pb.ChaincodeMessage
 }
 
-func newInProcStream( recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) *inProcStream {
+func newInProcStream(recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) *inProcStream {
 	return &inProcStream{recv, send}
 }
 
-func(s *inProcStream) Send(msg *pb.ChaincodeMessage) error {
-	s.send<-msg
+func (s *inProcStream) Send(msg *pb.ChaincodeMessage) error {
+	s.send <- msg
 	return nil
 }
 
-func(s *inProcStream) Recv() (*pb.ChaincodeMessage, error) {
-	msg := <- s.recv
+func (s *inProcStream) Recv() (*pb.ChaincodeMessage, error) {
+	msg := <-s.recv
 	return msg, nil
 }

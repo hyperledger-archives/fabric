@@ -24,8 +24,8 @@ package ccintf
 //Currently inproccontroller uses it. dockercontroller does not.
 
 import (
-	"golang.org/x/net/context"
 	pb "github.com/hyperledger/fabric/protos"
+	"golang.org/x/net/context"
 )
 
 // ChaincodeStream interface for stream between Peer and chaincode instance.
@@ -34,10 +34,13 @@ type ChaincodeStream interface {
 	Recv() (*pb.ChaincodeMessage, error)
 }
 
+// CCSupport must be implemented by the chaincode support side in peer
+// (such as chaincode_support)
 type CCSupport interface {
 	HandleChaincodeStream(context.Context, ChaincodeStream) error
 }
 
+// GetCCHandlerKey is used to pass CCSupport via context
 func GetCCHandlerKey() string {
 	return "CCHANDLER"
 }

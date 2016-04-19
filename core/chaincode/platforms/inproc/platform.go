@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 )
 
+// Platform receiver for inproc platform
 type Platform struct {
 }
 
@@ -24,7 +25,8 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
+// ValidateSpec implements validation of chaincode spec
+func (inplat *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	url, err := url.Parse(spec.ChaincodeID.Path)
 	if err != nil || url == nil {
 		return fmt.Errorf("invalid path: %s", err)
@@ -42,7 +44,7 @@ func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 }
 
 // WritePackage only computes the hash for the system chaincode. tw is not used
-func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
+func (inplat *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	var err error
 	spec.ChaincodeID.Name, err = generateHashcode(spec)
 	if err != nil {

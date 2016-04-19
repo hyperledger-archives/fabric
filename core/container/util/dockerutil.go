@@ -20,13 +20,14 @@ under the License.
 package util
 
 import (
-	"github.com/spf13/viper"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/spf13/viper"
 )
 
+//NewDockerClient creates a docker client
 func NewDockerClient() (client *docker.Client, err error) {
 	endpoint := viper.GetString("vm.endpoint")
-	tlsenabled :=  viper.GetBool("vm.docker.tls.enabled")
+	tlsenabled := viper.GetBool("vm.docker.tls.enabled")
 	if tlsenabled {
 		cert := viper.GetString("vm.docker.tls.cert.file")
 		key := viper.GetString("vm.docker.tls.key.file")
