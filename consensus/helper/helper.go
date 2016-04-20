@@ -39,6 +39,7 @@ import (
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
+	handler     *ConsensusHandler
 	coordinator peer.MessageHandlerCoordinator
 	secOn       bool
 	secHelper   crypto.Peer
@@ -49,14 +50,16 @@ type Helper struct {
 }
 
 // NewHelper constructs the consensus helper object
-func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
+func NewHelper(handler *ConsensusHandler, mhc peer.MessageHandlerCoordinator) consensus.Stack {
 	h := &Helper{
+		handler:     handler,
 		coordinator: mhc,
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
 	}
 	h.sts = statetransfer.NewStateTransferState(h)
 	h.sts.Initiate(nil)
+	h.sts.RegisterListener(h)
 	return h
 }
 
@@ -381,4 +384,15 @@ func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	proto.Unmarshal(id, info)
 	// XXX register for the completion callback
 	h.sts.AddTarget(info.Height, info.CurrentBlockHash, peers, nil)
+}
+
+func (h *Helper) Initiated() {
+}
+
+func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
+	h.handler.consenter.StateUpdate(bh)
+}
+
+func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
+	panic(e)
 }
