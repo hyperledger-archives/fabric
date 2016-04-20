@@ -140,13 +140,14 @@ func NewECA() *ECA {
 				Bytes: raw,
 			})
 	}
+	
 	eca.populateAffiliationGroupsTable()
 	eca.populateUsersTable()
 	return eca
 }
 
-func (eca *ECA)populateUsersTable() { 
-		// populate user table
+func (eca *ECA) populateUsersTable() { 
+	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
 		vals := strings.Fields(flds)

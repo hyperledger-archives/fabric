@@ -248,12 +248,12 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	}
 	pub := cert.PublicKey.(*ecdsa.PublicKey)
 
-	sig := in.Sig
-	in.Sig = nil
-
 	r, s := big.NewInt(0), big.NewInt(0)
-	r.UnmarshalText(sig.R)
-	s.UnmarshalText(sig.S)
+	r.UnmarshalText(in.Sig.R)
+	s.UnmarshalText(in.Sig.S)
+
+	//sig := in.Sig
+	in.Sig = nil
 
 	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
