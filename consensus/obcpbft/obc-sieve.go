@@ -375,7 +375,7 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 		op.invokePbft(req)
 		logger.Debug("Sieve primary %d sent request to PBFT for final ordering", op.id)
 	} else {
-		logger.Debug("Sieve primary %d ignoring request as verify store is size %d instead of %d", op.id, len(op.verifyStore), op.moreCorrectThanByzantineQuorum())
+		logger.Debug("Sieve primary %d recording verify message; now have %d of total %d", op.id, len(op.verifyStore), op.moreCorrectThanByzantineQuorum())
 	}
 }
 
