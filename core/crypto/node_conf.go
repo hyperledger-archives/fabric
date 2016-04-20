@@ -20,6 +20,7 @@ under the License.
 package crypto
 
 import (
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"errors"
 	"github.com/spf13/viper"
 	"path/filepath"
@@ -64,7 +65,7 @@ type configuration struct {
 
 	multiThreading bool
 	tCertBatchSize  int
-	tCertAttributes map[string]string
+	tCertAttributes []*membersrvc.TCertAttribute
 }
 
 func (conf *configuration) init() error {
@@ -147,9 +148,12 @@ func (conf *configuration) init() error {
 	}
 	
 	// Set attributes
-	conf.tCertAttributes = make(map[string]string)
+	conf.tCertAttributes = []*membersrvc.TCertAttribute{}
 	if viper.IsSet("security.tcert.attributes") {
-		conf.tCertAttributes = viper.GetStringMapString("security.tcert.attributes")
+		attributes := viper.GetStringMapString("security.tcert.attributes")
+		for key, value := range attributes {
+			conf.tCertAttributes = append(conf.tCertAttributes, &membersrvc.TCertAttribute{key, value})
+		}
 	}
 
 	return nil
@@ -291,7 +295,7 @@ func (conf *configuration) getTCertBatchSize() int {
 	return conf.tCertBatchSize
 }
 
-func (conf *configuration) getTCertAttributes() map[string]string {
+func (conf *configuration) getTCertAttributes() []*membersrvc.TCertAttribute {
 	return conf.tCertAttributes
 }
 

@@ -215,8 +215,13 @@ message TCertCreateSetReq {
     google.protobuf.Timestamp ts = 1;
     Identity id = 2; // corresponding ECert retrieved from ECA
     uint32 num = 3; // number of certs to create
-    map<string, string> attributes = 4; // map with the attributes to add to each TCert. The key of the map is the name of the attribute and the value for that key is the value of the attribute.
+    repeated TCertAttribute attributes = 4; // array with the attributes to add to each TCert.
     Signature sig = 5; // sign(priv, ts | id | attributes | num)
+}
+
+message TCertAttribute {
+    string attributeName = 1;
+    string attributeValue = 2;
 }
 
 message TCertCreateSetResp {

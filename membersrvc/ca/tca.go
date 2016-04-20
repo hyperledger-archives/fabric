@@ -331,7 +331,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes map[string]string) ([]pkix.Extension, map[string][]byte, error){
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, map[string][]byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
 	ks := make(map[string][]byte) 
 	extensions := make([]pkix.Extension, len(attributes))
@@ -366,17 +366,17 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	count := 0
 	attributesHeader := make(map[string]int)
 	// Encrypt and append attributes to the extensions slice
-	for attributeName, attributeValue := range attributes {
+	for _, a := range attributes {
 		count++
 
-		value := []byte(attributeValue)
+		value := []byte(a.AttributeValue)
 		
 		//Save the position of the attribute extension on the header.
-		attributesHeader[attributeName] = count
+		attributesHeader[a.AttributeName] = count
 		
 		if viper.GetBool("tca.attribute-encryption.enabled") {
 			mac = hmac.New(conf.GetDefaultHash(), preK_0)
-			mac.Write([]byte(attributeName))
+			mac.Write([]byte(a.AttributeName))
 			attributeKey := mac.Sum(nil)[:32]
 			
 			value = append(value, Padding...)
@@ -386,7 +386,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 			}
 			
 			// save k used to encrypt attribute
-			ks[attributeName] = attributeKey
+			ks[a.AttributeName] = attributeKey
 		}
 		
 		// Generate an ObjectIdentifier for the extension holding the attribute
