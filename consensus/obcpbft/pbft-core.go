@@ -957,7 +957,9 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.reqStore = make(map[string]*Request) // Discard all our requests, as we will never know which were executed, to be addressed in #394
 				instance.moveWatermarks(m)
+				instance.outstandingReqs = make(map[string]*Request)
 				instance.skipInProgress = true
+				instance.stopTimer()
 
 				// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
 
