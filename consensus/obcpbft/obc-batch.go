@@ -132,6 +132,11 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
+// StateUpdate is a signal from the stack that it has fast-forwarded its state
+func (op *obcBatch) StateUpdate(id []byte) {
+	op.pbft.stateUpdate(id)
+}
+
 // Close tells us to release resources we are holding
 func (op *obcBatch) Close() {
 	op.pbft.close()

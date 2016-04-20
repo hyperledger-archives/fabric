@@ -51,6 +51,11 @@ type completeStack struct {
 	mockPersist
 }
 
+func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	cs.simulateStateTransfer(tag, id, peers)
+	cs.consumer.StateUpdate(id)
+}
+
 type pbftConsumer interface {
 	innerStack
 	consensus.Consenter

@@ -49,7 +49,8 @@ func init() {
 // =============================================================================
 
 type PartialStack interface {
-	consensus.LedgerStack
+	consensus.Ledger
+	consensus.RemoteLedgers
 	consensus.Inquirer
 }
 
