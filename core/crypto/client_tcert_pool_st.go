@@ -28,7 +28,7 @@ type tCertPoolSingleThreadImpl struct {
 	client *clientImpl
 
 	len    int
-	tCerts []tCert
+	tCerts []TransactionCertificate
 	m      sync.Mutex
 }
 
@@ -53,7 +53,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
 		tCertPool.client.debug("TCerts in cache found! Loading them...")
 
 		for _, tCertDER := range tCertDERs {
-			tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+			tCert, err := tCertPool.client.getTCertFromDER(tCertDER, true)
 			if err != nil {
 				tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
 
@@ -79,7 +79,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert TransactionCertificate, err error) {
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
@@ -97,8 +97,8 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err err
 	return
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
-	tCertPool.client.debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
+func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert TransactionCertificate) (err error) {
+	tCertPool.client.debug("Adding new Cert [% x].", tCert.GetRaw())
 
 	tCertPool.len++
 	tCertPool.tCerts[tCertPool.len-1] = tCert
@@ -111,7 +111,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error)
 
 	tCertPool.client.debug("Init TCert Pool...")
 
-	tCertPool.tCerts = make([]tCert, tCertPool.client.conf.getTCertBatchSize())
+	tCertPool.tCerts = make([]TransactionCertificate, tCertPool.client.conf.getTCertBathSize())
 	tCertPool.len = 0
 
 	return

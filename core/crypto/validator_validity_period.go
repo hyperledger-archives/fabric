@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/ledger"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -47,7 +47,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 	if tx.Cert != nil && tx.Signature != nil {
 
 		// Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
 			validator.error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err

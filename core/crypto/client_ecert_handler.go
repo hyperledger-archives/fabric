@@ -1,25 +1,13 @@
 package crypto
 
 import (
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 
 type eCertHandlerImpl struct {
 	client *clientImpl
-}
-
-type eCertTransactionHandlerImpl struct {
-	client *clientImpl
-
-	nonce   []byte
-	binding []byte
-}
-
-func (handler *eCertHandlerImpl) init(client *clientImpl) error {
-	handler.client = client
-
-	return nil
 }
 
 // GetCertificate returns the TCert DER
@@ -29,17 +17,14 @@ func (handler *eCertHandlerImpl) GetCertificate() []byte {
 
 // Sign signs msg using the signing key corresponding to this TCert
 func (handler *eCertHandlerImpl) Sign(msg []byte) ([]byte, error) {
-	return handler.client.signWithEnrollmentKey(msg)
+	return handler.client.eCert.Sign(msg)
 }
 
 // Verify verifies msg using the verifying key corresponding to this TCert
 func (handler *eCertHandlerImpl) Verify(signature []byte, msg []byte) error {
-	ok, err := handler.client.verifyWithEnrollmentCert(msg, signature)
+	err := handler.client.eCert.Verify(signature, msg)
 	if err != nil {
 		return err
-	}
-	if !ok {
-		return utils.ErrInvalidSignature
 	}
 	return nil
 }
@@ -57,6 +42,13 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 	return txHandler, nil
 }
 
+type eCertTransactionHandlerImpl struct {
+	client *clientImpl
+
+	nonce   []byte
+	binding []byte
+}
+
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 	nonce, err := client.createTransactionNonce()
 	if err != nil {
@@ -67,7 +59,7 @@ func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 
 	handler.client = client
 	handler.nonce = nonce
-	handler.binding = utils.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
+	handler.binding = primitives.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }
@@ -84,15 +76,15 @@ func (handler *eCertTransactionHandlerImpl) GetBinding() ([]byte, error) {
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeDeployUsingECert(chaincodeDeploymentSpec, uuid, handler.nonce)
+	return handler.client.newTransactionContext(handler, handler.client.eCert, uuid, handler.nonce).newChaincodeDeploy(chaincodeDeploymentSpec)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeExecuteUsingECert(chaincodeInvocation, uuid, handler.nonce)
+	return handler.client.newTransactionContext(handler, handler.client.eCert, uuid, handler.nonce).newChaincodeExecute(chaincodeInvocation)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
 func (handler *eCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.client.newChaincodeQueryUsingECert(chaincodeInvocation, uuid, handler.nonce)
+	return handler.client.newTransactionContext(handler, handler.client.eCert, uuid, handler.nonce).newChaincodeQuery(chaincodeInvocation)
 }

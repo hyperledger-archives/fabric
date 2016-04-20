@@ -44,7 +44,7 @@ func (client *clientImpl) initKeyStore() error {
 	return nil
 }
 
-func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
+func (ks *keyStore) storeUsedTCert(tCert TransactionCertificate) (err error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -59,7 +59,7 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	}
 
 	// Insert into UsedTCert
-	if _, err = tx.Exec("INSERT INTO UsedTCert (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
+	if _, err = tx.Exec("INSERT INTO UsedTCert (cert) VALUES (?)", tCert.GetRaw()); err != nil {
 		ks.node.error("Failed inserting TCert to UsedTCert: [%s].", err)
 
 		tx.Rollback()
@@ -93,7 +93,7 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	return
 }
 
-func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
+func (ks *keyStore) storeUnusedTCerts(tCerts []TransactionCertificate) (err error) {
 	ks.node.debug("Storing unused TCerts...")
 
 	if len(tCerts) == 0 {
@@ -111,7 +111,7 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 
 	for _, tCert := range tCerts {
 		// Insert into UsedTCert
-		if _, err = tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
+		if _, err = tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", tCert.GetRaw()); err != nil {
 			ks.node.error("Failed inserting unused TCert to TCerts: [%s].", err)
 
 			tx.Rollback()

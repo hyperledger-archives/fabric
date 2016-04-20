@@ -2,366 +2,204 @@ package crypto
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 
-func (client *clientImpl) createTransactionNonce() ([]byte, error) {
-	nonce, err := utils.GetRandomBytes(utils.NonceSize)
-	if err != nil {
-		client.error("Failed creating nonce [%s].", err.Error())
-		return nil, err
-	}
+type transactionContextImpl struct {
+	client *clientImpl
 
-	return nonce, err
+	txHandler TransactionHandler
+	tCert     TransactionCertificate
+	uuid      string
+	nonce     []byte
+
+	chaincodeSpec *obc.ChaincodeSpec
+	deployTx      *obc.Transaction
+	tx            *obc.Transaction
 }
 
-func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
-	// Create a new transaction
-	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
-	if err != nil {
-		client.error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
-	}
+func (tc *transactionContextImpl) GetDeployTransaction() *obc.Transaction {
+	return tc.deployTx
+}
+
+func (tc *transactionContextImpl) GetTransaction() *obc.Transaction {
+	return tc.tx
+}
+
+func (tc *transactionContextImpl) GetChaincodeSpec() *obc.ChaincodeSpec {
+	return tc.chaincodeSpec
+}
+
+func (tc *transactionContextImpl) GetBinding() []byte {
+	// TODO: handle the error
+	binding, _ := tc.txHandler.GetBinding()
+	return binding
+}
+
+func (tc *transactionContextImpl) createTx(chaincodeSpec *obc.ChaincodeSpec) (err error) {
+	tc.chaincodeSpec = chaincodeSpec
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeDeploymentSpec.ChaincodeSpec.Metadata
+	tc.tx.Metadata = chaincodeSpec.Metadata
 
-	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+	// 1. set and nonce
+	if tc.nonce == nil {
+		tc.nonce, err = primitives.GetRandomNonce()
 		if err != nil {
-			client.error("Failed creating nonce [%s].", err.Error())
-			return nil, err
+			tc.client.error("Failed creating nonce [%s].", err.Error())
+			return
+		}
+	}
+	tc.tx.Nonce = tc.nonce
+
+	// 2. set confidentiality protocol version
+	tc.tx.ConfidentialityProtocolVersion = DefaultConfidentialityProtocolVersion
+	if chaincodeSpec.ConfidentialityProtocolVersion != "" {
+		ok := tc.client.isConfidentialityProtocolVersionValid(chaincodeSpec.ConfidentialityProtocolVersion)
+		if ok {
+			tc.tx.ConfidentialityProtocolVersion = chaincodeSpec.ConfidentialityProtocolVersion
+		} else {
+			tc.client.warning("Invalid confidentiality protocol version [%s]. Using default!", chaincodeSpec.ConfidentialityProtocolVersion)
 		}
 	} else {
-		// TODO: check that it is a well formed nonce
-		tx.Nonce = nonce
+		tc.client.warning("Using default confidentiality protocol version [%s]", chaincodeSpec.ConfidentialityProtocolVersion)
 	}
 
-	// Handle confidentiality
-	if chaincodeDeploymentSpec.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
+	// 3. set confidentiality level
+	// TODO: check that ConfidentialityLevel is a valid value
+	tc.tx.ConfidentialityLevel = chaincodeSpec.ConfidentialityLevel
 
-		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+	// 4. Append the certificate to the transaction
+	tc.client.debug("Appending certificate [% x].", tc.tCert.GetRaw())
+	tc.tx.Cert = tc.tCert.GetRaw()
 
-		// 3. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
+	// 5. process confidentiality
+	err = tc.client.processConfidentiality(tc)
+	if err != nil {
+		tc.client.error("Failed encrypting payload [%s].", err.Error())
+		return
 
-		}
 	}
 
-	return tx, nil
+	return
 }
 
-func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
+func (tc *transactionContextImpl) finalizeTx() (err error) {
+	// Sign the transaction and append the signature
+	// 1. Marshall tx to bytes
+	rawTx, err := proto.Marshal(tc.tx)
+	if err != nil {
+		tc.client.error("Failed marshaling tx [%s].", err.Error())
+		return
+	}
+
+	// 2. Sign rawTx and check signature
+	tc.client.debug("Signing tx [% x].", rawTx)
+	rawSignature, err := tc.tCert.Sign(rawTx)
+	if err != nil {
+		tc.client.error("Failed creating signature [%s].", err.Error())
+		return
+	}
+
+	// 3. Append the signature
+	tc.tx.Signature = rawSignature
+
+	tc.client.debug("Appending signature: [% x]", rawSignature)
+
+	return
+}
+
+func (tc *transactionContextImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec) (err error) {
+	// Create a new transaction
+	tc.tx, err = obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, tc.uuid)
+	if err != nil {
+		tc.client.error("Failed creating new transaction [%s].", err.Error())
+		return
+	}
+
+	err = tc.createTx(chaincodeDeploymentSpec.ChaincodeSpec)
+
+	return
+}
+
+func (tc *transactionContextImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec) (err error) {
 	/// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_INVOKE)
+	tc.tx, err = obc.NewChaincodeExecute(chaincodeInvocation, tc.uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
-		client.error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
+		tc.client.error("Failed creating new transaction [%s].", err.Error())
+		return
 	}
 
-	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
+	err = tc.createTx(chaincodeInvocation.ChaincodeSpec)
 
-	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-	} else {
-		// TODO: check that it is a well formed nonce
-		tx.Nonce = nonce
-	}
-
-	// Handle confidentiality
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-
-		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
-
-		// 3. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
-	}
-
-	return tx, nil
+	return
 }
 
-func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
+func (tc *transactionContextImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec) (err error) {
 	// Create a new transaction
-	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
+	tc.tx, err = obc.NewChaincodeExecute(chaincodeInvocation, tc.uuid, obc.Transaction_CHAINCODE_QUERY)
 	if err != nil {
-		client.error("Failed creating new transaction [%s].", err.Error())
-		return nil, err
+		tc.client.error("Failed creating new transaction [%s].", err.Error())
+		return
 	}
 
-	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
+	err = tc.createTx(chaincodeInvocation.ChaincodeSpec)
 
-	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
-		if err != nil {
-			client.error("Failed creating nonce [%s].", err.Error())
-			return nil, err
-		}
-	} else {
-		// TODO: check that it is a well formed nonce
-		tx.Nonce = nonce
-	}
-
-	// Handle confidentiality
-	if chaincodeInvocation.ChaincodeSpec.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
-		// 1. set confidentiality level and nonce
-		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
-
-		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
-
-		// 3. encrypt tx
-		err = client.encryptTx(tx)
-		if err != nil {
-			client.error("Failed encrypting payload [%s].", err.Error())
-			return nil, err
-
-		}
-	}
-
-	return tx, nil
+	return
 }
 
-func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
-	// Create a new transaction
-	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
+func (tc *transactionContextImpl) newChaincodeDeploy(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec) (*obc.Transaction, error) {
+	err := tc.createDeployTx(chaincodeDeploymentSpec)
 	if err != nil {
-		client.error("Failed creating new deploy transaction [%s].", err.Error())
+		tc.client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
-	tx.Cert = tCert.GetCertificate().Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
+	err = tc.finalizeTx()
 	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
+		tc.client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// 2. Sign rawTx and check signature
-	rawSignature, err := tCert.Sign(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature: [% x]", rawSignature)
-
-	return tx, nil
+	return tc.tx, nil
 }
 
-func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
-	/// Create a new transaction
-	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
+func (tc *transactionContextImpl) newChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec) (*obc.Transaction, error) {
+	err := tc.createExecuteTx(chaincodeInvocation)
 	if err != nil {
-		client.error("Failed creating new execute transaction [%s].", err.Error())
+		tc.client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
-	tx.Cert = tCert.GetCertificate().Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
+	err = tc.finalizeTx()
 	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
+		tc.client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// 2. Sign rawTx and check signature
-	rawSignature, err := tCert.Sign(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature [% x].", rawSignature)
-
-	return tx, nil
+	return tc.tx, nil
 }
 
-func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
-	// Create a new transaction
-	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
+func (tc *transactionContextImpl) newChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec) (*obc.Transaction, error) {
+	err := tc.createQueryTx(chaincodeInvocation)
 	if err != nil {
-		client.error("Failed creating new query transaction [%s].", err.Error())
+		tc.client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", tCert.GetCertificate().Raw)
-	tx.Cert = tCert.GetCertificate().Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
+	err = tc.finalizeTx()
 	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
+		tc.client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
 	}
 
-	// 2. Sign rawTx and check signature
-	rawSignature, err := tCert.Sign(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature [% x].", rawSignature)
-
-	return tx, nil
+	return tc.tx, nil
 }
 
-func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
-	// Create a new transaction
-	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
-	if err != nil {
-		client.error("Failed creating new deploy transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
-	tx.Cert = client.enrollCert.Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	rawSignature, err := client.signWithEnrollmentKey(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature: [% x]", rawSignature)
-
-	return tx, nil
-}
-
-func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
-	/// Create a new transaction
-	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
-	if err != nil {
-		client.error("Failed creating new execute transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
-	tx.Cert = client.enrollCert.Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	rawSignature, err := client.signWithEnrollmentKey(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature [% x].", rawSignature)
-
-	return tx, nil
-}
-
-func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
-	// Create a new transaction
-	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
-	if err != nil {
-		client.error("Failed creating new query transaction [%s].", err.Error())
-		return nil, err
-	}
-
-	// Sign the transaction
-
-	// Append the certificate to the transaction
-	client.debug("Appending certificate [% x].", client.enrollCert.Raw)
-	tx.Cert = client.enrollCert.Raw
-
-	// Sign the transaction and append the signature
-	// 1. Marshall tx to bytes
-	rawTx, err := proto.Marshal(tx)
-	if err != nil {
-		client.error("Failed marshaling tx [%s].", err.Error())
-		return nil, err
-	}
-
-	// 2. Sign rawTx and check signature
-	rawSignature, err := client.signWithEnrollmentKey(rawTx)
-	if err != nil {
-		client.error("Failed creating signature [% x]: [%s].", rawTx, err.Error())
-		return nil, err
-	}
-
-	// 3. Append the signature
-	tx.Signature = rawSignature
-
-	client.debug("Appending signature [% x].", rawSignature)
-
-	return tx, nil
+func (client *clientImpl) newTransactionContext(txHandler TransactionHandler, txCert TransactionCertificate, uuid string, nonce []byte) *transactionContextImpl {
+	return &transactionContextImpl{client, txHandler, txCert, uuid, nonce, nil, nil, nil}
 }
 
 // CheckTransaction is used to verify that a transaction
@@ -379,7 +217,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
 			client.error("Failed unmarshalling cert [%s].", err.Error())
 			return err
@@ -411,4 +249,14 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	}
 
 	return utils.ErrTransactionMissingCert
+}
+
+func (client *clientImpl) createTransactionNonce() ([]byte, error) {
+	nonce, err := primitives.GetRandomNonce()
+	if err != nil {
+		client.error("Failed creating nonce [%s].", err.Error())
+		return nil, err
+	}
+
+	return nonce, err
 }

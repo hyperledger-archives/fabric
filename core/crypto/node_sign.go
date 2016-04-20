@@ -20,26 +20,36 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"math/big"
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	return utils.ECDSASign(signKey, msg)
-}
+	node.debug("Signing message [% x].", msg)
 
-func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	return utils.ECDSASign(node.enrollPrivKey, msg)
-}
-
-func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
+	return primitives.ECDSASign(signKey, msg)
 }
 
 func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	return utils.ECDSAVerify(verKey, msg, signature)
+	node.debug("Verifing signature [% x] against message [% x].", signature, msg)
+
+	return primitives.ECDSAVerify(verKey, msg, signature)
+}
+
+func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
+	node.debug("Signing message [% x].", msg)
+
+	return primitives.ECDSASign(node.enrollSigningKey, msg)
+}
+
+func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
+	node.debug("Signing message direct [% x].", msg)
+
+	return primitives.ECDSASignDirect(node.enrollSigningKey, msg)
 }
 
 func (node *nodeImpl) verifyWithEnrollmentCert(msg, signature []byte) (bool, error) {
-	return utils.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
+	node.debug("Verifing signature [% x] against message [% x].", signature, msg)
+
+	return primitives.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
 }

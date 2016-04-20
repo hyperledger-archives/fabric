@@ -114,7 +114,7 @@ func (conf *configuration) init() error {
 			conf.securityLevel = ovveride
 		}
 	}
-	
+
 	conf.hashAlgorithm = "SHA3"
 	if viper.IsSet("security.hashAlgorithm") {
 		ovveride := viper.GetString("security.hashAlgorithm")
@@ -215,12 +215,20 @@ func (conf *configuration) getQueryStateKeyFilename() string {
 	return "query.key"
 }
 
-func (conf *configuration) getEnrollmentKeyFilename() string {
-	return "enrollment.key"
+func (conf *configuration) getEnrollmentSigningKeyFilename() string {
+	return "enrollment.sign.key"
 }
 
-func (conf *configuration) getEnrollmentCertFilename() string {
-	return "enrollment.cert"
+func (conf *configuration) getEnrollmentSigningCertFilename() string {
+	return "enrollment.sign.cert"
+}
+
+func (conf *configuration) getEnrollmentEncryptionKeyFilename() string {
+	return "enrollment.enc.key"
+}
+
+func (conf *configuration) getEnrollmentEncryptionCertFilename() string {
+	return "enrollment.enc.cert"
 }
 
 func (conf *configuration) getEnrollmentIDPath() string {
@@ -285,6 +293,10 @@ func (conf *configuration) getTLSRootCertFilename() string {
 
 func (conf *configuration) getEnrollmentChainKeyFilename() string {
 	return "chain.key"
+}
+
+func (conf *configuration) getEnrollmentSymChainKeyFilename() string {
+	return "sym.chain.key"
 }
 
 func (conf *configuration) getTCertOwnerKDFKeyFilename() string {

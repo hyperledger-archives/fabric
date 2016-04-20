@@ -29,7 +29,7 @@ import (
 type tCertPoolMultithreadingImpl struct {
 	client *clientImpl
 
-	tCertChannel         chan tCert
+	tCertChannel         chan TransactionCertificate
 	tCertChannelFeedback chan struct{}
 	done                 chan struct{}
 }
@@ -48,7 +48,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	// Store unused TCert
 	tCertPool.client.debug("Store unused TCerts...")
 
-	tCerts := []tCert{}
+	tCerts := []TransactionCertificate{}
 	for {
 		if len(tCertPool.tCertChannel) > 0 {
 			tCerts = append(tCerts, <-tCertPool.tCertChannel)
@@ -66,7 +66,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert TransactionCertificate, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPool.client.debug("Getting next TCert... %d out of 3", i)
 		select {
@@ -89,7 +89,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err e
 		return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 	}
 
-	tCertPool.client.debug("Cert [% x].", tCert.GetCertificate().Raw)
+	tCertPool.client.debug("Cert [% x].", tCert.GetRaw())
 
 	// Store the TCert permanently
 	tCertPool.client.ks.storeUsedTCert(tCert)
@@ -99,7 +99,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err e
 	return
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert TransactionCertificate) (err error) {
 	tCertPool.client.debug("New TCert added.")
 	tCertPool.tCertChannel <- tCert
 
@@ -109,8 +109,8 @@ func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) 
 func (tCertPool *tCertPoolMultithreadingImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
 
-	tCertPool.tCertChannel = make(chan tCert, client.conf.getTCertBatchSize()*2)
-	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBatchSize()*2)
+	tCertPool.tCertChannel = make(chan TransactionCertificate, client.conf.getTCertBathSize()*2)
+	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBathSize()*2)
 	tCertPool.done = make(chan struct{})
 
 	return
@@ -142,7 +142,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 			break
 		}
 
-		tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+		tCert, err := tCertPool.client.getTCertFromDER(tCertDER, true)
 		if err != nil {
 			tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
 

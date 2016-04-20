@@ -24,25 +24,17 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
-type tCert interface {
-	GetCertificate() *x509.Certificate
-
-	Sign(msg []byte) ([]byte, error)
-
-	Verify(signature, msg []byte) error
-}
-
-type tCertImpl struct {
+type transactionCertificateImpl struct {
 	client *clientImpl
 	cert   *x509.Certificate
 	sk     interface{}
 }
 
-func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
-	return tCert.cert
+func (tCert *transactionCertificateImpl) GetRaw() []byte {
+	return tCert.cert.Raw
 }
 
-func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
+func (tCert *transactionCertificateImpl) Sign(msg []byte) ([]byte, error) {
 	if tCert.sk == nil {
 		return nil, utils.ErrNilArgument
 	}
@@ -50,7 +42,7 @@ func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
 	return tCert.client.sign(tCert.sk, msg)
 }
 
-func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
+func (tCert *transactionCertificateImpl) Verify(signature, msg []byte) (err error) {
 	ok, err := tCert.client.verify(tCert.cert.PublicKey, msg, signature)
 	if err != nil {
 		return

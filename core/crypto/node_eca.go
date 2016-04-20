@@ -23,14 +23,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+	obcca "github.com/hyperledger/fabric/membersrvc/protos"
 	protobuf "google/protobuf"
 	"time"
 
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	ecies "github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -54,7 +55,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 
 	// TODO: Test ECA cert againt root CA
 	// TODO: check responce.Cert against rootCA
-	x509ECACert, err := utils.DERToX509Certificate(ecaCertRaw)
+	x509ECACert, err := primitives.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
 		node.error("Failed parsing ECA certificate [%s].", err.Error())
 
@@ -77,13 +78,13 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
-	key, enrollCertRaw, enrollChainKey, err := node.getEnrollmentCertificateFromECA(enrollID, enrollPWD)
+	encryptionKey, enrollEncCertRaw, signingKey, enrollSignCertRaw, symChainKey, asymChainKey, err := node.getEnrollmentCertificateFromECA(enrollID, enrollPWD)
 	if err != nil {
 		node.error("Failed getting enrollment certificate [id=%s]: [%s]", enrollID, err)
 
 		return err
 	}
-	node.debug("Enrollment certificate [% x].", enrollCertRaw)
+	node.debug("Enrollment certificate [% x].", enrollSignCertRaw)
 
 	node.debug("Storing enrollment data for user [%s]...", enrollID)
 
@@ -94,46 +95,58 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 		return err
 	}
 
-	// Store enrollment key
-	if err := node.ks.storePrivateKey(node.conf.getEnrollmentKeyFilename(), key); err != nil {
+	// Store enrollment encryption key
+	if err := node.ks.storePrivateKey(node.conf.getEnrollmentEncryptionKeyFilename(), encryptionKey); err != nil {
 		node.error("Failed storing enrollment key [id=%s]: [%s]", enrollID, err)
 		return err
 	}
 
-	// Store enrollment cert
-	if err := node.ks.storeCert(node.conf.getEnrollmentCertFilename(), enrollCertRaw); err != nil {
+	// Store enrollment encryption cert
+	if err := node.ks.storeCert(node.conf.getEnrollmentEncryptionCertFilename(), enrollEncCertRaw); err != nil {
+		node.error("Failed storing enrollment certificate [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+	// Store enrollment signing key
+	if err := node.ks.storePrivateKey(node.conf.getEnrollmentSigningKeyFilename(), signingKey); err != nil {
+		node.error("Failed storing enrollment key [id=%s]: [%s]", enrollID, err)
+		return err
+	}
+
+	// Store enrollment signing cert
+	if err := node.ks.storeCert(node.conf.getEnrollmentSigningCertFilename(), enrollSignCertRaw); err != nil {
 		node.error("Failed storing enrollment certificate [id=%s]: [%s]", enrollID, err)
 		return err
 	}
 
 	// Code for confidentiality 1.1
-	//if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
-	//	node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
-	//	return err
+	if err := node.ks.storeKey(node.conf.getEnrollmentSymChainKeyFilename(), symChainKey); err != nil {
+		node.error("Failed storing enrollment symmetric chain key [id=%s]: [%s]", enrollID, err)
+		return err
+	}
 
-	// Code for confidentiality 1.2
+	// Code for confidentiality >= 1.2
 	// Store enrollment chain key
 	if node.eType == NodeValidator {
 		node.debug("Enrollment chain key for validator [%s]...", enrollID)
 		// enrollChainKey is a secret key
 
-		node.debug("key [%s]...", string(enrollChainKey))
+		node.debug("key [%s]...", string(asymChainKey))
 
-		key, err := utils.PEMtoPrivateKey(enrollChainKey, nil)
+		key, err := utils.PEMtoPrivateKey(asymChainKey, nil)
 		if err != nil {
-			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed unmarshalling enrollment asymmetric chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
 
 		if err := node.ks.storePrivateKey(node.conf.getEnrollmentChainKeyFilename(), key); err != nil {
-			node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
+			node.error("Failed storing enrollment asymmetric chain key [id=%s]: [%s]", enrollID, err)
 			return err
 		}
 	} else {
 		node.debug("Enrollment chain key for non-validator [%s]...", enrollID)
 		// enrollChainKey is a public key
 
-		key, err := utils.PEMtoPublicKey(enrollChainKey, nil)
+		key, err := utils.PEMtoPublicKey(asymChainKey, nil)
 		if err != nil {
 			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
@@ -149,25 +162,39 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 	return nil
 }
 
-func (node *nodeImpl) loadEnrollmentKey() error {
-	node.debug("Loading enrollment key...")
+func (node *nodeImpl) loadEnrollmentKeys() error {
+	node.debug("Loading enrollment keys...")
 
-	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename())
+	enrollSigningKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentSigningKeyFilename())
 	if err != nil {
-		node.error("Failed loading enrollment private key [%s].", err.Error())
+		node.error("Failed loading enrollment signing key [%s].", err.Error())
 
 		return err
 	}
 
-	node.enrollPrivKey = enrollPrivKey.(*ecdsa.PrivateKey)
+	node.enrollSigningKey = enrollSigningKey.(*ecdsa.PrivateKey)
+
+	enrollEncryptionKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentEncryptionKeyFilename())
+	if err != nil {
+		node.error("Failed loading enrollment encryption key [%s].", err.Error())
+
+		return err
+	}
+
+	node.enrollEncryptionKey, err = node.acSPI.NewPrivateKey(nil, enrollEncryptionKey)
+	if err != nil {
+		node.error("Failed marshalling enrollment encryption key [%s].", err.Error())
+
+		return err
+	}
 
 	return nil
 }
 
-func (node *nodeImpl) loadEnrollmentCertificate() error {
+func (node *nodeImpl) loadEnrollmentCertificates() error {
 	node.debug("Loading enrollment certificate...")
 
-	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentCertFilename())
+	cert, der, err := node.ks.loadCertX509AndDer(node.conf.getEnrollmentSigningCertFilename())
 	if err != nil {
 		node.error("Failed parsing enrollment certificate [%s].", err.Error())
 
@@ -177,7 +204,7 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 
 	// TODO: move this to retrieve
 	pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
-	err = utils.VerifySignCapability(node.enrollPrivKey, pk)
+	err = primitives.VerifySignCapability(node.enrollSigningKey, pk)
 	if err != nil {
 		node.error("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
 
@@ -185,12 +212,14 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 	}
 
 	// Set node ID
-	node.id = utils.Hash(der)
+	node.id = primitives.Hash(der)
 	node.debug("Setting id to [% x].", node.id)
 
 	// Set eCertHash
-	node.enrollCertHash = utils.Hash(der)
+	node.enrollCertHash = primitives.Hash(der)
 	node.debug("Setting enrollCertHash to [% x].", node.enrollCertHash)
+
+	// TODO: load encryption cert
 
 	return nil
 }
@@ -216,31 +245,31 @@ func (node *nodeImpl) loadEnrollmentChainKey() error {
 	node.debug("Loading enrollment chain key...")
 
 	// Code for confidentiality 1.1
-	//enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
-	//if err != nil {
-	//	node.error("Failed loading enrollment chain key [%s].", err.Error())
-	//
-	//	return err
-	//}
-	//node.enrollChainKey = enrollChainKey
+	enrollSymChainKey, err := node.ks.loadKey(node.conf.getEnrollmentSymChainKeyFilename())
+	if err != nil {
+		node.error("Failed loading enrollment symmetric chain key [%s].", err.Error())
 
-	// Code for confidentiality 1.1
+		return err
+	}
+	node.enrollSymChainKey = enrollSymChainKey
+
+	// Code for confidentiality >= 1.2
 	if node.eType == NodeValidator {
 		// enrollChainKey is a secret key
 		enrollChainKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentChainKeyFilename())
 		if err != nil {
-			node.error("Failed loading enrollment chain key: [%s]", err)
+			node.error("Failed loading enrollment asymmetric chain key: [%s]", err)
 			return err
 		}
-		node.enrollChainKey = enrollChainKey
+		node.enrollASymChainKey = enrollChainKey
 	} else {
 		// enrollChainKey is a public key
 		enrollChainKey, err := node.ks.loadPublicKey(node.conf.getEnrollmentChainKeyFilename())
 		if err != nil {
-			node.error("Failed load enrollment chain key: [%s]", err)
+			node.error("Failed load enrollment asymmetric chain key: [%s]", err)
 			return err
 		}
-		node.enrollChainKey = enrollChainKey
+		node.enrollASymChainKey = enrollChainKey
 	}
 
 	return nil
@@ -266,7 +295,7 @@ func (node *nodeImpl) loadECACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) getECAClient() (*grpc.ClientConn, membersrvc.ECAPClient, error) {
+func (node *nodeImpl) getECAClient() (*grpc.ClientConn, obcca.ECAPClient, error) {
 	node.debug("Getting ECA client...")
 
 	conn, err := node.getClientConn(node.conf.getECAPAddr(), node.conf.getECAServerName())
@@ -274,20 +303,20 @@ func (node *nodeImpl) getECAClient() (*grpc.ClientConn, membersrvc.ECAPClient, e
 		node.error("Failed getting client connection: [%s]", err)
 	}
 
-	client := membersrvc.NewECAPClient(conn)
+	client := obcca.NewECAPClient(conn)
 
 	node.debug("Getting ECA client...done")
 
 	return conn, client, nil
 }
 
-func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*membersrvc.Cert, error) {
+func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
 
 	// Issue the request
-	cert, err := ecaP.ReadCACertificate(ctx, &membersrvc.Empty{}, opts...)
+	cert, err := ecaP.ReadCACertificate(ctx, &obcca.Empty{}, opts...)
 	if err != nil {
 		node.error("Failed requesting read certificate [%s].", err.Error())
 
@@ -297,7 +326,7 @@ func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc
 	return cert, nil
 }
 
-func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *membersrvc.ECertReadReq, opts ...grpc.CallOption) (*membersrvc.CertPair, error) {
+func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *obcca.ECertReadReq, opts ...grpc.CallOption) (*obcca.CertPair, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
@@ -313,7 +342,7 @@ func (node *nodeImpl) callECAReadCertificate(ctx context.Context, in *membersrvc
 	return resp, nil
 }
 
-func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *membersrvc.Hash, opts ...grpc.CallOption) (*membersrvc.CertPair, error) {
+func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *obcca.Hash, opts ...grpc.CallOption) (*obcca.CertPair, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
@@ -326,55 +355,55 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *memb
 		return nil, err
 	}
 
-	return &membersrvc.CertPair{Sign: resp.Cert, Enc: nil}, nil
+	return &obcca.CertPair{Sign: resp.Cert, Enc: nil}, nil
 }
 
-func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
+func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, interface{}, []byte, []byte, []byte, error) {
 	// Get a new ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
 
 	// Run the protocol
 
-	signPriv, err := utils.NewECDSAKey()
+	signPriv, err := primitives.NewECDSAKey()
 	if err != nil {
 		node.error("Failed generating ECDSA key [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	signPub, err := x509.MarshalPKIXPublicKey(&signPriv.PublicKey)
 	if err != nil {
 		node.error("Failed mashalling ECDSA key [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	encPriv, err := utils.NewECDSAKey()
+	encPriv, err := primitives.NewECDSAKey()
 	if err != nil {
 		node.error("Failed generating Encryption key [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	encPub, err := x509.MarshalPKIXPublicKey(&encPriv.PublicKey)
 	if err != nil {
 		node.error("Failed marshalling Encryption key [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	req := &membersrvc.ECertCreateReq{
+	req := &obcca.ECertCreateReq{
 		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:   &membersrvc.Identity{Id: id},
-		Tok:  &membersrvc.Token{Tok: []byte(pw)},
-		Sign: &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: signPub},
-		Enc:  &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: encPub},
+		Id:   &obcca.Identity{Id: id},
+		Tok:  &obcca.Token{Tok: []byte(pw)},
+		Sign: &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: signPub},
+		Enc:  &obcca.PublicKey{Type: obcca.CryptoType_ECDSA, Key: encPub},
 		Sig:  nil}
 
 	resp, err := ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {
 		node.error("Failed invoking CreateCertficatePair [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	//out, err := rsa.DecryptPKCS1v15(rand.Reader, encPriv, resp.Tok.Tok)
@@ -383,27 +412,27 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	if err != nil {
 		node.error("Failed parsing decrypting key [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	ecies, err := spi.NewAsymmetricCipherFromPublicKey(eciesKey)
 	if err != nil {
 		node.error("Failed creating asymmetrinc cipher [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	out, err := ecies.Process(resp.Tok.Tok)
 	if err != nil {
 		node.error("Failed decrypting toke [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	req.Tok.Tok = out
 	req.Sig = nil
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ := proto.Marshal(req)
 	hash.Write(raw)
 
@@ -411,70 +440,73 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	if err != nil {
 		node.error("Failed signing [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err = ecaP.CreateCertificatePair(context.Background(), req)
 	if err != nil {
 		node.error("Failed invoking CreateCertificatePair [%s].", err.Error())
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	// Verify response
 
 	// Verify cert for signing
-	node.debug("Enrollment certificate for signing [% x]", utils.Hash(resp.Certs.Sign))
+	node.debug("Enrollment certificate for signing [% x]", primitives.Hash(resp.Certs.Sign))
 
-	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
+	x509SignCert, err := primitives.DERToX509Certificate(resp.Certs.Sign)
 	if err != nil {
 		node.error("Failed parsing signing enrollment certificate for signing: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	_, err = utils.GetCriticalExtension(x509SignCert, ECertSubjectRole)
+	_, err = primitives.GetCriticalExtension(x509SignCert, ECertSubjectRole)
 	if err != nil {
 		node.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	err = utils.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
+	err = primitives.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
 	if err != nil {
 		node.error("Failed checking signing enrollment certificate for signing: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	// Verify cert for encrypting
-	node.debug("Enrollment certificate for encrypting [% x]", utils.Hash(resp.Certs.Enc))
+	node.debug("Enrollment certificate for encrypting [% x]", primitives.Hash(resp.Certs.Enc))
 
-	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
+	x509EncCert, err := primitives.DERToX509Certificate(resp.Certs.Enc)
 	if err != nil {
 		node.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	_, err = utils.GetCriticalExtension(x509EncCert, ECertSubjectRole)
+	_, err = primitives.GetCriticalExtension(x509EncCert, ECertSubjectRole)
 	if err != nil {
 		node.error("Failed parsing ECertSubjectRole in enrollment certificate for encrypting: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	err = utils.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
+	err = primitives.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
 	if err != nil {
 		node.error("Failed checking signing enrollment certificate for encrypting: [%s]", err)
 
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	return signPriv, resp.Certs.Sign, resp.Pkchain, nil
+	// END
+	node.debug("chain key: [% x]", resp.Chain.Tok)
+
+	return encPriv, resp.Certs.Enc, signPriv, resp.Certs.Sign, resp.Chain.Tok, resp.Pkchain, nil
 }
 
 func (node *nodeImpl) getECACertificate() ([]byte, error) {

@@ -20,10 +20,10 @@ under the License.
 package crypto
 
 import (
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+	obcca "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -39,7 +39,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	node.debug("TCA certificate [% x]", tcaCertRaw)
 
 	// TODO: Test TCA cert againt root CA
-	_, err = utils.DERToX509Certificate(tcaCertRaw)
+	_, err = primitives.DERToX509Certificate(tcaCertRaw)
 	if err != nil {
 		node.error("Failed parsing TCA certificate [%s].", err.Error())
 
@@ -79,7 +79,7 @@ func (node *nodeImpl) loadTCACertsChain() error {
 	return nil
 }
 
-func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, membersrvc.TCAPClient, error) {
+func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, obcca.TCAPClient, error) {
 	node.debug("Getting TCA client...")
 
 	conn, err := node.getClientConn(node.conf.getTCAPAddr(), node.conf.getTCAServerName())
@@ -87,20 +87,20 @@ func (node *nodeImpl) getTCAClient() (*grpc.ClientConn, membersrvc.TCAPClient, e
 		node.error("Failed getting client connection: [%s]", err)
 	}
 
-	client := membersrvc.NewTCAPClient(conn)
+	client := obcca.NewTCAPClient(conn)
 
 	node.debug("Getting TCA client...done")
 
 	return conn, client, nil
 }
 
-func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*membersrvc.Cert, error) {
+func (node *nodeImpl) callTCAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*obcca.Cert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := node.getTCAClient()
 	defer sock.Close()
 
 	// Issue the request
-	cert, err := tcaP.ReadCACertificate(ctx, &membersrvc.Empty{}, opts...)
+	cert, err := tcaP.ReadCACertificate(ctx, &obcca.Empty{}, opts...)
 	if err != nil {
 		node.error("Failed requesting tca read certificate [%s].", err.Error())
 

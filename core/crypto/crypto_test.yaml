@@ -10,7 +10,7 @@ server:
 
 security:
     # Can be 256 or 384
-    # Must be the same as in core.yaml
+    # Must be the same as in openchain.yaml
     level: 256
 
     # Enable/Disable multithread

@@ -51,7 +51,9 @@ func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	cert, err := utils.DERToX509Certificate(rawCert)
+	validator.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
+
+	cert, err := primitives.DERToX509Certificate(rawCert)
 	if err != nil {
 		peer.error("Failed parsing enrollment certificate for [%s]: [% x],[% x]", sid, rawCert, err)
 
@@ -78,7 +80,7 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	peer.debug("Certificate for hash [% x] = [% x][% x]", id, responce.Sign, responce.Enc)
 
 	// Verify responce.Sign
-	x509Cert, err := utils.DERToX509Certificate(responce.Sign)
+	x509Cert, err := primitives.DERToX509Certificate(responce.Sign)
 	if err != nil {
 		peer.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
@@ -86,7 +88,7 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	}
 
 	// Check role
-	roleRaw, err := utils.GetCriticalExtension(x509Cert, ECertSubjectRole)
+	roleRaw, err := primitives.GetCriticalExtension(x509Cert, ECertSubjectRole)
 	if err != nil {
 		peer.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
