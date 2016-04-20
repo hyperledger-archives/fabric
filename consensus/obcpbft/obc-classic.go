@@ -142,7 +142,12 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 		return
 	}
 
-	// XXX execute
+	id := []byte("foo")
+	op.stack.BeginTxBatch(id)
+	result, err := op.stack.ExecTxs(id, []*pb.Transaction{tx})
+	_ = err    // XXX what to do on error?
+	_ = result // XXX what to do with the result?
+	_, err = op.stack.CommitTxBatch(id, nil)
 }
 
 // called when a view-change happened in the underlying PBFT
