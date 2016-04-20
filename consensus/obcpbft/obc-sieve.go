@@ -613,7 +613,7 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 }
 
 func (op *obcSieve) getState() []byte {
-	return op.stack.GetBlockchainHead()
+	return op.stack.GetBlockchainInfo()
 }
 
 func (op *obcSieve) rollback() {

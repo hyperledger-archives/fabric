@@ -321,5 +321,5 @@ func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID 
 }
 
 func (op *obcBatch) getState() []byte {
-	return op.stack.GetBlockchainHead()
+	return op.stack.GetBlockchainInfo()
 }

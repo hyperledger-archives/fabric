@@ -59,7 +59,7 @@ type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
-	GetBlockchainHead() []byte
+	GetBlockchainInfo() []byte
 }
 
 // UtilLedger contains additional useful utility functions for interrogating the blockchain
@@ -91,6 +91,8 @@ type Executor interface {
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
 	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
+
+	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
