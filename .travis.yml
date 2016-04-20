@@ -54,25 +54,6 @@ script:
  #- behave -n "chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)"
  - behave -D logs=Y
 
-after_success:
-
- - echo " PUSHING DOCKER IMAGES TO DOCKER HUB "
- - echo "PULL REQUEST IS" $TRAVIS_PULL_REQUEST
- - |
-   if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then
-   docker images | grep "hyperledger-peer\|membersrvc" ;
-   TAG="$(git log --pretty=oneline -1 | awk '{print $1}' | cut -c 1-7)" ;
-   echo "LATEST COMMIT NUMBER is = $TAG" ;
-   PeerImage="$(docker images | grep "^hyperledger-peer" | awk '{print $3}')" && membersrvcImage="$(docker images | grep "^membersrvc" | awk '{print $3}')" ;
-   docker tag $PeerImage pushdocker/working:$TAG && docker tag $PeerImage pushdocker/working:latest ;
-   docker tag $membersrvcImage pushdocker/obcca:$TAG && docker tag $membersrvcImage pushdocker/obcca:latest ;
-   docker login --email=$DOCKER_HUB_EMAIL --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD ;
-   echo " -----> Pushing DOCKER IMAGES to DOCKER HUB " ;
-   docker push pushdocker/working:$TAG && docker push pushdocker/obcca:$TAG ;
-   docker push pushdocker/working:latest && docker push pushdocker/obcca:latest ;
-   else
-   echo "Not Pushing Docker Images to Docker Hub " ;
-   fi
 notifications:
   slack:
     rooms:
