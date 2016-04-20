@@ -201,7 +201,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"invoke",
@@ -238,7 +238,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"invoke",
@@ -281,7 +281,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"query",
@@ -318,7 +318,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"query",
