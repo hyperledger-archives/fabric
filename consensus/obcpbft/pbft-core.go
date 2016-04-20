@@ -992,11 +992,13 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	if instance.skipInProgress {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		instance.skipInProgress = false
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
 		instance.activeView = true // TODO, verify this with experts
+		instance.unlock()
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+		instance.lock()
+		instance.skipInProgress = false
 	}
 }
 
