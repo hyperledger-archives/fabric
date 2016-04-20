@@ -22,10 +22,13 @@ package helper
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/helper/persist"
+	"github.com/hyperledger/fabric/consensus/statetransfer"
 	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
@@ -41,13 +44,20 @@ type Helper struct {
 	secHelper   crypto.Peer
 	curBatch    []*pb.Transaction // TODO, remove after issue 579
 	persist.PersistHelper
+
+	sts *statetransfer.StateTransferState
 }
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
-	return &Helper{coordinator: mhc,
-		secOn:     core.SecurityEnabled(),
-		secHelper: mhc.GetSecHelper()}
+	h := &Helper{
+		coordinator: mhc,
+		secOn:       viper.GetBool("security.enabled"),
+		secHelper:   mhc.GetSecHelper(),
+	}
+	h.sts = statetransfer.NewStateTransferState(h)
+	h.sts.Initiate(nil)
+	return h
 }
 
 // GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
@@ -359,8 +369,16 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 	})
 }
 
-func (h *Helper) GetBlockchainHead() []byte {
+func (h *Helper) GetBlockchainInfo() []byte {
 	ledger, _ := ledger.GetLedger()
 	info, _ := ledger.GetBlockchainInfo()
-	return info.CurrentBlockHash
+	rawInfo, _ := proto.Marshal(info)
+	return rawInfo
+}
+
+func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	info := &pb.BlockchainInfo{}
+	proto.Unmarshal(id, info)
+	// XXX register for the completion callback
+	h.sts.AddTarget(info.Height, info.CurrentBlockHash, peers, nil)
 }
