@@ -127,7 +127,8 @@ POST host:port/chaincode
   "params": {
     "type": 1,
     "chaincodeID":{
-        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02",
+        "name": "mycc"
     },
     "ctorMsg": {
         "function":"init",
