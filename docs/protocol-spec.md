@@ -3036,7 +3036,7 @@ The CLI includes a subset of the available APIs to enable developers to quickly 
 
 To see what CLI commands are currently available in the implementation, execute the following:
 
-    cd $GOPATH/src/github.com/hyperledger/fabic
+    cd $GOPATH/src/github.com/hyperledger/fabic/peer
     ./peer
 
 You will receive a response similar to below:

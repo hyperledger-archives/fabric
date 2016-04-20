@@ -32,10 +32,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/fsouza/go-dockerclient"
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/platforms"
 	cutil "github.com/hyperledger/fabric/core/container/util"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 )
 
 func newDockerClient() (client *docker.Client, err error) {
@@ -244,7 +244,7 @@ func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
 	startTime := time.Now()
 
 	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileContents = dockerFileContents + "WORKDIR membersrvc\nRUN go install && cp membersrvc.yaml $GOPATH/bin\n"
+	dockerFileContents = dockerFileContents + "WORKDIR ../membersrvc\nRUN go install && cp membersrvc.yaml $GOPATH/bin\n"
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
 
 	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})

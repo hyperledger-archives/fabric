@@ -13,7 +13,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	conf.InitSecurityLevel(256)
+	conf.InitSecurityLevel("SHA3", 256)
 }
 
 func TestSPI(t *testing.T) {

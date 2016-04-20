@@ -106,6 +106,7 @@ func (c *adminClient) StopServer(ctx context.Context, in *google_protobuf1.Empty
 	out := new(ServerStatus)
 	err := grpc.Invoke(ctx, "/protos.Admin/StopServer", in, out, c.cc, opts...)
 	if err != nil {
+		logger.Debug("Returned error %s, code %i", grpc.ErrorDesc(err), grpc.Code(err))
 		return nil, err
 	}
 	return out, nil

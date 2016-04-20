@@ -1,3 +1,6 @@
+## Incubation Notice
+This is a Hyperledger project in Incubation. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what Incubation entails can be found in the Hyperledger Project Lifecycle [document](https://goo.gl/4edNRc).
+
 ## Overview
 This project contains the core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications.
 
@@ -29,16 +32,17 @@ From within the VM, you can build, run, and test your environment.
 
 #### 1. Go build
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
-go build -o peer
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
+go build
 ```
 
 #### 2. Run
 
 To see what commands are available, simply execute the following command:
-
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    ./peer
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
+./peer
+```
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
 
@@ -117,7 +121,7 @@ INSTALL_PATH=/usr/local make install-shared
 ```
 - Run the following commands:
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options
@@ -133,7 +137,7 @@ up at the IP address currently assumed by the test environment
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## Communication <a name="communication"></a>
-We use [Hyperledger Slack](https://hyperledgerproject.slack.com)  for communication and Google Hangouts&trade; for screen sharing between developers. Register at [hyperledgerproject](https://hyperledgerproject.slack.com/signup) or email tbenzies@linuxfoundation.org.
+We use [Hyperledger Slack](https://slack.hyperledger.org/)  for communication and Google Hangouts&trade; for screen sharing between developers.
 
 ## Coding Golang <a name="coding"></a>
 - We require a file [header](docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
