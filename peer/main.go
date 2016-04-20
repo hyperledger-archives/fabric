@@ -55,6 +55,8 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -378,8 +380,14 @@ func serve(args []string) error {
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
+		logger.Debug("Running as validating peer - making genesis block if needed")
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
+		}
+
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithHandler(helper.NewConsensusHandler)
+		peerServer, err = peer.NewPeerWithEngine(helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
 		peerServer, err = peer.NewPeerWithHandler(peer.NewPeerHandler)
@@ -454,17 +462,19 @@ func serve(args []string) error {
 		return err
 	}
 
-	// Deploy the genesis block if needed.
-	if viper.GetBool("peer.validator.enabled") {
-		makeGenesisError := genesis.MakeGenesis()
-		if makeGenesisError != nil {
-			return makeGenesisError
-		}
-	}
-
 	//start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
+	}
+
+	if viper.GetBool("peer.profile.enabled") {
+		go func() {
+			profileListenAddress := viper.GetString("peer.profile.listenAddress")
+			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
+			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
+				logger.Error("Error starting profiler: %s", profileErr)
+			}
+		}()
 	}
 
 	// Block until grpc server exits
