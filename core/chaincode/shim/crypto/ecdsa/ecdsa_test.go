@@ -27,7 +27,7 @@ import (
 
 func TestSignatureVerifier(t *testing.T) {
 	// Create a signature
-	conf.InitSecurityLevel(256)
+	conf.SetSecurityLevel("SHA3", 256)
 
 	cert, key, err := utils.NewSelfSignedCert()
 	if err != nil {
@@ -52,3 +52,145 @@ func TestSignatureVerifier(t *testing.T) {
 		t.Fatal("Signature does not verify")
 	}
 }
+
+func TestSignatureVerifierSHA2(t *testing.T) {
+	// Create a signature
+	conf.SetSecurityLevel("SHA2", 256)
+
+	cert, key, err := utils.NewSelfSignedCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("Hello World!")
+	signature, err := utils.ECDSASign(key, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instantiate a new SignatureVerifier
+	sv := NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	ok, err := sv.Verify(cert, signature, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Signature does not verify")
+	}
+}
+
+
+func TestSignatureVerifierSHA2_384(t *testing.T) {
+	// Create a signature
+	conf.SetSecurityLevel("SHA2", 384)
+
+	cert, key, err := utils.NewSelfSignedCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("Hello World!")
+	signature, err := utils.ECDSASign(key, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instantiate a new SignatureVerifier
+	sv := NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	ok, err := sv.Verify(cert, signature, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Signature does not verify")
+	}
+}
+
+func TestSignatureVerifierSHA3_384(t *testing.T) {
+	// Create a signature
+	conf.SetSecurityLevel("SHA3", 384)
+
+	cert, key, err := utils.NewSelfSignedCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("Hello World!")
+	signature, err := utils.ECDSASign(key, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instantiate a new SignatureVerifier
+	sv := NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	ok, err := sv.Verify(cert, signature, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Signature does not verify")
+	}
+}
+
+func TestSignatureVerifierSHA2_512(t *testing.T) {
+	// Create a signature
+	conf.SetSecurityLevel("SHA2", 512)
+
+	cert, key, err := utils.NewSelfSignedCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("Hello World!")
+	signature, err := utils.ECDSASign(key, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instantiate a new SignatureVerifier
+	sv := NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	ok, err := sv.Verify(cert, signature, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Signature does not verify")
+	}
+}
+
+func TestSignatureVerifierSHA3_512(t *testing.T) {
+	// Create a signature
+	conf.SetSecurityLevel("SHA3", 512)
+
+	cert, key, err := utils.NewSelfSignedCert()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("Hello World!")
+	signature, err := utils.ECDSASign(key, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instantiate a new SignatureVerifier
+	sv := NewX509ECDSASignatureVerifier()
+
+	// Verify the signature
+	ok, err := sv.Verify(cert, signature, message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Signature does not verify")
+	}
+}
+

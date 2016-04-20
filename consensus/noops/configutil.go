@@ -39,7 +39,7 @@ func loadConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("./consensus/noops/")
+	config.AddConfigPath("../consensus/noops/")
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))
