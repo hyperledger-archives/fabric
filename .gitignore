@@ -11,3 +11,9 @@ tags
 .tags
 .vagrant/
 membersrvc/membersrvc
+# Emacs backup files
+*~
+*#
+.#*
+# bddtest log files
+*.log
