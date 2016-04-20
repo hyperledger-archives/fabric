@@ -60,7 +60,10 @@ func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction
 			return response
 		}
 
-		// Pass the message to the consenter (eg. PBFT)
+		// Pass the message to the consenter (eg. PBFT) NOTE: Make sure engine has been initialized
+		if eng.consenter == nil {
+			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Engine not initialized")}
+		}
 		err := eng.consenter.RecvMsg(msg, eng.peerEndpoint.ID)
 		if err != nil {
 			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
