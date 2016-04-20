@@ -76,7 +76,7 @@ func loadConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("./consensus/obcpbft/")
+	config.AddConfigPath("../consensus/obcpbft/")
 	config.AddConfigPath("../../consensus/obcpbft")
 	err := config.ReadInConfig()
 	if err != nil {
