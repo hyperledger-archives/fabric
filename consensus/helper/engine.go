@@ -26,6 +26,7 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"sync"
+	"github.com/hyperledger/fabric/consensus/controller"
 )
 
 type EngineImpl struct {
@@ -92,12 +93,11 @@ func getEngineImpl() *EngineImpl {
 
 func GetEngine(coord peer.MessageHandlerCoordinator) (peer.Engine, error) {
 	var err error
-	engine = new(EngineImpl)
-	//engineOnce.Do(func() {
-	//	engine = new(EngineImpl)
-	//	engine.consenter = controller.NewConsenter(NewHelper(coord))
-	//	engine.peerEndpoint, err = coord.GetPeerEndpoint()
-	//
-	//})
+	engineOnce.Do(func() {
+		engine = new(EngineImpl)
+		engine.consenter = controller.NewConsenter(NewHelper(coord))
+		engine.peerEndpoint, err = coord.GetPeerEndpoint()
+
+	})
 	return engine, err
 }

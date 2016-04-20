@@ -380,9 +380,14 @@ func serve(args []string) error {
 	var peerServer *peer.PeerImpl
 
 	if viper.GetBool("peer.validator.enabled") {
+		logger.Debug("Running as validating peer - making genesis block if needed")
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
+		}
+
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, err = peer.NewPeerWithEngine(helper.GetEngine)
-		//speerServer, err = peer.NewPeerWithHandler(helper.NewConsensusHandler)
 	} else {
 		logger.Debug("Running as non-validating peer")
 		peerServer, err = peer.NewPeerWithHandler(peer.NewPeerHandler)
@@ -455,14 +460,6 @@ func serve(args []string) error {
 
 	if err := writePid(viper.GetString("peer.fileSystemPath") + "/peer.pid", os.Getpid()); err != nil {
 		return err
-	}
-
-	// Deploy the genesis block if needed.
-	if viper.GetBool("peer.validator.enabled") {
-		makeGenesisError := genesis.MakeGenesis()
-		if makeGenesisError != nil {
-			return makeGenesisError
-		}
 	}
 
 	//start the event hub server

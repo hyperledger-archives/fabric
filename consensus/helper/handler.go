@@ -67,17 +67,6 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
 
-	// Set the Consenter singleton in the Engine once only
-	engineConsenterOnce.Do(func() {
-		thisPeerEndpoint, getEndpointErr := coord.GetPeerEndpoint()
-		if err != nil {
-			err = getEndpointErr
-			return
-		}
-		logger.Debug("Engine is => %v", getEngineImpl())
-		getEngineImpl().setConsenter(handler.consenter).setPeerEndpoint(thisPeerEndpoint)
-	})
-
 	return handler, err
 }
 
