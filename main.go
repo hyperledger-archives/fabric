@@ -68,7 +68,7 @@ const undefinedParamValue = ""
 // The main command describes the service and
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
-	Use: "peer",
+	Use: "fabric",
 }
 
 var peerCmd = &cobra.Command{
