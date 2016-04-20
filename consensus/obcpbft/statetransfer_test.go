@@ -44,7 +44,7 @@ func newPartialStack(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) Partial
 }
 
 func newTestStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
-	return NewStateTransferState(loadConfig(), newPartialStack(ml, rld))
+	return NewStateTransferState(newPartialStack(ml, rld))
 }
 
 func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
