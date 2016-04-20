@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
@@ -341,7 +341,15 @@ func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *S
 	return sts
 }
 
-func NewStateTransferState(config *viper.Viper, stack PartialStack) *StateTransferState {
+func NewStateTransferState(stack PartialStack) *StateTransferState {
+	config := viper.New()
+
+	config.SetConfigName("config")
+	config.AddConfigPath("./")
+	config.AddConfigPath("./consensus/obcpbft/")
+	config.AddConfigPath("../../consensus/obcpbft")
+	config.ReadInConfig()
+
 	sts := ThreadlessNewStateTransferState(config, stack)
 
 	go sts.stateThread()
