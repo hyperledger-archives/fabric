@@ -650,7 +650,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
 		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
-		// XXX send view change?
+		instance.sendViewChange()
 	} else {
 		cert.prePrepare = preprep
 		cert.digest = preprep.RequestDigest
