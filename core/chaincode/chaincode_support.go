@@ -444,7 +444,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		}
 		if nil != chaincodeSupport.secHelper {
 			var err error
-			depTx, err = chaincodeSupport.secHelper.TransactionPreExecution(depTx)
+			depTx, err = chaincodeSupport.secHelper.TransactionPreExecution(nil, depTx)
 			// Note that t is now decrypted and is a deep clone of the original input t
 			if nil != err {
 				return cID, cMsg, fmt.Errorf("failed tx preexecution%s - %s", chaincode, err)

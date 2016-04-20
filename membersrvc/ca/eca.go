@@ -37,12 +37,10 @@ import (
 	"strings"
 	"time"
 
-	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
-
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -115,7 +113,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		} else {
-			priv, err = ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
+			priv, err = ecdsa.GenerateKey(primitives.GetDefaultCurve(), rand.Reader)
 			if err != nil {
 				Panic.Panicln(err)
 			}
@@ -279,7 +277,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		hash := utils.NewHash()
+		hash := primitives.NewHash()
 		raw, _ := proto.Marshal(in)
 		hash.Write(raw)
 		if ecdsa.Verify(skey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -399,7 +397,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {

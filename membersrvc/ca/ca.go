@@ -34,9 +34,8 @@ import (
 	"time"
 	"strings"
 
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // CA is the base certificate authority.
@@ -225,7 +224,7 @@ func (ca *CA) Close() {
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 	Trace.Println("Creating CA key pair.")
 
-	curve := conf.GetDefaultCurve()
+	curve := primitives.GetDefaultCurve()
 
 	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err == nil {
@@ -317,7 +316,7 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 		return nil, err
 	}
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	hash.Write(raw)
 	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", spec.GetId(), timestamp, spec.GetUsage(), raw, hash.Sum(nil), kdfKey); err != nil {
 		Error.Println(err)

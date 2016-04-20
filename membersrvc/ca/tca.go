@@ -37,6 +37,7 @@ import (
 
     "github.com/spf13/viper"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/conf"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -233,6 +234,52 @@ func (tcap *TCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 	return &pb.Cert{tcap.tca.raw}, nil
 }
 
+// CreateCertificate requests the creation of a new transaction certificate by the TCA.
+//
+func (tcap *TCAP) CreateCertificate(ctx context.Context, in *pb.TCertCreateReq) (*pb.TCertCreateResp, error) {
+	Trace.Println("grpc TCAP:CreateCertificate")
+
+	id := in.Id.Id
+	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	sig := in.Sig
+	in.Sig = nil
+
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	raw = in.Pub.Key
+	if in.Pub.Type != pb.CryptoType_ECDSA {
+		return nil, errors.New("unsupported key type")
+	}
+	pub, err := x509.ParsePKIXPublicKey(in.Pub.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := primitives.NewHash()
+	raw, _ = proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		return nil, errors.New("signature does not verify")
+	}
+
+	if raw, err = tcap.tca.createCertificate(id, pub.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, in.Ts.Seconds, nil); err != nil {
+		Error.Println(err)
+		return nil, err
+	}
+
+	return &pb.TCertCreateResp{&pb.Cert{raw}}, nil
+}
+
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
 	Trace.Println("grpc TCAP:CreateCertificateSet")
@@ -255,7 +302,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	//sig := in.Sig
 	in.Sig = nil
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub, hash.Sum(nil), r, s) == false {
@@ -266,7 +313,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
 	rand.Reader.Read(nonce[:8])
 
-	mac := hmac.New(conf.GetDefaultHash(), tcap.tca.hmacKey)
+	mac := hmac.New(primitives.GetDefaultHash(), tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
@@ -293,7 +340,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{2})
-		mac = hmac.New(conf.GetDefaultHash(), mac.Sum(nil))
+		mac = hmac.New(primitives.GetDefaultHash(), mac.Sum(nil))
 		mac.Write(tidx)
 		
 		one := new(big.Int).SetInt64(1)
@@ -449,7 +496,7 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -495,7 +542,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -565,7 +612,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {

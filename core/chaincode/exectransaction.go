@@ -43,7 +43,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 
 	if secHelper := chain.getSecHelper(); nil != secHelper {
 		var err error
-		t, err = secHelper.TransactionPreExecution(t)
+		t, err = secHelper.TransactionPreExecution(nil, t)
 		// Note that t is now decrypted and is a deep clone of the original input t
 		if nil != err {
 			return nil, err
