@@ -27,6 +27,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/protos"
@@ -620,9 +622,21 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	}
 }
 
-func (mock *MockLedger) GetBlockchainHead() []byte {
-	h, _ := mock.HashBlock(mock.blocks[mock.blockHeight-1])
+func (mock *MockLedger) GetBlockchainInfo() []byte {
+	info := &protos.BlockchainInfo{Height: mock.blockHeight}
+	b, _ := mock.GetBlock(mock.blockHeight - 1)
+	info.CurrentBlockHash, _ = mock.HashBlock(b)
+	h, _ := proto.Marshal(info)
 	return h
+}
+
+func (mock *MockLedger) SkipTo(tag uint64, id []byte, peers []*protos.PeerID) {
+	info := &protos.BlockchainInfo{}
+	proto.Unmarshal(id, info)
+	fmt.Printf("TEST LEDGER skipping to %d, %+v", tag, info)
+	for n := mock.blockHeight; n < info.Height; n++ {
+		mock.PutBlock(n, SimpleGetBlock(n))
+	}
 }
 
 // Used when the actual transaction content is irrelevant, useful for testing
@@ -650,9 +664,12 @@ func (mock *MockRemoteLedger) GetCurrentStateHash() (stateHash []byte, err error
 	return SimpleEncodeUint64(SimpleGetState(mock.blockHeight - 1)), nil
 }
 
-func (mock *MockRemoteLedger) GetBlockchainHead() []byte {
+func (mock *MockRemoteLedger) GetBlockchainInfo() []byte {
+	info := &protos.BlockchainInfo{Height: mock.blockHeight}
 	b, _ := mock.GetBlock(mock.blockHeight)
-	return SimpleHashBlock(b)
+	info.CurrentBlockHash = SimpleHashBlock(b)
+	h, _ := proto.Marshal(info)
+	return h
 }
 
 func SimpleEncodeUint64(num uint64) []byte {

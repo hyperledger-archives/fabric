@@ -160,11 +160,7 @@ func (op *obcClassic) Checkpoint(seqNo uint64, id []byte) {
 }
 
 func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	//	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
-func (op *obcClassic) validState(seqNo uint64, id []byte, replicas []uint64) {
-	//	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
+	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
 }
 
 // Unnecessary
@@ -173,5 +169,5 @@ func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedI
 }
 
 func (op *obcClassic) getState() []byte {
-	return op.stack.GetBlockchainHead()
+	return op.stack.GetBlockchainInfo()
 }
