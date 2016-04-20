@@ -440,6 +440,15 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 	return nil
 }
 
+// stateUpdate is an event telling us that the application fast-forwarded its state
+func (instance *pbftCore) stateUpdate(id []byte) {
+	instance.lock()
+	defer instance.unlock()
+	logger.Info("Replica %d application caught up via state transfer", instance.id)
+	instance.skipInProgress = false
+	instance.executeOutstanding()
+}
+
 func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
 
 	if req := msg.GetRequest(); req != nil {
@@ -998,7 +1007,6 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.unlock()
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
 		instance.lock()
-		instance.skipInProgress = false
 	}
 }
 

@@ -56,7 +56,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
+	// XXX initialize blockNumber
 
 	op.pbft = newPbftCore(id, config, op)
 
@@ -120,6 +120,12 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 		logger.Error(err.Error())
 	}
 	return nil
+}
+
+// StateUpdate is a signal from the stack that it has fast-forwarded its state
+func (op *obcSieve) StateUpdate(id []byte) {
+	op.pbft.stateUpdate(id)
+	// XXX update blockNumber
 }
 
 // Close tells us to release resources we are holding

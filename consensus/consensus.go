@@ -28,6 +28,7 @@ import (
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
+	StateUpdate(id []byte)
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -107,17 +108,12 @@ type StatePersistor interface {
 	ReadState(key string) ([]byte, error)
 }
 
-// LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
-type LedgerStack interface {
-	Executor
-	Ledger
-	RemoteLedgers
-}
-
 // Stack is the set of stack-facing methods available to the consensus plugin
 type Stack interface {
 	NetworkStack
 	SecurityUtils
-	LedgerStack
+	Executor
+	Ledger
+	RemoteLedgers
 	StatePersistor
 }

@@ -630,7 +630,7 @@ func (mock *MockLedger) GetBlockchainInfo() []byte {
 	return h
 }
 
-func (mock *MockLedger) SkipTo(tag uint64, id []byte, peers []*protos.PeerID) {
+func (mock *MockLedger) simulateStateTransfer(tag uint64, id []byte, peers []*protos.PeerID) {
 	info := &protos.BlockchainInfo{}
 	proto.Unmarshal(id, info)
 	fmt.Printf("TEST LEDGER skipping to %d, %+v", tag, info)
