@@ -42,6 +42,7 @@ func init() {
 // ConsensusHandler handles consensus messages.
 // It also implements the Stack.
 type ConsensusHandler struct {
+	*Helper
 	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
 	peerHandler peer.MessageHandler
@@ -65,7 +66,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 
-	handler.consenter = controller.NewConsenter(NewHelper(coord))
+	handler.consenter = controller.NewConsenter(NewHelper(handler, coord))
 
 	return handler, err
 }
