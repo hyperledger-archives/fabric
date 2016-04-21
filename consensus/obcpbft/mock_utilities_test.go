@@ -51,7 +51,7 @@ func (p *mockPersist) initialize() {
 	}
 }
 
-func (p mockPersist) ReadState(key string) ([]byte, error) {
+func (p *mockPersist) ReadState(key string) ([]byte, error) {
 	p.initialize()
 	if val, ok := p.store[key]; ok {
 		return val, nil
@@ -59,7 +59,7 @@ func (p mockPersist) ReadState(key string) ([]byte, error) {
 	return nil, fmt.Errorf("cannot find key %s", key)
 }
 
-func (p mockPersist) StoreState(key string, value []byte) error {
+func (p *mockPersist) StoreState(key string, value []byte) error {
 	p.initialize()
 	p.store[key] = value
 	return nil
