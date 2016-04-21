@@ -307,7 +307,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 }
 
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	tcert, err := deployer.GetNextTCert()
+	tcert, err := deployer.GetTCertificateHandlerNext()
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
@@ -316,7 +316,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("TCert should be different from nil")
 	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tcert.GetCertificate()
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")

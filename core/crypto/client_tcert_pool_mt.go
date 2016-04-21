@@ -109,8 +109,8 @@ func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert TransactionCertific
 func (tCertPool *tCertPoolMultithreadingImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
 
-	tCertPool.tCertChannel = make(chan TransactionCertificate, client.conf.getTCertBathSize()*2)
-	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBathSize()*2)
+	tCertPool.tCertChannel = make(chan TransactionCertificate, client.conf.getTCertBatchSize()*2)
+	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBatchSize()*2)
 	tCertPool.done = make(chan struct{})
 
 	return

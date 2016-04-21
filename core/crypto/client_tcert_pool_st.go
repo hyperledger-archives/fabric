@@ -111,7 +111,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error)
 
 	tCertPool.client.debug("Init TCert Pool...")
 
-	tCertPool.tCerts = make([]TransactionCertificate, tCertPool.client.conf.getTCertBathSize())
+	tCertPool.tCerts = make([]TransactionCertificate, tCertPool.client.conf.getTCertBatchSize())
 	tCertPool.len = 0
 
 	return
