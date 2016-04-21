@@ -223,11 +223,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	// XXX fetch latest checkpoint
 	instance.chkpts[0] = "XXX GENESIS"
 
-	ok := false
-	if instance.lastExec, ok = instance.consumer.getLastSeqNo(); !ok {
-		instance.lastExec = 0
-	}
-
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)
 	instance.newViewTimer.Stop()
@@ -235,6 +230,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
+
+	instance.restoreState()
 
 	go instance.timerHander()
 
@@ -597,45 +594,6 @@ outer:
 		// Trigger request processing again.
 		instance.recvRequest(req)
 	}
-}
-
-func (instance *pbftCore) persistQSet() {
-	var qset []*ViewChange_PQ
-
-	for _, q := range instance.calcQSet() {
-		qset = append(qset, q)
-	}
-
-	instance.persistPQSet("qset", qset)
-}
-
-func (instance *pbftCore) persistPSet() {
-	var pset []*ViewChange_PQ
-
-	for _, p := range instance.calcPSet() {
-		pset = append(pset, p)
-	}
-
-	instance.persistPQSet("pset", pset)
-}
-
-func (instance *pbftCore) persistPQSet(key string, set []*ViewChange_PQ) {
-	raw, err := proto.Marshal(&PQset{set})
-	if err != nil {
-		logger.Warning("could not persist pqset: %s", err)
-		return
-	}
-	instance.consumer.StoreState(key, raw)
-}
-
-func (instance *pbftCore) persistRequest(digest string) {
-	req := instance.reqStore[digest]
-	raw, err := proto.Marshal(req)
-	if err != nil {
-		logger.Warning("could not persist request: %s", err)
-		return
-	}
-	instance.consumer.StoreState("req."+digest, raw)
 }
 
 func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {

@@ -1092,6 +1092,10 @@ func TestReplicaCrash1(t *testing.T) {
 			t.Errorf("Expected 3 executions on replica %d, got %d", pep.id, pep.sc.executions)
 			continue
 		}
+
+		if pep.pbft.view != 0 {
+			t.Errorf("Replica %d should still be in view 0, is %v %d", pep.id, pep.pbft.activeView, pep.pbft.view)
+		}
 	}
 }
 
