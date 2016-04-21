@@ -49,6 +49,10 @@ func (peer *peerImpl) GetEnrollmentID() string {
 	return peer.enrollID
 }
 
+func (peer *peerImpl) GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error) {
+	return nil, utils.ErrNotImplemented
+}
+
 // TransactionPreValidation verifies that the transaction is
 // well formed with the respect to the security layer
 // prescriptions (i.e. signature verification).

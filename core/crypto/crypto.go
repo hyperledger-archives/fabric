@@ -83,6 +83,8 @@ type Peer interface {
 	// GetEnrollmentID returns this peer's enrollment id
 	GetEnrollmentID() string
 
+	GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error)
+
 	// TransactionPreValidation verifies that the transaction is
 	// well formed with the respect to the security layer
 	// prescriptions (i.e. signature verification).

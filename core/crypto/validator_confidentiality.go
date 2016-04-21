@@ -45,6 +45,17 @@ func (validator *validatorImpl) initConfidentialityProcessors() (err error) {
 	return
 }
 
+func (validator *validatorImpl) getChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error) {
+	validator.debug("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
+
+	processor, ok := validator.confidentialityProcessors[tx.ConfidentialityProtocolVersion]
+	if !ok {
+		return nil, utils.ErrInvalidProtocolVersion
+	}
+
+	return processor.getChaincodeID(validator.newTransactionContextFromTx(nil, tx))
+}
+
 func (validator *validatorImpl) preValidationConfidentiality(tx *obc.Transaction) (*obc.Transaction, error) {
 	validator.debug("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
 

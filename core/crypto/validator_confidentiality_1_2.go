@@ -3,6 +3,7 @@ package crypto
 import (
 	"encoding/asn1"
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -15,7 +16,7 @@ func (cp *validatorConfidentialityProcessorV1_2) getVersion() string {
 	return "1.2"
 }
 
-func (cp *validatorConfidentialityProcessorV1_2) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
+func (cp *validatorConfidentialityProcessorV1_2) getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error) {
 	tx := ctx.GetTransaction()
 
 	// TODO: check the flags
@@ -79,18 +80,30 @@ func (cp *validatorConfidentialityProcessorV1_2) preValidation(ctx TransactionCo
 		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
-	tx.ChaincodeID = chaincodeID
+
+	cID := &obc.ChaincodeID{}
+	err = proto.Unmarshal(chaincodeID, cID)
+	if err != nil {
+		cp.validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+		return nil, err
+	}
+
+	return cID, nil
+}
+
+func (cp *validatorConfidentialityProcessorV1_2) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
+	tx := ctx.GetTransaction()
+
+	if tx.Nonce == nil || len(tx.Nonce) == 0 {
+		// TODO: check the flags
+		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
+	}
 
 	return tx, nil
 }
 
 func (cp *validatorConfidentialityProcessorV1_2) preExecution(ctx TransactionContext) (*obc.Transaction, error) {
 	tx := ctx.GetTransaction()
-
-	// TODO: check the flags
-	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
-	}
 
 	// Clone tx
 	tx, err := cp.validator.cloneTransaction(tx)
@@ -151,12 +164,12 @@ func (cp *validatorConfidentialityProcessorV1_2) preExecution(ctx TransactionCon
 
 	// ChaincodeID has been already decrypted by preValidation
 	// Decrypt ChaincodeID
-	//chaincodeID, err := cipher.Process(tx.ChaincodeID)
-	//if err != nil {
-	//	cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
-	//	return nil, err
-	//}
-	//tx.ChaincodeID = chaincodeID
+	chaincodeID, err := cipher.Process(tx.ChaincodeID)
+	if err != nil {
+		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
+		return nil, err
+	}
+	tx.ChaincodeID = chaincodeID
 
 	// Decrypt metadata
 	if len(tx.Metadata) != 0 {

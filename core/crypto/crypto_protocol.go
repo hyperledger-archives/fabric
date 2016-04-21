@@ -64,6 +64,8 @@ type ConfidentialityProcessor interface {
 type ValidatorConfidentialityProcessor interface {
 	getVersion() string
 
+	getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error)
+
 	preValidation(ctx TransactionContext) (*obc.Transaction, error)
 
 	preExecution(ctx TransactionContext) (*obc.Transaction, error)

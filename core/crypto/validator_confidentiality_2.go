@@ -3,6 +3,7 @@ package crypto
 import (
 	"encoding/asn1"
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -20,6 +21,42 @@ func (cp *validatorConfidentialityProcessorV2) getVersion() string {
 	return "2.0"
 }
 
+func (cp *validatorConfidentialityProcessorV2) getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error) {
+	tx := ctx.GetTransaction()
+
+	cp.validator.debug("Transaction type [%s].", tx.Type.String())
+
+	// Decrypt ChaincodeID using skChain
+	aCipher, err := cp.validator.acSPI.NewAsymmetricCipherFromPrivateKey(cp.validator.chainPrivateKey)
+	if err != nil {
+		cp.validator.error("Failed init decryption engine [%s].", err.Error())
+		return nil, err
+	}
+	chaincodeIDRaw, err := aCipher.Process(tx.ChaincodeID)
+	if err != nil {
+		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
+		return nil, err
+	}
+	headerMessage := new(headerMessageV2)
+	_, err = asn1.Unmarshal(chaincodeIDRaw, headerMessage)
+	if err != nil {
+		cp.validator.error("Failed unmarshalling header Message [%s].", err.Error())
+		return nil, err
+	}
+	if err := headerMessage.Validate(); err != nil {
+		return nil, err
+	}
+
+	cID := &obc.ChaincodeID{}
+	err = proto.Unmarshal(headerMessage.ChaincodeID, cID)
+	if err != nil {
+		cp.validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+		return nil, err
+	}
+
+	return cID, nil
+}
+
 func (cp *validatorConfidentialityProcessorV2) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
 	tx := ctx.GetTransaction()
 
@@ -28,23 +65,7 @@ func (cp *validatorConfidentialityProcessorV2) preValidation(ctx TransactionCont
 		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
 	}
 
-	// Clone tx
-	tx, err := cp.validator.cloneTransaction(tx)
-	if err != nil {
-		cp.validator.error("Failed deep cloning [%s].", err.Error())
-		return nil, err
-	}
-
-	switch tx.Type {
-	case obc.Transaction_CHAINCODE_DEPLOY:
-		return cp.preValidationDeploy(ctx)
-	case obc.Transaction_CHAINCODE_INVOKE:
-		return cp.preValidationExecute(ctx)
-	case obc.Transaction_CHAINCODE_QUERY:
-		return cp.preValidationQuery(ctx)
-	}
-
-	return nil, utils.ErrInvalidTransactionType
+	return tx, nil
 }
 
 func (cp *validatorConfidentialityProcessorV2) preExecution(ctx TransactionContext) (*obc.Transaction, error) {
@@ -72,10 +93,6 @@ func (cp *validatorConfidentialityProcessorV2) preExecution(ctx TransactionConte
 	}
 
 	return nil, utils.ErrInvalidTransactionType
-}
-
-func (cp *validatorConfidentialityProcessorV2) preValidationDeploy(ctx TransactionContext) (*obc.Transaction, error) {
-	return ctx.GetTransaction(), nil
 }
 
 func (cp *validatorConfidentialityProcessorV2) preExecutionDeploy(ctx TransactionContext) (*obc.Transaction, error) {
@@ -196,36 +213,6 @@ func (cp *validatorConfidentialityProcessorV2) preExecutionDeploy(ctx Transactio
 	return clone, nil
 }
 
-func (cp *validatorConfidentialityProcessorV2) preValidationExecute(ctx TransactionContext) (*obc.Transaction, error) {
-	tx := ctx.GetTransaction()
-
-	cp.validator.debug("Transaction type [%s].", tx.Type.String())
-
-	// Decrypt ChaincodeID using skChain
-	aCipher, err := cp.validator.acSPI.NewAsymmetricCipherFromPrivateKey(cp.validator.chainPrivateKey)
-	if err != nil {
-		cp.validator.error("Failed init decryption engine [%s].", err.Error())
-		return nil, err
-	}
-	chaincodeIDRaw, err := aCipher.Process(tx.ChaincodeID)
-	if err != nil {
-		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
-		return nil, err
-	}
-	headerMessage := new(headerMessageV2)
-	_, err = asn1.Unmarshal(chaincodeIDRaw, headerMessage)
-	if err != nil {
-		cp.validator.error("Failed unmarshalling header Message [%s].", err.Error())
-		return nil, err
-	}
-	if err := headerMessage.Validate(); err != nil {
-		return nil, err
-	}
-	tx.ChaincodeID = headerMessage.ChaincodeID
-
-	return tx, nil
-}
-
 func (cp *validatorConfidentialityProcessorV2) preExecutionExecute(ctx TransactionContext) (*obc.Transaction, error) {
 	skC, err := cp.getSKCFromDeployTransaction(ctx.GetDeployTransaction())
 	if err != nil {
@@ -264,6 +251,28 @@ func (cp *validatorConfidentialityProcessorV2) preExecutionExecute(ctx Transacti
 	}
 
 	cp.validator.debug("Extract kI...done")
+
+	// Decrypt ChaincodeID using skChain
+	aCipher, err = cp.validator.acSPI.NewAsymmetricCipherFromPrivateKey(cp.validator.chainPrivateKey)
+	if err != nil {
+		cp.validator.error("Failed init decryption engine [%s].", err.Error())
+		return nil, err
+	}
+	chaincodeIDRaw, err := aCipher.Process(tx.ChaincodeID)
+	if err != nil {
+		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
+		return nil, err
+	}
+	headerMessage := new(headerMessageV2)
+	_, err = asn1.Unmarshal(chaincodeIDRaw, headerMessage)
+	if err != nil {
+		cp.validator.error("Failed unmarshalling header Message [%s].", err.Error())
+		return nil, err
+	}
+	if err := headerMessage.Validate(); err != nil {
+		return nil, err
+	}
+	tx.ChaincodeID = headerMessage.ChaincodeID
 
 	// Decrypt Payload using kI
 	sCipher, err := cp.scSPI.NewStreamCipherForDecryptionFromSerializedKey(msgToValidators.KInvoke)
@@ -312,10 +321,6 @@ func (cp *validatorConfidentialityProcessorV2) preExecutionExecute(ctx Transacti
 	}
 
 	return tx, nil
-}
-
-func (cp *validatorConfidentialityProcessorV2) preValidationQuery(ctx TransactionContext) (*obc.Transaction, error) {
-	return cp.preValidationExecute(ctx)
 }
 
 func (cp *validatorConfidentialityProcessorV2) preExecutionQuery(ctx TransactionContext) (*obc.Transaction, error) {

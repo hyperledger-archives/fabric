@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -15,19 +16,11 @@ func (cp *validatorConfidentialityProcessorV1_1) getVersion() string {
 	return "1.1"
 }
 
-func (cp *validatorConfidentialityProcessorV1_1) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
+func (cp *validatorConfidentialityProcessorV1_1) getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error) {
 	tx := ctx.GetTransaction()
 
-	// TODO: check the flags
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
-	}
-
-	// Clone tx
-	tx, err := cp.validator.cloneTransaction(tx)
-	if err != nil {
-		cp.validator.error("Failed deep cloning [%s].", err.Error())
-		return nil, err
+		return nil, errors.New("Nil nonce.")
 	}
 
 	// Derive root key
@@ -43,18 +36,30 @@ func (cp *validatorConfidentialityProcessorV1_1) preValidation(ctx TransactionCo
 		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
-	tx.ChaincodeID = chaincodeID
 
-	return tx, nil
+	cID := &obc.ChaincodeID{}
+	err = proto.Unmarshal(chaincodeID, cID)
+	if err != nil {
+		cp.validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+		return nil, err
+	}
+
+	return cID, nil
 }
 
-func (cp *validatorConfidentialityProcessorV1_1) preExecution(ctx TransactionContext) (*obc.Transaction, error) {
+func (cp *validatorConfidentialityProcessorV1_1) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
 	tx := ctx.GetTransaction()
 
 	// TODO: check the flags
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
 		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
 	}
+
+	return tx, nil
+}
+
+func (cp *validatorConfidentialityProcessorV1_1) preExecution(ctx TransactionContext) (*obc.Transaction, error) {
+	tx := ctx.GetTransaction()
 
 	// Clone tx
 	tx, err := cp.validator.cloneTransaction(tx)
@@ -84,15 +89,14 @@ func (cp *validatorConfidentialityProcessorV1_1) preExecution(ctx TransactionCon
 	}
 	tx.Payload = payload
 
-	// ChaincodeID has been already decrypted by preValidation
 	// Decrypt ChaincodeID
-	//chaincodeIDKey := primitives.HMACTruncated(key, []byte{2}, primitives.AESKeyLength)
-	//chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(tx.ChaincodeID))
-	//if err != nil {
-	//	cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
-	//	return nil, err
-	//}
-	//tx.ChaincodeID = chaincodeID
+	chaincodeIDKey := primitives.HMACTruncated(key, []byte{2}, primitives.AESKeyLength)
+	chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(tx.ChaincodeID))
+	if err != nil {
+		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
+		return nil, err
+	}
+	tx.ChaincodeID = chaincodeID
 
 	// Decrypt metadata
 	if len(tx.Metadata) != 0 {

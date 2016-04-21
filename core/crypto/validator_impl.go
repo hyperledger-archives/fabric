@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -43,6 +44,25 @@ type validatorImpl struct {
 
 	// State
 	stateProcessors map[string]StateProcessor
+}
+
+func (validator *validatorImpl) GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error) {
+	if !validator.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	if tx.ConfidentialityLevel == obc.ConfidentialityLevel_PUBLIC {
+		cID := &obc.ChaincodeID{}
+		err := proto.Unmarshal(tx.ChaincodeID, cID)
+		if err != nil {
+			validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+			return nil, err
+		}
+
+		return cID, nil
+	}
+
+	return validator.getChaincodeID(tx)
 }
 
 // TransactionPreValidation verifies that the transaction is
