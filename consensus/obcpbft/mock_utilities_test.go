@@ -132,9 +132,7 @@ type omniProto struct {
 	deliverImpl func([]byte, *pb.PeerID)
 
 	// Orderer methods
-	CheckpointImpl func(seqNo uint64, id []byte)
-	StartupImpl    func(seqNo uint64, id []byte)
-	ValidateImpl   func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
+	ValidateImpl func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
 }
 
 func (op *omniProto) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
@@ -382,26 +380,6 @@ func (op *omniProto) Close() {
 	}
 
 	panic("Unimplemented")
-}
-
-func (op *omniProto) Checkpoint(seqNo uint64, id []byte) {
-	if nil != op.CheckpointImpl {
-		op.CheckpointImpl(seqNo, id)
-		return
-	}
-
-	panic("Unimplemented")
-
-}
-
-func (op *omniProto) Startup(seqNo uint64, id []byte) {
-	if nil != op.StartupImpl {
-		op.StartupImpl(seqNo, id)
-		return
-	}
-
-	panic("Unimplemented")
-
 }
 
 func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {

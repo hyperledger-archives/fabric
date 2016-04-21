@@ -160,10 +160,6 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 func (op *obcClassic) viewChange(curView uint64) {
 }
 
-func (op *obcClassic) Checkpoint(seqNo uint64, id []byte) {
-	op.pbft.Checkpoint(seqNo, id)
-}
-
 func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
 }

@@ -50,12 +50,11 @@ type pbftNetwork struct {
 }
 
 type simpleConsumer struct {
-	pe               *pbftEndpoint
-	pbftNet          *pbftNetwork
-	executions       uint64
-	skipOccurred     bool
-	lastExecution    []byte
-	checkpointResult func(seqNo uint64, txs []byte)
+	pe            *pbftEndpoint
+	pbftNet       *pbftNetwork
+	executions    uint64
+	skipOccurred  bool
+	lastExecution []byte
 	mockPersist
 }
 
@@ -90,12 +89,6 @@ func (sc *simpleConsumer) verify(senderID uint64, signature []byte, message []by
 func (sc *simpleConsumer) viewChange(curView uint64) {
 }
 
-/*
-func (sc *simpleConsumer) Checkpoint(seqNo uint64, id []byte) {
-	// No-op
-}
-*/
-
 func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
 	sc.executions = seqNo
@@ -106,15 +99,6 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.pbftNet.debugMsg("TEST: executing request\n")
 	sc.lastExecution = tx
 	sc.executions++
-	// XXX
-	// if execInfo.Checkpoint {
-	// 	sc.pbftNet.debugMsg("TEST: checkpoint requested, calling back\n")
-	// 	if nil != sc.checkpointResult {
-	// 		sc.checkpointResult(seqNo, sc.lastExecution)
-	// 	} else {
-	// 		sc.pe.pbft.Checkpoint(seqNo, sc.lastExecution)
-	// 	}
-	// }
 }
 
 func (sc *simpleConsumer) getState() []byte {
