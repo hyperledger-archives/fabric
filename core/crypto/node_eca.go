@@ -130,8 +130,6 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 		node.debug("Enrollment chain key for validator [%s]...", enrollID)
 		// enrollChainKey is a secret key
 
-		node.debug("key [%s]...", string(asymChainKey))
-
 		key, err := utils.PEMtoPrivateKey(asymChainKey, nil)
 		if err != nil {
 			node.error("Failed unmarshalling enrollment asymmetric chain key [id=%s]: [%s]", enrollID, err)
