@@ -300,8 +300,11 @@ func (instance *pbftCore) processNewView() error {
 	}
 
 	if instance.h < cp.SequenceNumber {
-		logger.Warning("Replica %d missing base checkpoint %d (%x)", instance.id, cp.SequenceNumber, cp.Id)
 		instance.moveWatermarks(cp.SequenceNumber)
+	}
+
+	if instance.lastExec < cp.SequenceNumber {
+		logger.Warning("Replica %d missing base checkpoint %d (%s)", instance.id, cp.SequenceNumber, cp.Id)
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
@@ -404,7 +407,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for _, vc := range vset {
 		for _, c := range vc.Cset { // TODO, verify that we strip duplicate checkpoints from this set
 			checkpoints[*c] = append(checkpoints[*c], vc)
-			logger.Debug("Replica %d appending checkpoint with sequence number %d, and checkpoint digest %s", instance.id, c.SequenceNumber, c.Id)
+			logger.Debug("Replica %d appending checkpoint from replica %d with seqNo=%d, h=%d, and checkpoint digest %s", instance.id, vc.ReplicaId, vc.H, c.SequenceNumber, c.Id)
 		}
 	}
 

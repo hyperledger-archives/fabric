@@ -1,5 +1,5 @@
 # Local build binaries
-fabric
+peer/peer
 node-cli/node-cli
 *.pyc
 /build/_workspace
@@ -9,6 +9,11 @@ node-cli/node-cli
 .DS_Store
 tags
 .tags
-/obcca/.obcca
 .vagrant/
 membersrvc/membersrvc
+# Emacs backup files
+*~
+*#
+.#*
+# bddtest log files
+*.log

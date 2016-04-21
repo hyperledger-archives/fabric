@@ -32,16 +32,17 @@ From within the VM, you can build, run, and test your environment.
 
 #### 1. Go build
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
-go build -o peer
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
+go build
 ```
 
 #### 2. Run
 
 To see what commands are available, simply execute the following command:
-
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    ./peer
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
+./peer
+```
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
 
@@ -120,7 +121,7 @@ INSTALL_PATH=/usr/local make install-shared
 ```
 - Run the following commands:
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 ```
 - Make sure that the Docker daemon initialization includes the options

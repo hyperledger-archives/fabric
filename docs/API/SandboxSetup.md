@@ -30,7 +30,7 @@ To set up the local development environment with security enabled, you must firs
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the 'users' section of the configuration file. To register additional users with the CA for testing, modify the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional enrollmentID and enrollmentPW pairs. Note the integer that precedes the enrollmentPW. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
 ###Vagrant Terminal 1 (validating peer)
-**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' before building the peer executable. Alternatively, you can enable security by running the peer with environment variable CORE_SECURITY_ENABLED=true. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml) configuration file to set the <b>security.privacy</b> value to 'true' as well. Alternatively, you can enable privacy by running the peer with environment variable CORE_SECURITY_PRIVACY=true.
+**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' before building the peer executable. Alternatively, you can enable security by running the peer with environment variable CORE_SECURITY_ENABLED=true. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the <b>security.privacy</b> value to 'true' as well. Alternatively, you can enable privacy by running the peer with environment variable CORE_SECURITY_PRIVACY=true.
 
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
@@ -38,8 +38,8 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 
 Build and run the peer process to enable security and privacy after setting <b>security.enabled</b> and <b>security.privacy</b> settings to 'true'.
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    go build -o peer
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    go build
     ./peer peer --peer-chaincodedev   
 
 Alternatively, enable security and privacy on the peer with environment variables:
@@ -69,7 +69,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another port number of your choice.
+The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another port number of your choice.
 
 #### **Note on security functionality**
 
@@ -83,7 +83,7 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 
 Register the user though the CLI, substituting for `<username>` appropriately:
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
     ./peer login <username>
 
 The command will prompt for a password, which must match the <b>enrollmentPW</b> listed for the target user in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the <b>enrollmentPW</b>, an error will result.
@@ -111,9 +111,10 @@ POST localhost:3000/registrar
 #### Chaincode deploy via CLI and REST
 
 First, send a chaincode deploy transaction, only once, to the validating peer. The CLI connects to the validating peer using the properties defined in the core.yaml file. **Note:** The deploy transaction typically requires a 'path' parameter to locate, build, and deploy the chaincode. However, because these instructions are specific to local development mode and the chaincode is deployed manually, the 'name' parameter is used instead.
-
-    cd  $GOPATH/src/github.com/hyperledger/fabric
- 	./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
+./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+```
 
 Alternatively, you can run the chaincode deploy transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
 

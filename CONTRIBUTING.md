@@ -47,7 +47,7 @@ To work on something, whether a new feature or a bugfix:
 
    _Note: if your PR does not merge cleanly, use ```git rebase master``` in your feature branch to update your pull request rather than using ```git merge master```_.
 
-  8. Did we mention tests? All code changes should be accompanied by new or modified tests.
+  8. Did we mention tests? All code changes should be accompanied by new or modified tests. Be sure to check [Travis](https://travis-ci.org/) or the slack #fabric-ci-status chennel for status of your build.
 
   9. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
 
