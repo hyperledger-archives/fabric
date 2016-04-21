@@ -28,6 +28,8 @@ func (cp *validatorConfidentialityProcessorV2) getChaincodeID(ctx TransactionCon
 	cID := &obc.ChaincodeID{}
 	err := proto.Unmarshal(tx.ChaincodeID, cID)
 	if err != nil {
+		cp.validator.debug("Getting ChaincodeID...")
+
 		cp.validator.debug("Transaction type [%s].", tx.Type.String())
 
 		switch tx.Type {
@@ -124,8 +126,7 @@ func (cp *validatorConfidentialityProcessorV2) getChaincodeID(ctx TransactionCon
 				return nil, err
 			}
 
-		case obc.Transaction_CHAINCODE_INVOKE:
-		case obc.Transaction_CHAINCODE_QUERY:
+		case obc.Transaction_CHAINCODE_INVOKE, obc.Transaction_CHAINCODE_QUERY:
 			// Decrypt ChaincodeID using skChain
 			aCipher, err := cp.validator.acSPI.NewAsymmetricCipherFromPrivateKey(cp.validator.chainPrivateKey)
 			if err != nil {
@@ -153,6 +154,8 @@ func (cp *validatorConfidentialityProcessorV2) getChaincodeID(ctx TransactionCon
 				return nil, err
 			}
 		}
+
+		cp.validator.debug("Getting ChaincodeID...done")
 
 	}
 

@@ -875,6 +875,76 @@ func TestValidatorQueryTransaction(t *testing.T) {
 	}
 }
 
+func TestValidatorGetChaincodeID(t *testing.T) {
+	for i, createTx := range queryTxCreators {
+		t.Logf("TestValidatorConfidentialQueryTransaction with [%d]\n", i)
+
+		_, deployTx, err := deployTxCreators[i](t)
+		if err != nil {
+			t.Fatalf("Failed creating deploy transaction [%s].", err)
+		}
+		_, invokeTxOne, err := executeTxCreators[i](deployTx, t)
+		if err != nil {
+			t.Fatalf("Failed creating invoke transaction [%s].", err)
+		}
+		_, queryTx, err := createTx(deployTx, t)
+		if err != nil {
+			t.Fatalf("Failed creating query transaction [%s].", err)
+		}
+
+		var cIDb, cIDa *obc.ChaincodeID
+		// Check chaincode IDs
+		if cIDb, err = validator.GetChaincodeID(deployTx); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if deployTx, err = validator.TransactionPreValidation(deployTx); err != nil {
+			t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
+		}
+		if deployTx, err = validator.TransactionPreExecution(deployTx, deployTx); err != nil {
+			t.Fatalf("Failed pre-executing deploty transaction [%s].", err)
+		}
+		if cIDa, err = validator.GetChaincodeID(deployTx); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if !reflect.DeepEqual(cIDa, cIDb) {
+			t.Fatalf("Different chaincode IDs [%s]!=[%s].", cIDb, cIDa)
+		}
+
+		if cIDb, err = validator.GetChaincodeID(invokeTxOne); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if invokeTxOne, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
+			t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
+		}
+		if invokeTxOne, err = validator.TransactionPreExecution(deployTx, invokeTxOne); err != nil {
+			t.Fatalf("Failed pre-executing exec1 transaction [%s].", err)
+		}
+		if cIDa, err = validator.GetChaincodeID(invokeTxOne); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if !reflect.DeepEqual(cIDa, cIDb) {
+			t.Fatalf("Different chaincode IDs [%s]!=[%s].", cIDb, cIDa)
+		}
+
+		if cIDb, err = validator.GetChaincodeID(queryTx); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if queryTx, err = validator.TransactionPreValidation(queryTx); err != nil {
+			t.Fatalf("Failed pre-validating query transaction [%s].", err)
+		}
+		if queryTx, err = validator.TransactionPreExecution(deployTx, queryTx); err != nil {
+			t.Fatalf("Failed pre-executing query transaction [%s].", err)
+		}
+		if cIDa, err = validator.GetChaincodeID(queryTx); err != nil {
+			t.Fatalf("Failed getting chaincode ID [%s].", err)
+		}
+		if !reflect.DeepEqual(cIDa, cIDb) {
+			t.Fatalf("Different chaincode IDs [%s]!=[%s].", cIDb, cIDa)
+		}
+
+	}
+}
+
 func TestValidatorStateEncryptor(t *testing.T) {
 	for i, createTx := range deployTxCreators {
 		_, deployTx, err := createTx(t)
