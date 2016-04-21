@@ -30,6 +30,7 @@ import (
 )
 
 type obcClassic struct {
+	obcGeneric
 	stack consensus.Stack
 	pbft  *pbftCore
 
@@ -37,7 +38,10 @@ type obcClassic struct {
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
-	op := &obcClassic{stack: stack}
+	op := &obcClassic{
+		obcGeneric: obcGeneric{stack},
+		stack:      stack,
+	}
 
 	op.persistForward.persistor = stack
 
@@ -147,12 +151,14 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 		return
 	}
 
+	meta, _ := proto.Marshal(&Metadata{seqNo})
+
 	id := []byte("foo")
 	op.stack.BeginTxBatch(id)
 	result, err := op.stack.ExecTxs(id, []*pb.Transaction{tx})
 	_ = err    // XXX what to do on error?
 	_ = result // XXX what to do with the result?
-	_, err = op.stack.CommitTxBatch(id, nil)
+	_, err = op.stack.CommitTxBatch(id, meta)
 }
 
 // called when a view-change happened in the underlying PBFT
@@ -160,15 +166,7 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 func (op *obcClassic) viewChange(curView uint64) {
 }
 
-func (op *obcClassic) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
-}
-
 // Unnecessary
 func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
-}
-
-func (op *obcClassic) getState() []byte {
-	return op.stack.GetBlockchainInfoBlob()
 }

@@ -1087,10 +1087,8 @@ func TestReplicaCrash1(t *testing.T) {
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(3))
 	net.process()
 
-	// XXX currently crash fault tolerance is not yet in place and
-	// replicas 0 and 1 therefore are not expected to have consistent state.
 	for _, pep := range net.pbftEndpoints {
-		if pep.id != 0 && pep.id != 1 && pep.sc.executions != 3 {
+		if pep.sc.executions != 3 {
 			t.Errorf("Expected 3 executions on replica %d, got %d", pep.id, pep.sc.executions)
 			continue
 		}

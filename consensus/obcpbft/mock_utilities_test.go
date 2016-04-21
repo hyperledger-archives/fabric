@@ -116,15 +116,16 @@ type omniProto struct {
 	ReadStateImpl              func(key string) ([]byte, error)
 
 	// Inner Stack methods
-	broadcastImpl  func(msgPayload []byte)
-	unicastImpl    func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl    func(seqNo uint64, txRaw []byte)
-	getStateImpl   func() []byte
-	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validateImpl   func(txRaw []byte) error
-	viewChangeImpl func(curView uint64)
-	signImpl       func(msg []byte) ([]byte, error)
-	verifyImpl     func(senderID uint64, signature []byte, message []byte) error
+	broadcastImpl    func(msgPayload []byte)
+	unicastImpl      func(msgPayload []byte, receiverID uint64) (err error)
+	executeImpl      func(seqNo uint64, txRaw []byte)
+	getStateImpl     func() []byte
+	skipToImpl       func(seqNo uint64, snapshotID []byte, peers []uint64)
+	validateImpl     func(txRaw []byte) error
+	viewChangeImpl   func(curView uint64)
+	signImpl         func(msg []byte) ([]byte, error)
+	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl func() (uint64, bool)
 
 	// Closable Consenter methods
 	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
@@ -368,6 +369,14 @@ func (op *omniProto) verify(senderID uint64, signature []byte, message []byte) e
 func (op *omniProto) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	if nil != op.RecvMsgImpl {
 		return op.RecvMsgImpl(ocMsg, senderHandle)
+	}
+
+	panic("Unimplemented")
+}
+
+func (op *omniProto) getLastSeqNo() (uint64, bool) {
+	if op.getLastSeqNoImpl != nil {
+		return op.getLastSeqNoImpl()
 	}
 
 	panic("Unimplemented")

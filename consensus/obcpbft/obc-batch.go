@@ -31,6 +31,7 @@ import (
 )
 
 type obcBatch struct {
+	obcGeneric
 	stack consensus.Stack
 	pbft  *pbftCore
 
@@ -46,7 +47,10 @@ type obcBatch struct {
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 
-	op := &obcBatch{stack: stack}
+	op := &obcBatch{
+		obcGeneric: obcGeneric{stack},
+		stack:      stack,
+	}
 
 	op.persistForward.persistor = stack
 
@@ -309,18 +313,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	//	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
-func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64) {
-	//	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
 func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
-}
-
-func (op *obcBatch) getState() []byte {
-	return op.stack.GetBlockchainInfoBlob()
 }
