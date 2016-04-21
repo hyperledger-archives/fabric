@@ -450,7 +450,6 @@ func (cp *clientConfidentialityProcessorV2) getPKCFromDeployTransaction(tx *obc.
 
 	// Retrieve pkC from the current user
 
-	// TODO: check the rest for all unmarshal
 	userMessages := new(deployUserMessagesV2)
 	_, err := asn1.Unmarshal(tx.ToUsers, userMessages)
 	if err != nil {
@@ -473,7 +472,7 @@ func (cp *clientConfidentialityProcessorV2) getPKCFromDeployTransaction(tx *obc.
 			continue
 		}
 
-		// TODO: Decrypt keys
+		// Decrypt keys
 		userKeysRaw, err := aCipher.Process(userMessage.Keys)
 		if err != nil {
 			cp.client.error("Failed decripting [%s].", err.Error())
@@ -486,22 +485,8 @@ func (cp *clientConfidentialityProcessorV2) getPKCFromDeployTransaction(tx *obc.
 			cp.client.error("Failed unmarshalling message to user [%s].", err.Error())
 			return nil, nil, err
 		}
-
-		// Check flags
-		if userKeys.PkCFlag != "pkC" {
-			cp.client.error("Invalid pkC flag.")
-			continue
-		}
-		if userKeys.KCodeFlag != "code" {
-			cp.client.error("Invalid code flag.")
-			continue
-		}
-		if userKeys.KHeaderFlag != "header" {
-			cp.client.error("Invalid header flag.")
-			continue
-		}
-		if userKeys.KStateFlag != "state" {
-			cp.client.error("Invalid state flag.")
+		if err = userKeys.Validate(); err != nil {
+			cp.client.error("Failed validing user Keys [$s]", err)
 			continue
 		}
 

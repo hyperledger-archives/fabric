@@ -29,6 +29,7 @@ import (
 	"google/protobuf"
 	"time"
 
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/util"
@@ -148,8 +149,11 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	tlsCert, err := primitives.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
-	// TODO: catch the error
-	primitives.VerifySignCapability(priv, certPK)
+	if err = primitives.VerifySignCapability(priv, certPK); err != nil {
+		node.debug("Failed varifying signing capabilities")
+
+		return nil, nil, fmt.Errorf("Failed varifying signing capabilities")
+	}
 
 	node.debug("Verifing tls certificate...done!")
 

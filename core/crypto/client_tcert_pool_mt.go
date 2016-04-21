@@ -85,7 +85,6 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert TransactionC
 	}
 
 	if tCert == nil {
-		// TODO: change error here
 		return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 	}
 

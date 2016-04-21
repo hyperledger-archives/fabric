@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -68,8 +69,14 @@ func (tc *transactionContextImpl) createTx(chaincodeSpec *obc.ChaincodeSpec) (er
 	}
 
 	// 3. set confidentiality level
-	// TODO: check that ConfidentialityLevel is a valid value
-	tc.tx.ConfidentialityLevel = chaincodeSpec.ConfidentialityLevel
+	switch chaincodeSpec.ConfidentialityLevel {
+	case obc.ConfidentialityLevel_PUBLIC, obc.ConfidentialityLevel_CONFIDENTIAL:
+		// This is fine
+		tc.tx.ConfidentialityLevel = chaincodeSpec.ConfidentialityLevel
+	default:
+		tc.client.debug("Invalid confidentiality level [%d].", chaincodeSpec.ConfidentialityLevel)
+		return fmt.Errorf("Invalid confidentiality level [%d].", chaincodeSpec.ConfidentialityLevel)
+	}
 
 	// 4. Append the certificate to the transaction
 	tc.client.debug("Appending certificate [% x].", tc.tCert.GetRaw())

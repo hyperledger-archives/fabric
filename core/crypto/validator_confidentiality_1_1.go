@@ -57,7 +57,6 @@ func (cp *validatorConfidentialityProcessorV1_1) getChaincodeID(ctx TransactionC
 func (cp *validatorConfidentialityProcessorV1_1) preValidation(ctx TransactionContext) (*obc.Transaction, error) {
 	tx := ctx.GetTransaction()
 
-	// TODO: check the flags
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
 		return nil, errors.New("Nil nonce.")
 	}
