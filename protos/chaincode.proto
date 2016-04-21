@@ -78,7 +78,7 @@ message ChaincodeSpec {
 // TODO: Define `codePackage`.
 message ChaincodeDeploymentSpec {
 
-    enum ExeEnv {
+    enum ExecutionEnvironment {
         DOCKER = 0;
         SYSTEM = 1;
     }
@@ -87,7 +87,7 @@ message ChaincodeDeploymentSpec {
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
-    ExeEnv exeEnv=  4;
+    ExecutionEnvironment execEnv=  4;
 
 }
 

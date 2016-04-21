@@ -877,7 +877,7 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 	url := "github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
 
 	args := []string{"greeting", "hello world"}
-	cds := &pb.ChaincodeDeploymentSpec{ExeEnv:1, ChaincodeSpec: &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: "sample_syscc", Path: url}, CtorMsg: &pb.ChaincodeInput{Args: args}}}
+	cds := &pb.ChaincodeDeploymentSpec{ExecEnv:1, ChaincodeSpec: &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: "sample_syscc", Path: url}, CtorMsg: &pb.ChaincodeInput{Args: args}}}
 	_, err = deploy2(ctxt, cds)
 	chaincodeID := cds.ChaincodeSpec.ChaincodeID.Name
 	if err != nil {

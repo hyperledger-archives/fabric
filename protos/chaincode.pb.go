@@ -63,24 +63,24 @@ func (x ChaincodeSpec_Type) String() string {
 	return proto.EnumName(ChaincodeSpec_Type_name, int32(x))
 }
 
-type ChaincodeDeploymentSpec_ExeEnv int32
+type ChaincodeDeploymentSpec_ExecutionEnvironment int32
 
 const (
-	ChaincodeDeploymentSpec_DOCKER ChaincodeDeploymentSpec_ExeEnv = 0
-	ChaincodeDeploymentSpec_SYSTEM ChaincodeDeploymentSpec_ExeEnv = 1
+	ChaincodeDeploymentSpec_DOCKER ChaincodeDeploymentSpec_ExecutionEnvironment = 0
+	ChaincodeDeploymentSpec_SYSTEM ChaincodeDeploymentSpec_ExecutionEnvironment = 1
 )
 
-var ChaincodeDeploymentSpec_ExeEnv_name = map[int32]string{
+var ChaincodeDeploymentSpec_ExecutionEnvironment_name = map[int32]string{
 	0: "DOCKER",
 	1: "SYSTEM",
 }
-var ChaincodeDeploymentSpec_ExeEnv_value = map[string]int32{
+var ChaincodeDeploymentSpec_ExecutionEnvironment_value = map[string]int32{
 	"DOCKER": 0,
 	"SYSTEM": 1,
 }
 
-func (x ChaincodeDeploymentSpec_ExeEnv) String() string {
-	return proto.EnumName(ChaincodeDeploymentSpec_ExeEnv_name, int32(x))
+func (x ChaincodeDeploymentSpec_ExecutionEnvironment) String() string {
+	return proto.EnumName(ChaincodeDeploymentSpec_ExecutionEnvironment_name, int32(x))
 }
 
 type ChaincodeMessage_Type int32
@@ -221,9 +221,9 @@ func (m *ChaincodeSpec) GetCtorMsg() *ChaincodeInput {
 type ChaincodeDeploymentSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
 	// Controls when the chaincode becomes executable.
-	EffectiveDate *google_protobuf.Timestamp     `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
-	CodePackage   []byte                         `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
-	ExeEnv        ChaincodeDeploymentSpec_ExeEnv `protobuf:"varint,4,opt,name=exeEnv,enum=protos.ChaincodeDeploymentSpec_ExeEnv" json:"exeEnv,omitempty"`
+	EffectiveDate *google_protobuf.Timestamp                   `protobuf:"bytes,2,opt,name=effectiveDate" json:"effectiveDate,omitempty"`
+	CodePackage   []byte                                       `protobuf:"bytes,3,opt,name=codePackage,proto3" json:"codePackage,omitempty"`
+	ExecEnv       ChaincodeDeploymentSpec_ExecutionEnvironment `protobuf:"varint,4,opt,name=execEnv,enum=protos.ChaincodeDeploymentSpec_ExecutionEnvironment" json:"execEnv,omitempty"`
 }
 
 func (m *ChaincodeDeploymentSpec) Reset()         { *m = ChaincodeDeploymentSpec{} }
@@ -362,7 +362,7 @@ func (m *RangeQueryStateResponse) GetKeysAndValues() []*RangeQueryStateKeyValue 
 func init() {
 	proto.RegisterEnum("protos.ConfidentialityLevel", ConfidentialityLevel_name, ConfidentialityLevel_value)
 	proto.RegisterEnum("protos.ChaincodeSpec_Type", ChaincodeSpec_Type_name, ChaincodeSpec_Type_value)
-	proto.RegisterEnum("protos.ChaincodeDeploymentSpec_ExeEnv", ChaincodeDeploymentSpec_ExeEnv_name, ChaincodeDeploymentSpec_ExeEnv_value)
+	proto.RegisterEnum("protos.ChaincodeDeploymentSpec_ExecutionEnvironment", ChaincodeDeploymentSpec_ExecutionEnvironment_name, ChaincodeDeploymentSpec_ExecutionEnvironment_value)
 	proto.RegisterEnum("protos.ChaincodeMessage_Type", ChaincodeMessage_Type_name, ChaincodeMessage_Type_value)
 }
 

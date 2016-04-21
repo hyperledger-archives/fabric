@@ -191,7 +191,7 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 		}
 	}
 	*********/
-	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ExeEnv: protos.ChaincodeDeploymentSpec_SYSTEM, ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ExecEnv: protos.ChaincodeDeploymentSpec_SYSTEM, ChaincodeSpec: spec, CodePackage: codePackageBytes}
 	return chaincodeDeploymentSpec, nil
 }
 
