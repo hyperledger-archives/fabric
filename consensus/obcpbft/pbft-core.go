@@ -55,6 +55,7 @@ type innerStack interface {
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(seqNo uint64, txRaw []byte)
 	getState() []byte
+	getLastSeqNo() (uint64, bool)
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
@@ -221,6 +222,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 
 	// XXX fetch latest checkpoint
 	instance.chkpts[0] = "XXX GENESIS"
+
+	ok := false
+	if instance.lastExec, ok = instance.consumer.getLastSeqNo(); !ok {
+		instance.lastExec = 0
+	}
 
 	// create non-running timer XXX ugly
 	instance.newViewTimer = time.NewTimer(100 * time.Hour)

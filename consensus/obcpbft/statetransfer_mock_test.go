@@ -630,6 +630,14 @@ func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
 	return h
 }
 
+func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, bool) {
+	b, ok := mock.blocks[mock.blockHeight-1]
+	if !ok {
+		return nil, ok
+	}
+	return b.ConsensusMetadata, true
+}
+
 func (mock *MockLedger) simulateStateTransfer(tag uint64, id []byte, peers []*protos.PeerID) {
 	info := &protos.BlockchainInfo{}
 	proto.Unmarshal(id, info)
@@ -670,6 +678,10 @@ func (mock *MockRemoteLedger) GetBlockchainInfoBlob() []byte {
 	info.CurrentBlockHash = SimpleHashBlock(b)
 	h, _ := proto.Marshal(info)
 	return h
+}
+
+func (mock *MockRemoteLedger) GetBlockHeadMetadata() ([]byte, bool) {
+	panic("don't have this data")
 }
 
 func SimpleEncodeUint64(num uint64) []byte {

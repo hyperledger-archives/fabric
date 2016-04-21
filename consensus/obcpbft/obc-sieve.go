@@ -33,6 +33,7 @@ import (
 )
 
 type obcSieve struct {
+	obcGeneric
 	stack consensus.Stack
 	pbft  *pbftCore
 
@@ -52,7 +53,11 @@ type obcSieve struct {
 }
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
-	op := &obcSieve{stack: stack, id: id}
+	op := &obcSieve{
+		obcGeneric: obcGeneric{stack},
+		stack:      stack,
+		id:         id,
+	}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 

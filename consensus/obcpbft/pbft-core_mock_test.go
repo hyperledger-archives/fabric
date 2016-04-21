@@ -53,6 +53,7 @@ type simpleConsumer struct {
 	pe            *pbftEndpoint
 	pbftNet       *pbftNetwork
 	executions    uint64
+	lastSeqNo     uint64
 	skipOccurred  bool
 	lastExecution []byte
 	mockPersist
@@ -99,10 +100,18 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.pbftNet.debugMsg("TEST: executing request\n")
 	sc.lastExecution = tx
 	sc.executions++
+	sc.lastSeqNo = seqNo
 }
 
 func (sc *simpleConsumer) getState() []byte {
 	return []byte(fmt.Sprintf("%d", sc.executions))
+}
+
+func (sc *simpleConsumer) getLastSeqNo() (uint64, bool) {
+	if sc.executions < 1 {
+		return 0, false
+	}
+	return sc.lastSeqNo, true
 }
 
 func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
