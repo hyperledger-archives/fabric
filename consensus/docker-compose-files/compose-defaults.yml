@@ -2,4 +2,4 @@ vp:
   build: .
   environment:
     - CORE_PEER_ADDRESSAUTODETECT=true
-  command: obc-peer peer
+  command: peer peer
