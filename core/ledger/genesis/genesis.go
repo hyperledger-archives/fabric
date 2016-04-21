@@ -21,7 +21,6 @@ package genesis
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -134,7 +133,7 @@ func MakeGenesis() error {
 					if !ctorFuncOK {
 						genesisLogger.Warning("Chaincode constructor function not defined or improperly defined in genesis configuration..ignoring")
 					}
-					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
+					ctorArgs, _ := constructorMap["args"].([]interface{})
 
 					genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
 					genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
