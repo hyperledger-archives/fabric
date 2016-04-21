@@ -309,10 +309,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
-	op.pbft.Checkpoint(seqNo, id)
-}
-
 func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	//	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
 }

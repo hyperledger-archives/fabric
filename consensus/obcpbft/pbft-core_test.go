@@ -194,16 +194,17 @@ func TestCheckpoint(t *testing.T) {
 	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
 		pe.pbft.K = 2
 		pe.pbft.L = 4
-		pe.sc.checkpointResult = func(seqNo uint64, id []byte) {
-			finishWait.Add(1)
-			go func() {
-				fmt.Println("TEST: possibly delaying checkpoint evaluation")
-				execWait.Wait()
-				fmt.Println("TEST: sending checkpoint")
-				pe.pbft.Checkpoint(seqNo, id)
-				finishWait.Done()
-			}()
-		}
+		// XXX
+		// pe.sc.checkpointResult = func(seqNo uint64, id []byte) {
+		// 	finishWait.Add(1)
+		// 	go func() {
+		// 		fmt.Println("TEST: possibly delaying checkpoint evaluation")
+		// 		execWait.Wait()
+		// 		fmt.Println("TEST: sending checkpoint")
+		// 		pe.pbft.Checkpoint(seqNo, id)
+		// 		finishWait.Done()
+		// 	}()
+		// }
 	})
 	defer net.stop()
 
