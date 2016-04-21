@@ -68,7 +68,7 @@ var (
 func TestMain(m *testing.M) {
 	removeFolders()
 	setup()
-	go initOBCCA()
+	go initMembershipServices()
 
 	fmt.Println("Wait for some secs for OBCCA")
 	time.Sleep(2 * time.Second)
@@ -350,10 +350,10 @@ func whoIsTheOwner(asset string) ([]byte, error) {
 
 func setup() {
 	// Conf
-	viper.SetConfigName("openchain") // name of config file (without extension)
-	viper.AddConfigPath(".")         // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.SetConfigName("core") // name of config file (without extension)
+	viper.AddConfigPath(".")    // path to look for the config file in
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file [%s] \n", err))
 	}
 
@@ -372,13 +372,15 @@ func setup() {
 		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
 	}
 
-	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "openchain", "production"))
-	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obcca"))
+	hl := filepath.Join(os.TempDir(), "test_hyperledger")
+
+	viper.Set("peer.fileSystemPath", filepath.Join(hl, "production"))
+	viper.Set("server.rootpath", filepath.Join(hl, "obcca"))
 
 	removeFolders()
 }
 
-func initOBCCA() {
+func initMembershipServices() {
 	obcca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	eca = obcca.NewECA()
@@ -541,10 +543,7 @@ func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.Cha
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), "obcca")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".obcca", err)
-	}
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), "openchain")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".openchain", err)
+	if err := os.RemoveAll(filepath.Join(os.TempDir(), "test_hyperledger")); err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", "test_hyperledger", err)
 	}
 }
