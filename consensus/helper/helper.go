@@ -394,5 +394,5 @@ func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{
 }
 
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
-	panic(e)
+	logger.Warning("state transfer reported error for block %d: %s", bn, e)
 }
