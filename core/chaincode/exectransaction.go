@@ -43,7 +43,27 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 
 	if secHelper := chain.getSecHelper(); nil != secHelper {
 		var err error
-		t, err = secHelper.TransactionPreExecution(nil, t)
+
+		var depTx *pb.Transaction
+		if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
+			depTx = nil
+		} else {
+			cID, err := secHelper.GetChaincodeID(t)
+			if err != nil {
+				return nil, fmt.Errorf("Failed getting ChaincodeID [%s]", err)
+			}
+			chaincode := cID.Name
+
+			depTx, ledgerErr = ledger.GetTransactionByUUID(chaincode)
+			if ledgerErr != nil {
+				return nil, fmt.Errorf("Failed getting deployment transaction for [%s]: [%s]", chaincode, ledgerErr)
+			}
+			if depTx == nil {
+				return nil, fmt.Errorf("Deployment transaction does not exist for [%s]", chaincode)
+			}
+		}
+
+		t, err = secHelper.TransactionPreExecution(depTx, t)
 		// Note that t is now decrypted and is a deep clone of the original input t
 		if nil != err {
 			return nil, err

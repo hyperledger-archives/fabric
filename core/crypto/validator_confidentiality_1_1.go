@@ -19,29 +19,36 @@ func (cp *validatorConfidentialityProcessorV1_1) getVersion() string {
 func (cp *validatorConfidentialityProcessorV1_1) getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error) {
 	tx := ctx.GetTransaction()
 
-	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Nil nonce.")
-	}
-
-	// Derive root key
-	// validator.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := cp.validator.enrollSymChainKey
-
-	key := primitives.HMAC(enrollChainKey, tx.Nonce)
-
-	// Decrypt ChaincodeID
-	chaincodeIDKey := primitives.HMACTruncated(key, []byte{2}, primitives.AESKeyLength)
-	chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(tx.ChaincodeID))
-	if err != nil {
-		cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
-		return nil, err
-	}
-
+	// 1. Try to unmarshall directly
 	cID := &obc.ChaincodeID{}
-	err = proto.Unmarshal(chaincodeID, cID)
+	err := proto.Unmarshal(tx.ChaincodeID, cID)
 	if err != nil {
-		cp.validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
-		return nil, err
+		// 2. Try to decrypt first
+
+		cp.validator.debug("Getting ChaincodeID...")
+
+		if tx.Nonce == nil || len(tx.Nonce) == 0 {
+			return nil, errors.New("Nil nonce.")
+		}
+
+		// Derive root key
+		key := primitives.HMAC(cp.validator.enrollSymChainKey, tx.Nonce)
+
+		// Decrypt ChaincodeID
+		chaincodeIDKey := primitives.HMACTruncated(key, []byte{2}, primitives.AESKeyLength)
+		chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(tx.ChaincodeID))
+		if err != nil {
+			cp.validator.error("Failed decrypting chaincode [%s].", err.Error())
+			return nil, err
+		}
+
+		err = proto.Unmarshal(chaincodeID, cID)
+		if err != nil {
+			cp.validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+			return nil, err
+		}
+
+		cp.validator.debug("Getting ChaincodeID...done")
 	}
 
 	return cID, nil
@@ -52,7 +59,7 @@ func (cp *validatorConfidentialityProcessorV1_1) preValidation(ctx TransactionCo
 
 	// TODO: check the flags
 	if tx.Nonce == nil || len(tx.Nonce) == 0 {
-		return nil, errors.New("Failed decrypting payload. Invalid nonce.")
+		return nil, errors.New("Nil nonce.")
 	}
 
 	return tx, nil
@@ -69,10 +76,7 @@ func (cp *validatorConfidentialityProcessorV1_1) preExecution(ctx TransactionCon
 	}
 
 	// Derive root key
-	// validator.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := cp.validator.enrollSymChainKey
-
-	key := primitives.HMAC(enrollChainKey, tx.Nonce)
+	key := primitives.HMAC(cp.validator.enrollSymChainKey, tx.Nonce)
 
 	//	validator.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
 	//	validator.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))

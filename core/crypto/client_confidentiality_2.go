@@ -249,7 +249,7 @@ func (cp *clientConfidentialityProcessorV2) processDeploy(ctx TransactionContext
 	// Encrypt the rest of the fields (ChaincodeID, Payload, metadata)
 
 	// Encrypt chaincodeID using kHeader
-	cp.client.debug("CHAINCODE ID: [% x]", tx.ChaincodeID)
+	cp.client.debug("Chaincode ID: [% x]", tx.ChaincodeID)
 	headerMessage, err := asn1.Marshal(headerMessageV2{"chaincodeID", tx.ChaincodeID})
 	if err != nil {
 		cp.client.error("Failed marshalling message to the validators (chain): [%s]", err)
