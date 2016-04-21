@@ -405,7 +405,7 @@ func (cp *validatorConfidentialityProcessorV2) preExecutionExecute(ctx Transacti
 	}
 
 	// TODO: Verify TxSign using the certificate specified in the deploy transaction
-	payload.TxSign
+	//payload.TxSign
 
 	tx.Payload = payload.Payload
 
