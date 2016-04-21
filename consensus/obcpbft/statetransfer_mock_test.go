@@ -622,7 +622,7 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	}
 }
 
-func (mock *MockLedger) GetBlockchainInfo() []byte {
+func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
 	info := &protos.BlockchainInfo{Height: mock.blockHeight}
 	b, _ := mock.GetBlock(mock.blockHeight - 1)
 	info.CurrentBlockHash, _ = mock.HashBlock(b)
@@ -664,7 +664,7 @@ func (mock *MockRemoteLedger) GetCurrentStateHash() (stateHash []byte, err error
 	return SimpleEncodeUint64(SimpleGetState(mock.blockHeight - 1)), nil
 }
 
-func (mock *MockRemoteLedger) GetBlockchainInfo() []byte {
+func (mock *MockRemoteLedger) GetBlockchainInfoBlob() []byte {
 	info := &protos.BlockchainInfo{Height: mock.blockHeight}
 	b, _ := mock.GetBlock(mock.blockHeight)
 	info.CurrentBlockHash = SimpleHashBlock(b)

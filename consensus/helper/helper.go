@@ -372,7 +372,7 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 	})
 }
 
-func (h *Helper) GetBlockchainInfo() []byte {
+func (h *Helper) GetBlockchainInfoBlob() []byte {
 	ledger, _ := ledger.GetLedger()
 	info, _ := ledger.GetBlockchainInfo()
 	rawInfo, _ := proto.Marshal(info)

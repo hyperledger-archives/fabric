@@ -174,5 +174,5 @@ func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedI
 }
 
 func (op *obcClassic) getState() []byte {
-	return op.stack.GetBlockchainInfo()
+	return op.stack.GetBlockchainInfoBlob()
 }
