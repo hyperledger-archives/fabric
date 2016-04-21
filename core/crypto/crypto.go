@@ -17,9 +17,12 @@ const (
 	// NodeValidator a validator
 	NodeValidator NodeType = 2
 
+	// ConfidentialityProtocolVersion1_1 version 1.1
 	ConfidentialityProtocolVersion1_1 string = "1.1"
+	// ConfidentialityProtocolVersion1_2 version 1.2
 	ConfidentialityProtocolVersion1_2 string = "1.2"
-	ConfidentialityProtocolVersion2   string = "2.0"
+	// ConfidentialityProtocolVersion2 version 2.0
+	ConfidentialityProtocolVersion2 string = "2.0"
 )
 
 // Node represents a crypto object having a type and name
@@ -80,6 +83,7 @@ type Peer interface {
 	// GetEnrollmentID returns this peer's enrollment id
 	GetEnrollmentID() string
 
+	// GetChaincodeID returns tx's ChaincodeID
 	GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error)
 
 	// TransactionPreValidation verifies that the transaction is

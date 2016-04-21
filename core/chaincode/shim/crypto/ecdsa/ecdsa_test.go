@@ -20,9 +20,15 @@ under the License.
 package ecdsa
 
 import (
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"math/big"
+	"net"
 	"testing"
+	"time"
 )
 
 func TestSignatureVerifier(t *testing.T) {
