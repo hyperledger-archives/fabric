@@ -50,7 +50,6 @@ eca:
                   bank_c:              		
               institutions:
                   institution_a:
-
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
                 lukas: 1 NPKYL39uKbkj institution_a	00001
@@ -179,8 +178,8 @@ peer:
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/hyperledger/db
-        WORKDIR $GOPATH/src/github.com/hyperledger/fabric/peer/
-        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin
+        WORKDIR $GOPATH/src/github.com/hyperledger/fabric/
+        RUN CGO_CFLAGS="-I/opt/rocksdb/include" CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/core.yaml $GOPATH/bin
 
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:40404
@@ -471,5 +470,5 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  2
-    attributes:
-        role: administrator
+      attributes:
+        role: assigner

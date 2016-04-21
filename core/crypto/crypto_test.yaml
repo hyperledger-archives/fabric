@@ -25,20 +25,31 @@ security:
 
 
 eca:
+    affiliation_groups:
+        banks_and_institutions:
+            banks:
+                bank_a:
+                bank_b:
+                bank_c:              		
+            institutions:
+                institution_a:
 
     users:
         # clients
-        userthread: 1 9gvZQRwhUq9q
-        user1: 1 9gvZQRwhUq9q
-        user2: 1 9gvZQRwhUq9q
-        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q
+        userthread: 1 9gvZQRwhUq9q bank_a	00001
+        user1: 1 9gvZQRwhUq9q bank_a	00001
+        user2: 1 9gvZQRwhUq9q bank_a	00001
+        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q bank_a	00001
 
         # peers
-        peer: 2 9gvZQRwhUq9q
+        peer: 2 9gvZQRwhUq9q bank_a	00001
 
         # validators
-        validator: 4 9gvZQRwhUq9q
+        validator: 4 9gvZQRwhUq9q bank_a 00001
 
+tca:
+    attribute-encryption:
+       enabled: false
 
 pki:
     validity-period:
@@ -75,7 +86,20 @@ peer:
         validity-period:
             verification: false
 
-
+###############################################################################
+#
+#    Security section - Applied to all entities (client, NVP, VP)
+#
+###############################################################################
+security:
+    # TCerts related configuration
+    tcert:
+      batch:
+        # The size of the batch of TCerts
+        size:  200
+      attributes:
+        company: IBM
+        position: "Software Engineer"
 
 ###############################################################################
 #

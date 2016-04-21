@@ -36,6 +36,17 @@ import (
 var (
 	// TCertEncTCertIndex oid for TCertIndex
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
+	
+	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
+	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
+	
+	// TCertEncAttributesBase is the base ASN1 object identifier for attributes. 
+	// When generating an extension to include the attribute an index will be 
+	// appended to this Object Identifier.
+	TCertEncAttributesBase = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6}
+	
+	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
+	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 )
 
 // DERToX509Certificate converts der to x509
@@ -124,6 +135,17 @@ func GetCriticalExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]
 
 	return nil, errors.New("Failed retrieving extension.")
 }
+
+// GetExtension returns a requested extension.
+//func GetExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]byte, error) {
+//	for _, ext := range cert.Extensions {
+//		if IntArrayEquals(ext.Id, oid) {
+//			return ext.Value, nil
+//		}
+//	}
+//
+//	return nil, errors.New("Failed retrieving extension.")
+//}
 
 // NewSelfSignedCert create a self signed certificate
 func NewSelfSignedCert() ([]byte, interface{}, error) {
