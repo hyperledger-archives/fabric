@@ -14,16 +14,17 @@ import (
 
 var vmLogger = logging.MustGetLogger("container")
 
+//WriteGopathSrc tars up files under gopath src
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
-	if strings.LastIndex(gopath, "/") == len(gopath) - 1 {
+	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
 		gopath = gopath[:len(gopath)]
 	}
 	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary
-	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir) - 1 {
+	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir)-1 {
 		excludeDir = excludeDir + "/"
 	}
 
@@ -40,7 +41,7 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		}
 
 		//exclude any files with excludeDir prefix. They should already be in the tar
-		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen + 1 {
+		if excludeDir != "" && strings.Index(path, excludeDir) == rootDirLen+1 {
 			//1 for "/"
 			return nil
 		}
@@ -71,6 +72,7 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	return nil
 }
 
+//WriteFileToPackage writes a file to the tarball
 func WriteFileToPackage(localpath string, packagepath string, tw *tar.Writer) error {
 	fd, err := os.Open(localpath)
 	if err != nil {
@@ -83,6 +85,7 @@ func WriteFileToPackage(localpath string, packagepath string, tw *tar.Writer) er
 
 }
 
+//WriteStreamToPackage writes bytes (from a file reader) to the tarball
 func WriteStreamToPackage(is io.Reader, localpath string, packagepath string, tw *tar.Writer) error {
 	info, err := os.Stat(localpath)
 	if err != nil {

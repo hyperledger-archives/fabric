@@ -62,7 +62,8 @@ message ChaincodeSpec {
     enum Type {
         UNDEFINED = 0;
         GOLANG = 1;
-        NODE = 2;
+	SYSTEM = 2;
+        NODE = 3;
     }
 
     Type type = 1;
@@ -77,12 +78,10 @@ message ChaincodeSpec {
 // Specify the deployment of a chaincode.
 // TODO: Define `codePackage`.
 message ChaincodeDeploymentSpec {
-
     ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
-
 }
 
 // Carries the chaincode function and its arguments.
