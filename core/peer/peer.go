@@ -243,7 +243,7 @@ type Engine interface {
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
+func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -251,31 +251,12 @@ func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer.handlerFactory = handlerFact
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
+	peer.secHelper = secHelperFunc()
+
 	// Install security object for peer
 	if viper.GetBool("security.enabled") {
-		enrollID := viper.GetString("security.enrollID")
-		enrollSecret := viper.GetString("security.enrollSecret")
-		var err error
-		if viper.GetBool("peer.validator.enabled") {
-			peerLogger.Debug("Registering validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
-		} else {
-			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
+		if peer.secHelper == nil {
+			return nil, fmt.Errorf("Security helper not provided")
 		}
 	}
 
@@ -289,36 +270,16 @@ func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithEngine(engFactory EngineFactory) (peer *PeerImpl, err error) {
+func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
+	peer.secHelper = secHelperFunc()
+
 	// Install security object for peer
 	if viper.GetBool("security.enabled") {
-		enrollID := viper.GetString("security.enrollID")
-		enrollSecret := viper.GetString("security.enrollSecret")
-		var err error
-		if viper.GetBool("peer.validator.enabled") {
-			peerLogger.Debug("Registering validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
-			//TODO: Move the go chatWithPeer here
-		} else {
-			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
+		if peer.secHelper == nil {
+			return nil, fmt.Errorf("Security helper not provided")
 		}
 	}
 

@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 	"syscall"
+	"sync"
 	"path/filepath"
 	"bytes"
 
@@ -325,6 +326,44 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 	return lis, grpcServer, err
 }
 
+var once sync.Once
+
+//this should be called exactly once and the result cached
+//NOTE- this crypto func might rightly belong in a crypto package
+//and universally accessed
+func getSecHelper() (crypto.Peer, error) {
+	var secHelper crypto.Peer
+	var err error
+	once.Do(func() {
+		if viper.GetBool("security.enabled") {
+			enrollID := viper.GetString("security.enrollID")
+			enrollSecret := viper.GetString("security.enrollSecret")
+			if viper.GetBool("peer.validator.enabled") {
+				logger.Debug("Registering validator with enroll ID: %s", enrollID)
+				if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
+					return
+				}
+				logger.Debug("Initializing validator with enroll ID: %s", enrollID)
+				secHelper, err = crypto.InitValidator(enrollID, nil)
+				if nil != err {
+					return
+				}
+			} else {
+				logger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+				if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
+					return
+				}
+				logger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+				secHelper, err = crypto.InitPeer(enrollID, nil)
+				if nil != err {
+					return
+				}
+			}
+		}
+	})
+	return secHelper, err
+}
+
 func serve(args []string) error {
 	//register all system chaincodes. This just registers chaincodes, they must be 
 	//still be deployed and launched
@@ -381,43 +420,40 @@ func serve(args []string) error {
 
 	grpcServer := grpc.NewServer(opts...)
 
+	secHelper, err := getSecHelper()
+	if err != nil {
+		return err
+	}
+
+	secHelperFunc := func() crypto.Peer {
+		return secHelper
+	}
+
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
+
 	var peerServer *peer.PeerImpl
 
-	validatorEnabled := viper.GetBool("peer.validator.enabled")
-
 	//create the peerServer....
-	if validatorEnabled {
+	if viper.GetBool("peer.validator.enabled") {
+		if viper.GetBool("peer.validator.enabled") {
+			logger.Debug("Running as validating peer - making genesis block if needed")
+			makeGenesisError := genesis.MakeGenesis()
+			if makeGenesisError != nil {
+				return makeGenesisError
+			}
+		}
+
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(helper.GetEngine)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(peer.NewPeerHandler)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
 		logger.Fatalf("Failed creating new peer with handler %v", err)
 
 		return err
-	}
-
-	// Register ChaincodeSupport server... needs to be done before MakeGenesis
-	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
-	// privacy is enabled
-	var secHelper crypto.Peer
-	if viper.GetBool("security.privacy") {
-		secHelper = peerServer.GetSecHelper()
-	} else {
-		secHelper = nil
-	}
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
-
-	// Now create genesis block if needed
-	if validatorEnabled {
-		makeGenesisError := genesis.MakeGenesis()
-		if makeGenesisError != nil {
-			return makeGenesisError
-		}
 	}
 
 	// Register the Peer server
