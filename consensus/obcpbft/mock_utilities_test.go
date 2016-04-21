@@ -113,6 +113,7 @@ type omniProto struct {
 	GetRemoteBlocksImpl        func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
 	GetRemoteStateSnapshotImpl func(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltasImpl   func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+	ReadStateImpl              func(key string) ([]byte, error)
 
 	// Inner Stack methods
 	broadcastImpl  func(msgPayload []byte)
@@ -429,7 +430,11 @@ func (op *omniProto) getState() []byte {
 }
 
 func (op *omniProto) ReadState(key string) ([]byte, error) {
-	return nil, nil
+	if nil != op.ReadStateImpl {
+		return op.ReadStateImpl(key)
+	}
+
+	panic("Unimplemented")
 }
 
 func (op *omniProto) StoreState(key string, value []byte) error {
