@@ -1,6 +1,8 @@
 #!/bin/bash
-if grep -q 'FAIL' "/$HOME/gopath/src/github.com/hyperledger/fabric/build-result.txt"; then
-echo "Build Failed"
+if grep -q 'FAIL' "/$HOME/gopath/src/github.com/hyperledger/fabric/peer/build-result.txt"; then
+cat $HOME/gopath/src/github.com/hyperledger/fabric/peer/build-result.txt
+echo "=========> BUILD FAILED =========="
 else
-echo "Build passed"
+cat $HOME/gopath/src/github.com/hyperledger/fabric/peer/build-result.txt
+echo "==========> BUILD PASSED ========="
 fi

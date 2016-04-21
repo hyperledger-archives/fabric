@@ -112,7 +112,7 @@ PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 ./installGolang.sh
 
 # Run go install - CGO flags for RocksDB
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 
 # Copy protobuf dir so we can build the protoc-gen-go binary. Then delete the directory.

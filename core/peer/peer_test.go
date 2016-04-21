@@ -39,7 +39,7 @@ import (
 var peerClientConn *grpc.ClientConn
 
 func TestMain(m *testing.M) {
-	config.SetupTestConfig("./../..")
+	config.SetupTestConfig("./../../peer")
 	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 	viper.Set("peer.validator.validity-period.verification", "false")
 

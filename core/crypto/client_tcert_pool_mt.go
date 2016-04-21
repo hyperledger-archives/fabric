@@ -109,8 +109,8 @@ func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) 
 func (tCertPool *tCertPoolMultithreadingImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
 
-	tCertPool.tCertChannel = make(chan tCert, client.conf.getTCertBathSize()*2)
-	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBathSize()*2)
+	tCertPool.tCertChannel = make(chan tCert, client.conf.getTCertBatchSize()*2)
+	tCertPool.tCertChannelFeedback = make(chan struct{}, client.conf.getTCertBatchSize()*2)
 	tCertPool.done = make(chan struct{})
 
 	return
@@ -182,7 +182,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 				break
 			}
 
-			if len(tCertPool.tCertChannel) < tCertPool.client.conf.getTCertBathSize() {
+			if len(tCertPool.tCertChannel) < tCertPool.client.conf.getTCertBatchSize() {
 				tCertPool.client.debug("Refill TCert Pool. Current size [%d].",
 					len(tCertPool.tCertChannel),
 				)
