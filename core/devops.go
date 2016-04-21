@@ -104,7 +104,7 @@ func (*Devops) getChaincodeBytes(context context.Context, spec *pb.ChaincodeSpec
 			return nil, err
 		}
 	}
-	chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	chaincodeDeploymentSpec := &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes }
 	return chaincodeDeploymentSpec, nil
 }
 

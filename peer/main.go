@@ -53,6 +53,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
+	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
@@ -323,6 +324,10 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 }
 
 func serve(args []string) error {
+	//register all system chaincodes. This just registers chaincodes, they must be 
+	//still be deployed and launched
+	system_chaincode.RegisterSysCCs()
+
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
