@@ -41,7 +41,7 @@ func (pe *pbftEndpoint) stop() {
 }
 
 func (pe *pbftEndpoint) isBusy() bool {
-	return pe.pbft.timerActive
+	return pe.pbft.timerActive || pe.pbft.currentExec != nil
 }
 
 type pbftNetwork struct {

@@ -95,6 +95,7 @@ type pbftCore struct {
 	skipInProgress bool              // Set when we have detected a fall behind scenario until we pick a new starting point
 	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
 
+	currentExec        *uint64             // currently executing request
 	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
 	requestTimeout     time.Duration       // progress timeout for requests
@@ -792,14 +793,13 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 }
 
 func (instance *pbftCore) executeOutstanding() {
-	for retry := true; retry; {
-		retry = false
-		for idx := range instance.certStore {
-			if instance.executeOne(idx) {
-				// range over the certStore again
-				retry = true
-				break
-			}
+	if instance.currentExec != nil {
+		return
+	}
+
+	for idx := range instance.certStore {
+		if instance.executeOne(idx) {
+			break
 		}
 	}
 
@@ -852,27 +852,40 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	// we have a commit certificate for this request
-	instance.lastExec = idx.n
 	instance.stopTimer()
 	instance.lastNewViewTimeout = instance.newViewTimeout
+	currentExec := idx.n
+	instance.currentExec = &currentExec
 
 	// null request
 	if digest == "" {
 		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
-		// This is necessary in case the null request is on a checkpoint boundary
+		instance.execDone()
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 		delete(instance.outstandingReqs, digest)
 
-		instance.unlock() // If this thread wants to call back into 'Checkpoint', then it will need to claim the lock again
-		instance.consumer.execute(idx.n, req.Payload)
-		instance.lock()
+		// asynchronously execute
+		go func() {
+			instance.consumer.execute(idx.n, req.Payload)
+			logger.Info("Replica %d finished execution %d, trying next", instance.id, idx.n)
+			instance.lock()
+			defer instance.unlock()
+			instance.execDone()
+		}()
 	}
+	return true
+}
+
+// execDone is an event telling us that the last execution has completed
+func (instance *pbftCore) execDone() {
+	instance.lastExec = *instance.currentExec
+	instance.currentExec = nil
 
 	if instance.lastExec%instance.K == 0 {
-		instance.Checkpoint(idx.n, instance.consumer.getState())
+		instance.Checkpoint(instance.lastExec, instance.consumer.getState())
 	}
 
 	if len(instance.outstandingReqs) > 0 {
@@ -885,7 +898,8 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		}()
 		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
 	}
-	return true
+
+	instance.executeOutstanding()
 }
 
 func (instance *pbftCore) moveWatermarks(h uint64) {
