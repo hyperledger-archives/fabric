@@ -379,13 +379,10 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	if viper.GetBool("peer.validator.enabled") {
-		logger.Debug("Running as validating peer - making genesis block if needed")
-		makeGenesisError := genesis.MakeGenesis()
-		if makeGenesisError != nil {
-			return makeGenesisError
-		}
+	validatorEnabled := viper.GetBool("peer.validator.enabled")
 
+	//create the peerServer....
+	if validatorEnabled {
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, err = peer.NewPeerWithEngine(helper.GetEngine)
 	} else {
@@ -399,14 +396,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
-	pb.RegisterPeerServer(grpcServer, peerServer)
-
-	// Register the Admin server
-	pb.RegisterAdminServer(grpcServer, core.NewAdminServer())
-
-	// Register ChaincodeSupport server...
+	// Register ChaincodeSupport server... needs to be done before MakeGenesis
 	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
 	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
 	// privacy is enabled
@@ -417,6 +407,21 @@ func serve(args []string) error {
 		secHelper = nil
 	}
 	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
+
+	// Now create genesis block if needed
+	if validatorEnabled {
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
+		}
+	}
+
+	// Register the Peer server
+	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
+	pb.RegisterPeerServer(grpcServer, peerServer)
+
+	// Register the Admin server
+	pb.RegisterAdminServer(grpcServer, core.NewAdminServer())
 
 	// Register Devops server
 	serverDevops := core.NewDevopsServer(peerServer)
