@@ -101,7 +101,20 @@ func (instance *pbftCore) restoreState() {
 	}
 	updateSeqView(set)
 
-	// XXX restore requests
+	reqs, err := instance.consumer.ReadStateSet("req.")
+	if err == nil {
+		for k, v := range reqs {
+			req := &Request{}
+			err = proto.Unmarshal(v, req)
+			if err != nil {
+				logger.Warning("Replica %d could not restore request %s", instance.id, k)
+			} else {
+				instance.reqStore[hashReq(req)] = req
+			}
+		}
+	} else {
+		logger.Warning("Replica %d could not restore reqStore: %s", instance.id, err)
+	}
 
 	ok := false
 	if instance.lastExec, ok = instance.consumer.getLastSeqNo(); !ok {
@@ -109,6 +122,6 @@ func (instance *pbftCore) restoreState() {
 		instance.lastExec = 0
 	}
 
-	logger.Info("Replica %d restored state: view: %d, seqNo: %d, lastExec: %d, pset: %+v, qset: %+v",
-		instance.id, instance.view, instance.seqNo, instance.lastExec, instance.pset, instance.qset)
+	logger.Info("Replica %d restored state: view: %d, seqNo: %d, lastExec: %d, pset: %+v, qset: %+v, reqs: %+v",
+		instance.id, instance.view, instance.seqNo, instance.lastExec, instance.pset, instance.qset, instance.reqStore)
 }

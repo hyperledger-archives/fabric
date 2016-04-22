@@ -144,12 +144,12 @@ func (openchainDB *OpenchainDB) GetFromIndexesCF(key []byte) ([]byte, error) {
 
 // GetBlockchainCFIterator get iterator for column family - blockchainCF
 func (openchainDB *OpenchainDB) GetBlockchainCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.BlockchainCF)
+	return openchainDB.GetIterator(openchainDB.BlockchainCF)
 }
 
 // GetStateCFIterator get iterator for column family - stateCF
 func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateCF)
+	return openchainDB.GetIterator(openchainDB.StateCF)
 }
 
 // GetStateCFSnapshotIterator get iterator for column family - stateCF. This iterator
@@ -161,7 +161,7 @@ func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator(snapshot *gorocksdb.S
 
 // GetStateDeltaCFIterator get iterator for column family - stateDeltaCF
 func (openchainDB *OpenchainDB) GetStateDeltaCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateDeltaCF)
+	return openchainDB.GetIterator(openchainDB.StateDeltaCF)
 }
 
 // GetSnapshot returns a point-in-time view of the DB. You MUST call snapshot.Release()
@@ -304,7 +304,7 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 	return data, nil
 }
 
-func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
+func (openchainDB *OpenchainDB) GetIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	opt.SetFillCache(true)
 	defer opt.Destroy()
