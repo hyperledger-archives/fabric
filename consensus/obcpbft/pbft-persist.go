@@ -77,6 +77,19 @@ func (instance *pbftCore) persistRequest(digest string) {
 	instance.consumer.StoreState("req."+digest, raw)
 }
 
+func (instance *pbftCore) persistDelRequest(digest string) {
+	instance.consumer.DelState(digest)
+}
+
+func (instance *pbftCore) persistDelAllRequests() {
+	reqs, err := instance.consumer.ReadStateSet("req.")
+	if err == nil {
+		for k := range reqs {
+			instance.consumer.DelState(k)
+		}
+	}
+}
+
 func (instance *pbftCore) restoreState() {
 	updateSeqView := func(set []*ViewChange_PQ) {
 		for _, e := range set {

@@ -290,6 +290,17 @@ func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	return nil
 }
 
+func (openchainDB *OpenchainDB) Delete(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) error {
+	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
+	err := openchainDB.DB.DeleteCF(opt, cfHandler, key)
+	if err != nil {
+		fmt.Println("Error while trying to delete key:", key)
+		return err
+	}
+	return nil
+}
+
 func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
