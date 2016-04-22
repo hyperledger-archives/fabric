@@ -38,3 +38,7 @@ func (p persistForward) ReadStateSet(prefix string) (map[string][]byte, error) {
 func (p persistForward) StoreState(key string, val []byte) error {
 	return p.persistor.StoreState(key, val)
 }
+
+func (p persistForward) DelState(key string) {
+	p.persistor.DelState(key)
+}

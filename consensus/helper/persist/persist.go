@@ -30,6 +30,11 @@ func (h *PersistHelper) StoreState(key string, value []byte) error {
 	return db.Put(db.PersistCF, []byte("consensus."+key), value)
 }
 
+func (h *PersistHelper) DelState(key string) {
+	db := db.GetDBHandle()
+	db.Delete(db.PersistCF, []byte("consensus."+key))
+}
+
 func (h *PersistHelper) ReadState(key string) ([]byte, error) {
 	db := db.GetDBHandle()
 	return db.Get(db.PersistCF, []byte("consensus."+key))

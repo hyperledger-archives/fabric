@@ -871,6 +871,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 		if idx.n <= h {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
+			instance.persistDelRequest(cert.digest)
 			delete(instance.reqStore, cert.digest)
 			delete(instance.certStore, idx)
 		}
@@ -943,6 +944,7 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 			if m := chkptSeqNumArray[len(chkptSeqNumArray)-(instance.f+1)]; m > H {
 				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.reqStore = make(map[string]*Request) // Discard all our requests, as we will never know which were executed, to be addressed in #394
+				instance.persistDelAllRequests()
 				instance.moveWatermarks(m)
 				instance.outstandingReqs = make(map[string]*Request)
 				instance.skipInProgress = true

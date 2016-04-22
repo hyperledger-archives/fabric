@@ -108,6 +108,7 @@ type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
 	ReadStateSet(prefix string) (map[string][]byte, error)
+	DelState(key string)
 }
 
 // Stack is the set of stack-facing methods available to the consensus plugin

@@ -78,6 +78,11 @@ func (p *mockPersist) StoreState(key string, value []byte) error {
 	return nil
 }
 
+func (p *mockPersist) DelState(key string) {
+	p.initialize()
+	delete(p.store, key)
+}
+
 // Create a message of type `Message_CHAIN_TRANSACTION`
 func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -128,6 +133,8 @@ type omniProto struct {
 	GetRemoteStateDeltasImpl   func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 	ReadStateImpl              func(key string) ([]byte, error)
 	ReadStateSetImpl           func(prefix string) (map[string][]byte, error)
+	StoreStateImpl             func(key string, value []byte) error
+	DelStateImpl               func(key string)
 
 	// Inner Stack methods
 	broadcastImpl    func(msgPayload []byte)
@@ -393,7 +400,7 @@ func (op *omniProto) getLastSeqNo() (uint64, bool) {
 		return op.getLastSeqNoImpl()
 	}
 
-	panic("Unimplemented")
+	return 0, false
 }
 
 func (op *omniProto) Close() {
@@ -434,20 +441,27 @@ func (op *omniProto) ReadState(key string) ([]byte, error) {
 	if nil != op.ReadStateImpl {
 		return op.ReadStateImpl(key)
 	}
-
-	panic("Unimplemented")
+	return nil, fmt.Errorf("unimplemented")
 }
 
 func (op *omniProto) ReadStateSet(prefix string) (map[string][]byte, error) {
 	if nil != op.ReadStateImpl {
 		return op.ReadStateSetImpl(prefix)
 	}
+	return nil, fmt.Errorf("unimplemented")
+}
 
-	panic("Unimplemented")
+func (op *omniProto) DelState(key string) {
+	if nil != op.DelStateImpl {
+		op.DelStateImpl(key)
+	}
 }
 
 func (op *omniProto) StoreState(key string, value []byte) error {
-	return nil
+	if nil != op.ReadStateImpl {
+		return op.StoreStateImpl(key, value)
+	}
+	return fmt.Errorf("unimplemented")
 }
 
 /*
