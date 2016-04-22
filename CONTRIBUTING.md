@@ -4,6 +4,9 @@ We welcome contributions to the Hyperledger Project in many forms, and there's a
 
 First things first, please review the Hyperledger Project's [Code of Conduct](https://github.com/hyperledger/hyperledger/wiki/Hyperledger-Project-Code-of-Conduct) before participating. It is important that we keep things civil.
 
+### Getting help
+If you are looking for something to work on, or need some expert assistance in debugging a problem or working out a fix to an issue, our [community](https://www.hyperledger.org/community) is always eager to help. We hang out on [Slack](https://hyperledgerproject.slack.com/), IRC (#hyperledger on freenode.net) and the [mailing lists](http://lists.hyperledger.org/). Most of us don't bite ;-) and will be glad to help.
+
 ### Requirements and Use Cases
 We have a [Requirements WG](https://github.com/hyperledger/hyperledger/wiki/Requirements-WG) that is documenting use cases and from those use cases deriving requirements. If you are interested in contributing to this effort, please feel free to join the discussion in [slack](https://hyperledgerproject.slack.com/messages/requirements/).
 
@@ -52,9 +55,6 @@ To work on something, whether a new feature or a bugfix:
   9. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
 
 After your pull request has been reviewed and signed off, a maintainer will merge it into the master branch.
-
-### Getting help
-If you are looking for something to work on, or need some expert assistance in debugging a problem or working out a fix to an issue, our [community](https://www.hyperledger.org/community) is always eager to help. We hang out on [Slack](https://hyperledgerproject.slack.com/), IRC (#hyperledger on freenode.net) and the [mailing lists](http://lists.hyperledger.org/). Most of us don't bite ;-) and will be glad to help.
 
 ### Becoming a maintainer
 This project is managed under open governance model as described in our  [charter](https://www.hyperledger.org/about/charter). Projects or sub-projects will be lead by a set of maintainers. New projects can designate an initial set of maintainers that will be approved by the Technical Steering Committee when the project is first approved. The project's maintainers will, from time-to-time, consider adding a new maintainer. An existing maintainer will post a pull request to the [MAINTAINERS.txt](MAINTAINERS.txt) file. If a majority of the maintainers concur in the comments, the pull request is then merged and the individual becomes a maintainer.
