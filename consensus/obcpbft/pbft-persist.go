@@ -135,6 +135,6 @@ func (instance *pbftCore) restoreState() {
 		instance.lastExec = 0
 	}
 
-	logger.Info("Replica %d restored state: view: %d, seqNo: %d, lastExec: %d, pset: %+v, qset: %+v, reqs: %+v",
-		instance.id, instance.view, instance.seqNo, instance.lastExec, instance.pset, instance.qset, instance.reqStore)
+	logger.Info("Replica %d restored state: view: %d, seqNo: %d, lastExec: %d, pset: %d, qset: %d, reqs: %d",
+		instance.id, instance.view, instance.seqNo, instance.lastExec, len(instance.pset), len(instance.qset), len(instance.reqStore))
 }
