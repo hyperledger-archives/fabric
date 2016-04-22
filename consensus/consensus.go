@@ -107,6 +107,7 @@ type RemoteLedgers interface {
 type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
+	ReadStateSet(prefix string) (map[string][]byte, error)
 }
 
 // Stack is the set of stack-facing methods available to the consensus plugin

@@ -34,3 +34,16 @@ func (h *PersistHelper) ReadState(key string) ([]byte, error) {
 	db := db.GetDBHandle()
 	return db.Get(db.PersistCF, []byte("consensus."+key))
 }
+
+func (h *PersistHelper) ReadStateSet(prefix string) (map[string][]byte, error) {
+	db := db.GetDBHandle()
+	prefixRaw := []byte("consensus." + prefix)
+
+	ret := make(map[string][]byte)
+	it := db.GetIterator(db.PersistCF)
+	defer it.Close()
+	for it.Seek(prefixRaw); it.ValidForPrefix(prefixRaw); it.Next() {
+		ret[string(it.Key())] = it.Value().Data()
+	}
+	return ret, nil
+}

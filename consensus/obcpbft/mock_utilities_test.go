@@ -59,6 +59,19 @@ func (p *mockPersist) ReadState(key string) ([]byte, error) {
 	return nil, fmt.Errorf("cannot find key %s", key)
 }
 
+func (p *mockPersist) ReadStateSet(prefix string) (map[string][]byte, error) {
+	if p.store == nil {
+		return nil, fmt.Errorf("no state yet")
+	}
+	ret := make(map[string][]byte)
+	for k, v := range p.store {
+		if len(k) >= len(prefix) && k[0:len(prefix)] == prefix {
+			ret[k] = v
+		}
+	}
+	return ret, nil
+}
+
 func (p *mockPersist) StoreState(key string, value []byte) error {
 	p.initialize()
 	p.store[key] = value
@@ -114,6 +127,7 @@ type omniProto struct {
 	GetRemoteStateSnapshotImpl func(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltasImpl   func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 	ReadStateImpl              func(key string) ([]byte, error)
+	ReadStateSetImpl           func(prefix string) (map[string][]byte, error)
 
 	// Inner Stack methods
 	broadcastImpl    func(msgPayload []byte)
@@ -419,6 +433,14 @@ func (op *omniProto) getState() []byte {
 func (op *omniProto) ReadState(key string) ([]byte, error) {
 	if nil != op.ReadStateImpl {
 		return op.ReadStateImpl(key)
+	}
+
+	panic("Unimplemented")
+}
+
+func (op *omniProto) ReadStateSet(prefix string) (map[string][]byte, error) {
+	if nil != op.ReadStateImpl {
+		return op.ReadStateSetImpl(prefix)
 	}
 
 	panic("Unimplemented")

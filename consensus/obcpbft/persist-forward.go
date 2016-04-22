@@ -31,6 +31,10 @@ func (p persistForward) ReadState(key string) ([]byte, error) {
 	return p.persistor.ReadState(key)
 }
 
+func (p persistForward) ReadStateSet(prefix string) (map[string][]byte, error) {
+	return p.persistor.ReadStateSet(prefix)
+}
+
 func (p persistForward) StoreState(key string, val []byte) error {
 	return p.persistor.StoreState(key, val)
 }
