@@ -1152,14 +1152,13 @@ func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
 }
 
 func (instance *pbftCore) stopTimer() {
-
-	// Stop the timer regardless
-	if !instance.newViewTimer.Stop() && instance.timerActive {
+	stopRes := instance.newViewTimer.Stop()
+	if !stopRes && instance.timerActive {
 		// See comment in startTimer for more detail, but this indicates our Stop is occurring
 		// after the view change thread has become active, so incremeent the reset count to prevent a race
 		instance.timerResetCount++
 		logger.Debug("Replica %d stopping an expired new view timer, reset count now %d", instance.id, instance.timerResetCount)
-	} else {
+	} else if instance.timerActive {
 		logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	}
 	instance.timerActive = false
