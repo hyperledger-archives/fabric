@@ -94,7 +94,7 @@ Feature: lanching 3 peers
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      When I deploy chaincode "github.com/hyperledger/fabric/core/behave_chaincode/go/table" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/hyperledger/fabric/bddtests/chaincode/go/table" with ctor "init" to "vp0"
       ||
       ||
       Then I should have received a chaincode name
