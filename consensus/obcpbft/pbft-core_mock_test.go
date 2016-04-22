@@ -41,6 +41,8 @@ func (pe *pbftEndpoint) stop() {
 }
 
 func (pe *pbftEndpoint) isBusy() bool {
+	pe.pbft.lock()
+	defer pe.pbft.unlock()
 	return pe.pbft.timerActive || pe.pbft.currentExec != nil
 }
 
