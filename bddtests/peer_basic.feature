@@ -501,7 +501,7 @@ Feature: lanching 3 peers
         # Now start vp3 again and run 8 more transactions
         Given I start peers:
             | vp3  |
-        And I wait "5" seconds
+        And I wait "15" seconds
 
         # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
         When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
