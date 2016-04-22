@@ -221,7 +221,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
-	if vc.View == instance.view && quorum == instance.allCorrectReplicasQuorum() {
+	if !instance.activeView && vc.View == instance.view && quorum == instance.allCorrectReplicasQuorum() {
 		instance.startTimer(instance.lastNewViewTimeout, "new view change")
 		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 
