@@ -48,7 +48,9 @@ func (h *PersistHelper) ReadStateSet(prefix string) (map[string][]byte, error) {
 	it := db.GetIterator(db.PersistCF)
 	defer it.Close()
 	for it.Seek(prefixRaw); it.ValidForPrefix(prefixRaw); it.Next() {
-		ret[string(it.Key())] = it.Value().Data()
+		// copy data from the slice!
+		ret[string(it.Key().Data())] = append([]byte(nil), it.Value().Data()...)
+
 	}
 	return ret, nil
 }
