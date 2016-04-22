@@ -379,6 +379,19 @@ func (h *Helper) GetBlockchainInfoBlob() []byte {
 	return rawInfo
 }
 
+func (h *Helper) GetBlockHeadMetadata() ([]byte, bool) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, false
+	}
+	head := ledger.GetBlockchainSize()
+	block, err := ledger.GetBlockByNumber(head)
+	if err != nil {
+		return nil, false
+	}
+	return block.ConsensusMetadata, true
+}
+
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
