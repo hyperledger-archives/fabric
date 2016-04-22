@@ -62,11 +62,11 @@ func SetupTestConfig() {
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("core") // name of config file (without extension)
-	viper.AddConfigPath("./")        // path to look for the config file in
-	viper.AddConfigPath("./../")     // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.SetConfigName("core")  // name of config file (without extension)
+	viper.AddConfigPath("./")    // path to look for the config file in
+	viper.AddConfigPath("./../") // path to look for the config file in
+	err := viper.ReadInConfig()  // Find and read the config file
+	if err != nil {              // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
@@ -76,4 +76,31 @@ func SetupTestConfig() {
 	var numProcsDesired = viper.GetInt("peer.gomaxprocs")
 	log.Debug("setting Number of procs to %d, was %d\n", numProcsDesired, runtime.GOMAXPROCS(2))
 
+}
+
+// See fabric/core/peer/config.go for comments on the configuration caching
+// methodology.
+
+var coreLogger = logging.MustGetLogger("core")
+
+var configurationCached bool
+var securityEnabled bool
+
+func CacheConfiguration() error {
+	securityEnabled = viper.GetBool("security.enabled")
+	configurationCached = true
+	return nil
+}
+
+func cacheConfiguration() {
+	if err := CacheConfiguration(); err != nil {
+		coreLogger.Error("Execution continues after CacheConfiguration() failure : $s", err)
+	}
+}
+
+func SecurityEnabled() bool {
+	if !configurationCached {
+		cacheConfiguration()
+	}
+	return securityEnabled
 }

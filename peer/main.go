@@ -73,6 +73,9 @@ const undefinedParamValue = ""
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
 	Use: "peer",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return core.CacheConfiguration()
+	},
 }
 
 var peerCmd = &cobra.Command{
@@ -365,6 +368,27 @@ func getSecHelper() (crypto.Peer, error) {
 }
 
 func serve(args []string) error {
+	// Parameter overrides must be processed before any paramaters are
+	// cached. Failures to cache cause the server to terminate immediately.
+	if chaincodeDevMode {
+		logger.Info("Running in chaincode development mode")
+		logger.Info("Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Disable loading validity system chaincode")
+
+		viper.Set("peer.validator.enabled", "true")
+		viper.Set("peer.validator.consensus", "noops")
+		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+
+		// Disable validity system chaincode in dev mode. Also if security is enabled,
+		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
+		// membersrvc from calling validity system chaincode -- though no harm otherwise
+		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+		viper.Set("validator.validity-period.verification", "false")
+	}
+	if err := peer.CacheConfiguration(); err != nil {
+		return err
+	}
+
 	//register all system chaincodes. This just registers chaincodes, they must be 
 	//still be deployed and launched
 	system_chaincode.RegisterSysCCs()
@@ -391,21 +415,6 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
-	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode")
-		logger.Info("Set consensus to NOOPS and user starts chaincode")
-		logger.Info("Disable loading validity system chaincode")
-
-		viper.Set("peer.validator.enabled", "true")
-		viper.Set("peer.validator.consensus", "noops")
-		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
-
-		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
-		// membersrvc from calling validity system chaincode -- though no harm otherwise
-		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-		viper.Set("validator.validity-period.verification", "false")
-	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
