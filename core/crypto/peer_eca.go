@@ -22,6 +22,7 @@ package crypto
 import (
 	"crypto/x509"
 	"fmt"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
@@ -51,7 +52,7 @@ func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	validator.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
+	peer.debug("Enrollment certificate for [%s] = [% x]", sid, rawCert)
 
 	cert, err := primitives.DERToX509Certificate(rawCert)
 	if err != nil {
