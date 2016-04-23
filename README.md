@@ -86,7 +86,7 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
     go test -v -run=TestGetFoo
 
 #### 3.2 Behave Tests
-[Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
+[Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests, kill the peer you have running if you ran the unit tests, and then do:
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/bddtests
