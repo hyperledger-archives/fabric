@@ -262,7 +262,10 @@ vm:
                 file: /path/to/ca.pem
             key:
                 file: /path/to/server-key.pem
-
+        # networkMode: bridge
+        # dns:
+        #     - 192.168.0.1
+            
 ###############################################################################
 #
 #    Chaincode section
