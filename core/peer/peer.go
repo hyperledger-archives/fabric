@@ -141,39 +141,6 @@ func GetLocalIP() string {
 	return ""
 }
 
-// GetLocalAddress returns the address:port the local peer is operating on.  Affected by env:peer.addressAutoDetect
-func GetLocalAddress() (peerAddress string, err error) {
-	if viper.GetBool("peer.addressAutoDetect") {
-		// Need to get the port from the peer.address setting, and append to the determined host IP
-		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
-		if err != nil {
-			err = fmt.Errorf("Error auto detecting Peer's address: %s", err)
-			return "", err
-		}
-		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		//peerLogger.Info("Auto detected peer address: %s", peerAddress)
-	} else {
-		peerAddress = viper.GetString("peer.address")
-	}
-	return
-}
-
-// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
-func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	var peerAddress string
-	var peerType pb.PeerEndpoint_Type
-	peerAddress, err := GetLocalAddress()
-	if err != nil {
-		return nil, err
-	}
-	if viper.GetBool("peer.validator.enabled") {
-		peerType = pb.PeerEndpoint_VALIDATOR
-	} else {
-		peerType = pb.PeerEndpoint_NON_VALIDATOR
-	}
-	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
-}
-
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
@@ -302,7 +269,6 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
 	return peer, nil
 }
-
 
 // Chat implementation of the the Chat bidi streaming RPC function
 func (p *PeerImpl) Chat(stream pb.Peer_ChatServer) error {
@@ -487,7 +453,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 }
 
 // sendTransactionsToLocalEngine send the transaction to the local engine (This Peer is a validator)
-func (p * PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *pb.Response {
+func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *pb.Response {
 
 	peerLogger.Debug("Marshalling transaction %s to send to local engine", transaction.Type)
 	data, err := proto.Marshal(transaction)
@@ -563,17 +529,6 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 			//return err
 		}
 	}
-}
-
-// The address to stream requests to
-func getValidatorStreamAddress() string {
-	localaddr, _ := GetLocalAddress()
-	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
-		return localaddr
-	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
-		return valaddr
-	}
-	return localaddr
 }
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
