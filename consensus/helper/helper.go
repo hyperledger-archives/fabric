@@ -22,7 +22,6 @@ package helper
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/chaincode"
@@ -45,7 +44,7 @@ type Helper struct {
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
 	return &Helper{coordinator: mhc,
-		secOn:     viper.GetBool("security.enabled"),
+		secOn:     peer.SecurityEnabled(),
 		secHelper: mhc.GetSecHelper()}
 }
 
