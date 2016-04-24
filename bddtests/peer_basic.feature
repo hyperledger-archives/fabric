@@ -567,7 +567,7 @@ Feature: lanching 3 peers
 #    @wip
 	Scenario: basic startup of 3 validating peers
 	    Given we compose "docker-compose-3.yml"
- 	    When requesting "/chain" from "vp0"
+	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
  	@TLS
