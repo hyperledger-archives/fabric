@@ -129,11 +129,17 @@ func (instance *pbftCore) restoreState() {
 		logger.Warning("Replica %d could not restore reqStore: %s", instance.id, err)
 	}
 
+	instance.restoreLastSeqNo()
+
+	logger.Info("Replica %d restored state: view: %d, seqNo: %d, pset: %d, qset: %d, reqs: %d",
+		instance.id, instance.view, instance.seqNo, len(instance.pset), len(instance.qset), len(instance.reqStore))
+}
+
+func (instance *pbftCore) restoreLastSeqNo() {
+	var err error
 	if instance.lastExec, err = instance.consumer.getLastSeqNo(); err != nil {
 		logger.Warning("Replica %d could not restore lastExec: %s", instance.id, err)
 		instance.lastExec = 0
 	}
-
-	logger.Info("Replica %d restored state: view: %d, seqNo: %d, lastExec: %d, pset: %d, qset: %d, reqs: %d",
-		instance.id, instance.view, instance.seqNo, instance.lastExec, len(instance.pset), len(instance.qset), len(instance.reqStore))
+	logger.Info("Replica %d restored lastExec: %d", instance.id, instance.lastExec)
 }
