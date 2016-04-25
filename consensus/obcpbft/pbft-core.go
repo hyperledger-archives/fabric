@@ -751,7 +751,14 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	}
 	cert.commit = append(cert.commit, commit)
 
-	instance.executeOutstanding()
+	if instance.committed(commit.RequestDigest, commit.View, commit.SequenceNumber) {
+		instance.stopTimer()
+		instance.lastNewViewTimeout = instance.newViewTimeout
+		delete(instance.outstandingReqs, commit.RequestDigest)
+		instance.startTimerIfOutstandingRequests()
+
+		instance.executeOutstanding()
+	}
 
 	return nil
 }
@@ -816,8 +823,6 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	// we have a commit certificate for this request
-	instance.stopTimer()
-	instance.lastNewViewTimeout = instance.newViewTimeout
 	currentExec := idx.n
 	instance.currentExec = &currentExec
 
@@ -829,7 +834,6 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
-		delete(instance.outstandingReqs, digest)
 
 		// asynchronously execute
 		go func() {
@@ -850,17 +854,6 @@ func (instance *pbftCore) execDone() {
 
 	if instance.lastExec%instance.K == 0 {
 		instance.Checkpoint(instance.lastExec, instance.consumer.getState())
-	}
-
-	if len(instance.outstandingReqs) > 0 {
-		reqs := func() []string {
-			var r []string
-			for s := range instance.outstandingReqs {
-				r = append(r, s)
-			}
-			return r
-		}()
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
 	}
 
 	instance.executeOutstanding()
@@ -1133,6 +1126,23 @@ func (instance *pbftCore) innerBroadcast(msg *Message) error {
 		instance.consumer.broadcast(msgRaw)
 	}
 	return nil
+}
+
+func (instance *pbftCore) startTimerIfOutstandingRequests() {
+	if instance.timerActive {
+		return
+	}
+
+	if len(instance.outstandingReqs) > 0 {
+		reqs := func() []string {
+			var r []string
+			for s := range instance.outstandingReqs {
+				r = append(r, s)
+			}
+			return r
+		}()
+		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
+	}
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {

@@ -1102,8 +1102,8 @@ func TestReplicaCrash1(t *testing.T) {
 
 // TestReplicaCrash2 is a misnomer.  It simulates a situation where
 // one replica (#3) is byzantine and does not participate at all.
-// Additionally, for seqno=1, the network drops commit messages to all
-// but replica 1.
+// Additionally, for view<2 and seqno=1, the network drops commit
+// messages to all but replica 1.
 func TestReplicaCrash2(t *testing.T) {
 	millisUntilTimeout := 800 * time.Millisecond
 
@@ -1128,7 +1128,8 @@ func TestReplicaCrash2(t *testing.T) {
 			t.Fatal(err)
 		}
 		// filter commits to all but 1
-		if filterMsg && dst != -1 && dst != 1 && pm.GetCommit() != nil {
+		commit := pm.GetCommit()
+		if filterMsg && dst != -1 && dst != 1 && commit != nil && commit.View < 2 {
 			logger.Info("filtering commit message from %d to %d", src, dst)
 			return nil
 		}

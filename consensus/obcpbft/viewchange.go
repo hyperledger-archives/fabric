@@ -407,7 +407,6 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 				ReplicaId:      instance.id,
 			}
 			cert := instance.getCert(instance.view, n)
-			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
 			instance.recvPrepare(prep)
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
@@ -415,6 +414,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 	} else {
 		instance.resubmitRequests()
 	}
+
+	instance.startTimerIfOutstandingRequests()
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
