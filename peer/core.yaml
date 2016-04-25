@@ -332,6 +332,12 @@ ledger:
         #      - greetings
         #      - hello world
 
+        uber:
+          path: github.com/hyperledger/fabric/core/system_chaincode/uber
+          type: GOLANG
+          constructor:
+            args:
+
     # Setting the deploy-system-chaincode property to false will prevent the
     # deploying of system chaincode at genesis time.
     deploy-system-chaincode: false

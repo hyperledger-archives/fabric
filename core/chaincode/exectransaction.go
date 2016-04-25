@@ -31,14 +31,17 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-//Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
+func execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction, commit bool) ([]byte, error) {
 	var err error
+	var lgr *ledger.Ledger
 
-	// get a handle to ledger to mark the begin/finish of a tx
-	ledger, ledgerErr := ledger.GetLedger()
-	if ledgerErr != nil {
-		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
+	//if executing on behalf of a Uber transaction, we should not commit
+	if commit {
+		// get a handle to ledger to mark the begin/finish of a tx
+		lgr, err = ledger.GetLedger()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get handle to ledger (%s)", err)
+		}
 	}
 
 	if secHelper := chain.getSecHelper(); nil != secHelper {
@@ -57,13 +60,13 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		}
 
 		//launch and wait for ready
-		markTxBegin(ledger, t)
+		markTxBegin(lgr, t)
 		_, _, err = chain.LaunchChaincode(ctxt, t)
 		if err != nil {
-			markTxFinish(ledger, t, false)
+			markTxFinish(lgr, t, false)
 			return nil, fmt.Errorf("%s", err)
 		}
-		markTxFinish(ledger, t, true)
+		markTxFinish(lgr, t, true)
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
 		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
@@ -99,27 +102,27 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 			}
 		}
 
-		markTxBegin(ledger, t)
+		markTxBegin(lgr, t)
 		resp, err := chain.Execute(ctxt, chaincode, ccMsg, timeout, t)
 		if err != nil {
 			// Rollback transaction
-			markTxFinish(ledger, t, false)
+			markTxFinish(lgr, t, false)
 			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction
-			markTxFinish(ledger, t, false)
+			markTxFinish(lgr, t, false)
 			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
 			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
 				// Success
-				markTxFinish(ledger, t, true)
+				markTxFinish(lgr, t, true)
 				return resp.Payload, nil
 			} else if resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
 				// Rollback transaction
-				markTxFinish(ledger, t, false)
+				markTxFinish(lgr, t, false)
 				return nil, fmt.Errorf("Transaction or query returned with failure: %s", string(resp.Payload))
 			}
-			markTxFinish(ledger, t, false)
+			markTxFinish(lgr, t, false)
 			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 		}
 
@@ -127,6 +130,16 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		err = fmt.Errorf("Invalid transaction type %s", t.Type.String())
 	}
 	return nil, err
+}
+
+//Execute - execute transaction or a query
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
+	return execute(ctxt, chain, t, true)
+}
+
+//ExecuteWithoutCommit is used when an outer commit is in progress.
+func ExecuteWithoutCommit(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
+	return execute(ctxt, chain, t, false)
 }
 
 //ExecuteTransactions - will execute transactions on the array one by one
@@ -188,15 +201,19 @@ func getTimeout(cID *pb.ChaincodeID) (time.Duration, error) {
 }
 
 func markTxBegin(ledger *ledger.Ledger, t *pb.Transaction) {
-	if t.Type == pb.Transaction_CHAINCODE_QUERY {
-		return
+	if ledger != nil {
+		if t.Type == pb.Transaction_CHAINCODE_QUERY {
+			return
+		}
+		ledger.TxBegin(t.Uuid)
 	}
-	ledger.TxBegin(t.Uuid)
 }
 
 func markTxFinish(ledger *ledger.Ledger, t *pb.Transaction, successful bool) {
-	if t.Type == pb.Transaction_CHAINCODE_QUERY {
-		return
+	if ledger != nil {
+		if t.Type == pb.Transaction_CHAINCODE_QUERY {
+			return
+		}
+		ledger.TxFinished(t.Uuid, successful)
 	}
-	ledger.TxFinished(t.Uuid, successful)
 }
