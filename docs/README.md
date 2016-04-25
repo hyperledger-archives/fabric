@@ -36,11 +36,11 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 ### Reference docs:
 
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](../CONTRIBUTING.md)
 - [Communicating](../README.md#communication-)
 - [Project Lifecycle](https://github.com/hyperledger/hyperledger/wiki/Project-Lifecycle)
-- [License](LICENSE)
-- [Maintainers](MAINTAINERS.md)
+- [License](../LICENSE)
+- [Maintainers](../MAINTAINERS.md)
 
 ### API and chaincode developer docs:
 
@@ -63,7 +63,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Run chaincode
      - Consensus Plugin
 - [Working with CLI, REST, and Node.js](../README.md#working-with-cli-rest-and-nodejs-)
-- [APIs - CLI, REST, and Node.js](../API/CoreAPI.md): 
+- [APIs - CLI, REST, and Node.js](API/CoreAPI.md): 
      - [CLI](API/CoreAPI.md#cli)
      - [REST](API/CoreAPI.md#rest-api)
      - [Node.js Application](API/CoreAPI.md#nodejs-application)
@@ -102,11 +102,11 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Chaincode Execution
 
 ### Use cases and demos:
-- [Canonical Use Cases](/biz/usecases.md):
+- [Canonical Use Cases](biz/usecases.md):
      - B2B Contract
      - Manufacturing Supply Chain
      - Asset Depository
-- [Extended Use Cases](/biz/usecases.md):
+- [Extended Use Cases](biz/usecases.md):
      - One Trade, One Contract
      - Direct Communication
      - Separation of Asset Ownership and Custodian's Duties
@@ -114,7 +114,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 - [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles )
 - [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web )
 
-### Protocol specification: 
+### Protocol specification:
 [Protocol Specification](protocol-spec.md):
 - Introduction (fabric, terminology)
 - Fabric: 
