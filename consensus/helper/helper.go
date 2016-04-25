@@ -398,8 +398,7 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
-	// XXX register for the completion callback
-	h.sts.AddTarget(info.Height, info.CurrentBlockHash, peers, nil)
+	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, nil)
 }
 
 func (h *Helper) Initiated() {
