@@ -90,13 +90,13 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
-// GetTXBatchPreviewBlock returns a preview block that will have the same
-// block.GetHash() result as the block commited to the database if
-// ledger.CommitTxBatch is called with the same parameters. If the state is modified
-// by a transaction between these two calls, the hash will be different. The
-// preview block does not include non-hashed data such as the local timestamp.
-func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
-	transactions []*protos.Transaction, metadata []byte) (*protos.Block, error) {
+// GetTXBatchPreviewBlockInfo returns a preview block info that will
+// contain the same information as GetBlockchainInfo will return after
+// ledger.CommitTxBatch is called with the same parameters. If the
+// state is modified by a transaction between these two calls, the
+// contained hash will be different.
+func (ledger *Ledger) GetTXBatchPreviewBlockInfo(id interface{},
+	transactions []*protos.Transaction, metadata []byte) (*protos.BlockchainInfo, error) {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,9 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash), nil
+	block := ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash)
+	info := ledger.blockchain.getBlockchainInfoForBlock(ledger.blockchain.getSize()+1, block)
+	return info, nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed

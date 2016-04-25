@@ -127,7 +127,7 @@ type omniProto struct {
 	ExecTxsImpl                func(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatchImpl          func(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatchImpl        func(id interface{}) error
-	PreviewCommitTxBatchImpl   func(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatchImpl   func(id interface{}, metadata []byte) ([]byte, error)
 	GetRemoteBlocksImpl        func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
 	GetRemoteStateSnapshotImpl func(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltasImpl   func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
@@ -297,7 +297,7 @@ func (op *omniProto) RollbackTxBatch(id interface{}) error {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+func (op *omniProto) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
 	if nil != op.PreviewCommitTxBatchImpl {
 		return op.PreviewCommitTxBatchImpl(id, metadata)
 	}

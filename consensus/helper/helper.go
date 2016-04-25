@@ -224,21 +224,22 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatch retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
-// As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
-// this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
-// The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
-func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+// PreviewCommitTxBatch retrieves a preview of the block info blob (as
+// returned by GetBlockchainInfoBlob) that would describe the
+// blockchain if CommitTxBatch were invoked.  The blockinfo will
+// change if additional ExecTXs calls are invoked.
+func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this once the underlying API is fixed
-	block, err := ledger.GetTXBatchPreviewBlock(id, h.curBatch, metadata)
+	blockInfo, err := ledger.GetTXBatchPreviewBlockInfo(id, h.curBatch, metadata)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+		return nil, fmt.Errorf("Failed to preview commit: %v", err)
 	}
-	return block, err
+	rawInfo, _ := proto.Marshal(blockInfo)
+	return rawInfo, nil
 }
 
 // GetBlock returns a block from the chain

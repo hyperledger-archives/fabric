@@ -92,7 +92,7 @@ type Executor interface {
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
 
 	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
