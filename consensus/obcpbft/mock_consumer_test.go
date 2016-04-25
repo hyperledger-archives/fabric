@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -53,7 +54,9 @@ type completeStack struct {
 
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	go func() {
-		cs.simulateStateTransfer(tag, id, peers)
+		meta := &Metadata{tag}
+		metaRaw, _ := proto.Marshal(meta)
+		cs.simulateStateTransfer(metaRaw, id, peers)
 		cs.consumer.StateUpdate(id)
 	}()
 }

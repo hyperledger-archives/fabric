@@ -253,8 +253,12 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 	return block, nil
 }
 
-func (mock *MockLedger) PreviewCommitTxBatch(id interface{}, metadata []byte) (*protos.Block, error) {
-	return mock.commonCommitTx(id, metadata, true)
+func (mock *MockLedger) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
+	b, err := mock.commonCommitTx(id, metadata, true)
+	if err != nil {
+		return nil, err
+	}
+	return mock.getBlockInfoBlob(mock.blockHeight+1, b), nil
 }
 
 func (mock *MockLedger) RollbackTxBatch(id interface{}) error {
@@ -623,9 +627,13 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 }
 
 func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
-	info := &protos.BlockchainInfo{Height: mock.blockHeight}
 	b, _ := mock.GetBlock(mock.blockHeight - 1)
-	info.CurrentBlockHash, _ = mock.HashBlock(b)
+	return mock.getBlockInfoBlob(mock.blockHeight, b)
+}
+
+func (mock *MockLedger) getBlockInfoBlob(height uint64, block *protos.Block) []byte {
+	info := &protos.BlockchainInfo{Height: height}
+	info.CurrentBlockHash, _ = mock.HashBlock(block)
 	h, _ := proto.Marshal(info)
 	return h
 }
@@ -638,12 +646,14 @@ func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, error) {
 	return b.ConsensusMetadata, nil
 }
 
-func (mock *MockLedger) simulateStateTransfer(tag uint64, id []byte, peers []*protos.PeerID) {
+func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*protos.PeerID) {
 	info := &protos.BlockchainInfo{}
 	proto.Unmarshal(id, info)
-	fmt.Printf("TEST LEDGER skipping to %d, %+v", tag, info)
+	fmt.Printf("TEST LEDGER skipping to %+v, %+v", meta, info)
 	for n := mock.blockHeight; n < info.Height; n++ {
-		mock.PutBlock(n, SimpleGetBlock(n))
+		block := SimpleGetBlock(n)
+		block.ConsensusMetadata = meta
+		mock.PutBlock(n, block)
 	}
 }
 
