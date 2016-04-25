@@ -448,7 +448,9 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 func (instance *pbftCore) stateUpdate(id []byte) {
 	instance.lock()
 	defer instance.unlock()
+
 	logger.Info("Replica %d application caught up via state transfer", instance.id)
+	instance.restoreLastSeqNo()
 	instance.skipInProgress = false
 	instance.executeOutstanding()
 }
