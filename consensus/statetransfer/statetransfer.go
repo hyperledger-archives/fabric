@@ -281,7 +281,7 @@ func (sts *StateTransferState) Stop() {
 // constructors
 // =============================================================================
 
-func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *StateTransferState {
+func ThreadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	var err error
 	sts := &StateTransferState{}
 
@@ -297,12 +297,12 @@ func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *S
 
 	sts.asynchronousTransferInProgress = false
 
-	sts.RecoverDamage = config.GetBool("statetransfer.recoverdamage")
+	sts.RecoverDamage = viper.GetBool("statetransfer.recoverdamage")
 
 	sts.stateValid = true // Assume our starting state is correct unless told otherwise
 
 	sts.validBlockRanges = make([]*blockRange, 0)
-	sts.blockVerifyChunkSize = uint64(config.GetInt("statetransfer.blocksperrequest"))
+	sts.blockVerifyChunkSize = uint64(viper.GetInt("statetransfer.blocksperrequest"))
 	if sts.blockVerifyChunkSize == 0 {
 		panic(fmt.Errorf("Must set statetransfer.blocksperrequest to be nonzero"))
 	}
@@ -321,20 +321,20 @@ func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *S
 
 	sts.DiscoveryThrottleTime = 1 * time.Second // TODO make this configurable
 
-	sts.BlockRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.singleblock"))
+	sts.BlockRequestTimeout, err = time.ParseDuration(viper.GetString("statetransfer.timeout.singleblock"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singleblock timeout: %s", err))
 	}
-	sts.StateDeltaRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.singlestatedelta"))
+	sts.StateDeltaRequestTimeout, err = time.ParseDuration(viper.GetString("statetransfer.timeout.singlestatedelta"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.singlestatedelta timeout: %s", err))
 	}
-	sts.StateSnapshotRequestTimeout, err = time.ParseDuration(config.GetString("statetransfer.timeout.fullstate"))
+	sts.StateSnapshotRequestTimeout, err = time.ParseDuration(viper.GetString("statetransfer.timeout.fullstate"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.fullstate timeout: %s", err))
 	}
 
-	sts.MaxStateDeltas = config.GetInt("statetransfer.maxdeltas")
+	sts.MaxStateDeltas = viper.GetInt("statetransfer.maxdeltas")
 	if sts.MaxStateDeltas <= 0 {
 		panic(fmt.Errorf("sts.maxdeltas must be greater than 0"))
 	}
@@ -343,15 +343,7 @@ func ThreadlessNewStateTransferState(config *viper.Viper, stack PartialStack) *S
 }
 
 func NewStateTransferState(stack PartialStack) *StateTransferState {
-	config := viper.New()
-
-	config.SetConfigName("config")
-	config.AddConfigPath("./")
-	config.AddConfigPath("./consensus/obcpbft/")
-	config.AddConfigPath("../../consensus/obcpbft")
-	config.ReadInConfig()
-
-	sts := ThreadlessNewStateTransferState(config, stack)
+	sts := ThreadlessNewStateTransferState(stack)
 
 	go sts.stateThread()
 	go sts.blockThread()
