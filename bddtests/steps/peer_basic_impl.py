@@ -85,6 +85,13 @@ def buildUrl(context, ipAddress, path):
         schema = "https"
     return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
 
+def getDockerComposeFileArgsFromYamlFile(compose_yaml):
+    parts = compose_yaml.split()
+    args = []
+    for part in parts:
+        args = args + ["-f"] + [part]
+    return args
+
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
 	# Use the uninstalled version of `cf active-deploy` rather than the installed version on the OS $PATH
@@ -93,8 +100,9 @@ def step_impl(context, composeYamlFile):
     # Expand $vars, e.g. "--path $PATH" becomes "--path /bin"
     #args = re.sub('\$\w+', lambda v: os.getenv(v.group(0)[1:]), composeYamlFile)
     context.compose_yaml = composeYamlFile
+    fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     context.compose_output, context.compose_error, context.compose_returncode = \
-        bdd_test_util.cli_call(context, ["docker-compose", "-f", composeYamlFile, "up","--force-recreate", "-d"], expect_success=True)
+        bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
 

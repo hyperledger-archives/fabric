@@ -12,7 +12,7 @@ Unless otherwise noted, you are at $GOPATH/src/github.com/hyperledger/fabric/con
 
 ### Issues
 This is what is not working right
-* cannot create a directory. Specifically when I run **fabric peer login xxx** . It says *cannot create /var/hyperledger/production/client*. I get around it by creating the directory manually and redoing the command. You might not see this error, especially if you've run **fabric** before. This will be fixed in a separate pull request.
+* cannot create a directory. Specifically when I run **peer peer login xxx** . It says *cannot create /var/hyperledger/production/client*. I get around it by creating the directory manually and redoing the command. You might not see this error, especially if you've run **fabric** before. This will be fixed in a separate pull request.
 
 ### The *infiniteloop.sh* shell script
 We use the cli container as the spot to run the client and issue CLI or REST API calls. In order for the container to stay up until we connect to it, we need to have it start and wait. *infiniteloop.sh* is just an infinite echo/sleep loop that keeps the container up until we can do a `Docker exec` to it.

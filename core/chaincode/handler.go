@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"
+	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 
@@ -50,12 +51,6 @@ const (
 )
 
 var chaincodeLogger = logging.MustGetLogger("chaincode")
-
-// PeerChaincodeStream interface for stream between Peer and chaincode instance.
-type PeerChaincodeStream interface {
-	Send(*pb.ChaincodeMessage) error
-	Recv() (*pb.ChaincodeMessage, error)
-}
 
 // MessageHandler interface for handling chaincode messages (common between Peer chaincode support and chaincode)
 type MessageHandler interface {
@@ -79,7 +74,7 @@ type nextStateInfo struct {
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
-	ChatStream  PeerChaincodeStream
+	ChatStream  ccintf.ChaincodeStream
 	FSM         *fsm.FSM
 	ChaincodeID *pb.ChaincodeID
 
@@ -312,14 +307,14 @@ func (handler *Handler) processStream() error {
 }
 
 // HandleChaincodeStream Main loop for handling the associated Chaincode stream
-func HandleChaincodeStream(chaincodeSupport *ChaincodeSupport, stream pb.ChaincodeSupport_RegisterServer) error {
-	deadline, ok := stream.Context().Deadline()
+func HandleChaincodeStream(chaincodeSupport *ChaincodeSupport, ctxt context.Context, stream ccintf.ChaincodeStream) error {
+	deadline, ok := ctxt.Deadline()
 	chaincodeLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
 	handler := newChaincodeSupportHandler(chaincodeSupport, stream)
 	return handler.processStream()
 }
 
-func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStream PeerChaincodeStream) *Handler {
+func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStream ccintf.ChaincodeStream) *Handler {
 	v := &Handler{
 		ChatStream: peerChatStream,
 	}
