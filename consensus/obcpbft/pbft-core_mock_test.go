@@ -41,9 +41,7 @@ func (pe *pbftEndpoint) stop() {
 }
 
 func (pe *pbftEndpoint) isBusy() bool {
-	pe.pbft.lock()
-	defer pe.pbft.unlock()
-	return pe.pbft.timerActive || pe.pbft.currentExec != nil
+	return !pe.pbft.idle || pe.pbft.timerActive || pe.pbft.currentExec != nil
 }
 
 type pbftNetwork struct {
@@ -132,6 +130,7 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 		pe.pbft = newPbftCore(id, loadConfig(), pe.sc)
 		pe.pbft.N = N
 		pe.pbft.f = (N - 1) / 3
+		pe.pbft.idleTime = DefaultIdleTime
 
 		for _, fn := range initFNs {
 			fn(pe)

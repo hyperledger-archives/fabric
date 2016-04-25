@@ -53,6 +53,19 @@ type obcSieve struct {
 	queuedTx   [][]byte
 
 	persistForward
+
+	executeChan  chan *pbftExecute
+	incomingChan chan *sieveMsgWithSender
+}
+
+type pbftExecute struct {
+	seqNo uint64
+	txRaw []byte
+}
+
+type sieveMsgWithSender struct {
+	msg    *SieveMessage
+	sender uint64
 }
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
@@ -68,6 +81,10 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 
 	op.pbft = newPbftCore(id, config, op)
 
+	op.executeChan = make(chan *pbftExecute)
+	op.incomingChan = make(chan *sieveMsgWithSender)
+	go op.main()
+
 	return op
 }
 
@@ -82,8 +99,6 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-	op.pbft.lock()
-	defer op.pbft.unlock()
 
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
@@ -108,25 +123,11 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 		logger.Error(err.Error())
 		return err
 	}
-	if req := svMsg.GetRequest(); req != nil {
-		op.recvRequest(req)
-	} else if exec := svMsg.GetExecute(); exec != nil {
-		if senderID != exec.ReplicaId {
-			logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
-			return nil
-		}
-		op.recvExecute(exec)
-	} else if verify := svMsg.GetVerify(); verify != nil {
-		// check for senderID not needed since verify messages are signed and will be verified
-		op.recvVerify(verify)
-	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
-		op.pbft.unlock()
-		op.pbft.receive(pbftMsg, senderID)
-		op.pbft.lock()
-	} else {
-		err = fmt.Errorf("Received invalid sieve message: %v", svMsg)
-		logger.Error(err.Error())
+	op.incomingChan <- &sieveMsgWithSender{
+		msg:    svMsg,
+		sender: senderID,
 	}
+
 	return nil
 }
 
@@ -197,9 +198,7 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 	raw, _ := proto.Marshal(msg)
-	op.pbft.unlock()
 	op.pbft.request(raw, op.id)
-	op.pbft.lock()
 }
 
 func (op *obcSieve) recvRequest(txRaw []byte) {
@@ -478,11 +477,48 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 	return nil
 }
 
+// The main single loop which the sieve thread traverses
+func (op *obcSieve) main() {
+	for {
+		select {
+		case svMsgWithSender := <-op.incomingChan:
+			if req := svMsgWithSender.msg.GetRequest(); req != nil {
+				op.recvRequest(req)
+			} else if exec := svMsgWithSender.msg.GetExecute(); exec != nil {
+				if svMsgWithSender.sender != exec.ReplicaId {
+					logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, svMsgWithSender.sender)
+					continue
+				}
+				op.recvExecute(exec)
+			} else if verify := svMsgWithSender.msg.GetVerify(); verify != nil {
+				// check for sender not needed since verify messages are signed and will be verified
+				op.recvVerify(verify)
+			} else if pbftMsg := svMsgWithSender.msg.GetPbftMessage(); pbftMsg != nil {
+				op.pbft.receive(pbftMsg, svMsgWithSender.sender)
+			} else {
+				err := fmt.Errorf("Received invalid sieve message: %v", svMsgWithSender.msg)
+				logger.Error(err.Error())
+			}
+		case exec := <-op.executeChan:
+			op.executeImpl(exec.seqNo, exec.txRaw)
+		case <-op.pbft.closed:
+			logger.Debug("Sieve replica %d requested to stop", op.id)
+			return
+		}
+	}
+}
+
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte) {
-	op.pbft.lock()
-	defer op.pbft.unlock()
+	op.executeChan <- &pbftExecute{
+		seqNo: seqNo,
+		txRaw: raw,
+	}
+	logger.Debug("Seive replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+}
+
+func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
 	req := &SievePbftMessage{}
 	err := proto.Unmarshal(raw, req)
 	if err != nil {

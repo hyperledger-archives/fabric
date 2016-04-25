@@ -50,10 +50,12 @@ func init() {
 // custom interfaces and structure definitions
 // =============================================================================
 
+// Unless otherwise noted, all methods consume the PBFT thread, and should therefore
+// not rely on PBFT accomplishing any work while that thread is being held
 type innerStack interface {
 	broadcast(msgPayload []byte)
 	unicast(msgPayload []byte, receiverID uint64) (err error)
-	execute(seqNo uint64, txRaw []byte)
+	execute(seqNo uint64, txRaw []byte) // This is invoked on a separate thread
 	getState() []byte
 	getLastSeqNo() (uint64, error)
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
@@ -68,8 +70,8 @@ type innerStack interface {
 
 // This structure handles is used for incoming PBFT bound messages
 type pbftMessage struct {
-	sender     uint64
-	msgPayload *Message
+	sender uint64
+	msg    *Message
 }
 
 type checkpointMessage struct {
@@ -79,11 +81,17 @@ type checkpointMessage struct {
 
 type pbftCore struct {
 	// internal data
-	internalLock   sync.Mutex
-	executing      bool // signals that application is executing
-	closed         chan bool
-	consumer       innerStack
-	checkpointChan chan *checkpointMessage
+	internalLock     sync.Mutex
+	executing        bool              // signals that application is executing
+	closed           chan struct{}     // informs the main thread to exit (never written to, only closed)
+	incomingChan     chan *pbftMessage // informs the main thread of new messages
+	stateUpdateChan  chan struct{}     // informs the main thread the state has updated (via state transfer)
+	execCompleteChan chan struct{}     // informs the main thread an execution has finished
+
+	idleTime time.Duration // How long the main thread must do nothing before it is marked as idle
+	idle     bool          // Set after the main thread has done nothing for idleTime, generally only useful for testing
+
+	consumer innerStack
 
 	// PBFT data
 	activeView    bool              // view change happening
@@ -176,8 +184,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
-	instance.closed = make(chan bool)
-	instance.checkpointChan = make(chan *checkpointMessage)
+	instance.closed = make(chan struct{})
+	instance.incomingChan = make(chan *pbftMessage)
+	instance.stateUpdateChan = make(chan struct{})
+	instance.execCompleteChan = make(chan struct{})
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -259,22 +269,38 @@ func (instance *pbftCore) close() {
 
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) main() {
+	logger.Debug("Replica %d starting service thread", instance.id)
+	localIdleTime := time.Hour // Unless an idle time has set, do not waste time setting and unsetting idle
+
 	for {
-		logger.Debug("Replica %d starting service thread", instance.id)
+		if !instance.idle && instance.idleTime != 0 {
+			localIdleTime = instance.idleTime
+		}
+		logger.Debug("Replica %d service thread looping", instance.id)
+
 		select {
 		case <-instance.closed:
 			return
-
 		case <-instance.newViewTimer.C:
 			logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 			instance.sendViewChange()
-		case checkpoint <- instance.checkpointChan:
-			logger.Debug("Replica %d received checkpoint from execution", instance.id)
-			instance.executionCheckpoint(checkpoint.seqNo, checkpoint.id)
-		case msg := <-instance.incoming:
+		case msg := <-instance.incomingChan:
 			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 			instance.recvMsgSync(msg.msg, msg.sender)
+		case <-instance.stateUpdateChan:
+			logger.Info("Replica %d application caught up via state transfer", instance.id)
+			instance.skipInProgress = false
+			instance.executeOutstanding()
+		case <-instance.execCompleteChan:
+			instance.execDone()
+		case <-time.After(localIdleTime):
+			logger.Debug("Replica %d PBFT main thread is now idle", instance.id)
+			instance.idle = true
+			localIdleTime = time.Hour // No need to continuously fire
+			continue
 		}
+
+		instance.idle = false
 	}
 }
 
@@ -408,7 +434,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.incoming <- &pbftMessage{
+	instance.incomingChan <- &pbftMessage{
 		sender: senderID,
 		msg:    msg,
 	}
@@ -423,7 +449,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.incoming <- &pbftMessage{
+	instance.incomingChan <- &pbftMessage{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -433,15 +459,8 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 
 // stateUpdate is an event telling us that the application fast-forwarded its state
 func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
-	instance.lock()
-	defer instance.unlock()
-
-	logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
-	// XXX create checkpoint
-	instance.lastExec = seqNo
-	instance.moveWatermarks(instance.lastExec)
-	instance.skipInProgress = false
-	instance.executeOutstanding()
+	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
+	instance.stateUpdateChan <- struct{}{}
 }
 
 func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
@@ -793,13 +812,6 @@ func (instance *pbftCore) executionCheckpont(seqNo uint64, id []byte) {
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
 }
 
-func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
-	checkpointChan <- &checkpointMessage{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
 func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
@@ -840,6 +852,28 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		}()
 	}
 	return true
+}
+
+func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
+	if seqNo%instance.K != 0 {
+		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
+		return
+	}
+
+	idAsString := base64.StdEncoding.EncodeToString(id)
+
+	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
+		instance.id, instance.view, seqNo, idAsString)
+
+	chkpt := &Checkpoint{
+		SequenceNumber: seqNo,
+		ReplicaId:      instance.id,
+		Id:             idAsString,
+	}
+	instance.chkpts[seqNo] = idAsString
+
+	instance.recvCheckpoint(chkpt)
+	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
 }
 
 // execDone is an event telling us that the last execution has completed
@@ -984,9 +1018,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
 		instance.activeView = true // TODO, verify this with experts
-		instance.unlock()
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
-		instance.lock()
 	}
 }
 
