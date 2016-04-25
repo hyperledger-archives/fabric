@@ -107,7 +107,7 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are below.
 
 - Follow all steps required to setup and run a Vagrant image:
-  - Make sure you you have [Go 1.6](https://golang.org/) or later installed
+  - Make sure you have [Go 1.6](https://golang.org/) or later installed
   - Set the maximum number of open files to 10000 or greater for your OS
   - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and it's dependencies:
 ```
