@@ -66,14 +66,24 @@ type innerStack interface {
 	consensus.StatePersistor
 }
 
+// This structure handles is used for incoming PBFT bound messages
+type pbftMessage struct {
+	sender     uint64
+	msgPayload *Message
+}
+
+type checkpointMessage struct {
+	seqNo uint64
+	id    []byte
+}
+
 type pbftCore struct {
 	// internal data
-	internalLock sync.Mutex
-	executing    bool // signals that application is executing
-	closed       chan bool
-	consumer     innerStack
-	notifyCommit chan bool
-	notifyExec   *sync.Cond
+	internalLock   sync.Mutex
+	executing      bool // signals that application is executing
+	closed         chan bool
+	consumer       innerStack
+	checkpointChan chan *checkpointMessage
 
 	// PBFT data
 	activeView    bool              // view change happening
@@ -167,7 +177,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.id = id
 	instance.consumer = consumer
 	instance.closed = make(chan bool)
-	instance.notifyCommit = make(chan bool, 1)
+	instance.checkpointChan = make(chan *checkpointMessage)
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -232,60 +242,38 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 
 	instance.restoreState()
 
-	go instance.timerHander()
+	go instance.main()
 
 	return instance
 }
 
-func (instance *pbftCore) lock() {
-	// Uncomment to debug races
-	//logger.Debug("Replica %d acquiring lock", instance.id)
-	instance.internalLock.Lock()
-	//logger.Debug("Replica %d acquired lock", instance.id)
-}
-
-func (instance *pbftCore) unlock() {
-	// Uncomment to debug races
-	//logger.Debug("Replica %d releasing lock", instance.id)
-	instance.internalLock.Unlock()
-	//logger.Debug("Replica %d released lock", instance.id)
-}
-
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.lock()
 	select { // Prevent closing multiple times
 	case <-instance.closed:
 	default:
 		close(instance.closed)
 	}
 	instance.stopTimer()
-	instance.unlock()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
-func (instance *pbftCore) timerHander() {
+func (instance *pbftCore) main() {
 	for {
-		logger.Debug("Replica %d view timer waiting", instance.id)
+		logger.Debug("Replica %d starting service thread", instance.id)
 		select {
 		case <-instance.closed:
 			return
 
 		case <-instance.newViewTimer.C:
-			instance.timerExpiredCount++
-			logger.Debug("Replica %d view change timer expired, waiting for lock with expired count %d", instance.id, instance.timerExpiredCount)
-			instance.lock()
-			// This is a nasty potential race, the timer could fire, but be blocked waiting for the lock
-			// meanwhile the system recovers via new view messages, and resets the timer, but this thread would still
-			// try to change views.
-			if instance.timerResetCount > instance.timerExpiredCount {
-				logger.Debug("Replica %d view change timer has expired count %d, but has reset count %d, so was reset before the view change could be sent", instance.id, instance.timerExpiredCount, instance.timerResetCount)
-			} else {
-				logger.Info("Replica %d view change timer expired, sending view change: %s", instance.id, instance.newViewTimerReason)
-				instance.sendViewChange()
-			}
-			logger.Debug("Replica %d done processing view timer", instance.id)
-			instance.unlock()
+			logger.Info("Replica %d view change timer expired, sending view change", instance.id)
+			instance.sendViewChange()
+		case checkpoint <- instance.checkpointChan:
+			logger.Debug("Replica %d received checkpoint from execution", instance.id)
+			instance.executionCheckpoint(checkpoint.seqNo, checkpoint.id)
+		case msg := <-instance.incoming:
+			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
+			instance.recvMsgSync(msg.msg, msg.sender)
 		}
 	}
 }
@@ -420,10 +408,10 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.lock()
-	defer instance.unlock()
-	instance.recvMsgSync(msg, senderID)
-
+	instance.incoming <- &pbftMessage{
+		sender: senderID,
+		msg:    msg,
+	}
 	return nil
 }
 
@@ -435,10 +423,10 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.lock()
-	defer instance.unlock()
-
-	instance.recvMsgSync(msg, senderID)
+	instance.incoming <- &pbftMessage{
+		msg:    msg,
+		sender: senderID,
+	}
 
 	return nil
 }
@@ -782,7 +770,7 @@ func (instance *pbftCore) executeOutstanding() {
 	return
 }
 
-func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
+func (instance *pbftCore) executionCheckpont(seqNo uint64, id []byte) {
 	if seqNo%instance.K != 0 {
 		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
 		return
@@ -803,6 +791,13 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	instance.persistCheckpoint(seqNo, id)
 	instance.recvCheckpoint(chkpt)
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
+}
+
+func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
+	checkpointChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
