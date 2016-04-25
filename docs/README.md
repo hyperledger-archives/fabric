@@ -23,10 +23,10 @@ This table of contents provides links to the complete documentation library:
 
 ### Overview docs:
 
-- [Whitepaper](../../hyperledger/wiki/Whitepaper-WG)
+- [Whitepaper](../../hyperledger/hyperledger/wiki/Whitepaper-WG)
 - [Protocol Specification](protocol-spec.md)
 - [Figures & Diagrams](/docs/images/)
-- [Glossary](docs/glossary.md)
+- [Glossary](glossary.md)
 
 
 
