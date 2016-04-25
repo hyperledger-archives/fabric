@@ -28,9 +28,10 @@ import (
 // Private Variables
 
 type clientEntry struct {
-	client    Client
-	counter   int64
-	timestamp time.Time
+	client     Client
+	counter    int64
+	timestamp  time.Time
+	longLiving bool
 }
 
 var (
@@ -108,7 +109,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 		return nil, err
 	}
 
-	clients[name] = clientEntry{client, 1, time.Now()}
+	clients[name] = clientEntry{client, 1, time.Now(), false}
 	log.Info("Initializing client [%s]...done!", name)
 
 	return client, nil
@@ -146,6 +147,26 @@ func CloseAllClients() (bool, []error) {
 	initialized = false
 
 	return len(errs) != 0, errs
+}
+
+func MarkLongLiving(client Client) error {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+
+	if client == nil {
+		return utils.ErrNilArgument
+	}
+
+	name := client.GetName()
+	log.Info("Mark long living client [%s]...", name)
+	entry, ok := clients[name]
+	if !ok {
+		return utils.ErrInvalidReference
+	}
+	entry.longLiving = true
+	clients[name] = entry
+
+	return nil
 }
 
 // Private Methods
@@ -225,14 +246,23 @@ func cleanOldClientInstances() {
 	log.Debug("Cleaning old client instances [%s]...", now)
 
 	for name, clientEntry := range clients {
+		if clientEntry.longLiving {
+			continue
+		}
+
 		elapsed := now.Sub(clientEntry.timestamp)
 
 		log.Debug("Client Entry [%s], elapsed [%s]", name, elapsed)
-		if elapsed.Hours() >= 1 {
+		if elapsed.Seconds() >= 1 {
 			// This entry must be removed
+			log.Debug("Cleaning client [%s]...", name)
 
 			err := closeClientInternal(clientEntry.client, true)
-			log.Error("Failed closing client (clientInstancesCleaner) [%s]", err)
+			if err != nil {
+				log.Debug("Cleaning client [%s]...done!", name)
+			} else {
+				log.Error("Failed closing client (clientInstancesCleaner) [%s]", err)
+			}
 		}
 	}
 }

@@ -21,7 +21,7 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  50
+        size:  2
 
 
 eca:
