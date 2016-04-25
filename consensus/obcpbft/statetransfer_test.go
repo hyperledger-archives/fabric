@@ -22,18 +22,25 @@ package obcpbft
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 	. "github.com/hyperledger/fabric/consensus/statetransfer" // Bad form, but here until we can figure out how to share tests across packages
+	configSetup "github.com/hyperledger/fabric/core/config"
 	"github.com/hyperledger/fabric/protos"
 )
 
 type testPartialStack struct {
 	*MockRemoteHashLedgerDirectory
 	*MockLedger
+}
+
+func TestMain(m *testing.M) {
+	configSetup.SetupTestConfig("./../../peer")
+	os.Exit(m.Run())
 }
 
 func newPartialStack(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) PartialStack {
@@ -48,7 +55,7 @@ func newTestStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *S
 }
 
 func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
-	return ThreadlessNewStateTransferState(loadConfig(), newPartialStack(ml, rld))
+	return ThreadlessNewStateTransferState(newPartialStack(ml, rld))
 }
 
 type MockRemoteHashLedgerDirectory struct {
