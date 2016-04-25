@@ -1,7 +1,8 @@
 
 ## Getting started
 
-Welcome to the fabric documentation README. This page contains: 1) Getting started doc links; 2) Setup doc links; and 3) Table of Contents doc links for the complete library.
+Welcome to the fabric documentation README. This page contains: 
+1) Getting started doc links; 2) Quickstart doc links; and 3) Table of Contents links to the complete library.
 
 If you are new, and want to learn about our position and the scope of the project, please start by reading the [whitepaper](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG). In addition, we encourage you to review our [glossary](glossary.md) to understand the terminology that we use throughout the website and project.
 
@@ -19,7 +20,8 @@ In addition to the <b>Getting started</b> documentation, the following quickstar
 
 ## Table of Contents
 
-This table of contents provides links to the complete documentation library: Overview docs; Reference docs; Developer docs; API docs; External links.
+This table of contents provides links to the complete documentation library: 
+Overview docs; Reference docs; Developer docs; API docs; External links.
 
 ### Overview docs:
 
@@ -37,9 +39,9 @@ This table of contents provides links to the complete documentation library: Ove
 - [Project Lifecycle](https://github.com/hyperledger/hyperledger/wiki/Project-Lifecycle)
 - [License](LICENSE)
 
-### Chaincode developer docs:
+### API and Chaincode developer docs:
 
-- [Setting up the development environment]dev-setup/devenv.md):
+- [Setting up the development environment](dev-setup/devenv.md): 
      Overview (Vagrant/Docker) 
      Prerequisites (Git, Go, Vagrant, VirtualBox, BIOS) 
      Steps (GOPATH, Windows, Clone Peer, VM Vagrant 
@@ -50,23 +52,28 @@ This table of contents provides links to the complete documentation library: Ove
 - [Headers](dev-setup/headers.txt)
 - [Writing Chaincode](../README.md#writing-chaincode-)
 - [Writing, Building, and Running Chaincode in a Development Environment](API/SandboxSetup.md)
+- [Chaincode FAQ](FAQ/chaincode_FAQ.md)
 - [Setting Up a Network](../README.md#setting-up-a-network-)
-- [Setting Up a Network For Development](dev-setup/devnet-setup.md):
-     Docker
-     Validating Peers
-     Run chaincode
-     Consensus Plugin
+- [Setting Up a Network For Development](dev-setup/devnet-setup.md): 
+     Docker 
+     Validating Peers 
+     Run chaincode 
+     Consensus Plugin 
 - [Working with CLI, REST, and Node.js](../README.md#working-with-cli-rest-and-nodejs-)
-- [APIs - CLI, REST, and Node.js](../API/CoreAPI.md)
+- [APIs - CLI, REST, and Node.js](../API/CoreAPI.md): 
+     - [CLI](API/CoreAPI.md#cli)
+	- [REST](API/CoreAPI.md#rest-api)
+	- [Node.js Application](API/CoreAPI.md#nodejs-application)
 - [Configuration](../README.md#configuration-)
 - [Logging](../README.md#logging-)
-- [Logging control](../README.md#dev-setup/logging-control.md):
-     Overview
-     Peer
-     Go
+- [Logging control](../README.md#dev-setup/logging-control.md): 
+     Overview 
+     Peer 
+     Go 
 - [Generating grpc code](../README.md#generating-grpc-code-)
 - [Adding or updating Go packages](../README.md#adding-or-updating-go-packages-)
 
+### Network Operations docs:
 
 
 
