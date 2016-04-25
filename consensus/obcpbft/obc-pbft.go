@@ -140,12 +140,12 @@ func (op *obcGeneric) getState() []byte {
 	return op.stack.GetBlockchainInfoBlob()
 }
 
-func (op *obcGeneric) getLastSeqNo() (uint64, bool) {
-	raw, ok := op.stack.GetBlockHeadMetadata()
-	if !ok {
-		return 0, ok
+func (op *obcGeneric) getLastSeqNo() (uint64, error) {
+	raw, err := op.stack.GetBlockHeadMetadata()
+	if err != nil {
+		return 0, err
 	}
 	meta := &Metadata{}
 	proto.Unmarshal(raw, meta)
-	return meta.SeqNo, true
+	return meta.SeqNo, nil
 }

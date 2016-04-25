@@ -109,11 +109,11 @@ func (sc *simpleConsumer) getState() []byte {
 	return []byte(fmt.Sprintf("%d", sc.executions))
 }
 
-func (sc *simpleConsumer) getLastSeqNo() (uint64, bool) {
+func (sc *simpleConsumer) getLastSeqNo() (uint64, error) {
 	if sc.executions < 1 {
-		return 0, false
+		return 0, fmt.Errorf("no execution yet")
 	}
-	return sc.lastSeqNo, true
+	return sc.lastSeqNo, nil
 }
 
 func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {

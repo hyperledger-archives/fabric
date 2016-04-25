@@ -146,7 +146,7 @@ type omniProto struct {
 	viewChangeImpl   func(curView uint64)
 	signImpl         func(msg []byte) ([]byte, error)
 	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
-	getLastSeqNoImpl func() (uint64, bool)
+	getLastSeqNoImpl func() (uint64, error)
 
 	// Closable Consenter methods
 	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
@@ -395,12 +395,12 @@ func (op *omniProto) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	panic("Unimplemented")
 }
 
-func (op *omniProto) getLastSeqNo() (uint64, bool) {
+func (op *omniProto) getLastSeqNo() (uint64, error) {
 	if op.getLastSeqNoImpl != nil {
 		return op.getLastSeqNoImpl()
 	}
 
-	return 0, false
+	return 0, fmt.Errorf("getLastSeqNo is not implemented")
 }
 
 func (op *omniProto) Close() {

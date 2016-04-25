@@ -382,17 +382,17 @@ func (h *Helper) GetBlockchainInfoBlob() []byte {
 	return rawInfo
 }
 
-func (h *Helper) GetBlockHeadMetadata() ([]byte, bool) {
+func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	head := ledger.GetBlockchainSize()
 	block, err := ledger.GetBlockByNumber(head)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
-	return block.ConsensusMetadata, true
+	return block.ConsensusMetadata, nil
 }
 
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {

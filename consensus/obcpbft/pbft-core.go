@@ -55,7 +55,7 @@ type innerStack interface {
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(seqNo uint64, txRaw []byte)
 	getState() []byte
-	getLastSeqNo() (uint64, bool)
+	getLastSeqNo() (uint64, error)
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
