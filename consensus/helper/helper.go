@@ -39,7 +39,7 @@ import (
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
-	handler     *ConsensusHandler
+	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
 	secOn       bool
 	secHelper   crypto.Peer
@@ -50,9 +50,8 @@ type Helper struct {
 }
 
 // NewHelper constructs the consensus helper object
-func NewHelper(handler *ConsensusHandler, mhc peer.MessageHandlerCoordinator) consensus.Stack {
+func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 	h := &Helper{
-		handler:     handler,
 		coordinator: mhc,
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
@@ -61,6 +60,10 @@ func NewHelper(handler *ConsensusHandler, mhc peer.MessageHandlerCoordinator) co
 	h.sts.Initiate(nil)
 	h.sts.RegisterListener(h)
 	return h
+}
+
+func (h *Helper) setConsenter(c consensus.Consenter) {
+	h.consenter = c
 }
 
 // GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
@@ -403,7 +406,7 @@ func (h *Helper) Initiated() {
 }
 
 func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
-	h.handler.consenter.StateUpdate(bh)
+	h.consenter.StateUpdate(bh)
 }
 
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {

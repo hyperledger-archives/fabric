@@ -22,11 +22,11 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 
 	"fmt"
+	"github.com/hyperledger/fabric/consensus/controller"
 	"github.com/hyperledger/fabric/core/chaincode"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"sync"
-	"github.com/hyperledger/fabric/consensus/controller"
 )
 
 type EngineImpl struct {
@@ -95,7 +95,9 @@ func GetEngine(coord peer.MessageHandlerCoordinator) (peer.Engine, error) {
 	var err error
 	engineOnce.Do(func() {
 		engine = new(EngineImpl)
-		engine.consenter = controller.NewConsenter(NewHelper(coord))
+		helper := NewHelper(coord)
+		engine.consenter = controller.NewConsenter(helper)
+		helper.setConsenter(engine.consenter)
 		engine.peerEndpoint, err = coord.GetPeerEndpoint()
 
 	})
