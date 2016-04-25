@@ -192,12 +192,14 @@ func (op *obcBatch) execute(seqNo uint64, tbRaw []byte) {
 		return
 	}
 
+	meta, _ := proto.Marshal(&Metadata{seqNo})
+
 	id := []byte("foo")
 	op.stack.BeginTxBatch(id)
 	result, err := op.stack.ExecTxs(id, tb.Transactions)
 	_ = err    // XXX what to do on error?
 	_ = result // XXX what to do with the result?
-	_, err = op.stack.CommitTxBatch(id, nil)
+	_, err = op.stack.CommitTxBatch(id, meta)
 }
 
 // signal when a view-change happened
