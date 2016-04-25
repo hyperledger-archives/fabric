@@ -15,24 +15,33 @@ In addition to the <b>Getting started</b> documentation, the following quickstar
 - [Fabric FAQs](FAQ)
 - [Canonical use cases](biz/usecases.md)
 - [Development environment set-up](dev-setup/devenv.md)
-- [Chain code development environment](API/SandboxSetup.md)
+- [Chaincode development environment](API/SandboxSetup.md)
 - [APIs](API/CoreAPI.md)
 - [Network setup](dev-setup/devnet-setup.md)
-- [Technical implementation details](https://github.com/hyperledger/fabric/tree/master/docs/tech)
 
 ## Table of Contents
 
 This table of contents provides links to the complete documentation library: <br>
-Overview docs; Reference docs; API and chaincode developer docs; Network operations docs; Security administration docs; Use cases and demos; Protocol specification.
+Overview docs; Reference docs; API and chaincode developer docs; Network operations docs; Security administration docs; Use cases and demos
 
 ### Overview docs:
 
 - [Hyperledger project](https://github.com/hyperledger/hyperledger)
 - [Whitepaper](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
 - [Fabric README](../README.md)
-- [Protocol specification](protocol-spec.md)
 - [Glossary](glossary.md) 
 - [Figures & Diagrams](/docs/images/) 
+- [Protocol specification](protocol-spec.md):
+     - Introduction (fabric, terminology)
+     - Fabric: 
+          - Architecture (Membership Services, Blockchain Services, Chaincode Services, Events, API, CLI)
+          - Topology (SVP, MVP, Multichain)
+          - Protocol (Messages, Ledger, Chaincode, Consensus, Events)
+          - Security (Business Security, User Security, Transaction Security, App. ACL, Wallet, Network Security (TLS))
+          - PBFT (Core PBFT, PI, Sieve)
+          - API (REST service, REST API, CLI)
+          - Application Model (Composition, Sample)
+          - Future (Systems Integration, Performance & Scalability, Consensus Plugins, Additional Languages)
 
 ### Reference docs:
 
@@ -40,7 +49,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 - [Communicating](../README.md#communication-)
 - [Project Lifecycle](https://github.com/hyperledger/hyperledger/wiki/Project-Lifecycle)
 - [License](../LICENSE)
-- [Maintainers](../MAINTAINERS.md)
+- [Maintainers](../MAINTAINERS.txt)
 
 ### API and chaincode developer docs:
 
@@ -114,16 +123,4 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 - [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles )
 - [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web )
 
-### Protocol specification:
-[Protocol Specification](protocol-spec.md):
-- Introduction (fabric, terminology)
-- Fabric: 
-     - Architecture (Membership Services, Blockchain Services, Chaincode Services, Events, API, CLI)
-     - Topology (SVP, MVP, Multichain)
-     - Protocol (Messages, Ledger, Chaincode, Consensus, Events)
-     - Security (Business Security, User Security, Transaction Security, App. ACL, Wallet, Network Security (TLS))
-     - PBFT (Core PBFT, PI, Sieve,)
-     - API (REST service, REST API, CLI)
-     - Application Model (Composition, Sample)
-     - Future (Systems Integration, Performance & Scalability, Consensus Plugins, Additional Languages)
 
