@@ -78,7 +78,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - [Node.js Application](API/CoreAPI.md#nodejs-application)
 - [Configuration](../README.md#configuration-)
 - [Logging](../README.md#logging-)
-- [Logging control](../README.md#dev-setup/logging-control.md): 
+- [Logging control](dev-setup/logging-control.md): 
      - Overview 
      - Peer
      - Go 
