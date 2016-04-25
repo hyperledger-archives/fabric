@@ -375,6 +375,77 @@ func TestInconsistentPrePrepare(t *testing.T) {
 }
 
 // This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeWatermarksMovement(t *testing.T) {
+	instance := &pbftCore{
+		f:            1,
+		N:            4,
+		replicaCount: 4,
+		id:           0,
+		activeView:   false,
+		view:         1,
+		lastExec:     10,
+		newViewStore: make(map[uint64]*NewView),
+		consumer: &omniProto{
+			viewChangeImpl: func(v uint64) {},
+			skipToImpl: func(s uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+				t.Fatalf("Should not have attempted to initiate state transfer")
+			},
+		},
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 10
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 10
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 10
+	vset[2] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      make(map[uint64]string),
+		ReplicaId: 1,
+	}
+
+	if nil != instance.processNewView() {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	expected := uint64(10)
+	if instance.h != expected {
+		t.Fatalf("Expected to move high watermark to %d, but picked %d", expected, instance.h)
+	}
+}
+
+// This test is designed to detect a conflation of S and S' from the paper in the view change
 func TestViewChangeCheckpointSelection(t *testing.T) {
 	instance := &pbftCore{
 		f:  1,

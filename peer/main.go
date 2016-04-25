@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 	"syscall"
+	"sync"
 	"path/filepath"
 	"bytes"
 
@@ -53,8 +54,11 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
+	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -69,6 +73,9 @@ const undefinedParamValue = ""
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{
 	Use: "peer",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return core.CacheConfiguration()
+	},
 }
 
 var peerCmd = &cobra.Command{
@@ -322,7 +329,69 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 	return lis, grpcServer, err
 }
 
+var once sync.Once
+
+//this should be called exactly once and the result cached
+//NOTE- this crypto func might rightly belong in a crypto package
+//and universally accessed
+func getSecHelper() (crypto.Peer, error) {
+	var secHelper crypto.Peer
+	var err error
+	once.Do(func() {
+		if viper.GetBool("security.enabled") {
+			enrollID := viper.GetString("security.enrollID")
+			enrollSecret := viper.GetString("security.enrollSecret")
+			if viper.GetBool("peer.validator.enabled") {
+				logger.Debug("Registering validator with enroll ID: %s", enrollID)
+				if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
+					return
+				}
+				logger.Debug("Initializing validator with enroll ID: %s", enrollID)
+				secHelper, err = crypto.InitValidator(enrollID, nil)
+				if nil != err {
+					return
+				}
+			} else {
+				logger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+				if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
+					return
+				}
+				logger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+				secHelper, err = crypto.InitPeer(enrollID, nil)
+				if nil != err {
+					return
+				}
+			}
+		}
+	})
+	return secHelper, err
+}
+
 func serve(args []string) error {
+	// Parameter overrides must be processed before any paramaters are
+	// cached. Failures to cache cause the server to terminate immediately.
+	if chaincodeDevMode {
+		logger.Info("Running in chaincode development mode")
+		logger.Info("Set consensus to NOOPS and user starts chaincode")
+		logger.Info("Disable loading validity system chaincode")
+
+		viper.Set("peer.validator.enabled", "true")
+		viper.Set("peer.validator.consensus", "noops")
+		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
+
+		// Disable validity system chaincode in dev mode. Also if security is enabled,
+		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
+		// membersrvc from calling validity system chaincode -- though no harm otherwise
+		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
+		viper.Set("validator.validity-period.verification", "false")
+	}
+	if err := peer.CacheConfiguration(); err != nil {
+		return err
+	}
+
+	//register all system chaincodes. This just registers chaincodes, they must be 
+	//still be deployed and launched
+	system_chaincode.RegisterSysCCs()
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
@@ -346,21 +415,6 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
-	if chaincodeDevMode {
-		logger.Info("Running in chaincode development mode")
-		logger.Info("Set consensus to NOOPS and user starts chaincode")
-		logger.Info("Disable loading validity system chaincode")
-
-		viper.Set("peer.validator.enabled", "true")
-		viper.Set("peer.validator.consensus", "noops")
-		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
-
-		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
-		// membersrvc from calling validity system chaincode -- though no harm otherwise
-		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-		viper.Set("validator.validity-period.verification", "false")
-	}
 	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
@@ -375,14 +429,34 @@ func serve(args []string) error {
 
 	grpcServer := grpc.NewServer(opts...)
 
+	secHelper, err := getSecHelper()
+	if err != nil {
+		return err
+	}
+
+	secHelperFunc := func() crypto.Peer {
+		return secHelper
+	}
+
+	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
+
 	var peerServer *peer.PeerImpl
 
+	//create the peerServer....
 	if viper.GetBool("peer.validator.enabled") {
+		if viper.GetBool("peer.validator.enabled") {
+			logger.Debug("Running as validating peer - making genesis block if needed")
+			makeGenesisError := genesis.MakeGenesis()
+			if makeGenesisError != nil {
+				return makeGenesisError
+			}
+		}
+
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithHandler(helper.NewConsensusHandler)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(peer.NewPeerHandler)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
@@ -397,18 +471,6 @@ func serve(args []string) error {
 
 	// Register the Admin server
 	pb.RegisterAdminServer(grpcServer, core.NewAdminServer())
-
-	// Register ChaincodeSupport server...
-	// TODO : not the "DefaultChain" ... we have to revisit when we do multichain
-	// The ChaincodeSupport needs security helper to encrypt/decrypt state when
-	// privacy is enabled
-	var secHelper crypto.Peer
-	if viper.GetBool("security.privacy") {
-		secHelper = peerServer.GetSecHelper()
-	} else {
-		secHelper = nil
-	}
-	registerChaincodeSupport(chaincode.DefaultChain, grpcServer, secHelper)
 
 	// Register Devops server
 	serverDevops := core.NewDevopsServer(peerServer)
@@ -454,17 +516,19 @@ func serve(args []string) error {
 		return err
 	}
 
-	// Deploy the genesis block if needed.
-	if viper.GetBool("peer.validator.enabled") {
-		makeGenesisError := genesis.MakeGenesis()
-		if makeGenesisError != nil {
-			return makeGenesisError
-		}
-	}
-
 	//start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
+	}
+
+	if viper.GetBool("peer.profile.enabled") {
+		go func() {
+			profileListenAddress := viper.GetString("peer.profile.listenAddress")
+			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
+			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
+				logger.Error("Error starting profiler: %s", profileErr)
+			}
+		}()
 	}
 
 	// Block until grpc server exits

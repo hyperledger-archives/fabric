@@ -433,20 +433,23 @@ func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 }
 
 func (ca *CA) requireAffiliation(role int) (bool) { 
-	return role != 4 && role != 8  
+	return role != 4 && role != 8 
 }
 
 func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role int) (string, error) {
 	if ca.requireAffiliation(role) {
-		    valid, err := ca.isValidAffiliation(affiliation)
-			if err != nil {
-				return "", nil
-			}
-		    if !valid { 
-    			return "", errors.New("invalid affiliation group "+affiliation)
-    		}
-		    return ca.generateEnrollId(id, affiliation_role, affiliation)
+		valid, err := ca.isValidAffiliation(affiliation)
+		if err != nil {
+			return "", err
+		}
+		
+		if !valid { 
+    		return "", errors.New("Invalid affiliation group " + affiliation)
+    	}
+		
+	    return ca.generateEnrollId(id, affiliation_role, affiliation)
 	} 
+	
 	return "", nil
 }
 
@@ -454,7 +457,7 @@ func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, o
     var tok string
     var err error
 	var enrollID string
-  	enrollID, err = ca.validateAndGenerateEnrollId(id,affiliation, affiliation_role, role)
+  	enrollID, err = ca.validateAndGenerateEnrollId(id, affiliation, affiliation_role, role)
 
     if err != nil { 
     	return "", err

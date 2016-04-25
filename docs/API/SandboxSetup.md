@@ -128,7 +128,7 @@ POST host:port/chaincode
   "params": {
     "type": 1,
     "chaincodeID":{
-        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+        "name": "mycc"
     },
     "ctorMsg": {
         "function":"init",
@@ -145,7 +145,7 @@ POST host:port/chaincode
     "jsonrpc": "2.0",
     "result": {
         "status": "OK",
-        "message": "52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+        "message": "mycc"
     },
     "id": 1
 }
@@ -165,7 +165,7 @@ POST host:port/chaincode
   "params": {
     "type": 1,
     "chaincodeID":{
-        "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+        "name": "mycc"
     },
     "ctorMsg": {
         "function":"init",
@@ -200,7 +200,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"invoke",
@@ -237,7 +237,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"invoke",
@@ -280,7 +280,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"query",
@@ -297,7 +297,7 @@ POST host:port/chaincode
     "jsonrpc": "2.0",
     "result": {
         "status": "OK",
-        "message": "70"
+        "message": "90"
     },
     "id": 5
 }
@@ -317,7 +317,7 @@ POST host:port/chaincode
   "params": {
       "type": 1,
       "chaincodeID":{
-          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+          "name":"mycc"
       },
       "ctorMsg": {
          "function":"query",

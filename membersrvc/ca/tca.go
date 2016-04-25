@@ -49,8 +49,11 @@ var (
 	// TCertEncTCertIndex is the ASN1 object identifier of the TCert index.
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
 	
-	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
+	// TCertEncEnrollmentID is the ASN1 object identifier of the enrollment id.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
+	
+	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
+	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 	
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
@@ -245,12 +248,12 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	}
 	pub := cert.PublicKey.(*ecdsa.PublicKey)
 
-	sig := in.Sig
-	in.Sig = nil
-
 	r, s := big.NewInt(0), big.NewInt(0)
-	r.UnmarshalText(sig.R)
-	s.UnmarshalText(sig.S)
+	r.UnmarshalText(in.Sig.R)
+	s.UnmarshalText(in.Sig.S)
+
+	//sig := in.Sig
+	in.Sig = nil
 
 	hash := utils.NewHash()
 	raw, _ = proto.Marshal(in)
@@ -274,7 +277,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	}
 	
 	// the batch of TCerts
-	var set [][]byte
+	var set []*pb.TCert
 
 	for i := 0; i < num; i++ {
 		tcertid := util.GenerateIntUUID()	
@@ -310,7 +313,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
-		extensions, _, err := tcap.generateEncryptedExtensions(tcertid, encryptedTidx, cert, in.Attributes)
+		extensions, ks, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
 		}
@@ -320,22 +323,20 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			Error.Println(err)
 			return nil, err
 		}
-		set = append(set, raw)
+		
+		set = append(set, &pb.TCert{raw, ks})
 	}
 
 	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes map[string]string) ([]pkix.Extension, [][]byte, error){
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, map[string][]byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	var ks [][]byte
+	ks := make(map[string][]byte) 
 	extensions := make([]pkix.Extension, len(attributes))
 	
-	// Append the TCertIndex to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
-	
-	// Compute preK_1 to encrypt attributes and enrollment ID - TODO compute preK_1 properly based on user's affiliation
+	// Compute preK_1 to encrypt attributes and enrollment ID
 	preK_1, err := tcap.tca.getPreKFrom(enrollmentCert)
 	if err != nil {
 		return nil, nil, err
@@ -358,23 +359,24 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 		return nil, nil, err
 	}
 	
-	// Append the encrypted EnrollmentID to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
-	
 	// save k used to encrypt EnrollmentID
-	ks = append(ks, enrollmentIdKey)
+	ks["enrollmentId"] = enrollmentIdKey
 	
 	attributeIdentifierIndex := 9
 	count := 0
+	attributesHeader := make(map[string]int)
 	// Encrypt and append attributes to the extensions slice
-	for attributeName, attributeValue := range attributes {
-		// TODO: should we put the value of the attribute along with the attribute name in the TCert? 
-		// Something like enc(attributeName:attributeValue).
-		value := []byte(attributeValue)
+	for _, a := range attributes {
+		count++
+
+		value := []byte(a.AttributeValue)
+		
+		//Save the position of the attribute extension on the header.
+		attributesHeader[a.AttributeName] = count
 		
 		if viper.GetBool("tca.attribute-encryption.enabled") {
 			mac = hmac.New(conf.GetDefaultHash(), preK_0)
-			mac.Write([]byte(attributeName))
+			mac.Write([]byte(a.AttributeName))
 			attributeKey := mac.Sum(nil)[:32]
 			
 			value = append(value, Padding...)
@@ -384,16 +386,40 @@ func (tcap *TCAP) generateEncryptedExtensions(tcertid *big.Int, tidx []byte, enr
 			}
 			
 			// save k used to encrypt attribute
-			ks = append(ks, attributeKey)
+			ks[a.AttributeName] = attributeKey
 		}
 		
+		// Generate an ObjectIdentifier for the extension holding the attribute
 		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
-  		// Append the attribute to the extensions
-		extensions[count] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
-		count++
+		
+  		// Add the attribute extension to the extensions array
+		extensions[count - 1] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
+	}
+	
+	// Append the TCertIndex to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
+	
+	// Append the encrypted EnrollmentID to the extensions
+	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
+	
+	// Append the attributes header if there was attributes to include in the TCert
+	if len(attributes) > 0 {
+		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: buildAttributesHeader(attributesHeader)})
 	}
 	
 	return extensions, ks, nil
+}
+
+func buildAttributesHeader(attributesHeader map[string]int) []byte{
+	var header []byte
+	var headerString string
+	for k,v := range attributesHeader	{
+		v_str := strconv.Itoa(v)
+		headerString = headerString + k + "->" + v_str + "#"
+	}
+	header = []byte(headerString)
+	
+	return header
 }
 
 // ReadCertificate reads a transaction certificate from the TCA.
@@ -482,7 +508,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 	}
 	defer rows.Close()
 
-	var certs [][]byte
+	var certs []*pb.TCert
 	var kdfKey []byte
 	for rows.Next() {
 		var raw []byte
@@ -490,7 +516,8 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 			return nil, err
 		}
 
-		certs = append(certs, raw)
+		// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
+		certs = append(certs, &pb.TCert{raw, make(map[string][]byte)})
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -574,7 +601,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		}
 		defer rows.Close()
 
-		var certs [][]byte
+		var certs []*pb.TCert
 		var kdfKey []byte
 		var timestamp int64
 		timestamp = 0
@@ -593,8 +620,9 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 				timestamp = ts
 				certs = nil
 			}
-
-			certs = append(certs, cert)
+			
+			// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
+			certs = append(certs, &pb.TCert{cert, make(map[string][]byte)})
 		}
 		if err = rows.Err(); err != nil {
 			return nil, err

@@ -140,13 +140,14 @@ func NewECA() *ECA {
 				Bytes: raw,
 			})
 	}
+	
 	eca.populateAffiliationGroupsTable()
 	eca.populateUsersTable()
 	return eca
 }
 
-func (eca *ECA)populateUsersTable() { 
-		// populate user table
+func (eca *ECA) populateUsersTable() { 
+	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
 		vals := strings.Fields(flds)
@@ -220,6 +221,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	id := in.Id.Id
 	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollId)
+
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
 		return nil, errors.New("identity or token do not match")
 	}

@@ -25,11 +25,11 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
-func (validator *validatorImpl) initKeyStore() error {
+func (peer *peerImpl) initKeyStore() error {
 	// create tables
-	validator.debug("Create Table [%s] if not exists", "Certificates")
-	if _, err := validator.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, certsign BLOB, certenc BLOB, PRIMARY KEY (id))"); err != nil {
-		validator.debug("Failed creating table [%s].", err.Error())
+	peer.debug("Create Table [%s] if not exists", "Certificates")
+	if _, err := peer.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, certsign BLOB, certenc BLOB, PRIMARY KEY (id))"); err != nil {
+		peer.debug("Failed creating table [%s].", err.Error())
 		return err
 	}
 
