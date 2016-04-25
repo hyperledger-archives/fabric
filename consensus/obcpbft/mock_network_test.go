@@ -27,6 +27,10 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+const (
+	DefaultIdleTime = 50 * time.Millisecond
+)
+
 type endpoint interface {
 	stop()
 	deliver([]byte, *pb.PeerID)

@@ -1078,6 +1078,7 @@ func TestReplicaCrash1(t *testing.T) {
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2
 		pe.pbft.L = 2 * pe.pbft.K
+		pe.pbft.idleTime = DefaultIdleTime
 	}
 
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(2))

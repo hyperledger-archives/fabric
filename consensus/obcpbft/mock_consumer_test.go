@@ -103,6 +103,7 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 		ce.consumer = makeConsumer(id, loadConfig(), cs)
 		ce.consumer.getPBFTCore().N = N
 		ce.consumer.getPBFTCore().f = (N - 1) / 3
+		ce.consumer.getPBFTCore().idleTime = DefaultIdleTime
 
 		for _, fn := range initFNs {
 			fn(ce)

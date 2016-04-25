@@ -38,7 +38,7 @@ func (op *obcSieve) getPBFTCore() *pbftCore {
 }
 
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
-	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
+	// It's not entirely obvious why the compiler likes the parent function, but not newObcSieve directly
 	return newObcSieve(id, config, stack)
 }
 

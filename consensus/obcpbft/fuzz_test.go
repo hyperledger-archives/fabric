@@ -62,9 +62,11 @@ func TestFuzz(t *testing.T) {
 
 	mock := newFuzzMock()
 	primary := newPbftCore(0, loadConfig(), mock)
+	primary.idleTime = DefaultIdleTime
 	defer primary.close()
 	mock = newFuzzMock()
 	backup := newPbftCore(1, loadConfig(), mock)
+	backup.idleTime = DefaultIdleTime
 	defer backup.close()
 
 	f := fuzz.New()
