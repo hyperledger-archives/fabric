@@ -61,7 +61,7 @@ type ReadOnlyLedger interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
 	GetBlockchainInfoBlob() []byte
-	GetBlockHeadMetadata() ([]byte, bool)
+	GetBlockHeadMetadata() ([]byte, error)
 }
 
 // UtilLedger contains additional useful utility functions for interrogating the blockchain

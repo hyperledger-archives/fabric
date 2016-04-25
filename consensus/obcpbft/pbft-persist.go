@@ -129,9 +129,8 @@ func (instance *pbftCore) restoreState() {
 		logger.Warning("Replica %d could not restore reqStore: %s", instance.id, err)
 	}
 
-	ok := false
-	if instance.lastExec, ok = instance.consumer.getLastSeqNo(); !ok {
-		logger.Warning("Replica %d could not restore lastExec", instance.id)
+	if instance.lastExec, err = instance.consumer.getLastSeqNo(); err != nil {
+		logger.Warning("Replica %d could not restore lastExec: %s", instance.id, err)
 		instance.lastExec = 0
 	}
 

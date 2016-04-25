@@ -630,12 +630,12 @@ func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
 	return h
 }
 
-func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, bool) {
+func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, error) {
 	b, ok := mock.blocks[mock.blockHeight-1]
 	if !ok {
-		return nil, ok
+		return nil, fmt.Errorf("could not retrieve block from mock ledger")
 	}
-	return b.ConsensusMetadata, true
+	return b.ConsensusMetadata, nil
 }
 
 func (mock *MockLedger) simulateStateTransfer(tag uint64, id []byte, peers []*protos.PeerID) {
@@ -680,7 +680,7 @@ func (mock *MockRemoteLedger) GetBlockchainInfoBlob() []byte {
 	return h
 }
 
-func (mock *MockRemoteLedger) GetBlockHeadMetadata() ([]byte, bool) {
+func (mock *MockRemoteLedger) GetBlockHeadMetadata() ([]byte, error) {
 	panic("don't have this data")
 }
 
