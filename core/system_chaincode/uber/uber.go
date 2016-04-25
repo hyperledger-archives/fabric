@@ -21,7 +21,10 @@ package uber
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	pb "github.com/hyperledger/fabric/protos"
+	sysccapi "github.com/hyperledger/fabric/core/system_chaincode/api"
 )
 
 const (
@@ -29,19 +32,35 @@ const (
 	START   = "start"
 	STOP    = "stop"
 	UPGRADE = "upgrade"
+
+	GETTRAN = "get-transaction"
 )
+
 
 //errors
 type InvalidFunctionErr string
-
 func (f InvalidFunctionErr) Error() string {
     return fmt.Sprintf("invalid function to uber %s", string(f))
 }
 
-type InvalidArgsErr int
-
-func (i InvalidArgsErr) Error() string {
+type InvalidArgsLenErr int
+func (i InvalidArgsLenErr) Error() string {
     return fmt.Sprintf("invalid number of argument to uber %d", int(i))
+}
+
+type InvalidArgsErr int
+func (i InvalidArgsErr) Error() string {
+    return fmt.Sprintf("invalid argument (%d) to uber", int(i))
+}
+
+type TXExistsErr string
+func (t TXExistsErr) Error() string {
+    return fmt.Sprintf("transaction exists %s", string(t))
+}
+
+type TXNotFoundErr string
+func (t TXNotFoundErr) Error() string {
+    return fmt.Sprintf("transaction not found %s", string(t))
 }
 
 // UberSysCC implements chaincode lifecycle and policies aroud it
@@ -58,14 +77,53 @@ func (t *UberSysCC) Invoke(stub *shim.ChaincodeStub, function string, args []str
 		return nil, InvalidFunctionErr(function)
 	}
 
-	if len(args) != 2 {
-		return nil, InvalidArgsErr(len(args))
+	tx,txbytes,err := sysccapi.GetTransaction(args)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	cds := &pb.ChaincodeDeploymentSpec{}
+	err = proto.Unmarshal(tx.Payload, cds)
+	if err != nil {
+		return nil, err
+	}
+
+	barr, err := stub.GetState(cds.ChaincodeSpec.ChaincodeID.Name)
+	if barr != nil {
+		return nil, TXExistsErr(cds.ChaincodeSpec.ChaincodeID.Name)
+	}
+
+	err = sysccapi.Deploy(tx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("Error deploying %s: %s", cds.ChaincodeSpec.ChaincodeID.Name, err)
+	}
+
+	err = stub.PutState(cds.ChaincodeSpec.ChaincodeID.Name, txbytes)
+	if err != nil {
+		return nil, fmt.Errorf("PutState failed for %s: %s", cds.ChaincodeSpec.ChaincodeID.Name, err)
+	}
+
+	fmt.Printf("Successfully deployed ;-)\n")
+
+	return nil, err
 }
 
 // Query callback representing the query of a chaincode
 func (t *UberSysCC) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	return nil, nil
+	if function != GETTRAN {
+		return nil, InvalidFunctionErr(function)
+	}
+
+	if len(args) != 1 {
+		return nil, InvalidArgsLenErr(len(args))
+	}
+
+	txbytes, _ := stub.GetState(args[0])
+	if txbytes == nil {
+		return nil, TXNotFoundErr(args[0])
+	}
+
+	return []byte(fmt.Sprintf("Found pb.Transaction for %s", args[0])), nil
 }
