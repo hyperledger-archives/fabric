@@ -388,7 +388,7 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 		return nil, err
 	}
 	head := ledger.GetBlockchainSize()
-	block, err := ledger.GetBlockByNumber(head)
+	block, err := ledger.GetBlockByNumber(head - 1)
 	if err != nil {
 		return nil, err
 	}
