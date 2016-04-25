@@ -380,9 +380,10 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 		view:         1,
 		lastExec:     10,
 		newViewStore: make(map[uint64]*NewView),
+		newViewTimer: time.NewTimer(0),
 		consumer: &omniProto{
 			viewChangeImpl: func(v uint64) {},
-			skipToImpl: func(s uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+			skipToImpl: func(s uint64, id []byte, replicas []uint64) {
 				t.Fatalf("Should not have attempted to initiate state transfer")
 			},
 		},
@@ -814,7 +815,7 @@ func TestSendQueueThrottling(t *testing.T) {
 	prePreparesSent := 0
 
 	mock := &omniProto{}
-	instance := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
+	instance := newPbftCore(0, loadConfig(), mock)
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
