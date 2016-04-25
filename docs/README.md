@@ -20,8 +20,8 @@ In addition to the <b>Getting started</b> documentation, the following quickstar
 
 ## Table of Contents
 
-This table of contents provides links to the complete documentation library: 
-Overview docs; Reference docs; Developer docs; API docs; External links. 
+This table of contents provides links to the complete documentation library: <br>
+Overview docs; Reference docs; API and chaincode developer docs; Network operations docs; Security administration docs; Use cases and demos; 
 
 ### Overview docs:
 
@@ -56,21 +56,21 @@ Overview docs; Reference docs; Developer docs; API docs; External links.
 - [Chaincode FAQ](FAQ/chaincode_FAQ.md)
 - [Setting Up a Network](../README.md#setting-up-a-network-)
 - [Setting Up a Network For Development](dev-setup/devnet-setup.md): <br>
-     Docker <br>
-     Validating Peers <br>
-     Run chaincode <br>
-     Consensus Plugin <br>
+     - Docker <br>
+          Validating Peers <br>
+          Run chaincode <br>
+          Consensus Plugin <br>
 - [Working with CLI, REST, and Node.js](../README.md#working-with-cli-rest-and-nodejs-)
 - [APIs - CLI, REST, and Node.js](../API/CoreAPI.md): 
      - [CLI](API/CoreAPI.md#cli)
-	- [REST](API/CoreAPI.md#rest-api)
-	- [Node.js Application](API/CoreAPI.md#nodejs-application)
+     - [REST](API/CoreAPI.md#rest-api)
+     - [Node.js Application](API/CoreAPI.md#nodejs-application)
 - [Configuration](../README.md#configuration-)
 - [Logging](../README.md#logging-)
 - [Logging control](../README.md#dev-setup/logging-control.md): 
-     Overview 
-     Peer 
-     Go 
+     - Overview 
+     - Peer
+     - Go 
 - [Generating grpc code](../README.md#generating-grpc-code-)
 - [Adding or updating Go packages](../README.md#adding-or-updating-go-packages-)
 - [SDK](wiki-images)
@@ -112,5 +112,16 @@ Overview docs; Reference docs; Developer docs; API docs; External links.
 - [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles )
 - [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web )
 
-
+### Protocol specification: 
+[Protocol Specification](protocol-spec.md) 
+- Introduction (fabric, terminology)
+- Fabric: 
+     - Architecture (Membership Services, Blockchain Services, Chaincode Services, Events, API, CLI)
+     - Topology (SVP, MVP, Multichain)
+     - Protocol (Messages, Ledger, Chaincode, Consensus, Events)
+     - Security (Business Security, User Security, Transaction Security, App. ACL, Wallet, Network Security (TLS))
+     - PBFT (Core PBFT, PI, Sieve,)
+     - API (REST service, REST API, CLI)
+     - Application Model (Composition, Sample)
+     - Future (Systems Integration, Performance & Scalability, Consensus Plugins, Additional Languages)
 
