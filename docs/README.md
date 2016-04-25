@@ -1,8 +1,10 @@
 
 ## Getting started
 
-Welcome to the fabric documentation README. This page contains: <br>
-1) Getting started doc links; 2) Quickstart doc links; and 3) Table of Contents links to the complete library.
+Welcome to the fabric documentation README. This page contains: 
+- Getting started doc links 
+- Quickstart doc links
+- Table of Contents links to the complete library
 
 If you are new to the Linux Foundation Hyperledger Project, please start by reading the  [whitepaper](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG). In addition, we encourage you to review our [glossary](glossary.md) to understand the terminology that we use throughout the website and project.
 
@@ -21,7 +23,7 @@ In addition to the <b>Getting started</b> documentation, the following quickstar
 ## Table of Contents
 
 This table of contents provides links to the complete documentation library: <br>
-Overview docs; Reference docs; API and chaincode developer docs; Network operations docs; Security administration docs; Use cases and demos; 
+Overview docs; Reference docs; API and chaincode developer docs; Network operations docs; Security administration docs; Use cases and demos; Protocol specification.
 
 ### Overview docs:
 
@@ -42,10 +44,10 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 ### API and chaincode developer docs:
 
-- [Setting up the development environment](dev-setup/devenv.md): <br>
-     Overview (Vagrant/Docker) <br>
-     Prerequisites (Git, Go, Vagrant, VirtualBox, BIOS) <br>
-     Steps (GOPATH, Windows, Clone Peer, VM Vagrant <br>
+- [Setting up the development environment](dev-setup/devenv.md): 
+     - Overview (Vagrant/Docker) 
+     - Prerequisites (Git, Go, Vagrant, VirtualBox, BIOS)
+     - Steps (GOPATH, Windows, Clone Peer, VM Vagrant
 - [Building the fabric core](../README.md#building-the-fabric-core-)
 - [Building outside of Vagrant](../README.md#building-outside-of-vagrant-)
 - [Code contributions](../README.md#code-contributions-)
@@ -55,11 +57,11 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 - [Writing, Building, and Running Chaincode in a Development Environment](API/SandboxSetup.md)
 - [Chaincode FAQ](FAQ/chaincode_FAQ.md)
 - [Setting Up a Network](../README.md#setting-up-a-network-)
-- [Setting Up a Network For Development](dev-setup/devnet-setup.md): <br>
-     - Docker <br>
-          Validating Peers <br>
-          Run chaincode <br>
-          Consensus Plugin <br>
+- [Setting Up a Network For Development](dev-setup/devnet-setup.md):
+     - Docker
+     - Validating Peers
+     - Run chaincode
+     - Consensus Plugin
 - [Working with CLI, REST, and Node.js](../README.md#working-with-cli-rest-and-nodejs-)
 - [APIs - CLI, REST, and Node.js](../API/CoreAPI.md): 
      - [CLI](API/CoreAPI.md#cli)
@@ -82,38 +84,38 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 ### Security administration docs:
 
-- [Certificate Authority (CA) Setup](dev-setup/obcca-setup.md): <br>
-     Enrollment CA <br>
-     Transaction CA <br>
-     TLS CA <br>
-     Configuration <br>
-     Build and Run <br> 
+- [Certificate Authority (CA) Setup](dev-setup/obcca-setup.md):
+     - Enrollment CA
+     - Transaction CA
+     - TLS CA
+     - Configuration
+     - Build and Run <br> 
 - [Application ACL](tech/application-ACL.md):
-     Fabric Support <br>
-     Certificate Handler <br>
-     Transaction Handler <br>
-     Client <br>
-     Transaction Format <br>
-     Validators <br>
-     Deploy Transaction <br>
-     Execute Transaction <br>
-     Chaincode Execution <br>
+     - Fabric Support
+     - Certificate Handler
+     - Transaction Handler
+     - Client
+     - Transaction Format
+     - Validators
+     - Deploy Transaction
+     - Execute Transaction
+     - Chaincode Execution
 
 ### Use cases and demos:
-- [Canonical Use Cases](/biz/usecases.md) <br>
-     B2B Contract <br>
-     Manufacturing Supply Chain <br> 
-     Asset Depository <br>
-- [Extended Use Cases](/biz/usecases.md) <br>
-     One Trade, One Contract <br>
-     Direct Communication <br>
-     Separation of Asset Ownership and Custodian's Duties <br>
-     Interoperability of Assets <br>
+- [Canonical Use Cases](/biz/usecases.md):
+     - B2B Contract
+     - Manufacturing Supply Chain
+     - Asset Depository
+- [Extended Use Cases](/biz/usecases.md):
+     - One Trade, One Contract
+     - Direct Communication
+     - Separation of Asset Ownership and Custodian's Duties
+     - Interoperability of Assets
 - [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles )
 - [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web )
 
 ### Protocol specification: 
-[Protocol Specification](protocol-spec.md) 
+[Protocol Specification](protocol-spec.md):
 - Introduction (fabric, terminology)
 - Fabric: 
      - Architecture (Membership Services, Blockchain Services, Chaincode Services, Events, API, CLI)
