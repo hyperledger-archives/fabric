@@ -28,7 +28,7 @@ import (
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
-	StateUpdate(id []byte)
+	StateUpdate(tag uint64, id []byte)
 }
 
 // Inquirer is used to retrieve info about the validating network
