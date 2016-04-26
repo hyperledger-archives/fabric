@@ -44,7 +44,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/peer
 ./peer
 ```
 
-You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
+You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./peer/main.go). Current build will actually create a *peer* executable file).
 
 ```
     Usage:
