@@ -496,7 +496,7 @@ Feature: lanching 3 peers
         And I wait "15" seconds
 
         # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
-        When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
+        When I invoke chaincode "example2" function name "invoke" on "vp0" "10" times
 			|arg1|arg2|arg3|
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
@@ -504,7 +504,7 @@ Feature: lanching 3 peers
             | vp0  | vp1 | vp2 | vp3 |
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "60"
+	    Then I should get a JSON response from peers with "OK" = "20"
             | vp0  | vp1 | vp2 | vp3 |
 
 
