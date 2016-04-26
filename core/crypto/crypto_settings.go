@@ -1,13 +1,16 @@
 package crypto
 
 import (
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+	"time"
 )
 
 var (
 	log = logging.MustGetLogger("crypto")
+
+	refreshTimePeriod time.Duration
 )
 
 // Init initializes the crypto layer. It load from viper the security level
@@ -27,6 +30,15 @@ func Init() (err error) {
 			logging.GetLevel("crypto"), err)
 	}
 
+	// Init refresh time period
+	refreshTimePeriod = 720 // minutes
+	if viper.IsSet("security.client.refreshTimePeriod") {
+		ovveride := viper.GetInt("security.client.refreshTimePeriod")
+		if ovveride != 0 {
+			refreshTimePeriod = time.Duration(ovveride)
+		}
+	}
+
 	// Init security level
 
 	securityLevel := 256
@@ -36,7 +48,7 @@ func Init() (err error) {
 			securityLevel = ovveride
 		}
 	}
-	
+
 	hashAlgorithm := "SHA3"
 	if viper.IsSet("security.hashAlgorithm") {
 		ovveride := viper.GetString("security.hashAlgorithm")
@@ -44,7 +56,7 @@ func Init() (err error) {
 			hashAlgorithm = ovveride
 		}
 	}
-	
+
 	log.Debug("Working at security level [%d]", securityLevel)
 	if err = conf.InitSecurityLevel(hashAlgorithm, securityLevel); err != nil {
 		log.Debug("Failed setting security level: [%s]", err)

@@ -381,7 +381,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		}
 
 		// Initialize the security client
-		sec, err := crypto.InitClient(enrollmentID, nil)
+		sec, err := crypto.InitShortLivingClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
@@ -437,7 +437,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		urlEncodedCert := url.QueryEscape(string(certPEM))
 
 		// Close the security client
-		crypto.CloseClient(sec)
+		// No need to explicitly close short-living client instances
+		//crypto.CloseClient(sec)
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
@@ -503,7 +504,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		}
 
 		// Initialize the security client
-		sec, err := crypto.InitClient(enrollmentID, nil)
+		sec, err := crypto.InitShortLivingClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
@@ -567,7 +568,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		}
 
 		// Close the security client
-		crypto.CloseClient(sec)
+		// No need to explicitly close short-living client instances
+		//crypto.CloseClient(sec)
 
 		// Construct a JSON formatted response
 		jsonResponse, err := json.Marshal(tcertArray)

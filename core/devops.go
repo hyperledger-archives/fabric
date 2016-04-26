@@ -129,8 +129,9 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Initializing secure devops using context %s", spec.SecureContext)
 		}
-		sec, err = crypto.InitClient(spec.SecureContext, nil)
-		defer crypto.CloseClient(sec)
+		sec, err = crypto.InitShortLivingClient(spec.SecureContext, nil)
+		// No need to explicitly close short-living client instances
+		// defer crypto.CloseClient(sec)
 
 		// remove the security context since we are no longer need it down stream
 		spec.SecureContext = ""
@@ -182,8 +183,9 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
 		}
-		sec, err = crypto.InitClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
-		defer crypto.CloseClient(sec)
+		sec, err = crypto.InitShortLivingClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
+		// No need to explicitly close short-living client instances
+		// defer crypto.CloseClient(sec)
 		// remove the security context since we are no longer need it down stream
 		chaincodeInvocationSpec.ChaincodeSpec.SecureContext = ""
 		if nil != err {
