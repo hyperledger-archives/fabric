@@ -54,9 +54,10 @@ type obcSieve struct {
 
 	persistForward
 
-	executeChan  chan *pbftExecute        // Written to by a go routine from PBFT execute method
-	incomingChan chan *sieveMsgWithSender // Written to by RecvMsg
-	idleChan     chan struct{}            // Used for detecting thread idleness for testing
+	executeChan     chan *pbftExecute        // Written to by a go routine from PBFT execute method
+	incomingChan    chan *sieveMsgWithSender // Written to by RecvMsg
+	stateUpdateChan chan *checkpointMessage  // Written to by StateUpdate
+	idleChan        chan struct{}            // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -84,6 +85,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 
 	op.executeChan = make(chan *pbftExecute)
 	op.incomingChan = make(chan *sieveMsgWithSender)
+	op.stateUpdateChan = make(chan *checkpointMessage)
 
 	op.idleChan = make(chan struct{})
 
@@ -510,6 +512,15 @@ func (op *obcSieve) main() {
 			logger.Debug("Sieve replica %d requested to stop", op.id)
 			close(op.idleChan)
 			return
+		case update := <-op.stateUpdateChan:
+			op.restoreBlockNumber()
+
+			op.pbft.stateUpdate(update.seqNo, update.id)
+
+			if op.execOutstanding {
+				op.pbft.execDone()
+				op.execDone()
+			}
 		case op.idleChan <- struct{}{}:
 			// Only used for detecting idleness in unit tests
 		}
@@ -660,18 +671,10 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 
 // StateUpdate is a signal from the stack that it has fast-forwarded its state
 func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
-	op.pbft.lock()
-	op.restoreBlockNumber()
-	op.pbft.unlock()
-
-	op.pbft.stateUpdate(seqNo, id)
-
-	op.pbft.lock()
-	if op.execOutstanding {
-		op.pbft.execDoneSync()
-		op.execDone()
+	op.stateUpdateChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
 	}
-	op.pbft.unlock()
 }
 
 func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
