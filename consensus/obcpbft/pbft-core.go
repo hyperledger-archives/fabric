@@ -449,8 +449,9 @@ func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
 	defer instance.unlock()
 
 	logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
-	// XXX create checkpoint, update watermarks
+	// XXX create checkpoint
 	instance.lastExec = seqNo
+	instance.moveWatermarks(instance.lastExec)
 	instance.skipInProgress = false
 	instance.executeOutstanding()
 }
@@ -833,7 +834,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	if digest == "" {
 		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
-		instance.execDone()
+		instance.execDoneSync()
 	} else {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
@@ -841,10 +842,6 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		// asynchronously execute
 		go func() {
 			instance.consumer.execute(idx.n, req.Payload)
-			logger.Info("Replica %d finished execution %d, trying next", instance.id, idx.n)
-			instance.lock()
-			defer instance.unlock()
-			instance.execDone()
 		}()
 	}
 	return true
@@ -852,6 +849,14 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 // execDone is an event telling us that the last execution has completed
 func (instance *pbftCore) execDone() {
+	instance.lock()
+	defer instance.unlock()
+	instance.execDoneSync()
+}
+
+func (instance *pbftCore) execDoneSync() {
+	logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+
 	instance.lastExec = *instance.currentExec
 	instance.currentExec = nil
 
@@ -862,7 +867,10 @@ func (instance *pbftCore) execDone() {
 	instance.executeOutstanding()
 }
 
-func (instance *pbftCore) moveWatermarks(h uint64) {
+func (instance *pbftCore) moveWatermarks(n uint64) {
+	// round down n to previous low watermark
+	h := n / instance.K * instance.K
+
 	for idx, cert := range instance.certStore {
 		if idx.n <= h {
 			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",

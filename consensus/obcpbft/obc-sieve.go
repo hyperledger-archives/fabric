@@ -44,6 +44,9 @@ type obcSieve struct {
 	currentReq    string
 	currentResult []byte
 
+	lastExecPbftSeqNo uint64
+	execOutstanding   bool
+
 	verifyStore []*Verify
 
 	queuedExec map[uint64]*Execute
@@ -61,7 +64,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 
-	// XXX initialize blockNumber
+	op.restoreBlockNumber()
 
 	op.pbft = newPbftCore(id, config, op)
 
@@ -125,12 +128,6 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 		logger.Error(err.Error())
 	}
 	return nil
-}
-
-// StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
-	op.pbft.stateUpdate(id)
-	// XXX update blockNumber
 }
 
 // Close tells us to release resources we are holding
@@ -300,19 +297,12 @@ func (op *obcSieve) processExecute() {
 	results, err := op.stack.ExecTxs(op.currentReq, []*pb.Transaction{tx})
 	_ = results // XXX what to do?
 	_ = err     // XXX what to do?
-	block, err := op.stack.PreviewCommitTxBatch(op.currentReq, nil)
+
+	meta, _ := proto.Marshal(&Metadata{op.lastExecPbftSeqNo})
+	op.currentResult, err = op.stack.PreviewCommitTxBatch(op.currentReq, meta)
 	if err != nil {
 		logger.Error("could not preview next block: %s", err)
-		op.currentReq = ""
-		op.blockNumber--
-		return
-	}
-
-	op.currentResult, err = op.stack.HashBlock(block)
-	if err != nil {
-		logger.Error("could not hash next block: %s", err)
-		op.currentReq = ""
-		op.blockNumber--
+		op.rollback()
 		return
 	}
 
@@ -503,6 +493,7 @@ func (op *obcSieve) execute(seqNo uint64, raw []byte) {
 		op.executeVerifySet(vset, seqNo)
 	} else if flush := req.GetFlush(); flush != nil {
 		op.executeFlush(flush)
+		op.pbft.execDoneSync()
 	} else {
 		logger.Warning("Invalid pbft request")
 	}
@@ -554,25 +545,22 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 
 	if !shouldCommit {
 		if !sync {
-			logger.Error("Sieve replica %d execute vset: not deterministic", op.id)
-			// XXX rollback
-			op.blockNumber--
+			logger.Warning("Sieve replica %d execute vset: not deterministic", op.id)
+
+			op.rollback()
 		} else {
-			logger.Error("Sieve replica %d told to roll back transactions for a block it doesn't have")
+			logger.Debug("Sieve replica %d told to roll back transactions for a block it doesn't have")
 		}
 	} else {
-		var peers []*pb.PeerID
+		var peers []uint64
 		for _, n := range dSet {
-			peer, err := getValidatorHandle(n.ReplicaId)
-			if err == nil {
-				peers = append(peers, peer)
-			}
+			peers = append(peers, n.ReplicaId)
 		}
 
 		decision := dSet[0].ResultDigest
 
 		if !reflect.DeepEqual(op.currentResult, decision) {
-			logger.Warning("Decision successful, but our output does not match (%x) vs (%x)", op.currentResult, decision)
+			logger.Info("Decision successful, but our output does not match (%x) vs (%x)", op.currentResult, decision)
 			sync = true
 		}
 
@@ -580,25 +568,29 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 			logger.Debug("Sieve replica %d arrived at decision %x for block %d", op.id, decision, vset.BlockNumber)
 
 			op.commit()
+			op.lastExecPbftSeqNo = seqNo
 		} else {
 			logger.Debug("Sieve replica %d must sync to decision %x for block %d", op.id, decision, vset.BlockNumber)
 
 			op.rollback()
-			//op.executor.SkipTo(resultSID.BlockNumber, resultSID.ObcId, peers, execInfo)
+			op.execOutstanding = true
+			op.sync(seqNo, decision, peers)
+			return
 		}
 	}
+	op.pbft.execDoneSync()
+	op.execDone()
+}
 
-	if !(!shouldCommit && sync) {
-		logger.Debug("Sieve replica %d clearing currentReq state because result decision is being acted on", op.id)
-		op.currentReq = ""
+func (op *obcSieve) execDone() {
+	op.currentReq = ""
 
-		if len(op.queuedTx) > 0 {
-			op.processRequest()
-		}
+	if len(op.queuedTx) > 0 {
+		op.processRequest()
+	}
 
-		if op.pbft.primary(op.epoch) != op.id {
-			op.processExecute()
-		}
+	if op.pbft.primary(op.epoch) != op.id {
+		op.processExecute()
 	}
 }
 
@@ -619,21 +611,52 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 }
 
 func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	// No-op for sieve, as it will handle its own state synchronization
-	// XXX notify pbft of successful sync
+	op.sync(seqNo, id, replicas)
 }
 
-func (op *obcSieve) getState() []byte {
-	return op.stack.GetBlockchainInfoBlob()
+// StateUpdate is a signal from the stack that it has fast-forwarded its state
+func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
+	op.pbft.lock()
+	op.restoreBlockNumber()
+	op.pbft.unlock()
+
+	op.pbft.stateUpdate(seqNo, id)
+
+	op.pbft.lock()
+	if op.execOutstanding {
+		op.pbft.execDoneSync()
+		op.execDone()
+	}
+	op.pbft.unlock()
+}
+
+func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
+	if op.currentReq != "" {
+		op.rollback()
+	}
+	op.obcGeneric.skipTo(seqNo, id, peers)
 }
 
 func (op *obcSieve) rollback() {
 	op.stack.RollbackTxBatch(op.currentReq)
-	op.currentReq = ""
-	op.blockNumber--
+	if op.currentReq != "" {
+		op.currentReq = ""
+		op.blockNumber--
+	}
 }
 
 func (op *obcSieve) commit() {
-	op.stack.CommitTxBatch(op.currentReq, nil)
+	meta, _ := proto.Marshal(&Metadata{op.lastExecPbftSeqNo})
+	op.stack.CommitTxBatch(op.currentReq, meta)
 	op.currentReq = ""
+}
+
+func (op *obcSieve) restoreBlockNumber() {
+	var err error
+	op.blockNumber, err = op.stack.GetBlockchainSize()
+	if err != nil {
+		logger.Error("Sieve replica %d could not update its blockNumber", op.id)
+		return
+	}
+	logger.Info("Sieve replica %d restored blockNumber to %d", op.id, op.blockNumber)
 }
