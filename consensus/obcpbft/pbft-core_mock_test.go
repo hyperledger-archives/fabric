@@ -103,6 +103,7 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.lastExecution = tx
 	sc.executions++
 	sc.lastSeqNo = seqNo
+	sc.pe.pbft.execDone()
 }
 
 func (sc *simpleConsumer) getState() []byte {

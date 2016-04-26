@@ -200,6 +200,8 @@ func (op *obcBatch) execute(seqNo uint64, tbRaw []byte) {
 	_ = err    // XXX what to do on error?
 	_ = result // XXX what to do with the result?
 	_, err = op.stack.CommitTxBatch(id, meta)
+
+	op.pbft.execDone()
 }
 
 // signal when a view-change happened
