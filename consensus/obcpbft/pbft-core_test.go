@@ -371,23 +371,16 @@ func TestInconsistentPrePrepare(t *testing.T) {
 
 // This test is designed to detect a conflation of S and S' from the paper in the view change
 func TestViewChangeWatermarksMovement(t *testing.T) {
-	instance := &pbftCore{
-		f:            1,
-		N:            4,
-		replicaCount: 4,
-		id:           0,
-		activeView:   false,
-		view:         1,
-		lastExec:     10,
-		newViewStore: make(map[uint64]*NewView),
-		newViewTimer: time.NewTimer(0),
-		consumer: &omniProto{
-			viewChangeImpl: func(v uint64) {},
-			skipToImpl: func(s uint64, id []byte, replicas []uint64) {
-				t.Fatalf("Should not have attempted to initiate state transfer")
-			},
+	instance := newPbftCore(0, loadConfig(), &omniProto{
+		viewChangeImpl: func(v uint64) {},
+		skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+			t.Fatalf("Should not have attempted to initiate state transfer")
 		},
-	}
+		broadcastImpl: func(b []byte) {},
+	})
+	instance.activeView = false
+	instance.view = 1
+	instance.lastExec = 10
 
 	vset := make([]*ViewChange, 3)
 
@@ -424,10 +417,13 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 		},
 	}
 
+	xset := make(map[uint64]string)
+	xset[11] = ""
+
 	instance.newViewStore[1] = &NewView{
 		View:      1,
 		Vset:      vset,
-		Xset:      make(map[uint64]string),
+		Xset:      xset,
 		ReplicaId: 1,
 	}
 
