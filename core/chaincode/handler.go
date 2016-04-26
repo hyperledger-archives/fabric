@@ -26,13 +26,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/looplab/fsm"
-	"github.com/op/go-logging"
+	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"
-	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/looplab/fsm"
+	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
@@ -725,7 +725,7 @@ func (handler *Handler) afterRangeQueryStateNext(e *fsm.Event, state string) {
 	chaincodeLogger.Debug("Exiting RANGE_QUERY_STATE_NEXT")
 }
 
-// Handles query to ledger to rage query state nexy
+// Handles query to ledger to rage query state next
 func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
 	// is completed before the next one is triggered. The previous state transition is deemed complete only when
