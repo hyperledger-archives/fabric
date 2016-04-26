@@ -268,7 +268,12 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 }
 
 func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
-	if len(raw) <= primitives.NonceSize {
+	if len(raw) == 0 {
+		// A nil ciphertext decrypts to nil
+		return nil, nil
+	}
+
+	if len(raw) <= utils.NonceSize {
 		return nil, utils.ErrDecrypt
 	}
 
@@ -350,7 +355,12 @@ func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
 }
 
 func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
-	if len(raw) <= primitives.NonceSize {
+	if len(raw) == 0 {
+		// A nil ciphertext decrypts to nil
+		return nil, nil
+	}
+
+	if len(raw) <= utils.NonceSize {
 		return nil, utils.ErrDecrypt
 	}
 
