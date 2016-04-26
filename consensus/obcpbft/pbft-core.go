@@ -445,12 +445,13 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 }
 
 // stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdate(id []byte) {
+func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
 	instance.lock()
 	defer instance.unlock()
 
-	logger.Info("Replica %d application caught up via state transfer", instance.id)
-	instance.restoreLastSeqNo()
+	logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+	// XXX create checkpoint, update watermarks
+	instance.lastExec = seqNo
 	instance.skipInProgress = false
 	instance.executeOutstanding()
 }

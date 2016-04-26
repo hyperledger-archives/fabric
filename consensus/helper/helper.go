@@ -399,16 +399,16 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
-	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, nil)
+	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
 }
 
 func (h *Helper) Initiated() {
 }
 
 func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
-	h.consenter.StateUpdate(bh)
+	h.consenter.StateUpdate(m.(uint64), bh)
 }
 
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
-	logger.Warning("state transfer reported error for block %d: %s", bn, e)
+	logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, m.(uint64), e)
 }

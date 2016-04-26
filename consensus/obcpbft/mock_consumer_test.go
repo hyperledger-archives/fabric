@@ -57,7 +57,7 @@ func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 		meta := &Metadata{tag}
 		metaRaw, _ := proto.Marshal(meta)
 		cs.simulateStateTransfer(metaRaw, id, peers)
-		cs.consumer.StateUpdate(id)
+		cs.consumer.StateUpdate(tag, id)
 	}()
 }
 

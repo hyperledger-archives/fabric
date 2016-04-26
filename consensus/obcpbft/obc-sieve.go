@@ -128,7 +128,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 }
 
 // StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcSieve) StateUpdate(id []byte) {
+func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
 	op.pbft.stateUpdate(id)
 	// XXX update blockNumber
 }
