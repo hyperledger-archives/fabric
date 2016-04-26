@@ -88,8 +88,8 @@ type pbftCore struct {
 	stateUpdateChan  chan struct{}     // informs the main thread the state has updated (via state transfer)
 	execCompleteChan chan struct{}     // informs the main thread an execution has finished
 
-	idleTime time.Duration // How long the main thread must do nothing before it is marked as idle
-	idle     bool          // Set after the main thread has done nothing for idleTime, generally only useful for testing
+	idleChan   chan struct{} // Used to detect idleness for testing
+	injectChan chan func()   // Used by the testing framework to inject work for the main thread
 
 	consumer innerStack
 
@@ -188,6 +188,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.incomingChan = make(chan *pbftMessage)
 	instance.stateUpdateChan = make(chan struct{})
 	instance.execCompleteChan = make(chan struct{})
+	instance.idleChan = make(chan struct{})
+	instance.injectChan = make(chan func())
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -269,39 +271,40 @@ func (instance *pbftCore) close() {
 
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) main() {
-	logger.Debug("Replica %d starting service thread", instance.id)
-	localIdleTime := time.Hour // Unless an idle time has set, do not waste time setting and unsetting idle
 
 	for {
-		if !instance.idle && instance.idleTime != 0 {
-			localIdleTime = instance.idleTime
-		}
 		logger.Debug("Replica %d service thread looping", instance.id)
 
 		select {
 		case <-instance.closed:
+			close(instance.idleChan)
 			return
 		case <-instance.newViewTimer.C:
 			logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 			instance.sendViewChange()
 		case msg := <-instance.incomingChan:
 			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
-			instance.recvMsgSync(msg.msg, msg.sender)
+			instance.recvMsg(msg.msg, msg.sender)
 		case <-instance.stateUpdateChan:
 			logger.Info("Replica %d application caught up via state transfer", instance.id)
 			instance.skipInProgress = false
 			instance.executeOutstanding()
 		case <-instance.execCompleteChan:
 			instance.execDone()
-		case <-time.After(localIdleTime):
-			logger.Debug("Replica %d PBFT main thread is now idle", instance.id)
-			instance.idle = true
-			localIdleTime = time.Hour // No need to continuously fire
-			continue
+		case work := <-instance.injectChan:
+			work() // Used to allow the test framework to steal use of the main thread
+		case instance.idleChan <- struct{}{}:
+			// Used to detect when this thread is idle for testing
 		}
-
-		instance.idle = false
 	}
+}
+
+// Allows the caller to inject work onto the main thread
+// This is useful for tests which wish to bypass normal message ingress
+// For convenience, this blocks until the work has been carried out
+func (instance *pbftCore) inject(work func()) {
+	instance.injectChan <- work
+	<-instance.idleChan
 }
 
 // =============================================================================
@@ -463,7 +466,16 @@ func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
 	instance.stateUpdateChan <- struct{}{}
 }
 
+// TODO, this should not return an error
 func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
+	instance.incomingChan <- &pbftMessage{
+		msg:    msg,
+		sender: senderID,
+	}
+	return nil
+}
+
+func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (err error) {
 
 	if req := msg.GetRequest(); req != nil {
 		if senderID != req.ReplicaId {

@@ -299,12 +299,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 	// deliver pre-prepare to subset of replicas
 	for _, pep := range net.pbftEndpoints[1 : len(net.pbftEndpoints)-1] {
-		msgReq := &Message{}
-		err := proto.Unmarshal(msg.msg, msgReq)
-		if err != nil {
-			t.Fatal("Could not unmarshal message")
-		}
-		pep.pbft.recvMsgSync(msgReq, uint64(msg.src))
+		pep.pbft.receive(msg.msg, uint64(msg.src))
 	}
 
 	err := net.process()
@@ -1078,7 +1073,6 @@ func TestReplicaCrash1(t *testing.T) {
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2
 		pe.pbft.L = 2 * pe.pbft.K
-		pe.pbft.idleTime = DefaultIdleTime
 	}
 
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(2))

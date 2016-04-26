@@ -41,7 +41,22 @@ func (pe *pbftEndpoint) stop() {
 }
 
 func (pe *pbftEndpoint) isBusy() bool {
-	return !pe.pbft.idle || pe.pbft.timerActive || pe.pbft.currentExec != nil
+	if pe.pbft.timerActive || pe.pbft.currentExec != nil {
+		pe.net.debugMsg("TEST: Returning as busy because timer active or current exec")
+		return true
+	}
+
+	// TODO, this looks racey, but seems fine, because the message send is on an unbuffered
+	// channel, the send blocks until the thread has picked up the new work, still
+	// this will be removed pending the transition to an externally driven state machine
+	select {
+	case <-pe.pbft.idleChan:
+	default:
+		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan")
+		return true
+	}
+
+	return false
 }
 
 type pbftNetwork struct {
@@ -130,7 +145,6 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 		pe.pbft = newPbftCore(id, loadConfig(), pe.sc)
 		pe.pbft.N = N
 		pe.pbft.f = (N - 1) / 3
-		pe.pbft.idleTime = DefaultIdleTime
 
 		for _, fn := range initFNs {
 			fn(pe)

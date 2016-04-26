@@ -35,6 +35,8 @@ type obcClassic struct {
 	pbft  *pbftCore
 
 	persistForward
+
+	idleChan chan struct{} // A channel that is created and then closed, simplifies unit testing, otherwise unused
 }
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
@@ -48,6 +50,9 @@ func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcCl
 	logger.Debug("Replica %d obtaining startup information", id)
 
 	op.pbft = newPbftCore(id, config, op)
+
+	op.idleChan = make(chan struct{})
+	close(op.idleChan)
 
 	return op
 }
@@ -166,4 +171,13 @@ func (op *obcClassic) viewChange(curView uint64) {
 // Unnecessary
 func (op *obcClassic) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
+}
+
+// Unneeded, just makes writing the unit tests simpler
+func (op *obcClassic) main() {
+}
+
+// Retrieve the idle channel, only used for testing (and in this case, the channel is always closed)
+func (op *obcClassic) idleChannel() <-chan struct{} {
+	return op.idleChan
 }
