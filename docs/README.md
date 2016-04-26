@@ -1,12 +1,15 @@
 
 ## Getting started
 
-Welcome to the fabric documentation README. This page contains: 
+Welcome to the Linux Foundation Hyperledger Project documentation README. This page contains: 
 - Getting started doc links 
 - Quickstart doc links
 - Table of Contents links to the complete library
 
-If you are new to the Linux Foundation Hyperledger Project, please start by reading the  [whitepaper](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG). In addition, we encourage you to review our [glossary](glossary.md) to understand the terminology that we use throughout the website and project.
+If you are new to the project, you can begin by reviewing the following documents:
+- [Whitepaper WG](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
+- [Requirements WG](https://github.com/hyperledger/hyperledger/wiki/Requirements-WG)
+- [Glossary](glossary.md): to understand the terminology that we use throughout the website and project.
 
 When you are ready to start building applications or to otherwise contribute to the project, we strongly recommend that you read our [protocol specification](protocol-spec.md) for the technical details. Procedurally, we use the agile methodology with a weekly sprint, organized by [issues](https://github.com/hyperledger/fabric/issues), so take a look to familiarize yourself with the current work.
 
@@ -109,18 +112,3 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Deploy Transaction
      - Execute Transaction
      - Chaincode Execution
-
-### Use cases and demos:
-- [Canonical Use Cases](biz/usecases.md):
-     - B2B Contract
-     - Manufacturing Supply Chain
-     - Asset Depository
-- [Extended Use Cases](biz/usecases.md):
-     - One Trade, One Contract
-     - Direct Communication
-     - Separation of Asset Ownership and Custodian's Duties
-     - Interoperability of Assets
-- [Marbles Demo Application](https://github.com/IBM-Blockchain/marbles )
-- [Commercial Paper Demo Application](https://github.com/IBM-Blockchain/cp-web )
-
-
