@@ -20,6 +20,8 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 )
 
@@ -90,6 +92,16 @@ func (instance *pbftCore) persistDelAllRequests() {
 	}
 }
 
+func (instance *pbftCore) persistCheckpoint(seqNo uint64, id []byte) {
+	key := fmt.Sprintf("chkpt.%d", seqNo)
+	instance.consumer.StoreState(key, id)
+}
+
+func (instance *pbftCore) persistDelCheckpoint(seqNo uint64) {
+	key := fmt.Sprintf("chkpt.%d", seqNo)
+	instance.consumer.DelState(key)
+}
+
 func (instance *pbftCore) restoreState() {
 	updateSeqView := func(set []*ViewChange_PQ) {
 		for _, e := range set {
@@ -129,10 +141,29 @@ func (instance *pbftCore) restoreState() {
 		logger.Warning("Replica %d could not restore reqStore: %s", instance.id, err)
 	}
 
+	chkpts, err := instance.consumer.ReadStateSet("chkpt.")
+	if err == nil {
+		highSeq := uint64(0)
+		for key, id := range chkpts {
+			var seqNo uint64
+			if _, err = fmt.Sscanf(key, "chkpt.%d", &seqNo); err != nil {
+				logger.Warning("Replica %d could not restore checkpoint key %s", instance.id, key)
+			} else {
+				instance.chkpts[seqNo] = string(id)
+				if seqNo > highSeq {
+					highSeq = seqNo
+				}
+			}
+		}
+		instance.moveWatermarks(highSeq)
+	} else {
+		logger.Warning("Replica %d could not restore checkpoints: %s", instance.id, err)
+	}
+
 	instance.restoreLastSeqNo()
 
-	logger.Info("Replica %d restored state: view: %d, seqNo: %d, pset: %d, qset: %d, reqs: %d",
-		instance.id, instance.view, instance.seqNo, len(instance.pset), len(instance.qset), len(instance.reqStore))
+	logger.Info("Replica %d restored state: view: %d, seqNo: %d, pset: %d, qset: %d, reqs: %d, chkpts: %d",
+		instance.id, instance.view, instance.seqNo, len(instance.pset), len(instance.qset), len(instance.reqStore), len(instance.chkpts))
 }
 
 func (instance *pbftCore) restoreLastSeqNo() {

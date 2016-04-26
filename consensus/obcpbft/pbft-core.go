@@ -220,7 +220,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	// initialize state transfer
 	instance.hChkpts = make(map[uint64]uint64)
 
-	// XXX fetch latest checkpoint
 	instance.chkpts[0] = "XXX GENESIS"
 
 	// create non-running timer XXX ugly
@@ -800,6 +799,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	}
 	instance.chkpts[seqNo] = idAsString
 
+	instance.persistCheckpoint(seqNo, id)
 	instance.recvCheckpoint(chkpt)
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
 }
@@ -896,6 +896,7 @@ func (instance *pbftCore) moveWatermarks(h uint64) {
 	for n := range instance.chkpts {
 		if n < h {
 			delete(instance.chkpts, n)
+			instance.persistDelCheckpoint(n)
 		}
 	}
 
