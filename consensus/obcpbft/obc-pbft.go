@@ -80,9 +80,13 @@ func loadConfig() (config *viper.Viper) {
 	config.AddConfigPath("./")
 	config.AddConfigPath("../consensus/obcpbft/")
 	config.AddConfigPath("../../consensus/obcpbft")
+	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
-	obcpbftpath := filepath.Join(gopath, "src/github.com/hyperledger/fabric/consensus/obcpbft")
-	config.AddConfigPath(obcpbftpath)    // Path to look for the config file in
+	for _, p := range filepath.SplitList(gopath) {
+	    obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
+	    config.AddConfigPath(obcpbftpath)
+	}
+
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))
