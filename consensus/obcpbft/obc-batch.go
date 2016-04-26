@@ -41,7 +41,8 @@ type obcBatch struct {
 	batchTimerActive bool
 	batchTimeout     time.Duration
 
-	incoming chan *batchMessage
+	incomingChan chan *batchMessage // Queues messages for processing by main thread
+	idleChan     chan struct{}      // Used in unit testing to check for idleness
 
 	persistForward
 }
@@ -72,11 +73,14 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}
 
-	op.incoming = make(chan *batchMessage)
+	op.incomingChan = make(chan *batchMessage)
 
 	// create non-running timer
 	op.batchTimer = time.NewTimer(100 * time.Hour) // XXX ugly
 	op.batchTimer.Stop()
+
+	op.idleChan = make(chan struct{})
+
 	go op.main()
 	return op
 }
@@ -86,7 +90,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 
-	op.incoming <- &batchMessage{
+	op.incomingChan <- &batchMessage{
 		msg:    ocMsg,
 		sender: senderHandle,
 	}
@@ -275,8 +279,9 @@ func (op *obcBatch) main() {
 	for {
 		select {
 		case <-op.pbft.closed:
+			close(op.idleChan)
 			return
-		case ocMsg := <-op.incoming:
+		case ocMsg := <-op.incomingChan:
 			if err := op.processMessage(ocMsg.msg, ocMsg.sender); nil != err {
 				logger.Error("Error processing message: %v", err)
 			}
@@ -285,6 +290,8 @@ func (op *obcBatch) main() {
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
 			}
+		case op.idleChan <- struct{}{}:
+			// Only used to detect thread idleness during unit tests
 		}
 	}
 }
@@ -326,6 +333,7 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
-	return
+// Retrieve the idle channel, only used for testing
+func (op *obcBatch) idleChannel() <-chan struct{} {
+	return op.idleChan
 }

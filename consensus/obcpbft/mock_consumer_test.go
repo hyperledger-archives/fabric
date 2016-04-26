@@ -20,6 +20,8 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
+
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -38,7 +40,27 @@ func (ce *consumerEndpoint) stop() {
 }
 
 func (ce *consumerEndpoint) isBusy() bool {
-	return ce.consumer.getPBFTCore().timerActive
+	if ce.consumer.getPBFTCore().timerActive || ce.consumer.getPBFTCore().currentExec != nil {
+		ce.net.debugMsg("Reporting busy because of timer or currentExec")
+		return true
+	}
+
+	select {
+	case <-ce.consumer.idleChannel():
+	default:
+		ce.net.debugMsg("Reporting busy because consumer not idle")
+		return true
+	}
+
+	select {
+	case <-ce.consumer.getPBFTCore().idleChan:
+		ce.net.debugMsg("Reporting busy because pbft not idle")
+	default:
+		return true
+	}
+	//}
+
+	return false
 }
 
 func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
@@ -66,6 +88,7 @@ type pbftConsumer interface {
 	consensus.Consenter
 	getPBFTCore() *pbftCore
 	Close()
+	idleChannel() <-chan struct{}
 }
 
 type consumerNetwork struct {
@@ -103,7 +126,6 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 		ce.consumer = makeConsumer(id, loadConfig(), cs)
 		ce.consumer.getPBFTCore().N = N
 		ce.consumer.getPBFTCore().f = (N - 1) / 3
-		ce.consumer.getPBFTCore().idleTime = DefaultIdleTime
 
 		for _, fn := range initFNs {
 			fn(ce)

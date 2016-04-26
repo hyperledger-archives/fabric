@@ -27,10 +27,6 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-const (
-	DefaultIdleTime = 50 * time.Millisecond
-)
-
 type endpoint interface {
 	stop()
 	deliver([]byte, *pb.PeerID)
@@ -211,6 +207,7 @@ func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 }
 
 func (net *testnet) process() error {
+	net.debug = true
 	retry := true
 	for {
 		net.debugMsg("TEST: process looping\n")

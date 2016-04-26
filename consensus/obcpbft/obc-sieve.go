@@ -54,8 +54,9 @@ type obcSieve struct {
 
 	persistForward
 
-	executeChan  chan *pbftExecute
-	incomingChan chan *sieveMsgWithSender
+	executeChan  chan *pbftExecute        // Written to by a go routine from PBFT execute method
+	incomingChan chan *sieveMsgWithSender // Written to by RecvMsg
+	idleChan     chan struct{}            // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -83,6 +84,9 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 
 	op.executeChan = make(chan *pbftExecute)
 	op.incomingChan = make(chan *sieveMsgWithSender)
+
+	op.idleChan = make(chan struct{})
+
 	go op.main()
 
 	return op
@@ -173,6 +177,7 @@ func (op *obcSieve) viewChange(newView uint64) {
 	op.queuedTx = nil
 	op.imminentEpoch = newView
 
+	// Note, this is only safe because this call is made from the pbft thread
 	for idx := range op.pbft.outstandingReqs {
 		delete(op.pbft.outstandingReqs, idx)
 	}
@@ -183,7 +188,7 @@ func (op *obcSieve) viewChange(newView uint64) {
 		flush.ReplicaId = op.id
 		op.pbft.sign(flush)
 		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{flush}}
-		op.invokePbft(req)
+		go op.invokePbft(req)
 	}
 }
 
@@ -503,7 +508,10 @@ func (op *obcSieve) main() {
 			op.executeImpl(exec.seqNo, exec.txRaw)
 		case <-op.pbft.closed:
 			logger.Debug("Sieve replica %d requested to stop", op.id)
+			close(op.idleChan)
 			return
+		case op.idleChan <- struct{}{}:
+			// Only used for detecting idleness in unit tests
 		}
 	}
 }
@@ -695,4 +703,9 @@ func (op *obcSieve) restoreBlockNumber() {
 		return
 	}
 	logger.Info("Sieve replica %d restored blockNumber to %d", op.id, op.blockNumber)
+}
+
+// Retrieve the idle channel, only used for testing
+func (op *obcSieve) idleChannel() <-chan struct{} {
+	return op.idleChan
 }
