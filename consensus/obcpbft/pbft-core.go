@@ -82,11 +82,11 @@ type checkpointMessage struct {
 type pbftCore struct {
 	// internal data
 	internalLock     sync.Mutex
-	executing        bool              // signals that application is executing
-	closed           chan struct{}     // informs the main thread to exit (never written to, only closed)
-	incomingChan     chan *pbftMessage // informs the main thread of new messages
-	stateUpdateChan  chan struct{}     // informs the main thread the state has updated (via state transfer)
-	execCompleteChan chan struct{}     // informs the main thread an execution has finished
+	executing        bool                    // signals that application is executing
+	closed           chan struct{}           // informs the main thread to exit (never written to, only closed)
+	incomingChan     chan *pbftMessage       // informs the main thread of new messages
+	stateUpdateChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
+	execCompleteChan chan struct{}           // informs the main thread an execution has finished
 
 	idleChan   chan struct{} // Used to detect idleness for testing
 	injectChan chan func()   // Used by the testing framework to inject work for the main thread
@@ -186,7 +186,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.consumer = consumer
 	instance.closed = make(chan struct{})
 	instance.incomingChan = make(chan *pbftMessage)
-	instance.stateUpdateChan = make(chan struct{})
+	instance.stateUpdateChan = make(chan *checkpointMessage)
 	instance.execCompleteChan = make(chan struct{})
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
@@ -285,12 +285,16 @@ func (instance *pbftCore) main() {
 		case msg := <-instance.incomingChan:
 			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 			instance.recvMsg(msg.msg, msg.sender)
-		case <-instance.stateUpdateChan:
-			logger.Info("Replica %d application caught up via state transfer", instance.id)
+		case update := <-instance.stateUpdateChan:
+			seqNo := update.seqNo
+			logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+			// XXX create checkpoint
+			instance.lastExec = seqNo
+			instance.moveWatermarks(instance.lastExec) // XXX should be checkpoint, not lastExec
 			instance.skipInProgress = false
 			instance.executeOutstanding()
 		case <-instance.execCompleteChan:
-			instance.execDone()
+			instance.execDoneSync()
 		case work := <-instance.injectChan:
 			work() // Used to allow the test framework to steal use of the main thread
 		case instance.idleChan <- struct{}{}:
@@ -890,9 +894,8 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 
 // execDone is an event telling us that the last execution has completed
 func (instance *pbftCore) execDone() {
-	instance.lock()
-	defer instance.unlock()
-	instance.execDoneSync()
+	logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+	instance.execCompleteChan <- struct{}{}
 }
 
 func (instance *pbftCore) execDoneSync() {

@@ -20,8 +20,6 @@ under the License.
 package obcpbft
 
 import (
-	"fmt"
-
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
