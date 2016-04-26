@@ -83,8 +83,11 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
-// InitClient initializes a client named name with password pwd
-func InitClient(name string, pwd []byte) (Client, error) {
+// InitShortLivingClient initializes a short living client named 'name' using password 'pwd'.
+// A short-living client is a client that is supposed to be initialize every time it is needed.
+// The client is used (for a short period, namely to just invoke a single function) and then discarded immediately.
+// There is no need to call CloseClient for the short-living instances, internal garbage collection is in place.
+func InitShortLivingClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
@@ -115,6 +118,42 @@ func InitClient(name string, pwd []byte) (Client, error) {
 	return client, nil
 }
 
+// InitClient initializes a long living client named 'name' using password 'pwd'.
+// A short-living client is a client that is supposed to be initialize one and stay active for an indefinite period
+// of time.
+// Once the client is not needed anymore, CloseClient must be explicitly invoked. No internal garbage collection is
+// applied to long-living instances.
+func InitClient(name string, pwd []byte) (Client, error) {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+
+	// Init the client layer if necessary
+	initClientLayer()
+
+	log.Info("Initializing client [%s]...", name)
+
+	if entry, ok := clients[name]; ok {
+		log.Info("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
+		entry.counter++
+		entry.timestamp = time.Now()
+		clients[name] = entry
+
+		return clients[name].client, nil
+	}
+
+	client := newClient()
+	if err := client.init(name, pwd); err != nil {
+		log.Error("Failed client initialization [%s]: [%s].", name, err)
+
+		return nil, err
+	}
+
+	clients[name] = clientEntry{client, 1, time.Now(), true}
+	log.Info("Initializing client [%s]...done!", name)
+
+	return client, nil
+}
+
 // CloseClient releases all the resources allocated by clients
 func CloseClient(client Client) error {
 	clientMutex.Lock()
@@ -123,7 +162,7 @@ func CloseClient(client Client) error {
 	return closeClientInternal(client, false)
 }
 
-// CloseAllClients closes all the clients initialized so far
+// CloseAllClients closes all the clients (short and long-living) initialized so far
 func CloseAllClients() (bool, []error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
@@ -147,26 +186,6 @@ func CloseAllClients() (bool, []error) {
 	initialized = false
 
 	return len(errs) != 0, errs
-}
-
-func MarkLongLiving(client Client) error {
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-
-	if client == nil {
-		return utils.ErrNilArgument
-	}
-
-	name := client.GetName()
-	log.Info("Mark long living client [%s]...", name)
-	entry, ok := clients[name]
-	if !ok {
-		return utils.ErrInvalidReference
-	}
-	entry.longLiving = true
-	clients[name] = entry
-
-	return nil
 }
 
 // Private Methods
@@ -220,13 +239,14 @@ func initClientLayer() {
 
 func clientInstancesCleaner() {
 	log.Debug("Client Instanes cleaner starting...")
+
 	var terminate bool = false
 	for {
 		select {
 		case <-done:
 			terminate = true
 
-		case <-time.After(1 * time.Second):
+		case <-time.After(refreshTimePeriod * time.Minute):
 			log.Debug("Time elpased, clean old client instances...")
 
 			cleanOldClientInstances()
