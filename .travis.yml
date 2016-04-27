@@ -6,6 +6,7 @@ services:
  - docker
 
 before_install:
+
  - echo "Starting Docker Daemon "
  - |
    export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST" && export GIT_USER="$TRAVIS_REPO_SLUG"
@@ -37,16 +38,17 @@ before_script:
    cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
    cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
    sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
+   go build
+   echo " STARTING PEER PROCESS "
+   ./peer peer &
+   go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
+   cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME
+   chmod +x scripts/deploy.sh
+ - sudo ./scripts/deploy.sh
 
 script:
 
- - go build
- - echo " STARTING PEER PROCESS "
- - ./peer peer &
- - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
- - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME
- - chmod +x scripts/deploy.sh
- - sudo ./scripts/deploy.sh
+ - echo "Executing Behave test scripts"
  - ps -ef | grep peer | grep -v grep | kill -9 `awk '{print $2}'`
  - cd $HOME/gopath/src/github.com/hyperledger/fabric/bddtests
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
@@ -55,8 +57,6 @@ script:
  - behave -D logs=Y
 
 notifications:
-  slack:
-    rooms:
-     secure: yAnJ71EOlG3eqQo4zLMV4q66fqMzjbIZiLe54E5jZff6R3vGUIYlXbJGXqqSgy1imRIDcrHi2w3PezY0Ur2LZvEYnv+HJQo8HhNtfmH78jq+tIb8J6L+xElCKuj0hEyU08z18S0UWiLpy82oPQXU4dcGtrhFWaYNHjREZZnUlddbG2ufwn47PWROHBlQMWC6D7E/0Q+anGX++LuzHW0NBPpBW3nGBOXvAyLvfa8fiEOVzq2Bj17FDEurObzxoV1xK5Z8vzDKp3/qnZHJclpf24JF3Jl05SGRqpbHnPbjBSe98r/fS6mKLizTOuDJOQdS06GUZ2ltbYSiTuP+1Fqkx0wH1dDwts9YV95jcPIvjsAlMQMxHCNCSHcmF145JrOr1vVCLeVpNhZ9voRY5IM9UAnY8g8/n4Q7cbxhbljM8gJWdopeHJN4OszJp86oNFSPENx0S8XVGe+tc6bv7QqwwOI5fhwPVKpy35MSKOIKAW/Q94kb/r5E9IsTHL9HwElC/RT0zpWos3ooQMtOu4rXuknXDB7E6wFdHsw7Detqi+TOkL263P/t3eB9zjwjkwtrCDMzpKgK52h/ZTU39nxpZtfoztlsAXsoecualgjDfTLGlppbnZHyt+kCrATvWVfs6EQg4Hf/nSY1a+xCqjCVC2rc/i2Q1Jfs4kTB+0+c+R0=
+  slack: 'hyperledgerproject:azMP8Mw3cfGigXkqi5RujZXr'
   on_success: always
   on_failure: always
