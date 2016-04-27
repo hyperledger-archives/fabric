@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
+
 ## Incubation Notice
 This is a Hyperledger project in Incubation. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what Incubation entails can be found in the Hyperledger Project Lifecycle [document](https://goo.gl/4edNRc).
 
