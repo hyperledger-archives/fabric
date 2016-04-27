@@ -54,10 +54,10 @@ type obcSieve struct {
 
 	persistForward
 
-	executeChan     chan *pbftExecute        // Written to by a go routine from PBFT execute method
-	incomingChan    chan *sieveMsgWithSender // Written to by RecvMsg
-	stateUpdateChan chan *checkpointMessage  // Written to by StateUpdate
-	idleChan        chan struct{}            // Used for detecting thread idleness for testing
+	executeChan     chan *pbftExecute       // Written to by a go routine from PBFT execute method
+	incomingChan    chan *msgWithSender     // Written to by RecvMsg
+	stateUpdateChan chan *checkpointMessage // Written to by StateUpdate
+	idleChan        chan struct{}           // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -65,9 +65,9 @@ type pbftExecute struct {
 	txRaw []byte
 }
 
-type sieveMsgWithSender struct {
-	msg    *SieveMessage
-	sender uint64
+type msgWithSender struct {
+	msg    *pb.Message
+	sender *pb.PeerID
 }
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
@@ -84,7 +84,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.pbft = newPbftCore(id, config, op)
 
 	op.executeChan = make(chan *pbftExecute)
-	op.incomingChan = make(chan *sieveMsgWithSender)
+	op.incomingChan = make(chan *msgWithSender)
 	op.stateUpdateChan = make(chan *checkpointMessage)
 
 	op.idleChan = make(chan struct{})
@@ -101,10 +101,8 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 	return 2*op.pbft.f + 1
 }
 
-// RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
-// the stack. New transaction requests are broadcast to all replicas,
-// so that the current primary will receive the request.
-func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+// recvMsg is the internal handler for messages which come in through RecvMsg
+func (op *obcSieve) recvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
@@ -129,9 +127,35 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 		logger.Error(err.Error())
 		return err
 	}
-	op.incomingChan <- &sieveMsgWithSender{
-		msg:    svMsg,
-		sender: senderID,
+
+	if req := svMsg.GetRequest(); req != nil {
+		op.recvRequest(req)
+	} else if exec := svMsg.GetExecute(); exec != nil {
+		if senderID != exec.ReplicaId {
+			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
+			return err
+		}
+		op.recvExecute(exec)
+	} else if verify := svMsg.GetVerify(); verify != nil {
+		// check for sender not needed since verify messages are signed and will be verified
+		op.recvVerify(verify)
+	} else if pbftMsg := svMsg.GetPbftMessage(); pbftMsg != nil {
+		op.pbft.receive(pbftMsg, senderID)
+	} else {
+		err := fmt.Errorf("Received invalid sieve message: %v", svMsg)
+		logger.Error(err.Error())
+	}
+
+	return nil
+}
+
+// RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
+// the stack. New transaction requests are broadcast to all replicas,
+// so that the current primary will receive the request.
+func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+	op.incomingChan <- &msgWithSender{
+		msg:    ocMsg,
+		sender: senderHandle,
 	}
 
 	return nil
@@ -179,7 +203,7 @@ func (op *obcSieve) viewChange(newView uint64) {
 	op.queuedTx = nil
 	op.imminentEpoch = newView
 
-	// Note, this is only safe because this call is made from the pbft thread
+	// Note, this is safe because this call is made from the pbft thread
 	for idx := range op.pbft.outstandingReqs {
 		delete(op.pbft.outstandingReqs, idx)
 	}
@@ -329,7 +353,8 @@ func (op *obcSieve) processExecute() {
 	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
 
-	op.pbft.startTimer(op.pbft.requestTimeout, fmt.Sprintf("new request %s", op.currentReq))
+	// To prevent races, have the main pbft thread start this timer, as it will need to stop it
+	op.pbft.inject(func() { op.pbft.startTimer(op.pbft.requestTimeout, fmt.Sprintf("new request %s", op.currentReq)) })
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
@@ -488,24 +513,12 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 func (op *obcSieve) main() {
 	for {
 		select {
-		case svMsgWithSender := <-op.incomingChan:
-			if req := svMsgWithSender.msg.GetRequest(); req != nil {
-				op.recvRequest(req)
-			} else if exec := svMsgWithSender.msg.GetExecute(); exec != nil {
-				if svMsgWithSender.sender != exec.ReplicaId {
-					logger.Warning("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, svMsgWithSender.sender)
-					continue
-				}
-				op.recvExecute(exec)
-			} else if verify := svMsgWithSender.msg.GetVerify(); verify != nil {
-				// check for sender not needed since verify messages are signed and will be verified
-				op.recvVerify(verify)
-			} else if pbftMsg := svMsgWithSender.msg.GetPbftMessage(); pbftMsg != nil {
-				op.pbft.receive(pbftMsg, svMsgWithSender.sender)
-			} else {
-				err := fmt.Errorf("Received invalid sieve message: %v", svMsgWithSender.msg)
-				logger.Error(err.Error())
+		case msgWithSender := <-op.incomingChan:
+
+			if err := op.recvMsg(msgWithSender.msg, msgWithSender.sender); nil != err {
+				logger.Error("Could not process message: %v", err)
 			}
+
 		case exec := <-op.executeChan:
 			op.executeImpl(exec.seqNo, exec.txRaw)
 		case <-op.pbft.closed:

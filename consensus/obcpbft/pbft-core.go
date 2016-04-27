@@ -89,7 +89,7 @@ type pbftCore struct {
 	execCompleteChan chan struct{}           // informs the main thread an execution has finished
 
 	idleChan   chan struct{} // Used to detect idleness for testing
-	injectChan chan func()   // Used by the testing framework to inject work for the main thread
+	injectChan chan func()   // Used as a hack to inject work onto the PBFT thread, to be removed eventually
 
 	consumer innerStack
 
@@ -296,7 +296,7 @@ func (instance *pbftCore) main() {
 		case <-instance.execCompleteChan:
 			instance.execDoneSync()
 		case work := <-instance.injectChan:
-			work() // Used to allow the test framework to steal use of the main thread
+			work() // Used to allow the caller to steal use of the main thread
 		case instance.idleChan <- struct{}{}:
 			// Used to detect when this thread is idle for testing
 		}
@@ -304,8 +304,7 @@ func (instance *pbftCore) main() {
 }
 
 // Allows the caller to inject work onto the main thread
-// This is useful for tests which wish to bypass normal message ingress
-// For convenience, this blocks until the work has been carried out
+// This is useful when the caller wants to safely manipulate PBFT state
 func (instance *pbftCore) inject(work func()) {
 	instance.injectChan <- work
 	<-instance.idleChan
@@ -467,7 +466,10 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 // stateUpdate is an event telling us that the application fast-forwarded its state
 func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.stateUpdateChan <- struct{}{}
+	instance.stateUpdateChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
 }
 
 // TODO, this should not return an error

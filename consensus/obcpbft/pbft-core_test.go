@@ -601,6 +601,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	for _, pep := range net.pbftEndpoints {
 		pep.pbft.K = 2
 		pep.pbft.L = 4
+		pep.pbft.requestTimeout = 100 * time.Millisecond
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -662,8 +663,13 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	fmt.Println("Done with stage 2")
 
-	for _, pep := range net.pbftEndpoints {
-		pep.pbft.sendViewChange()
+	for i, pep := range net.pbftEndpoints {
+		if i == 3 {
+			// Replica 3 will have already sent a view change request
+			// advancing its view will delay the test outcome
+			continue
+		}
+		pep.pbft.inject(func() { pep.pbft.sendViewChange() })
 	}
 
 	fmt.Println("Done with stage 3")
