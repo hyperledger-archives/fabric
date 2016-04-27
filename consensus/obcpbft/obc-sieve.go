@@ -328,6 +328,8 @@ func (op *obcSieve) processExecute() {
 	_ = results // XXX what to do?
 	_ = err     // XXX what to do?
 
+	logger.Debug("Sieve replica %d results=%x err=%v", op.id, results, err)
+
 	meta, _ := proto.Marshal(&Metadata{op.lastExecPbftSeqNo})
 	op.currentResult, err = op.stack.PreviewCommitTxBatch(op.currentReq, meta)
 	if err != nil {
@@ -347,8 +349,8 @@ func (op *obcSieve) processExecute() {
 	}
 	op.pbft.sign(verify)
 
-	logger.Debug("Sieve replica %d sending verify blockNo=%d",
-		op.id, verify.BlockNumber)
+	logger.Debug("Sieve replica %d sending verify blockNo=%d with result %x",
+		op.id, verify.BlockNumber, op.currentResult)
 
 	op.recvVerify(verify)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Verify{verify}})
@@ -527,6 +529,8 @@ func (op *obcSieve) main() {
 			return
 		case update := <-op.stateUpdateChan:
 			op.restoreBlockNumber()
+
+			op.lastExecPbftSeqNo = update.seqNo
 
 			op.pbft.stateUpdate(update.seqNo, update.id)
 
@@ -714,6 +718,7 @@ func (op *obcSieve) commit() {
 func (op *obcSieve) restoreBlockNumber() {
 	var err error
 	op.blockNumber, err = op.stack.GetBlockchainSize()
+	op.blockNumber-- // The highest block number is one less than the size
 	if err != nil {
 		logger.Error("Sieve replica %d could not update its blockNumber", op.id)
 		return
