@@ -207,7 +207,6 @@ func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 }
 
 func (net *testnet) process() error {
-	net.debug = true
 	retry := true
 	for {
 		net.debugMsg("TEST: process looping\n")

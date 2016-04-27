@@ -39,20 +39,20 @@ func (ce *consumerEndpoint) stop() {
 
 func (ce *consumerEndpoint) isBusy() bool {
 	if ce.consumer.getPBFTCore().timerActive || ce.consumer.getPBFTCore().currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or currentExec")
+		ce.net.debugMsg("Reporting busy because of timer or currentExec\n")
 		return true
 	}
 
 	select {
 	case <-ce.consumer.idleChannel():
 	default:
-		ce.net.debugMsg("Reporting busy because consumer not idle")
+		ce.net.debugMsg("Reporting busy because consumer not idle\n")
 		return true
 	}
 
 	select {
 	case <-ce.consumer.getPBFTCore().idleChan:
-		ce.net.debugMsg("Reporting busy because pbft not idle")
+		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
 	}

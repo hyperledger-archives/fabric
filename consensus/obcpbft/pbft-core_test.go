@@ -107,7 +107,7 @@ func TestWrongReplicaID(t *testing.T) {
 		ReplicaId: 1,
 	}
 	pbftMsg := &Message{&Message_Request{req}}
-	err := net.pbftEndpoints[0].pbft.recvMsgSync(pbftMsg, 0)
+	err := net.pbftEndpoints[0].pbft.recvMsg(pbftMsg, 0)
 
 	if err == nil {
 		t.Fatalf("Shouldn't have processed message with incorrect replica ID")
