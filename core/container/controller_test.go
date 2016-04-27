@@ -107,11 +107,11 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 	return inputbuf, nil
 }
 
-//change to false to run tests... Tests will create a docker image called "simple"
-var skipTests = true
+//set to true by providing "-run-controller-tests" command line option... Tests will create a docker image called "simple"
+var runTests bool
 func testForSkip(t *testing.T) {
-	//skip tests
-	if skipTests {
+	//run tests
+	if !runTests {
 		t.SkipNow()
 	}
 }

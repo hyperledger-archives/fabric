@@ -22,6 +22,7 @@ package container
 import (
 	"archive/tar"
 	"bytes"
+	"flag"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -32,6 +33,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	flag.BoolVar(&runTests, "run-controller-tests", false, "run tests")
+	flag.Parse()
 	SetupTestConfig()
 	os.Exit(m.Run())
 }
