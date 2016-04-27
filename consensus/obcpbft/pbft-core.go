@@ -894,7 +894,6 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 
 // execDone is an event telling us that the last execution has completed
 func (instance *pbftCore) execDone() {
-	logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
 	instance.execCompleteChan <- struct{}{}
 }
 

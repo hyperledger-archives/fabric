@@ -42,7 +42,7 @@ func (pe *pbftEndpoint) stop() {
 
 func (pe *pbftEndpoint) isBusy() bool {
 	if pe.pbft.timerActive || pe.pbft.currentExec != nil {
-		pe.net.debugMsg("TEST: Returning as busy because timer active or current exec")
+		pe.net.debugMsg("TEST: Returning as busy because timer active (%v) or current exec (%v)\n", pe.pbft.timerActive, pe.pbft.currentExec)
 		return true
 	}
 
@@ -52,7 +52,7 @@ func (pe *pbftEndpoint) isBusy() bool {
 	select {
 	case <-pe.pbft.idleChan:
 	default:
-		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan")
+		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan\n")
 		return true
 	}
 
@@ -116,7 +116,7 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.lastExecution = tx
 	sc.executions++
 	sc.lastSeqNo = seqNo
-	sc.pe.pbft.execDone()
+	go sc.pe.pbft.execDone()
 }
 
 func (sc *simpleConsumer) getState() []byte {

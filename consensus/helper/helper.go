@@ -410,5 +410,9 @@ func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{
 }
 
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
-	logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, m.(uint64), e)
+	if seqNo, ok := m.(uint64); !ok {
+		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
+	} else {
+		logger.Warning("state transfer reported error for block %d, %s", bn, e)
+	}
 }
