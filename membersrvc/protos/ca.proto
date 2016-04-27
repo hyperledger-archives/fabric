@@ -73,6 +73,23 @@ service TLSCAA { // admin service
     rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
 }
 
+// Attribute Certificate Authority (ACA).
+//
+service ACAP { // public service
+    rpc ReadCACertificate(Empty) returns (Cert);
+    rpc CreateCertificatePair(ECertCreateReq) returns (ECertCreateResp);
+    rpc ReadCertificatePair(ECertReadReq) returns (CertPair);
+    rpc ReadCertificateByHash(Hash) returns (Cert);
+    rpc RevokeCertificatePair(ECertRevokeReq) returns (CAStatus); // a user can revoke only his/her own cert
+}
+
+service ACAA { // admin service
+    rpc RegisterUser(RegisterUserReq) returns (Token);
+    rpc ReadUserSet(ReadUserSetReq) returns (UserSet);
+    rpc RevokeCertificate(ECertRevokeReq) returns (CAStatus); // an admin can revoke any cert
+    rpc PublishCRL(ECertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
+}
+
 // Status codes shared by both CAs.
 //
 message CAStatus {
