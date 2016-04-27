@@ -25,7 +25,6 @@ import (
 	"io"
 	"time"
 	"math/big"
-
 	gp "google/protobuf"
 
 	"golang.org/x/crypto/sha3"
@@ -91,4 +90,3 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 	hash := ComputeCryptoHash(b)
 	return hash
 }
-

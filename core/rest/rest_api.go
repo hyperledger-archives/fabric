@@ -184,13 +184,23 @@ func getRESTFilePath() string {
 	return localStore
 }
 
+// Create a new user in the authority database.
+func (s *ServerOpenchainREST) CreateUser(rw web.ResponseWriter, req *web.Request) {
+	s.loginOrCreate(rw, req, true)
+}
+
 // Register confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
+	s.loginOrCreate(rw, req, false)
+}
+
+func (s *ServerOpenchainREST) loginOrCreate(rw web.ResponseWriter, req *web.Request, isNew bool) {
 	restLogger.Info("REST client login...")
 
 	// Decode the incoming JSON payload
 	var loginSpec pb.Secret
+	
 	err := jsonpb.Unmarshal(req.Body, &loginSpec)
 
 	// Check for proper JSON syntax
@@ -238,9 +248,20 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	}
 
 	// User is not logged in, proceed with login
-	restLogger.Info("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
 
-	loginResult, err := s.devops.Login(context.Background(), &loginSpec)
+	
+	var loginResult *pb.Response
+	if isNew { 
+			restLogger.Info("Creating user '%s' on REST interface...\n", loginSpec.EnrollId)
+			// Default role is CLIENT
+			if loginSpec.Role == 0 { 
+				loginSpec.Role = 1
+			}
+			loginResult, err = s.devops.CreateUser(context.Background(), &loginSpec)
+	} else { 
+			restLogger.Info("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
+			loginResult, err = s.devops.Login(context.Background(), &loginSpec)
+	}
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {
@@ -1714,6 +1735,7 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 
 	// Add routes
 	router.Post("/registrar", (*ServerOpenchainREST).Register)
+	router.Post("/registrar/new", (*ServerOpenchainREST).CreateUser)
 	router.Get("/registrar/:id", (*ServerOpenchainREST).GetEnrollmentID)
 	router.Delete("/registrar/:id", (*ServerOpenchainREST).DeleteEnrollmentID)
 	router.Get("/registrar/:id/ecert", (*ServerOpenchainREST).GetEnrollmentCert)

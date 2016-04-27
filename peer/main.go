@@ -56,6 +56,7 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
+	mcobra "github.com/hyperledger/fabric/membersrvc/mcobra"
 	pb "github.com/hyperledger/fabric/protos"
 	"net/http"
 	_ "net/http/pprof"
@@ -122,6 +123,7 @@ var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Logs in a user on CLI.",
 	Long:  `Logs in the local user on CLI. Must supply username as a parameter.`,
+	ValidArgs: []string{"client", "peer", "validator", "auditor"},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("login")
 	},
@@ -162,7 +164,11 @@ var networkCmd = &cobra.Command{
 
 // login related variables.
 var (
-	loginPW string
+	loginPW 		  string
+	loginNewUser	  *bool
+	systemRole		  int32
+	affiliation		  string
+	affiliationRole	  string
 )
 
 // Chaincode-related variables.
@@ -265,7 +271,10 @@ func main() {
 
 	// Set the flags on the login command.
 	loginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
-
+	loginNewUser = loginCmd.PersistentFlags().BoolP("new", "n", false, fmt.Sprintf("Specifies if is a new user or not."))
+	mcobra.AddSystemRoleP(loginCmd.PersistentFlags(), &systemRole, "system-role", "s", "CLIENT", "Specifies the system role could be CLIENT, PEER, VALIDATOR or AUDITOR (Valid to new user).")
+	loginCmd.PersistentFlags().StringVarP(&affiliation, "affiliation", "a", undefinedParamValue, "The entity where user is affiliated (Valid to new user).")
+	loginCmd.PersistentFlags().StringVarP(&affiliationRole, "affiliation-role", "r", undefinedParamValue, "The role of the user into the affiliated entity (Valid to new user).")
 	mainCmd.AddCommand(loginCmd)
 
 	// vmCmd.AddCommand(vmPrimeCmd)
@@ -301,6 +310,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
 	var lis net.Listener
@@ -591,11 +601,122 @@ func stop() (err error) {
 	}
 }
 
+// createUser creates a new user and return the password associated to this user.
+func createUser(args []string) (err error) { 
+	logger.Info("CLI client creating user...")
+	
+	//Check arguments
+	if len(args) < 1 { 
+		err = errors.New("To create a new user 'username' should be passed as parameters.")
+		return
+	}
+	
+	var username string
+
+	username = args[0]
+	
+	if systemRole == 1 && (affiliation == undefinedParamValue || affiliationRole == undefinedParamValue) { 
+		err = errors.New("The clients have to specify the affiliation and the affiliation role.")
+		return 
+	}	
+	
+	var pw1, pw2 []byte
+	if loginPW == undefinedParamValue { 
+		// Prompt for the password
+		fmt.Printf("Enter a password for user '%s': ", username)
+		pw1, err = gopass.GetPasswdMasked()
+		if err != nil { 
+			err = fmt.Errorf("Error trying to read password from console: %s", err)
+			return
+		} 
+		fmt.Printf("Confirm the password for user '%s': ", username)
+		pw2, err = gopass.GetPasswdMasked()
+		if err != nil { 
+			err = fmt.Errorf("Error trying to read password from console: %s", err)
+			return
+		} 
+		
+		if bytes.Compare(pw1, pw2) != 0 { 
+			err = fmt.Errorf("Password does not match the confirm password.")
+			return
+		}
+	} else { 
+		pw1 = []byte(loginPW)
+	}
+
+	
+	var clientConn *grpc.ClientConn
+	// Get a devopsClient to perform the user creation
+	clientConn, err = peer.NewPeerClientConnection()
+	if err != nil {
+		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
+		return
+	}
+	devopsClient := pb.NewDevopsClient(clientConn)
+	
+	
+	req := &pb.Secret{
+		EnrollId: username, 
+		EnrollSecret: string(pw1), 
+		Role: systemRole, 
+		Affiliation: affiliation, 
+		AffiliationRole: affiliationRole}
+	
+	var createResult *pb.Response
+	createResult, err = devopsClient.CreateUser(context.Background(), req)
+	
+	if err != nil {
+		err = fmt.Errorf("Error creating user %s: %s\n", username, err)
+		return
+	}
+	
+	// Check if user creation is successful
+	if createResult.Status == pb.Response_SUCCESS {
+		saveUserToken(args[0])
+		logger.Info("Created user '%s'.\n", args[0])
+	} else {
+		err = fmt.Errorf("Error on client user creation: %s", string(createResult.Msg))
+		return
+	}
+	
+	return nil
+} 
+
+// save the a token to the user <username> on the localstore path.
+func saveUserToken(username string) { 
+	localStore := getCliFilePath()
+	logger.Info("Local data store for client loginToken: %s", localStore)
+	
+	// If /var/hyperledger/production/client/ directory does not exist, create it
+	if _, err := os.Stat(localStore); err != nil {
+		if os.IsNotExist(err) {
+		// Directory does not exist, create it
+			if err := os.Mkdir(localStore, 0755); err != nil {
+					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
+			}
+		} else {
+				// Unexpected error
+				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
+		}
+	}	
+	
+	// Store client security context into a file
+	logger.Info("Storing login token for user '%s'.\n", username)
+	err := ioutil.WriteFile(localStore+"loginToken_"+username, []byte(username), 0755)
+	if err != nil {
+		panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
+	}		
+}
+
 // login confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
 func login(args []string) (err error) {
 	logger.Info("CLI client login...")
 
+	if *loginNewUser { 
+		return createUser(args)	
+	}
+	
 	// Check for username argument
 	if len(args) == 0 {
 		err = errors.New("Must supply username")
@@ -609,7 +730,7 @@ func login(args []string) (err error) {
 	}
 
 	// Retrieve the CLI data storage path
-	// Returns /var/openchain/production/client/
+	// Returns /var/hyperledger/production/client/
 	localStore := getCliFilePath()
 	logger.Info("Local data store for client loginToken: %s", localStore)
 
@@ -649,26 +770,7 @@ func login(args []string) (err error) {
 
 	// Check if login is successful
 	if loginResult.Status == pb.Response_SUCCESS {
-		// If /var/openchain/production/client/ directory does not exist, create it
-		if _, err := os.Stat(localStore); err != nil {
-			if os.IsNotExist(err) {
-				// Directory does not exist, create it
-				if err := os.Mkdir(localStore, 0755); err != nil {
-					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
-				}
-			} else {
-				// Unexpected error
-				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
-			}
-		}
-
-		// Store client security context into a file
-		logger.Info("Storing login token for user '%s'.\n", args[0])
-		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
-		if err != nil {
-			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
-		}
-
+		saveUserToken(args[0])
 		logger.Info("Login successful for user '%s'.\n", args[0])
 	} else {
 		err = fmt.Errorf("Error on client login: %s", string(loginResult.Msg))

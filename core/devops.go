@@ -50,6 +50,23 @@ type Devops struct {
 	coord peer.MessageHandlerCoordinator
 }
 
+func (d *Devops) loginAfterCreate(req *pb.Secret) bool { 
+	return req.Role == 1
+}
+
+// Login establishes the security context with the Devops service
+func (d *Devops) CreateUser(ctx context.Context, req *pb.Secret) (*pb.Response, error) {
+	_, err := crypto.CreateUser(req.EnrollId, []byte(req.EnrollSecret), req.Role, req.Affiliation, req.AffiliationRole)
+	if err != nil { 
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
+	}
+	if d.loginAfterCreate(req) { 
+		return d.Login(ctx, req)
+	} else { 
+		return &pb.Response{Status: pb.Response_SUCCESS, Msg: nil}, nil
+	}
+}
+
 // Login establishes the security context with the Devops service
 func (d *Devops) Login(ctx context.Context, secret *pb.Secret) (*pb.Response, error) {
 	if err := crypto.RegisterClient(secret.EnrollId, nil, secret.EnrollId, secret.EnrollSecret); nil != err {
