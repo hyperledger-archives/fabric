@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
+	"github.com/hyperledger/fabric/consensus/util"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/peer"
 
@@ -76,7 +77,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	pe, _ := handler.peerHandler.To()
 
 	handler.consenterChan = make(chan *util.Message, consensusQueueSize)
-	controller.MessageFan.RegisterChannel(pe.ID, handler.consenterChan)
+	getEngineImpl().consensusFan.RegisterChannel(pe.ID, handler.consenterChan)
 
 	return handler, nil
 }
