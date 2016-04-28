@@ -230,7 +230,7 @@ func initClientLayer() {
 		go clientInstancesCleaner()
 
 		initialized = true
-		log.Debug("Initilize client layer...")
+		log.Debug("Initilize client layer...done!")
 	} else {
 		log.Debug("Client layer already initialized.")
 	}
@@ -238,7 +238,7 @@ func initClientLayer() {
 }
 
 func clientInstancesCleaner() {
-	log.Debug("Client Instanes cleaner starting...")
+	log.Debug("Client Instances cleaner starting...")
 
 	var terminate bool = false
 	for {
@@ -250,12 +250,16 @@ func clientInstancesCleaner() {
 			log.Debug("Time elpased, clean old client instances...")
 
 			cleanOldClientInstances()
+
+			log.Debug("Time elpased, clean old client instances...done!")
 		}
 
 		if terminate {
 			break
 		}
 	}
+
+	log.Debug("Client Instances cleaner starting...done!")
 }
 
 func cleanOldClientInstances() {
