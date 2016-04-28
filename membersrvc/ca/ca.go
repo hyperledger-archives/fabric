@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ca
@@ -51,7 +48,7 @@ type CA struct {
 }
 
 // The certificate spec defines the parameter used to create a new certificate.
-type CertificateSpec struct { 
+type CertificateSpec struct {
 	id string
 	commonName string
 	serialNumber *big.Int
@@ -63,7 +60,7 @@ type CertificateSpec struct {
 }
 
 // AffiliationGroup struct
-type AffiliationGroup struct { 
+type AffiliationGroup struct {
 	name string
 	parentId int64
 	parent *AffiliationGroup
@@ -113,43 +110,43 @@ func NewDefaultCertificateSpecWithCommonName(id string, commonName string, pub i
 	return NewDefaultPeriodCertificateSpecWithCommonName(id, commonName, serialNumber, pub, usage, opt...)
 }
 
-func (spec *CertificateSpec) GetId() string { 
+func (spec *CertificateSpec) GetId() string {
 	return spec.id
 }
 
-func (spec *CertificateSpec) GetCommonName() string { 
+func (spec *CertificateSpec) GetCommonName() string {
 	return spec.commonName
 }
 
-func (spec *CertificateSpec) GetSerialNumber() *big.Int { 
+func (spec *CertificateSpec) GetSerialNumber() *big.Int {
 	return spec.serialNumber
 }
 
-func (spec *CertificateSpec) GetPublicKey() interface{} { 
+func (spec *CertificateSpec) GetPublicKey() interface{} {
 	return spec.pub
 }
 
-func (spec *CertificateSpec) GetUsage() x509.KeyUsage { 
+func (spec *CertificateSpec) GetUsage() x509.KeyUsage {
 	return spec.usage
 }
 
-func (spec *CertificateSpec) GetNotBefore() *time.Time { 
+func (spec *CertificateSpec) GetNotBefore() *time.Time {
 	return spec.NotBefore
 }
 
-func (spec *CertificateSpec) GetNotAfter() *time.Time { 
+func (spec *CertificateSpec) GetNotAfter() *time.Time {
 	return spec.NotAfter
 }
 
-func (spec *CertificateSpec) GetOrganization() string { 
+func (spec *CertificateSpec) GetOrganization() string {
 	return "IBM"
 }
 
-func (spec *CertificateSpec) GetCountry() string { 
+func (spec *CertificateSpec) GetCountry() string {
 	return "US"
 }
 
-func (spec *CertificateSpec) GetSubjectKeyId() *[]byte { 
+func (spec *CertificateSpec) GetSubjectKeyId() *[]byte {
 	return &[]byte{1, 2, 3, 4}
 }
 
@@ -157,7 +154,7 @@ func (spec *CertificateSpec) GetSignatureAlgorithm() x509.SignatureAlgorithm {
 	return x509.ECDSAWithSHA384
 }
 
-func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension { 
+func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
 
@@ -422,7 +419,7 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) isValidAffiliation(affiliation string) (bool, error) { 
+func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 	var count int
 	var err error
 	err = ca.db.QueryRow("SELECT count(row) FROM AffiliationGroups WHERE name=?", affiliation).Scan(&count)
@@ -432,8 +429,8 @@ func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 	return count == 1, nil
 }
 
-func (ca *CA) requireAffiliation(role int) (bool) { 
-	return role != 4 && role != 8 
+func (ca *CA) requireAffiliation(role int) (bool) {
+	return role != 4 && role != 8
 }
 
 func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role int) (string, error) {
@@ -442,28 +439,28 @@ func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role stri
 		if err != nil {
 			return "", err
 		}
-		
-		if !valid { 
+
+		if !valid {
     		return "", errors.New("Invalid affiliation group " + affiliation)
     	}
-		
+
 	    return ca.generateEnrollId(id, affiliation_role, affiliation)
-	} 
-	
+	}
+
 	return "", nil
 }
 
-func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, opt ...string) (string, error) { 
+func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, opt ...string) (string, error) {
     var tok string
     var err error
 	var enrollID string
   	enrollID, err = ca.validateAndGenerateEnrollId(id, affiliation, affiliation_role, role)
 
-    if err != nil { 
+    if err != nil {
     	return "", err
     }
    	tok, err = ca.registerUserWithErollId(id, enrollID, role, opt...)
-   	if err != nil { 
+   	if err != nil {
     	return "", err
     }
    	return tok, nil
@@ -492,7 +489,7 @@ func (ca *CA) registerUserWithErollId(id string, enrollId string, role int, opt 
 	}
 
 	return tok, err
-	
+
 }
 
 func (ca *CA) registerAffiliationGroup(name string, parentName string) (error) {
@@ -505,11 +502,11 @@ func (ca *CA) registerAffiliationGroup(name string, parentName string) (error) {
 	if err != nil {
 			return err
 	}
-	if count > 0 { 
+	if count > 0 {
 		return errors.New("Affiliation group is already registered")
 	}
-	
-	if strings.Compare(parentName, "") != 0 { 
+
+	if strings.Compare(parentName, "") != 0 {
 		err = ca.db.QueryRow("SELECT row FROM AffiliationGroups WHERE name=?", parentName).Scan(&parentId)
 		if err != nil {
 			return err
@@ -517,13 +514,13 @@ func (ca *CA) registerAffiliationGroup(name string, parentName string) (error) {
 	}
 
 	_ , err = ca.db.Exec("INSERT INTO AffiliationGroups (name, parent) VALUES (?, ?)", name, parentId)
-	
+
 	if err != nil {
 		Error.Println(err)
 	}
-	 
+
 	return  err
-	
+
 }
 
 func (ca *CA) deleteUser(id string) error {
@@ -569,60 +566,60 @@ func (ca *CA) readRole(id string) int {
 
 func (ca *CA) readAffiliationGroups() ([]*AffiliationGroup, error) {
 	Trace.Println("Reading affilition groups.")
-	
-	rows, err := ca.db.Query("SELECT row, name, parent FROM AffiliationGroups"); 
-	if err != nil { 
+
+	rows, err := ca.db.Query("SELECT row, name, parent FROM AffiliationGroups");
+	if err != nil {
 		return nil, err;
 	}
 	defer rows.Close()
 	groups := make(map[int64]*AffiliationGroup)
-	
+
 	for rows.Next()  {
 		group := new(AffiliationGroup)
-		var id int64 
+		var id int64
 		if e := rows.Scan(&id, &group.name, &group.parentId); e != nil {
 			return nil, err
 		}
 		groups[id] = group
 	}
-	
-	
+
+
     group_list := make([]*AffiliationGroup, len(groups))
     idx := 0
     for  _, each_group := range groups {
-       each_group.parent = groups[each_group.parentId]	
+       each_group.parent = groups[each_group.parentId]
        group_list[idx] = each_group
        idx++
     }
-	
-	
+
+
 	return group_list, nil
 }
 
 func (ca *CA) generateEnrollId(id string, role string, affiliation string) (string, error) {
 	if id == "" || role == "" || affiliation == "" {
-		return "", errors.New("Please provide all the input parameters, id, role and affiliation")	
+		return "", errors.New("Please provide all the input parameters, id, role and affiliation")
 	}
-		
+
 	if strings.Contains(id, "\\") || strings.Contains(role, "\\") || strings.Contains(affiliation, "\\") {
 		return "", errors.New("Do not include the escape character \\ as part of the values")
 	}
-		
+
 	return id+"\\"+affiliation+"\\"+role, nil
 }
 
 func (ca *CA) parseEnrollId(enrollId string) (id string, role string, affiliation string, err error) {
-	
+
 	if enrollId == "" {
 		return  "", "", "", errors.New("Input parameter missing")
 	}
-	
+
 	enrollIdSections := strings.Split(enrollId, "\\")
-	
+
 	if(len(enrollIdSections) != 3) {
 		return "", "", "", errors.New ("Either the userId, Role or affiliation is missing from the enrollmentID")
 	}
-	
+
 	id = enrollIdSections[0]
 	role = enrollIdSections[2]
 	affiliation = enrollIdSections[1]
