@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -36,8 +37,8 @@ func (ce *consumerEndpoint) stop() {
 	ce.consumer.Close()
 }
 
-func (ce *consumerEndpoint) idleChan() <-chan struct{} {
-	return ce.consumer.idleChan()
+func (ce *consumerEndpoint) isBusy() bool {
+	return ce.consumer.getPBFTCore().timerActive
 }
 
 func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
@@ -48,13 +49,22 @@ type completeStack struct {
 	*consumerEndpoint
 	*noopSecurity
 	*MockLedger
+	mockPersist
+}
+
+func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	go func() {
+		meta := &Metadata{tag}
+		metaRaw, _ := proto.Marshal(meta)
+		cs.simulateStateTransfer(metaRaw, id, peers)
+		cs.consumer.StateUpdate(tag, id)
+	}()
 }
 
 type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
-	idleChan() <-chan struct{}
 	Close()
 }
 

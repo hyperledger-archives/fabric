@@ -31,10 +31,9 @@ import (
 )
 
 type obcBatch struct {
+	obcGeneric
 	stack consensus.Stack
 	pbft  *pbftCore
-
-	startup chan []byte
 
 	batchSize        int
 	batchStore       [][]byte
@@ -42,22 +41,22 @@ type obcBatch struct {
 	batchTimerActive bool
 	batchTimeout     time.Duration
 
-	executor Executor
+	persistForward
 }
 
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 
-	op := &obcBatch{stack: stack}
-	op.startup = make(chan []byte)
+	op := &obcBatch{
+		obcGeneric: obcGeneric{stack},
+		stack:      stack,
+	}
 
-	op.executor = NewOBCExecutor(config, op, stack)
+	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
-	startupInfo := <-op.startup
-	close(op.startup)
 
-	op.pbft = newPbftCore(id, config, op, startupInfo)
+	op.pbft = newPbftCore(id, config, op)
 
 	queueSize := config.GetInt("executor.queuesize")
 	if queueSize <= int(op.pbft.L) {
@@ -76,10 +75,6 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.batchTimer.Stop()
 	go op.batchTimerHander()
 	return op
-}
-
-func (op *obcBatch) Startup(seqNo uint64, id []byte) {
-	op.startup <- id
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
@@ -141,6 +136,11 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
+// StateUpdate is a signal from the stack that it has fast-forwarded its state
+func (op *obcBatch) StateUpdate(seqNo uint64, id []byte) {
+	op.pbft.stateUpdate(seqNo, id)
+}
+
 // Close tells us to release resources we are holding
 func (op *obcBatch) Close() {
 	op.pbft.close()
@@ -185,14 +185,23 @@ func (op *obcBatch) validate(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcBatch) execute(seqNo uint64, tbRaw []byte, execInfo *ExecutionInfo) {
+func (op *obcBatch) execute(seqNo uint64, tbRaw []byte) {
 
 	tb := &pb.TransactionBlock{}
 	if err := proto.Unmarshal(tbRaw, tb); err != nil {
 		return
 	}
 
-	op.executor.Execute(seqNo, tb.Transactions, execInfo)
+	meta, _ := proto.Marshal(&Metadata{seqNo})
+
+	id := []byte("foo")
+	op.stack.BeginTxBatch(id)
+	result, err := op.stack.ExecTxs(id, tb.Transactions)
+	_ = err    // XXX what to do on error?
+	_ = result // XXX what to do with the result?
+	_, err = op.stack.CommitTxBatch(id, meta)
+
+	op.pbft.execDone()
 }
 
 // signal when a view-change happened
@@ -308,26 +317,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
-	op.pbft.Checkpoint(seqNo, id)
-}
-
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
-func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
 func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
 	return
-}
-
-func (op *obcBatch) idleChan() <-chan struct{} {
-	return op.executor.IdleChan()
-}
-
-func (op *obcBatch) getPBFTCore() *pbftCore {
-	return op.pbft
 }

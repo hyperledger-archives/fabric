@@ -28,6 +28,7 @@ import (
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
+	StateUpdate(tag uint64, id []byte)
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -59,6 +60,8 @@ type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
+	GetBlockchainInfoBlob() []byte
+	GetBlockHeadMetadata() ([]byte, error)
 }
 
 // UtilLedger contains additional useful utility functions for interrogating the blockchain
@@ -89,7 +92,9 @@ type Executor interface {
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
+
+	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
@@ -99,16 +104,19 @@ type RemoteLedgers interface {
 	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
-// LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
-type LedgerStack interface {
-	Executor
-	Ledger
-	RemoteLedgers
+type StatePersistor interface {
+	StoreState(key string, value []byte) error
+	ReadState(key string) ([]byte, error)
+	ReadStateSet(prefix string) (map[string][]byte, error)
+	DelState(key string)
 }
 
 // Stack is the set of stack-facing methods available to the consensus plugin
 type Stack interface {
 	NetworkStack
 	SecurityUtils
-	LedgerStack
+	Executor
+	Ledger
+	RemoteLedgers
+	StatePersistor
 }

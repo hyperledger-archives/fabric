@@ -24,13 +24,10 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/controller"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"
-	"sync"
 )
 
 var logger *logging.Logger // package-level logger
@@ -42,12 +39,10 @@ func init() {
 // ConsensusHandler handles consensus messages.
 // It also implements the Stack.
 type ConsensusHandler struct {
-	consenter   consensus.Consenter
+	//	*Helper
 	coordinator peer.MessageHandlerCoordinator
 	peerHandler peer.MessageHandler
 }
-
-var engineConsenterOnce sync.Once
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
 // Is instance of peer.HandlerFactory
@@ -65,8 +60,6 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 
-	handler.consenter = controller.NewConsenter(NewHelper(coord))
-
 	return handler, err
 }
 
@@ -74,7 +67,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 	if msg.Type == pb.Message_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()
-		return handler.consenter.RecvMsg(msg, senderPE.ID)
+		return getEngineImpl().consenter.RecvMsg(msg, senderPE.ID)
 	} else if msg.Type == pb.Message_CHAIN_TRANSACTION {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(msg.Payload, tx)
@@ -122,7 +115,7 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 
 	// Pass the message to the plugin handler (ie PBFT)
 	selfPE, _ := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
-	return handler.consenter.RecvMsg(msg, selfPE.ID)
+	return getEngineImpl().consenter.RecvMsg(msg, selfPE.ID)
 }
 
 func (handler *ConsensusHandler) doChainQuery(tx *pb.Transaction) error {
