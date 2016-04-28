@@ -115,6 +115,10 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
+func (i *Noops) StateUpdate(seqNo uint64, id []byte) {
+	// ignored
+}
+
 func (i *Noops) broadcastConsensusMsg(msg *pb.Message) error {
 	t := &pb.Transaction{}
 	if err := proto.Unmarshal(msg.Payload, t); err != nil {

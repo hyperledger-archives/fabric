@@ -17,35 +17,28 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package controller
+package obcpbft
 
 import (
-	"github.com/op/go-logging"
-	"github.com/spf13/viper"
-	"strings"
-
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/noops"
-	"github.com/hyperledger/fabric/consensus/obcpbft"
 )
 
-var logger *logging.Logger // package-level logger
-var consenter consensus.Consenter
-
-func init() {
-	logger = logging.MustGetLogger("consensus/controller")
+type persistForward struct {
+	persistor consensus.StatePersistor
 }
 
-// NewConsenter constructs a Consenter object if not already present
-func NewConsenter(stack consensus.Stack) consensus.Consenter {
+func (p persistForward) ReadState(key string) ([]byte, error) {
+	return p.persistor.ReadState(key)
+}
 
-	plugin := strings.ToLower(viper.GetString("peer.validator.consensus.plugin"))
-	if plugin == "pbft" {
-		logger.Info("Creating consensus plugin %s", plugin)
-		return obcpbft.GetPlugin(stack)
-	} else {
-		logger.Info("Creating default consensus plugin (noops)")
-		return noops.GetNoops(stack)
-	}
+func (p persistForward) ReadStateSet(prefix string) (map[string][]byte, error) {
+	return p.persistor.ReadStateSet(prefix)
+}
 
+func (p persistForward) StoreState(key string, val []byte) error {
+	return p.persistor.StoreState(key, val)
+}
+
+func (p persistForward) DelState(key string) {
+	p.persistor.DelState(key)
 }
