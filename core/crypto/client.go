@@ -227,7 +227,7 @@ func initClientLayer() {
 		done = make(chan struct{})
 
 		// Start client instances cleaner
-		go clientInstancesCleaner()
+		//go clientInstancesCleaner()
 
 		initialized = true
 		log.Debug("Initilize client layer...done!")
