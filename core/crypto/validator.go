@@ -131,7 +131,7 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func newValidator() *validatorImpl {
-	return &validatorImpl{&peerImpl{&nodeImpl{}, nil, false}, false, nil}
+	return &validatorImpl{&peerImpl{&nodeImpl{}, sync.RWMutex{}, nil, false}, false, nil}
 }
 
 func closeValidatorInternal(peer Peer, force bool) error {
