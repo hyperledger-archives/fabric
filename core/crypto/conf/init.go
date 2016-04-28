@@ -1,3 +1,19 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package conf
 
 import (
@@ -14,7 +30,7 @@ var (
 )
 
 // Init SHA2
-func initSHA2(level int) (err error) { 
+func initSHA2(level int) (err error) {
 	switch level {
 		case 256:
 			defaultCurve = elliptic.P256()
@@ -29,7 +45,7 @@ func initSHA2(level int) (err error) {
 }
 
 // Init SHA3
-func initSHA3(level int) (err error) { 
+func initSHA3(level int) (err error) {
 	switch level {
 		case 256:
 			defaultCurve = elliptic.P256()
@@ -43,8 +59,8 @@ func initSHA3(level int) (err error) {
 	return
 }
 
-// Set the security configuration with the hash length and the algorithm  
-func SetSecurityLevel(algorithm string , level int) (err error) { 
+// SetSecurityLevel Set the security configuration with the hash length and the algorithm
+func SetSecurityLevel(algorithm string , level int) (err error) {
 	switch algorithm {
 		case "SHA2":
 			err = initSHA2(level)
@@ -53,7 +69,7 @@ func SetSecurityLevel(algorithm string , level int) (err error) {
 		default:
 			err = fmt.Errorf("Algorithm not supported [%s]", algorithm)
 		}
-		if err == nil { 
+		if err == nil {
 			hashAlgorithm = algorithm
 			hashLength = level
 		}

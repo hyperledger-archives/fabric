@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package shim
@@ -282,26 +279,26 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
-func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) { 
+func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 	tokens :=  strings.Split(header, "#")
 	answer := make(map[string]int)
-	
+
 	for _, token := range tokens {
 		pair:= strings.Split(token, "->")
-		
+
 		if len(pair) == 2 {
 			key := pair[0]
 			valueStr := pair[1]
 			value, err := strconv.Atoi(valueStr)
-			if err != nil { 
+			if err != nil {
 				return nil, err
 			}
 			answer[key] = value
 		}
 	}
-	
+
 	return answer, nil
-	
+
 }
 
 // Answer all the attributes stored in the CallerCert
@@ -311,23 +308,23 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var header_raw []byte
 	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)	
+	header_str := string(header_raw)
 	var header map[string]int
 	header, err = stub.parseHeader(header_str)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	attributes := make([]string, len(header))
 	count := 0
-	for k,_ := range header { 
+	for k,_ := range header {
 		attributes[count] = k
 		count++
 	}
@@ -341,30 +338,30 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var header_raw []byte
 	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)	
+	header_str := string(header_raw)
 	var header map[string]int
 	header, err = stub.parseHeader(header_str)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
-	position := header[attributeName]
-	
 
-	
+	position := header[attributeName]
+
+
+
 	if position == 0 {
 		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
 	}
 
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-    
+
     var value []byte
     if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
 		return nil, err
