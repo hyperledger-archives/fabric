@@ -49,7 +49,6 @@ before_script:
 script:
 
  - echo "Executing Behave test scripts"
- - ps -ef | grep peer | grep -v grep | kill -9 `awk '{print $2}'`
  - cd $HOME/gopath/src/github.com/hyperledger/fabric/bddtests
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
  - sleep 5
