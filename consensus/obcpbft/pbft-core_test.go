@@ -42,9 +42,9 @@ func init() {
 func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
-	key := "general.mode"                  // for a key that exists
+	key := "general.mode"               // for a key that exists
 	envName := "CORE_PBFT_GENERAL_MODE" // env override name
-	overrideValue := "overide_test"        // value to override default value with
+	overrideValue := "overide_test"     // value to override default value with
 
 	// test key
 	if ok := config.IsSet("general.mode"); !ok {
@@ -212,7 +212,7 @@ func TestCheckpoint(t *testing.T) {
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -284,7 +284,7 @@ func TestLostPrePrepare(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	req := &Request{
@@ -332,7 +332,7 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	makePP := func(iter int64) *PrePrepare {
@@ -374,6 +374,132 @@ func TestInconsistentPrePrepare(t *testing.T) {
 	}
 }
 
+// This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeWatermarksMovement(t *testing.T) {
+	instance := &pbftCore{
+		f:            1,
+		N:            4,
+		replicaCount: 4,
+		id:           0,
+		activeView:   false,
+		view:         1,
+		lastExec:     10,
+		newViewStore: make(map[uint64]*NewView),
+		consumer: &omniProto{
+			viewChangeImpl: func(v uint64) {},
+			skipToImpl: func(s uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+				t.Fatalf("Should not have attempted to initiate state transfer")
+			},
+		},
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 10
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 10
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 10
+	vset[2] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      make(map[uint64]string),
+		ReplicaId: 1,
+	}
+
+	if nil != instance.processNewView() {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	expected := uint64(10)
+	if instance.h != expected {
+		t.Fatalf("Expected to move high watermark to %d, but picked %d", expected, instance.h)
+	}
+}
+
+// This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeCheckpointSelection(t *testing.T) {
+	instance := &pbftCore{
+		f:  1,
+		N:  4,
+		id: 0,
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 5
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 5
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 15
+	vset[2] = &ViewChange{
+		H: 10,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 15,
+				Id:             "fifteen",
+			},
+		},
+	}
+
+	checkpoint, ok, _ := instance.selectInitialCheckpoint(vset)
+
+	if !ok {
+		t.Fatalf("Failed to pick correct a checkpoint for view change")
+	}
+
+	expected := uint64(10)
+	if checkpoint.SequenceNumber != expected {
+		t.Fatalf("Expected to pick checkpoint %d, but picked %d", expected, checkpoint.SequenceNumber)
+	}
+}
+
 func TestViewChange(t *testing.T) {
 	validatorCount := 4
 	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
@@ -384,7 +510,7 @@ func TestViewChange(t *testing.T) {
 
 	execReq := func(iter int64) {
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -436,7 +562,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	makePP := func(iter int64) *PrePrepare {
@@ -507,7 +633,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	broadcaster := uint64(generateBroadcaster(validatorCount))
@@ -618,7 +744,7 @@ func TestNewViewTimeout(t *testing.T) {
 	broadcaster := uint64(generateBroadcaster(validatorCount))
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 	msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: broadcaster}}}
 	msgPacked, _ := proto.Marshal(msg)
@@ -704,6 +830,42 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	}
 }
 
+// Test for issue #1119
+func TestSendQueueThrottling(t *testing.T) {
+	prePreparesSent := 0
+
+	mock := &omniProto{}
+	instance := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	instance.consumer = &omniProto{
+		validateImpl: func(p []byte) error { return nil },
+		broadcastImpl: func(p []byte) {
+			prePreparesSent++
+		},
+	}
+	defer instance.close()
+
+	i := 0
+	sendReq := func() {
+		i++
+		instance.recvRequest(&Request{
+			Timestamp: &gp.Timestamp{Seconds: int64(i), Nanos: 0},
+			Payload:   []byte(fmt.Sprintf("%d", i)),
+		})
+	}
+
+	for j := 0; j < 4; j++ {
+		sendReq()
+	}
+
+	expected := 2
+	if prePreparesSent != expected {
+		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
+	}
+}
+
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
@@ -759,7 +921,7 @@ func TestFallBehind(t *testing.T) {
 	execReq := func(iter int64, skipThree bool) {
 		// Create a message of type `Message_CHAIN_TRANSACTION`
 		txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 		txPacked, err := proto.Marshal(tx)
 		if err != nil {
 			t.Fatalf("Failed to marshal TX block: %s", err)
@@ -834,7 +996,7 @@ func TestPbftF0(t *testing.T) {
 
 	// Create a message of type: `Message_CHAIN_TRANSACTION`
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime, Payload: []byte("TestNetwork")}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime, Payload: []byte("TestNetwork")}
 	txPacked, err := proto.Marshal(tx)
 	if err != nil {
 		t.Fatalf("Failed to marshal TX block: %s", err)
@@ -887,7 +1049,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 	defer instance.close()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_NEW, Timestamp: txTime}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
 	txPacked, _ := proto.Marshal(tx)
 
 	req := &Request{

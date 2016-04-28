@@ -24,12 +24,13 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/controller"
+	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"
+	"sync"
 )
 
 var logger *logging.Logger // package-level logger
@@ -45,6 +46,8 @@ type ConsensusHandler struct {
 	coordinator peer.MessageHandlerCoordinator
 	peerHandler peer.MessageHandler
 }
+
+var engineConsenterOnce sync.Once
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
 // Is instance of peer.HandlerFactory
@@ -64,7 +67,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
 
-	return handler, nil
+	return handler, err
 }
 
 // HandleMessage handles the incoming Fabric messages for the Peer
@@ -72,38 +75,36 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 	if msg.Type == pb.Message_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()
 		return handler.consenter.RecvMsg(msg, senderPE.ID)
+	} else if msg.Type == pb.Message_CHAIN_TRANSACTION {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(msg.Payload, tx)
+		if err == nil {
+			if tx.Type == pb.Transaction_CHAINCODE_QUERY {
+				return handler.doChainQuery(tx)
+			} else {
+				return handler.doChainTransaction(msg, tx)
+			}
+		}
 	}
-	if msg.Type == pb.Message_CHAIN_TRANSACTION {
-		return handler.doChainTransaction(msg)
-	}
-	if msg.Type == pb.Message_CHAIN_QUERY {
-		return handler.doChainQuery(msg)
-	}
+
 	if logger.IsEnabledFor(logging.DEBUG) {
 		logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	}
 	return handler.peerHandler.HandleMessage(msg)
 }
 
-func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message) error {
+func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Transaction) error {
 	var response *pb.Response
-	tx := &pb.Transaction{}
-
-	err := proto.Unmarshal(msg.Payload, tx)
-	if err != nil {
-		response = &pb.Response{Status: pb.Response_FAILURE,
-			Msg: []byte(fmt.Sprintf("Error unmarshalling payload Message:%s.", msg.Type))}
-	} else {
-		// Verify transaction signature if security is enabled
-		secHelper := handler.coordinator.GetSecHelper()
-		if nil != secHelper {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Verifying transaction signature %s", tx.Uuid)
-			}
-			if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
-				logger.Debug("Failed to verify transaction %v", err)
-			}
+	// Verify transaction signature if security is enabled
+	secHelper := handler.coordinator.GetSecHelper()
+	if nil != secHelper {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Verifying transaction signature %s", tx.Uuid)
+		}
+		var err error
+		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+			logger.Debug("Failed to verify transaction %v", err)
 		}
 	}
 	// Send response back to the requester
@@ -111,7 +112,7 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message) error {
 	if nil == response {
 		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
 	}
-	payload, err := proto.Marshal(response)
+	payload, _ := proto.Marshal(response)
 	handler.SendMessage(&pb.Message{Type: pb.Message_RESPONSE, Payload: payload})
 
 	// If we fail to marshal or verify the tx, don't send it to consensus plugin
@@ -124,37 +125,32 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message) error {
 	return handler.consenter.RecvMsg(msg, selfPE.ID)
 }
 
-func (handler *ConsensusHandler) doChainQuery(msg *pb.Message) error {
+func (handler *ConsensusHandler) doChainQuery(tx *pb.Transaction) error {
 	var response *pb.Response
-	tx := &pb.Transaction{}
-	err := proto.Unmarshal(msg.Payload, tx)
-	if err != nil {
-		response = &pb.Response{Status: pb.Response_FAILURE,
-			Msg: []byte(fmt.Sprintf("Error unmarshalling payload of received Message:%s.", msg.Type))}
-	} else {
-		// Verify transaction signature if security is enabled
-		secHelper := handler.coordinator.GetSecHelper()
-		if nil != secHelper {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Verifying transaction signature %s", tx.Uuid)
-			}
-			if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
-				logger.Debug("Failed to verify transaction %v", err)
-			}
+	var err error
+	// Verify transaction signature if security is enabled
+	secHelper := handler.coordinator.GetSecHelper()
+	if nil != secHelper {
+		if logger.IsEnabledFor(logging.DEBUG) {
+			logger.Debug("Verifying transaction signature %s", tx.Uuid)
 		}
-		// execute if response nil (ie, no error)
-		if nil == response {
-			// The secHelper is set during creat ChaincodeSupport, so we don't need this step
-			// cxt := context.WithValue(context.Background(), "security", secHelper)
-			cxt := context.Background()
-			result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
-			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE,
-					Msg: []byte(fmt.Sprintf("Error:%s", err))}
-			} else {
-				response = &pb.Response{Status: pb.Response_SUCCESS, Msg: result}
-			}
+		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
+			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+			logger.Debug("Failed to verify transaction %v", err)
+		}
+
+	}
+	// execute if response nil (ie, no error)
+	if nil == response {
+		// The secHelper is set during creat ChaincodeSupport, so we don't need this step
+		// cxt := context.WithValue(context.Background(), "security", secHelper)
+		cxt := context.Background()
+		result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
+		if err != nil {
+			response = &pb.Response{Status: pb.Response_FAILURE,
+				Msg: []byte(fmt.Sprintf("Error:%s", err))}
+		} else {
+			response = &pb.Response{Status: pb.Response_SUCCESS, Msg: result}
 		}
 	}
 	payload, _ := proto.Marshal(response)

@@ -36,8 +36,17 @@ func Init() (err error) {
 			securityLevel = ovveride
 		}
 	}
+	
+	hashAlgorithm := "SHA3"
+	if viper.IsSet("security.hashAlgorithm") {
+		ovveride := viper.GetString("security.hashAlgorithm")
+		if ovveride != "" {
+			hashAlgorithm = ovveride
+		}
+	}
+	
 	log.Debug("Working at security level [%d]", securityLevel)
-	if err = conf.InitSecurityLevel(securityLevel); err != nil {
+	if err = conf.InitSecurityLevel(hashAlgorithm, securityLevel); err != nil {
 		log.Debug("Failed setting security level: [%s]", err)
 
 		return

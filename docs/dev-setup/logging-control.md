@@ -2,7 +2,7 @@
 
 ### Overview
 
-Logging in the `obc-peer` application and in the _shim_ interface to
+Logging in the `peer` application and in the _shim_ interface to
 chaincodes is programmed using facilities provided by the
 `github.com/op/go-logging` package. This package supports
 
@@ -31,14 +31,14 @@ An arbitrary number of logging modules can be created at runtime, therefore
 there is no "master list" of modules, and logging control constructs can not
 check whether logging modules actually do or will exist.
 
-### OBC-PEER
+### PEER
 
-The logging level of the `obc-peer` command can be controlled from the command
+The logging level of the `peer` command can be controlled from the command
 line for each invocation using the `--logging-level` flag, for example
 
-    obc-peer peer --logging-level=debug
+    peer peer --logging-level=debug
 	
-The default logging level for each individual `obc-peer` subcommand can also
+The default logging level for each individual `peer` subcommand can also
 be set in the **openchain.yaml** file. For example the key `logging.peer` sets
 the default level for the `peer` subcommmand.
 
@@ -47,7 +47,7 @@ from
 
     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
 
-The full logging level specification for the `obc-peer` is of the form
+The full logging level specification for the `peer` is of the form
 
     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
 

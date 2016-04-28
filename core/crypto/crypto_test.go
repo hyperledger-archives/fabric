@@ -32,10 +32,10 @@ import (
 	"testing"
 
 	"crypto/rand"
-	"github.com/op/go-logging"
-	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/membersrvc/ca"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -284,6 +284,37 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed checking transaction [%s].", err)
 		}
+	}
+}
+
+func TestClientGetAttributesFromTCert(t *testing.T) {
+	tcert, err := deployer.GetNextTCert()
+
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if tcert == nil {
+		t.Fatalf("TCert should be different from nil")
+	}
+
+	tcertDER := tcert.GetCertificate().Raw
+
+	if tcertDER == nil {
+		t.Fatalf("Cert should be different from nil")
+	}
+	if len(tcertDER) == 0 {
+		t.Fatalf("Cert should have length > 0")
+	}
+
+	attributeBytes, err := deployer.ReadAttribute("company", tcertDER)
+	if err != nil {
+		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
+	}
+
+	attributeValue := string(attributeBytes[:len(attributeBytes)])
+
+	if attributeValue != "IBM" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
 	}
 }
 
@@ -549,16 +580,56 @@ func TestPeerStateEncryptor(t *testing.T) {
 func TestPeerSignVerify(t *testing.T) {
 	msg := []byte("Hello World!!!")
 	signature, err := peer.Sign(msg)
-	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
+	if err != nil {
+		t.Fatalf("TestSign: failed generating signature [%s].", err)
 	}
-	if signature != nil {
-		t.Fatalf("Result must be nil")
+
+	err = peer.Verify(peer.GetID(), signature, msg)
+	if err != nil {
+		t.Fatalf("TestSign: failed validating signature [%s].", err)
+	}
+
+	signature, err = validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("TestSign: failed generating signature [%s].", err)
 	}
 
 	err = peer.Verify(validator.GetID(), signature, msg)
-	if err != utils.ErrNotImplemented {
-		t.Fatalf("Error must be ErrNotImplemented [%s].", err)
+	if err != nil {
+		t.Fatalf("TestSign: failed validating signature [%s].", err)
+	}
+}
+
+func TestPeerVerify(t *testing.T) {
+	msg := []byte("Hello World!!!")
+	signature, err := validator.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed generating signature [%s].", err)
+	}
+
+	err = peer.Verify(nil, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an empty id.", err)
+	}
+
+	err = peer.Verify(msg, signature, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid id.", err)
+	}
+
+	err = peer.Verify(validator.GetID(), nil, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = peer.Verify(validator.GetID(), msg, msg)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid signature.", err)
+	}
+
+	err = peer.Verify(validator.GetID(), signature, nil)
+	if err == nil {
+		t.Fatalf("Verify should fail when given an invalid messahe.", err)
 	}
 }
 
@@ -1135,7 +1206,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1222,7 +1293,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1359,7 +1430,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1471,7 +1542,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 		},
 	}
 
-	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_EXECUTE)
+	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
 		return nil, nil, err
 	}

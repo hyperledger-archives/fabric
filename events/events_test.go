@@ -148,7 +148,7 @@ func TestMain(m *testing.M) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress = "0.0.0.0:40303"
+	peerAddress = "0.0.0.0:50303"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {

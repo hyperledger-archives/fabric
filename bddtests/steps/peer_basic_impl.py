@@ -85,6 +85,13 @@ def buildUrl(context, ipAddress, path):
         schema = "https"
     return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
 
+def getDockerComposeFileArgsFromYamlFile(compose_yaml):
+    parts = compose_yaml.split()
+    args = []
+    for part in parts:
+        args = args + ["-f"] + [part]
+    return args
+
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
 	# Use the uninstalled version of `cf active-deploy` rather than the installed version on the OS $PATH
@@ -93,8 +100,9 @@ def step_impl(context, composeYamlFile):
     # Expand $vars, e.g. "--path $PATH" becomes "--path /bin"
     #args = re.sub('\$\w+', lambda v: os.getenv(v.group(0)[1:]), composeYamlFile)
     context.compose_yaml = composeYamlFile
+    fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     context.compose_output, context.compose_error, context.compose_returncode = \
-        bdd_test_util.cli_call(context, ["docker-compose", "-f", composeYamlFile, "up","--force-recreate", "-d"], expect_success=True)
+        bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
 
@@ -113,6 +121,12 @@ def step_impl(context, attribute, expectedValue):
     assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
     foundValue = context.response.json()[attribute]
     assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+
+@then(u'I should get a JSON response with array "{attribute}" contains "{expectedValue}" elements')
+def step_impl(context, attribute, expectedValue):
+    assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
+    foundValue = context.response.json()[attribute]
+    assert (len(foundValue) == int(expectedValue)), "For attribute %s, expected array of size (%s), instead found (%s)" % (attribute, expectedValue, len(foundValue))
 
 
 @given(u'I wait "{seconds}" seconds')
@@ -396,7 +410,7 @@ def step_impl(context, chaincodeName, functionName, value):
         print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
         request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
         print("POSTing path = {0}".format(request_url))
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=3, verify=False)
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=30, verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))

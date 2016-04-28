@@ -1,3 +1,5 @@
 [behave]
 tags=~@issue_724
-tags=-wip
+			~@issue_767
+			~@issueUtxo
+			~@issue_477

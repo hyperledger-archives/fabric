@@ -58,15 +58,15 @@ func SetupTestConfig() {
 	flag.Parse()
 
 	// Now set the configuration file
-	viper.SetEnvPrefix("HYPERLEDGER")
+	viper.SetEnvPrefix("CORE")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("core") // name of config file (without extension)
-	viper.AddConfigPath("./")        // path to look for the config file in
-	viper.AddConfigPath("./../../")  // path to look for the config file in
-	err := viper.ReadInConfig()      // Find and read the config file
-	if err != nil {                  // Handle errors reading the config file
+	viper.SetConfigName("core")          // name of config file (without extension)
+	viper.AddConfigPath("./")            // path to look for the config file in
+	viper.AddConfigPath("./../../peer/") // path to look for the config file in
+	err := viper.ReadInConfig()          // Find and read the config file
+	if err != nil {                      // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 

@@ -22,29 +22,30 @@ var _ = math.Inf
 type Transaction_Type int32
 
 const (
-	Transaction_UNDEFINED           Transaction_Type = 0
-	Transaction_CHAINCODE_NEW       Transaction_Type = 1
-	Transaction_CHAINCODE_UPDATE    Transaction_Type = 2
-	Transaction_CHAINCODE_EXECUTE   Transaction_Type = 3
-	Transaction_CHAINCODE_QUERY     Transaction_Type = 4
-	Transaction_CHAINCODE_TERMINATE Transaction_Type = 5
+	Transaction_UNDEFINED Transaction_Type = 0
+	// deploy a chaincode to the network and call `Init` function
+	Transaction_CHAINCODE_DEPLOY Transaction_Type = 1
+	// call a chaincode `Invoke` function as a transaction
+	Transaction_CHAINCODE_INVOKE Transaction_Type = 2
+	// call a chaincode `query` function
+	Transaction_CHAINCODE_QUERY Transaction_Type = 3
+	// terminate a chaincode; not implemented yet
+	Transaction_CHAINCODE_TERMINATE Transaction_Type = 4
 )
 
 var Transaction_Type_name = map[int32]string{
 	0: "UNDEFINED",
-	1: "CHAINCODE_NEW",
-	2: "CHAINCODE_UPDATE",
-	3: "CHAINCODE_EXECUTE",
-	4: "CHAINCODE_QUERY",
-	5: "CHAINCODE_TERMINATE",
+	1: "CHAINCODE_DEPLOY",
+	2: "CHAINCODE_INVOKE",
+	3: "CHAINCODE_QUERY",
+	4: "CHAINCODE_TERMINATE",
 }
 var Transaction_Type_value = map[string]int32{
 	"UNDEFINED":           0,
-	"CHAINCODE_NEW":       1,
-	"CHAINCODE_UPDATE":    2,
-	"CHAINCODE_EXECUTE":   3,
-	"CHAINCODE_QUERY":     4,
-	"CHAINCODE_TERMINATE": 5,
+	"CHAINCODE_DEPLOY":    1,
+	"CHAINCODE_INVOKE":    2,
+	"CHAINCODE_QUERY":     3,
+	"CHAINCODE_TERMINATE": 4,
 }
 
 func (x Transaction_Type) String() string {
@@ -83,10 +84,7 @@ const (
 	Message_DISC_GET_PEERS          Message_Type = 3
 	Message_DISC_PEERS              Message_Type = 4
 	Message_DISC_NEWMSG             Message_Type = 5
-	Message_CHAIN_STATUS            Message_Type = 6
-	Message_CHAIN_TRANSACTION       Message_Type = 7
-	Message_CHAIN_GET_TRANSACTIONS  Message_Type = 8
-	Message_CHAIN_QUERY             Message_Type = 9
+	Message_CHAIN_TRANSACTION       Message_Type = 6
 	Message_SYNC_GET_BLOCKS         Message_Type = 11
 	Message_SYNC_BLOCKS             Message_Type = 12
 	Message_SYNC_BLOCK_ADDED        Message_Type = 13
@@ -105,10 +103,7 @@ var Message_Type_name = map[int32]string{
 	3:  "DISC_GET_PEERS",
 	4:  "DISC_PEERS",
 	5:  "DISC_NEWMSG",
-	6:  "CHAIN_STATUS",
-	7:  "CHAIN_TRANSACTION",
-	8:  "CHAIN_GET_TRANSACTIONS",
-	9:  "CHAIN_QUERY",
+	6:  "CHAIN_TRANSACTION",
 	11: "SYNC_GET_BLOCKS",
 	12: "SYNC_BLOCKS",
 	13: "SYNC_BLOCK_ADDED",
@@ -126,10 +121,7 @@ var Message_Type_value = map[string]int32{
 	"DISC_GET_PEERS":          3,
 	"DISC_PEERS":              4,
 	"DISC_NEWMSG":             5,
-	"CHAIN_STATUS":            6,
-	"CHAIN_TRANSACTION":       7,
-	"CHAIN_GET_TRANSACTIONS":  8,
-	"CHAIN_QUERY":             9,
+	"CHAIN_TRANSACTION":       6,
 	"SYNC_GET_BLOCKS":         11,
 	"SYNC_BLOCKS":             12,
 	"SYNC_BLOCK_ADDED":        13,
@@ -240,7 +232,7 @@ func (*TransactionResult) ProtoMessage()    {}
 // transactions - The ordered list of transactions in the block.
 // stateHash - The state hash after running transactions in this block.
 // previousBlockHash - The hash of the previous block in the chain.
-// consensusMetadata - Consensus modules may optionaly store any
+// consensusMetadata - Consensus modules may optionally store any
 // additional metadata in this field.
 // nonHashData - Data stored with the block, but not included in the blocks
 // hash. This allows this data to be different per peer or discarded without
@@ -565,6 +557,8 @@ type PeerClient interface {
 	// Accepts a stream of Message during chat session, while receiving
 	// other Message (e.g. from other peers).
 	Chat(ctx context.Context, opts ...grpc.CallOption) (Peer_ChatClient, error)
+	// Process a transaction from a remote source.
+	ProcessTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*Response, error)
 }
 
 type peerClient struct {
@@ -606,12 +600,23 @@ func (x *peerChatClient) Recv() (*Message, error) {
 	return m, nil
 }
 
+func (c *peerClient) ProcessTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := grpc.Invoke(ctx, "/protos.Peer/ProcessTransaction", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Peer service
 
 type PeerServer interface {
 	// Accepts a stream of Message during chat session, while receiving
 	// other Message (e.g. from other peers).
 	Chat(Peer_ChatServer) error
+	// Process a transaction from a remote source.
+	ProcessTransaction(context.Context, *Transaction) (*Response, error)
 }
 
 func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
@@ -644,10 +649,27 @@ func (x *peerChatServer) Recv() (*Message, error) {
 	return m, nil
 }
 
+func _Peer_ProcessTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Transaction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(PeerServer).ProcessTransaction(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Peer_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protos.Peer",
 	HandlerType: (*PeerServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ProcessTransaction",
+			Handler:    _Peer_ProcessTransaction_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Chat",

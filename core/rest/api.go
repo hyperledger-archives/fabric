@@ -37,9 +37,10 @@ var (
 	ErrNotFound = errors.New("openchain: resource not found")
 )
 
-// PeerInfo
+// PeerInfo defines API to peer info data
 type PeerInfo interface {
 	GetPeers() (*pb.PeersMessage, error)
+	GetPeerEndpoint() (*pb.PeerEndpoint, error)
 }
 
 // ServerOpenchain defines the Openchain server object, which holds the
@@ -104,7 +105,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 	// individual transaction.
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
-		if transaction.Type == pb.Transaction_CHAINCODE_NEW {
+		if transaction.Type == pb.Transaction_CHAINCODE_DEPLOY {
 			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {
@@ -161,4 +162,16 @@ func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID strin
 // GetPeers returns a list of all peer nodes currently connected to the target peer.
 func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
 	return s.peerInfo.GetPeers()
+}
+
+// GetPeerEndpoint returns PeerEndpoint info of target peer.
+func (s *ServerOpenchain) GetPeerEndpoint(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+	peers := []*pb.PeerEndpoint{}
+	peerEndpoint, err := s.peerInfo.GetPeerEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	peers = append(peers, peerEndpoint)
+	peersMessage := &pb.PeersMessage{Peers: peers}
+	return peersMessage, nil
 }

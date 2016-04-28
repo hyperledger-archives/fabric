@@ -21,6 +21,7 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"google/protobuf"
 	"io"
@@ -73,7 +74,37 @@ type rpcRequest struct {
 	Jsonrpc *string           `json:"jsonrpc,omitempty"`
 	Method  *string           `json:"method,omitempty"`
 	Params  *pb.ChaincodeSpec `json:"params,omitempty"`
-	ID      *int64            `json:"id,omitempty"`
+	ID      *rpcID            `json:"id,omitempty"`
+}
+
+type rpcID struct {
+	StringValue *string
+	IntValue    *int64
+}
+
+func (id *rpcID) UnmarshalJSON(b []byte) error {
+	var err error
+	s, n := "", int64(0)
+
+	if err = json.Unmarshal(b, &s); err == nil {
+		id.StringValue = &s
+		return nil
+	}
+	if err = json.Unmarshal(b, &n); err == nil {
+		id.IntValue = &n
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s into Go value of type int64 or string", string(b))
+}
+
+func (id *rpcID) MarshalJSON() ([]byte, error) {
+	if id.StringValue != nil {
+		return json.Marshal(id.StringValue)
+	}
+	if id.IntValue != nil {
+		return json.Marshal(id.IntValue)
+	}
+	return nil, errors.New("cannot marshal rpcID")
 }
 
 // rpcResponse defines the JSON RPC 2.0 response payload for the /chaincode endpoint.
@@ -81,7 +112,7 @@ type rpcResponse struct {
 	Jsonrpc string     `json:"jsonrpc,omitempty"`
 	Result  *rpcResult `json:"result,omitempty"`
 	Error   *rpcError  `json:"error,omitempty"`
-	ID      *int64     `json:"id"`
+	ID      *rpcID     `json:"id"`
 }
 
 // rpcResult defines the structure for an rpc sucess/error result message.
@@ -1621,9 +1652,10 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 	return result
 }
 
-// GetPeers returns a list of all peer nodes currently connected to the target peer.
+// GetPeers returns a list of all peer nodes currently connected to the target peer, including itself
 func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) {
 	peers, err := s.server.GetPeers(context.Background(), &google_protobuf.Empty{})
+	currentPeer, err1 := s.server.GetPeerEndpoint(context.Background(), &google_protobuf.Empty{})
 
 	encoder := json.NewEncoder(rw)
 
@@ -1633,10 +1665,28 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 		restLogger.Error(fmt.Sprintf("{\"Error\": \"Querying network peers -- %s\"}", err))
+	} else if err1 != nil {
+		// Failure
+		rw.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err1)
+		restLogger.Error(fmt.Sprintf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1))
 	} else {
+		currentPeerFound := false
+		peersList := peers.Peers
+		for _, peer := range peers.Peers {
+			for _, cPeer := range currentPeer.Peers {
+				if *peer.GetID() == *cPeer.GetID() {
+					currentPeerFound = true
+				}
+			}
+		}
+		if currentPeerFound == false {
+			peersList = append(peersList, currentPeer.Peers...)
+		}
+		peersMessage := &pb.PeersMessage{Peers: peersList}
 		// Success
 		rw.WriteHeader(http.StatusOK)
-		encoder.Encode(peers)
+		encoder.Encode(peersMessage)
 	}
 }
 

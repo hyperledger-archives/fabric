@@ -25,14 +25,15 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/looplab/fsm"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/looplab/fsm"
 )
 
 // PeerChaincodeStream interface for stream between Peer and chaincode instance.
 type PeerChaincodeStream interface {
 	Send(*pb.ChaincodeMessage) error
 	Recv() (*pb.ChaincodeMessage, error)
+	CloseSend() error
 }
 
 type nextStateInfo struct {
@@ -140,9 +141,8 @@ func (handler *Handler) deleteIsTransaction(uuid string) {
 }
 
 // NewChaincodeHandler returns a new instance of the shim side handler.
-func newChaincodeHandler(to string, peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
+func newChaincodeHandler(peerChatStream PeerChaincodeStream, chaincode Chaincode) *Handler {
 	v := &Handler{
-		To:         to,
 		ChatStream: peerChatStream,
 		cc:         chaincode,
 	}
@@ -224,7 +224,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Run(stub, input.Function, input.Args)
+		res, err := handler.cc.Init(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -291,7 +291,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Run(stub, input.Function, input.Args)
+		res, err := handler.cc.Invoke(stub, input.Function, input.Args)
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)

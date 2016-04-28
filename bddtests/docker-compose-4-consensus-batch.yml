@@ -11,8 +11,12 @@ vp0:
     - CORE_PEER_ID=vp0
     - CORE_SECURITY_ENROLLID=test_vp0
     - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
+    - CORE_PEER_PROFILE_ENABLED=true
   links:
     - membersrvc0
+  ports:  
+    - 5000:6060
+
 
 vp1:
   extends:

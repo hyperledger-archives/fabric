@@ -17,7 +17,7 @@ This document covers the available APIs for interacting with a peer node. Three 
 
 To view the currently available CLI commands, execute the following:
 
-    cd /opt/gopath/src/github.com/hyperledger/fabric
+    cd /opt/gopath/src/github.com/hyperledger/fabric/peer
     ./peer
 
 You will see output similar to the example below (**NOTE:** rootcommand below is hardcoded in [main.go](https://github.com/hyperledger/fabric/blob/master/main.go). Currently, the build will create a *peer* executable file).
@@ -76,7 +76,7 @@ With security enabled, modify the command to include the -u parameter passing th
 
 ### Verify Results
 
-To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validating or a non-validating node. In the example below, 172.17.0.2 is the IP address of a validating or a non-validating node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml).
+To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validating or a non-validating node. In the example below, 172.17.0.2 is the IP address of a validating or a non-validating node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml).
 
 `curl 172.17.0.2:5000/chain`
 
@@ -139,7 +139,7 @@ For additional information on the available CLI commands, please see the [protoc
 
 You can work with the REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
-**Note:** The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
+**Note:** The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another  port number of your choice.
 
 **Note on constructing a test blockchain** If you want to test the REST API locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
 
@@ -566,7 +566,7 @@ message PeerID {
 
 Use the Registrar APIs to manage end user registration with the CA. These API endpoints are used to register a user with the CA, determine whether a given user is registered, and to remove any login tokens for a target user preventing them from executing any further transactions. The Registrar APIs are also used to retrieve user enrollment and transaction certificates from the system.
 
-The /registrar enpoint is used to register a user with the CA. The required Secret payload is defined in [devops.proto](https://github.com/hyperledger/fabric/blob/master/protos/devops.proto#L50).
+The /registrar endpoint is used to register a user with the CA. The required Secret payload is defined in [devops.proto](https://github.com/hyperledger/fabric/blob/master/protos/devops.proto#L50).
 
 ```
 message Secret {
@@ -590,7 +590,7 @@ The DELETE /registrar/{enrollmentID} endpoint is used to delete login tokens for
 
 The GET /registrar/{enrollmentID}/ecert endpoint is used to retrieve the enrollment certificate of a given user from local storage. If the target user has already registered with the CA, the response will include a URL-encoded version of the enrollment certificate. If the target user has not yet registered, an error will be returned. If the client wishes to use the returned enrollment certificate after retrieval, keep in mind that it must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
-The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1 and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
+The /registrar/{enrollmentID}/tcert endpoint retrieves the transaction certificates for a given user that has registered with the certificate authority. If the user has registered, a confirmation message will be returned containing an array of URL-encoded transaction certificates. Otherwise, an error will result. The desired number of transaction certificates is specified with the optional 'count' query parameter. The default number of returned transaction certificates is 1; and 500 is the maximum number of certificates that can be retrieved with a single request. If the client wishes to use the returned transaction certificates after retrieval, keep in mind that they must be URL-decoded. This can be accomplished with the QueryUnescape method in the "net/url" package.
 
 #### Transactions
 
@@ -602,11 +602,10 @@ Use the /transactions/{UUID} endpoint to retrieve an individual transaction matc
 message Transaction {
     enum Type {
         UNDEFINED = 0;
-        CHAINCODE_NEW = 1;
-        CHAINCODE_UPDATE = 2;
-        CHAINCODE_EXECUTE = 3;
-        CHAINCODE_QUERY = 4;
-        CHAINCODE_TERMINATE = 5;
+        CHAINCODE_DEPLOY = 1;
+        CHAINCODE_INVOKE = 2;
+        CHAINCODE_QUERY = 3;
+        CHAINCODE_TERMINATE = 4;
     }
     Type type = 1;
     bytes chaincodeID = 2;
@@ -681,8 +680,8 @@ You can interface with the peer process from a Node.js application. One way to a
 1. Build and install the [fabric core](https://github.com/hyperledger/fabric/blob/master/README.md#building-the-fabric-core-).
 
     ```
-    cd /opt/gopath/src/github.com/hyperledger/fabric
-    go build -o peer
+    cd /opt/gopath/src/github.com/hyperledger/fabric/peer
+    go build
     ```
 
 2. Run a local peer node only (not a complete network) with:

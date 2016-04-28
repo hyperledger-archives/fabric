@@ -48,7 +48,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
 	if len(tCertDERs) == 0 {
 		tCertPool.client.debug("No more TCerts in cache! Load new from TCA.")
 
-		tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBathSize())
+		tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBatchSize())
 	} else {
 		tCertPool.client.debug("TCerts in cache found! Loading them...")
 
@@ -85,7 +85,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err err
 
 	if tCertPool.len <= 0 {
 		// Reload
-		if err := tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBathSize()); err != nil {
+		if err := tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBatchSize()); err != nil {
 
 			return nil, fmt.Errorf("Failed loading TCerts from TCA")
 		}
@@ -111,7 +111,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error)
 
 	tCertPool.client.debug("Init TCert Pool...")
 
-	tCertPool.tCerts = make([]tCert, tCertPool.client.conf.getTCertBathSize())
+	tCertPool.tCerts = make([]tCert, tCertPool.client.conf.getTCertBatchSize())
 	tCertPool.len = 0
 
 	return

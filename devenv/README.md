@@ -1,11 +1,11 @@
-## openchain-dev-env
+## Development Environment
 
-If you're looking for instructions on how to setup the Openchain development environment, see
-the [obc-docs project](https://github.com/openblockchain/obc-docs/blob/master/dev-setup/devenv.md).
+If you're looking for instructions on how to setup the Hyperledger Fabric development environment, see
+the [development environment setup readme](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devenv.md).
 
-This is the openchain development environment project which is used for bootstrapping the openchain development environment.
+This folder contains the files which are used for bootstrapping the Hyperledger Fabric development environment.
 
-Below is a deployment diagram of the current develpment environment. Note that version numbers may be out of date.
+Below is a deployment diagram of the current development environment. Note that version numbers may be out of date.
 ![Development Environment Deployment Diagram](./images/openchain-dev-env-deployment-diagram.png)
 
 # Storage Backends

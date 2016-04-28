@@ -32,7 +32,7 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var A string // Entity
 	var Aval int // Asset holding
 	var err error
@@ -58,15 +58,7 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 	return nil, nil
 }
 
-// Run callback representing the invocation of a chaincode
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize
-		return t.init(stub, args)
-	}
-
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }
 

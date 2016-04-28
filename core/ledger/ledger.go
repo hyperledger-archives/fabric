@@ -216,6 +216,23 @@ func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.Delete(chaincodeID, key)
 }
 
+// CopyState copies all the key-values from sourceChaincodeID to destChaincodeID
+func (ledger *Ledger) CopyState(sourceChaincodeID string, destChaincodeID string) error {
+	return ledger.state.CopyState(sourceChaincodeID, destChaincodeID)
+}
+
+// GetStateMultipleKeys returns the values for the multiple keys.
+// This method is mainly to amortize the cost of grpc communication between chaincode shim peer
+func (ledger *Ledger) GetStateMultipleKeys(chaincodeID string, keys []string, committed bool) ([][]byte, error) {
+	return ledger.state.GetMultipleKeys(chaincodeID, keys, committed)
+}
+
+// SetStateMultipleKeys sets the values for the multiple keys.
+// This method is mainly to amortize the cost of grpc communication between chaincode shim peer
+func (ledger *Ledger) SetStateMultipleKeys(chaincodeID string, kvs map[string][]byte) error {
+	return ledger.state.SetMultipleKeys(chaincodeID, kvs)
+}
+
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
 // should be used when transfering the state from one peer to another peer. You must call
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
@@ -412,7 +429,7 @@ func sendProducerBlockEvent(block *protos.Block) {
 	// can be very large.
 	blockTransactions := block.GetTransactions()
 	for _, transaction := range blockTransactions {
-		if transaction.Type == protos.Transaction_CHAINCODE_NEW {
+		if transaction.Type == protos.Transaction_CHAINCODE_DEPLOY {
 			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {

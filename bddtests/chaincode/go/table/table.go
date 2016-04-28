@@ -30,9 +30,38 @@ import (
 type SimpleChaincode struct {
 }
 
-// Run callback representing the invocation of a chaincode
+// Init create tables for tests
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	// Create table one
+	err := createTableOne(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table one during init. %s", err)
+	}
+
+	// Create table two
+	err = createTableTwo(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table two during init. %s", err)
+	}
+
+	// Create table three
+	err = createTableThree(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table three during init. %s", err)
+	}
+
+	// Create table four
+	err = createTableFour(stub)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating table four during init. %s", err)
+	}
+
+	return nil, nil
+}
+
+// Invoke callback representing the invocation of a chaincode
 // This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
 
@@ -61,7 +90,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		columns = append(columns, &col2)
 		columns = append(columns, &col3)
 
-		row := shim.Row{columns}
+		row := shim.Row{Columns: columns}
 		ok, err := stub.InsertRow("tableOne", row)
 		if err != nil {
 			return nil, fmt.Errorf("insertTableOne operation failed. %s", err)
@@ -98,7 +127,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		columns = append(columns, &col3)
 		columns = append(columns, &col4)
 
-		row := shim.Row{columns}
+		row := shim.Row{Columns: columns}
 		ok, err := stub.InsertRow("tableTwo", row)
 		if err != nil {
 			return nil, fmt.Errorf("insertRowTableTwo operation failed. %s", err)
@@ -159,13 +188,33 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		columns = append(columns, &col6)
 		columns = append(columns, &col7)
 
-		row := shim.Row{columns}
+		row := shim.Row{Columns: columns}
 		ok, err := stub.InsertRow("tableThree", row)
 		if err != nil {
 			return nil, fmt.Errorf("insertRowTableThree operation failed. %s", err)
 		}
 		if !ok {
 			return nil, errors.New("insertRowTableThree operation failed. Row with given key already exists")
+		}
+
+	case "insertRowTableFour":
+		if len(args) < 1 {
+			return nil, errors.New("insertRowTableFour failed. Must include 1 column value1")
+		}
+
+		col1Val := args[0]
+
+		var columns []*shim.Column
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		columns = append(columns, &col1)
+
+		row := shim.Row{Columns: columns}
+		ok, err := stub.InsertRow("tableFour", row)
+		if err != nil {
+			return nil, fmt.Errorf("insertRowTableFour operation failed. %s", err)
+		}
+		if !ok {
+			return nil, errors.New("insertRowTableFour operation failed. Row with given key already exists")
 		}
 
 	case "deleteRowTableOne":
@@ -208,7 +257,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		columns = append(columns, &col2)
 		columns = append(columns, &col3)
 
-		row := shim.Row{columns}
+		row := shim.Row{Columns: columns}
 		ok, err := stub.ReplaceRow("tableOne", row)
 		if err != nil {
 			return nil, fmt.Errorf("replaceRowTableOne operation failed. %s", err)
@@ -230,26 +279,6 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 		}
 
 		return nil, nil
-
-	case "init":
-
-		// Create table one
-		err := createTableOne(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table one during init. %s", err)
-		}
-
-		// Create table two
-		err = createTableTwo(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table two during init. %s", err)
-		}
-
-		// Create table three
-		err = createTableThree(stub)
-		if err != nil {
-			return nil, fmt.Errorf("Error creating table three during init. %s", err)
-		}
 
 	default:
 		return nil, errors.New("Unsupported operation")
@@ -374,6 +403,62 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 		return jsonRows, nil
 
+	case "getRowTableFour":
+		if len(args) < 1 {
+			return nil, errors.New("getRowTableFour failed. Must include 1 key")
+		}
+
+		col1Val := args[0]
+		var columns []shim.Column
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		columns = append(columns, col1)
+
+		row, err := stub.GetRow("tableFour", columns)
+		if err != nil {
+			return nil, fmt.Errorf("getRowTableFour operation failed. %s", err)
+		}
+
+		rowString := fmt.Sprintf("%s", row)
+		return []byte(rowString), nil
+
+	case "getRowsTableFour":
+		if len(args) < 1 {
+			return nil, errors.New("getRowsTableFour failed. Must include 1 key value")
+		}
+
+		var columns []shim.Column
+
+		col1Val := args[0]
+		col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+		columns = append(columns, col1)
+
+		rowChannel, err := stub.GetRows("tableFour", columns)
+		if err != nil {
+			return nil, fmt.Errorf("getRowsTableFour operation failed. %s", err)
+		}
+
+		var rows []shim.Row
+		for {
+			select {
+			case row, ok := <-rowChannel:
+				if !ok {
+					rowChannel = nil
+				} else {
+					rows = append(rows, row)
+				}
+			}
+			if rowChannel == nil {
+				break
+			}
+		}
+
+		jsonRows, err := json.Marshal(rows)
+		if err != nil {
+			return nil, fmt.Errorf("getRowsTableFour operation failed. Error marshaling JSON: %s", err)
+		}
+
+		return jsonRows, nil
+
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
@@ -442,4 +527,12 @@ func createTableThree(stub *shim.ChaincodeStub) error {
 	columnDefsTableThree = append(columnDefsTableThree, &columnSixTableThreeDef)
 	columnDefsTableThree = append(columnDefsTableThree, &columnSevenTableThreeDef)
 	return stub.CreateTable("tableThree", columnDefsTableThree)
+}
+
+func createTableFour(stub *shim.ChaincodeStub) error {
+	var columnDefsTableFour []*shim.ColumnDefinition
+	columnOneTableFourDef := shim.ColumnDefinition{Name: "colOneTableFour",
+		Type: shim.ColumnDefinition_STRING, Key: true}
+	columnDefsTableFour = append(columnDefsTableFour, &columnOneTableFourDef)
+	return stub.CreateTable("tableFour", columnDefsTableFour)
 }

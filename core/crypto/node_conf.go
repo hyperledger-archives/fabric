@@ -20,6 +20,7 @@ under the License.
 package crypto
 
 import (
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"errors"
 	"github.com/spf13/viper"
 	"path/filepath"
@@ -58,11 +59,13 @@ type configuration struct {
 	tlscaPAddressProperty     string
 
 	securityLevel int
+	hashAlgorithm string
 
 	tlsServerName string
 
 	multiThreading bool
-	tCertBathSize  int
+	tCertBatchSize  int
+	tCertAttributes []*membersrvc.TCertAttribute
 }
 
 func (conf *configuration) init() error {
@@ -111,6 +114,14 @@ func (conf *configuration) init() error {
 			conf.securityLevel = ovveride
 		}
 	}
+	
+	conf.hashAlgorithm = "SHA3"
+	if viper.IsSet("security.hashAlgorithm") {
+		ovveride := viper.GetString("security.hashAlgorithm")
+		if ovveride != "" {
+			conf.hashAlgorithm = ovveride
+		}
+	}
 
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
@@ -121,12 +132,12 @@ func (conf *configuration) init() error {
 		}
 	}
 
-	// Set tCertBathSize
-	conf.tCertBathSize = 200
+	// Set tCertBatchSize
+	conf.tCertBatchSize = 200
 	if viper.IsSet("security.tcert.batch.size") {
 		ovveride := viper.GetInt("security.tcert.batch.size")
 		if ovveride != 0 {
-			conf.tCertBathSize = ovveride
+			conf.tCertBatchSize = ovveride
 		}
 	}
 
@@ -134,6 +145,15 @@ func (conf *configuration) init() error {
 	conf.multiThreading = false
 	if viper.IsSet("security.multithreading.enabled") {
 		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
+	}
+	
+	// Set attributes
+	conf.tCertAttributes = []*membersrvc.TCertAttribute{}
+	if viper.IsSet("security.tcert.attributes") {
+		attributes := viper.GetStringMapString("security.tcert.attributes")
+		for key, value := range attributes {
+			conf.tCertAttributes = append(conf.tCertAttributes, &membersrvc.TCertAttribute{key, value})
+		}
 	}
 
 	return nil
@@ -271,14 +291,11 @@ func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 	return "tca.kdf.key"
 }
 
-//func (conf *configuration) getRole() string {
-//	return viper.GetString(Role)
-//}
-//
-//func (conf *configuration) getAffiliation() string {
-//	return viper.GetString(Affiliation)
-//}
-
-func (conf *configuration) getTCertBathSize() int {
-	return conf.tCertBathSize
+func (conf *configuration) getTCertBatchSize() int {
+	return conf.tCertBatchSize
 }
+
+func (conf *configuration) getTCertAttributes() []*membersrvc.TCertAttribute {
+	return conf.tCertAttributes
+}
+

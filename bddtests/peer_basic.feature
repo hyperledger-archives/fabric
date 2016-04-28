@@ -12,8 +12,22 @@ Feature: lanching 3 peers
     As a HyperLedger developer
     I want to be able to launch a 3 peers
 
-#    @doNotDecompose
 #    @wip
+  Scenario: Peers list test, single peer issue #827
+    Given we compose "docker-compose-1.yml"
+      And I wait "1" seconds
+      When requesting "/network/peers" from "vp0"
+      Then I should get a JSON response with array "peers" contains "1" elements
+
+#    @wip
+  Scenario: Peers list test,3 peers issue #827
+    Given we compose "docker-compose-3.yml"
+      And I wait "1" seconds
+      When requesting "/network/peers" from "vp0"
+      Then I should get a JSON response with array "peers" contains "3" elements
+
+#    @doNotDecompose
+    @wip
    @issue_767
   Scenario: Range query test, single peer, issue #767
     Given we compose "docker-compose-1.yml"
@@ -72,15 +86,15 @@ Feature: lanching 3 peers
         ||
       Then I should get a JSON response with "OK" = "["key2"]"
 
-#    @doNotDecompose
-#    @wip
+# @doNotDecompose
+  @wip
   @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      When I deploy chaincode "github.com/hyperledger/fabric/core/behave_chaincode/go/table" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/hyperledger/fabric/bddtests/chaincode/go/table" with ctor "init" to "vp0"
       ||
       ||
       Then I should have received a chaincode name
@@ -237,7 +251,7 @@ Feature: lanching 3 peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
         ||
@@ -285,6 +299,23 @@ Feature: lanching 3 peers
         | foo2 |
       Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:-38  int64:-66  uint32:77  uint64:88  bytes:"hello"  bool:true ]}"
 
+      When I invoke chaincode "table_test" function name "insertRowTableFour" on "vp0"
+        | arg1   |
+        | foobar |
+      Then I should have received a transactionID
+      Then I wait up to "25" seconds for transaction to be committed to all peers
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "17"
+
+      When I query chaincode "table_test" function name "getRowTableFour" on "vp0":
+        | arg1   |
+        | foobar |
+      Then I should get a JSON response with "OK" = "{[string:"foobar" ]}"
+
+      When I query chaincode "table_test" function name "getRowsTableFour" on "vp0":
+        | arg1   |
+        | foobar |
+      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foobar"}}]}]"
 
 #    @doNotDecompose
 #    @wip
@@ -442,7 +473,7 @@ Feature: lanching 3 peers
                     |arg1|arg2|arg3|
                     | b  | a  | 1  |
 	        Then I should have received a transactionID
-	        Then I wait up to "10" seconds for transaction to be committed to peers:
+	        Then I wait up to "30" seconds for transaction to be committed to peers:
                     | vp0  | vp1 | vp2 | vp3 |
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -470,7 +501,7 @@ Feature: lanching 3 peers
         # Now start vp3 again and run 8 more transactions
         Given I start peers:
             | vp3  |
-        And I wait "5" seconds
+        And I wait "15" seconds
 
         # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
         When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
@@ -588,7 +619,7 @@ Feature: lanching 3 peers
            |arg1|arg2|arg3|
            | a  | b  | 1  |
        Then I should have received a transactionID
-       Then I wait up to "3" seconds for transaction to be committed to peers:
+       Then I wait up to "10" seconds for transaction to be committed to peers:
            | vp0  | vp1 | vp2 | vp3 |
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -606,7 +637,7 @@ Feature: lanching 3 peers
          |arg1|arg2|arg3|
          | a  | b  | 1 |
        Then I should have received a transactionID
-       Then I wait up to "3" seconds for transaction to be committed to peers:
+       Then I wait up to "10" seconds for transaction to be committed to peers:
            | vp0  | vp1 | vp3 |
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -713,7 +744,7 @@ Feature: lanching 3 peers
               |arg1|arg2|arg3|
               | a  | b  | 1  |
           Then I should have received a transactionID
-          Then I wait up to "5" seconds for transaction to be committed to peers:
+          Then I wait up to "15" seconds for transaction to be committed to peers:
               | vp0  | vp1 | vp2 |
 
          When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -726,3 +757,36 @@ Feature: lanching 3 peers
           |   docker-compose-4-consensus-classic-1-byzantine.yml   |      60      |
           |   docker-compose-4-consensus-batch-1-byzantine.yml     |      60      |
           |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
+
+
+  #@doNotDecompose
+  @issue_1182
+  Scenario Outline: chaincode example02 with 4 peers,1 membersrvc, and 1 non-validating peer.
+
+      Given we compose "<ComposeFile>"
+      And I wait "5" seconds
+      And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+         | nvp0  |
+      And I use the following credentials for querying peers:
+         | peer |   username  |    secret    |
+         | vp0  |  test_user0 | MS9qrN8hFjlE |
+         | vp1  |  test_user1 | jGlNl6ImkuDo |
+         | vp2  |  test_user2 | zMflqOKezFiA |
+         | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+#      Current issue as blocks NOT synced yet.
+#      When requesting "/chain" from "nvp0"
+#      Then I should get a JSON response with "height" = "1"
+
+
+      # Deploy
+      When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "nvp0"
+                    | arg1 |  arg2 | arg3 | arg4 |
+                    |  a   |  100  |  b   |  200 |
+      Then I should have received a chaincode name
+      Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                 | vp0  | vp1 | vp2 |
+
+    Examples: Consensus Options
+        |          ComposeFile                                                       |   WaitTime   |
+        |   docker-compose-4-consensus-batch.yml docker-compose-4-consensus-nvp0.yml |      60      |

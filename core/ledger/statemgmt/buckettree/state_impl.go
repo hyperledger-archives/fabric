@@ -22,9 +22,9 @@ package buckettree
 import (
 	"bytes"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/op/go-logging"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -37,6 +37,7 @@ type StateImpl struct {
 	persistedStateHash     []byte
 	lastComputedCryptoHash []byte
 	recomputeCryptoHash    bool
+	bucketCache            *bucketCache
 }
 
 // NewStateImpl constructs a new StateImpl
@@ -55,13 +56,14 @@ func (stateImpl *StateImpl) Initialize(configs map[string]interface{}) error {
 		stateImpl.persistedStateHash = rootBucketNode.computeCryptoHash()
 		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
 	}
-	return nil
 
-	// We can create a cache and keep all the bucket nodes pre-loaded.
-	// Since, the bucket nodes do not contain actual data and max possible
-	// buckets are pre-determined, the memory demand may not be very high or can easily
-	// be controlled - by keeping seletive buckets in the cache (most likely first few levels of the bucket tree - because,
-	// higher the level of the bucket, more are the chances that the bucket would be required for recomputation of hash)
+	bucketCacheMaxSize, ok := configs["bucketCacheSize"].(int)
+	if !ok {
+		bucketCacheMaxSize = defaultBucketCacheMaxSize
+	}
+	stateImpl.bucketCache = newBucketCache(bucketCacheMaxSize)
+	stateImpl.bucketCache.loadAllBucketNodesFromDB()
+	return nil
 }
 
 // Get - method implementation for interface 'statemgmt.HashableState'
@@ -93,14 +95,15 @@ func (stateImpl *StateImpl) PrepareWorkingSet(stateDelta *statemgmt.StateDelta) 
 // ClearWorkingSet - method implementation for interface 'statemgmt.HashableState'
 func (stateImpl *StateImpl) ClearWorkingSet(changesPersisted bool) {
 	logger.Debug("Enter - ClearWorkingSet()")
-	stateImpl.dataNodesDelta = nil
-	stateImpl.bucketTreeDelta = nil
-	stateImpl.recomputeCryptoHash = false
 	if changesPersisted {
 		stateImpl.persistedStateHash = stateImpl.lastComputedCryptoHash
+		stateImpl.updateBucketCache()
 	} else {
 		stateImpl.lastComputedCryptoHash = stateImpl.persistedStateHash
 	}
+	stateImpl.dataNodesDelta = nil
+	stateImpl.bucketTreeDelta = nil
+	stateImpl.recomputeCryptoHash = false
 }
 
 // ComputeCryptoHash - method implementation for interface 'statemgmt.HashableState'
@@ -144,9 +147,10 @@ func (stateImpl *StateImpl) processBucketTreeDelta() error {
 	secondLastLevel := conf.getLowestLevel() - 1
 	for level := secondLastLevel; level >= 0; level-- {
 		bucketNodes := stateImpl.bucketTreeDelta.getBucketNodesAt(level)
+		logger.Debug("Bucket tree delta. Number of buckets at level [%d] are [%d]", level, len(bucketNodes))
 		for _, bucketNode := range bucketNodes {
 			logger.Debug("bucketNode in tree-delta [%s]", bucketNode)
-			dbBucketNode, err := fetchBucketNodeFromDB(bucketNode.bucketKey)
+			dbBucketNode, err := stateImpl.bucketCache.get(*bucketNode.bucketKey)
 			logger.Debug("bucket node from db [%s]", dbBucketNode)
 			if err != nil {
 				return err
@@ -258,7 +262,26 @@ func (stateImpl *StateImpl) addBucketNodeChangesForPersistence(writeBatch *goroc
 			} else {
 				writeBatch.PutCF(openchainDB.StateCF, bucketNode.bucketKey.getEncodedBytes(), bucketNode.marshal())
 			}
-			writeBatch.PutCF(openchainDB.StateCF, bucketNode.bucketKey.getEncodedBytes(), bucketNode.marshal())
+		}
+	}
+}
+
+func (stateImpl *StateImpl) updateBucketCache() {
+	if stateImpl.bucketTreeDelta == nil || stateImpl.bucketTreeDelta.isEmpty() {
+		return
+	}
+	stateImpl.bucketCache.lock.Lock()
+	defer stateImpl.bucketCache.lock.Unlock()
+	secondLastLevel := conf.getLowestLevel() - 1
+	for level := 0; level <= secondLastLevel; level++ {
+		bucketNodes := stateImpl.bucketTreeDelta.getBucketNodesAt(level)
+		for _, bucketNode := range bucketNodes {
+			key := *bucketNode.bucketKey
+			if bucketNode.markedForDeletion {
+				stateImpl.bucketCache.removeWithoutLock(key)
+			} else {
+				stateImpl.bucketCache.putWithoutLock(key, bucketNode)
+			}
 		}
 	}
 }

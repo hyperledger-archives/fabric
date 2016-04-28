@@ -40,12 +40,12 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("core")    // name of config file (without extension)
-	viper.AddConfigPath("./")      // path to look for the config file in
-	viper.AddConfigPath("./..")    // path to look for the config file in
-	viper.AddConfigPath("./../..") // path to look for the config file in
-	err := viper.ReadInConfig()    // Find and read the config file
-	if err != nil {                // Handle errors reading the config file
+	viper.SetConfigName("core")         // name of config file (without extension)
+	viper.AddConfigPath("./")           // path to look for the config file in
+	viper.AddConfigPath("./..")         // path to look for the config file in
+	viper.AddConfigPath("./../../peer") // path to look for the config file in
+	err := viper.ReadInConfig()         // Find and read the config file
+	if err != nil {                     // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 }
@@ -69,6 +69,11 @@ func (p *peerInfo) GetPeers() (*protos.PeersMessage, error) {
 	*/
 	peersMessage := &protos.PeersMessage{Peers: peers}
 	return peersMessage, nil
+}
+
+func (p *peerInfo) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
+	pe := &protos.PeerEndpoint{ID: &protos.PeerID{Name: viper.GetString("peer.id")}, Address: "localhost:30303", Type: protos.PeerEndpoint_VALIDATOR}
+	return pe, nil
 }
 
 func TestServerOpenchain_API_GetBlockchainInfo(t *testing.T) {
