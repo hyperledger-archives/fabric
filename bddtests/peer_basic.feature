@@ -390,7 +390,7 @@ Feature: lanching 3 peers
 
 
 #    @doNotDecompose
-    @wip
+#    @wip
     @issue_567
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #567
 
