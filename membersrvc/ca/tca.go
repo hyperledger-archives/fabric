@@ -32,6 +32,8 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"database/sql"
+
 
 	protobuf "google/protobuf"
 
@@ -62,6 +64,7 @@ var (
 // TCA is the transaction certificate authority.
 type TCA struct {
 	*CA
+	aca		   *ACA
 	eca        *ECA
 	hmacKey    []byte
 	rootPreKey []byte
@@ -78,9 +81,14 @@ type TCAA struct {
 	tca *TCA
 }
 
+func initializeTCATables(db *sql.DB) error { 
+	return initializeCommonTables(db)
+}
+
+
 // NewTCA sets up a new TCA.
-func NewTCA(eca *ECA) *TCA {
-	tca := &TCA{NewCA("tca"), eca, nil, nil, nil}
+func NewTCA(aca *ACA, eca *ECA) *TCA {
+	tca := &TCA{NewCA("tca", initializeTCATables), aca, eca, nil, nil, nil}
 
 	err := tca.readHmacKey()
 	if err != nil {

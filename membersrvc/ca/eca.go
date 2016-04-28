@@ -36,6 +36,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"database/sql"
+
 
 	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
 
@@ -58,6 +60,7 @@ var (
 //
 type ECA struct {
 	*CA
+	aca			    *ACA
 	obcKey          []byte
 	obcPriv, obcPub []byte
 }
@@ -74,10 +77,14 @@ type ECAA struct {
 	eca *ECA
 }
 
+func initializeECATables(db *sql.DB) error { 
+	return initializeCommonTables(db)
+}
+
 // NewECA sets up a new ECA.
 //
-func NewECA() *ECA {
-	eca := &ECA{NewCA("eca"), nil, nil, nil}
+func NewECA(aca *ACA) *ECA {
+	eca := &ECA{NewCA("eca", initializeECATables), aca, nil, nil, nil}
 
 	{
 		// read or create global symmetric encryption key

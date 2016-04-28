@@ -80,10 +80,13 @@ func main() {
 	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
 	ca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
-	eca := ca.NewECA()
+	aca := ca.NewACA() 
+	defer aca.Close()
+	
+	eca := ca.NewECA(aca)
 	defer eca.Close()
 
-	tca := ca.NewTCA(eca)
+	tca := ca.NewTCA(aca, eca)
 	defer tca.Close()
 
 	tlsca := ca.NewTLSCA(eca)
@@ -101,6 +104,7 @@ func main() {
 	}
 	srv := grpc.NewServer(opts...)
 
+	aca.Start(srv)
 	eca.Start(srv)
 	tca.Start(srv)
 	tlsca.Start(srv)

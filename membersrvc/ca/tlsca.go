@@ -24,6 +24,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"math/big"
+	"database/sql"
+
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
@@ -51,10 +53,14 @@ type TLSCAA struct {
 	tlsca *TLSCA
 }
 
+func initializeTLSCATables(db *sql.DB) error { 
+	return initializeCommonTables(db)
+}
+
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca"), eca}
+	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca}
 
 	return tlsca
 }
