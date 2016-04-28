@@ -68,7 +68,7 @@ You should see some output similar to below (**NOTE**: The root command below is
 
 ```
 
-The `peer` command will initiate a peer process, with which one can iteract by executing other commands. For example, the `status` command will return the status of the running peer.
+The `peer` command will initiate a peer process, with which one can interact by executing other commands. For example, the `status` command will return the status of the running peer.
 
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
