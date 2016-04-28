@@ -318,7 +318,7 @@ message Cert {
 //
 message TCert {
 	bytes cert = 1; // DER / ASN.1 encoded
-	map<string, bytes> keys = 2; // map with the keys used to encrypt the TCert extensions (EnrollmentID, TCertIndex and attributes)
+	bytes prek0 = 2; // PreK0 used to derive the keys to encrypt the TCert extensions (EnrollmentID, TCertIndex and attributes)
 }
 
 message CertSet {

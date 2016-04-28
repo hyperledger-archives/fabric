@@ -900,20 +900,13 @@ func (*Cert) ProtoMessage()    {}
 // TCert
 //
 type TCert struct {
-	Cert []byte            `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
-	Keys map[string][]byte `protobuf:"bytes,2,rep,name=keys" json:"keys,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Cert  []byte `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
+	Prek0 []byte `protobuf:"bytes,2,opt,name=prek0,proto3" json:"prek0,omitempty"`
 }
 
 func (m *TCert) Reset()         { *m = TCert{} }
 func (m *TCert) String() string { return proto.CompactTextString(m) }
 func (*TCert) ProtoMessage()    {}
-
-func (m *TCert) GetKeys() map[string][]byte {
-	if m != nil {
-		return m.Keys
-	}
-	return nil
-}
 
 type CertSet struct {
 	Ts    *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
@@ -1804,6 +1797,309 @@ var _TLSCAA_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeCertificate",
 			Handler:    _TLSCAA_RevokeCertificate_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
+}
+
+// Client API for ACAP service
+
+type ACAPClient interface {
+	ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error)
+	CreateCertificatePair(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*ECertCreateResp, error)
+	ReadCertificatePair(ctx context.Context, in *ECertReadReq, opts ...grpc.CallOption) (*CertPair, error)
+	ReadCertificateByHash(ctx context.Context, in *Hash, opts ...grpc.CallOption) (*Cert, error)
+	RevokeCertificatePair(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
+}
+
+type aCAPClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewACAPClient(cc *grpc.ClientConn) ACAPClient {
+	return &aCAPClient{cc}
+}
+
+func (c *aCAPClient) ReadCACertificate(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Cert, error) {
+	out := new(Cert)
+	err := grpc.Invoke(ctx, "/protos.ACAP/ReadCACertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAPClient) CreateCertificatePair(ctx context.Context, in *ECertCreateReq, opts ...grpc.CallOption) (*ECertCreateResp, error) {
+	out := new(ECertCreateResp)
+	err := grpc.Invoke(ctx, "/protos.ACAP/CreateCertificatePair", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAPClient) ReadCertificatePair(ctx context.Context, in *ECertReadReq, opts ...grpc.CallOption) (*CertPair, error) {
+	out := new(CertPair)
+	err := grpc.Invoke(ctx, "/protos.ACAP/ReadCertificatePair", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAPClient) ReadCertificateByHash(ctx context.Context, in *Hash, opts ...grpc.CallOption) (*Cert, error) {
+	out := new(Cert)
+	err := grpc.Invoke(ctx, "/protos.ACAP/ReadCertificateByHash", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAPClient) RevokeCertificatePair(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
+	out := new(CAStatus)
+	err := grpc.Invoke(ctx, "/protos.ACAP/RevokeCertificatePair", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for ACAP service
+
+type ACAPServer interface {
+	ReadCACertificate(context.Context, *Empty) (*Cert, error)
+	CreateCertificatePair(context.Context, *ECertCreateReq) (*ECertCreateResp, error)
+	ReadCertificatePair(context.Context, *ECertReadReq) (*CertPair, error)
+	ReadCertificateByHash(context.Context, *Hash) (*Cert, error)
+	RevokeCertificatePair(context.Context, *ECertRevokeReq) (*CAStatus, error)
+}
+
+func RegisterACAPServer(s *grpc.Server, srv ACAPServer) {
+	s.RegisterService(&_ACAP_serviceDesc, srv)
+}
+
+func _ACAP_ReadCACertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAPServer).ReadCACertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAP_CreateCertificatePair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ECertCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAPServer).CreateCertificatePair(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAP_ReadCertificatePair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ECertReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAPServer).ReadCertificatePair(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAP_ReadCertificateByHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Hash)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAPServer).ReadCertificateByHash(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAP_RevokeCertificatePair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ECertRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAPServer).RevokeCertificatePair(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _ACAP_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.ACAP",
+	HandlerType: (*ACAPServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReadCACertificate",
+			Handler:    _ACAP_ReadCACertificate_Handler,
+		},
+		{
+			MethodName: "CreateCertificatePair",
+			Handler:    _ACAP_CreateCertificatePair_Handler,
+		},
+		{
+			MethodName: "ReadCertificatePair",
+			Handler:    _ACAP_ReadCertificatePair_Handler,
+		},
+		{
+			MethodName: "ReadCertificateByHash",
+			Handler:    _ACAP_ReadCertificateByHash_Handler,
+		},
+		{
+			MethodName: "RevokeCertificatePair",
+			Handler:    _ACAP_RevokeCertificatePair_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
+}
+
+// Client API for ACAA service
+
+type ACAAClient interface {
+	RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error)
+	ReadUserSet(ctx context.Context, in *ReadUserSetReq, opts ...grpc.CallOption) (*UserSet, error)
+	RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error)
+	PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...grpc.CallOption) (*CAStatus, error)
+}
+
+type aCAAClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewACAAClient(cc *grpc.ClientConn) ACAAClient {
+	return &aCAAClient{cc}
+}
+
+func (c *aCAAClient) RegisterUser(ctx context.Context, in *RegisterUserReq, opts ...grpc.CallOption) (*Token, error) {
+	out := new(Token)
+	err := grpc.Invoke(ctx, "/protos.ACAA/RegisterUser", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAAClient) ReadUserSet(ctx context.Context, in *ReadUserSetReq, opts ...grpc.CallOption) (*UserSet, error) {
+	out := new(UserSet)
+	err := grpc.Invoke(ctx, "/protos.ACAA/ReadUserSet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAAClient) RevokeCertificate(ctx context.Context, in *ECertRevokeReq, opts ...grpc.CallOption) (*CAStatus, error) {
+	out := new(CAStatus)
+	err := grpc.Invoke(ctx, "/protos.ACAA/RevokeCertificate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aCAAClient) PublishCRL(ctx context.Context, in *ECertCRLReq, opts ...grpc.CallOption) (*CAStatus, error) {
+	out := new(CAStatus)
+	err := grpc.Invoke(ctx, "/protos.ACAA/PublishCRL", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for ACAA service
+
+type ACAAServer interface {
+	RegisterUser(context.Context, *RegisterUserReq) (*Token, error)
+	ReadUserSet(context.Context, *ReadUserSetReq) (*UserSet, error)
+	RevokeCertificate(context.Context, *ECertRevokeReq) (*CAStatus, error)
+	PublishCRL(context.Context, *ECertCRLReq) (*CAStatus, error)
+}
+
+func RegisterACAAServer(s *grpc.Server, srv ACAAServer) {
+	s.RegisterService(&_ACAA_serviceDesc, srv)
+}
+
+func _ACAA_RegisterUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(RegisterUserReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAAServer).RegisterUser(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAA_ReadUserSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ReadUserSetReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAAServer).ReadUserSet(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAA_RevokeCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ECertRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAAServer).RevokeCertificate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _ACAA_PublishCRL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ECertCRLReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ACAAServer).PublishCRL(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _ACAA_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "protos.ACAA",
+	HandlerType: (*ACAAServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RegisterUser",
+			Handler:    _ACAA_RegisterUser_Handler,
+		},
+		{
+			MethodName: "ReadUserSet",
+			Handler:    _ACAA_ReadUserSet_Handler,
+		},
+		{
+			MethodName: "RevokeCertificate",
+			Handler:    _ACAA_RevokeCertificate_Handler,
+		},
+		{
+			MethodName: "PublishCRL",
+			Handler:    _ACAA_PublishCRL_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

@@ -313,7 +313,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
-		extensions, ks, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
+		extensions, pre_K0, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
 		}
@@ -324,16 +324,15 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			return nil, err
 		}
 		
-		set = append(set, &pb.TCert{raw, ks})
+		set = append(set, &pb.TCert{raw, pre_K0})
 	}
 
 	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, map[string][]byte, error){
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, []byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	ks := make(map[string][]byte) 
 	extensions := make([]pkix.Extension, len(attributes))
 	
 	// Compute preK_1 to encrypt attributes and enrollment ID
@@ -360,7 +359,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	}
 	
 	// save k used to encrypt EnrollmentID
-	ks["enrollmentId"] = enrollmentIdKey
+	//ks["enrollmentId"] = enrollmentIdKey
 	
 	attributeIdentifierIndex := 9
 	count := 0
@@ -386,7 +385,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 			}
 			
 			// save k used to encrypt attribute
-			ks[a.AttributeName] = attributeKey
+			//ks[a.AttributeName] = attributeKey
 		}
 		
 		// Generate an ObjectIdentifier for the extension holding the attribute
@@ -407,7 +406,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: buildAttributesHeader(attributesHeader)})
 	}
 	
-	return extensions, ks, nil
+	return extensions, preK_0, nil
 }
 
 func buildAttributesHeader(attributesHeader map[string]int) []byte{
@@ -517,7 +516,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 		}
 
 		// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-		certs = append(certs, &pb.TCert{raw, make(map[string][]byte)})
+		certs = append(certs, &pb.TCert{raw, make([]byte, 48)})
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -622,7 +621,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 			}
 			
 			// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-			certs = append(certs, &pb.TCert{cert, make(map[string][]byte)})
+			certs = append(certs, &pb.TCert{cert, make([]byte, 48)})
 		}
 		if err = rows.Err(); err != nil {
 			return nil, err
