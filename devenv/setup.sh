@@ -136,4 +136,3 @@ sudo cp /hyperledger/devenv/limits.conf /etc/security/limits.conf
 
 # Set our shell prompt to something less ugly than the default from packer
 echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
-
