@@ -17,17 +17,30 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package primitives
 
 import (
 	"crypto/hmac"
-	"github.com/hyperledger/fabric/core/crypto/conf"
 	"hash"
 )
 
+var (
+	defaultHash          func() hash.Hash
+	defaultHashAlgorithm string
+)
+
+// GetDefaultHash returns the default hash function used by the crypto layer
+func GetDefaultHash() func() hash.Hash {
+	return defaultHash
+}
+
+func GetHashAlgorithm() string {
+	return defaultHashAlgorithm
+}
+
 // NewHash returns a new hash function
 func NewHash() hash.Hash {
-	return conf.GetDefaultHash()()
+	return GetDefaultHash()()
 }
 
 // Hash hashes the msh using the predefined hash function
@@ -39,7 +52,7 @@ func Hash(msg []byte) []byte {
 
 // HMAC hmacs x using key key
 func HMAC(key, x []byte) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
+	mac := hmac.New(GetDefaultHash(), key)
 	mac.Write(x)
 
 	return mac.Sum(nil)
@@ -47,8 +60,12 @@ func HMAC(key, x []byte) []byte {
 
 // HMACTruncated hmacs x using key key and truncate to truncation
 func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
+	mac := hmac.New(GetDefaultHash(), key)
 	mac.Write(x)
 
 	return mac.Sum(nil)[:truncation]
+}
+
+func HMACAESTruncated(key, x []byte) []byte {
+	return HMACTruncated(key, x, AESKeyLength)
 }

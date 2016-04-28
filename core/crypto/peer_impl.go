@@ -24,6 +24,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -48,6 +49,10 @@ func (peer *peerImpl) GetEnrollmentID() string {
 	return peer.enrollID
 }
 
+func (peer *peerImpl) GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error) {
+	return nil, utils.ErrNotImplemented
+}
+
 // TransactionPreValidation verifies that the transaction is
 // well formed with the respect to the security layer
 // prescriptions (i.e. signature verification).
@@ -62,7 +67,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
 			peer.error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
 			return tx, err
@@ -107,7 +112,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 // well formed with the respect to the security layer
 // prescriptions (i.e. signature verification). If this is the case,
 // the method prepares the transaction to be executed.
-func (peer *peerImpl) TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error) {
+func (peer *peerImpl) TransactionPreExecution(deployTx, tx *obc.Transaction) (*obc.Transaction, error) {
 	return nil, utils.ErrNotImplemented
 }
 
@@ -161,7 +166,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 }
 
 func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error) {
-	return utils.Hash(append(tx.Cert, tx.Nonce...)), nil
+	return primitives.Hash(append(tx.Cert, tx.Nonce...)), nil
 }
 
 // Private methods

@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	// Required to successfully initialized the driver
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -246,7 +247,7 @@ func (ks *keyStore) loadKey(alias string) ([]byte, error) {
 }
 
 func (ks *keyStore) storeCert(alias string, der []byte) error {
-	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
+	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), primitives.DERCertToPEM(der), 0700)
 	if err != nil {
 		ks.node.error("Failed storing certificate [%s]: [%s]", alias, err)
 		return err
@@ -293,7 +294,7 @@ func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte,
 		return nil, nil, err
 	}
 
-	cert, der, err := utils.PEMtoCertificateAndDER(pem)
+	cert, der, err := primitives.PEMtoCertificateAndDER(pem)
 	if err != nil {
 		ks.node.error("Failed parsing certificate [%s]: [%s].", alias, err.Error())
 

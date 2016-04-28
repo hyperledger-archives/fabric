@@ -22,7 +22,7 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
@@ -50,19 +50,21 @@ type nodeImpl struct {
 	id []byte
 
 	// Enrollment Certificate and private key
-	enrollID       string
-	enrollCert     *x509.Certificate
-	enrollPrivKey  *ecdsa.PrivateKey
-	enrollCertHash []byte
+	enrollID            string
+	enrollCert          *x509.Certificate
+	enrollSigningKey    *ecdsa.PrivateKey
+	enrollEncryptionKey primitives.PrivateKey
+	enrollCertHash      []byte
 
 	// Enrollment Chain
-	enrollChainKey interface{}
+	enrollSymChainKey  []byte
+	enrollASymChainKey interface{}
 
 	// TLS
 	tlsCert *x509.Certificate
 
 	// Crypto SPI
-	eciesSPI ecies.SPI
+	acSPI primitives.AsymmetricCipherSPI
 }
 
 func (node *nodeImpl) GetType() NodeType {

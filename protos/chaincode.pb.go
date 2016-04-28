@@ -19,27 +19,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// Confidentiality Levels
-type ConfidentialityLevel int32
-
-const (
-	ConfidentialityLevel_PUBLIC       ConfidentialityLevel = 0
-	ConfidentialityLevel_CONFIDENTIAL ConfidentialityLevel = 1
-)
-
-var ConfidentialityLevel_name = map[int32]string{
-	0: "PUBLIC",
-	1: "CONFIDENTIAL",
-}
-var ConfidentialityLevel_value = map[string]int32{
-	"PUBLIC":       0,
-	"CONFIDENTIAL": 1,
-}
-
-func (x ConfidentialityLevel) String() string {
-	return proto.EnumName(ConfidentialityLevel_name, int32(x))
-}
-
 type ChaincodeSpec_Type int32
 
 const (
@@ -186,16 +165,30 @@ func (m *ChaincodeInput) Reset()         { *m = ChaincodeInput{} }
 func (m *ChaincodeInput) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeInput) ProtoMessage()    {}
 
+type ChaincodeUser struct {
+	Cert             []byte `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
+	PublicKey        []byte `protobuf:"bytes,2,opt,name=publicKey,proto3" json:"publicKey,omitempty"`
+	GrantCodeAccess  bool   `protobuf:"varint,3,opt,name=grantCodeAccess" json:"grantCodeAccess,omitempty"`
+	GrantStateAccess bool   `protobuf:"varint,4,opt,name=grantStateAccess" json:"grantStateAccess,omitempty"`
+}
+
+func (m *ChaincodeUser) Reset()         { *m = ChaincodeUser{} }
+func (m *ChaincodeUser) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeUser) ProtoMessage()    {}
+
 // Carries the chaincode specification. This is the actual metadata required for
 // defining a chaincode.
 type ChaincodeSpec struct {
-	Type                 ChaincodeSpec_Type   `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
-	ChaincodeID          *ChaincodeID         `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	CtorMsg              *ChaincodeInput      `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
-	Timeout              int32                `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
-	SecureContext        string               `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
-	ConfidentialityLevel ConfidentialityLevel `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
-	Metadata             []byte               `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Type                           ChaincodeSpec_Type   `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
+	ChaincodeID                    *ChaincodeID         `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	CtorMsg                        *ChaincodeInput      `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Timeout                        int32                `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
+	SecureContext                  string               `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
+	ConfidentialityLevel           ConfidentialityLevel `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
+	ConfidentialityProtocolVersion string               `protobuf:"bytes,7,opt,name=ConfidentialityProtocolVersion" json:"ConfidentialityProtocolVersion,omitempty"`
+	Metadata                       []byte               `protobuf:"bytes,8,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Users                          []*ChaincodeUser     `protobuf:"bytes,9,rep,name=users" json:"users,omitempty"`
+	Parent                         *Transaction         `protobuf:"bytes,10,opt,name=parent" json:"parent,omitempty"`
 }
 
 func (m *ChaincodeSpec) Reset()         { *m = ChaincodeSpec{} }
@@ -212,6 +205,20 @@ func (m *ChaincodeSpec) GetChaincodeID() *ChaincodeID {
 func (m *ChaincodeSpec) GetCtorMsg() *ChaincodeInput {
 	if m != nil {
 		return m.CtorMsg
+	}
+	return nil
+}
+
+func (m *ChaincodeSpec) GetUsers() []*ChaincodeUser {
+	if m != nil {
+		return m.Users
+	}
+	return nil
+}
+
+func (m *ChaincodeSpec) GetParent() *Transaction {
+	if m != nil {
+		return m.Parent
 	}
 	return nil
 }
@@ -360,7 +367,6 @@ func (m *RangeQueryStateResponse) GetKeysAndValues() []*RangeQueryStateKeyValue 
 }
 
 func init() {
-	proto.RegisterEnum("protos.ConfidentialityLevel", ConfidentialityLevel_name, ConfidentialityLevel_value)
 	proto.RegisterEnum("protos.ChaincodeSpec_Type", ChaincodeSpec_Type_name, ChaincodeSpec_Type_value)
 	proto.RegisterEnum("protos.ChaincodeDeploymentSpec_ExecutionEnvironment", ChaincodeDeploymentSpec_ExecutionEnvironment_name, ChaincodeDeploymentSpec_ExecutionEnvironment_value)
 	proto.RegisterEnum("protos.ChaincodeMessage_Type", ChaincodeMessage_Type_name, ChaincodeMessage_Type_value)

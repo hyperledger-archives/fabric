@@ -1,4 +1,4 @@
-package ecies
+package primitives
 
 import (
 	"errors"
@@ -6,8 +6,23 @@ import (
 )
 
 var (
+	// ErrEncryption Error during encryption
+	ErrEncryption = errors.New("Error during encryption.")
+
+	// ErrDecryption Error during decryption
+	ErrDecryption = errors.New("Error during decryption.")
+
+	// ErrInvalidSecretKeyType Invalid Secret Key type
+	ErrInvalidSecretKeyType = errors.New("Invalid Secret Key type.")
+
+	// ErrInvalidPublicKeyType Invalid Public Key type
+	ErrInvalidPublicKeyType = errors.New("Invalid Public Key type.")
+
 	// ErrInvalidKeyParameter Invalid Key Parameter
 	ErrInvalidKeyParameter = errors.New("Invalid Key Parameter.")
+
+	// ErrInvalidNilKeyParameter Invalid Nil Key Parameter
+	ErrInvalidNilKeyParameter = errors.New("Invalid Nil Key Parameter.")
 
 	// ErrInvalidKeyGeneratorParameter Invalid Key Generator Parameter
 	ErrInvalidKeyGeneratorParameter = errors.New("Invalid Key Generator Parameter.")
@@ -27,7 +42,7 @@ type CipherParameters interface {
 
 // AsymmetricCipherParameters is common interface to represent asymmetric cipher parameters
 type AsymmetricCipherParameters interface {
-	Parameters
+	CipherParameters
 
 	// IsPublic returns true if the parameters are public, false otherwise.
 	IsPublic() bool
@@ -69,6 +84,19 @@ type AsymmetricCipher interface {
 	Process(msg []byte) ([]byte, error)
 }
 
+type SecretKey interface {
+	CipherParameters
+}
+
+// SymmetricCipher defines a stream cipher
+type StreamCipher interface {
+	// Init initializes this cipher with the passed parameters
+	Init(forEncryption bool, params CipherParameters) error
+
+	// Process processes the byte array given in input
+	Process(msg []byte) ([]byte, error)
+}
+
 // KeySerializer defines a key serializer/deserializer
 type KeySerializer interface {
 	// ToBytes converts a key to bytes
@@ -78,14 +106,23 @@ type KeySerializer interface {
 	FromBytes([]byte) (interface{}, error)
 }
 
-// SPI is the ECIES Service Provider Interface
-type SPI interface {
+// AsymmetricCipher is a Service Provider Interface for AsymmetricCipher
+type AsymmetricCipherSPI interface {
 
 	// NewAsymmetricCipherFromPrivateKey creates a new AsymmetricCipher for decryption from a secret key
 	NewAsymmetricCipherFromPrivateKey(priv PrivateKey) (AsymmetricCipher, error)
 
 	// NewAsymmetricCipherFromPublicKey creates a new AsymmetricCipher for encryption from a public key
 	NewAsymmetricCipherFromPublicKey(pub PublicKey) (AsymmetricCipher, error)
+
+	// NewAsymmetricCipherFromPublicKey creates a new AsymmetricCipher for encryption from a serialized public key
+	NewAsymmetricCipherFromSerializedPublicKey(pub []byte) (AsymmetricCipher, error)
+
+	// NewAsymmetricCipherFromPublicKey creates a new AsymmetricCipher for encryption from a serialized public key
+	NewAsymmetricCipherFromSerializedPrivateKey(priv []byte) (AsymmetricCipher, error)
+
+	// NewPrivateKey creates a new private key rand and default parameters
+	NewDefaultPrivateKey(rand io.Reader) (PrivateKey, error)
 
 	// NewPrivateKey creates a new private key from (rand, params)
 	NewPrivateKey(rand io.Reader, params interface{}) (PrivateKey, error)
@@ -98,4 +135,36 @@ type SPI interface {
 
 	// DeserializePrivateKey deserializes to a private key
 	DeserializePrivateKey(bytes []byte) (PrivateKey, error)
+
+	// SerializePrivateKey serializes a private key
+	SerializePublicKey(pub PublicKey) ([]byte, error)
+
+	// DeserializePrivateKey deserializes to a private key
+	DeserializePublicKey(bytes []byte) (PublicKey, error)
+}
+
+type StreamCipherSPI interface {
+	GenerateKey() (SecretKey, error)
+
+	GenerateKeyAndSerialize() (SecretKey, []byte, error)
+
+	NewSecretKey(rand io.Reader, params interface{}) (SecretKey, error)
+
+	// NewStreamCipherForEncryptionFromKey creates a new StreamCipher for encryption from a secret key
+	NewStreamCipherForEncryptionFromKey(secret SecretKey) (StreamCipher, error)
+
+	// NewStreamCipherForEncryptionFromSerializedKey creates a new StreamCipher for encryption from a serialized key
+	NewStreamCipherForEncryptionFromSerializedKey(secret []byte) (StreamCipher, error)
+
+	// NewStreamCipherForDecryptionFromKey creates a new StreamCipher for decryption from a secret key
+	NewStreamCipherForDecryptionFromKey(secret SecretKey) (StreamCipher, error)
+
+	// NewStreamCipherForDecryptionFromKey creates a new StreamCipher for decryption from a serialized key
+	NewStreamCipherForDecryptionFromSerializedKey(secret []byte) (StreamCipher, error)
+
+	// SerializePrivateKey serializes a private key
+	SerializeSecretKey(secret SecretKey) ([]byte, error)
+
+	// DeserializePrivateKey deserializes to a private key
+	DeserializeSecretKey(bytes []byte) (SecretKey, error)
 }

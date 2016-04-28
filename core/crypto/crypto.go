@@ -16,29 +16,42 @@ const (
 	NodePeer NodeType = 1
 	// NodeValidator a validator
 	NodeValidator NodeType = 2
+
+	// ConfidentialityProtocolVersion1_1 version 1.1
+	ConfidentialityProtocolVersion1_1 string = "1.1"
+	// ConfidentialityProtocolVersion1_2 version 1.2
+	ConfidentialityProtocolVersion1_2 string = "1.2"
+	// ConfidentialityProtocolVersion2 version 2.0
+	ConfidentialityProtocolVersion2 string = "2.0"
 )
 
-// Node represents a crypto object having a name
+// Node represents a crypto object having a type and name
 type Node interface {
 
-	// GetType returns this entity's name
+	// GetType returns this entity's type
 	GetType() NodeType
 
 	// GetName returns this entity's name
 	GetName() string
 }
 
-// Client is an entity able to deploy and invoke chaincode
+// Client is a node that can deploy, execute and query chaincodes
 type Client interface {
 	Node
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode.
+	// This call is equivalent to invoking GetTCertificateHandlerNext() first and then
+	// NewChaincodeDeployTransaction on the handler.
 	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
 
 	// NewChaincodeExecute is used to execute chaincode's functions.
+	// This call is equivalent to invoking GetTCertificateHandlerNext() first and then
+	// NewChaincodeExecute on the handler.
 	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 
 	// NewChaincodeQuery is used to query chaincode's functions.
+	// This call is equivalent to invoking GetTCertificateHandlerNext() first and then
+	// NewChaincodeQuery on the handler.
 	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
 
 	// DecryptQueryResult is used to decrypt the result of a query transaction
@@ -52,15 +65,15 @@ type Client interface {
 
 	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 	GetTCertificateHandlerFromDER(der []byte) (CertificateHandler, error)
-	
+
+	// GetEncryptionKey returns the serialized version of this client's enrollment encryption key
+	GetEncryptionKey() ([]byte, error)
+
 	// ReadAttribute reads the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
-	
-	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert() (tCert, error)
 }
 
-// Peer is an entity able to verify transactions
+// Peer is a node that verify transactions
 type Peer interface {
 	Node
 
@@ -69,6 +82,9 @@ type Peer interface {
 
 	// GetEnrollmentID returns this peer's enrollment id
 	GetEnrollmentID() string
+
+	// GetChaincodeID returns tx's ChaincodeID
+	GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error)
 
 	// TransactionPreValidation verifies that the transaction is
 	// well formed with the respect to the security layer
@@ -80,7 +96,7 @@ type Peer interface {
 	// prescriptions (i.e. signature verification). If this is the case,
 	// the method prepares the transaction to be executed.
 	// TransactionPreExecution returns a clone of tx.
-	TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error)
+	TransactionPreExecution(deployTx, tx *obc.Transaction) (*obc.Transaction, error)
 
 	// Sign signs msg with this validator's signing key and outputs
 	// the signature if no error occurred.
@@ -96,10 +112,11 @@ type Peer interface {
 	// executeTx can also correspond to a deploy transaction.
 	GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
 
+	// GetTransactionBinding returns the binding associated to tx.
 	GetTransactionBinding(tx *obc.Transaction) ([]byte, error)
 }
 
-// StateEncryptor is used to encrypt chaincode's state
+// StateEncryptor encrypts chaincode's states
 type StateEncryptor interface {
 
 	// Encrypt encrypts message msg
@@ -110,7 +127,7 @@ type StateEncryptor interface {
 	Decrypt(ct []byte) ([]byte, error)
 }
 
-// CertificateHandler exposes methods to deal with an ECert/TCert
+// CertificateHandler handles an ECert or TCert
 type CertificateHandler interface {
 
 	// GetCertificate returns the certificate's DER
@@ -133,7 +150,7 @@ type TransactionHandler interface {
 	// GetCertificateHandler returns the certificate handler relative to the certificate mapped to this transaction
 	GetCertificateHandler() (CertificateHandler, error)
 
-	// GetBinding returns a binding to the underlying transaction
+	// GetBinding returns a binding to the underlying transaction. It is used to name each transaction.
 	GetBinding() ([]byte, error)
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode

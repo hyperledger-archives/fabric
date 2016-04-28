@@ -1,4 +1,4 @@
-package generic
+package ecies
 
 import (
 	"crypto"

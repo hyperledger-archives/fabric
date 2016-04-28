@@ -2,14 +2,14 @@ package crypto
 
 import (
 	"crypto/x509"
-	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
+	ecies "github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 )
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 	node.debug("Registering node crypto engine...")
 
 	// Init CLI
-	node.eciesSPI = ecies.NewSPI()
+	node.acSPI = ecies.NewSPI()
 
 	if err := node.initTLS(); err != nil {
 		node.error("Failed initliazing TLS [%s].", err.Error())
@@ -50,7 +50,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 	node.debug("Initializing node crypto engine...")
 
 	// Init CLI
-	node.eciesSPI = ecies.NewSPI()
+	node.acSPI = ecies.NewSPI()
 
 	// Init certPools
 	node.rootsCertPool = x509.NewCertPool()
@@ -69,12 +69,12 @@ func (node *nodeImpl) initCryptoEngine() error {
 	}
 
 	// Load enrollment secret key
-	if err := node.loadEnrollmentKey(); err != nil {
+	if err := node.loadEnrollmentKeys(); err != nil {
 		return err
 	}
 
 	// Load enrollment certificate and set validator ID
-	if err := node.loadEnrollmentCertificate(); err != nil {
+	if err := node.loadEnrollmentCertificates(); err != nil {
 		return err
 	}
 

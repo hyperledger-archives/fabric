@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+	obcca "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -29,8 +29,9 @@ import (
 	"google/protobuf"
 	"time"
 
+	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -106,7 +107,7 @@ func (node *nodeImpl) loadTLSCACertsChain() error {
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
 	node.debug("getTLSCertificate...")
 
-	priv, err := utils.NewECDSAKey()
+	priv, err := primitives.NewECDSAKey()
 
 	if err != nil {
 		node.error("Failed generating key: %s", err)
@@ -121,21 +122,21 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
-	req := &membersrvc.TLSCertCreateReq{
+	req := &obcca.TLSCertCreateReq{
 		Ts: &timestamp,
-		Id: &membersrvc.Identity{Id: id + "-" + uuid},
-		Pub: &membersrvc.PublicKey{
-			Type: membersrvc.CryptoType_ECDSA,
+		Id: &obcca.Identity{Id: id + "-" + uuid},
+		Pub: &obcca.PublicKey{
+			Type: obcca.CryptoType_ECDSA,
 			Key:  pubraw,
 		}, Sig: nil}
 	rawreq, _ := proto.Marshal(req)
-	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
+	r, s, err := ecdsa.Sign(rand.Reader, priv, primitives.Hash(rawreq))
 	if err != nil {
 		panic(err)
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
+	req.Sig = &obcca.Signature{Type: obcca.CryptoType_ECDSA, R: R, S: S}
 
 	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {
@@ -146,16 +147,20 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	node.debug("Verifing tls certificate...")
 
-	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
+	tlsCert, err := primitives.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
-	utils.VerifySignCapability(priv, certPK)
+	if err = primitives.VerifySignCapability(priv, certPK); err != nil {
+		node.debug("Failed varifying signing capabilities")
+
+		return nil, nil, fmt.Errorf("Failed varifying signing capabilities")
+	}
 
 	node.debug("Verifing tls certificate...done!")
 
 	return priv, pbCert.Cert.Cert, nil
 }
 
-func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, membersrvc.TLSCAPClient, error) {
+func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, obcca.TLSCAPClient, error) {
 	node.debug("Getting TLSCA client...")
 
 	conn, err := node.getClientConn(node.conf.getTLSCAPAddr(), node.conf.getTLSCAServerName())
@@ -163,14 +168,14 @@ func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, membersrvc.TLSCAPClien
 		node.error("Failed getting client connection: [%s]", err)
 	}
 
-	client := membersrvc.NewTLSCAPClient(conn)
+	client := obcca.NewTLSCAPClient(conn)
 
 	node.debug("Getting TLSCA client...done")
 
 	return conn, client, nil
 }
 
-func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *membersrvc.TLSCertCreateReq, opts ...grpc.CallOption) (*membersrvc.TLSCertCreateResp, error) {
+func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *obcca.TLSCertCreateReq, opts ...grpc.CallOption) (*obcca.TLSCertCreateResp, error) {
 	conn, tlscaP, err := node.getTLSCAClient()
 	if err != nil {
 		node.error("Failed dialing in: %s", err)

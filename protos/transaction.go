@@ -83,7 +83,16 @@ func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentS
 	//	transaction.Function = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Function
 	//	transaction.Args = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Args
 	//}
+	// Cleanup ChaincodeSpec before marshalling.
+	// Not all ChaincodeSpec's fields need to be serialized
+	tmpParent := chaincodeDeploymentSpec.ChaincodeSpec.Parent
+	chaincodeDeploymentSpec.ChaincodeSpec.Parent = nil
+
 	data, err := proto.Marshal(chaincodeDeploymentSpec)
+
+	// Restore ChaincodeSpec
+	chaincodeDeploymentSpec.ChaincodeSpec.Parent = tmpParent
+
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error mashalling payload for chaincode deployment: %s", err))
 		return nil, fmt.Errorf("Could not marshal payload for chaincode deployment: %s", err)
@@ -106,7 +115,15 @@ func NewChaincodeExecute(chaincodeInvocationSpec *ChaincodeInvocationSpec, uuid 
 		}
 		transaction.ChaincodeID = data
 	}
+	// Cleanup ChaincodeSpec before marshalling.
+	// Not all ChaincodeSpec's fields need to be serialized
+	tmpParent := chaincodeInvocationSpec.ChaincodeSpec.Parent
+	chaincodeInvocationSpec.ChaincodeSpec.Parent = nil
+
 	data, err := proto.Marshal(chaincodeInvocationSpec)
+
+	// Restore ChaincodeSpec
+	chaincodeInvocationSpec.ChaincodeSpec.Parent = tmpParent
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
 	}

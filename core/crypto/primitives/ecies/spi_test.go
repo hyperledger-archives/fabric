@@ -1,4 +1,4 @@
-package generic
+package ecies
 
 import (
 	"crypto/ecdsa"
@@ -6,21 +6,20 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"reflect"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
-	conf.InitSecurityLevel("SHA3", 256)
+	primitives.InitSecurityLevel("SHA3", 256)
 }
 
 func TestSPI(t *testing.T) {
 
 	spi := NewSPI()
 
-	ecdsaKey, err := ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
+	ecdsaKey, err := ecdsa.GenerateKey(primitives.GetDefaultCurve(), rand.Reader)
 
 	var a interface{}
 	a = ecdsaKey
@@ -103,7 +102,7 @@ func TestKG(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kgparams, err := newKeyGeneratorParameter(rand.Reader, conf.GetDefaultCurve())
+	kgparams, err := newKeyGeneratorParameter(rand.Reader, primitives.GetDefaultCurve())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,9 +153,9 @@ func TestES(t *testing.T) {
 	}
 }
 
-func generateKey() ecies.PrivateKey {
+func generateKey() primitives.PrivateKey {
 	kg, _ := newKeyGenerator()
-	kgparams, _ := newKeyGeneratorParameter(rand.Reader, conf.GetDefaultCurve())
+	kgparams, _ := newKeyGeneratorParameter(rand.Reader, primitives.GetDefaultCurve())
 	kg.Init(kgparams)
 	privKey, _ := kg.GenerateKey()
 	return privKey

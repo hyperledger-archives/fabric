@@ -20,52 +20,35 @@ under the License.
 package crypto
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 
+func (client *clientImpl) addQueryResultDecryptor(qrd QueryResultDecryptor) (err error) {
+	client.queryResultDecryptors[qrd.getVersion()] = qrd
+
+	return
+}
+
+func (client *clientImpl) initQueryResultDecryptors() (err error) {
+	client.queryResultDecryptors = make(map[string]QueryResultDecryptor)
+
+	// Init confidentiality processors
+	client.addQueryResultDecryptor(&clientQueryResultDecryptorV1_1{client})
+	client.addQueryResultDecryptor(&clientQueryResultDecryptorV1_2{client})
+	client.addQueryResultDecryptor(&clientQueryResultDecryptorV2{client})
+
+	return
+}
+
 // DecryptQueryResult is used to decrypt the result of a query transaction
 func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
+	client.debug("Confidentiality protocol version [%s]", queryTx.ConfidentialityProtocolVersion)
+
+	decryptor, ok := client.queryResultDecryptors[queryTx.ConfidentialityProtocolVersion]
+	if !ok {
+		return nil, utils.ErrInvalidProtocolVersion
 	}
 
-	var queryKey []byte
-
-	switch queryTx.ConfidentialityProtocolVersion {
-	case "1.1":
-		enrollChainKey := client.enrollChainKey.([]byte)
-		queryKey = utils.HMACTruncated(enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-		//	client.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
-		break
-	case "1.2":
-		queryKey = utils.HMACTruncated(client.queryStateKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
-	}
-
-	if len(ct) <= utils.NonceSize {
-		return nil, utils.ErrDecrypt
-	}
-
-	c, err := aes.NewCipher(queryKey)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(c)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	copy(nonce, ct)
-
-	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
-	if err != nil {
-		client.error("Failed decrypting query result [%s].", err.Error())
-		return nil, utils.ErrDecrypt
-	}
-	return out, nil
+	return decryptor.decryptQueryResult(queryTx, ct)
 }

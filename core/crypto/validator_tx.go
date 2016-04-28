@@ -17,17 +17,12 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package conf
+package crypto
 
 import (
-	"crypto/elliptic"
+	obc "github.com/hyperledger/fabric/protos"
 )
 
-var (
-	defaultCurve elliptic.Curve
-)
-
-// GetDefaultCurve returns the default elliptic curve used by the crypto layer
-func GetDefaultCurve() elliptic.Curve {
-	return defaultCurve
+func (validator *validatorImpl) newTransactionContextFromTx(deployTx, tx *obc.Transaction) *transactionContextImpl {
+	return &transactionContextImpl{nil, nil, nil, tx.Uuid, tx.Nonce, nil, deployTx, tx}
 }

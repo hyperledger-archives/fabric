@@ -23,20 +23,62 @@ import (
 	obc "github.com/hyperledger/fabric/protos"
 )
 
-type nodeProtocol interface {
-	init(node Node)
+const (
+	DefaultConfidentialityProtocolVersion = "1.2"
+)
 
-	parseTransaction(tx *obc.Transaction) (*obc.Transaction, error)
+type MessageValidator interface {
+	Validate() error
 }
 
-type clientProtocol interface {
-	nodeProtocol
+type TransactionContext interface {
+	GetDeployTransaction() *obc.Transaction
 
-	decryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
+	GetTransaction() *obc.Transaction
+
+	GetChaincodeSpec() *obc.ChaincodeSpec
+
+	GetBinding() []byte
 }
 
-type validatorProtocol interface {
-	nodeProtocol
+type TransactionCertificateProvider interface {
+	GetEnrollmentCertificate() (TransactionCertificate, error)
+
+	GetNewTransactionCertificate() (TransactionCertificate, error)
+}
+
+type TransactionCertificate interface {
+	GetRaw() []byte
+
+	Sign(msg []byte) ([]byte, error)
+
+	Verify(signature, msg []byte) error
+}
+
+type ConfidentialityProcessor interface {
+	getVersion() string
+
+	process(ctx TransactionContext) (*obc.Transaction, error)
+}
+
+type ValidatorConfidentialityProcessor interface {
+	getVersion() string
+
+	getChaincodeID(ctx TransactionContext) (*obc.ChaincodeID, error)
+
+	preValidation(ctx TransactionContext) (*obc.Transaction, error)
+
+	preExecution(ctx TransactionContext) (*obc.Transaction, error)
+}
+
+type StateProcessor interface {
+	getVersion() string
 
 	getStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error)
+}
+
+type QueryResultDecryptor interface {
+	getVersion() string
+
+	decryptQueryResult(queryTx *obc.Transaction, ct []byte) ([]byte, error)
 }

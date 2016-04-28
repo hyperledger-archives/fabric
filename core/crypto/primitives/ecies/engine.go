@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package generic
+package ecies
 
 import (
 	"crypto/aes"
@@ -30,7 +30,8 @@ import (
 	"io"
 
 	"crypto/subtle"
-	"github.com/hyperledger/fabric/core/crypto/conf"
+	"fmt"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -96,7 +97,7 @@ func eciesEncrypt(rand io.Reader, pub *ecdsa.PublicKey, s1, s2 []byte, plain []b
 	// ans s1
 	kE := make([]byte, 32)
 	kM := make([]byte, 32)
-	hkdf := hkdf.New(conf.GetDefaultHash(), Z, s1, nil)
+	hkdf := hkdf.New(primitives.GetDefaultHash(), Z, s1, nil)
 	_, err = hkdf.Read(kE)
 	if err != nil {
 		return nil, err
@@ -112,7 +113,7 @@ func eciesEncrypt(rand io.Reader, pub *ecdsa.PublicKey, s1, s2 []byte, plain []b
 
 	// Use the tagging operation of the MAC scheme to compute
 	// the tag D on EM || s2
-	mac := hmac.New(conf.GetDefaultHash(), kM)
+	mac := hmac.New(primitives.GetDefaultHash(), kM)
 	mac.Write(EM)
 	if len(s2) > 0 {
 		mac.Write(s2)
@@ -136,7 +137,7 @@ func eciesDecrypt(priv *ecdsa.PrivateKey, s1, s2 []byte, ciphertext []byte) ([]b
 
 	var (
 		rLen   int
-		hLen   int = conf.GetDefaultHash()().Size()
+		hLen   int = primitives.GetDefaultHash()().Size()
 		mStart int
 		mEnd   int
 	)
@@ -146,18 +147,18 @@ func eciesDecrypt(priv *ecdsa.PrivateKey, s1, s2 []byte, ciphertext []byte) ([]b
 	case 2, 3:
 		rLen = ((priv.PublicKey.Curve.Params().BitSize + 7) / 8) + 1
 		if len(ciphertext) < (rLen + hLen + 1) {
-			return nil, errors.New("Invalid ciphertext")
+			return nil, fmt.Errorf("Invalid ciphertext len [First byte = %d]", ciphertext[0])
 		}
 		break
 	case 4:
 		rLen = 2*((priv.PublicKey.Curve.Params().BitSize+7)/8) + 1
 		if len(ciphertext) < (rLen + hLen + 1) {
-			return nil, errors.New("Invalid ciphertext")
+			return nil, fmt.Errorf("Invalid ciphertext len [First byte = %d]", ciphertext[0])
 		}
 		break
 
 	default:
-		return nil, errors.New("Invalid ciphertext")
+		return nil, fmt.Errorf("Invalid ciphertext. Invalid first byte. [%d]", ciphertext[0])
 	}
 
 	mStart = rLen
@@ -184,7 +185,7 @@ func eciesDecrypt(priv *ecdsa.PrivateKey, s1, s2 []byte, ciphertext []byte) ([]b
 	// ans s1
 	kE := make([]byte, 32)
 	kM := make([]byte, 32)
-	hkdf := hkdf.New(conf.GetDefaultHash(), Z, s1, nil)
+	hkdf := hkdf.New(primitives.GetDefaultHash(), Z, s1, nil)
 	_, err := hkdf.Read(kE)
 	if err != nil {
 		return nil, err
@@ -196,7 +197,7 @@ func eciesDecrypt(priv *ecdsa.PrivateKey, s1, s2 []byte, ciphertext []byte) ([]b
 
 	// Use the tagging operation of the MAC scheme to compute
 	// the tag D on EM || s2 and then compare
-	mac := hmac.New(conf.GetDefaultHash(), kM)
+	mac := hmac.New(primitives.GetDefaultHash(), kM)
 	mac.Write(ciphertext[mStart:mEnd])
 	if len(s2) > 0 {
 		mac.Write(s2)

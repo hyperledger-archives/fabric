@@ -131,7 +131,7 @@ func CloseAllClients() (bool, []error) {
 // Private Methods
 
 func newClient() *clientImpl {
-	return &clientImpl{&nodeImpl{}, false, nil, nil, nil, nil}
+	return &clientImpl{&nodeImpl{}, false, nil, nil, nil, nil, nil, nil, nil}
 }
 
 func closeClientInternal(client Client, force bool) error {

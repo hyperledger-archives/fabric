@@ -16,9 +16,9 @@ under the License.
 */
 syntax = "proto3";
 package protos;
-import "chaincode.proto";
-import "google/protobuf/timestamp.proto";
 
+import "google/protobuf/timestamp.proto";
+import "confidentiality.proto";
 
 // Transaction defines a function call to a contract.
 // `args` is an array of type string so that the chaincode writer can choose
@@ -45,13 +45,14 @@ message Transaction {
     string uuid = 5;
     google.protobuf.Timestamp timestamp = 6;
 
+    //Confidentiality
     ConfidentialityLevel confidentialityLevel = 7;
     string confidentialityProtocolVersion = 8;
     bytes nonce = 9;
-
     bytes toValidators = 10;
-    bytes cert = 11;
-    bytes signature = 12;
+    bytes toUsers = 11;
+    bytes cert = 12;
+    bytes signature = 13;
 }
 
 // TransactionBlock carries a batch of transactions.

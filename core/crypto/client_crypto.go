@@ -21,12 +21,12 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (client *clientImpl) registerCryptoEngine() (err error) {
 	// Store query state key
-	client.queryStateKey, err = utils.GetRandomBytes(utils.NonceSize)
+	client.queryStateKey, err = primitives.GetRandomNonce()
 	if err != nil {
 		log.Error("Failed generating query state key: [%s].", err.Error())
 		return
@@ -54,7 +54,22 @@ func (client *clientImpl) initCryptoEngine() (err error) {
 	}
 
 	// Init chain publicKey
-	client.chainPublicKey, err = client.eciesSPI.NewPublicKey(nil, client.enrollChainKey.(*ecdsa.PublicKey))
+	client.chainPublicKey, err = client.acSPI.NewPublicKey(nil, client.enrollASymChainKey.(*ecdsa.PublicKey))
+	if err != nil {
+		return
+	}
+
+	// Init eCert
+	client.eCert = &transactionCertificateImpl{client, client.enrollCert, client.enrollSigningKey}
+
+	// Init confidentiality processors
+	err = client.initConfidentialityProcessors()
+	if err != nil {
+		return
+	}
+
+	// Init query result decryptors
+	err = client.initQueryResultDecryptors()
 	if err != nil {
 		return
 	}

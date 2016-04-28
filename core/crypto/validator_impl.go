@@ -23,7 +23,8 @@ import (
 	"crypto/ecdsa"
 
 	"fmt"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -36,7 +37,32 @@ type validatorImpl struct {
 	isInitialized bool
 
 	// Chain
-	chainPrivateKey ecies.PrivateKey
+	chainPrivateKey primitives.PrivateKey
+
+	// Confidentiality
+	confidentialityProcessors map[string]ValidatorConfidentialityProcessor
+
+	// State
+	stateProcessors map[string]StateProcessor
+}
+
+func (validator *validatorImpl) GetChaincodeID(tx *obc.Transaction) (*obc.ChaincodeID, error) {
+	if !validator.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	if tx.ConfidentialityLevel == obc.ConfidentialityLevel_PUBLIC {
+		cID := &obc.ChaincodeID{}
+		err := proto.Unmarshal(tx.ChaincodeID, cID)
+		if err != nil {
+			validator.error("Failed unmarshalling chaincodeID [%s].", err.Error())
+			return nil, err
+		}
+
+		return cID, nil
+	}
+
+	return validator.getChaincodeID(tx)
 }
 
 // TransactionPreValidation verifies that the transaction is
@@ -47,14 +73,35 @@ func (validator *validatorImpl) TransactionPreValidation(tx *obc.Transaction) (*
 		return nil, utils.ErrNotInitialized
 	}
 
-	return validator.peerImpl.TransactionPreValidation(tx)
+	tx, err := validator.peerImpl.TransactionPreValidation(tx)
+	if err != nil {
+		validator.debug("Failed pre validation [%s]", err)
+	}
+
+	switch tx.ConfidentialityLevel {
+	case obc.ConfidentialityLevel_PUBLIC:
+		// Nothing to do here!
+
+		return tx, nil
+	case obc.ConfidentialityLevel_CONFIDENTIAL:
+		newTx, err := validator.preValidationConfidentiality(tx)
+		if err != nil {
+			validator.error("Failed decrypting [%s].", err.Error())
+
+			return nil, err
+		}
+
+		return newTx, nil
+	default:
+		return nil, utils.ErrInvalidConfidentialityLevel
+	}
 }
 
 // TransactionPreValidation verifies that the transaction is
 // well formed with the respect to the security layer
 // prescriptions (i.e. signature verification). If this is the case,
 // the method prepares the transaction to be executed.
-func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*obc.Transaction, error) {
+func (validator *validatorImpl) TransactionPreExecution(deployTx, tx *obc.Transaction) (*obc.Transaction, error) {
 	if !validator.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
@@ -76,10 +123,7 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 		return tx, nil
 	case obc.ConfidentialityLevel_CONFIDENTIAL:
-		validator.debug("Clone and Decrypt.")
-
-		// Clone the transaction and decrypt it
-		newTx, err := validator.deepCloneAndDecryptTx(tx)
+		newTx, err := validator.preExecutionConfidentiality(deployTx, tx)
 		if err != nil {
 			validator.error("Failed decrypting [%s].", err.Error())
 
@@ -182,9 +226,21 @@ func (validator *validatorImpl) init(name string, pwd []byte) error {
 
 func (validator *validatorImpl) initCryptoEngine() (err error) {
 	// Init chain publicKey
-	validator.chainPrivateKey, err = validator.eciesSPI.NewPrivateKey(
-		nil, validator.enrollChainKey.(*ecdsa.PrivateKey),
+	validator.chainPrivateKey, err = validator.acSPI.NewPrivateKey(
+		nil, validator.enrollASymChainKey.(*ecdsa.PrivateKey),
 	)
+	if err != nil {
+		return
+	}
+
+	// Init confidentiality processors
+	err = validator.initConfidentialityProcessors()
+	if err != nil {
+		return
+	}
+
+	// Init state processors
+	err = validator.initStateProcessors()
 	if err != nil {
 		return
 	}

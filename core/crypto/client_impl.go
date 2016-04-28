@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -31,12 +31,21 @@ type clientImpl struct {
 	isInitialized bool
 
 	// Chain
-	chainPublicKey ecies.PublicKey
+	chainPublicKey primitives.PublicKey
 	queryStateKey  []byte
+
+	// Enrollment Transaction Certificate
+	eCert TransactionCertificate
 
 	// TCA KDFKey
 	tCertOwnerKDFKey []byte
 	tCertPool        tCertPool
+
+	// Confidentiality
+	confidentialityProcessors map[string]ConfidentialityProcessor
+
+	// State
+	queryResultDecryptors map[string]QueryResultDecryptor
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
@@ -46,32 +55,19 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 		return nil, utils.ErrNotInitialized
 	}
 
-	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
+	txCertHandler, err := client.GetTCertificateHandlerNext()
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting transaction handler [%s].", err)
 		return nil, err
 	}
 
-	// Create Transaction
-	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
-}
-
-// GetNextTCert Gets next available (not yet used) transaction certificate.
-func (client *clientImpl) GetNextTCert() (tCert, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
-	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
+	txHandler, err := txCertHandler.GetTransactionHandler()
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting transaction handler [%s].", err)
 		return nil, err
 	}
 
-	return tCert, err
+	return txHandler.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
@@ -81,15 +77,19 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 		return nil, utils.ErrNotInitialized
 	}
 
-	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	txCertHandler, err := client.GetTCertificateHandlerNext()
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting transaction handler [%s].", err)
 		return nil, err
 	}
 
-	// Create Transaction
-	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	txHandler, err := txCertHandler.GetTransactionHandler()
+	if err != nil {
+		client.error("Failed getting transaction handler [%s].", err)
+		return nil, err
+	}
+
+	return txHandler.NewChaincodeExecute(chaincodeInvocation, uuid)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -99,15 +99,19 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 		return nil, utils.ErrNotInitialized
 	}
 
-	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	txCertHandler, err := client.GetTCertificateHandlerNext()
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting transaction handler [%s].", err)
 		return nil, err
 	}
 
-	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	txHandler, err := txCertHandler.GetTransactionHandler()
+	if err != nil {
+		client.error("Failed getting transaction handler [%s].", err)
+		return nil, err
+	}
+
+	return txHandler.NewChaincodeQuery(chaincodeInvocation, uuid)
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
@@ -118,14 +122,7 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 	}
 
 	// Return the handler
-	handler := &eCertHandlerImpl{}
-	err := handler.init(client)
-	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
-		return nil, err
-	}
-
-	return handler, nil
+	return &eCertHandlerImpl{client}, nil
 }
 
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
@@ -143,14 +140,7 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	}
 
 	// Return the handler
-	handler := &tCertHandlerImpl{}
-	err = handler.init(client, tCert)
-	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
-		return nil, err
-	}
-
-	return handler, nil
+	return &tCertHandlerImpl{client, tCert}, nil
 }
 
 // GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
@@ -169,14 +159,14 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	}
 
 	// Return the handler
-	handler := &tCertHandlerImpl{}
-	err = handler.init(client, tCert)
-	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
-		return nil, err
-	}
+	return &tCertHandlerImpl{client, tCert}, nil
+}
 
-	return handler, nil
+func (client *clientImpl) GetEncryptionKey() ([]byte, error) {
+	raw, err := client.acSPI.SerializePublicKey(client.enrollEncryptionKey.GetPublicKey())
+	client.debug("chaincodeUserSpec.PublicKey: [% x]", raw)
+
+	return raw, err
 }
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
