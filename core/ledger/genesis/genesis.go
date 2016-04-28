@@ -25,9 +25,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
-	"github.com/hyperledger/fabric/core/container"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
@@ -48,21 +46,28 @@ func MakeGenesis() error {
 			return
 		}
 
-		if ledger.GetBlockchainSize() > 0 {
-			// genesis block already exists
-			return
+		var genesisBlockExists bool 
+		if ledger.GetBlockchainSize() == 0 {
+			genesisLogger.Info("Creating genesis block.")
+			ledger.BeginTxBatch(0)
+		} else {
+			genesisBlockExists = true
 		}
 
-		genesisLogger.Info("Creating genesis block.")
-
-		ledger.BeginTxBatch(0)
 		var genesisTransactions []*protos.Transaction
+		
+		defer func() {
+			if !genesisBlockExists && makeGenesisError == nil {
+				genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
+				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
+			}
+		}()
 
 		//We are disabling the validity period deployment for now, we shouldn't even allow it if it's enabled in the configuration
 		allowDeployValidityPeriod := false
 
 		if isDeploySystemChaincodeEnabled() && allowDeployValidityPeriod {
-			vpTransaction, deployErr := deployUpdateValidityPeriodChaincode()
+			vpTransaction, deployErr := deployUpdateValidityPeriodChaincode(genesisBlockExists)
 
 			if deployErr != nil {
 				genesisLogger.Error("Error deploying validity period system chaincode for genesis block.", deployErr)
@@ -76,8 +81,8 @@ func MakeGenesis() error {
 		if getGenesis() == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")
 		} else {
-
-			chaincodes, chaincodesOK := genesis["chaincode"].([]interface{})
+			
+			chaincodes, chaincodesOK := genesis["chaincodes"].(map[interface{}]interface{})
 			if !chaincodesOK {
 				genesisLogger.Info("No genesis block chaincodes defined.")
 				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
@@ -86,13 +91,15 @@ func MakeGenesis() error {
 
 			genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
 
-			for i := 0; i < len(chaincodes); i++ {
-				genesisLogger.Debug("Chaincode %d is %s", i, chaincodes[i])
-
-				chaincodeMap, chaincodeMapOK := chaincodes[i].(map[interface{}]interface{})
+			for i := range chaincodes {
+				name := i.(string)
+				genesisLogger.Debug("Chaincode %s", name)
+	
+				chaincode := chaincodes[name]
+				chaincodeMap, chaincodeMapOK := chaincode.(map[interface{}]interface{})
 				if !chaincodeMapOK {
-					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincodes[i])
-					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincodes[i])
+					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincode)
+					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincode)
 					return
 				}
 
@@ -110,10 +117,13 @@ func MakeGenesis() error {
 					return
 				}
 
-				chaincodeID := &protos.ChaincodeID{Path: path, Name: ""}
+				if chaincodeType == "" {
+					chaincodeType = "GOLANG"
+				}
+
+				chaincodeID := &protos.ChaincodeID{Path: path, Name: name}
 
 				genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
-				genesisLogger.Debug("Genesis chaincode type %s", chaincodeType)
 
 				constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
 				if !constructorMapOK {
@@ -128,31 +138,25 @@ func MakeGenesis() error {
 					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID}
 				} else {
 
-					ctorFunc, ctorFuncOK := constructorMap["func"].(string)
-					if !ctorFuncOK {
-						genesisLogger.Error("Invalid chaincode constructor function defined in genesis configuration:", constructorMap["func"])
-						makeGenesisError = fmt.Errorf("Invalid chaincode constructor function args defined in genesis configuration: %s", constructorMap["func"])
-						return
-					}
-
-					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
+					_, ctorArgsOK := constructorMap["args"]
 					if !ctorArgsOK {
 						genesisLogger.Error("Invalid chaincode constructor args defined in genesis configuration:", constructorMap["args"])
 						makeGenesisError = fmt.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
 						return
 					}
 
-					genesisLogger.Debug("Genesis chaincode constructor func %s", ctorFunc)
-					genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
+					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
 					var ctorArgsStringArray []string
-					for j := 0; j < len(ctorArgs); j++ {
-						ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
+					if ctorArgsOK {
+						genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
+						for j := 0; j < len(ctorArgs); j++ {
+							ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
+						}
 					}
-
-					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Function: ctorFunc, Args: ctorArgsStringArray}}
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Args: ctorArgsStringArray}}
 				}
 
-				transaction, _, deployErr := DeployLocal(context.Background(), &spec)
+				transaction, _, deployErr := DeployLocal(context.Background(), &spec, genesisBlockExists)
 				if deployErr != nil {
 					genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
 					makeGenesisError = deployErr
@@ -164,10 +168,6 @@ func MakeGenesis() error {
 			} //for
 
 		} //else
-
-		genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
-		ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
-
 	})
 	return makeGenesisError
 }
@@ -176,6 +176,7 @@ func MakeGenesis() error {
 func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
 	genesisLogger.Debug("Received build request for chaincode spec: %v", spec)
 	var codePackageBytes []byte
+	/*****  We will need this only when we support non-go SYSTEM chaincode ****
 	if getMode() != chaincode.DevModeUserRunsChaincode {
 		if err := core.CheckSpec(spec); err != nil {
 			genesisLogger.Debug("check spec failed: %s", err)
@@ -189,12 +190,13 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 			return nil, err
 		}
 	}
-	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: codePackageBytes}
+	*********/
+	chaincodeDeploymentSpec := &protos.ChaincodeDeploymentSpec{ExecEnv: protos.ChaincodeDeploymentSpec_SYSTEM, ChaincodeSpec: spec, CodePackage: codePackageBytes}
 	return chaincodeDeploymentSpec, nil
 }
 
 // DeployLocal deploys the supplied chaincode image to the local peer
-func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Transaction, []byte, error) {
+func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool) (*protos.Transaction, []byte, error) {
 	// First build and get the deployment spec
 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
@@ -203,10 +205,28 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Trans
 		return nil, nil, err
 	}
 
-	transaction, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+	var transaction *protos.Transaction
+	if gbexists {
+		ledger, err := ledger.GetLedger()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to get handle to ledger (%s)", err)
+		}
+		transaction, err = ledger.GetTransactionByUUID(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		if err != nil {
+			genesisLogger.Warning(fmt.Sprintf("cannot get deployment transaction for %s - %s", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name, err))
+			transaction = nil
+		} else {
+			genesisLogger.Debug("deployment transaction for %s exists", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		}
 	}
+
+	if transaction == nil {
+		transaction, err = protos.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error deploying chaincode: %s ", err)
+		}
+	}
+
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	//ctx = context.WithValue(ctx, "security", secCxt)
@@ -214,7 +234,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec) (*protos.Trans
 	return transaction, result, err
 }
 
-func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
+func deployUpdateValidityPeriodChaincode(gbexists bool) (*protos.Transaction, error) {
 	//TODO It should be configurable, not hardcoded
 	vpChaincodePath := "github.com/hyperledger/fabric/core/system_chaincode/validity_period_update"
 	vpFunction := "init"
@@ -236,7 +256,7 @@ func deployUpdateValidityPeriodChaincode() (*protos.Transaction, error) {
 
 	validityPeriodSpec.SecureContext = string(vpToken)
 
-	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec)
+	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec, gbexists)
 
 	if deployErr != nil {
 		genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)

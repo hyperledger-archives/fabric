@@ -187,6 +187,47 @@ func (state *State) Delete(chaincodeID string, key string) error {
 	return nil
 }
 
+// CopyState copies all the key-values from sourceChaincodeID to destChaincodeID
+func (state *State) CopyState(sourceChaincodeID string, destChaincodeID string) error {
+	itr, err := state.GetRangeScanIterator(sourceChaincodeID, "", "", true)
+	defer itr.Close()
+	if err != nil {
+		return err
+	}
+	for itr.Next() {
+		k, v := itr.GetKeyValue()
+		err := state.Set(destChaincodeID, k, v)
+		if err != nil{
+			return err
+		}
+	}
+	return nil
+}
+
+// GetMultipleKeys returns the values for the multiple keys.
+func (state *State) GetMultipleKeys(chaincodeID string, keys []string, committed bool) ([][]byte, error) {
+	var values [][]byte
+	for _,k := range keys{
+		v, err := state.Get(chaincodeID, k, committed)
+		if err != nil{
+			return nil, err
+		}
+		values = append(values, v)
+	}
+	return values, nil
+}
+
+// SetMultipleKeys sets the values for the multiple keys.
+func (state *State) SetMultipleKeys(chaincodeID string, kvs map[string][]byte) error {
+	for k,v := range kvs{
+		err := state.Set(chaincodeID, k, v)
+		if err != nil{
+			return err
+		}
+	}
+	return nil
+}
+
 // GetHash computes new state hash if the stateDelta is to be applied.
 // Recomputes only if stateDelta has changed after most recent call to this function
 func (state *State) GetHash() ([]byte, error) {

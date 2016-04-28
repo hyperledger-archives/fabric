@@ -20,14 +20,13 @@ under the License.
 package main
 
 import (
-	//	"fmt"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
 
-	"fmt"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/spf13/viper"
