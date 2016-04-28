@@ -22,16 +22,23 @@ package crypto
 import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"sync"
+	"time"
 )
 
 // Private Variables
 
 type clientEntry struct {
-	client  Client
-	counter int64
+	client     Client
+	counter    int64
+	timestamp  time.Time
+	longLiving bool
 }
 
 var (
+	// Is client module initialized
+	initialized bool
+	done        chan struct{}
+
 	// Map of initialized clients
 	clients = make(map[string]clientEntry)
 
@@ -45,6 +52,9 @@ var (
 func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
+
+	// Init the client layer if necessary
+	initClientLayer()
 
 	log.Info("Registering client [%s] with name [%s]...", enrollID, name)
 
@@ -73,16 +83,23 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	return nil
 }
 
-// InitClient initializes a client named name with password pwd
-func InitClient(name string, pwd []byte) (Client, error) {
+// InitShortLivingClient initializes a short living client named 'name' using password 'pwd'.
+// A short-living client is a client that is supposed to be initialize every time it is needed.
+// The client is used (for a short period, namely to just invoke a single function) and then discarded immediately.
+// There is no need to call CloseClient for the short-living instances, internal garbage collection is in place.
+func InitShortLivingClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
+
+	// Init the client layer if necessary
+	initClientLayer()
 
 	log.Info("Initializing client [%s]...", name)
 
 	if entry, ok := clients[name]; ok {
 		log.Info("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
 		entry.counter++
+		entry.timestamp = time.Now()
 		clients[name] = entry
 
 		return clients[name].client, nil
@@ -95,7 +112,43 @@ func InitClient(name string, pwd []byte) (Client, error) {
 		return nil, err
 	}
 
-	clients[name] = clientEntry{client, 1}
+	clients[name] = clientEntry{client, 1, time.Now(), false}
+	log.Info("Initializing client [%s]...done!", name)
+
+	return client, nil
+}
+
+// InitClient initializes a long living client named 'name' using password 'pwd'.
+// A short-living client is a client that is supposed to be initialize one and stay active for an indefinite period
+// of time.
+// Once the client is not needed anymore, CloseClient must be explicitly invoked. No internal garbage collection is
+// applied to long-living instances.
+func InitClient(name string, pwd []byte) (Client, error) {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+
+	// Init the client layer if necessary
+	initClientLayer()
+
+	log.Info("Initializing client [%s]...", name)
+
+	if entry, ok := clients[name]; ok {
+		log.Info("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
+		entry.counter++
+		entry.timestamp = time.Now()
+		clients[name] = entry
+
+		return clients[name].client, nil
+	}
+
+	client := newClient()
+	if err := client.init(name, pwd); err != nil {
+		log.Error("Failed client initialization [%s]: [%s].", name, err)
+
+		return nil, err
+	}
+
+	clients[name] = clientEntry{client, 1, time.Now(), true}
 	log.Info("Initializing client [%s]...done!", name)
 
 	return client, nil
@@ -109,11 +162,15 @@ func CloseClient(client Client) error {
 	return closeClientInternal(client, false)
 }
 
-// CloseAllClients closes all the clients initialized so far
+// CloseAllClients closes all the clients (short and long-living) initialized so far
 func CloseAllClients() (bool, []error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
+	// Send the 'done' signal
+	done <- struct{}{}
+
+	// Close all the clients
 	log.Info("Closing all clients...")
 
 	errs := make([]error, len(clients))
@@ -124,6 +181,9 @@ func CloseAllClients() (bool, []error) {
 	}
 
 	log.Info("Closing all clients...done!")
+
+	// Reset
+	initialized = false
 
 	return len(errs) != 0, errs
 }
@@ -159,4 +219,74 @@ func closeClientInternal(client Client, force bool) error {
 	log.Debug("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
 
 	return nil
+}
+
+func initClientLayer() {
+	if !initialized {
+		log.Debug("Initilize client layer...")
+		done = make(chan struct{})
+
+		// Start client instances cleaner
+		//go clientInstancesCleaner()
+
+		initialized = true
+		log.Debug("Initilize client layer...done!")
+	} else {
+		log.Debug("Client layer already initialized.")
+	}
+
+}
+
+func clientInstancesCleaner() {
+	log.Debug("Client Instances cleaner starting...")
+
+	var terminate bool = false
+	for {
+		select {
+		case <-done:
+			terminate = true
+
+		case <-time.After(refreshTimePeriod * time.Minute):
+			log.Debug("Time elpased, clean old client instances...")
+
+			cleanOldClientInstances()
+
+			log.Debug("Time elpased, clean old client instances...done!")
+		}
+
+		if terminate {
+			break
+		}
+	}
+
+	log.Debug("Client Instances cleaner starting...done!")
+}
+
+func cleanOldClientInstances() {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+
+	now := time.Now()
+	log.Debug("Cleaning old client instances [%s]...", now)
+
+	for name, clientEntry := range clients {
+		if clientEntry.longLiving {
+			continue
+		}
+
+		elapsed := now.Sub(clientEntry.timestamp)
+
+		log.Debug("Client Entry [%s], elapsed [%s]", name, elapsed)
+		if elapsed.Seconds() >= 1 {
+			// This entry must be removed
+			log.Debug("Cleaning client [%s]...", name)
+
+			err := closeClientInternal(clientEntry.client, true)
+			if err != nil {
+				log.Debug("Cleaning client [%s]...done!", name)
+			} else {
+				log.Error("Failed closing client (clientInstancesCleaner) [%s]", err)
+			}
+		}
+	}
 }
