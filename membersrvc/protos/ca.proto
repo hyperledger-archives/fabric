@@ -380,3 +380,11 @@ message FetchAttrsResult {
     StatusCode status = 1;
 	string Msg = 2;
 }
+
+message ACAAttribute {
+    string attributeName = 1;
+    bytes attributeValue = 2;
+	google.protobuf.Timestamp validFrom = 3;
+	google.protobuf.Timestamp validTo = 4;
+}
+

@@ -244,6 +244,47 @@ func (tcap *TCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 	return &pb.Cert{tcap.tca.raw}, nil
 }
 
+
+func (tcap *TCAP) selectValidAttributes(cert_raw []byte) ([]*pb.TCertAttribute, error) { 
+	cert, err := x509.ParseCertificate(cert_raw)
+	if err != nil { 
+		return nil, err
+	}
+	
+	ans := make([]*pb.TCertAttribute, 0)
+	
+	if cert.Extensions == nil { 
+		return ans, nil
+	}
+	currentTime := time.Now()
+	for _, extension := range(cert.Extensions) { 
+		acaAtt := &pb.ACAAttribute{"", nil ,&google_protobuf.Timestamp{0,0},&google_protobuf.Timestamp{0,0}}
+		
+		if IsAttributeOID(extension.Id)  {
+				if err := proto.Unmarshal(extension.Value, acaAtt); err != nil { 
+					continue
+				}	
+					
+				if acaAtt.AttributeName == "" { 
+					continue
+				}
+				var from, to time.Time
+				if acaAtt.ValidFrom != nil { 
+					from = time.Unix(acaAtt.ValidFrom.Seconds,int64(acaAtt.ValidFrom.Nanos)) 
+				}
+				if acaAtt.ValidTo != nil { 
+					to = time.Unix(acaAtt.ValidTo.Seconds,int64(acaAtt.ValidTo.Nanos)) 	
+				}
+			
+				//Check if the attribute still being valid.
+				if (from.Before(currentTime) || from.Equal(currentTime)) && (to.IsZero() || to.After(currentTime)) { 
+					ans = append(ans, &pb.TCertAttribute{acaAtt.AttributeName, string(acaAtt.AttributeValue)})
+				}
+			}
+	}
+	return ans, nil
+}
+
 func (tcap *TCAP) requestAttributes(id string, ecert []byte, attributes []*pb.TCertAttribute ) ([]*pb.TCertAttribute, error) { 
 	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
 	sock, acaP, err := GetACAClient()
@@ -290,8 +331,8 @@ func (tcap *TCAP) requestAttributes(id string, ecert []byte, attributes []*pb.TC
 	if resp.Status == pb.ACAAttrResp_FAILURE {
 		return nil,  errors.New("Error fetching attributes.")
 	} 
-	Info.Printf("Registered attributes.")
-	return attributes, nil
+		
+	return tcap.selectValidAttributes(resp.Cert.Cert)
 	
 }
 
@@ -390,7 +431,6 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			Error.Println(err)
 			return nil, err
 		}
-		
 		set = append(set, &pb.TCert{raw, ks})
 	}
 

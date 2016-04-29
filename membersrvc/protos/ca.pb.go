@@ -52,6 +52,7 @@ It has these top-level messages:
 	ACAFetchAttrReq
 	ACAFetchAttrResp
 	FetchAttrsResult
+	ACAAttribute
 */
 package protos
 
@@ -1178,6 +1179,31 @@ type FetchAttrsResult struct {
 func (m *FetchAttrsResult) Reset()         { *m = FetchAttrsResult{} }
 func (m *FetchAttrsResult) String() string { return proto.CompactTextString(m) }
 func (*FetchAttrsResult) ProtoMessage()    {}
+
+type ACAAttribute struct {
+	AttributeName  string                     `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
+	AttributeValue []byte                     `protobuf:"bytes,2,opt,name=attributeValue,proto3" json:"attributeValue,omitempty"`
+	ValidFrom      *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=validFrom" json:"validFrom,omitempty"`
+	ValidTo        *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=validTo" json:"validTo,omitempty"`
+}
+
+func (m *ACAAttribute) Reset()         { *m = ACAAttribute{} }
+func (m *ACAAttribute) String() string { return proto.CompactTextString(m) }
+func (*ACAAttribute) ProtoMessage()    {}
+
+func (m *ACAAttribute) GetValidFrom() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.ValidFrom
+	}
+	return nil
+}
+
+func (m *ACAAttribute) GetValidTo() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.ValidTo
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterEnum("protos.CryptoType", CryptoType_name, CryptoType_value)
