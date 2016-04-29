@@ -65,19 +65,32 @@ syntax. Examples of <level> specifications (valid for both --logging-level and
 
 
 
-### GO chaincodes
+### Go chaincodes
 
-There is currently no generic way to control logging in GO chaincodes. The
-chaincode _shim_ currently defaults to DEBUG level logging, creating large
-log files in the chaincode containers. The following is a suggested
-workaround: First, add
+As independently executed programs, user-provided chaincodes can use any
+appropriate technique to create their private logs - from simple print
+statements to annotated and level-controlled logs.  For example, one way to
+create basic levelled logs is to first add
 
     "github.com/op/go-logging"
 	
-to the _imports_ of the chaincode. Also add a line like
+to the _imports_ of the chaincode. Then define a logger for the chaincode
 
-    logging.SetLevel(logging.WARNING, "")
+    logger = logging.MustGetLogger("MyChaincode")
 	
-as the first line of the chaincode `main` routine to suppress all but WARNING
-and more severe errors.
+where "MyChaincode" is the logging _module_ name. Once the logger (or loggers)
+is defined, the chaincode can call `logging.Debug`, `logging.Info`, etc. to
+create logs at various severity levels. The logging level of a module can be
+set, for example by
 
+    logging.SetLevel(logging.WARNING, "MyChaincode")
+
+so that only WARNING and more severe messages are logged for the "MyChaincode"
+module. If you want to create fancier logs formatted with colors, timestamps,
+routine names etc., see how the peer sets up its logging
+[here](../../core/logging.go), or refer to the `go-logging` documentation
+[here](../../vendor/github.com/op/go-logging/README.md).
+
+Go language chaincodes can also control the logging level of the chaincode
+_shim_ interface through the `shim.SetLoggingLevel` API documented
+[here](../API/ChaincodeAPI.md).
