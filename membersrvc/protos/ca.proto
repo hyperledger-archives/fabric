@@ -193,8 +193,9 @@ message ECertCreateReq {
 message ECertCreateResp {
     CertPair certs = 1;
     Token chain = 2;
-    bytes pkchain = 4;
+    bytes pkchain = 5;
     Token tok = 3;
+    FetchAttrsResult fetchResult = 4;
 }
 
 message ECertReadReq {
@@ -335,8 +336,6 @@ message CertPair {
 message TCertAttributeHash {
     string attributeName = 1;
     bytes  attributeValueHash = 2;
-    google.protobuf.Timestamp validFrom = 3;
-    google.protobuf.Timestamp validTo = 4;
 }
 
 message ACAAttrReq {
@@ -371,4 +370,13 @@ message ACAFetchAttrResp {
     	FAILURE = 100;
 	}
     StatusCode status = 1;
+}
+
+message FetchAttrsResult {
+	enum StatusCode {
+    	SUCCESS = 000;
+    	FAILURE = 100;
+	}
+    StatusCode status = 1;
+	string Msg = 2;
 }

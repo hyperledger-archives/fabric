@@ -51,6 +51,7 @@ It has these top-level messages:
 	ACAAttrResp
 	ACAFetchAttrReq
 	ACAFetchAttrResp
+	FetchAttrsResult
 */
 package protos
 
@@ -192,6 +193,26 @@ var ACAFetchAttrResp_StatusCode_value = map[string]int32{
 
 func (x ACAFetchAttrResp_StatusCode) String() string {
 	return proto.EnumName(ACAFetchAttrResp_StatusCode_name, int32(x))
+}
+
+type FetchAttrsResult_StatusCode int32
+
+const (
+	FetchAttrsResult_SUCCESS FetchAttrsResult_StatusCode = 0
+	FetchAttrsResult_FAILURE FetchAttrsResult_StatusCode = 100
+)
+
+var FetchAttrsResult_StatusCode_name = map[int32]string{
+	0:   "SUCCESS",
+	100: "FAILURE",
+}
+var FetchAttrsResult_StatusCode_value = map[string]int32{
+	"SUCCESS": 0,
+	"FAILURE": 100,
+}
+
+func (x FetchAttrsResult_StatusCode) String() string {
+	return proto.EnumName(FetchAttrsResult_StatusCode_name, int32(x))
 }
 
 // Status codes shared by both CAs.
@@ -400,10 +421,11 @@ func (m *ECertCreateReq) GetSig() *Signature {
 }
 
 type ECertCreateResp struct {
-	Certs   *CertPair `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
-	Chain   *Token    `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
-	Pkchain []byte    `protobuf:"bytes,4,opt,name=pkchain,proto3" json:"pkchain,omitempty"`
-	Tok     *Token    `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
+	Certs       *CertPair         `protobuf:"bytes,1,opt,name=certs" json:"certs,omitempty"`
+	Chain       *Token            `protobuf:"bytes,2,opt,name=chain" json:"chain,omitempty"`
+	Pkchain     []byte            `protobuf:"bytes,5,opt,name=pkchain,proto3" json:"pkchain,omitempty"`
+	Tok         *Token            `protobuf:"bytes,3,opt,name=tok" json:"tok,omitempty"`
+	FetchResult *FetchAttrsResult `protobuf:"bytes,4,opt,name=fetchResult" json:"fetchResult,omitempty"`
 }
 
 func (m *ECertCreateResp) Reset()         { *m = ECertCreateResp{} }
@@ -427,6 +449,13 @@ func (m *ECertCreateResp) GetChain() *Token {
 func (m *ECertCreateResp) GetTok() *Token {
 	if m != nil {
 		return m.Tok
+	}
+	return nil
+}
+
+func (m *ECertCreateResp) GetFetchResult() *FetchAttrsResult {
+	if m != nil {
+		return m.FetchResult
 	}
 	return nil
 }
@@ -1023,29 +1052,13 @@ func (m *CertPair) String() string { return proto.CompactTextString(m) }
 func (*CertPair) ProtoMessage()    {}
 
 type TCertAttributeHash struct {
-	AttributeName      string                     `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
-	AttributeValueHash []byte                     `protobuf:"bytes,2,opt,name=attributeValueHash,proto3" json:"attributeValueHash,omitempty"`
-	ValidFrom          *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=validFrom" json:"validFrom,omitempty"`
-	ValidTo            *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=validTo" json:"validTo,omitempty"`
+	AttributeName      string `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
+	AttributeValueHash []byte `protobuf:"bytes,2,opt,name=attributeValueHash,proto3" json:"attributeValueHash,omitempty"`
 }
 
 func (m *TCertAttributeHash) Reset()         { *m = TCertAttributeHash{} }
 func (m *TCertAttributeHash) String() string { return proto.CompactTextString(m) }
 func (*TCertAttributeHash) ProtoMessage()    {}
-
-func (m *TCertAttributeHash) GetValidFrom() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.ValidFrom
-	}
-	return nil
-}
-
-func (m *TCertAttributeHash) GetValidTo() *google_protobuf.Timestamp {
-	if m != nil {
-		return m.ValidTo
-	}
-	return nil
-}
 
 type ACAAttrReq struct {
 	Ts         *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
@@ -1157,12 +1170,22 @@ func (m *ACAFetchAttrResp) Reset()         { *m = ACAFetchAttrResp{} }
 func (m *ACAFetchAttrResp) String() string { return proto.CompactTextString(m) }
 func (*ACAFetchAttrResp) ProtoMessage()    {}
 
+type FetchAttrsResult struct {
+	Status FetchAttrsResult_StatusCode `protobuf:"varint,1,opt,name=status,enum=protos.FetchAttrsResult_StatusCode" json:"status,omitempty"`
+	Msg    string                      `protobuf:"bytes,2,opt,name=Msg" json:"Msg,omitempty"`
+}
+
+func (m *FetchAttrsResult) Reset()         { *m = FetchAttrsResult{} }
+func (m *FetchAttrsResult) String() string { return proto.CompactTextString(m) }
+func (*FetchAttrsResult) ProtoMessage()    {}
+
 func init() {
 	proto.RegisterEnum("protos.CryptoType", CryptoType_name, CryptoType_value)
 	proto.RegisterEnum("protos.Role", Role_name, Role_value)
 	proto.RegisterEnum("protos.CAStatus_StatusCode", CAStatus_StatusCode_name, CAStatus_StatusCode_value)
 	proto.RegisterEnum("protos.ACAAttrResp_StatusCode", ACAAttrResp_StatusCode_name, ACAAttrResp_StatusCode_value)
 	proto.RegisterEnum("protos.ACAFetchAttrResp_StatusCode", ACAFetchAttrResp_StatusCode_name, ACAFetchAttrResp_StatusCode_value)
+	proto.RegisterEnum("protos.FetchAttrsResult_StatusCode", FetchAttrsResult_StatusCode_name, FetchAttrsResult_StatusCode_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

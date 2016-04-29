@@ -20,23 +20,30 @@ under the License.
 package ca
 
 import (
- "time"	
- "strings"
- "errors"
- "crypto/x509"
+	"time"	
+	"strings"
+	"bytes"
+	"errors"
+	"math/big"
 
- "database/sql"
+	"crypto/ecdsa"
+ 	"crypto/x509"
+	"crypto/x509/pkix"
 
-  pb "github.com/hyperledger/fabric/membersrvc/protos"
-  "golang.org/x/net/context"
-  "github.com/spf13/viper"
+ 	"database/sql"
+ 	
+  	"golang.org/x/net/context"
+  	"github.com/spf13/viper"
+	"github.com/golang/protobuf/proto"
+  	"google.golang.org/grpc"
 
+  	pb "github.com/hyperledger/fabric/membersrvc/protos"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // ACA is the attribute certificate authority.
 type ACA struct {
 	*CA
-	eca *ECA
 }
 
 // ACAP serves the public GRPC interface of the ACA.
@@ -79,21 +86,23 @@ func NewAttributePair(attribute_vals []string, attrOwner *AttributeOwner) (*Attr
 	if attrOwner != nil { 
 		attrPair.SetOwner(attrOwner)
 	} else { 
-		attrPair.SetOwner(&AttributeOwner{attribute_vals[0], attribute_vals[1]})
+		attrPair.SetOwner(&AttributeOwner{strings.TrimSpace(attribute_vals[0]), strings.TrimSpace(attribute_vals[1])})
 	}
-	attrPair.SetAttributeKey(attribute_vals[2])
-	attrPair.SetAttributeValue([]byte(attribute_vals[3]))
+	attrPair.SetAttributeKey(strings.TrimSpace(attribute_vals[2]))
+	attrPair.SetAttributeValue([]byte(strings.TrimSpace(attribute_vals[3])))
 	//Reading validFrom date
-	if attribute_vals[4] != "" { 
-			if t,err:=time.Parse(time.RFC3339, attribute_vals[4]); err != nil { 
+	dateStr := strings.TrimSpace(attribute_vals[4]) 
+	if dateStr  != "" { 
+			if t,err:=time.Parse(time.RFC3339, dateStr); err != nil { 
 				return nil, err
 			} else { 
 				attrPair.SetValidFrom(t)
 			}
 	}
 	//Reading validTo date
-	if attribute_vals[4] != "" { 
-			if t,err:=time.Parse(time.RFC3339, attribute_vals[5]); err != nil { 
+	dateStr = strings.TrimSpace(attribute_vals[5]) 
+	if dateStr  != "" { 
+			if t,err:=time.Parse(time.RFC3339, dateStr); err != nil { 
 				return nil, err
 			} else { 
 				attrPair.SetValidTo(t)
@@ -172,25 +181,41 @@ func NewACA() *ACA {
 func (aca *ACA) getECACertificate() (*x509.Certificate, error) { 
 	raw, err := aca.readCACertificate("eca")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return  x509.ParseCertificate(raw)
 }
 
-func (aca *ACA) fetchAttributes(id, affiliation string) []*AttributePair { 
+func (aca *ACA) getTCACertificate() (*x509.Certificate, error) { 
+	raw, err := aca.readCACertificate("tca")
+	if err != nil {
+		return nil, err
+	}
+	return  x509.ParseCertificate(raw)
+}
+
+
+func (aca *ACA) fetchAttributes(id, affiliation string) ([]*AttributePair, error) { 
 	// TODO this attributes should be readed from the outside world in place of configuration file.
 	attrs := viper.GetStringMapString("aca.attributes")
 	attributes := make([]*AttributePair,0)
 	for _, flds := range attrs {
 		vals := strings.Fields(flds)
 		if len(vals) >= 1 {
+			val := ""
+			for _,eachVal := range vals { 
+				val = val + " " + eachVal
+			}
 			var attrOwner *AttributeOwner
-			attribute_vals := strings.Split(vals[0], ";")
+			attribute_vals := strings.Split(val, ";")
 			if len(attribute_vals) >= 6 { 
 				attrPair, err := NewAttributePair(attribute_vals, attrOwner)
 				if err != nil {
-					Error.Printf("Invalid attribute entry '%v'", vals[0])
+					return nil, errors.New("Invalid attribute entry " + val + " " + err.Error() )
 				} else { 
+					if attrPair.GetId() != id || attrPair.GetAffiliation() != affiliation { 
+						continue
+					}
 					if attrOwner == nil { 
 						attrOwner = attrPair.GetOwner()
 					}
@@ -201,19 +226,242 @@ func (aca *ACA) fetchAttributes(id, affiliation string) []*AttributePair {
 			}			
 		}
 	}
-	return attributes
+	return attributes, nil
+}
+
+func (aca *ACA) populateAttributes(attrs []*AttributePair) (error) { 
+	tx, dberr := aca.db.Begin(); 
+	if dberr != nil { 
+		return dberr
+	}
+	for _, attr := range attrs {
+		if err := aca.populateAttribute(attr); err != nil { 
+			dberr := tx.Rollback()
+			if dberr != nil { 
+				return dberr
+			}
+			return err
+		}
+	}
+	dberr = tx.Commit()
+	if dberr != nil {
+		return dberr
+	}
+	return nil
+}
+
+func (aca *ACA) populateAttribute(attr *AttributePair) (error)  {
+	var count int
+	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
+		attr.GetId(), attr.GetAffiliation(), attr.GetAttributeKey()).Scan(&count)
+	
+	if err != nil { 
+		return nil;
+	}
+	
+	if count > 0 { 
+		_ , err = aca.db.Exec("UPDATE Attributes SET validFrom = ?, validTo = ?,  attributeValue = ? WHERE  id=? AND affiliation =? AND attributeKey =? AND validFrom < ?",
+			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetId(), attr.GetAffiliation(), attr.GetAttributeKey(), attr.GetValidFrom())
+		if err != nil { 
+			return err
+		}
+	} else { 
+		_ , err = aca.db.Exec("INSERT INTO Attributes (validFrom , validTo,  attributeValue, id, affiliation, attributeKey) VALUES (?,?,?,?,?,?)",
+			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetId(), attr.GetAffiliation(), attr.GetAttributeKey())	
+		if err != nil { 
+			return err
+		}
+	}
+	return nil
+}
+
+func (aca *ACA) fetchAndPopulateAttributes(id,affiliation string) (error) {
+	var attrs []*AttributePair;
+	attrs, err := aca.fetchAttributes(id,affiliation)
+	if err != nil { 
+		return err
+	}
+	
+	err = aca.populateAttributes(attrs)
+	if err != nil { 
+		return err
+	}
+	return nil
+}
+
+func (aca *ACA) verifyAttribute(id, affiliation, attributeName string, valueHash []byte) (bool, error) {
+	var count int
+	
+	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
+		id, affiliation, attributeName).Scan(&count)
+	if err != nil { 
+		return false, err
+	}
+	
+	if count == 0 { 
+		return false, nil
+	}
+	
+	var attValue []byte
+	err = aca.db.QueryRow("SELECT attributeValue AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
+		id, affiliation, attributeName).Scan(&attValue)
+	if err != nil { 
+		return false, err
+	}
+	
+	hashValue := utils.Hash(attValue)
+	
+	return bytes.Compare(hashValue,valueHash) == 0, nil
 }
 
 // FetchAttributes fetchs the attributes from the outside world and populate them into the database.
 func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (*pb.ACAFetchAttrResp, error) {
 	Trace.Println("grpc ACAP:FetchAttributes")
-	return nil, nil
+	cert, err := acap.aca.getECACertificate()
+	if err != nil { 
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, errors.New("Error getting ECA certificate.")
+	}
+	
+	ecaPub := cert.PublicKey.(*ecdsa.PublicKey)	
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(in.Signature.R)
+	s.UnmarshalText(in.Signature.S)
+
+	in.Signature = nil
+	
+	hash := utils.NewHash()
+	raw, _ := proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(ecaPub, hash.Sum(nil), r, s) == false {
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, errors.New("signature does not verify")
+	}
+	
+	cert, err = x509.ParseCertificate(in.ECert.Cert)
+	
+	if err != nil { 
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, err
+	}
+	var id, affiliation string
+	id, _,  affiliation, err = acap.aca.parseEnrollId(cert.Subject.CommonName)
+	if err != nil { 
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, err
+	}
+	
+	err = acap.aca.fetchAndPopulateAttributes(id,affiliation)
+	if err != nil { 
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, err
+	}
+	
+	return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_SUCCESS}, nil
+}
+
+func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCode, cert *pb.Cert) (*pb.ACAAttrResp) {
+	resp := &pb.ACAAttrResp{status, cert, nil}
+	rawReq, err := proto.Marshal(resp)
+	if err != nil {
+		return &pb.ACAAttrResp{pb.ACAAttrResp_FAILURE, nil, nil}
+	}
+	
+	
+	r, s, err := utils.ECDSASignDirect(acap.aca.priv, rawReq)
+	if err != nil {
+		return &pb.ACAAttrResp{pb.ACAAttrResp_FAILURE, nil, nil}
+	}
+
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+
+	resp.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+	
+	return resp
 }
 
 // RequestAttributes lookups the atributes in the database and return a certificate with attributes included in the request and found in the database.
 func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb.ACAAttrResp, error) {
 	Trace.Println("grpc ACAP:RequestAttributes")
-	return nil, nil
+	cert, err := acap.aca.getTCACertificate()
+	if err != nil { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), errors.New("Error getting TCA certificate.")
+	}
+	
+	tcaPub := cert.PublicKey.(*ecdsa.PublicKey)	
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(in.Signature.R)
+	s.UnmarshalText(in.Signature.S)
+
+	in.Signature = nil
+	
+	hash := utils.NewHash()
+	raw, _ := proto.Marshal(in)
+	hash.Write(raw)
+	if ecdsa.Verify(tcaPub, hash.Sum(nil), r, s) == false {
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), errors.New("signature does not verify")
+	}
+	
+	cert, err = x509.ParseCertificate(in.ECert.Cert)
+	
+	if err != nil { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
+	}
+	var id, affiliation string
+	id, _,  affiliation, err = acap.aca.parseEnrollId(cert.Subject.CommonName)
+	if err != nil { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
+	}
+	//Before continue with the request we perform a refresh of the attributes.
+	err = acap.aca.fetchAndPopulateAttributes(id, affiliation)
+	if err != nil { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
+	}
+	
+	var verifyCounter int
+	attributes := make([]pb.TCertAttributeHash, 0)
+	for _, attrPair := range(in.Attributes) {
+		ok, _ := acap.aca.verifyAttribute(id,affiliation, attrPair.AttributeName, attrPair.AttributeValueHash)
+		if ok { 
+			verifyCounter++	
+			attributes = append(attributes, *attrPair)
+		}
+	}
+	
+	count := len(in.Attributes)
+	if count == 0 { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, nil), nil
+	}
+	
+	extensions := make([]pkix.Extension, 0)
+	err = acap.addAttributesToExtensions(&attributes, &extensions)
+	if err != nil { 
+			return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
+	}
+	
+	spec := NewDefaultCertificateSpec(id, cert.PublicKey, cert.KeyUsage, extensions...)
+	raw, err = acap.aca.newCertificateFromSpec(spec); 
+	if err != nil {
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
+	}
+	
+	if count == verifyCounter { 
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FULL_SUCCESSFUL, &pb.Cert{raw}), nil 
+	}		
+	return acap.createRequestAttributeResponse(pb.ACAAttrResp_PARTIAL_SUCCESSFUL, &pb.Cert{raw}), nil 
+}
+
+func (acap *ACAP) addAttributesToExtensions(attributes *[]pb.TCertAttributeHash, extensions *[]pkix.Extension) (error) {
+	count := 0
+	attributesHeader := make(map[string]int)
+	for _, a := range *attributes {
+		count++	
+		//Save the position of the attribute extension on the header.
+		attributesHeader[a.AttributeName] = count
+	}
+	
+	// Append the attributes header if there was attributes to include in the TCert
+	if len(*attributes) > 0 {
+		*extensions = append(*extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: BuildAttributesHeader(attributesHeader)})
+	}
+	
+	return nil
 }
 
 // ReadCACertificate reads the certificate of the ACA.

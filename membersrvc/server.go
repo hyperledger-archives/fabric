@@ -83,10 +83,10 @@ func main() {
 	aca := ca.NewACA() 
 	defer aca.Close()
 	
-	eca := ca.NewECA(aca)
+	eca := ca.NewECA()
 	defer eca.Close()
 
-	tca := ca.NewTCA(aca, eca)
+	tca := ca.NewTCA(eca)
 	defer tca.Close()
 
 	tlsca := ca.NewTLSCA(eca)

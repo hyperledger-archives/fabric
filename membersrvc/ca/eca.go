@@ -48,6 +48,10 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	
+    "google/protobuf"
+
+	
 )
 
 var (
@@ -60,7 +64,6 @@ var (
 //
 type ECA struct {
 	*CA
-	aca			    *ACA
 	obcKey          []byte
 	obcPriv, obcPub []byte
 }
@@ -83,8 +86,8 @@ func initializeECATables(db *sql.DB) error {
 
 // NewECA sets up a new ECA.
 //
-func NewECA(aca *ACA) *ECA {
-	eca := &ECA{NewCA("eca", initializeECATables), aca, nil, nil, nil}
+func NewECA() *ECA {
+	eca := &ECA{NewCA("eca", initializeECATables), nil, nil, nil}
 
 	{
 		// read or create global symmetric encryption key
@@ -208,12 +211,58 @@ func (eca *ECA) startECAA(srv *grpc.Server) {
 	pb.RegisterECAAServer(srv, &ECAA{eca})
 }
 
+func (eca *ECA) ivokeACAFetchAttributes(id, affiliation string ) { 
+	//eca.aca.
+}
+
 // ReadCACertificate reads the certificate of the ECA.
 //
 func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
 	Trace.Println("grpc ECAP:ReadCACertificate")
 
 	return &pb.Cert{ecap.eca.raw}, nil
+}
+
+func (ecap *ECAP) fetchAttributes(cert *pb.Cert) (error) { 
+	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
+	sock, tcaP, err := GetACAClient()
+	defer sock.Close() 
+	
+	req := &pb.ACAFetchAttrReq{
+		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		ECert:  cert,
+		Signature:  nil}
+
+	var rawReq []byte
+	rawReq, err = proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	
+	var r,s *big.Int
+	
+	r,s, err = utils.ECDSASignDirect(ecap.eca.priv, rawReq) 
+	
+	if err != nil {
+		return  err
+	}
+
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+
+	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+
+	resp , err := tcaP.FetchAttributes(context.Background(),  req)
+	if err != nil { 
+		return err
+	}
+	
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE  {
+		return nil
+	} else { 
+		return errors.New("Error fetching attributes.")
+	}
+	
 }
 
 // CreateCertificatePair requests the creation of a new enrollment certificate pair by the ECA.
@@ -237,7 +286,8 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 	if err != nil {
 		return nil, err
 	}
-
+	
+	var fetchResult pb.FetchAttrsResult
 	switch {
 	case state == 0:
 		// initial request, create encryption challenge
@@ -262,7 +312,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		out, err := ecies.Process(tok)
-		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, err
+		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}, nil}, err
 
 	case state == 1:
 		// ensure that the same encryption key is signed that has been used for the challenge
@@ -325,8 +375,17 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		} else {
 			obcECKey = ecap.eca.obcPub
 		}
+		if role == 1 { 
+			//Only client have to fetch attributes.
+			err = ecap.fetchAttributes(&pb.Cert{sraw})
+			if err != nil { 
+				fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_FAILURE, err.Error()}
 
-		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
+			} else {
+				fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_SUCCESS, ""}
+			}
+		}
+		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil, &fetchResult}, nil
 	}
 
 	return nil, errors.New("certificate creation token expired")
