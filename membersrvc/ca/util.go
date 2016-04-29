@@ -186,3 +186,16 @@ func CBCDecrypt(key, src []byte) ([]byte, error) {
 
 	return PKCS5Unpad(src), nil
 }
+
+
+func BuildAttributesHeader(attributesHeader map[string]int) []byte{
+	var header []byte
+	var headerString string
+	for k,v := range attributesHeader	{
+		v_str := strconv.Itoa(v)
+		headerString = headerString + k + "->" + v_str + "#"
+	}
+	header = []byte(headerString)
+	
+	return header
+}

@@ -52,7 +52,7 @@ eca:
               banks:
                   bank_a:
                   bank_b:
-                  bank_c:              		
+                  bank_c:
               institutions:
                   institution_a:
         users:
@@ -101,7 +101,13 @@ eca:
 tca:
           attribute-encryption:
                  enabled: false
-
+aca:
+          attributes:
+              attribute-entry-0: diego;institution_a;company;IBM;2015-01-01T00:00:00-03:00;;
+              attribute-entry-1: diego;institution_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
+              attribute-entry-2: diego;institution_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;    
+          address: localhost:50051
+          server-name: acap     
 pki:
           validity-period:
                  # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
