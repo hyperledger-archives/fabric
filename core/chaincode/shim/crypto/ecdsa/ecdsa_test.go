@@ -20,22 +20,21 @@ under the License.
 package ecdsa
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"testing"
 )
 
 func TestSignatureVerifier(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA3", 256)
+	primitives.SetSecurityLevel("SHA3", 256)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,15 +54,15 @@ func TestSignatureVerifier(t *testing.T) {
 
 func TestSignatureVerifierSHA2(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA2", 256)
+	primitives.SetSecurityLevel("SHA2", 256)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,18 +80,17 @@ func TestSignatureVerifierSHA2(t *testing.T) {
 	}
 }
 
-
 func TestSignatureVerifierSHA2_384(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA2", 384)
+	primitives.SetSecurityLevel("SHA2", 384)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,15 +110,15 @@ func TestSignatureVerifierSHA2_384(t *testing.T) {
 
 func TestSignatureVerifierSHA3_384(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA3", 384)
+	primitives.SetSecurityLevel("SHA3", 384)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,15 +138,15 @@ func TestSignatureVerifierSHA3_384(t *testing.T) {
 
 func TestSignatureVerifierSHA2_512(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA2", 512)
+	primitives.SetSecurityLevel("SHA2", 512)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,15 +166,15 @@ func TestSignatureVerifierSHA2_512(t *testing.T) {
 
 func TestSignatureVerifierSHA3_512(t *testing.T) {
 	// Create a signature
-	conf.SetSecurityLevel("SHA3", 512)
+	primitives.SetSecurityLevel("SHA3", 512)
 
-	cert, key, err := utils.NewSelfSignedCert()
+	cert, key, err := primitives.NewSelfSignedCert()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	message := []byte("Hello World!")
-	signature, err := utils.ECDSASign(key, message)
+	signature, err := primitives.ECDSASign(key, message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,4 +191,3 @@ func TestSignatureVerifierSHA3_512(t *testing.T) {
 		t.Fatal("Signature does not verify")
 	}
 }
-
