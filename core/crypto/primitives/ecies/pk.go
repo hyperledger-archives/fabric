@@ -17,10 +17,13 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package generic
+package ecies
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/x509"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
 )
 
@@ -36,4 +39,31 @@ func (pk *publicKeyImpl) GetRand() io.Reader {
 
 func (pk *publicKeyImpl) IsPublic() bool {
 	return true
+}
+
+type publicKeySerializerImpl struct{}
+
+func (pks *publicKeySerializerImpl) ToBytes(key interface{}) ([]byte, error) {
+	if key == nil {
+		return nil, primitives.ErrInvalidNilKeyParameter
+	}
+
+	switch pk := key.(type) {
+	case *publicKeyImpl:
+		return x509.MarshalPKIXPublicKey(pk.pub)
+	default:
+		return nil, primitives.ErrInvalidPublicKeyType
+	}
+
+	return nil, primitives.ErrInvalidPublicKeyType
+}
+
+func (pks *publicKeySerializerImpl) FromBytes(bytes []byte) (interface{}, error) {
+	key, err := x509.ParsePKIXPublicKey(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add params here
+	return &publicKeyImpl{key.(*ecdsa.PublicKey), rand.Reader, nil}, nil
 }

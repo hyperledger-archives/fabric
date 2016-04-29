@@ -20,26 +20,26 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"math/big"
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	return utils.ECDSASign(signKey, msg)
+	return primitives.ECDSASign(signKey, msg)
 }
 
 func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	return utils.ECDSASign(node.enrollPrivKey, msg)
+	return primitives.ECDSASign(node.enrollPrivKey, msg)
 }
 
 func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	return utils.ECDSASignDirect(node.enrollPrivKey, msg)
+	return primitives.ECDSASignDirect(node.enrollPrivKey, msg)
 }
 
 func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	return utils.ECDSAVerify(verKey, msg, signature)
+	return primitives.ECDSAVerify(verKey, msg, signature)
 }
 
 func (node *nodeImpl) verifyWithEnrollmentCert(msg, signature []byte) (bool, error) {
-	return utils.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
+	return primitives.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
 }

@@ -17,24 +17,24 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package generic
+package ecies
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type encryptionSchemeImpl struct {
 	isForEncryption bool
 
 	// Parameters
-	params ecies.AsymmetricCipherParameters
+	params primitives.AsymmetricCipherParameters
 	pub    *publicKeyImpl
 	priv   *secretKeyImpl
 }
 
-func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameters) error {
+func (es *encryptionSchemeImpl) Init(params primitives.AsymmetricCipherParameters) error {
 	if params == nil {
-		return ecies.ErrInvalidKeyParameter
+		return primitives.ErrInvalidNilKeyParameter
 	}
 	es.isForEncryption = params.IsPublic()
 	es.params = params
@@ -44,14 +44,14 @@ func (es *encryptionSchemeImpl) Init(params ecies.AsymmetricCipherParameters) er
 		case *publicKeyImpl:
 			es.pub = pk
 		default:
-			return ecies.ErrInvalidKeyParameter
+			return primitives.ErrInvalidPublicKeyType
 		}
 	} else {
 		switch sk := params.(type) {
 		case *secretKeyImpl:
 			es.priv = sk
 		default:
-			return ecies.ErrInvalidKeyParameter
+			return primitives.ErrInvalidKeyParameter
 		}
 	}
 
@@ -62,10 +62,8 @@ func (es *encryptionSchemeImpl) Process(msg []byte) ([]byte, error) {
 	if es.isForEncryption {
 		// Encrypt
 		return eciesEncrypt(es.params.GetRand(), es.pub.pub, nil, nil, msg)
-	} else {
-		// Decrypt
-		return eciesDecrypt(es.priv.priv, nil, nil, msg)
 	}
 
-	return nil, nil
+	// Decrypt
+	return eciesDecrypt(es.priv.priv, nil, nil, msg)
 }

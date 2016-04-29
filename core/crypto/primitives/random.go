@@ -17,38 +17,24 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package primitives
 
-import (
-	"crypto/hmac"
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"hash"
-)
+import "crypto/rand"
 
-// NewHash returns a new hash function
-func NewHash() hash.Hash {
-	return conf.GetDefaultHash()()
+// GetRandomBytes returns len random looking bytes
+func GetRandomBytes(len int) ([]byte, error) {
+	key := make([]byte, len)
+
+	// TODO: rand could fill less bytes then len
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
 
-// Hash hashes the msh using the predefined hash function
-func Hash(msg []byte) []byte {
-	hash := NewHash()
-	hash.Write(msg)
-	return hash.Sum(nil)
-}
-
-// HMAC hmacs x using key key
-func HMAC(key, x []byte) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)
-}
-
-// HMACTruncated hmacs x using key key and truncate to truncation
-func HMACTruncated(key, x []byte, truncation int) []byte {
-	mac := hmac.New(conf.GetDefaultHash(), key)
-	mac.Write(x)
-
-	return mac.Sum(nil)[:truncation]
+// GetRandomNonce returns a random byte array of length NonceSize
+func GetRandomNonce() ([]byte, error) {
+	return GetRandomBytes(NonceSize)
 }

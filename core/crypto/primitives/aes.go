@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package primitives
 
 import (
 	"bytes"
@@ -34,7 +34,7 @@ const (
 	AESKeyLength = 32
 
 	// NonceSize is the default NonceSize
-	NonceSize    = 24
+	NonceSize = 24
 )
 
 // GenAESKey returns a random AES key of length AESKeyLength

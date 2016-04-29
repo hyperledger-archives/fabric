@@ -21,12 +21,12 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (client *clientImpl) registerCryptoEngine() (err error) {
 	// Store query state key
-	client.queryStateKey, err = utils.GetRandomBytes(utils.NonceSize)
+	client.queryStateKey, err = primitives.GetRandomNonce()
 	if err != nil {
 		log.Error("Failed generating query state key: [%s].", err.Error())
 		return

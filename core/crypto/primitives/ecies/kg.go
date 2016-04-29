@@ -17,11 +17,11 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package generic
+package ecies
 
 import (
 	"crypto/elliptic"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
 )
 
@@ -40,21 +40,21 @@ func (kgp keyGeneratorParameterImpl) GetRand() io.Reader {
 	return kgp.rand
 }
 
-func (kg *keyGeneratorImpl) Init(params ecies.KeyGeneratorParameters) error {
+func (kg *keyGeneratorImpl) Init(params primitives.KeyGeneratorParameters) error {
 	if params == nil {
-		return ecies.ErrInvalidKeyGeneratorParameter
+		return primitives.ErrInvalidKeyGeneratorParameter
 	}
 	switch kgparams := params.(type) {
 	case *keyGeneratorParameterImpl:
 		kg.params = kgparams
 	default:
-		return ecies.ErrInvalidKeyGeneratorParameter
+		return primitives.ErrInvalidKeyGeneratorParameter
 	}
 
 	return nil
 }
 
-func (kg *keyGeneratorImpl) GenerateKey() (ecies.PrivateKey, error) {
+func (kg *keyGeneratorImpl) GenerateKey() (primitives.PrivateKey, error) {
 
 	privKey, err := eciesGenerateKey(
 		kg.params.rand,
