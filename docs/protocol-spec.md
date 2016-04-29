@@ -701,7 +701,7 @@ i	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 ```
 
-`Init` is a constructor function, which will only be invoked by Deploy transaction. The parameters `function` and `args` point to the function implemented by the chaincode that the `Invoke` calls and passes the `args`. Similar behavior for the `Query` function. The `Query` function is not allowed to modify the state of the chaincode; it can only read and calculate the return value as a byte array.
+`Init`, `Invoke` and `Query` functions take `function` and `args` as parameters to be used by those methods to support a variety of transactions. `Init` is a constructor function, which will only be invoked by the Deploy transaction. The `Query` function is not allowed to modify the state of the chaincode; it can only read and calculate the return value as a byte array.
 
 ### 3.3.2.1 Chaincode Deploy
 Upon deploy (chaincode container is started), the shim layer sends a one time `REGISTER` message to the validating peer with the `payload` containing the `ChaincodeID`. The validating peer responds with `REGISTERED` or `ERROR` on success or failure respectively. The shim closes the connection and exits if it receives an `ERROR`.
