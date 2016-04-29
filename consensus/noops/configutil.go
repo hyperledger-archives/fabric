@@ -22,6 +22,8 @@ package noops
 import (
 	"fmt"
 	"strings"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -40,6 +42,12 @@ func loadConfig() (config *viper.Viper) {
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
 	config.AddConfigPath("../consensus/noops/")
+	// Path to look for the config file in based on GOPATH
+	gopath := os.Getenv("GOPATH")
+	for _, p := range filepath.SplitList(gopath) {
+	    path := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/noops")
+	    config.AddConfigPath(path)
+	}
 	err := config.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Error reading %s plugin config: %s", configPrefix, err))
