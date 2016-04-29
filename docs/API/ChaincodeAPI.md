@@ -20,6 +20,17 @@ It's possible for one deployed chaincode to call another deployed chaincode usin
 
 `QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error)` - Queries the specified chaincode from the current chaincode.
 
+## Logging
+
+`SetLoggingLevel` allows a Go chaincode to set the logging level of its
+shim. The logging level is a case-insensitive string chosen from CRITICAL,
+ERROR, WARNING, NOTICE, INFO or DEBUG. In the event of errors assume that the
+logging level has not changed. For information on how a chaincode can create
+its own logs, please see [here](../dev-setup/logging-control.md).
+
+`SetLoggingLevel(levelString string) error` - Set the logging level of the shim
+
+
 ## Future APIs
 
 The APIs available today are just a start. Future APIs will allow chaincode to query transactions, blocks, and possibly previous state. Open an issue in the [repository](https://github.com/hyperledger/fabric/issues) to add your support for APIs you would like to see.

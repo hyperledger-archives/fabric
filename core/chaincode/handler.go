@@ -108,7 +108,7 @@ func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
 	handler.Lock()
 	defer handler.Unlock()
 	if err := handler.ChatStream.Send(msg); err != nil {
-		chaincodeLog.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
+		chaincodeLogger.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
 	return nil
@@ -268,7 +268,7 @@ func (handler *Handler) processStream() error {
 				chaincodeLogger.Debug("Received EOF, ending chaincode support stream, %s", err)
 				return err
 			} else if err != nil {
-				chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
+				chaincodeLogger.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
 				return err
 			} else if in == nil {
 				err = fmt.Errorf("Received nil message, ending chaincode support stream")
@@ -293,7 +293,7 @@ func (handler *Handler) processStream() error {
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
-			chaincodeLog.Error(fmt.Sprintf("[%s]Error handling message, ending stream: %s", shortuuid(in.Uuid), err))
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error handling message, ending stream: %s", shortuuid(in.Uuid), err))
 			return fmt.Errorf("Error handling message, ending stream: %s", err)
 		}
 		if nsInfo != nil && nsInfo.sendToCC {
