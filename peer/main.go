@@ -268,7 +268,7 @@ func main() {
 	if err != nil {              // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
-fmt.Println("yup")
+
 	nodeCmd.AddCommand(nodeStartCmd)
 	nodeCmd.AddCommand(nodeStatusCmd)
 
