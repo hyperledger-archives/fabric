@@ -288,8 +288,10 @@ func (tcap *TCAP) selectValidAttributes(cert_raw []byte) ([]*pb.TCertAttribute, 
 func (tcap *TCAP) requestAttributes(id string, ecert []byte, attributes []*pb.TCertAttribute ) ([]*pb.TCertAttribute, error) { 
 	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
 	sock, acaP, err := GetACAClient()
+	if err != nil { 
+		return nil, err
+	}
 	defer sock.Close() 
-	
 	attributesHash := make([]*pb.TCertAttributeHash, 0)
 	
 	for _, att := range(attributes) {
@@ -348,7 +350,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	
 	attributes, err := 	tcap.requestAttributes(id,raw, in.Attributes)
 	if err != nil { 
-		return nil, err
+		attributes = make([]*pb.TCertAttribute,0)
 	}
 	cert, err := x509.ParseCertificate(raw)
 	if err != nil {
