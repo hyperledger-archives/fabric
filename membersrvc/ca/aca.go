@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"encoding/asn1"
 
 	"crypto/ecdsa"
  	"crypto/x509"
@@ -39,8 +40,14 @@ import (
 
   	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	
+	"google/protobuf"
 )
 
+var (
+	ACAAttribute = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 10}
+
+)
 // ACA is the attribute certificate authority.
 type ACA struct {
 	*CA
@@ -57,6 +64,20 @@ type ACAP struct {
 type ACAA struct {
 	aca *ACA
 }
+
+func IsAttributeOID(oid asn1.ObjectIdentifier) bool {
+	l := len(oid)
+	if len(ACAAttribute) != l {
+		return false
+	}
+	for i := 0; i < l-1; i++ {
+		if ACAAttribute[i] != oid[i] {
+			return false
+		}
+	}
+
+	return ACAAttribute[l-1] < oid[l-1]
+} 
 
 func initializeACATables(db *sql.DB) error { 
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Attributes (row INTEGER PRIMARY KEY, id VARCHAR(64), affiliation VARCHAR(64), attributeKey VARCHAR(64), validFrom DATETIME, validTo DATETIME,  attributeValue BLOB)"); err != nil {
@@ -169,6 +190,22 @@ func (attrPair *AttributePair) GetValidTo() time.Time {
 
 func (attrPair *AttributePair) SetValidTo(date time.Time) { 
 	attrPair.validTo = date
+}
+
+func (attrPair *AttributePair) ToACAAttribute() (*pb.ACAAttribute) { 
+	var from, to *google_protobuf.Timestamp
+	if attrPair.validFrom.IsZero() {
+		from = nil
+	} else { 
+		from = &google_protobuf.Timestamp{Seconds: attrPair.validFrom.Unix(), Nanos: int32(attrPair.validFrom.UnixNano())}
+	}
+	if attrPair.validTo.IsZero() { 
+		to = nil
+	} else { 
+		to = &google_protobuf.Timestamp{Seconds: attrPair.validTo.Unix(), Nanos: int32(attrPair.validTo.UnixNano())}
+
+	}
+	return &pb.ACAAttribute{attrPair.attributeKey, attrPair.attributeValue, from, to}	
 }
 
 // NewACA sets up a new ACA.
@@ -289,29 +326,33 @@ func (aca *ACA) fetchAndPopulateAttributes(id,affiliation string) (error) {
 	return nil
 }
 
-func (aca *ACA) verifyAttribute(id, affiliation, attributeName string, valueHash []byte) (bool, error) {
+func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, valueHash []byte) (*AttributePair, error) {
 	var count int
 	
 	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
-		id, affiliation, attributeName).Scan(&count)
+		owner.GetId(), owner.GetAffiliation(), attributeName).Scan(&count)
 	if err != nil { 
-		return false, err
+		return nil, err
 	}
 	
 	if count == 0 { 
-		return false, nil
+		return nil, nil
 	}
 	
+	var attKey string
 	var attValue []byte
-	err = aca.db.QueryRow("SELECT attributeValue AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
-		id, affiliation, attributeName).Scan(&attValue)
+	var validFrom, validTo time.Time
+	err = aca.db.QueryRow("SELECT attributeKey, attributeValue, validFrom, validTo AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?", 
+		owner.GetId(), owner.GetAffiliation(),attributeName).Scan(&attKey, &attValue, &validFrom, &validTo)
 	if err != nil { 
-		return false, err
+		return nil, err
 	}
 	
 	hashValue := utils.Hash(attValue)
-	
-	return bytes.Compare(hashValue,valueHash) == 0, nil
+	if bytes.Compare(hashValue, valueHash) != 0 { 
+		return nil, nil
+	}
+	return &AttributePair{owner,attKey, attValue, validFrom, validTo}, nil
 }
 
 // FetchAttributes fetchs the attributes from the outside world and populate them into the database.
@@ -415,12 +456,13 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	}
 	
 	var verifyCounter int
-	attributes := make([]pb.TCertAttributeHash, 0)
+	attributes := make([]AttributePair, 0)
+	owner := &AttributeOwner{id, affiliation}
 	for _, attrPair := range(in.Attributes) {
-		ok, _ := acap.aca.verifyAttribute(id,affiliation, attrPair.AttributeName, attrPair.AttributeValueHash)
-		if ok { 
+		verifiedPair, _ := acap.aca.verifyAttribute(owner, attrPair.AttributeName, attrPair.AttributeValueHash)
+		if  verifiedPair != nil { 
 			verifyCounter++	
-			attributes = append(attributes, *attrPair)
+			attributes = append(attributes, *verifiedPair)
 		}
 	}
 	
@@ -430,7 +472,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	}
 	
 	extensions := make([]pkix.Extension, 0)
-	err = acap.addAttributesToExtensions(&attributes, &extensions)
+	extensions, err = acap.addAttributesToExtensions(&attributes, extensions)
 	if err != nil { 
 			return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE,nil), err
 	}
@@ -447,21 +489,20 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	return acap.createRequestAttributeResponse(pb.ACAAttrResp_PARTIAL_SUCCESSFUL, &pb.Cert{raw}), nil 
 }
 
-func (acap *ACAP) addAttributesToExtensions(attributes *[]pb.TCertAttributeHash, extensions *[]pkix.Extension) (error) {
-	count := 0
-	attributesHeader := make(map[string]int)
+func (acap *ACAP) addAttributesToExtensions(attributes *[]AttributePair, extensions []pkix.Extension) ([]pkix.Extension, error) {
+	count := 11
+	exts := extensions
 	for _, a := range *attributes {
-		count++	
 		//Save the position of the attribute extension on the header.
-		attributesHeader[a.AttributeName] = count
+		att := a.ToACAAttribute()
+		raw, err := proto.Marshal(att)	
+		if err != nil { 
+			continue
+		}
+		exts = append(exts, pkix.Extension{Id: asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, count}, Critical: false, Value: raw})
+		count++
 	}
-	
-	// Append the attributes header if there was attributes to include in the TCert
-	if len(*attributes) > 0 {
-		*extensions = append(*extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: BuildAttributesHeader(attributesHeader)})
-	}
-	
-	return nil
+	return exts, nil
 }
 
 // ReadCACertificate reads the certificate of the ACA.

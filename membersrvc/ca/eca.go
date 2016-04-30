@@ -225,9 +225,12 @@ func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 
 func (ecap *ECAP) fetchAttributes(cert *pb.Cert) (error) { 
 	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
-	sock, tcaP, err := GetACAClient()
+	sock, acaP, err := GetACAClient()
+	if err != nil {
+		return err
+	}	
 	defer sock.Close() 
-	
+
 	req := &pb.ACAFetchAttrReq{
 		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		ECert:  cert,
@@ -252,7 +255,7 @@ func (ecap *ECAP) fetchAttributes(cert *pb.Cert) (error) {
 
 	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
 
-	resp , err := tcaP.FetchAttributes(context.Background(),  req)
+	resp , err := acaP.FetchAttributes(context.Background(),  req)
 	if err != nil { 
 		return err
 	}
