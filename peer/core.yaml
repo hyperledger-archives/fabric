@@ -405,8 +405,5 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-      attributes:
-        company: IBM
-        position: "Software Engineer"
         
 

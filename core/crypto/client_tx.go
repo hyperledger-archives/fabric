@@ -142,7 +142,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributeNames []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
 	if err != nil {
@@ -179,7 +179,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeKeys  []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
 	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {
@@ -216,7 +216,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	return tx, nil
 }
 
-func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string,  attributeNames []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
 	if err != nil {

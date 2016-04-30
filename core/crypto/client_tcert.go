@@ -39,11 +39,13 @@ var (
 
 type tCert interface {
 	GetCertificate() *x509.Certificate
-
+	
+	GetPreK0() ([]byte)
+	
 	Sign(msg []byte) ([]byte, error)
 
 	Verify(signature, msg []byte) error
-	
+
 	GetKForAttribute(attributeName string) ([]byte, error)
 }
 
@@ -57,6 +59,11 @@ type tCertImpl struct {
 func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
 	return tCert.cert
 }
+
+func (tCert *tCertImpl) GetPreK0() []byte {
+	return tCert.preK0
+}
+
 
 func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
 	if tCert.sk == nil {

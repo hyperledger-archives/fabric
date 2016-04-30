@@ -22,6 +22,9 @@ package crypto
 import (
 	"errors"
 	"time"
+	"sort"
+	"encoding/hex"
+	utils "github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // The Multi-threaded tCertPool is currently not used.
@@ -59,49 +62,89 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 
 	tCertPool.client.debug("Found %d unused TCerts...", len(tCerts))
 
-	tCertPool.client.ks.storeUnusedTCerts(tCerts)
+//TODO FIX MT POOL
+	//tCertPool.client.ks.storeUnusedTCerts(tCerts)
 
 	tCertPool.client.debug("Store unused TCerts...done!")
 
 	return
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
+
+
+func (tCertPool *tCertPoolMultithreadingImpl) CalculateAttributesHash(attributes map[string]string) (attrHash string) {
+	
+	keys := make([]string, len(attributes))
+	 
+	 for k := range attributes {
+        keys = append(keys, k)
+    }
+	 
+	  sort.Strings(keys)
+	 
+	  
+	  values := make([]byte, len(keys))
+	  
+	 for _,k := range keys {
+	 	
+	 	vb := []byte(k)
+	 	for _,bval := range vb {
+	 		 values = append(values, bval)
+	 	}
+	 	
+	 	vb = []byte(attributes[k])
+	 	for _,bval := range vb {
+	 		 values = append(values, bval)
+	 	}
+    }
+	
+	
+	attributesHash := utils.Hash(values)
+	
+	return  hex.EncodeToString(attributesHash)
+	
+}
+
+
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes map[string]string) (tCertBlock *TCertBlock, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPool.client.debug("Getting next TCert... %d out of 3", i)
+		
+		tCertBlock = new(TCertBlock)
+		
 		select {
-		case tCert = <-tCertPool.tCertChannel:
+		case tCertBlock.tCert = <-tCertPool.tCertChannel:
 			break
 		case <-time.After(30 * time.Second):
 			tCertPool.client.error("Failed getting a new TCert. Buffer is empty!")
 
 			//return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 		}
-		if tCert != nil {
+		if tCertBlock.tCert != nil {
 			// Send feedback to the filler
 			tCertPool.tCertChannelFeedback <- struct{}{}
 			break
 		}
 	}
 
-	if tCert == nil {
+	if tCertBlock.tCert == nil {
 		// TODO: change error here
 		return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 	}
 
-	tCertPool.client.debug("Cert [% x].", tCert.GetCertificate().Raw)
+	tCertPool.client.debug("Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
 
 	// Store the TCert permanently
-	tCertPool.client.ks.storeUsedTCert(tCert)
+	tCertPool.client.ks.storeUsedTCert(tCertBlock)
 
 	tCertPool.client.debug("Getting next TCert...done!")
 
 	return
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCert tCert) (err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCertBlock *TCertBlock) (err error) {
 	tCertPool.client.debug("New TCert added.")
-	tCertPool.tCertChannel <- tCert
+	tCertPool.tCertChannel <- tCertBlock.tCert
 
 	return
 }
@@ -119,7 +162,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) init(client *clientImpl) (err erro
 func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 	// Load unused TCerts
 	stop := false
-	full := false
+//	full := false //TODO FIX
 	for {
 		// Check if Stop was called
 		select {
@@ -142,12 +185,14 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 			break
 		}
 
-		tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+//TODO FIX
+		/*tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
 		if err != nil {
 			tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
 
 			continue
 		}
+
 
 		// Try to send the tCert to the channel if not full
 		select {
@@ -159,13 +204,13 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 		}
 		if full {
 			break
-		}
+		}*/
 	}
 
 	tCertPool.client.debug("Load unused TCerts...done!")
 
-	if !stop {
-		ticker := time.NewTicker(1 * time.Second)
+	if !stop {//TODO FIXcl
+		/*ticker := time.NewTicker(1 * time.Second)
 		for {
 			select {
 			case <-tCertPool.done:
@@ -194,12 +239,12 @@ func (tCertPool *tCertPoolMultithreadingImpl) filler() {
 
 				tCertPool.client.info("Refilling [%d] TCerts.", numTCerts)
 
-				err := tCertPool.client.getTCertsFromTCA(numTCerts)
+				err := tCertPool.client.getTCertsFromTCA(nil, nil, numTCerts)
 				if err != nil {
 					tCertPool.client.error("Failed getting TCerts from the TCA: [%s]", err)
 				}
 			}
-		}
+		}*/
 	}
 
 	tCertPool.client.debug("TCert filler stopped.")

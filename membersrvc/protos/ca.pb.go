@@ -981,20 +981,13 @@ func (*Cert) ProtoMessage()    {}
 // TCert
 //
 type TCert struct {
-	Cert []byte            `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
-	Keys map[string][]byte `protobuf:"bytes,2,rep,name=keys" json:"keys,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Cert  []byte `protobuf:"bytes,1,opt,name=cert,proto3" json:"cert,omitempty"`
+	Prek0 []byte `protobuf:"bytes,2,opt,name=prek0,proto3" json:"prek0,omitempty"`
 }
 
 func (m *TCert) Reset()         { *m = TCert{} }
 func (m *TCert) String() string { return proto.CompactTextString(m) }
 func (*TCert) ProtoMessage()    {}
-
-func (m *TCert) GetKeys() map[string][]byte {
-	if m != nil {
-		return m.Keys
-	}
-	return nil
-}
 
 type CertSet struct {
 	Ts    *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=ts" json:"ts,omitempty"`
