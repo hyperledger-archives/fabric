@@ -50,7 +50,8 @@ func (client *clientImpl) initTCertEngine() (err error) {
 	client.debug("TCert batch size [%d]", client.conf.getTCertBatchSize())
 
 	if client.conf.IsMultithreadingEnabled() {
-		client.tCertPool = new(tCertPoolMultithreadingImpl)
+		//client.tCertPool = new(tCertPoolMultithreadingImpl) //TODO Fix MT Pool
+		client.tCertPool = new(tCertPoolSingleThreadImpl)
 	} else {
 		client.tCertPool = new(tCertPoolSingleThreadImpl)
 	}
@@ -142,10 +143,11 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		return nil, err
 	}
 
-	return &tCertImpl{client, x509Cert, nil}, nil
+//TODO pass prek0 as last parameter instead of empty array    
+	return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 }
 
-func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
+func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCertBlock, err error) {
 	if client.tCertOwnerKDFKey == nil {
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
@@ -154,9 +156,9 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
-	x509Cert, err := utils.DERToX509Certificate(der)
+	x509Cert, err := utils.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", der, err)
+		client.debug("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
 		return
 	}
@@ -274,16 +276,17 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return
 	}
 
-	tCert = &tCertImpl{client, x509Cert, tempSK}
+
+	certBlock = &TCertBlock{&tCertImpl{client, x509Cert, tempSK, certBlk.preK0}, certBlk.attributesHash}
 
 	return
 }
 
-func (client *clientImpl) getTCertsFromTCA(num int) error {
+func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[string]string, num int) error {
 	client.debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
-	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num)
+	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num, attributes)
 	if err != nil {
 		client.debug("Failed contacting TCA [%s].", err.Error())
 
@@ -319,6 +322,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	for i := 0; i < num; i++ {
 		// DER to x509
 		x509Cert, err := utils.DERToX509Certificate(certDERs[i].Cert)
+		prek0 := certDERs[i].Prek0
+		
 		if err != nil {
 			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
@@ -442,7 +447,15 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		j++
 		client.debug("Certificate [%d] validated.", i)
 
-		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK})
+		prek0Cp := make([]byte, len(prek0))
+		copy(prek0Cp,  prek0)
+		
+		tcertBlk := new(TCertBlock)
+		
+		tcertBlk.tCert = &tCertImpl{client, x509Cert, tempSK, prek0Cp}
+		tcertBlk.attributesHash=attrhash
+		
+		client.tCertPool.AddTCert(tcertBlk)
 	}
 
 	if j == 0 {
@@ -454,10 +467,22 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	return nil
 }
 
-func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membersrvc.TCert, error) {
+func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[string]string) ([]byte, []*membersrvc.TCert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
+	
+	
+	attributesList :=  make([]*membersrvc.TCertAttribute, 0)
+
+	 for k, value := range attributes {
+	 	tcertAttr := new(membersrvc.TCertAttribute)
+	 	tcertAttr.AttributeName = k 
+	 	tcertAttr.AttributeValue = value
+	 	
+	 	attributesList = append(attributesList, tcertAttr)
+	 	//attributesList = append(attributesList, &membersrvc.TCertAttribute{k, attributes[k]})
+    }
 
 	// Execute the protocol
 	now := time.Now()
@@ -466,7 +491,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 		Ts:  &timestamp,
 		Id:  &membersrvc.Identity{Id: client.enrollID},
 		Num: uint32(num),
-		Attributes: client.conf.getTCertAttributes(),
+		Attributes: attributesList,
 		Sig: nil,
 	}
 	
