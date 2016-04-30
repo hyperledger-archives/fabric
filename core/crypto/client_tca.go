@@ -142,7 +142,8 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		return nil, err
 	}
 
-	return &tCertImpl{client, x509Cert, nil}, nil
+	//TODO pass prek0 as last parameter instead of empty array
+	return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 }
 
 func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
@@ -274,7 +275,8 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return
 	}
 
-	tCert = &tCertImpl{client, x509Cert, tempSK}
+	//TODO pass prek0 as last parameter instead of empty array
+	tCert = &tCertImpl{client, x509Cert, tempSK, []byte{}}
 
 	return
 }
@@ -442,7 +444,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		j++
 		client.debug("Certificate [%d] validated.", i)
 
-		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK})
+		//TODO pass prek0 as last parameter instead of empty array
+		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK, []byte{}})
 	}
 
 	if j == 0 {
