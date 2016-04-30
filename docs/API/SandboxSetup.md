@@ -113,10 +113,13 @@ POST localhost:3000/registrar
 
 To register a new user through the CLI use the following command:
 
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer login <username> -n -a <affiliation_entity> -r <affiliation_role> 
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    ./peer login <username> -n -a <affiliation_entity> -r <affilition_role>
 
-The command will prompt for a password and for the password confirmation. The affiliation must be a valid entity as is defined in the 'eca' section of the membersrvc.yaml file. 
+
+The command will prompt for a password and for the password confirmation. The affiliation must be a valid entity as is defined in the 'eca' section of the membersrvc.yaml file. For example:
+
+	./peer login jim -n -a back_a -r 111333444
 
 REST Request: 
 
