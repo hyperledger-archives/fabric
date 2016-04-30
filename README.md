@@ -44,7 +44,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/peer
 ./peer
 ```
 
-You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
+You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./peer/main.go). Current build will actually create a *peer* executable file).
 
 ```
     Usage:
@@ -137,7 +137,9 @@ up at the IP address currently assumed by the test environment
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## Communication <a name="communication"></a>
-We use [Hyperledger Slack](https://slack.hyperledger.org/)  for communication and Google Hangouts&trade; for screen sharing between developers.
+We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
+
+For general purpose questions, use [StackOverflow](http://stackoverflow.com/questions/tagged/hyperledger). Even if questions are answered through Hyperledger Slack, please post them to StackOverflow so answers don't have to be repeated continuously.
 
 ## Coding Golang <a name="coding"></a>
 - We require a file [header](docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
