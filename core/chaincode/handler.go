@@ -1171,7 +1171,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 
 			msg.SecurityContext.Payload = ctorMsgRaw
 		}
-
+		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}
 	return nil
 }

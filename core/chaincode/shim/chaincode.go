@@ -314,7 +314,7 @@ func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 
 }
 
-// Answer all the attributes stored in the CallerCert
+// CertAttributes answers all the attributes stored in the CallerCert
 func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -322,14 +322,14 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 		return nil, err
 	}
 
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	var headerRaw []byte
+	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)
+	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = stub.parseHeader(header_str)
+	header, err = stub.parseHeader(headerStr)
 
 	if err != nil {
 		return nil, err
@@ -337,14 +337,14 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 
 	attributes := make([]string, len(header))
 	count := 0
-	for k, _ := range header {
+	for k := range header {
 		attributes[count] = k
 		count++
 	}
 	return attributes, nil
 }
 
-// Read the attribute with name 'attributeName' from CallerCert.
+// ReadCertAttribute reads the attribute with name 'attributeName' from CallerCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -352,14 +352,14 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
 		return nil, err
 	}
 
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	var headerRaw []byte
+	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)
+	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = stub.parseHeader(header_str)
+	header, err = stub.parseHeader(headerStr)
 
 	if err != nil {
 		return nil, err
@@ -704,6 +704,11 @@ func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
 // GetPayload returns tx payload
 func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
 	return stub.securityContext.Payload, nil
+}
+
+// GetTxTimestamp returns transaction timestamp
+func (stub *ChaincodeStub) GetTxTimestamp() ([]byte, error) {
+	return stub.securityContext.TxTimestamp, nil
 }
 
 func (stub *ChaincodeStub) getTable(tableName string) (*Table, error) {
