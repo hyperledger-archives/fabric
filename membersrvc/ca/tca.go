@@ -348,14 +348,19 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		return nil, err
 	}
 	
-	attributes, err := tcap.requestAttributes(id,raw, in.Attributes)
-	if err != nil { 
-		return nil, err
-	}
+	var attributes = []*pb.TCertAttribute{}
+	if in.Attributes != nil {
+		attributes, err = tcap.requestAttributes(id,raw, in.Attributes)
+		if err != nil { 
+			return nil, err
+		}
+	}	
+	
 	cert, err := x509.ParseCertificate(raw)
 	if err != nil {
 		return nil, err
 	}
+	
 	pub := cert.PublicKey.(*ecdsa.PublicKey)
 
 	r, s := big.NewInt(0), big.NewInt(0)
