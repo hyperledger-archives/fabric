@@ -46,11 +46,12 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 			return nil
 		}
 		// Because of scoping we can reference the external rootDirectory variable
-		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
-		//newPath := path[len(rootDirectory):]
-		if len(newPath) == 0 {
+		if len(path[rootDirLen:]) == 0 {
 			return nil
 		}
+
+		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
+		//newPath := path[len(rootDirectory):]
 
 		vmLogger.Debug("writing file %s to %s", path, newPath)
 		err = WriteFileToPackage(path, newPath, tw)
