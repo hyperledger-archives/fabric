@@ -84,7 +84,7 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 Register the user though the CLI, substituting for `<username>` appropriately:
 
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
-    ./peer login <username>
+    sudo ./peer login <username>
 
 The command will prompt for a password, which must match the <b>enrollmentPW</b> listed for the target user in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the <b>enrollmentPW</b>, an error will result.
 
