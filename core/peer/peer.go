@@ -411,15 +411,38 @@ func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]Messa
 // Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
 func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error {
 	cloneMap := p.cloneHandlerMap(typ)
-	var errorsFromHandlers []error
+	errorsFromHandlers := make(chan error,len(cloneMap))
+	var bcWG sync.WaitGroup
+
+	start := time.Now()
+
 	for _, msgHandler := range cloneMap {
-		err := msgHandler.SendMessage(msg)
-		if err != nil {
-			toPeerEndpoint, _ := msgHandler.To()
-			errorsFromHandlers = append(errorsFromHandlers, fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err))
-		}
+		bcWG.Add(1)
+		go func(msgHandler MessageHandler) {
+			defer bcWG.Done()
+			host, _ := msgHandler.To()
+			t1 := time.Now()
+			err := msgHandler.SendMessage(msg)
+			if err != nil {
+				toPeerEndpoint, _ := msgHandler.To()
+				errorsFromHandlers <- fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+			}
+			peerLogger.Debug("Sending %d bytes to %s took %v",len(msg.Payload),host.Address,time.Since(t1));
+
+		}(msgHandler)
+
 	}
-	return errorsFromHandlers
+	bcWG.Wait()
+	close(errorsFromHandlers)
+	var returnedErrors []error
+	for err := range errorsFromHandlers {
+		returnedErrors = append(returnedErrors,err)
+	}
+
+	elapsed := time.Since(start)
+	peerLogger.Debug("Broadcast took %v",elapsed)
+
+	return returnedErrors
 }
 
 // Unicast sends a message to a specific peer.
