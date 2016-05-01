@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
+	gp "google/protobuf"
 )
 
 // Logger for the shim package.
@@ -707,7 +708,7 @@ func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
 }
 
 // GetTxTimestamp returns transaction timestamp
-func (stub *ChaincodeStub) GetTxTimestamp() ([]byte, error) {
+func (stub *ChaincodeStub) GetTxTimestamp() (*gp.Timestamp, error) {
 	return stub.securityContext.TxTimestamp, nil
 }
 
