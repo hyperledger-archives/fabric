@@ -52,6 +52,7 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 			return nil
 		}
 
+		vmLogger.Debug("writing file %s to %s", path, newPath)
 		err = WriteFileToPackage(path, newPath, tw)
 		if err != nil {
 			return fmt.Errorf("Error writing file to package: %s", err)
