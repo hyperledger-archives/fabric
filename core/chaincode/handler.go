@@ -26,13 +26,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/looplab/fsm"
-	"github.com/op/go-logging"
+	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"
-	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/looplab/fsm"
+	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
@@ -1167,7 +1167,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 
 			msg.SecurityContext.Payload = ctorMsgRaw
 		}
-
+		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}
 	return nil
 }
