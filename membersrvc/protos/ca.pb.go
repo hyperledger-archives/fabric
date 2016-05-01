@@ -219,10 +219,11 @@ func (m *Signature) String() string { return proto.CompactTextString(m) }
 func (*Signature) ProtoMessage()    {}
 
 type RegisterUserReq struct {
-	Id          *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Role        Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
-	Account     string    `protobuf:"bytes,3,opt,name=account" json:"account,omitempty"`
-	Affiliation string    `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
+	Id              *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Password        []byte    `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	Role            Role      `protobuf:"varint,3,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Affiliation     string    `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
+	AffiliationRole string    `protobuf:"bytes,5,opt,name=affiliation_role" json:"affiliation_role,omitempty"`
 }
 
 func (m *RegisterUserReq) Reset()         { *m = RegisterUserReq{} }

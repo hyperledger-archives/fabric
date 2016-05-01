@@ -281,6 +281,21 @@ func (node *nodeImpl) getECAClient() (*grpc.ClientConn, membersrvc.ECAPClient, e
 	return conn, client, nil
 }
 
+func (node *nodeImpl) getECAAdminClient() (*grpc.ClientConn, membersrvc.ECAAClient, error) {
+	node.debug("Getting ECA administrator client...")
+
+	conn, err := node.getClientConn(node.conf.getECAPAddr(), node.conf.getECAServerName())
+	if err != nil {
+		node.error("Failed getting client connection: [%s]", err)
+	}
+
+	client := membersrvc.NewECAAClient(conn)
+
+	node.debug("Getting ECA administrator client...done")
+
+	return conn, client, nil
+}
+
 func (node *nodeImpl) callECAReadCACertificate(ctx context.Context, opts ...grpc.CallOption) (*membersrvc.Cert, error) {
 	// Get an ECA Client
 	sock, ecaP, err := node.getECAClient()
@@ -327,6 +342,39 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *memb
 	}
 
 	return &membersrvc.CertPair{Sign: resp.Cert, Enc: nil}, nil
+}
+
+func (node *nodeImpl) createUser(id string, pwd []byte, role int32, affiliation, affiliation_role string) ([]byte, error) { 
+	node.debug("Creating user %v ", id)
+
+	// Get a new ECA admin client
+	sock, ecaA, err := node.getECAAdminClient()
+	defer sock.Close()
+	
+	if err != nil { 
+		node.error("Failed creating user [%s].", err.Error())
+		return nil, err
+	}
+	
+	
+	req := &membersrvc.RegisterUserReq{
+		Id:   &membersrvc.Identity{Id: id},
+		Password: pwd,
+		Role: membersrvc.Role(role), 
+		Affiliation:     affiliation,
+		AffiliationRole: affiliation_role}
+	
+	var token *membersrvc.Token
+	
+	//Invoke the user registration
+	token , err = ecaA.RegisterUser(context.Background(), req)
+		
+	if err != nil { 
+		node.error("Failed creating user [%s].", err.Error())
+		return nil, err;
+	}	
+	
+	return token.Tok, nil
 }
 
 func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {

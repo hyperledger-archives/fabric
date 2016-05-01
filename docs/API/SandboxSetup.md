@@ -81,7 +81,8 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 
     vagrant ssh
 
-Register the user though the CLI, substituting for `<username>` appropriately:
+#### ***Register existent user***
+Register the user through the CLI, substituting for `<username>` appropriately:
 
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     ./peer login <username>
@@ -107,6 +108,37 @@ POST localhost:3000/registrar
     "OK": "Login successful for user 'jim'."
 }
 ```
+
+#### ***Register a new user***
+
+To register a new user through the CLI use the following command:
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    ./peer login <username> -n -a <affiliation_entity> -r <affilition_role>
+
+
+The command will prompt for a password and for the password confirmation. The affiliation must be a valid entity as is defined in the 'eca' section of the membersrvc.yaml file. For example:
+
+	./peer login jim -n -a back_a -r 111333444
+
+REST Request: 
+
+POST localhost:3000/registrar
+
+{
+  "enrollId": "jim",
+  "enrollSecret": "NPKYL39uKbkj"
+  "affiliation": "bank_a",
+  "affiliationRole": "000111"
+}
+
+REST Response:
+
+200 OK
+{
+    "OK": "Login successful for user 'jim'."
+}
+ 
 
 #### Chaincode deploy via CLI and REST
 

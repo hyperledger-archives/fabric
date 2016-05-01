@@ -41,6 +41,28 @@ var (
 
 // Public Methods
 
+// CreateUser creates the user with id <id>, password <pwd>, role <role>, affiliation <affiliation> 
+// and affilition role <affiliation_role>.
+func CreateUser(id string, pwd []byte, role int32, affiliation, affiliation_role string) ([]byte, error) { 
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+	
+	log.Info("Creating user [%v] ", id)
+	
+	client := newClient()
+
+
+	// Init Conf
+	if err := client.nodeImpl.initConfiguration(id); err != nil {
+		log.Error("Failed initiliazing configuration [%s]: [%s].", id, err)
+		return nil, err
+
+	}
+	
+	return client.nodeImpl.createUser(id, pwd, role, affiliation, affiliation_role)
+
+}
+
 // RegisterClient registers a client to the PKI infrastructure
 func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()

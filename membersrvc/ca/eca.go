@@ -369,7 +369,11 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
-   tok, err :=  ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, int(in.Role))
+   var pwd string
+   if in.Password != nil {
+   	pwd = string(in.Password)
+   }
+   tok, err :=  ecaa.eca.registerUser(in.Id.Id, in.Affiliation, in.AffiliationRole, int(in.Role), pwd)
    return &pb.Token{[]byte(tok)}, err
 }
 

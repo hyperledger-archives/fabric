@@ -146,9 +146,10 @@ enum Role {
 
 message RegisterUserReq {
     Identity id = 1;
-    Role role = 2;
-    string account = 3;                                                        
-    string affiliation = 4; 
+    bytes password = 2;
+    Role role = 3;
+    string affiliation = 4;                                                        
+    string affiliation_role = 5; 
 }
 
 message ReadUserSetReq {

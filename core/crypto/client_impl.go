@@ -179,6 +179,13 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	return handler, nil
 }
 
+func (client *clientImpl) createUser(id string, pwd []byte, role int32, affiliation, affiliation_role string) ([]byte, error) { 
+	
+	//Creating user 
+	return client.nodeImpl.createUser(id, pwd, role, affiliation, affiliation_role)
+	
+}
+
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
 	if client.isInitialized {
 		client.error("Registering [%s]...done! Initialization already performed", id)

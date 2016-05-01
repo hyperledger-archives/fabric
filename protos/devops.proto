@@ -26,6 +26,10 @@ import "fabric.proto";
 
 // Interface exported by the server.
 service Devops {
+    // CreateUser - Create a new user getting the user_id, role, affiliation and affiliation_role
+    // from the CreateUserReq object. Returns a  response with the token created to the user.
+    rpc CreateUser(Secret) returns (Response) {}
+    
     // Log in - passed Secret object and returns Response object, where
     // msg is the security context to be used in subsequent invocations
     rpc Login(Secret) returns (Response) {}
@@ -50,6 +54,9 @@ service Devops {
 message Secret {
     string enrollId = 1;
     string enrollSecret = 2;
+    int32 role = 3;
+    string affiliation = 4;                                                        
+    string affiliationRole = 5; 
 }
 
 message BuildResult {
