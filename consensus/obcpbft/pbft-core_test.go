@@ -600,8 +600,8 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	for _, pep := range net.pbftEndpoints {
 		pep.pbft.K = 2
-		pep.pbft.L = 4
-		pep.pbft.requestTimeout = 100 * time.Millisecond
+		pep.pbft.L = 6
+		pep.pbft.requestTimeout = 500 * time.Millisecond
 	}
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -641,58 +641,34 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Processing failed: %s", err)
 		}
+
 	}
 
 	fmt.Println("Done with stage 1")
 
-	// Have primary now deliberately skip a sequence number to deadlock until viewchange
-	_ = net.pbftEndpoints[0].pbft.recvRequest(makePP(4).Request)
-
-	// clear all messages sent by primary
-	net.clearMessages()
-
-	// replace with fake messages
-	_ = net.pbftEndpoints[1].pbft.recvPrePrepare(makePP(5))
-	_ = net.pbftEndpoints[2].pbft.recvPrePrepare(makePP(5))
-	_ = net.pbftEndpoints[3].pbft.recvPrePrepare(makePP(4))
-
+	// Add to replica 3's complaint, cause a view change
+	net.pbftEndpoints[1].pbft.sendViewChange()
+	net.pbftEndpoints[2].pbft.sendViewChange()
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
-	}
-
-	fmt.Println("Done with stage 2")
-
-	for i, pep := range net.pbftEndpoints {
-		if i == 3 {
-			// Replica 3 will have already sent a view change request
-			// advancing its view will delay the test outcome
-			continue
-		}
-		pep.pbft.inject(func() { pep.pbft.sendViewChange() })
 	}
 
 	fmt.Println("Done with stage 3")
+
+	_ = net.pbftEndpoints[1].pbft.recvRequest(makePP(5).Request)
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
 	}
-
-	fmt.Println("Done with stage 4")
-
-	err = net.process()
-	if err != nil {
-		t.Fatalf("Processing failed: %s", err)
-	}
-	fmt.Println("Done with stage 5")
 
 	for _, pep := range net.pbftEndpoints {
-		if pep.sc.executions != 5 {
-			t.Errorf("Replica %d expected execution through seqNo 5, got %d executions", pep.pbft.id, pep.sc.executions)
+		if pep.sc.executions != 4 {
+			t.Errorf("Replica %d expected execution through seqNo 5 with one null exec, got %d executions", pep.pbft.id, pep.sc.executions)
 			continue
 		}
 	}
-	fmt.Println("Done with stage 6")
+	fmt.Println("Done with stage 3")
 }
 
 func TestNewViewTimeout(t *testing.T) {

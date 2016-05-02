@@ -208,6 +208,7 @@ func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 
 func (net *testnet) process() error {
 	retry := true
+	countdown := time.After(60 * time.Second)
 	for {
 		net.debugMsg("TEST: process looping\n")
 		select {
@@ -219,6 +220,8 @@ func (net *testnet) process() error {
 			}
 		case <-net.closed:
 			return nil
+		case <-countdown:
+			panic("Test network took more than 60 seconds to resolve requests, this usually indicates a hang")
 		default:
 			if !retry {
 				return nil
