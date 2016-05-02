@@ -304,36 +304,6 @@ func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 	
 }
 
-// Answer all the attributes stored in the CallerCert
-func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
-	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
-		return nil, err
-	}
-	
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		return nil, err
-	}
-
-	header_str := string(header_raw)	
-	var header map[string]int
-	header, err = stub.parseHeader(header_str)
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	attributes := make([]string, len(header))
-	count := 0
-	for k,_ := range header { 
-		attributes[count] = k
-		count++
-	}
-    return attributes, nil
-}
-
 // Read the attribute with name 'attributeName' from CallerCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert

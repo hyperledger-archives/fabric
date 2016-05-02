@@ -32,6 +32,9 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"database/sql"
+	"time"
+
 
 	protobuf "google/protobuf"
 
@@ -43,6 +46,9 @@ import (
 	"github.com/hyperledger/fabric/core/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	
+    "google/protobuf"
+
 )
 
 var (
@@ -78,9 +84,14 @@ type TCAA struct {
 	tca *TCA
 }
 
+func initializeTCATables(db *sql.DB) error { 
+	return initializeCommonTables(db)
+}
+
+
 // NewTCA sets up a new TCA.
 func NewTCA(eca *ECA) *TCA {
-	tca := &TCA{NewCA("tca"), eca, nil, nil, nil}
+	tca := &TCA{NewCA("tca", initializeTCATables), eca, nil, nil, nil}
 
 	err := tca.readHmacKey()
 	if err != nil {
@@ -233,6 +244,100 @@ func (tcap *TCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 	return &pb.Cert{tcap.tca.raw}, nil
 }
 
+
+func (tcap *TCAP) selectValidAttributes(cert_raw []byte) ([]*pb.TCertAttribute, error) { 
+	cert, err := x509.ParseCertificate(cert_raw)
+	if err != nil { 
+		return nil, err
+	}
+	
+	ans := make([]*pb.TCertAttribute, 0)
+	
+	if cert.Extensions == nil { 
+		return ans, nil
+	}
+	currentTime := time.Now()
+	for _, extension := range(cert.Extensions) { 
+		acaAtt := &pb.ACAAttribute{"", nil ,&google_protobuf.Timestamp{0,0},&google_protobuf.Timestamp{0,0}}
+		
+		if IsAttributeOID(extension.Id)  {
+				if err := proto.Unmarshal(extension.Value, acaAtt); err != nil { 
+					continue
+				}	
+					
+				if acaAtt.AttributeName == "" { 
+					continue
+				}
+				var from, to time.Time
+				if acaAtt.ValidFrom != nil { 
+					from = time.Unix(acaAtt.ValidFrom.Seconds,int64(acaAtt.ValidFrom.Nanos)) 
+				}
+				if acaAtt.ValidTo != nil { 
+					to = time.Unix(acaAtt.ValidTo.Seconds,int64(acaAtt.ValidTo.Nanos)) 	
+				}
+			
+				//Check if the attribute still being valid.
+				if (from.Before(currentTime) || from.Equal(currentTime)) && (to.IsZero() || to.After(currentTime)) { 
+					ans = append(ans, &pb.TCertAttribute{acaAtt.AttributeName, string(acaAtt.AttributeValue)})
+				}
+			}
+	}
+	return ans, nil
+}
+
+func (tcap *TCAP) requestAttributes(id string, ecert []byte, attributes []*pb.TCertAttribute ) ([]*pb.TCertAttribute, error) { 
+	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
+	sock, acaP, err := GetACAClient()
+	if err != nil { 
+		return nil, err
+	}
+	defer sock.Close() 
+	attributesHash := make([]*pb.TCertAttributeHash, 0)
+	
+	for _, att := range(attributes) {
+		attributeHash := pb.TCertAttributeHash{att.AttributeName, utils.Hash([]byte(att.AttributeValue))}
+		attributesHash = append(attributesHash, &attributeHash)
+	}
+	
+	req := &pb.ACAAttrReq{
+		Ts: &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id: &pb.Identity{id},
+		ECert: &pb.Cert{ecert},
+		Attributes: attributesHash,
+		Signature:  nil}
+
+	var rawReq []byte
+	rawReq, err = proto.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	var r,s *big.Int
+	
+	r,s, err = utils.ECDSASignDirect(tcap.tca.priv, rawReq) 
+	
+	if err != nil {
+		return  nil, err
+	}
+
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+
+	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+
+	resp , err := acaP.RequestAttributes(context.Background(),  req)
+	if err != nil { 
+		return nil, err
+	}
+
+	if resp.Status == pb.ACAAttrResp_FAILURE {
+		return nil,  errors.New("Error fetching attributes.")
+	} 
+		
+	return tcap.selectValidAttributes(resp.Cert.Cert)
+	
+}
+
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
 	Trace.Println("grpc TCAP:CreateCertificateSet")
@@ -242,10 +347,20 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	if err != nil {
 		return nil, err
 	}
+	
+	var attributes = []*pb.TCertAttribute{}
+	if in.Attributes != nil {
+		attributes, err = tcap.requestAttributes(id,raw, in.Attributes)
+		if err != nil { 
+			return nil, err
+		}
+	}	
+	
 	cert, err := x509.ParseCertificate(raw)
 	if err != nil {
 		return nil, err
 	}
+	
 	pub := cert.PublicKey.(*ecdsa.PublicKey)
 
 	r, s := big.NewInt(0), big.NewInt(0)
@@ -311,9 +426,8 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			return nil, err
 		}
 		
-		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
-		// We need to design a structure to return each TCert and the associated Ks.
-		extensions, ks, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
+		extensions, pre_K0, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, attributes)
+
 		if err != nil {
 			return nil, err
 		}
@@ -323,17 +437,16 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			Error.Println(err)
 			return nil, err
 		}
-		
-		set = append(set, &pb.TCert{raw, ks})
+
+		set = append(set, &pb.TCert{raw, pre_K0})
 	}
 
 	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, map[string][]byte, error){
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, []byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	ks := make(map[string][]byte) 
 	extensions := make([]pkix.Extension, len(attributes))
 	
 	// Compute preK_1 to encrypt attributes and enrollment ID
@@ -360,7 +473,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	}
 	
 	// save k used to encrypt EnrollmentID
-	ks["enrollmentId"] = enrollmentIdKey
+	//ks["enrollmentId"] = enrollmentIdKey
 	
 	attributeIdentifierIndex := 9
 	count := 0
@@ -386,7 +499,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 			}
 			
 			// save k used to encrypt attribute
-			ks[a.AttributeName] = attributeKey
+			//ks[a.AttributeName] = attributeKey
 		}
 		
 		// Generate an ObjectIdentifier for the extension holding the attribute
@@ -404,22 +517,10 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	
 	// Append the attributes header if there was attributes to include in the TCert
 	if len(attributes) > 0 {
-		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: buildAttributesHeader(attributesHeader)})
+		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: BuildAttributesHeader(attributesHeader)})
 	}
 	
-	return extensions, ks, nil
-}
-
-func buildAttributesHeader(attributesHeader map[string]int) []byte{
-	var header []byte
-	var headerString string
-	for k,v := range attributesHeader	{
-		v_str := strconv.Itoa(v)
-		headerString = headerString + k + "->" + v_str + "#"
-	}
-	header = []byte(headerString)
-	
-	return header
+	return extensions, preK_0, nil
 }
 
 // ReadCertificate reads a transaction certificate from the TCA.
@@ -517,7 +618,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 		}
 
 		// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-		certs = append(certs, &pb.TCert{raw, make(map[string][]byte)})
+		certs = append(certs, &pb.TCert{raw, make([]byte, 48)})
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -622,7 +723,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 			}
 			
 			// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-			certs = append(certs, &pb.TCert{cert, make(map[string][]byte)})
+			certs = append(certs, &pb.TCert{cert, make([]byte, 48)})
 		}
 		if err = rows.Err(); err != nil {
 			return nil, err

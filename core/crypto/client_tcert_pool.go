@@ -26,7 +26,10 @@ type tCertPool interface {
 
 	Stop() error
 
-	GetNextTCert() (tCert, error)
+	GetNextTCert(attributes map[string]string) (*TCertBlock, error)
+	
+	AddTCert(tCertBlock *TCertBlock) (err error) 
+	
+	CalculateAttributesHash(attributes map[string]string) (attrHash string)
 
-	AddTCert(tCert tCert) error
 }
