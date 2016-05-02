@@ -44,6 +44,9 @@ var (
 	// When generating an extension to include the attribute an index will be 
 	// appended to this Object Identifier.
 	TCertEncAttributesBase = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6}
+	
+	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
+	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 )
 
 // DERToX509Certificate converts der to x509
