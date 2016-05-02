@@ -250,6 +250,23 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 	stub.securityContext = secContext
 }
 
+// ------------- Logging Control ---------------
+
+// SetLoggingLevel allows a Go chaincode to set the logging level of its
+// shim. The logging level is a case-insensitive string chosen from CRITICAL,
+// ERROR, WARNING, NOTICE, INFO or DEBUG. In the event of errors assume that
+// the logging level has not changed. This API uses the string form of the
+// level so as not to require the caller to have imported go-logging.
+func SetLoggingLevel(levelString string) error {
+	level, err := logging.LogLevel(levelString)
+	if err != nil {
+		chaincodeLogger.Warning("Logging level '%s' not recognized; Logging level unchanged : %s", err)
+		return err
+	}
+	logging.SetLevel(level, "chaincode")
+	return nil
+}
+
 // --------- Security functions ----------
 //CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
 
