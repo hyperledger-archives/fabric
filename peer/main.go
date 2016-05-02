@@ -579,20 +579,19 @@ func stop() (err error) {
 			return
 		}
 		return nil
-	} else {
-		logger.Info("Stopping peer using grpc")
-		serverClient := pb.NewAdminClient(clientConn)
-
-		status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-		if err != nil {
-			fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
-			return nil
-		} else {
-			err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
-			fmt.Println(status)
-			return err
-		}
 	}
+	logger.Info("Stopping peer using grpc")
+	serverClient := pb.NewAdminClient(clientConn)
+
+	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+	if err != nil {
+		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
+		return nil
+	}
+
+	err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
+	fmt.Println(status)
+	return err
 }
 
 // login confirms the enrollmentID and secret password of the client with the
@@ -631,9 +630,8 @@ func login(args []string) (err error) {
 		if pw, err = gopass.GetPasswdMasked(); err != nil {
 			err = fmt.Errorf("Error trying to read password from console: %s", err)
 			return
-		} else {
-			loginPW = string(pw)
 		}
+		loginPW = string(pw)
 	}
 
 	// Log in the user
@@ -737,7 +735,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 			return
 		}
-		for k, _ := range m {
+		for k := range m {
 			switch strings.ToLower(k) {
 			case "function":
 			case "args":
