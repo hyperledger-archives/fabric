@@ -73,6 +73,9 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 	}
 
 	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get handle to ledger: %s ", err)
+	}
 	ledger.BeginTxBatch("1")
 	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
 	if err != nil {
