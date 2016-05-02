@@ -31,6 +31,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/hyperledger/fabric/core/peer"
 	ehpb "github.com/hyperledger/fabric/protos"
 )
 
@@ -51,7 +52,7 @@ func NewEventsClient(peerAddress string, adapter EventAdapter) *EventsClient {
 //newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func newEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	if viper.GetBool("peer.tls.enabled") {
+	if peer.TlsEnabled() {
 		var sn string
 		if viper.GetString("peer.tls.serverhostoverride") != "" {
 			sn = viper.GetString("peer.tls.serverhostoverride")

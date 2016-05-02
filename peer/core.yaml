@@ -290,6 +290,13 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    car:
+
+        # This is the basis for the CAR Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
+        Dockerfile:  |
+            FROM openblockchain/baseimage
+
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000

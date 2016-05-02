@@ -22,8 +22,6 @@ package peer
 import (
 	"sync"
 
-	"github.com/spf13/viper"
-
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -54,7 +52,7 @@ func (srh *syncStateSnapshotRequestHandler) createRequest() *pb.SyncStateSnapsho
 }
 
 func makeStateSnapshotChannel() chan *pb.SyncStateSnapshot {
-	return make(chan *pb.SyncStateSnapshot, viper.GetInt("peer.sync.state.snapshot.channelSize"))
+	return make(chan *pb.SyncStateSnapshot, SyncStateSnapshotChannelSize())
 }
 
 func newSyncStateSnapshotRequestHandler() *syncStateSnapshotRequestHandler {
@@ -82,7 +80,7 @@ func (ssdh *syncStateDeltasHandler) createRequest(syncBlockRange *pb.SyncBlockRa
 }
 
 func makeSyncStateDeltasChannel() chan *pb.SyncStateDeltas {
-	return make(chan *pb.SyncStateDeltas, viper.GetInt("peer.sync.state.deltas.channelSize"))
+	return make(chan *pb.SyncStateDeltas, SyncStateDeltasChannelSize())
 }
 
 func newSyncStateDeltasHandler() *syncStateDeltasHandler {
