@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Add any logic that is common to both the peer and docker environments here
+# Add any logic that is common to all (vagrant, travis, docker, etc) environments here
 
 apt-get update -qq
 
