@@ -59,7 +59,7 @@ If the first tests fail and you see an error similar to the one below, that impl
 tcp_client_posix.c:173] failed to connect to 'ipv6:[::1]:50051': socket error: connection refused
 ```
 
-To address this, make sure your Vagrant setup has port forwarding enabled for port 50051 as the tests connect to the membership services on that port. Check your Vagrant file to confirm that the following line is present. If not, modify your Vagrant file to include it, then re-start vagrant with `vagrant reload`.
+To address this, make sure your Vagrant setup has port forwarding enabled for port 50051 as the tests connect to the membership services on that port. Check your Vagrant file to confirm that the following line is present. If not, modify your Vagrant file to include it, then issue the commend `vagrant reload`.
 
 ```
 config.vm.network :forwarded_port, guest: 50051, host: 50051 # Membership service
