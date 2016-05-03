@@ -149,6 +149,7 @@ func (instance *pbftCore) restoreState() {
 			if _, err = fmt.Sscanf(key, "chkpt.%d", &seqNo); err != nil {
 				logger.Warning("Replica %d could not restore checkpoint key %s", instance.id, key)
 			} else {
+				logger.Debug("Replica %d found checkpoint %s for seqNo %d", instance.id, string(id), seqNo)
 				instance.chkpts[seqNo] = string(id)
 				if seqNo > highSeq {
 					highSeq = seqNo

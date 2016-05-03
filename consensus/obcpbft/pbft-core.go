@@ -807,29 +807,6 @@ func (instance *pbftCore) executeOutstanding() {
 	return
 }
 
-func (instance *pbftCore) executionCheckpont(seqNo uint64, id []byte) {
-	if seqNo%instance.K != 0 {
-		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
-		return
-	}
-
-	idAsString := base64.StdEncoding.EncodeToString(id)
-
-	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
-		instance.id, instance.view, seqNo, idAsString)
-
-	chkpt := &Checkpoint{
-		SequenceNumber: seqNo,
-		ReplicaId:      instance.id,
-		Id:             idAsString,
-	}
-	instance.chkpts[seqNo] = idAsString
-
-	instance.persistCheckpoint(seqNo, id)
-	instance.recvCheckpoint(chkpt)
-	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
-}
-
 func (instance *pbftCore) executeOne(idx msgID) bool {
 	cert := instance.certStore[idx]
 
@@ -890,6 +867,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	}
 	instance.chkpts[seqNo] = idAsString
 
+	instance.persistCheckpoint(seqNo, id)
 	instance.recvCheckpoint(chkpt)
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
 }
