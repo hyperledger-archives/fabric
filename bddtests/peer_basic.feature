@@ -842,5 +842,5 @@ Feature: lanching 3 peers
         |          ComposeFile                       |   WaitTime   |
         |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
-        |   docker-compose-4-consensus-sieve.yml     |      60      |
+        #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
 

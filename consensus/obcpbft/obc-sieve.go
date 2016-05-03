@@ -328,7 +328,7 @@ func (op *obcSieve) processExecute() {
 	_ = results // XXX what to do?
 	_ = err     // XXX what to do?
 
-	logger.Debug("Sieve replica %d results=%x err=%v", op.id, results, err)
+	logger.Debug("Sieve replica %d results=%x err=%v using lastPbftExec of %d", op.id, results, err, op.lastExecPbftSeqNo)
 
 	meta, _ := proto.Marshal(&Metadata{op.lastExecPbftSeqNo})
 	op.currentResult, err = op.stack.PreviewCommitTxBatch(op.currentReq, meta)
