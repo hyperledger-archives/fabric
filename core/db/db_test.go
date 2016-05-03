@@ -51,6 +51,33 @@ func TestOpenDB_DirEmpty(t *testing.T) {
 	performBasicReadWrite(t)
 }
 
+// This test verifies that when a new column family is added to the DB
+// users at an older level of the DB will still be able to open it with new code
+func TestDBColumnUpgrade(t *testing.T) {
+	deleteTestDBPath()
+	createTestDBPath()
+	err := CreateDB()
+	if nil != err {
+		t.Fatalf("Error creating DB")
+	}
+	db, err := openDB()
+	if nil != err {
+		t.Fatalf("Error opening DB")
+	}
+	db.CloseDB()
+
+	oldcfs := columnfamilies
+	columnfamilies = append([]string{"Testing"}, columnfamilies...)
+	defer func() {
+		columnfamilies = oldcfs
+	}()
+	db, err = openDB()
+	if nil != err {
+		t.Fatalf("Error re-opening DB with upgraded columnFamilies")
+	}
+	db.CloseDB()
+}
+
 // db helper functions
 func createTestDBPath() {
 	dbPath := viper.GetString("peer.fileSystemPath")

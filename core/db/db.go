@@ -88,12 +88,6 @@ func CreateDB() error {
 
 	defer db.Close()
 
-	for _, cf := range columnfamilies {
-		_, err = db.CreateColumnFamily(opts, cf)
-		if err != nil {
-			return err
-		}
-	}
 	dbLogger.Debug("DB created at [%s]", dbPath)
 	return nil
 }
@@ -207,6 +201,7 @@ func openDB() (*OpenchainDB, error) {
 	defer opts.Destroy()
 
 	opts.SetCreateIfMissing(false)
+	opts.SetCreateIfMissingColumnFamilies(true)
 
 	cfNames := []string{"default"}
 	cfNames = append(cfNames, columnfamilies...)
