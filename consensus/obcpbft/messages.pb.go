@@ -15,9 +15,9 @@ It has these top-level messages:
 	Prepare
 	Commit
 	BlockInfo
-	SieveId
 	Checkpoint
 	ViewChange
+	PQset
 	NewView
 	FetchRequest
 	BatchMessage
@@ -389,15 +389,6 @@ func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
 func (m *BlockInfo) String() string { return proto.CompactTextString(m) }
 func (*BlockInfo) ProtoMessage()    {}
 
-type SieveId struct {
-	BlockNumber uint64 `protobuf:"varint,1,opt,name=block_number" json:"block_number,omitempty"`
-	ObcId       []byte `protobuf:"bytes,2,opt,name=obc_id,proto3" json:"obc_id,omitempty"`
-}
-
-func (m *SieveId) Reset()         { *m = SieveId{} }
-func (m *SieveId) String() string { return proto.CompactTextString(m) }
-func (*SieveId) ProtoMessage()    {}
-
 type Checkpoint struct {
 	SequenceNumber uint64 `protobuf:"varint,1,opt,name=sequence_number" json:"sequence_number,omitempty"`
 	ReplicaId      uint64 `protobuf:"varint,2,opt,name=replica_id" json:"replica_id,omitempty"`
@@ -462,6 +453,21 @@ type ViewChange_PQ struct {
 func (m *ViewChange_PQ) Reset()         { *m = ViewChange_PQ{} }
 func (m *ViewChange_PQ) String() string { return proto.CompactTextString(m) }
 func (*ViewChange_PQ) ProtoMessage()    {}
+
+type PQset struct {
+	Set []*ViewChange_PQ `protobuf:"bytes,1,rep,name=set" json:"set,omitempty"`
+}
+
+func (m *PQset) Reset()         { *m = PQset{} }
+func (m *PQset) String() string { return proto.CompactTextString(m) }
+func (*PQset) ProtoMessage()    {}
+
+func (m *PQset) GetSet() []*ViewChange_PQ {
+	if m != nil {
+		return m.Set
+	}
+	return nil
+}
 
 type NewView struct {
 	View      uint64            `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`

@@ -41,6 +41,48 @@ func (ns *noopSecurity) Verify(peerID *pb.PeerID, signature []byte, message []by
 	return nil
 }
 
+type mockPersist struct {
+	store map[string][]byte
+}
+
+func (p *mockPersist) initialize() {
+	if p.store == nil {
+		p.store = make(map[string][]byte)
+	}
+}
+
+func (p *mockPersist) ReadState(key string) ([]byte, error) {
+	p.initialize()
+	if val, ok := p.store[key]; ok {
+		return val, nil
+	}
+	return nil, fmt.Errorf("cannot find key %s", key)
+}
+
+func (p *mockPersist) ReadStateSet(prefix string) (map[string][]byte, error) {
+	if p.store == nil {
+		return nil, fmt.Errorf("no state yet")
+	}
+	ret := make(map[string][]byte)
+	for k, v := range p.store {
+		if len(k) >= len(prefix) && k[0:len(prefix)] == prefix {
+			ret[k] = v
+		}
+	}
+	return ret, nil
+}
+
+func (p *mockPersist) StoreState(key string, value []byte) error {
+	p.initialize()
+	p.store[key] = value
+	return nil
+}
+
+func (p *mockPersist) DelState(key string) {
+	p.initialize()
+	delete(p.store, key)
+}
+
 // Create a message of type `Message_CHAIN_TRANSACTION`
 func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
@@ -85,32 +127,34 @@ type omniProto struct {
 	ExecTxsImpl                func(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatchImpl          func(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatchImpl        func(id interface{}) error
-	PreviewCommitTxBatchImpl   func(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatchImpl   func(id interface{}, metadata []byte) ([]byte, error)
 	GetRemoteBlocksImpl        func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
 	GetRemoteStateSnapshotImpl func(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltasImpl   func(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+	ReadStateImpl              func(key string) ([]byte, error)
+	ReadStateSetImpl           func(prefix string) (map[string][]byte, error)
+	StoreStateImpl             func(key string, value []byte) error
+	DelStateImpl               func(key string)
 
 	// Inner Stack methods
-	broadcastImpl  func(msgPayload []byte)
-	unicastImpl    func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl    func(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipToImpl     func(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
-	validStateImpl func(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
-	validateImpl   func(txRaw []byte) error
-	viewChangeImpl func(curView uint64)
-	signImpl       func(msg []byte) ([]byte, error)
-	verifyImpl     func(senderID uint64, signature []byte, message []byte) error
+	broadcastImpl    func(msgPayload []byte)
+	unicastImpl      func(msgPayload []byte, receiverID uint64) (err error)
+	executeImpl      func(seqNo uint64, txRaw []byte)
+	getStateImpl     func() []byte
+	skipToImpl       func(seqNo uint64, snapshotID []byte, peers []uint64)
+	validateImpl     func(txRaw []byte) error
+	viewChangeImpl   func(curView uint64)
+	signImpl         func(msg []byte) ([]byte, error)
+	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl func() (uint64, error)
 
 	// Closable Consenter methods
-	RecvMsgImpl  func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
-	CloseImpl    func()
-	idleChanImpl func() <-chan struct{}
-	deliverImpl  func([]byte, *pb.PeerID)
+	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
+	CloseImpl   func()
+	deliverImpl func([]byte, *pb.PeerID)
 
 	// Orderer methods
-	CheckpointImpl func(seqNo uint64, id []byte)
-	StartupImpl    func(seqNo uint64, id []byte)
-	ValidateImpl   func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
+	ValidateImpl func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
 }
 
 func (op *omniProto) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
@@ -253,7 +297,7 @@ func (op *omniProto) RollbackTxBatch(id interface{}) error {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+func (op *omniProto) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
 	if nil != op.PreviewCommitTxBatchImpl {
 		return op.PreviewCommitTxBatchImpl(id, metadata)
 	}
@@ -297,25 +341,17 @@ func (op *omniProto) unicast(msgPayload []byte, receiverID uint64) (err error) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) execute(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo) {
+func (op *omniProto) execute(seqNo uint64, txRaw []byte) {
 	if nil != op.executeImpl {
-		op.executeImpl(seqNo, txRaw, execInfo)
+		op.executeImpl(seqNo, txRaw)
 		return
 	}
 
 	panic("Unimplemented")
 }
-func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo) {
+func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64) {
 	if nil != op.skipToImpl {
-		op.skipToImpl(seqNo, snapshotID, peers, execInfo)
-		return
-	}
-
-	panic("Unimplemented")
-}
-func (op *omniProto) validState(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo) {
-	if nil != op.validStateImpl {
-		op.validStateImpl(seqNo, id, peers, execInfo)
+		op.skipToImpl(seqNo, snapshotID, peers)
 		return
 	}
 
@@ -359,6 +395,14 @@ func (op *omniProto) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	panic("Unimplemented")
 }
 
+func (op *omniProto) getLastSeqNo() (uint64, error) {
+	if op.getLastSeqNoImpl != nil {
+		return op.getLastSeqNoImpl()
+	}
+
+	return 0, fmt.Errorf("getLastSeqNo is not implemented")
+}
+
 func (op *omniProto) Close() {
 	if nil != op.CloseImpl {
 		op.CloseImpl()
@@ -366,34 +410,6 @@ func (op *omniProto) Close() {
 	}
 
 	panic("Unimplemented")
-}
-
-func (op *omniProto) idleChan() <-chan struct{} {
-	if nil != op.idleChanImpl {
-		return op.idleChanImpl()
-	}
-
-	panic("Unimplemented")
-}
-
-func (op *omniProto) Checkpoint(seqNo uint64, id []byte) {
-	if nil != op.CheckpointImpl {
-		op.CheckpointImpl(seqNo, id)
-		return
-	}
-
-	panic("Unimplemented")
-
-}
-
-func (op *omniProto) Startup(seqNo uint64, id []byte) {
-	if nil != op.StartupImpl {
-		op.StartupImpl(seqNo, id)
-		return
-	}
-
-	panic("Unimplemented")
-
 }
 
 func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
@@ -411,6 +427,41 @@ func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
 	}
 
 	panic("Unimplemented")
+}
+
+func (op *omniProto) getState() []byte {
+	if nil != op.getStateImpl {
+		return op.getStateImpl()
+	}
+
+	panic("Unimplemented")
+}
+
+func (op *omniProto) ReadState(key string) ([]byte, error) {
+	if nil != op.ReadStateImpl {
+		return op.ReadStateImpl(key)
+	}
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (op *omniProto) ReadStateSet(prefix string) (map[string][]byte, error) {
+	if nil != op.ReadStateImpl {
+		return op.ReadStateSetImpl(prefix)
+	}
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (op *omniProto) DelState(key string) {
+	if nil != op.DelStateImpl {
+		op.DelStateImpl(key)
+	}
+}
+
+func (op *omniProto) StoreState(key string, value []byte) error {
+	if nil != op.ReadStateImpl {
+		return op.StoreStateImpl(key, value)
+	}
+	return fmt.Errorf("unimplemented")
 }
 
 /*

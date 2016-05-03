@@ -170,12 +170,18 @@ func (blockchain *blockchain) getBlockchainInfo() (*protos.BlockchainInfo, error
 		return nil, err
 	}
 
-	info := &protos.BlockchainInfo{
-		Height:            blockchain.getSize(),
-		CurrentBlockHash:  blockchain.previousBlockHash,
-		PreviousBlockHash: lastBlock.PreviousBlockHash}
-
+	info := blockchain.getBlockchainInfoForBlock(blockchain.getSize(), lastBlock)
 	return info, nil
+}
+
+func (blockchain *blockchain) getBlockchainInfoForBlock(height uint64, block *protos.Block) *protos.BlockchainInfo {
+	hash, _ := block.GetHash()
+	info := &protos.BlockchainInfo{
+		Height:            height,
+		CurrentBlockHash:  hash,
+		PreviousBlockHash: block.PreviousBlockHash}
+
+	return info
 }
 
 func (blockchain *blockchain) buildBlock(block *protos.Block, stateHash []byte) *protos.Block {

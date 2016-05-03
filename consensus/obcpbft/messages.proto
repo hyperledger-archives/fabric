@@ -84,11 +84,6 @@ message block_info {
     bytes block_hash = 2;
 }
 
-message sieve_id {
-    uint64 block_number = 1;
-    bytes obc_id = 2;
-}
-
 message checkpoint {
     uint64 sequence_number = 1;
     uint64 replica_id = 2;
@@ -114,6 +109,10 @@ message view_change {
     repeated PQ qset = 5;
     uint64 replica_id = 6;
     bytes signature = 7;
+}
+
+message PQset {
+        repeated view_change.PQ set = 1;
 }
 
 message new_view {
