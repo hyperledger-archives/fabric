@@ -82,9 +82,6 @@ docker run --rm busybox echo All good
 
 /hyperledger/scripts/provision/docker.sh $BASEIMAGE_RELEASE
 
-# Run our common setup
-/hyperledger/scripts/provision/common.sh
-
 # Install Python, pip, behave, nose
 #
 # install python-dev and libyaml-dev to get compiled speedups
@@ -115,11 +112,9 @@ PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
 
-# Copy protobuf dir so we can build the protoc-gen-go binary. Then delete the directory.
-mkdir -p $GOPATH/src/github.com/golang/protobuf/
-cp -r $GOPATH/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $GOPATH/src/github.com/golang/
-go install -a github.com/golang/protobuf/protoc-gen-go
-rm -rf $GOPATH/src/github.com/golang/protobuf
+# Run our common scripts
+/hyperledger/scripts/provision/host.sh
+/hyperledger/scripts/provision/common.sh
 
 # Compile proto files
 # /hyperledger/devenv/compile_protos.sh

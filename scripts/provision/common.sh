@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Add any logic that is common to both the peer and docker environments here
+# Add any logic that is common to all (vagrant, travis, docker, etc) environments here
 
-apt-get update -qq
+sudo apt-get update -qq
 
 # Used by CHAINTOOL
-apt-get install -y default-jre
+sudo apt-get install -y default-jre
