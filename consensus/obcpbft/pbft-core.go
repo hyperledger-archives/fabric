@@ -46,6 +46,11 @@ func init() {
 	logger = logging.MustGetLogger("consensus/obcpbft")
 }
 
+const (
+	// An ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
+	UnreasonableTimeout = 100 * time.Hour
+)
+
 // =============================================================================
 // custom interfaces and structure definitions
 // =============================================================================
@@ -121,8 +126,6 @@ type pbftCore struct {
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
-	timerExpiredCount  uint64              // How many times the newViewTimer has expired, used in conjuection with timerResetCount to prevent racing
-	timerResetCount    uint64              // How many times the newViewTimer has been reset, used in conjuection with timerExpiredCount to prevent racing
 	newViewTimerReason string              // what triggered the timer
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
@@ -244,14 +247,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 
 	instance.chkpts[0] = "XXX GENESIS"
 
-	// create non-running timer XXX ugly
-	instance.newViewTimer = time.NewTimer(100 * time.Hour)
-	instance.newViewTimer.Stop()
-	instance.timerResetCount = 1
 	instance.lastNewViewTimeout = instance.newViewTimeout
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
 
+	instance.stopTimer()
 	instance.restoreState()
 
 	go instance.main()
@@ -1201,31 +1201,16 @@ func (instance *pbftCore) startTimerIfOutstandingRequests() {
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
-	if !instance.newViewTimer.Reset(timeout) && instance.timerActive {
-		// A false return from Reset indicates the timer fired or was stopped
-		// The instance.timerActive == true indicates that it was not stopped
-		// Therefore, the timer has already fired, so increment timerResetCount
-		// to prevent the view change thread from initiating a view change if
-		// it has not already done so
-		instance.timerResetCount++
-		logger.Debug("Replica %d resetting a running new view timer for %s, reset count now: %s", instance.id, timeout, instance.timerResetCount, reason)
-	} else {
-		logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
-	}
+	instance.newViewTimer = time.NewTimer(timeout) // Create a new timer, if it has already fired, it will still read on the channel
+	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.newViewTimerReason = reason
 	instance.timerActive = true
 }
 
 func (instance *pbftCore) stopTimer() {
-	stopRes := instance.newViewTimer.Stop()
-	if !stopRes && instance.timerActive {
-		// See comment in startTimer for more detail, but this indicates our Stop is occurring
-		// after the view change thread has become active, so incremeent the reset count to prevent a race
-		instance.timerResetCount++
-		logger.Debug("Replica %d stopping an expired new view timer, reset count now %d", instance.id, instance.timerResetCount)
-	} else if instance.timerActive {
-		logger.Debug("Replica %d stopping a running new view timer", instance.id)
-	}
+	instance.newViewTimer = time.NewTimer(UnreasonableTimeout) // Create a new timer, then stop it, if it has already fired, it will still read on the channel
+	instance.newViewTimer.Stop()
+	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
 }
 
