@@ -26,12 +26,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/looplab/fsm"
-	"github.com/op/go-logging"
+	ccintf "github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/looplab/fsm"
+	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
@@ -50,12 +51,6 @@ const (
 )
 
 var chaincodeLogger = logging.MustGetLogger("chaincode")
-
-// PeerChaincodeStream interface for stream between Peer and chaincode instance.
-type PeerChaincodeStream interface {
-	Send(*pb.ChaincodeMessage) error
-	Recv() (*pb.ChaincodeMessage, error)
-}
 
 // MessageHandler interface for handling chaincode messages (common between Peer chaincode support and chaincode)
 type MessageHandler interface {
@@ -79,7 +74,7 @@ type nextStateInfo struct {
 // Handler responsbile for managment of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
-	ChatStream  PeerChaincodeStream
+	ChatStream  ccintf.ChaincodeStream
 	FSM         *fsm.FSM
 	ChaincodeID *pb.ChaincodeID
 
@@ -312,14 +307,14 @@ func (handler *Handler) processStream() error {
 }
 
 // HandleChaincodeStream Main loop for handling the associated Chaincode stream
-func HandleChaincodeStream(chaincodeSupport *ChaincodeSupport, stream pb.ChaincodeSupport_RegisterServer) error {
-	deadline, ok := stream.Context().Deadline()
+func HandleChaincodeStream(chaincodeSupport *ChaincodeSupport, ctxt context.Context, stream ccintf.ChaincodeStream) error {
+	deadline, ok := ctxt.Deadline()
 	chaincodeLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
 	handler := newChaincodeSupportHandler(chaincodeSupport, stream)
 	return handler.processStream()
 }
 
-func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStream PeerChaincodeStream) *Handler {
+func newChaincodeSupportHandler(chaincodeSupport *ChaincodeSupport, peerChatStream ccintf.ChaincodeStream) *Handler {
 	v := &Handler{
 		ChatStream: peerChatStream,
 	}
@@ -730,7 +725,7 @@ func (handler *Handler) afterRangeQueryStateNext(e *fsm.Event, state string) {
 	chaincodeLogger.Debug("Exiting RANGE_QUERY_STATE_NEXT")
 }
 
-// Handles query to ledger to rage query state nexy
+// Handles query to ledger to rage query state next
 func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 	// The defer followed by triggering a go routine dance is needed to ensure that the previous state transition
 	// is completed before the next one is triggered. The previous state transition is deemed complete only when
@@ -1004,7 +999,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_INVOKE)
 
 			// Launch the new chaincode if not already running
-			_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+			_, chaincodeInput, launchErr := handler.chaincodeSupport.Launch(context.Background(), transaction)
 			if launchErr != nil {
 				payload := []byte(launchErr.Error())
 				chaincodeLogger.Debug("[%s]Failed to launch invoked chaincode. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
@@ -1260,7 +1255,7 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_QUERY)
 
 		// Launch the new chaincode if not already running
-		_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+		_, chaincodeInput, launchErr := handler.chaincodeSupport.Launch(context.Background(), transaction)
 		if launchErr != nil {
 			payload := []byte(launchErr.Error())
 			chaincodeLogger.Debug("[%s]Failed to launch invoked chaincode. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)

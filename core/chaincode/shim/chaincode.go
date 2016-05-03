@@ -29,13 +29,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/asn1"
 
 	"golang.org/x/net/context"
-
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/golang/protobuf/proto"
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -50,14 +51,14 @@ var handler *Handler
 
 // Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
 type Chaincode interface {
- 	// Init method will be called during deployment
- 	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- 	// Invoke will be called for every transaction
- 	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- 	// Query is to be used for read-only access to chaincode state
- 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
- }
- 
+	// Init method will be called during deployment
+	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Invoke will be called for every transaction
+	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+	// Query is to be used for read-only access to chaincode state
+	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
+}
+
 // ChaincodeStub for shim side handling.
 type ChaincodeStub struct {
 	UUID            string
@@ -91,8 +92,37 @@ func Start(cc Chaincode) error {
 
 	chaincodeSupportClient := pb.NewChaincodeSupportClient(clientConn)
 
-	err = chatWithPeer(chaincodeSupportClient, cc)
+	// Establish stream with validating peer
+	stream, err := chaincodeSupportClient.Register(context.Background())
+	if err != nil {
+		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)
+	}
 
+	chaincodename := viper.GetString("chaincode.id.name")
+	err = chatWithPeer(chaincodename, stream, cc)
+
+	return err
+}
+
+// StartInProc entry point for system chaincodes bootstrap.
+func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
+	logging.SetLevel(logging.DEBUG, "chaincode")
+	chaincodeLogger.Debug("in proc %v", args)
+
+	var chaincodename string
+	for _, v := range env {
+		if strings.Index(v, "CORE_CHAINCODE_ID_NAME=") == 0 {
+			p := strings.SplitAfter(v, "CORE_CHAINCODE_ID_NAME=")
+			chaincodename = p[1]
+			break
+		}
+	}
+	if chaincodename == "" {
+		return fmt.Errorf("Error chaincode id not provided")
+	}
+	chaincodeLogger.Debug("starting chat with peer using name=%s", chaincodename)
+	stream := newInProcStream(recv, send)
+	err := chatWithPeer(chaincodename, stream, cc)
 	return err
 }
 
@@ -138,25 +168,14 @@ func newPeerClientConnection() (*grpc.ClientConn, error) {
 	return conn, err
 }
 
-func chatWithPeer(chaincodeSupportClient pb.ChaincodeSupportClient, cc Chaincode) error {
-
-	// Establish stream with validating peer
-	stream, err := chaincodeSupportClient.Register(context.Background())
-	if err != nil {
-		return fmt.Errorf("Error chatting with leader at address=%s:  %s", getPeerAddress(), err)
-	}
-
-	// Create the chaincode stub which will be passed to the chaincode
-	//stub := &ChaincodeStub{}
+func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode) error {
 
 	// Create the shim handler responsible for all control logic
-	handler = newChaincodeHandler(getPeerAddress(), stream, cc)
+	handler = newChaincodeHandler(stream, cc)
 
 	defer stream.CloseSend()
 	// Send the ChaincodeID during register.
-	chaincodeID := &pb.ChaincodeID{Name: viper.GetString("chaincode.id.name")}
-	chaincodeLogger.Debug("Chaincode ID: %s", viper.GetString("chaincode.id.name"))
-
+	chaincodeID := &pb.ChaincodeID{Name: chaincodename}
 	payload, err := proto.Marshal(chaincodeID)
 	if err != nil {
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
@@ -235,6 +254,7 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 //CHAINCODE SEC INTERFACE FUNCS TOBE IMPLEMENTED BY ANGELO
 
 // ------------- Call Chaincode functions ---------------
+
 // InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
@@ -246,6 +266,7 @@ func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string,
 }
 
 // --------- State functions ----------
+
 // GetState function can be invoked by a chaincode to get a state from the ledger.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)
@@ -259,6 +280,96 @@ func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 // DelState function can be invoked by a chaincode to delete state from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
+}
+
+func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) { 
+	tokens :=  strings.Split(header, "#")
+	answer := make(map[string]int)
+	
+	for _, token := range tokens {
+		pair:= strings.Split(token, "->")
+		
+		if len(pair) == 2 {
+			key := pair[0]
+			valueStr := pair[1]
+			value, err := strconv.Atoi(valueStr)
+			if err != nil { 
+				return nil, err
+			}
+			answer[key] = value
+		}
+	}
+	
+	return answer, nil
+	
+}
+
+// Answer all the attributes stored in the CallerCert
+func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
+	tcertder := stub.securityContext.CallerCert
+	tcert, err := utils.DERToX509Certificate(tcertder)
+	if err != nil {
+		return nil, err
+	}
+	
+	var header_raw []byte
+	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+		return nil, err
+	}
+
+	header_str := string(header_raw)	
+	var header map[string]int
+	header, err = stub.parseHeader(header_str)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	attributes := make([]string, len(header))
+	count := 0
+	for k,_ := range header { 
+		attributes[count] = k
+		count++
+	}
+    return attributes, nil
+}
+
+// Read the attribute with name 'attributeName' from CallerCert.
+func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
+	tcertder := stub.securityContext.CallerCert
+	tcert, err := utils.DERToX509Certificate(tcertder)
+	if err != nil {
+		return nil, err
+	}
+	
+	var header_raw []byte
+	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+		return nil, err
+	}
+
+	header_str := string(header_raw)	
+	var header map[string]int
+	header, err = stub.parseHeader(header_str)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	position := header[attributeName]
+	
+
+	
+	if position == 0 {
+		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
+	}
+
+    oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
+    
+    var value []byte
+    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+		return nil, err
+	}
+    return value, nil
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of
@@ -489,6 +600,26 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 	keyString, err := buildKeyString(tableName, key)
 	if err != nil {
 		return nil, err
+	}
+
+	table, err := stub.getTable(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Need to check for special case where table has a single column
+	if len(table.GetColumnDefinitions()) < 2 && len(key) > 0 {
+
+		row, err := stub.GetRow(tableName, key)
+		if err != nil {
+			return nil, err
+		}
+		rows := make(chan Row)
+		go func() {
+			rows <- row
+			close(rows)
+		}()
+		return rows, nil
 	}
 
 	iter, err := stub.RangeQueryState(keyString+"1", keyString+":")

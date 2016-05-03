@@ -20,16 +20,15 @@ under the License.
 package main
 
 import (
-	//	"fmt"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
 
-	"fmt"
-	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -105,12 +104,11 @@ func main() {
 	tca.Start(srv)
 	tlsca.Start(srv)
 
-	sock, err := net.Listen("tcp", ca.GetConfigString("server.port"))
-	if err != nil {
-		panic(err)
+	if sock, err := net.Listen("tcp", ca.GetConfigString("server.port")); err != nil {
+		ca.Error.Println("Fail to start CA Server: ", err)
+		os.Exit(1)
+	} else {
+		srv.Serve(sock)
+		sock.Close()
 	}
-
-	srv.Serve(sock)
-
-	sock.Close()
 }

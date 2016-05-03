@@ -57,6 +57,23 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
 }
 
+// GetNextTCert Gets next available (not yet used) transaction certificate.
+func (client *clientImpl) GetNextTCert() (tCert, error) {
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	// Get next available (not yet used) transaction certificate
+	tCert, err := client.tCertPool.GetNextTCert()
+	if err != nil {
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		return nil, err
+	}
+
+	return tCert, err
+}
+
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
 func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized

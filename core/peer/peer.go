@@ -141,43 +141,10 @@ func GetLocalIP() string {
 	return ""
 }
 
-// GetLocalAddress returns the address:port the local peer is operating on.  Affected by env:peer.addressAutoDetect
-func GetLocalAddress() (peerAddress string, err error) {
-	if viper.GetBool("peer.addressAutoDetect") {
-		// Need to get the port from the peer.address setting, and append to the determined host IP
-		_, port, err := net.SplitHostPort(viper.GetString("peer.address"))
-		if err != nil {
-			err = fmt.Errorf("Error auto detecting Peer's address: %s", err)
-			return "", err
-		}
-		peerAddress = net.JoinHostPort(GetLocalIP(), port)
-		//peerLogger.Info("Auto detected peer address: %s", peerAddress)
-	} else {
-		peerAddress = viper.GetString("peer.address")
-	}
-	return
-}
-
-// GetPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
-func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
-	var peerAddress string
-	var peerType pb.PeerEndpoint_Type
-	peerAddress, err := GetLocalAddress()
-	if err != nil {
-		return nil, err
-	}
-	if viper.GetBool("peer.validator.enabled") {
-		peerType = pb.PeerEndpoint_VALIDATOR
-	} else {
-		peerType = pb.PeerEndpoint_NON_VALIDATOR
-	}
-	return &pb.PeerEndpoint{ID: &pb.PeerID{Name: viper.GetString("peer.id")}, Address: peerAddress, Type: peerType}, nil
-}
-
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	if viper.GetBool("peer.tls.enabled") {
+	if TlsEnabled() {
 		var sn string
 		if viper.GetString("peer.tls.serverhostoverride") != "" {
 			sn = viper.GetString("peer.tls.serverhostoverride")
@@ -218,16 +185,33 @@ type handlerMap struct {
 
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
+type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
+
 // PeerImpl implementation of the Peer service
 type PeerImpl struct {
 	handlerFactory HandlerFactory
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
+	engine         Engine
+	isValidator    bool
+}
+
+// TransactionProccesor responsible for processing of Transactions
+type TransactionProccesor interface {
+	ProcessTransactionMsg(*pb.Message, *pb.Transaction) *pb.Response
+}
+
+// Engine Responsible for managing Peer network communications (Handlers) and processing of Transactions
+type Engine interface {
+	TransactionProccesor
+	// GetHandlerFactory return a handler for an accepted Chat stream
+	GetHandlerFactory() HandlerFactory
+	//GetInputChannel() (chan<- *pb.Transaction, error)
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
+func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -235,32 +219,46 @@ func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer.handlerFactory = handlerFact
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
+	peer.secHelper = secHelperFunc()
+
 	// Install security object for peer
-	if viper.GetBool("security.enabled") {
-		enrollID := viper.GetString("security.enrollID")
-		enrollSecret := viper.GetString("security.enrollSecret")
-		var err error
-		if viper.GetBool("peer.validator.enabled") {
-			peerLogger.Debug("Registering validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitValidator(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
-		} else {
-			peerLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
-			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
-				return nil, err
-			}
-			peerLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
-			peer.secHelper, err = crypto.InitPeer(enrollID, nil)
-			if nil != err {
-				return nil, err
-			}
+	if SecurityEnabled() {
+		if peer.secHelper == nil {
+			return nil, fmt.Errorf("Security helper not provided")
 		}
+	}
+
+	ledgerPtr, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
+	}
+	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
+	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
+	return peer, nil
+}
+
+// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
+	peer = new(PeerImpl)
+	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
+
+	peer.isValidator = ValidatorEnabled()
+	peer.secHelper = secHelperFunc()
+
+	// Install security object for peer
+	if SecurityEnabled() {
+		if peer.secHelper == nil {
+			return nil, fmt.Errorf("Security helper not provided")
+		}
+	}
+
+	peer.engine, err = engFactory(peer)
+	if err != nil {
+		return nil, err
+	}
+	peer.handlerFactory = peer.engine.GetHandlerFactory()
+	if peer.handlerFactory == nil {
+		return nil, errors.New("Cannot supply nil handler factory")
 	}
 
 	ledgerPtr, err := ledger.GetLedger()
@@ -276,6 +274,26 @@ func NewPeerWithHandler(handlerFact HandlerFactory) (*PeerImpl, error) {
 func (p *PeerImpl) Chat(stream pb.Peer_ChatServer) error {
 	return p.handleChat(stream.Context(), stream, false)
 }
+
+// ProcessTransaction implementation of the ProcessTransaction RPC function
+func (p *PeerImpl) ProcessTransaction(ctx context.Context, tx *pb.Transaction) (response *pb.Response, err error) {
+	peerLogger.Debug("ProcessTransaction processing transaction uuid = %s", tx.Uuid)
+	// Need to validate the Tx's signature if we are a validator.
+	if p.isValidator {
+		// Verify transaction signature if security is enabled
+		secHelper := p.secHelper
+		if nil != secHelper {
+			peerLogger.Debug("Verifying transaction signature %s", tx.Uuid)
+			if tx, err = secHelper.TransactionPreValidation(tx); err != nil {
+				peerLogger.Error("ProcessTransaction failed to verify transaction %v", err)
+				return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
+			}
+		}
+
+	}
+	return p.ExecuteTransaction(tx), err
+}
+
 
 // GetPeers returns the currently registered PeerEndpoints
 func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
@@ -393,15 +411,38 @@ func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]Messa
 // Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
 func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error {
 	cloneMap := p.cloneHandlerMap(typ)
-	var errorsFromHandlers []error
+	errorsFromHandlers := make(chan error,len(cloneMap))
+	var bcWG sync.WaitGroup
+
+	start := time.Now()
+
 	for _, msgHandler := range cloneMap {
-		err := msgHandler.SendMessage(msg)
-		if err != nil {
-			toPeerEndpoint, _ := msgHandler.To()
-			errorsFromHandlers = append(errorsFromHandlers, fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err))
-		}
+		bcWG.Add(1)
+		go func(msgHandler MessageHandler) {
+			defer bcWG.Done()
+			host, _ := msgHandler.To()
+			t1 := time.Now()
+			err := msgHandler.SendMessage(msg)
+			if err != nil {
+				toPeerEndpoint, _ := msgHandler.To()
+				errorsFromHandlers <- fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+			}
+			peerLogger.Debug("Sending %d bytes to %s took %v",len(msg.Payload),host.Address,time.Since(t1));
+
+		}(msgHandler)
+
 	}
-	return errorsFromHandlers
+	bcWG.Wait()
+	close(errorsFromHandlers)
+	var returnedErrors []error
+	for err := range errorsFromHandlers {
+		returnedErrors = append(returnedErrors,err)
+	}
+
+	elapsed := time.Since(start)
+	peerLogger.Debug("Broadcast took %v",elapsed)
+
+	return returnedErrors
 }
 
 // Unicast sends a message to a specific peer.
@@ -418,155 +459,35 @@ func (p *PeerImpl) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
 	return nil
 }
 
-// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator.
-func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
+// SendTransactionsToPeer forwards transactions to the specified peer address.
+func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Transaction) (response *pb.Response) {
 	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error creating client to peer address=%s:  %s", peerAddress, err))}
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
-	stream, err := serverClient.Chat(context.Background())
+	peerLogger.Debug("Sending TX to Peer: %s", peerAddress)
+	response, err = serverClient.ProcessTransaction(context.Background(), transaction)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error opening chat stream to peer address=%s:  %s", peerAddress, err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error calling ProcessTransaction on remote peer at address=%s:  %s", peerAddress, err))}
 	}
-
-	peerLogger.Debug("Sending HELLO to Peer: %s", peerAddress)
-
-	helloMessage, err := p.NewOpenchainDiscoveryHello()
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error creating new HelloMessage (%s):  %s", peerAddress, err))}
-	}
-	if err = stream.Send(helloMessage); err != nil {
-		stream.CloseSend()
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending hello to peer address=%s:  %s", peerAddress, err))}
-	}
-
-	waitc := make(chan struct{})
-	var response *pb.Response
-	go func() {
-		// Make sure to close the wait channel
-		defer close(waitc)
-		expectHello := true
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				peerLogger.Debug("Received EOF")
-				// read done.
-				if response == nil {
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s, received EOF when expecting %s", peerAddress, pb.Message_DISC_HELLO))}
-				}
-				return
-			}
-			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
-				return
-			}
-			if in.Type == pb.Message_DISC_HELLO {
-				expectHello = false
-
-				peerLogger.Debug("Received %s message as expected, sending transaction...", in.Type)
-				payload, err := proto.Marshal(transaction)
-				if err != nil {
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error marshalling transaction to peer address=%s:  %s", peerAddress, err))}
-					return
-				}
-
-				msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: payload, Timestamp: util.CreateUtcTimestamp()}
-				peerLogger.Debug("Sending message %s with timestamp %v to Peer %s", msg.Type, msg.Timestamp, peerAddress)
-				if err = stream.Send(msg); err != nil {
-					peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
-				}
-				//we are done with all our sends.... trigger stream close
-				stream.CloseSend()
-			} else if in.Type == pb.Message_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
-				response = &pb.Response{}
-				err = proto.Unmarshal(in.Payload, response)
-				if err != nil {
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.Message_CONSENSUS, err))}
-				}
-
-				//this should never happen but has to be tested (perhaps panic ?).
-				//if we did get an out-of-band Response, CloseSend as we may not get a DISC_HELLO
-				if expectHello {
-					peerLogger.Error(fmt.Sprintf("Received unexpected %s message, will wait for EOF", in.Type))
-					stream.CloseSend()
-				}
-			} else {
-				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-			}
-		}
-	}()
-
-	//TODO Timeout handling
-	<-waitc
 	return response
 }
 
-// SendTransactionsToPeer current temporary mechanism of forwarding transactions to the configured Validator
-func sendTransactionsToThisPeer(peerAddress string, transaction *pb.Transaction) *pb.Response {
-	conn, err := NewPeerClientConnectionWithAddress(peerAddress)
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
-	}
-	defer conn.Close()
-	serverClient := pb.NewPeerClient(conn)
-	stream, err := serverClient.Chat(context.Background())
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to peer address=%s:  %s", peerAddress, err))}
-	}
+// sendTransactionsToLocalEngine send the transaction to the local engine (This Peer is a validator)
+func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *pb.Response {
 
-	peerLogger.Debug("Marshalling transaction %s to send to self", transaction.Type)
+	peerLogger.Debug("Marshalling transaction %s to send to local engine", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local peer: %s", err))}
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local engine: %s", err))}
 	}
 
-	waitc := make(chan struct{})
 	var response *pb.Response
-	go func() {
-		// Make sure to close the wait channel
-		defer close(waitc)
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				peerLogger.Debug("Received EOF")
-				if response == nil {
-					// read done.
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transactions to this peer, received EOF when expecting %s", pb.Message_DISC_HELLO))}
-				}
-				return
-			}
-			if err != nil {
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Unexpected error receiving on stream from peer (%s):  %s", peerAddress, err))}
-				return
-			}
-			//receive response and wait for stream to be closed (triggered by CloseSend)
-			if in.Type == pb.Message_RESPONSE {
-				peerLogger.Debug("Received %s message as expected, will wait for EOF", in.Type)
-				response = &pb.Response{}
-				err = proto.Unmarshal(in.Payload, response)
-				if err != nil {
-					response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error unpacking Payload from %s message: %s", pb.Message_CONSENSUS, err))}
-				}
-			} else {
-				peerLogger.Debug("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload))
-				response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Got unexpected message %s, with bytes length = %d,  doing nothing", in.Type, len(in.Payload)))}
-			}
-		}
-	}()
-
 	msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	peerLogger.Debug("Sending message %s with timestamp %v to self", msg.Type, msg.Timestamp)
-	if err = stream.Send(msg); err != nil {
-		peerLogger.Error(fmt.Sprintf("Error sending message %s with timestamp %v to Peer %s:  %s", msg.Type, msg.Timestamp, peerAddress, err))
-	}
-
-	//we are done from client side.
-	stream.CloseSend()
-
-	<-waitc
+	peerLogger.Debug("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
+	response = p.engine.ProcessTransactionMsg(msg, transaction)
 
 	return response
 }
@@ -594,8 +515,14 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 			continue
 		}
 		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
-		p.handleChat(ctx, stream, true)
+		err = p.handleChat(ctx, stream, true)
 		stream.CloseSend()
+		if err != nil {
+			e := fmt.Errorf("Ending chat with peer address=%s due to error:  %s", peerAddress, err)
+			peerLogger.Error(e.Error())
+			return e
+		}
+
 	}
 }
 
@@ -627,35 +554,21 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 	}
 }
 
-// The address to stream requests to
-func getValidatorStreamAddress() string {
-	localaddr, _ := GetLocalAddress()
-	if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
-		return localaddr
-	} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
-		return valaddr
-	}
-	return localaddr
-}
-
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
-func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) *pb.Response {
-	peerAddress := getValidatorStreamAddress()
-	var response *pb.Response
-	if viper.GetBool("peer.validator.enabled") { // send gRPC request to yourself
-		response = sendTransactionsToThisPeer(peerAddress, transaction)
-
+func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
+	if p.isValidator {
+		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
+		peerAddress := getValidatorStreamAddress()
 		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
-
 	return response
 }
 
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	ep, err := GetPeerEndpoint()
-	if err == nil && viper.GetBool("security.enabled") {
+	if err == nil && SecurityEnabled() {
 		// Set the PkiID on the PeerEndpoint if security is enabled
 		ep.PkiID = p.GetSecHelper().GetID()
 	}
@@ -710,7 +623,10 @@ func (p *PeerImpl) NewOpenchainDiscoveryHello() (*pb.Message, error) {
 	}
 	// Need to sign the Discovery Hello message
 	newDiscoveryHelloMsg := &pb.Message{Type: pb.Message_DISC_HELLO, Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	p.signMessageMutating(newDiscoveryHelloMsg)
+	err = p.signMessageMutating(newDiscoveryHelloMsg)
+	if err != nil {
+		return nil, fmt.Errorf("Error signing new HelloMessage: %s", err)
+	}
 	return newDiscoveryHelloMsg, nil
 }
 
@@ -720,14 +636,14 @@ func (p *PeerImpl) GetSecHelper() crypto.Peer {
 }
 
 // signMessage modifies the passed in Message by setting the Signature based upon the Payload.
-func (p *PeerImpl) signMessageMutating(msg *pb.Message) (*pb.Message, error) {
-	if viper.GetBool("security.enabled") {
+func (p *PeerImpl) signMessageMutating(msg *pb.Message) (error) {
+	if SecurityEnabled() {
 		sig, err := p.secHelper.Sign(msg.Payload)
 		if err != nil {
-			return nil, fmt.Errorf("Error signing Openchain Message: %s", err)
+			return fmt.Errorf("Error signing Openchain Message: %s", err)
 		}
 		// Set the signature in the message
 		msg.Signature = sig
 	}
-	return msg, nil
+	return nil
 }

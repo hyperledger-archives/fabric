@@ -42,9 +42,9 @@ func init() {
 func TestEnvOverride(t *testing.T) {
 	config := loadConfig()
 
-	key := "general.mode"                  // for a key that exists
+	key := "general.mode"               // for a key that exists
 	envName := "CORE_PBFT_GENERAL_MODE" // env override name
-	overrideValue := "overide_test"        // value to override default value with
+	overrideValue := "overide_test"     // value to override default value with
 
 	// test key
 	if ok := config.IsSet("general.mode"); !ok {
@@ -371,6 +371,132 @@ func TestInconsistentPrePrepare(t *testing.T) {
 			t.Errorf("Expected no execution")
 			continue
 		}
+	}
+}
+
+// This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeWatermarksMovement(t *testing.T) {
+	instance := &pbftCore{
+		f:            1,
+		N:            4,
+		replicaCount: 4,
+		id:           0,
+		activeView:   false,
+		view:         1,
+		lastExec:     10,
+		newViewStore: make(map[uint64]*NewView),
+		consumer: &omniProto{
+			viewChangeImpl: func(v uint64) {},
+			skipToImpl: func(s uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+				t.Fatalf("Should not have attempted to initiate state transfer")
+			},
+		},
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 10
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 10
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 10
+	vset[2] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      make(map[uint64]string),
+		ReplicaId: 1,
+	}
+
+	if nil != instance.processNewView() {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	expected := uint64(10)
+	if instance.h != expected {
+		t.Fatalf("Expected to move high watermark to %d, but picked %d", expected, instance.h)
+	}
+}
+
+// This test is designed to detect a conflation of S and S' from the paper in the view change
+func TestViewChangeCheckpointSelection(t *testing.T) {
+	instance := &pbftCore{
+		f:  1,
+		N:  4,
+		id: 0,
+	}
+
+	vset := make([]*ViewChange, 3)
+
+	// Replica 0 sent checkpoints for 5
+	vset[0] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 1 sent checkpoints for 5
+	vset[1] = &ViewChange{
+		H: 5,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 10,
+				Id:             "ten",
+			},
+		},
+	}
+
+	// Replica 2 sent checkpoints for 15
+	vset[2] = &ViewChange{
+		H: 10,
+		Cset: []*ViewChange_C{
+			&ViewChange_C{
+				SequenceNumber: 15,
+				Id:             "fifteen",
+			},
+		},
+	}
+
+	checkpoint, ok, _ := instance.selectInitialCheckpoint(vset)
+
+	if !ok {
+		t.Fatalf("Failed to pick correct a checkpoint for view change")
+	}
+
+	expected := uint64(10)
+	if checkpoint.SequenceNumber != expected {
+		t.Fatalf("Expected to pick checkpoint %d, but picked %d", expected, checkpoint.SequenceNumber)
 	}
 }
 
@@ -701,6 +827,42 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 		if pep.sc.executions != executionsExpected {
 			t.Errorf("Should have executed %d, got %d instead for replica %d", executionsExpected, pep.sc.executions, i)
 		}
+	}
+}
+
+// Test for issue #1119
+func TestSendQueueThrottling(t *testing.T) {
+	prePreparesSent := 0
+
+	mock := &omniProto{}
+	instance := newPbftCore(0, loadConfig(), mock, []byte("GENESIS"))
+	instance.f = 1
+	instance.K = 2
+	instance.L = 4
+	instance.consumer = &omniProto{
+		validateImpl: func(p []byte) error { return nil },
+		broadcastImpl: func(p []byte) {
+			prePreparesSent++
+		},
+	}
+	defer instance.close()
+
+	i := 0
+	sendReq := func() {
+		i++
+		instance.recvRequest(&Request{
+			Timestamp: &gp.Timestamp{Seconds: int64(i), Nanos: 0},
+			Payload:   []byte(fmt.Sprintf("%d", i)),
+		})
+	}
+
+	for j := 0; j < 4; j++ {
+		sendReq()
+	}
+
+	expected := 2
+	if prePreparesSent != expected {
+		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
 	}
 }
 

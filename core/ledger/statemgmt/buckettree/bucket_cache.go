@@ -26,6 +26,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/perfstat"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 var defaultBucketCacheMaxSize = 100 // MBs
@@ -71,8 +72,8 @@ func (cache *bucketCache) loadAllBucketNodesFromDB() {
 			itr.Value().Free()
 			break
 		}
-		bKey := decodeBucketKey(itr.Key().Data())
-		nodeBytes := itr.Value().Data()
+		bKey := decodeBucketKey(statemgmt.Copy(itr.Key().Data()))
+		nodeBytes := statemgmt.Copy(itr.Value().Data())
 		bucketNode := unmarshalBucketNode(&bKey, nodeBytes)
 		size := bKey.size() + bucketNode.size()
 		cache.size += size

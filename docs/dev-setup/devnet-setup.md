@@ -7,11 +7,11 @@ See [Logging Control](logging-control.md) for information on controlling
 logging output from the `peer` and chaincodes.
 
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions.
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in openchain.yaml variables paddr of eca, tca and tlsca.
 
 ### Setting up Docker image
 To create a Docker image for the `hyperledger/fabric`,
-first clean out any active containers (peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands.
+first clean out any active containers (hyperledger-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful**: do not remove any other images (like busybox or openblockchain/baseimage) as they are needed for a correct execution.
 
 Now we are ready to build a new docker image:
 
@@ -47,14 +47,22 @@ By default, we are using a consensus plugin called `NOOPS`, which doesn't really
 #### Start up the first validating peer:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer fabric peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer peer peer
 ```
+
+If started with security, enviroment variables regarding security enabling, CA address and peer's ID and password have to be changed:
+
+```
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=XX  hyperledger-peer peer peer
+```
+
+Additionally, validating peer (enrollID vp0 and enrollSecret XX) has to be added to membersrvc.yaml file (in fabric/membersrvc).
 
 ####Start up the second validating peer:
 We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (eg 172.17.0.2). We'll use "vp2" as the ID for the second validating peer.
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer fabric peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer peer
 ```
 
 You can start up a few more validating peers in the similar manner as you wish. Remember to change the ID.
@@ -67,7 +75,7 @@ We deploy chaincode to the network with CLI. We can use the sample chaincode to 
 Now deploy the chaincode to the network. We can deploy to any validating peer by specifying CORE_PEER_ADDRESS:
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
@@ -116,7 +124,7 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode query -u jim -l golang -n <n
 ### Using Consensus Plugin
 A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
 
-1. In `core.yaml`, set the `peer.validator.consensus` value to `obcpbft`
+1. In `core.yaml`, set the `peer.validator.consensus` value to `pbft`
 2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
 3. In `consensus/obcpbft/config.yaml`, set the `general.mode` value to either `classic`, `batch`, or `sieve`, and the `general.N` value to the number of validating peers on the network (if you do `batch`, also set `general.batchsize` to the number of transactions per batch)
 4. In `consensus/obcpbft/config.yaml`, optionally set timer values for the batch period (`general.timeout.batch`), the acceptable delay between request and execution (`general.timeout.request`), and for view-change (`general.timeout.viewchange`)

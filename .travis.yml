@@ -1,82 +1,63 @@
-# Openblockchain Continuous Integration Config file
-# Go langugage
 language: go
-sudo: required
-dist: trusty
-#white list
-branches:
- only:
- - master
- #- workbranch
-services:
- - docker
 go:
  - 1.6
- #- 1.5.2
-
-env:
-
- - GO15VENDOREXPERIMENT=1
+sudo: required
+services:
+ - docker
 
 before_install:
 
- - export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
- - export GIT_USER="$TRAVIS_REPO_SLUG"
- - USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)"
- - ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
- - echo "Printing Docker0 Interface $ip"
- - port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
- - echo "Docker Deamon Port Number $port"
- - sudo stop docker
- - sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock > /dev/null 2>&1 &
- - echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
- - chmod +x tempsh.sh && sudo ./tempsh.sh
- - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test && sudo apt-get -qq update && sudo apt-get -qq install g++-4.8 && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
-
+ - echo "Starting Docker Daemon "
+ - |
+   export TR_PULL_REQUEST="$TRAVIS_PULL_REQUEST" && export GIT_USER="$TRAVIS_REPO_SLUG"
+   USER_NAME="$(echo $GIT_USER | cut -d '/' -f 1)" && REPO_NAME="$(echo $GIT_USER | cut -d '/' -f 2)"
+   ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
+   port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
+   sudo stop docker
+   sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock >> dockerlogfile.log 2>&1 &
 
 install:
 
- - sudo pip install --upgrade pip
- - sudo pip install behave
- - sudo apt-get install build-essential -y
- - cd /opt  && sudo git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb && sudo make shared_lib
- - sudo cp /opt/rocksdb/*.so* /usr/lib/
- - export LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH
- - sudo apt-get update && sudo apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
- - export CGO_CFLAGS="-I/opt/rocksdb/include"
- - export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
+ - echo " INSTALLING DEPENDENCIES "
+ - |
+   echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
+   chmod +x tempsh.sh && sudo ./tempsh.sh
+   echo " Installing Rocks DB, g++ compilers & Dependencies "
+   sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test && sudo apt-get -qq update && sudo apt-get -qq install g++-4.8 && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+   sudo pip install --upgrade pip && sudo pip install behave && sudo apt-get install build-essential -y
+   cd /opt  && sudo git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git && cd rocksdb && sudo make shared_lib
+   sudo cp /opt/rocksdb/*.so* /usr/lib/ && export LD_LIBRARY_PATH=/opt/rocksdb:$LD_LIBRARY_PATH && sudo apt-get update && sudo apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
+   export CGO_CFLAGS="-I/opt/rocksdb/include" && export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 
 before_script:
 
- - cd $HOME/gopath/src/github.com/$USER_NAME/obc-peer
- - chmod +x foldercopy.sh
- - ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
- - cd /$HOME/gopath/src/github.com/hyperledger/fabric
- - go build
- - sudo rm -rf /var/openchain/ && sudo mkdir /var/openchain/ && sudo chown $USER:$USER /var/openchain
- - echo "Successfully Build the application ... Moving ahead....."
+ - echo " CREATING BASE IMAGE "
+ - echo " Calling docker.sh to build Openblockchain/baseimage "
+ - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts/provision/ && chmod +x docker.sh && ./docker.sh 0.0.9
+ - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
+ - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
+ - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
+ - go build && echo " STARTING PEER PROCESS "
+ - ./peer peer &
+ - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
 
 script:
 
- - ./obc-peer peer &
- - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
- - chmod +x deploy.sh && sudo ./deploy.sh
- 
- - cat /$HOME/gopath/src/github.com/hyperledger/fabric/build-result.txt
- 
- - ps -ef | grep obc-peer | grep -v grep | kill -9 `awk '{print $2}'`
- - cd $HOME/gopath/src/github.com/hyperledger/fabric/core/peer/bddtests/
- - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/core/peer/bddtests/compose-defaults.yml
- #- behave -n  "chaincode example 02 single peer"
- 
- - behave
+ - echo "Executing Behave test scripts"
+ - cd $HOME/gopath/src/github.com/hyperledger/fabric/bddtests
+ - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
+ - behave -D logs=Y -o testsummary.log
 
- - echo " ******* Pushing Docker Images to Docker Hub ***********"
- - curl -v http://169.53.62.117/cgi-bin/buildobcimage.sh
+after_failure:
+ 
+ - |
+   echo "Click below links to view behave container log files"
+   cd $HOME/gopath/src/github.com/hyperledger/fabric
+   chmod +x scripts/containerlogs.sh
+   sudo ./scripts/containerlogs.sh
+
 notifications:
- slack: 'openchain:5YSkRUyUTke93O6YkvXjagjg'
- email:
-  recipients:
-   - buildanddeployment@gmail.com
- on_success: always
- on_failure: always
+
+  slack: 'hyperledgerproject:azMP8Mw3cfGigXkqi5RujZXr'
+  on_success: always
+  on_failure: always

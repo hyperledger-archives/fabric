@@ -24,12 +24,13 @@ import (
 	"github.com/op/go-logging"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/controller"
+	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"
+	"sync"
 )
 
 var logger *logging.Logger // package-level logger
@@ -45,6 +46,8 @@ type ConsensusHandler struct {
 	coordinator peer.MessageHandlerCoordinator
 	peerHandler peer.MessageHandler
 }
+
+var engineConsenterOnce sync.Once
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
 // Is instance of peer.HandlerFactory
@@ -64,7 +67,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 
 	handler.consenter = controller.NewConsenter(NewHelper(coord))
 
-	return handler, nil
+	return handler, err
 }
 
 // HandleMessage handles the incoming Fabric messages for the Peer
@@ -78,9 +81,8 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 		if err == nil {
 			if tx.Type == pb.Transaction_CHAINCODE_QUERY {
 				return handler.doChainQuery(tx)
-			} else {
-				return handler.doChainTransaction(msg,tx)
 			}
+		  return handler.doChainTransaction(msg, tx)
 		}
 	}
 
@@ -99,7 +101,7 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 			logger.Debug("Verifying transaction signature %s", tx.Uuid)
 		}
 		var err error
-		if tx,err = secHelper.TransactionPreValidation(tx); nil != err {
+		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
 			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			logger.Debug("Failed to verify transaction %v", err)
 		}

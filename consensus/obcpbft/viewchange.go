@@ -300,8 +300,11 @@ func (instance *pbftCore) processNewView() error {
 	}
 
 	if instance.h < cp.SequenceNumber {
-		logger.Warning("Replica %d missing base checkpoint %d (%x)", instance.id, cp.SequenceNumber, cp.Id)
 		instance.moveWatermarks(cp.SequenceNumber)
+	}
+
+	if instance.lastExec < cp.SequenceNumber {
+		logger.Warning("Replica %d missing base checkpoint %d (%s)", instance.id, cp.SequenceNumber, cp.Id)
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
@@ -402,9 +405,9 @@ func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {
 func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoint ViewChange_C, ok bool, replicas []uint64) {
 	checkpoints := make(map[ViewChange_C][]*ViewChange)
 	for _, vc := range vset {
-		for _, c := range vc.Cset {
+		for _, c := range vc.Cset { // TODO, verify that we strip duplicate checkpoints from this set
 			checkpoints[*c] = append(checkpoints[*c], vc)
-			logger.Debug("Replica %d appending checkpoint with sequence number %d, and checkpoint digest %s", instance.id, c.SequenceNumber, c.Id)
+			logger.Debug("Replica %d appending checkpoint from replica %d with seqNo=%d, h=%d, and checkpoint digest %s", instance.id, vc.ReplicaId, vc.H, c.SequenceNumber, c.Id)
 		}
 	}
 
@@ -423,7 +426,10 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 		}
 
 		quorum := 0
-		for _, vc := range vcList {
+		// Note, this is the whole vset (S) in the paper, not just this checkpoint set (S') (vcList)
+		// We need 2f+1 low watermarks from S below this seqNo from all replicas
+		// We need f+1 matching checkpoints at this seqNo (S')
+		for _, vc := range vset {
 			if vc.H <= idx.SequenceNumber {
 				quorum++
 			}

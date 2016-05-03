@@ -79,7 +79,7 @@ message TransactionResult {
 // transactions - The ordered list of transactions in the block.
 // stateHash - The state hash after running transactions in this block.
 // previousBlockHash - The hash of the previous block in the chain.
-// consensusMetadata - Consensus modules may optionaly store any
+// consensusMetadata - Consensus modules may optionally store any
 // additional metadata in this field.
 // nonHashData - Data stored with the block, but not included in the blocks
 // hash. This allows this data to be different per peer or discarded without
@@ -119,6 +119,10 @@ service Peer {
     // Accepts a stream of Message during chat session, while receiving
     // other Message (e.g. from other peers).
     rpc Chat(stream Message) returns (stream Message) {}
+
+    // Process a transaction from a remote source.
+    rpc ProcessTransaction(Transaction) returns (Response) {}
+
 }
 message PeerAddress {
     string host = 1;

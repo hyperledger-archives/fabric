@@ -874,3 +874,39 @@ func TestRangeScanIterator(t *testing.T) {
 		})
 	itr.Close()
 }
+
+func TestGetSetMultipleKeys(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+	l.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1":[]byte("value1"), "key2":[]byte("value2")})
+	l.TxFinished("txUUID", true)
+	tx,_ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+
+	values,_ := l.GetStateMultipleKeys("chaincodeID", []string{"key1", "key2"}, true)
+	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2")})
+}
+
+func TestCopyState(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+	l.SetStateMultipleKeys("chaincodeID1", map[string][]byte{"key1":[]byte("value1"), "key2":[]byte("value2")})
+	l.SetState("chaincodeID1", "key3", []byte("value3"))
+	l.TxFinished("txUUID", true)
+	tx,_ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+
+	l.BeginTxBatch(2)
+	l.TxBegin("txUUID")
+	l.CopyState("chaincodeID1", "chaincodeID2")
+	l.TxFinished("txUUID", true)
+	tx,_ = buildTestTx(t)
+	l.CommitTxBatch(2, []*protos.Transaction{tx}, nil, nil)
+
+	values,_ := l.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2", "key3"}, true)
+	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")})
+}

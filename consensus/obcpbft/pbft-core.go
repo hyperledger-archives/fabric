@@ -169,7 +169,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	}
 
 	instance.K = uint64(config.GetInt("general.K"))
+
 	instance.logMultiplier = uint64(config.GetInt("general.logmultiplier"))
+	if instance.logMultiplier < 2 {
+		panic("Log multiplier must be greater than or equal to 2")
+	}
+	instance.L = instance.logMultiplier * instance.K // log size
 
 	instance.byzantine = config.GetBool("general.byzantine")
 
@@ -183,7 +188,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, startupID 
 	}
 
 	instance.activeView = true
-	instance.L = instance.logMultiplier * instance.K // log size
 	instance.replicaCount = instance.N
 
 	logger.Info("PBFT type = %T", instance.consumer)
@@ -528,7 +532,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			}
 		}
 
-		if instance.inWV(instance.view, n) && !haveOther {
+		// If we are the primary, have not already processed this request, and are within the first half of the log
+		if instance.inWV(instance.view, n) && !haveOther && n <= instance.h+instance.L/2 {
 			logger.Debug("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
 				instance.id, instance.view, n, digest)
 			instance.seqNo = n
@@ -748,14 +753,14 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	idAsString := base64.StdEncoding.EncodeToString(id)
 
 	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
-		instance.id, instance.view, instance.lastExec, idAsString)
+		instance.id, instance.view, seqNo, idAsString)
 
 	chkpt := &Checkpoint{
-		SequenceNumber: instance.lastExec,
+		SequenceNumber: seqNo,
 		ReplicaId:      instance.id,
 		Id:             idAsString,
 	}
-	instance.chkpts[instance.lastExec] = idAsString
+	instance.chkpts[seqNo] = idAsString
 
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}}, true)
 }
@@ -938,6 +943,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		instance.skipInProgress = false
 		instance.moveWatermarks(chkpt.SequenceNumber)
 		instance.lastExec = chkpt.SequenceNumber
+		instance.activeView = true // TODO, verify this with experts
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers, &ExecutionInfo{Checkpoint: true})
 	} else {
 		logger.Debug("Replica %d witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",

@@ -22,9 +22,9 @@ package helper
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
+	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
 	crypto "github.com/hyperledger/fabric/core/crypto"
@@ -45,7 +45,7 @@ type Helper struct {
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
 	return &Helper{coordinator: mhc,
-		secOn:     viper.GetBool("security.enabled"),
+		secOn:     core.SecurityEnabled(),
 		secHelper: mhc.GetSecHelper()}
 }
 
