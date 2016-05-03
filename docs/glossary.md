@@ -7,6 +7,12 @@
 <col>
 <col>
 <tr>
+<td width="20%"><b>Chain Member</b></td>
+<td>
+Entities that do not participate in the validation process of a blockchain network, but help to maintain the integrity of a network. Unlike Chain transactors, chain members maintain a local copy of the ledger.
+</td>
+</tr>
+<tr>
 <td width="20%"><b>Chain Transactor</b></td>
 <td>
 Entities that have permission to create transactions and query network data.
@@ -53,6 +59,30 @@ Roles: Chain Transactor
 Proprietor(s) setup and define the purpose of a chain network. They are the stakeholders of a network.
 <p><p>
 Roles: Chain Transactor, Chain Validator
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Owner</b></td>
+<td>
+Owners are full members who can validate transactions. After a network is first launched, its proprietor (who then becomes an owner) will invite business partners to co-own the network (by assigning them validating nodes). Any new owner added to a network must be approved by existing members.
+<p><p>
+Roles: Chain Transactor, Chain Validator
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Member</b></td>
+<td>
+Members are participants of a blockchain network that cannot validate transactions but has the right to add users to the network.
+<p><p>
+Roles: Chain Transactor, Chain Member
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Users</b></td>
+<td>
+End users of a network are also solution users. Unlike network owners and members, users do not own nodes. They transact with the network through an entry point offered by a member or an owner node.
+<p><p>
+Roles: Chain Transactor
 </td>
 </tr>
 <tr>
@@ -113,6 +143,37 @@ A special purpose chain created to run confidential business logic that is only 
 </tr>
 </table>
 
+
+&nbsp;
+
+## Network Management
+
+#### _Member management_
+---
+<table border="0">
+<col>
+<col>
+<tr>
+<td width="20%"><b>Owner Registration</b></td>
+<td>
+The process of registering and inviting new owner(s) to a blockchain network. Approval from network owner is required when adding or deleting a participant with ownership right  
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Member Registration</b></td>
+<td>
+The process of registering and inviting new network members to a blockchain network.  
+</td>
+</tr>
+<tr>
+<td width="20%"><b>User Registration</b></td>
+<td>
+The process of registering new users to a blockchain network. Both members and owners can register users on their own behalf as long as they follow the policy of their network.
+</td>
+</tr>
+</table>
+
+
 &nbsp;
 
 ## Transactions
@@ -143,15 +204,15 @@ Transactions that invoke a function on a chaincode.
 <col>
 <col>
 <tr>
-<td width="20%"><b>Public transaction</b></td>
+<td width="20%"><b>Public Transaction</b></td>
 <td>
 A transaction with its payload in the open. Anyone with access to a chain network can interrogate the details of public transactions.
 </td>
 </tr>
 <tr>
-<td width="20%"><b>Confidential transaction</b></td>
+<td width="20%"><b>Confidential Chaincode Transaction</b></td>
 <td>
-A transaction with an encrypted payload. If the transaction is a deployment transaction, then all subsequent invocation transactions calling that deployed chaincode must also be confidential.
+A transaction with its payload encrypted such that only stakeholders can decrypt them. Chaincode confidentiality is determined during deploy time. If a chaincode is a deployed as a confidential chaincode, then the payload of all subsequent invocation transactions to that chaincode will be encrypted.
 </td>
 </tr>
 </table>
