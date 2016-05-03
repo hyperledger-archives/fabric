@@ -1,4 +1,4 @@
-package generic
+package ecies
 
 import (
 	"crypto"
@@ -6,6 +6,7 @@ import (
 	"hash"
 )
 
+// Params ECIES parameters
 type Params struct {
 	Hash      func() hash.Hash
 	hashAlgo  crypto.Hash

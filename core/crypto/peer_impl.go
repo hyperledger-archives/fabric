@@ -24,6 +24,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 	"sync"
@@ -163,7 +164,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 }
 
 func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error) {
-	return utils.Hash(append(tx.Cert, tx.Nonce...)), nil
+	return primitives.Hash(append(tx.Cert, tx.Nonce...)), nil
 }
 
 // Private methods

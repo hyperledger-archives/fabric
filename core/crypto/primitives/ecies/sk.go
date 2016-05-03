@@ -17,24 +17,21 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package generic
+package ecies
 
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
 )
 
 type secretKeyImpl struct {
 	priv   *ecdsa.PrivateKey
-	pub    ecies.PublicKey
+	pub    primitives.PublicKey
 	params *Params
 	rand   io.Reader
-}
-
-type secretKeySerializerImpl struct {
 }
 
 func (sk *secretKeyImpl) IsPublic() bool {
@@ -45,22 +42,28 @@ func (sk *secretKeyImpl) GetRand() io.Reader {
 	return sk.rand
 }
 
-func (sk *secretKeyImpl) GetPublicKey() ecies.PublicKey {
+func (sk *secretKeyImpl) GetPublicKey() primitives.PublicKey {
 	if sk.pub == nil {
 		sk.pub = &publicKeyImpl{&sk.priv.PublicKey, sk.rand, sk.params}
 	}
 	return sk.pub
 }
 
+type secretKeySerializerImpl struct{}
+
 func (sks *secretKeySerializerImpl) ToBytes(key interface{}) ([]byte, error) {
+	if key == nil {
+		return nil, primitives.ErrInvalidNilKeyParameter
+	}
+
 	switch sk := key.(type) {
 	case *secretKeyImpl:
 		return x509.MarshalECPrivateKey(sk.priv)
 	default:
-		return nil, ecies.ErrInvalidKeyParameter
+		return nil, primitives.ErrInvalidKeyParameter
 	}
 
-	return nil, ecies.ErrInvalidKeyParameter
+	return nil, primitives.ErrInvalidKeyParameter
 }
 
 func (sks *secretKeySerializerImpl) FromBytes(bytes []byte) (interface{}, error) {

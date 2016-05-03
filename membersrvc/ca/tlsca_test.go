@@ -44,6 +44,7 @@ import (
 
 	_ "fmt"
 
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 )
 
@@ -117,7 +118,7 @@ func requestTLSCertificate(t *testing.T) {
 
 	// Prepare the request
 	id := "peer"
-	priv, err := utils.NewECDSAKey()
+	priv, err := primitives.NewECDSAKey()
 
 	if err != nil {
 		t.Logf("Failed generating key: %s", err)
@@ -139,7 +140,7 @@ func requestTLSCertificate(t *testing.T) {
 		}, nil}
 
 	rawreq, _ := proto.Marshal(req)
-	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
+	r, s, err := ecdsa.Sign(rand.Reader, priv, primitives.Hash(rawreq))
 
 	if err != nil {
 		t.Logf("Failed signing the request: %s", err)

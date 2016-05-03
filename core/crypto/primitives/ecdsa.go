@@ -17,13 +17,12 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package utils
+package primitives
 
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/core/crypto/conf"
 	"math/big"
 )
 
@@ -34,7 +33,7 @@ type ECDSASignature struct {
 
 // NewECDSAKey generates a new ECDSA Key
 func NewECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
+	return ecdsa.GenerateKey(GetDefaultCurve(), rand.Reader)
 }
 
 // ECDSASignDirect signs

@@ -23,7 +23,7 @@ import (
 	"crypto/ecdsa"
 
 	"fmt"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -36,7 +36,7 @@ type validatorImpl struct {
 	isInitialized bool
 
 	// Chain
-	chainPrivateKey ecies.PrivateKey
+	chainPrivateKey primitives.PrivateKey
 }
 
 // TransactionPreValidation verifies that the transaction is

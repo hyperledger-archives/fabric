@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"golang.org/x/net/context"
@@ -106,7 +107,7 @@ func (node *nodeImpl) loadTLSCACertsChain() error {
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
 	node.debug("getTLSCertificate...")
 
-	priv, err := utils.NewECDSAKey()
+	priv, err := primitives.NewECDSAKey()
 
 	if err != nil {
 		node.error("Failed generating key: %s", err)
@@ -129,7 +130,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 			Key:  pubraw,
 		}, Sig: nil}
 	rawreq, _ := proto.Marshal(req)
-	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
+	r, s, err := ecdsa.Sign(rand.Reader, priv, primitives.Hash(rawreq))
 	if err != nil {
 		panic(err)
 	}
@@ -148,7 +149,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
-	utils.VerifySignCapability(priv, certPK)
+	primitives.VerifySignCapability(priv, certPK)
 
 	node.debug("Verifing tls certificate...done!")
 

@@ -17,29 +17,17 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package conf
+package primitives
 
 import (
-	"hash"
+	"crypto/elliptic"
 )
 
 var (
-	defaultHash func() hash.Hash
-	hashAlgorithm string
-	hashLength int
+	defaultCurve elliptic.Curve
 )
 
-// GetDefaultHash returns the default hash function used by the crypto layer
-func GetDefaultHash() func() hash.Hash {
-	return defaultHash
-}
-
-// GetHashAlgorithm returns the defualt hash algorithm used.
-func GetHashAlgorithm() string {
-	return hashAlgorithm
-}
-
-// GetHashLength returns the default hash length used.
-func GetHashLength() int {
-	return hashLength
+// GetDefaultCurve returns the default elliptic curve used by the crypto layer
+func GetDefaultCurve() elliptic.Curve {
+	return defaultCurve
 }
