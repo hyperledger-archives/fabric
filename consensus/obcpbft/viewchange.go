@@ -181,8 +181,18 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 		return nil
 	}
 
-	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
+	if vc.View < instance.view {
+		logger.Warning("Replica %d found view-change message for old view", instance.id)
+		return nil
+	}
+
+	if !instance.correctViewChange(vc) {
 		logger.Warning("Replica %d found view-change message incorrect", instance.id)
+		return nil
+	}
+
+	if _, ok := instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}]; ok {
+		logger.Warning("Replica %d already has a view change message for view %d from replica %d", instance.id, vc.View, vc.ReplicaId)
 		return nil
 	}
 
@@ -221,9 +231,11 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
-	if !instance.activeView && vc.View == instance.view && quorum == instance.allCorrectReplicasQuorum() {
-		instance.startTimer(instance.lastNewViewTimeout, "new view change")
-		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
+		if quorum == instance.allCorrectReplicasQuorum() {
+			instance.startTimer(instance.lastNewViewTimeout, "new view change")
+			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+		}
 
 		if instance.primary(instance.view) == instance.id {
 			return instance.sendNewView()
@@ -231,10 +243,13 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 
 	return instance.processNewView()
+
 }
 
 func (instance *pbftCore) sendNewView() (err error) {
+
 	if _, ok := instance.newViewStore[instance.view]; ok {
+		logger.Debug("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
 		return
 	}
 
@@ -242,12 +257,13 @@ func (instance *pbftCore) sendNewView() (err error) {
 
 	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
-		logger.Info("could not find consistent checkpoint: %+v", instance.viewChangeStore)
+		logger.Info("Replica %d could not find consistent checkpoint: %+v", instance.id, instance.viewChangeStore)
 		return
 	}
 
 	msgList := instance.assignSequenceNumbers(vset, cp.SequenceNumber)
 	if msgList == nil {
+		logger.Info("Replica %d could not assign sequence numbers for new view", instance.id)
 		return
 	}
 
@@ -559,6 +575,7 @@ nLoop:
 			continue nLoop
 		}
 
+		logger.Warning("Replica %d could not assign value to contents of seqNo %d, found only %d missing P entries", instance.id, n, quorum)
 		return nil
 	}
 
