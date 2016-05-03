@@ -135,4 +135,10 @@ sudo chown -R vagrant:vagrant $GOPATH
 sudo cp /hyperledger/devenv/limits.conf /etc/security/limits.conf
 
 # Set our shell prompt to something less ugly than the default from packer
-echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
+echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w\n$ \"" >> /home/vagrant/.bashrc
+
+# add shortcuts
+alias cdf="cd $GOPATH/src/github.com/hyperledger/fabric" >> /home/vagrant/.bashrc
+alias cdp="cd $GOPATH/src/github.com/hyperledger/fabric/peer" >> /home/vagrant/.bashrc
+alias cdt="cd $GOPATH/src/github.com/hyperledger/fabric/bddtests" >> /home/vagrant/.bashrc
+
