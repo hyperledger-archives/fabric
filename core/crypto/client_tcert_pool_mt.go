@@ -24,7 +24,7 @@ import (
 	"time"
 	"sort"
 	"encoding/hex"
-	utils "github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 // The Multi-threaded tCertPool is currently not used.
@@ -99,7 +99,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) CalculateAttributesHash(attributes
     }
 	
 	
-	attributesHash := utils.Hash(values)
+	attributesHash := primitives.Hash(values)
 	
 	return  hex.EncodeToString(attributesHash)
 	

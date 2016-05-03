@@ -1,5 +1,7 @@
+[![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
+
 ## Incubation Notice
-This is a Hyperledger project in Incubation. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what Incubation entails can be found in the Hyperledger Project Lifecycle [document](https://goo.gl/4edNRc).
+This is a Hyperledger project in _Incubation_. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what _Incubation_ entails can be found in the [Hyperledger Project Lifecycle document](https://goo.gl/4edNRc).
 
 ## Overview
 This project contains the core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications.
@@ -14,7 +16,7 @@ This project contains the core blockchain fabric code, development environment s
 * [Working with CLI, REST, and Node.js](#working-with-cli-rest-and-nodejs-)
 * [Configuration](#configuration-)
 * [Logging](#logging-)
-* [Generating grpc code](#generating-grpc-code-)
+* [Generating gRPC code](#generating-gRPC-code-)
 * [Adding or updating Go packages](#adding-or-updating-go-packages-)
 
 ## License <a name="license"></a>
@@ -36,15 +38,15 @@ cd $GOPATH/src/github.com/hyperledger/fabric/peer
 go build
 ```
 
-#### 2. Run
+#### 2. Run/Execute
 
-To see what commands are available, simply execute the following command:
+To see what commands are available, simply execute the following commands:
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/peer
 ./peer
 ```
 
-You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./peer/main.go). Current build will actually create a *peer* executable file).
+You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./peer/main.go) and the build creates the `peer` executable).
 
 ```
     Usage:
@@ -68,7 +70,7 @@ You should see some output similar to below (**NOTE**: The root command below is
 
 ```
 
-The **peer** command will run the peer process. You can then use the other commands to interact with the peer process. For example, the `status` command will return the status of the running peer.
+The `peer` command will initiate a peer process, with which one can interact by executing other commands. For example, the `status` command will return the status of the running peer.
 
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
@@ -81,7 +83,7 @@ To run all unit tests, in one window, run `./peer peer`. In a second window
 
 Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
 
-To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and enter:
+To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and call/excecute
 
     go test -v -run=TestGetFoo
 
@@ -97,19 +99,19 @@ Some of the Behave tests run inside Docker containers. If a test fails and you w
 behave -D logs=Y
 ```
 
-Note, you must run the unit tests first to build the necessary Peer and Member Services docker images. These images can also be individually built using the commands
+Note, you must run the unit tests first to build the necessary `peer` and `member services` docker images. These images can also be individually built when `go test` is called with the following parameters:
 ```
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
 ## Building outside of Vagrant <a name="vagrant"></a>
-This is not recommended, however some users may wish to build outside of Vagrant if they use an editor with built in Go tooling. The instructions are below.
+While not recommended, it is possible to build the project outside of Vagrant (e.g., for using an editor with built-in Go toolking). In such cases:
 
 - Follow all steps required to setup and run a Vagrant image:
-  - Make sure you you have [Go 1.6](https://golang.org/) or later installed
+  - Make sure you you have [Go 1.6](https://golang.org/) installed
   - Set the maximum number of open files to 10000 or greater for your OS
-  - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and it's dependencies:
+  - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and its dependencies
 ```
 apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
 cd /tmp
@@ -119,7 +121,7 @@ git checkout v4.1
 PORTABLE=1 make shared_lib
 INSTALL_PATH=/usr/local make install-shared
 ```
-- Run the following commands:
+- Execute the following commands:
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/peer
 CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
@@ -158,7 +160,7 @@ To set up an development network composed of several validating peers, follow th
 
 ## Working with CLI, REST, and Node.js <a name="cli"></a>
 
-When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [API Documentation](docs/API/CoreAPI.md) page.
+When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [CoreAPI Documentation](docs/API/CoreAPI.md) page.
 
 ## Configuration <a name="config"></a>
 
@@ -176,9 +178,9 @@ The available log levels in order of increasing verbosity are: *CRITICAL | ERROR
 
 See [specific logging control](docs/dev-setup/logging-control.md) instructions when running the peer process.
 
-## Generating grpc code <a name="grpc"></a>
+## Generating gRPC code <a name="gRPC"></a>
 
-If you modify any .proto files, run the following command to generate new .pb.go files.
+If you modify any `.proto` files, run the following command to generate/update the respective `.pb.go` files.
 
 ```
 $GOPATH/src/github.com/hyperledger/fabric/devenv/compile_protos.sh
@@ -186,7 +188,7 @@ $GOPATH/src/github.com/hyperledger/fabric/devenv/compile_protos.sh
 
 ## Adding or updating Go packages <a name="vendoring"></a>
 
-The fabric uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the fabric project. Go will use packages in this folder instead of the GOPATH when `go install` or `go build` is run. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor). This is installed in the Vagrant environment. The following commands can be used for package management.
+The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
 
 ```
 # Add external packages.

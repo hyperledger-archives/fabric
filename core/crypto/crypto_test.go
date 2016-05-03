@@ -32,6 +32,7 @@ import (
 	"testing"
 
 	"crypto/rand"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
@@ -980,13 +981,13 @@ func BenchmarkSign(b *testing.B) {
 	b.ResetTimer()
 
 	//b.Logf("#iterations %d\n", b.N)
-	signKey, _ := utils.NewECDSAKey()
+	signKey, _ := primitives.NewECDSAKey()
 	hash := make([]byte, 48)
 
 	for i := 0; i < b.N; i++ {
 		rand.Read(hash)
 		b.StartTimer()
-		utils.ECDSASign(signKey, hash)
+		primitives.ECDSASign(signKey, hash)
 		b.StopTimer()
 	}
 }
@@ -996,15 +997,15 @@ func BenchmarkVerify(b *testing.B) {
 	b.ResetTimer()
 
 	//b.Logf("#iterations %d\n", b.N)
-	signKey, _ := utils.NewECDSAKey()
+	signKey, _ := primitives.NewECDSAKey()
 	verKey := signKey.PublicKey
 	hash := make([]byte, 48)
 
 	for i := 0; i < b.N; i++ {
 		rand.Read(hash)
-		sigma, _ := utils.ECDSASign(signKey, hash)
+		sigma, _ := primitives.ECDSASign(signKey, hash)
 		b.StartTimer()
-		utils.ECDSAVerify(&verKey, hash, sigma)
+		primitives.ECDSAVerify(&verKey, hash, sigma)
 		b.StopTimer()
 	}
 }
@@ -1268,7 +1269,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1313,7 +1314,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1358,7 +1359,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1405,7 +1406,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1450,7 +1451,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1495,7 +1496,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, utils.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
 		t.Fatal("Binding is malformed!")
 	}
 

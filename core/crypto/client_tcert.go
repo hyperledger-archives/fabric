@@ -30,7 +30,8 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+
 )
 
 var (
@@ -89,7 +90,7 @@ func (tCert *tCertImpl) GetKForAttribute(attributeName string) ([]byte, error) {
 		return nil, utils.ErrNilArgument
 	}
 	
-	mac := hmac.New(conf.GetDefaultHash(), tCert.preK0)
+	mac := hmac.New(primitives.GetDefaultHash(), tCert.preK0)
 	mac.Write([]byte(attributeName))
 	attributeKey := mac.Sum(nil)[:32]
 	

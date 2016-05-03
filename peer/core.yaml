@@ -290,6 +290,13 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    car:
+
+        # This is the basis for the CAR Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
+        Dockerfile:  |
+            FROM openblockchain/baseimage
+
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
@@ -344,9 +351,11 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. Options are
-    # 'buckettree' and 'trie'. If not set, the default data structure is the
-    # 'buckettree'. This CANNOT be changed after the DB has been created.
+    # structures may offer different performance characteristics. 
+    # Options are 'buckettree', 'trie' and 'raw'.
+    # ( Note:'raw' is experimental and incomplete. )
+    # If not set, the default data structure is the 'buckettree'.
+    # This CANNOT be changed after the DB has been created.
     dataStructure:
       # The name of the data structure is for storing the state
       name: buckettree

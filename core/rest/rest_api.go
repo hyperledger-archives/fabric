@@ -43,6 +43,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/peer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -375,7 +376,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 	}
 
 	// If security is enabled, initialize the crypto client
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		if restLogger.IsEnabledFor(logging.DEBUG) {
 			restLogger.Debug("Initializing secure client using context '%s'", enrollmentID)
 		}
@@ -497,7 +498,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	}
 
 	// If security is enabled, initialize the crypto client
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		if restLogger.IsEnabledFor(logging.DEBUG) {
 			restLogger.Debug("Initializing secure client using context '%s'", enrollmentID)
 		}
@@ -751,7 +752,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		chaincodeUsr := spec.SecureContext
 		if chaincodeUsr == "" {
 			rw.WriteHeader(http.StatusBadRequest)
@@ -887,7 +888,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		chaincodeUsr := spec.ChaincodeSpec.SecureContext
 		if chaincodeUsr == "" {
 			rw.WriteHeader(http.StatusBadRequest)
@@ -1023,7 +1024,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		chaincodeUsr := spec.ChaincodeSpec.SecureContext
 		if chaincodeUsr == "" {
 			rw.WriteHeader(http.StatusBadRequest)
@@ -1386,7 +1387,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	// Check if security is enabled
 	//
 
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		// User registrationID must be present inside request payload with security enabled
 		chaincodeUsr := spec.SecureContext
 		if chaincodeUsr == "" {
@@ -1513,7 +1514,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 	// Check if security is enabled
 	//
 
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		// User registrationID must be present inside request payload with security enabled
 		chaincodeUsr := spec.ChaincodeSpec.SecureContext
 		if chaincodeUsr == "" {
@@ -1739,7 +1740,7 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	router.NotFound((*ServerOpenchainREST).NotFound)
 
 	// Start server
-	if viper.GetBool("peer.tls.enabled") {
+	if peer.TlsEnabled() {
 		err := http.ListenAndServeTLS(viper.GetString("rest.address"), viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"), router)
 		if err != nil {
 			restLogger.Error(fmt.Sprintf("ListenAndServeTLS: %s", err))

@@ -20,7 +20,7 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -31,7 +31,7 @@ type clientImpl struct {
 	isInitialized bool
 
 	// Chain
-	chainPublicKey ecies.PublicKey
+	chainPublicKey primitives.PublicKey
 	queryStateKey  []byte
 
 	// TCA KDFKey

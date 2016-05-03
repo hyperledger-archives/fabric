@@ -24,7 +24,7 @@ import (
 	"sync"
 	"sort"
 	"encoding/hex"
-	utils "github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 
@@ -134,7 +134,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) CalculateAttributesHash(attributes m
     }
 	
 	
-	attributesHash := utils.Hash(values)
+	attributesHash := primitives.Hash(values)
 	
 	return  hex.EncodeToString(attributesHash)
 	

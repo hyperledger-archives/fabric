@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -67,7 +68,7 @@ func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 
 	handler.client = client
 	handler.nonce = nonce
-	handler.binding = utils.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
+	handler.binding = primitives.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }

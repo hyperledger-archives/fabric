@@ -144,7 +144,7 @@ func GetLocalIP() string {
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	if viper.GetBool("peer.tls.enabled") {
+	if TlsEnabled() {
 		var sn string
 		if viper.GetString("peer.tls.serverhostoverride") != "" {
 			sn = viper.GetString("peer.tls.serverhostoverride")
@@ -222,7 +222,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	peer.secHelper = secHelperFunc()
 
 	// Install security object for peer
-	if viper.GetBool("security.enabled") {
+	if SecurityEnabled() {
 		if peer.secHelper == nil {
 			return nil, fmt.Errorf("Security helper not provided")
 		}
@@ -242,11 +242,11 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
-	peer.isValidator = viper.GetBool("peer.validator.enabled")
+	peer.isValidator = ValidatorEnabled()
 	peer.secHelper = secHelperFunc()
 
 	// Install security object for peer
-	if viper.GetBool("security.enabled") {
+	if SecurityEnabled() {
 		if peer.secHelper == nil {
 			return nil, fmt.Errorf("Security helper not provided")
 		}
@@ -411,15 +411,38 @@ func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]Messa
 // Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
 func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error {
 	cloneMap := p.cloneHandlerMap(typ)
-	var errorsFromHandlers []error
+	errorsFromHandlers := make(chan error,len(cloneMap))
+	var bcWG sync.WaitGroup
+
+	start := time.Now()
+
 	for _, msgHandler := range cloneMap {
-		err := msgHandler.SendMessage(msg)
-		if err != nil {
-			toPeerEndpoint, _ := msgHandler.To()
-			errorsFromHandlers = append(errorsFromHandlers, fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err))
-		}
+		bcWG.Add(1)
+		go func(msgHandler MessageHandler) {
+			defer bcWG.Done()
+			host, _ := msgHandler.To()
+			t1 := time.Now()
+			err := msgHandler.SendMessage(msg)
+			if err != nil {
+				toPeerEndpoint, _ := msgHandler.To()
+				errorsFromHandlers <- fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
+			}
+			peerLogger.Debug("Sending %d bytes to %s took %v",len(msg.Payload),host.Address,time.Since(t1));
+
+		}(msgHandler)
+
 	}
-	return errorsFromHandlers
+	bcWG.Wait()
+	close(errorsFromHandlers)
+	var returnedErrors []error
+	for err := range errorsFromHandlers {
+		returnedErrors = append(returnedErrors,err)
+	}
+
+	elapsed := time.Since(start)
+	peerLogger.Debug("Broadcast took %v",elapsed)
+
+	return returnedErrors
 }
 
 // Unicast sends a message to a specific peer.
@@ -545,7 +568,7 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 // GetPeerEndpoint returns the endpoint for this peer
 func (p *PeerImpl) GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	ep, err := GetPeerEndpoint()
-	if err == nil && viper.GetBool("security.enabled") {
+	if err == nil && SecurityEnabled() {
 		// Set the PkiID on the PeerEndpoint if security is enabled
 		ep.PkiID = p.GetSecHelper().GetID()
 	}
@@ -614,7 +637,7 @@ func (p *PeerImpl) GetSecHelper() crypto.Peer {
 
 // signMessage modifies the passed in Message by setting the Signature based upon the Payload.
 func (p *PeerImpl) signMessageMutating(msg *pb.Message) (error) {
-	if viper.GetBool("security.enabled") {
+	if SecurityEnabled() {
 		sig, err := p.secHelper.Sign(msg.Payload)
 		if err != nil {
 			return fmt.Errorf("Error signing Openchain Message: %s", err)

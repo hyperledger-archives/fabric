@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -63,7 +64,7 @@ func (handler *tCertTransactionHandlerImpl) init(tCertHandler *tCertHandlerImpl)
 
 	handler.tCertHandler = tCertHandler
 	handler.nonce = nonce
-	handler.binding = utils.Hash(append(handler.tCertHandler.tCert.GetCertificate().Raw, nonce...))
+	handler.binding = primitives.Hash(append(handler.tCertHandler.tCert.GetCertificate().Raw, nonce...))
 
 	return nil
 }

@@ -322,7 +322,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	}
 	if err != nil {
 		chaincodeLog.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.StopChaincode(ctxt, cds)
+		errIgnore := chaincodeSupport.Stop(ctxt, cds)
 		if errIgnore != nil {
 			chaincodeLog.Debug("error on stop %s(%s)", errIgnore, err)
 		}
@@ -331,7 +331,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 }
 
 //StopChaincode stops a chaincode if running
-func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context, cds *pb.ChaincodeDeploymentSpec) error {
+func (chaincodeSupport *ChaincodeSupport) Stop(context context.Context, cds *pb.ChaincodeDeploymentSpec) error {
 	chaincode := cds.ChaincodeSpec.ChaincodeID.Name
 	if chaincode == "" {
 		return fmt.Errorf("chaincode name not set")
@@ -363,7 +363,7 @@ func (chaincodeSupport *ChaincodeSupport) StopChaincode(context context.Context,
 }
 
 // LaunchChaincode will launch the chaincode if not running (if running return nil) and will wait for handler of the chaincode to get into FSM ready state.
-func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Context, t *pb.Transaction) (*pb.ChaincodeID, *pb.ChaincodeInput, error) {
+func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.Transaction) (*pb.ChaincodeID, *pb.ChaincodeInput, error) {
 	//build the chaincode
 	var cID *pb.ChaincodeID
 	var cMsg *pb.ChaincodeInput
@@ -473,7 +473,7 @@ func (chaincodeSupport *ChaincodeSupport) LaunchChaincode(context context.Contex
 		if err != nil {
 			chaincodeLog.Debug("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
-			errIgnore := chaincodeSupport.StopChaincode(context, cds)
+			errIgnore := chaincodeSupport.Stop(context, cds)
 			if errIgnore != nil {
 				chaincodeLog.Debug("stop failed %s(%s)", errIgnore, err)
 			}
@@ -501,7 +501,7 @@ func (chaincodeSupport *ChaincodeSupport) getVMType(cds *pb.ChaincodeDeploymentS
 }
 
 // DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
-func (chaincodeSupport *ChaincodeSupport) DeployChaincode(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
+func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
 	err := proto.Unmarshal(t.Payload, cds)

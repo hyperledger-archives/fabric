@@ -2,12 +2,13 @@ package crypto
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
 
 func (client *clientImpl) createTransactionNonce() ([]byte, error) {
-	nonce, err := utils.GetRandomBytes(utils.NonceSize)
+	nonce, err := primitives.GetRandomNonce()
 	if err != nil {
 		client.error("Failed creating nonce [%s].", err.Error())
 		return nil, err
@@ -28,7 +29,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	tx.Metadata = chaincodeDeploymentSpec.ChaincodeSpec.Metadata
 
 	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
 			client.error("Failed creating nonce [%s].", err.Error())
 			return nil, err
@@ -70,7 +71,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
 
 	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
 			client.error("Failed creating nonce [%s].", err.Error())
 			return nil, err
@@ -112,7 +113,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
 
 	if nonce == nil {
-		tx.Nonce, err = utils.GetRandomBytes(utils.NonceSize)
+		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
 			client.error("Failed creating nonce [%s].", err.Error())
 			return nil, err

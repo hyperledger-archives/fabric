@@ -39,7 +39,8 @@ import (
   	"google.golang.org/grpc"
 
   	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+
 	
 	"google/protobuf"
 )
@@ -348,7 +349,7 @@ func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, val
 		return nil, err
 	}
 	
-	hashValue := utils.Hash(attValue)
+	hashValue := primitives.Hash(attValue)
 	if bytes.Compare(hashValue, valueHash) != 0 { 
 		return nil, nil
 	}
@@ -370,7 +371,7 @@ func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (
 
 	in.Signature = nil
 	
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ := proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(ecaPub, hash.Sum(nil), r, s) == false {
@@ -404,7 +405,7 @@ func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCod
 	}
 	
 	
-	r, s, err := utils.ECDSASignDirect(acap.aca.priv, rawReq)
+	r, s, err := primitives.ECDSASignDirect(acap.aca.priv, rawReq)
 	if err != nil {
 		return &pb.ACAAttrResp{pb.ACAAttrResp_FAILURE, nil, nil}
 	}
@@ -432,7 +433,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 
 	in.Signature = nil
 	
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ := proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(tcaPub, hash.Sum(nil), r, s) == false {
