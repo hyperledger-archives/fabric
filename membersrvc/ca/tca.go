@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ca
@@ -48,13 +45,13 @@ import (
 var (
 	// TCertEncTCertIndex is the ASN1 object identifier of the TCert index.
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
-	
+
 	// TCertEncEnrollmentID is the ASN1 object identifier of the enrollment id.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
-	
+
 	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
 	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
-	
+
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
@@ -91,9 +88,9 @@ func NewTCA(eca *ECA) *TCA {
 	if err != nil {
 		Panic.Panicln(err)
 	}
-	
+
 	err = tca.initializePreKeyTree()
-	if err != nil { 
+	if err != nil {
 		Panic.Panicln(err)
 	}
 	return tca
@@ -141,20 +138,20 @@ func (tca *TCA) readRootPreKey() error {
 	return err
 }
 
-func (tca *TCA) calculatePreKey(variant []byte, preKey []byte) ([]byte, error) { 
+func (tca *TCA) calculatePreKey(variant []byte, preKey []byte) ([]byte, error) {
 	mac := hmac.New(conf.GetDefaultHash(), preKey)
 	_, err := mac.Write(variant)
-	if err != nil { 
+	if err != nil {
 		return nil, err
 	}
 	return mac.Sum(nil), nil
 }
 
 func (tca *TCA) initializePreKeyNonRootGroup(group *AffiliationGroup) (error) {
-	if group.parent.preKey == nil { 
+	if group.parent.preKey == nil {
 		//Initialize parent if it is not initialized yet.
 		tca.initializePreKeyGroup(group.parent)
-	} 
+	}
 	var err error
 	group.preKey, err = tca.calculatePreKey([]byte(group.name), group.parent.preKey)
 	return err
@@ -165,19 +162,19 @@ func (tca *TCA) initializePreKeyGroup(group *AffiliationGroup) (error) {
 			//This group is root
 			group.preKey = tca.rootPreKey
 			return nil
-		} else { 
-			return tca.initializePreKeyNonRootGroup(group)	
-		}		
+		} else {
+			return tca.initializePreKeyNonRootGroup(group)
+		}
 }
 
 func (tca *TCA) initializePreKeyTree() (error) {
 	Trace.Println("Initializing PreKeys.")
-	groups, err := tca.eca.readAffiliationGroups() 
-	if err != nil { 
+	groups, err := tca.eca.readAffiliationGroups()
+	if err != nil {
 		return err
 	}
 	tca.preKeys = make(map[string][]byte)
-	for _, group := range groups { 
+	for _, group := range groups {
 		if group.preKey == nil {
 				err = tca.initializePreKeyGroup(group)
 				if err != nil {
@@ -187,17 +184,17 @@ func (tca *TCA) initializePreKeyTree() (error) {
 		Trace.Println("Initializing PK group ", group.name)
 		tca.preKeys[group.name] = group.preKey
 	}
-	
+
 	return nil
 }
 
 func (tca *TCA) getPreKFrom(enrollmentCertificate *x509.Certificate) ([]byte, error) {
 	 _ , _, affiliation, err := tca.eca.parseEnrollId(enrollmentCertificate.Subject.CommonName)
-	if err != nil { 
+	if err != nil {
 		return  nil, err
-	} 
+	}
 	preK := tca.preKeys[affiliation]
-	if preK == nil { 
+	if preK == nil {
 		return nil, errors.New("Could not be found a pre-k to the affiliation group "+affiliation+ ".")
 	}
 	return preK, nil
@@ -270,60 +267,60 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
 	mac.Write(raw)
 	kdfKey := mac.Sum(nil)
-	
+
 	num := int(in.Num)
 	if num == 0 {
 		num = 1
 	}
-	
+
 	// the batch of TCerts
 	var set []*pb.TCert
 
 	for i := 0; i < num; i++ {
-		tcertid := util.GenerateIntUUID()	
-		
+		tcertid := util.GenerateIntUUID()
+
 		// Compute TCertIndex
 		tidx := []byte(strconv.Itoa(2 * i + 1))
 		tidx = append(tidx[:], nonce[:]...)
 		tidx = append(tidx[:], Padding...)
-		
+
 		mac := hmac.New(conf.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{1})
 		extKey := mac.Sum(nil)[:32]
-		
+
 		mac = hmac.New(conf.GetDefaultHash(), kdfKey)
 		mac.Write([]byte{2})
 		mac = hmac.New(conf.GetDefaultHash(), mac.Sum(nil))
 		mac.Write(tidx)
-		
+
 		one := new(big.Int).SetInt64(1)
 		k := new(big.Int).SetBytes(mac.Sum(nil))
 		k.Mod(k, new(big.Int).Sub(pub.Curve.Params().N, one))
 		k.Add(k, one)
-		
+
 		tmpX, tmpY := pub.ScalarBaseMult(k.Bytes())
 		txX, txY := pub.Curve.Add(pub.X, pub.Y, tmpX, tmpY)
 		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
-		
+
 		// Compute encrypted TCertIndex
 		encryptedTidx, err := CBCEncrypt(extKey, tidx)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// TODO: We are storing each K used on the TCert in the ks array (the second return value of this call), but not returning it to the user.
 		// We need to design a structure to return each TCert and the associated Ks.
 		extensions, ks, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, in.Attributes)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub,  x509.KeyUsageDigitalSignature, extensions...)
 		if raw, err = tcap.tca.createCertificateFromSpec(spec, in.Ts.Seconds, kdfKey); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
-		
+
 		set = append(set, &pb.TCert{raw, ks})
 	}
 
@@ -333,35 +330,35 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
 func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, map[string][]byte, error){
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	ks := make(map[string][]byte) 
+	ks := make(map[string][]byte)
 	extensions := make([]pkix.Extension, len(attributes))
-	
+
 	// Compute preK_1 to encrypt attributes and enrollment ID
 	preK_1, err := tcap.tca.getPreKFrom(enrollmentCert)
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	mac := hmac.New(conf.GetDefaultHash(), preK_1)
 	mac.Write(tcertid.Bytes())
 	preK_0 := mac.Sum(nil)
-	
+
 	// Compute encrypted EnrollmentID
 	mac = hmac.New(conf.GetDefaultHash(), preK_0)
 	mac.Write([]byte("enrollmentID"))
 	enrollmentIdKey := mac.Sum(nil)[:32]
-	
+
 	enrollmentID := []byte(enrollmentCert.Subject.CommonName)
 	enrollmentID = append(enrollmentID, Padding...)
-	
+
 	encEnrollmentID, err := CBCEncrypt(enrollmentIdKey, enrollmentID)
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	// save k used to encrypt EnrollmentID
 	ks["enrollmentId"] = enrollmentIdKey
-	
+
 	attributeIdentifierIndex := 9
 	count := 0
 	attributesHeader := make(map[string]int)
@@ -370,43 +367,43 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		count++
 
 		value := []byte(a.AttributeValue)
-		
+
 		//Save the position of the attribute extension on the header.
 		attributesHeader[a.AttributeName] = count
-		
+
 		if viper.GetBool("tca.attribute-encryption.enabled") {
 			mac = hmac.New(conf.GetDefaultHash(), preK_0)
 			mac.Write([]byte(a.AttributeName))
 			attributeKey := mac.Sum(nil)[:32]
-			
+
 			value = append(value, Padding...)
 			value, err = CBCEncrypt(attributeKey, value)
 			if err != nil {
 				return nil, nil, err
 			}
-			
+
 			// save k used to encrypt attribute
 			ks[a.AttributeName] = attributeKey
 		}
-		
+
 		// Generate an ObjectIdentifier for the extension holding the attribute
 		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
-		
+
   		// Add the attribute extension to the extensions array
 		extensions[count - 1] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
 	}
-	
+
 	// Append the TCertIndex to the extensions
 	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
-	
+
 	// Append the encrypted EnrollmentID to the extensions
 	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
-	
+
 	// Append the attributes header if there was attributes to include in the TCert
 	if len(attributes) > 0 {
 		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: buildAttributesHeader(attributesHeader)})
 	}
-	
+
 	return extensions, ks, nil
 }
 
@@ -418,7 +415,7 @@ func buildAttributesHeader(attributesHeader map[string]int) []byte{
 		headerString = headerString + k + "->" + v_str + "#"
 	}
 	header = []byte(headerString)
-	
+
 	return header
 }
 
@@ -620,7 +617,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 				timestamp = ts
 				certs = nil
 			}
-			
+
 			// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
 			certs = append(certs, &pb.TCert{cert, make(map[string][]byte)})
 		}

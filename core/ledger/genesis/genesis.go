@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package genesis
@@ -46,7 +43,7 @@ func MakeGenesis() error {
 			return
 		}
 
-		var genesisBlockExists bool 
+		var genesisBlockExists bool
 		if ledger.GetBlockchainSize() == 0 {
 			genesisLogger.Info("Creating genesis block.")
 			ledger.BeginTxBatch(0)
@@ -55,7 +52,7 @@ func MakeGenesis() error {
 		}
 
 		var genesisTransactions []*protos.Transaction
-		
+
 		defer func() {
 			if !genesisBlockExists && makeGenesisError == nil {
 				genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
@@ -81,7 +78,7 @@ func MakeGenesis() error {
 		if getGenesis() == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")
 		} else {
-			
+
 			chaincodes, chaincodesOK := genesis["chaincodes"].(map[interface{}]interface{})
 			if !chaincodesOK {
 				genesisLogger.Info("No genesis block chaincodes defined.")
@@ -94,7 +91,7 @@ func MakeGenesis() error {
 			for i := range chaincodes {
 				name := i.(string)
 				genesisLogger.Debug("Chaincode %s", name)
-	
+
 				chaincode := chaincodes[name]
 				chaincodeMap, chaincodeMapOK := chaincode.(map[interface{}]interface{})
 				if !chaincodeMapOK {
