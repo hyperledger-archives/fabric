@@ -800,7 +800,7 @@ func TestValidatorQueryTransaction(t *testing.T) {
 				t.Fatal("Decrypt should not fail on nil input")
 			}
 			if out != nil {
-				t.Fatal("Nil input should decrypto to nil")
+				t.Fatal("Nil input should decrypt to nil")
 			}
 
 			// Second invokeTx
@@ -821,7 +821,7 @@ func TestValidatorQueryTransaction(t *testing.T) {
 				t.Fatal("Decrypt should not fail on nil input")
 			}
 			if out != nil {
-				t.Fatal("Nil input should decrypto to nil")
+				t.Fatal("Nil input should decrypt to nil")
 			}
 
 			// queryTx
@@ -899,7 +899,7 @@ func TestValidatorStateEncryptor(t *testing.T) {
 		t.Fatal("Decrypt should not fail on nil input")
 	}
 	if out != nil {
-		t.Fatal("Nil input should decrypto to nil")
+		t.Fatal("Nil input should decrypt to nil")
 	}
 
 	seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
@@ -920,7 +920,7 @@ func TestValidatorStateEncryptor(t *testing.T) {
 		t.Fatal("Decrypt should not fail on nil input")
 	}
 	if out != nil {
-		t.Fatal("Nil input should decrypto to nil")
+		t.Fatal("Nil input should decrypt to nil")
 	}
 
 }
