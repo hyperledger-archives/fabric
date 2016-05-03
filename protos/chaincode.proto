@@ -63,6 +63,7 @@ message ChaincodeSpec {
         UNDEFINED = 0;
         GOLANG = 1;
         NODE = 2;
+        CAR = 3;
     }
 
     Type type = 1;

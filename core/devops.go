@@ -125,7 +125,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	var tx *pb.Transaction
 	var sec crypto.Client
 
-	if viper.GetBool("security.enabled") {
+	if peer.SecurityEnabled() {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Initializing secure devops using context %s", spec.SecureContext)
 		}
@@ -178,7 +178,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
-	if viper.GetBool("security.enabled") {
+	if peer.SecurityEnabled() {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
 		}

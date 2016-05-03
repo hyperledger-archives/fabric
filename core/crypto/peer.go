@@ -131,7 +131,7 @@ func CloseAllPeers() (bool, []error) {
 // Private Methods
 
 func newPeer() *peerImpl {
-	return &peerImpl{&nodeImpl{}, nil, false}
+	return &peerImpl{&nodeImpl{}, sync.RWMutex{}, nil, false}
 }
 
 func closePeerInternal(peer Peer, force bool) error {

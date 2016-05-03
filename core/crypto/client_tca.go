@@ -27,15 +27,16 @@ import (
 	"crypto/hmac"
 	"encoding/asn1"
 
-	"strings"
-	"strconv"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -115,25 +116,25 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 
 		return nil, err
 	}
-	
+
 	// Handle Critical Extension TCertEncEnrollmentID TODO validate encEnrollmentID
-	_ , err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
+	_, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncEnrollmentID)
 	if err != nil {
 		client.error("Failed getting extension TCERT_ENC_ENROLLMENT_ID [%s].", err.Error())
 
 		return nil, err
 	}
-	
+
 	// Handle Critical Extension TCertAttributes
-//	for i := 0; i < len(x509Cert.Extensions) - 2; i++ {
-//		attributeExtensionIdentifier := append(utils.TCertEncAttributesBase, i + 9)
-//		_ , err = utils.GetCriticalExtension(x509Cert, attributeExtensionIdentifier)
-//		if err != nil {
-//			client.error("Failed getting extension TCERT_ATTRIBUTE_%s [%s].", i, err.Error())
-//	
-//			return nil, err
-//		}
-//	} 
+	//	for i := 0; i < len(x509Cert.Extensions) - 2; i++ {
+	//		attributeExtensionIdentifier := append(utils.TCertEncAttributesBase, i + 9)
+	//		_ , err = utils.GetCriticalExtension(x509Cert, attributeExtensionIdentifier)
+	//		if err != nil {
+	//			client.error("Failed getting extension TCERT_ATTRIBUTE_%s [%s].", i, err.Error())
+	//
+	//			return nil, err
+	//		}
+	//	}
 
 	// Verify certificate against root
 	if _, err := utils.CheckCertAgainRoot(x509Cert, client.tcaCertPool); err != nil {
@@ -150,8 +151,8 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
-	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
+	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
+	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
 	x509Cert, err := utils.DERToX509Certificate(der)
@@ -183,7 +184,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-	pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+	pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
 	if err != nil {
 		client.error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
@@ -195,7 +196,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	//		TCertIndex := []byte(strconv.Itoa(i))
 
 	client.debug("TCertIndex: [% x].", TCertIndex)
-	mac := hmac.New(utils.NewHash, ExpansionKey)
+	mac := hmac.New(primitives.NewHash, ExpansionKey)
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
 
@@ -254,7 +255,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	}
 
 	// Verify the signing capability of tempSK
-	err = utils.VerifySignCapability(tempSK, x509Cert.PublicKey)
+	err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
 	if err != nil {
 		client.error("Failed verifing signing capability [%s].", err.Error())
 
@@ -312,8 +313,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 
 	// Validate the Certificates obtained
 
-	TCertOwnerEncryptKey := utils.HMACTruncated(client.tCertOwnerKDFKey, []byte{1}, utils.AESKeyLength)
-	ExpansionKey := utils.HMAC(client.tCertOwnerKDFKey, []byte{2})
+	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
+	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	j := 0
 	for i := 0; i < num; i++ {
@@ -347,7 +348,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 
 		// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-		pt, err := utils.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+		pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
 		if err != nil {
 			client.error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
@@ -359,7 +360,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		//		TCertIndex := []byte(strconv.Itoa(i))
 
 		client.debug("TCertIndex: [% x].", TCertIndex)
-		mac := hmac.New(utils.NewHash, ExpansionKey)
+		mac := hmac.New(primitives.NewHash, ExpansionKey)
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
@@ -418,7 +419,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		}
 
 		// Verify the signing capability of tempSK
-		err = utils.VerifySignCapability(tempSK, x509Cert.PublicKey)
+		err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
 		if err != nil {
 			client.error("Failed verifing signing capability [%s].", err.Error())
 
@@ -463,13 +464,13 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 	req := &membersrvc.TCertCreateSetReq{
-		Ts:  &timestamp,
-		Id:  &membersrvc.Identity{Id: client.enrollID},
-		Num: uint32(num),
+		Ts:         &timestamp,
+		Id:         &membersrvc.Identity{Id: client.enrollID},
+		Num:        uint32(num),
 		Attributes: client.conf.getTCertAttributes(),
-		Sig: nil,
+		Sig:        nil,
 	}
-	
+
 	rawReq, err := proto.Marshal(req)
 	if err != nil {
 		client.error("Failed marshaling request [%s] [%s].", err.Error())
@@ -500,27 +501,28 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
 }
 
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) { 
-	tokens :=  strings.Split(header, "#")
+func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
+	tokens := strings.Split(header, "#")
 	answer := make(map[string]int)
-	
+
 	for _, token := range tokens {
-		pair:= strings.Split(token, "->")
-		
+		pair := strings.Split(token, "->")
+
 		if len(pair) == 2 {
 			key := pair[0]
 			valueStr := pair[1]
 			value, err := strconv.Atoi(valueStr)
-			if err != nil { 
+			if err != nil {
 				return nil, err
 			}
 			answer[key] = value
 		}
 	}
-	
+
 	return answer, nil
-	
+
 }
+
 // Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -529,35 +531,35 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 		return nil, err
 	}
-	
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+
+	var headerRaw []byte
+	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
 
 		return nil, err
 	}
-	
-	header_str := string(header_raw)	
+
+	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = client.parseHeader(header_str)
-	
+	header, err = client.parseHeader(headerStr)
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	position := header[attributeName]
-	
+
 	if position == 0 {
 		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
 	}
 
-    oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-    
-    var value []byte
-    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
+
+	var value []byte
+	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
 		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
 		return nil, err
 	}
-    
-    return value, nil
+
+	return value, nil
 }

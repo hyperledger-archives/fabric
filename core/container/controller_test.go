@@ -107,7 +107,17 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 	return inputbuf, nil
 }
 
+//set to true by providing "-run-controller-tests" command line option... Tests will create a docker image called "simple"
+var runTests bool
+func testForSkip(t *testing.T) {
+	//run tests
+	if !runTests {
+		t.SkipNow()
+	}
+}
+
 func TestVMCBuildImage(t *testing.T) {
+	testForSkip(t)
 	var ctxt = context.Background()
 
 	//get the tarball for codechain
@@ -138,6 +148,7 @@ func TestVMCBuildImage(t *testing.T) {
 }
 
 func TestVMCStartContainer(t *testing.T) {
+	testForSkip(t)
 
 	var ctxt = context.Background()
 
@@ -163,6 +174,7 @@ func TestVMCStartContainer(t *testing.T) {
 }
 
 func TestVMCCreateAndStartContainer(t *testing.T) {
+	testForSkip(t)
 
 	var ctxt = context.Background()
 
@@ -202,6 +214,8 @@ func TestVMCCreateAndStartContainer(t *testing.T) {
 }
 
 func TestVMCSyncStartContainer(t *testing.T) {
+	testForSkip(t)
+
 	var ctxt = context.Background()
 
 	//creat a StartImageReq obj and send it to VMCProcess
@@ -217,6 +231,8 @@ func TestVMCSyncStartContainer(t *testing.T) {
 }
 
 func TestVMCStopContainer(t *testing.T) {
+	testForSkip(t)
+
 	var ctxt = context.Background()
 
 	c := make(chan struct{})

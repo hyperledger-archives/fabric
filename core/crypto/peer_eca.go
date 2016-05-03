@@ -37,7 +37,7 @@ func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 
 	peer.debug("Getting enrollment certificate for [%s]", sid)
 
-	if cert := peer.enrollCerts[sid]; cert != nil {
+	if cert := peer.getNodeEnrollmentCertificate(sid); cert != nil {
 		peer.debug("Enrollment certificate for [%s] already in memory.", sid)
 		return cert, nil
 	}
@@ -58,7 +58,7 @@ func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	peer.enrollCerts[sid] = cert
+	peer.putNodeEnrollmentCertificate(sid, cert)
 
 	return cert, nil
 }
@@ -107,4 +107,16 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	}
 
 	return responce.Sign, responce.Enc, nil
+}
+
+func (peer *peerImpl) getNodeEnrollmentCertificate(sid string) *x509.Certificate {
+	peer.nodeEnrollmentCertificatesMutex.RLock()
+	defer peer.nodeEnrollmentCertificatesMutex.RUnlock()
+	return peer.nodeEnrollmentCertificates[sid]
+}
+
+func (peer *peerImpl) putNodeEnrollmentCertificate(sid string, cert *x509.Certificate) {
+	peer.nodeEnrollmentCertificatesMutex.Lock()
+	defer peer.nodeEnrollmentCertificatesMutex.Unlock()
+	peer.nodeEnrollmentCertificates[sid] = cert
 }

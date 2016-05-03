@@ -999,7 +999,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_INVOKE)
 
 			// Launch the new chaincode if not already running
-			_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+			_, chaincodeInput, launchErr := handler.chaincodeSupport.Launch(context.Background(), transaction)
 			if launchErr != nil {
 				payload := []byte(launchErr.Error())
 				chaincodeLogger.Debug("[%s]Failed to launch invoked chaincode. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
@@ -1255,7 +1255,7 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		transaction, _ := pb.NewChaincodeExecute(chaincodeInvocationSpec, msg.Uuid, pb.Transaction_CHAINCODE_QUERY)
 
 		// Launch the new chaincode if not already running
-		_, chaincodeInput, launchErr := handler.chaincodeSupport.LaunchChaincode(context.Background(), transaction)
+		_, chaincodeInput, launchErr := handler.chaincodeSupport.Launch(context.Background(), transaction)
 		if launchErr != nil {
 			payload := []byte(launchErr.Error())
 			chaincodeLogger.Debug("[%s]Failed to launch invoked chaincode. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)

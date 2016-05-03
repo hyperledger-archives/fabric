@@ -105,6 +105,7 @@ def step_impl(context, composeYamlFile):
         bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
+    time.sleep(10)              # Should be replaced with a definitive interlock guaranteeing that all peers/membersrvc are ready
 
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):

@@ -81,9 +81,8 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 		if err == nil {
 			if tx.Type == pb.Transaction_CHAINCODE_QUERY {
 				return handler.doChainQuery(tx)
-			} else {
-				return handler.doChainTransaction(msg, tx)
 			}
+		  return handler.doChainTransaction(msg, tx)
 		}
 	}
 
