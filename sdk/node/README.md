@@ -39,16 +39,20 @@ To run the tests follow the instructions below.
 1. Build and run the Membership Service (CA) as described [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional).
 
 2. Enable the security and privacy on the peer. To do so, modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' and <b>security.privacy</b> value to 'true'. Subsequently, build and run the peer process with the following commands.
+
     ```
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     go build
     ./peer peer  
     ```
+    
 3. Switch to the HCL directory and run the unit tests with the following commands.
+
     ```
     cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
     node test/unit/chain-tests.js | node_modules/.bin/tap-spec
     ```
+
 4. If the tests fail and you see errors similar to the one below, that implies that you do not have correct port forwarding enabled in Vagrant.
 
     tcp_client_posix.c:173] failed to connect to 'ipv6:[::1]:50051': socket error: connection refused
