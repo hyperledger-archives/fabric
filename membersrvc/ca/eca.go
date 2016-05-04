@@ -37,12 +37,11 @@ import (
 	"strings"
 	"time"
 
-	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
+	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/hyperledger/fabric/core/crypto/conf"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -115,7 +114,7 @@ func NewECA() *ECA {
 				Panic.Panicln(err)
 			}
 		} else {
-			priv, err = ecdsa.GenerateKey(conf.GetDefaultCurve(), rand.Reader)
+			priv, err = ecdsa.GenerateKey(primitives.GetDefaultCurve(), rand.Reader)
 			if err != nil {
 				Panic.Panicln(err)
 			}
@@ -140,13 +139,13 @@ func NewECA() *ECA {
 				Bytes: raw,
 			})
 	}
-	
+
 	eca.populateAffiliationGroupsTable()
 	eca.populateUsersTable()
 	return eca
 }
 
-func (eca *ECA) populateUsersTable() { 
+func (eca *ECA) populateUsersTable() {
 	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
@@ -155,10 +154,10 @@ func (eca *ECA) populateUsersTable() {
 		if err != nil {
 			Panic.Panicln(err)
 		}
-	
+
 		var affiliation, affiliation_role string
-		if len(vals) >= 4 { 
-			affiliation = vals[2]	
+		if len(vals) >= 4 {
+			affiliation = vals[2]
 			affiliation_role = vals[3]
 		}
 		eca.registerUser(id, affiliation, affiliation_role, role, vals[1])
@@ -166,18 +165,18 @@ func (eca *ECA) populateUsersTable() {
 }
 
 func (eca *ECA) populateAffiliationGroup(name, parent, key string) {
-		eca.registerAffiliationGroup(name, parent)
-		new_key := key+"."+name
-		affiliation_groups := viper.GetStringMapString(new_key)
-		for child_name, _ := range affiliation_groups {
-			eca.populateAffiliationGroup(child_name, name, new_key)
-		}
+	eca.registerAffiliationGroup(name, parent)
+	new_key := key + "." + name
+	affiliation_groups := viper.GetStringMapString(new_key)
+	for child_name, _ := range affiliation_groups {
+		eca.populateAffiliationGroup(child_name, name, new_key)
+	}
 
 }
 
-func (eca *ECA) populateAffiliationGroupsTable() { 
+func (eca *ECA) populateAffiliationGroupsTable() {
 	// populate affiliation groups
-	key := "eca.affiliation_groups"	
+	key := "eca.affiliation_groups"
 	affiliation_groups := viper.GetStringMapString(key)
 	for name, _ := range affiliation_groups {
 		eca.populateAffiliationGroup(name, "", key)
@@ -279,7 +278,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		hash := utils.NewHash()
+		hash := primitives.NewHash()
 		raw, _ := proto.Marshal(in)
 		hash.Write(raw)
 		if ecdsa.Verify(skey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -289,7 +288,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		// create new certificate pair
 		ts := time.Now().Add(-1 * time.Minute).UnixNano()
 
-		spec := NewDefaultCertificateSpecWithCommonName(id, enrollId,  skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		spec := NewDefaultCertificateSpecWithCommonName(id, enrollId, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		sraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
 		if err != nil {
 			Error.Println(err)
@@ -369,8 +368,8 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("grpc ECAA:RegisterUser")
 
-   tok, err :=  ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, int(in.Role))
-   return &pb.Token{[]byte(tok)}, err
+	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, int(in.Role))
+	return &pb.Token{[]byte(tok)}, err
 }
 
 // ReadUserSet returns a list of users matching the parameters set in the read request.
@@ -399,7 +398,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	r.UnmarshalText(sig.R)
 	s.UnmarshalText(sig.S)
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {

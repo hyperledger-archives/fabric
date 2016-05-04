@@ -20,15 +20,15 @@ under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	sigma, err := utils.ECDSASign(signKey, msg)
+	sigma, err := primitives.ECDSASign(signKey, msg)
 
 	return sigma, err
 }
 
 func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	return utils.ECDSAVerify(verKey, msg, signature)
+	return primitives.ECDSAVerify(verKey, msg, signature)
 }

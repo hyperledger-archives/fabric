@@ -131,4 +131,4 @@ A consensus plugin might require some specific configuration that you need to se
 
 See `core.yaml` and `consensus/obcpbft/config.yaml` for more detail.
 
-All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS=pbft` or `CORE_PBFT_GENERAL_MODE=sieve`
+All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=sieve`

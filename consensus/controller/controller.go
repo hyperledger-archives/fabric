@@ -30,20 +30,22 @@ import (
 )
 
 var logger *logging.Logger // package-level logger
+var consenter consensus.Consenter
 
 func init() {
 	logger = logging.MustGetLogger("consensus/controller")
 }
 
-// NewConsenter constructs a Consenter object
-func NewConsenter(stack consensus.Stack) (consenter consensus.Consenter) {
-	plugin := strings.ToLower(viper.GetString("peer.validator.consensus"))
+// NewConsenter constructs a Consenter object if not already present
+func NewConsenter(stack consensus.Stack) consensus.Consenter {
+
+	plugin := strings.ToLower(viper.GetString("peer.validator.consensus.plugin"))
 	if plugin == "pbft" {
-		//logger.Info("Running with consensus plugin %s", plugin)
-		consenter = obcpbft.GetPlugin(stack)
+		logger.Info("Creating consensus plugin %s", plugin)
+		return obcpbft.GetPlugin(stack)
 	} else {
-		//logger.Info("Running with default consensus plugin (noops)")
-		consenter = noops.GetNoops(stack)
+		logger.Info("Creating default consensus plugin (noops)")
+		return noops.GetNoops(stack)
 	}
-	return
+
 }

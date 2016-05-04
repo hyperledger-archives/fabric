@@ -31,10 +31,9 @@ import (
 )
 
 type obcBatch struct {
+	obcGeneric
 	stack consensus.Stack
 	pbft  *pbftCore
-
-	startup chan []byte
 
 	batchSize        int
 	batchStore       [][]byte
@@ -42,27 +41,30 @@ type obcBatch struct {
 	batchTimerActive bool
 	batchTimeout     time.Duration
 
-	executor Executor
+	incomingChan chan *batchMessage // Queues messages for processing by main thread
+	idleChan     chan struct{}      // Used in unit testing to check for idleness
+
+	persistForward
+}
+
+type batchMessage struct {
+	msg    *pb.Message
+	sender *pb.PeerID
 }
 
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 
-	op := &obcBatch{stack: stack}
-	op.startup = make(chan []byte)
+	op := &obcBatch{
+		obcGeneric: obcGeneric{stack},
+		stack:      stack,
+	}
 
-	op.executor = NewOBCExecutor(config, op, stack)
+	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
-	startupInfo := <-op.startup
-	close(op.startup)
 
-	op.pbft = newPbftCore(id, config, op, startupInfo)
-
-	queueSize := config.GetInt("executor.queuesize")
-	if queueSize <= int(op.pbft.L) {
-		logger.Error("Replica %d has executor queue size %d less than PBFT log size %d, this indicates a misconfiguration", id, queueSize, op.pbft.L)
-	}
+	op.pbft = newPbftCore(id, config, op)
 
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
@@ -71,74 +73,34 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}
 
+	op.incomingChan = make(chan *batchMessage)
+
 	// create non-running timer
 	op.batchTimer = time.NewTimer(100 * time.Hour) // XXX ugly
 	op.batchTimer.Stop()
-	go op.batchTimerHander()
-	return op
-}
 
-func (op *obcBatch) Startup(seqNo uint64, id []byte) {
-	op.startup <- id
+	op.idleChan = make(chan struct{})
+
+	go op.main()
+	return op
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-	op.pbft.lock()
-	defer op.pbft.unlock()
-	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
-		logger.Info("New consensus request received")
 
-		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
-			err := op.leaderProcReq(ocMsg.Payload)
-			if err != nil {
-				return err
-			}
-		} else { // backup
-			batchMsg := &BatchMessage{&BatchMessage_Request{ocMsg.Payload}}
-			packedBatchMsg, _ := proto.Marshal(batchMsg)
-			ocMsg := &pb.Message{
-				Type:    pb.Message_CONSENSUS,
-				Payload: packedBatchMsg,
-			}
-			op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
-		}
-		return nil
-	}
-
-	if ocMsg.Type != pb.Message_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
-	}
-
-	batchMsg := &BatchMessage{}
-	err := proto.Unmarshal(ocMsg.Payload, batchMsg)
-	if err != nil {
-		return err
-	}
-
-	if req := batchMsg.GetRequest(); req != nil {
-		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
-			err := op.leaderProcReq(req)
-			if err != nil {
-				return err
-			}
-		}
-	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
-		senderID, err := getValidatorID(senderHandle) // who sent this?
-		if err != nil {
-			panic("Cannot map sender's PeerID to a valid replica ID")
-		}
-		op.pbft.unlock()
-		op.pbft.receive(pbftMsg, senderID)
-		op.pbft.lock()
-	} else {
-		err = fmt.Errorf("Unknown request: %+v", req)
-		logger.Error(err.Error())
+	op.incomingChan <- &batchMessage{
+		msg:    ocMsg,
+		sender: senderHandle,
 	}
 
 	return nil
+}
+
+// StateUpdate is a signal from the stack that it has fast-forwarded its state
+func (op *obcBatch) StateUpdate(seqNo uint64, id []byte) {
+	op.pbft.stateUpdate(seqNo, id)
 }
 
 // Close tells us to release resources we are holding
@@ -185,14 +147,23 @@ func (op *obcBatch) validate(txRaw []byte) error {
 }
 
 // execute an opaque request which corresponds to an OBC Transaction
-func (op *obcBatch) execute(seqNo uint64, tbRaw []byte, execInfo *ExecutionInfo) {
+func (op *obcBatch) execute(seqNo uint64, tbRaw []byte) {
 
 	tb := &pb.TransactionBlock{}
 	if err := proto.Unmarshal(tbRaw, tb); err != nil {
 		return
 	}
 
-	op.executor.Execute(seqNo, tb.Transactions, execInfo)
+	meta, _ := proto.Marshal(&Metadata{seqNo})
+
+	id := []byte("foo")
+	op.stack.BeginTxBatch(id)
+	result, err := op.stack.ExecTxs(id, tb.Transactions)
+	_ = err    // XXX what to do on error?
+	_ = result // XXX what to do with the result?
+	_, err = op.stack.CommitTxBatch(id, meta)
+
+	op.pbft.execDone()
 }
 
 // signal when a view-change happened
@@ -246,27 +217,81 @@ func (op *obcBatch) sendBatch() error {
 	}
 
 	// process internally
-	op.pbft.unlock()
 	op.pbft.request(tbPacked, op.pbft.id)
-	op.pbft.lock()
+
+	return nil
+}
+
+func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
+		logger.Info("New consensus request received")
+
+		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
+			err := op.leaderProcReq(ocMsg.Payload)
+			if err != nil {
+				return err
+			}
+		} else { // backup
+			batchMsg := &BatchMessage{&BatchMessage_Request{ocMsg.Payload}}
+			packedBatchMsg, _ := proto.Marshal(batchMsg)
+			ocMsg := &pb.Message{
+				Type:    pb.Message_CONSENSUS,
+				Payload: packedBatchMsg,
+			}
+			op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
+		}
+		return nil
+	}
+
+	if ocMsg.Type != pb.Message_CONSENSUS {
+		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
+	}
+
+	batchMsg := &BatchMessage{}
+	err := proto.Unmarshal(ocMsg.Payload, batchMsg)
+	if err != nil {
+		return err
+	}
+
+	if req := batchMsg.GetRequest(); req != nil {
+		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
+			err := op.leaderProcReq(req)
+			if err != nil {
+				return err
+			}
+		}
+	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
+		senderID, err := getValidatorID(senderHandle) // who sent this?
+		if err != nil {
+			panic("Cannot map sender's PeerID to a valid replica ID")
+		}
+		op.pbft.receive(pbftMsg, senderID)
+	} else {
+		err = fmt.Errorf("Unknown request: %+v", req)
+		logger.Error(err.Error())
+	}
 
 	return nil
 }
 
 // allow the primary to send a batch when the timer expires
-func (op *obcBatch) batchTimerHander() {
+func (op *obcBatch) main() {
 	for {
 		select {
 		case <-op.pbft.closed:
+			close(op.idleChan)
 			return
-
+		case ocMsg := <-op.incomingChan:
+			if err := op.processMessage(ocMsg.msg, ocMsg.sender); nil != err {
+				logger.Error("Error processing message: %v", err)
+			}
 		case <-op.batchTimer.C:
-			op.pbft.lock()
 			logger.Info("Replica %d batch timer expired", op.pbft.id)
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
 			}
-			op.pbft.unlock()
+		case op.idleChan <- struct{}{}:
+			// Only used to detect thread idleness during unit tests
 		}
 	}
 }
@@ -308,26 +333,7 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
-	op.pbft.Checkpoint(seqNo, id)
-}
-
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.SkipTo(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
-func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	op.executor.ValidState(seqNo, id, getValidatorHandles(replicas), execInfo)
-}
-
-func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
-	return
-}
-
-func (op *obcBatch) idleChan() <-chan struct{} {
-	return op.executor.IdleChan()
-}
-
-func (op *obcBatch) getPBFTCore() *pbftCore {
-	return op.pbft
+// Retrieve the idle channel, only used for testing
+func (op *obcBatch) idleChannel() <-chan struct{} {
+	return op.idleChan
 }

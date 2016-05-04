@@ -20,6 +20,8 @@ under the License.
 package obcpbft
 
 import (
+	"fmt"
+
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -34,14 +36,27 @@ func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
 	pe.pbft.receive(msg, senderID)
 }
 
-func (pe *pbftEndpoint) idleChan() <-chan struct{} {
-	res := make(chan struct{})
-	close(res)
-	return res
-}
-
 func (pe *pbftEndpoint) stop() {
 	pe.pbft.close()
+}
+
+func (pe *pbftEndpoint) isBusy() bool {
+	if pe.pbft.timerActive || pe.pbft.currentExec != nil {
+		pe.net.debugMsg("TEST: Returning as busy because timer active (%v) or current exec (%v)\n", pe.pbft.timerActive, pe.pbft.currentExec)
+		return true
+	}
+
+	// TODO, this looks racey, but seems fine, because the message send is on an unbuffered
+	// channel, the send blocks until the thread has picked up the new work, still
+	// this will be removed pending the transition to an externally driven state machine
+	select {
+	case <-pe.pbft.idleChan:
+	default:
+		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan\n")
+		return true
+	}
+
+	return false
 }
 
 type pbftNetwork struct {
@@ -50,12 +65,13 @@ type pbftNetwork struct {
 }
 
 type simpleConsumer struct {
-	pe               *pbftEndpoint
-	pbftNet          *pbftNetwork
-	executions       uint64
-	skipOccurred     bool
-	lastExecution    []byte
-	checkpointResult func(seqNo uint64, txs []byte)
+	pe            *pbftEndpoint
+	pbftNet       *pbftNetwork
+	executions    uint64
+	lastSeqNo     uint64
+	skipOccurred  bool
+	lastExecution []byte
+	mockPersist
 }
 
 func (sc *simpleConsumer) broadcast(msgPayload []byte) {
@@ -70,11 +86,6 @@ func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
 	return nil
 }
 
-func (sc *simpleConsumer) idleChan() <-chan struct{} {
-	res := make(chan struct{})
-	close(res)
-	return res
-}
 func (sc *simpleConsumer) Close() {
 	// No-op
 }
@@ -94,36 +105,29 @@ func (sc *simpleConsumer) verify(senderID uint64, signature []byte, message []by
 func (sc *simpleConsumer) viewChange(curView uint64) {
 }
 
-func (sc *simpleConsumer) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	// No-op
-}
-
-/*
-func (sc *simpleConsumer) Checkpoint(seqNo uint64, id []byte) {
-	// No-op
-}
-*/
-
-func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
 	sc.executions = seqNo
 	sc.pbftNet.debugMsg("TEST: skipping to %d\n", seqNo)
 }
 
-func (sc *simpleConsumer) execute(seqNo uint64, tx []byte, execInfo *ExecutionInfo) {
+func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.pbftNet.debugMsg("TEST: executing request\n")
-	if !execInfo.Null {
-		sc.lastExecution = tx
-		sc.executions++
+	sc.lastExecution = tx
+	sc.executions++
+	sc.lastSeqNo = seqNo
+	go sc.pe.pbft.execDone()
+}
+
+func (sc *simpleConsumer) getState() []byte {
+	return []byte(fmt.Sprintf("%d", sc.executions))
+}
+
+func (sc *simpleConsumer) getLastSeqNo() (uint64, error) {
+	if sc.executions < 1 {
+		return 0, fmt.Errorf("no execution yet")
 	}
-	if execInfo.Checkpoint {
-		sc.pbftNet.debugMsg("TEST: checkpoint requested, calling back\n")
-		if nil != sc.checkpointResult {
-			sc.checkpointResult(seqNo, sc.lastExecution)
-		} else {
-			sc.pe.pbft.Checkpoint(seqNo, sc.lastExecution)
-		}
-	}
+	return sc.lastSeqNo, nil
 }
 
 func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
@@ -138,7 +142,7 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 			pe: pe,
 		}
 
-		pe.pbft = newPbftCore(id, loadConfig(), pe.sc, []byte("GENESIS"))
+		pe.pbft = newPbftCore(id, loadConfig(), pe.sc)
 		pe.pbft.N = N
 		pe.pbft.f = (N - 1) / 3
 

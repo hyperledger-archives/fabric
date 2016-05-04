@@ -27,6 +27,7 @@ import (
 	"crypto/cipher"
 	"encoding/asn1"
 	"encoding/binary"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -76,10 +77,10 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
-		deployTxKey := utils.HMAC(enrollChainKey, deployTx.Nonce)
+		deployTxKey := primitives.HMAC(enrollChainKey, deployTx.Nonce)
 
 		// Compute the key used to encrypt the result of the query
-		queryKey := utils.HMACTruncated(enrollChainKey, append([]byte{6}, executeTx.Nonce...), utils.AESKeyLength)
+		queryKey := primitives.HMACTruncated(enrollChainKey, append([]byte{6}, executeTx.Nonce...), primitives.AESKeyLength)
 
 		// Init the state encryptor
 		se := queryStateEncryptor{}
@@ -92,15 +93,15 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 	}
 
 	// Compute deployTxKey key from the deploy transaction
-	deployTxKey := utils.HMAC(enrollChainKey, deployTx.Nonce)
+	deployTxKey := primitives.HMAC(enrollChainKey, deployTx.Nonce)
 
 	// Mask executeTx.Nonce
-	executeTxNonce := utils.HMACTruncated(deployTxKey, utils.Hash(executeTx.Nonce), utils.NonceSize)
+	executeTxNonce := primitives.HMACTruncated(deployTxKey, primitives.Hash(executeTx.Nonce), primitives.NonceSize)
 
 	// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
 	// allows validators to reach consesus
-	stateKey := utils.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), utils.AESKeyLength)
-	nonceStateKey := utils.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
+	stateKey := primitives.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), primitives.AESKeyLength)
+	nonceStateKey := primitives.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
@@ -147,7 +148,7 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
-		deployTxKey := utils.HMAC(deployStateKey, deployTx.Nonce)
+		deployTxKey := primitives.HMAC(deployStateKey, deployTx.Nonce)
 
 		// Compute the key used to encrypt the result of the query
 		//queryKey := utils.HMACTruncated(executeStateKey, append([]byte{6}, executeTx.Nonce...), utils.AESKeyLength)
@@ -163,15 +164,15 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 	}
 
 	// Compute deployTxKey key from the deploy transaction
-	deployTxKey := utils.HMAC(deployStateKey, deployTx.Nonce)
+	deployTxKey := primitives.HMAC(deployStateKey, deployTx.Nonce)
 
 	// Mask executeTx.Nonce
-	executeTxNonce := utils.HMACTruncated(deployTxKey, utils.Hash(executeTx.Nonce), utils.NonceSize)
+	executeTxNonce := primitives.HMACTruncated(deployTxKey, primitives.Hash(executeTx.Nonce), primitives.NonceSize)
 
 	// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
 	// allows validators to reach consesus
-	stateKey := utils.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), utils.AESKeyLength)
-	nonceStateKey := utils.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
+	stateKey := primitives.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), primitives.AESKeyLength)
+	nonceStateKey := primitives.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
 
 	// Init the state encryptor
 	se := stateEncryptorImpl{}
@@ -254,7 +255,7 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	se.node.debug("Encrypting with counter [% x].", b)
 	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
-	nonce := utils.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
+	nonce := primitives.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
 
 	se.counter++
 
@@ -267,19 +268,24 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 }
 
 func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
-	if len(raw) <= utils.NonceSize {
+	if len(raw) == 0 {
+		// A nil ciphertext decrypts to nil
+		return nil, nil
+	}
+
+	if len(raw) <= primitives.NonceSize {
 		return nil, utils.ErrDecrypt
 	}
 
 	// raw consists of (txNonce, ct)
-	txNonce := raw[:utils.NonceSize]
+	txNonce := raw[:primitives.NonceSize]
 	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
-	ct := raw[utils.NonceSize:]
+	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
-	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
 	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
@@ -334,7 +340,7 @@ func (se *queryStateEncryptor) init(node *nodeImpl, queryKey, deployTxKey []byte
 }
 
 func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
-	nonce, err := utils.GetRandomBytes(se.nonceSize)
+	nonce, err := primitives.GetRandomBytes(se.nonceSize)
 	if err != nil {
 		se.node.error("Failed getting randomness [%s].", err.Error())
 		return nil, err
@@ -349,19 +355,24 @@ func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
 }
 
 func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
-	if len(raw) <= utils.NonceSize {
+	if len(raw) == 0 {
+		// A nil ciphertext decrypts to nil
+		return nil, nil
+	}
+
+	if len(raw) <= primitives.NonceSize {
 		return nil, utils.ErrDecrypt
 	}
 
 	// raw consists of (txNonce, ct)
-	txNonce := raw[:utils.NonceSize]
+	txNonce := raw[:primitives.NonceSize]
 	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
-	ct := raw[utils.NonceSize:]
+	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
-	key := utils.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), utils.AESKeyLength)
+	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
 	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {

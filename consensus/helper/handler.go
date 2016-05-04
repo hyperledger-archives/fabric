@@ -22,15 +22,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/controller"
+	"github.com/hyperledger/fabric/consensus/util"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/peer"
 
 	pb "github.com/hyperledger/fabric/protos"
-	"sync"
 )
 
 var logger *logging.Logger // package-level logger
@@ -39,15 +38,18 @@ func init() {
 	logger = logging.MustGetLogger("consensus/handler")
 }
 
+const (
+	DefaultConsensusQueueSize int = 1000
+)
+
 // ConsensusHandler handles consensus messages.
 // It also implements the Stack.
 type ConsensusHandler struct {
-	consenter   consensus.Consenter
-	coordinator peer.MessageHandlerCoordinator
-	peerHandler peer.MessageHandler
+	//	*Helper
+	consenterChan chan *util.Message
+	coordinator   peer.MessageHandlerCoordinator
+	peerHandler   peer.MessageHandler
 }
-
-var engineConsenterOnce sync.Once
 
 // NewConsensusHandler constructs a new MessageHandler for the plugin.
 // Is instance of peer.HandlerFactory
@@ -65,25 +67,44 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 		return nil, fmt.Errorf("Error creating PeerHandler: %s", err)
 	}
 
-	handler.consenter = controller.NewConsenter(NewHelper(coord))
+	consensusQueueSize := viper.GetInt("peer.validator.consensus.buffersize")
 
-	return handler, err
+	if consensusQueueSize <= 0 {
+		logger.Error("peer.validator.consensus.buffersize is set to %d, but this must be a positive integer, defaulting to %d", consensusQueueSize, DefaultConsensusQueueSize)
+		consensusQueueSize = DefaultConsensusQueueSize
+	}
+
+	pe, _ := handler.peerHandler.To()
+
+	handler.consenterChan = make(chan *util.Message, consensusQueueSize)
+	getEngineImpl().consensusFan.RegisterChannel(pe.ID, handler.consenterChan)
+
+	return handler, nil
 }
 
 // HandleMessage handles the incoming Fabric messages for the Peer
 func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 	if msg.Type == pb.Message_CONSENSUS {
 		senderPE, _ := handler.peerHandler.To()
-		return handler.consenter.RecvMsg(msg, senderPE.ID)
+		select {
+		case handler.consenterChan <- &util.Message{
+			Msg:    msg,
+			Sender: senderPE.ID,
+		}:
+			return nil
+		default:
+			err := fmt.Errorf("Message channel for %v full, rejecting", senderPE.ID)
+			logger.Error("Failed to queue consensus message because: %v", err)
+			return err
+		}
 	} else if msg.Type == pb.Message_CHAIN_TRANSACTION {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(msg.Payload, tx)
 		if err == nil {
 			if tx.Type == pb.Transaction_CHAINCODE_QUERY {
 				return handler.doChainQuery(tx)
-			} else {
-				return handler.doChainTransaction(msg, tx)
 			}
+		  return handler.doChainTransaction(msg, tx)
 		}
 	}
 
@@ -95,6 +116,11 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 
 func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Transaction) error {
 	var response *pb.Response
+	defer func() {
+		payload, _ := proto.Marshal(response)
+		handler.SendMessage(&pb.Message{Type: pb.Message_RESPONSE, Payload: payload})
+	}()
+
 	// Verify transaction signature if security is enabled
 	secHelper := handler.coordinator.GetSecHelper()
 	if nil != secHelper {
@@ -105,24 +131,26 @@ func (handler *ConsensusHandler) doChainTransaction(msg *pb.Message, tx *pb.Tran
 		if tx, err = secHelper.TransactionPreValidation(tx); nil != err {
 			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			logger.Debug("Failed to verify transaction %v", err)
+			return err
 		}
-	}
-	// Send response back to the requester
-	// response will not be nil on error
-	if nil == response {
-		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
-	}
-	payload, _ := proto.Marshal(response)
-	handler.SendMessage(&pb.Message{Type: pb.Message_RESPONSE, Payload: payload})
-
-	// If we fail to marshal or verify the tx, don't send it to consensus plugin
-	if response.Status == pb.Response_FAILURE {
-		return nil
 	}
 
 	// Pass the message to the plugin handler (ie PBFT)
 	selfPE, _ := handler.coordinator.GetPeerEndpoint() // we are the validator introducting this tx into the system
-	return handler.consenter.RecvMsg(msg, selfPE.ID)
+	select {
+	case handler.consenterChan <- &util.Message{
+		Msg:    msg,
+		Sender: selfPE.ID,
+	}:
+		logger.Debug("Queued new transaction from %v to channel", selfPE.ID)
+		response = &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte(tx.Uuid)}
+		return nil
+	default:
+		err := fmt.Errorf("Message channel for %v full, rejecting", selfPE.ID)
+		logger.Error("Failed to queue new transaction because %v: ", err)
+		response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+		return err
+	}
 }
 
 func (handler *ConsensusHandler) doChainQuery(tx *pb.Transaction) error {

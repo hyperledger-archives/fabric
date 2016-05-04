@@ -22,7 +22,7 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
@@ -62,7 +62,7 @@ type nodeImpl struct {
 	tlsCert *x509.Certificate
 
 	// Crypto SPI
-	eciesSPI ecies.SPI
+	eciesSPI primitives.AsymmetricCipherSPI
 }
 
 func (node *nodeImpl) GetType() NodeType {
@@ -97,9 +97,9 @@ func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID
 	// Start registration
 	if node.isRegistered() {
 		return utils.ErrAlreadyRegistered
-	} else {
-		node.debug("Registering node [%s]...", enrollID)
 	}
+
+	node.debug("Registering node [%s]...", enrollID)
 
 	// Initialize keystore
 	err := node.initKeyStore(pwd)

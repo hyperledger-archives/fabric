@@ -14,7 +14,7 @@ before_install:
    ip="$(ifconfig docker0 | grep "inet addr:" | awk '{print $2}' | cut -d ':' -f 2)"
    port="$(ps -ef | grep docker | awk '{print $11}' | cut -d ':' -f 3)"
    sudo stop docker
-   sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock >> logfile.log 2>&1 &
+   sudo docker daemon -H tcp://0.0.0.0:$port -H unix:///var/run/docker.sock >> dockerlogfile.log 2>&1 &
 
 install:
 
@@ -32,31 +32,32 @@ install:
 before_script:
 
  - echo " CREATING BASE IMAGE "
- - |
-   echo " Calling docker.sh to build Openblockchain/baseimage "
-   cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts/provision/ && chmod +x docker.sh && ./docker.sh 0.0.9
-   cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
-   cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
-   sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
-   go build
-   echo " STARTING PEER PROCESS "
-   ./peer peer &
-   go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/) > build-result.txt
-   cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME
-   chmod +x scripts/deploy.sh
- - sudo ./scripts/deploy.sh
+ - echo " Calling docker.sh to build Openblockchain/baseimage "
+ - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts/provision/ && chmod +x docker.sh && ./docker.sh 0.0.9
+ - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
+ - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
+ - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
+ - go build && echo " STARTING PEER PROCESS "
+ - ./peer peer &
+ - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
 
 script:
 
  - echo "Executing Behave test scripts"
- - ps -ef | grep peer | grep -v grep | kill -9 `awk '{print $2}'`
  - cd $HOME/gopath/src/github.com/hyperledger/fabric/bddtests
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
- - sleep 5
- #- behave -n "chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)"
- - behave -D logs=Y
+ - behave -D logs=Y -o testsummary.log
+
+after_failure:
+ 
+ - |
+   echo "Click below links to view behave container log files"
+   cd $HOME/gopath/src/github.com/hyperledger/fabric
+   chmod +x scripts/containerlogs.sh
+   sudo ./scripts/containerlogs.sh
 
 notifications:
+
   slack: 'hyperledgerproject:azMP8Mw3cfGigXkqi5RujZXr'
   on_success: always
   on_failure: always

@@ -158,7 +158,7 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	peerLogger.Debug("Received %s from endpoint=%s", e.Event, helloMessage)
 
 	// If security enabled, need to verify the signature on the hello message
-	if viper.GetBool("security.enabled") {
+	if SecurityEnabled() {
 		if err := d.Coordinator.GetSecHelper().Verify(helloMessage.PeerEndpoint.PkiID, msg.Signature, msg.Payload); err != nil {
 			e.Cancel(fmt.Errorf("Error Verifying signature for received HelloMessage: %s", err))
 			return

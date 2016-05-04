@@ -24,14 +24,17 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
+	"sync"
 )
 
 type peerImpl struct {
 	*nodeImpl
 
-	enrollCerts map[string]*x509.Certificate
+	nodeEnrollmentCertificatesMutex sync.RWMutex
+	nodeEnrollmentCertificates      map[string]*x509.Certificate
 
 	isInitialized bool
 }
@@ -161,7 +164,7 @@ func (peer *peerImpl) GetStateEncryptor(deployTx, invokeTx *obc.Transaction) (St
 }
 
 func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error) {
-	return utils.Hash(append(tx.Cert, tx.Nonce...)), nil
+	return primitives.Hash(append(tx.Cert, tx.Nonce...)), nil
 }
 
 // Private methods
@@ -210,7 +213,7 @@ func (peer *peerImpl) init(eType NodeType, id string, pwd []byte) error {
 	peer.isInitialized = true
 
 	// EnrollCerts
-	peer.enrollCerts = make(map[string]*x509.Certificate)
+	peer.nodeEnrollmentCertificates = make(map[string]*x509.Certificate)
 
 	return nil
 }
