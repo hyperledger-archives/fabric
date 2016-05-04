@@ -20,6 +20,7 @@ under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -149,7 +150,9 @@ func (instance *pbftCore) restoreState() {
 			if _, err = fmt.Sscanf(key, "chkpt.%d", &seqNo); err != nil {
 				logger.Warning("Replica %d could not restore checkpoint key %s", instance.id, key)
 			} else {
-				instance.chkpts[seqNo] = string(id)
+				idAsString := base64.StdEncoding.EncodeToString(id)
+				logger.Debug("Replica %d found checkpoint %s for seqNo %d", instance.id, idAsString, seqNo)
+				instance.chkpts[seqNo] = idAsString
 				if seqNo > highSeq {
 					highSeq = seqNo
 				}
