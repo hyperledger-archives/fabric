@@ -1,4 +1,4 @@
-# README
+# Hyperledger Fabric
 The open source <b>Linux Foundation Hyperledger Project</b> contains core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications. 
 
 Use the following topics to navigate through the project directories and documentation:
