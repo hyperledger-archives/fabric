@@ -14,9 +14,6 @@ Install the blockchain fabric by completing the following tasks:
 * [Generating gRPC code](#generating-gRPC-code-)
 * [Adding or updating Go packages](#adding-or-updating-go-packages-)
 
-## License <a name="license"></a>
-This software is made available under the [Apache License Version 2.0](LICENSE).
-
 ## Building the fabric core <a name="build"></a>
 The following instructions assume that you have followed the [development environment getting started instructions](devenv.md).
 
@@ -183,7 +180,7 @@ $GOPATH/src/github.com/hyperledger/fabric/devenv/compile_protos.sh
 
 ## Adding or updating Go packages <a name="vendoring"></a>
 
-The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the /vendor folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the /vendor folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
+The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the `vendor` folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the `vendor` folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
 
 ```
 # Add external packages.
