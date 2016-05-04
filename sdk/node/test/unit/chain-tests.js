@@ -1,5 +1,7 @@
 var hlc = require('../../hlc');
 var test = require('tape');
+var util = require('util');
+var fs = require('fs');
 
 //
 //  Create a test chain
@@ -11,46 +13,112 @@ var chain = hlc.newChain("testChain");
 // Configure the test chain
 //
 // Set the directory for the local file-based key value store and point to the
-// address of membership service.
+// address of the membership service.
 //
 
 chain.configureKeyValStore({dir:"/tmp/keyValStore"});
 chain.setMemberServicesUrl("grpc://localhost:50051");
 
 //
-// Register the myWebAppAdmin member, which will serve as the chain 'registrar'.
+// Enroll the WebAppAdmin member. WebAppAdmin member is already registered
+// manually by being included inside the membersrvc.yaml file.
 //
 
-test('Set web app administrator', function(t) {
-    t.plan(1);
+test('Enroll WebAppAdmin', function(t) {
+    t.plan(2);
 
-    // Get the web app administrator member
-    chain.getMember("myWebAppAdmin", function(err, webAppAdmin) {
+    // Get the WebAppAdmin member
+    chain.getMember("WebAppAdmin", function(err, WebAppAdmin) {
     	if (err) {
-        t.fail("Failed to get webAppAdmin member: " + err)
+        t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
+        t.end(err);
       } else {
-        // Set the webAppAdmin as the designated chain registrar
-        chain.setRegistrar(webAppAdmin);
+        // Enroll the WebAppAdmin member with the certificate authority using
+        // the one time password hard coded inside the membersrvc.yaml.
+        pw = "DJY27pEnl16d";
+        WebAppAdmin.enroll(pw, function(err, crypto) {
+          if (err){
+            t.fail("Failed to enroll WebAppAdmin member " + " ---> " + err);
+            t.end(err);
+          } else {
+            t.pass("Successfully enrolled WebAppAdmin member" + " ---> " + JSON.stringify(crypto));
 
-        // Confirm that the chain registrar is now webAppAdmin
-        t.equal(chain.getRegistrar().getName(), 'myWebAppAdmin', 'Successfully set webAppAdmin!');
+            // Confirm that the WebAppAdmin token has been created in the key value store
+            path = chain.getKeyValStore().dir + "/member." + WebAppAdmin.getName();
+
+            fs.exists(path, function(exists) {
+              if (exists) {
+                t.pass("Successfully stored client token for" + " ---> " + WebAppAdmin.getName());
+              } else{
+                t.fail("Failed to store client token for " + WebAppAdmin.getName() + " ---> " + err);
+              }
+            });
+          }
+        });
       }
     });
 });
 
 //
-// Register an additional user, 'user1', using the myWebAppAdmin 'registrar'
-// member.
+// Set the WebAppAdmin as the designated chain 'registrar' member who will
+// subsequently register/enroll other new members. WebAppAdmin member is already
+// registered manually by being included inside the membersrvc.yaml file and
+// enrolled in the UT above.
 //
 
-test('Register and enroll user1', function(t) {
-  t.plan(1);
+test('Set chain registrar', function(t) {
+    t.plan(2);
 
-  chain.getMember("user1", function(err, user) {
+    // Get the WebAppAdmin member
+    chain.getMember("WebAppAdmin", function(err, WebAppAdmin) {
+    	if (err) {
+        t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
+        t.end(err);
+      } else {
+        t.pass("Successfully got WebAppAdmin member" + " ---> " + WebAppAdmin);
+
+        // Set the WebAppAdmin as the designated chain registrar
+        chain.setRegistrar(WebAppAdmin);
+
+        // Confirm that the chain registrar is now WebAppAdmin
+        t.equal(chain.getRegistrar().getName(), "WebAppAdmin", "Successfully set chain registrar to" + " ---> " + WebAppAdmin.getName());
+      }
+    });
+});
+
+//
+// Register and enroll a new user with the certificate authority.
+// This will be performed by the registrar member, WebAppAdmin.
+//
+
+test('Register and enroll a new user', function(t) {
+  t.plan(2);
+
+  // Crete a test_user
+  test_user = {
+    name: "WebApp_user1",
+    role: 1,
+    account: "bank_a",
+    affiliation: "00001"
+  };
+
+  // Register and enroll test_user
+  chain.getMember(test_user, function(err, user) {
     if (err) {
-      t.fail("Failed to get user1: " + err);
+      t.fail("Failed to get " + test_user.name + " ---> " + err);
+      t.end(err);
     } else {
-      t.pass("Successfully registered and enrolled user1: " + user);
+      t.pass("Successfully registered and enrolled " + test_user.name + " ---> " + user);
+
+      // Confirm that the user token has been created in the key value store
+      path = chain.getKeyValStore().dir + "/member." + test_user.name;
+      fs.exists(path, function(exists) {
+        if (exists) {
+          t.pass("Successfully stored client token for" + " ---> " + test_user.name);
+        } else{
+          t.fail("Failed to store client token for " + test_user.name + " ---> " + err);
+        }
+      });
     }
   });
 });
