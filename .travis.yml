@@ -33,10 +33,10 @@ before_script:
 
  - echo " CREATING BASE IMAGE "
  - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
- - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
+ - cd /$HOME/gopath/src/github.com/hyperledger/fabric
  - make peer && echo " STARTING PEER PROCESS "
- - ./peer peer &
+ - (cd ./peer; ./peer peer) &
  - make unit-test
 
 script:
