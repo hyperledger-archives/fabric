@@ -46,10 +46,8 @@ You should see some output similar to below (**NOTE**: The root command below is
 
     Available Commands:
       peer        Runs the peer.
-      status      Returns status of the peer.
-      stop        Stops the running peer.
-      login       Logs in a user on CLI.
-      network     Lists all network peers.
+      node        node specific commands.
+      network     network specific commands.
       chaincode   chaincode specific commands.
       help        Help about any command
 
@@ -62,13 +60,28 @@ You should see some output similar to below (**NOTE**: The root command below is
 
 ```
 
-The `peer` command will initiate a peer process, with which one can interact by executing other commands. For example, the `status` command will return the status of the running peer.
+The `node start` command will initiate a peer process, with which one can interact by executing other commands. For example, the `node status` command will return the status of the running peer. The full list of commands is the following:
+
+```
+      node
+        start       Starts the node.
+        status      Returns status of the node.
+        stop        Stops the running node.
+      network
+        login       Logs in user to CLI.
+        list        Lists all network peers.
+      chaincode
+        deploy      Deploy the specified chaincode to the network.
+        invoke      Invoke the specified chaincode.
+        query       Query using the specified chaincode.
+      help        Help about any command
+```
 
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
 #### 3.1 Unit Tests
-To run all unit tests, in one window, run `./peer peer`. In a second window
+To run all unit tests, in one window, run `./peer node start`. In a second window
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
