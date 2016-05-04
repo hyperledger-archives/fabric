@@ -303,7 +303,7 @@ Member.prototype.getRole = function() {
 
 /**
  * Get the member account.
- * @returns {atring} The member account.
+ * @returns {string} The member account.
  */
 
 Member.prototype.getAccount = function() {
@@ -376,7 +376,7 @@ Member.prototype.register = function(registrar,cb) {
 		debug("previously registered, enrollmentSecret=%s",enrollmentSecret);
 		return cb(null,enrollmentSecret);
 	}
-	debug("no enrollmentSecret set, never register");
+	debug("no enrollmentSecret set, never registered");
 
 	// Create the registration request
 	req = {
