@@ -24,4 +24,4 @@ If you are new to the project, you can begin by reviewing the following document
 
   - [Whitepaper WG](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
   - [Requirements WG](https://github.com/hyperledger/hyperledger/wiki/Requirements-WG)
-  - [Protocol Specification](https://github.com/joshhus/fabric/blob/TOCReal/docs/protocol-spec.md)
+  - [Protocol Specification](docs/protocol-spec.md)
