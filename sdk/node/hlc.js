@@ -207,17 +207,15 @@ Chain.prototype.getMember = function(name,cb) {
 	if (!self.keyValStore) return cb(Error("No key value store was found.  You must first call Chain.configureKeyValStore or Chain.setKeyValStore"));
 	if (!self.memberServices) return cb(Error("No member services was found.  You must first call Chain.configureMemberServices or Chain.setMemberServices"));
 
-	console.log("ADD : Chain keyValStore and memberServices configured!");
+	debug("Chain keyValStore and memberServices configured!");
 
-	self._getMember(name,function(err,member) {
+	self._getMember(name, function(err,member) {
 		if (err) return cb(err);
 
-		console.log("REGISTRAR --->" + self.registrar);
-
+		debug("Registrar Member ---> " + self.registrar);
 		if (!self.registrar) return cb(null,member);
 
-		console.log ("ADD : ready to registerAndEnroll");
-
+		debug("ready to registerAndEnroll");
 		member.registerAndEnroll(self.registrar,function(err) {
 			if (err) return cb(err);
 			cb(null,member);
@@ -226,13 +224,12 @@ Chain.prototype.getMember = function(name,cb) {
 };
 
 Chain.prototype._getMember = function(name, cb) {
-	console.log("ADD : enter _getMember with " + name);
+	debug("enter _getMember function with " + name);
 
 	var self = this;
 
 	// Try to get the member state from the cache
 	var member = self.members[name];
-	console.log(self.members);
 
 	if (member) return cb(null,member);
 
@@ -389,7 +386,7 @@ Member.prototype.register = function(registrar,cb) {
 		affiliation: self.getAffiliation()
 	};
 
-	console.log(req);
+	debug(JSON.stringify(req));
 
 	self.memberServices.register(req, function(err,enrollmentSecret) {
 		debug("memberServices.register err=%s, secret=%s",err,enrollmentSecret);
@@ -437,13 +434,10 @@ Member.prototype.registerAndEnroll = function(registrar,cb) {
 	cb = cb || nullCB;
 	var enrollment = self.state.enrollment;
 	if (enrollment) {
-		console.log("ADD : user previously enrolled");
-
 		debug("previously enrolled, enrollment=%j",enrollment);
 		return cb(null,enrollment);
 	}
-
-	console.log("ADD : NOT previously enrolled");
+	debug("user NOT previously enrolled");
 
 	self.register(registrar, function(err,enrollmentSecret) {
 		if (err) return cb(err);
@@ -741,7 +735,7 @@ function MemberServices(url) {
  */
 
 MemberServices.prototype.register = function(req, cb) {
-	console.log("ADD : registering " + req.name);
+	debug("registering user:" + req.name);
 
 	var self = this;
 
@@ -761,13 +755,9 @@ MemberServices.prototype.register = function(req, cb) {
 	protoReq.setAccount(req.account);
 	protoReq.setAffiliation(req.affiliation);
 
-	console.log("ADD : ready to registerUser");
-	console.log(protoReq);
+	debug("registering user with: " + JSON.stringify(protoReq));
 
   self.ecaaClient.registerUser(protoReq, function (err, token) {
-		console.log("ADD : ERR ---> " + err);
-		console.log("ADD : token --> " + token);
-
   	debug("register %j: err=%j, token=%s",protoReq,err,token);
   	if (cb) return cb(err,token?token.tok.toString():null);
   });
