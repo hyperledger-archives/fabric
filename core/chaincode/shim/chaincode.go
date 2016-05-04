@@ -21,6 +21,7 @@ package shim
 
 import (
 	"bytes"
+	"encoding/asn1"
 	"errors"
 	"flag"
 	"fmt"
@@ -29,18 +30,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"encoding/asn1"
 
-	"golang.org/x/net/context"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
+	gp "google/protobuf"
 )
 
 // Logger for the shim package.
@@ -49,13 +50,19 @@ var chaincodeLogger = logging.MustGetLogger("chaincode")
 // Handler to shim that handles all control logic.
 var handler *Handler
 
-// Chaincode is the standard chaincode callback interface that the chaincode developer needs to implement.
+// Chaincode interface must be implemented by all chaincodes. The fabric runs
+// the transactions by calling these functions as specified.
 type Chaincode interface {
-	// Init method will be called during deployment
+	// Init is called during Deploy transaction after the container has been
+	// established, allowing the chaincode to initialize its internal data
 	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
-	// Invoke will be called for every transaction
+
+	// Invoke is called for every Invoke transactions. The chaincode may change
+	// its state variables
 	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
-	// Query is to be used for read-only access to chaincode state
+
+	// Query is called for Query transactions. The chaincode may only read
+	// (but not modify) its state variables and return the result
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
@@ -282,94 +289,92 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
-func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) { 
-	tokens :=  strings.Split(header, "#")
+func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
+	tokens := strings.Split(header, "#")
 	answer := make(map[string]int)
-	
+
 	for _, token := range tokens {
-		pair:= strings.Split(token, "->")
-		
+		pair := strings.Split(token, "->")
+
 		if len(pair) == 2 {
 			key := pair[0]
 			valueStr := pair[1]
 			value, err := strconv.Atoi(valueStr)
-			if err != nil { 
+			if err != nil {
 				return nil, err
 			}
 			answer[key] = value
 		}
 	}
-	
+
 	return answer, nil
-	
+
 }
 
-// Answer all the attributes stored in the CallerCert
+// CertAttributes answers all the attributes stored in the CallerCert
 func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
-	
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+
+	var headerRaw []byte
+	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)	
+	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = stub.parseHeader(header_str)
-	
+	header, err = stub.parseHeader(headerStr)
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	attributes := make([]string, len(header))
 	count := 0
-	for k,_ := range header { 
+	for k := range header {
 		attributes[count] = k
 		count++
 	}
-    return attributes, nil
+	return attributes, nil
 }
 
-// Read the attribute with name 'attributeName' from CallerCert.
+// ReadCertAttribute reads the attribute with name 'attributeName' from CallerCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
-	
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+
+	var headerRaw []byte
+	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
-	header_str := string(header_raw)	
+	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = stub.parseHeader(header_str)
-	
+	header, err = stub.parseHeader(headerStr)
+
 	if err != nil {
 		return nil, err
 	}
-	
-	position := header[attributeName]
-	
 
-	
+	position := header[attributeName]
+
 	if position == 0 {
 		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
 	}
 
-    oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-    
-    var value []byte
-    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
+
+	var value []byte
+	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
 		return nil, err
 	}
-    return value, nil
+	return value, nil
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of
@@ -696,6 +701,11 @@ func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
 // GetPayload returns tx payload
 func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
 	return stub.securityContext.Payload, nil
+}
+
+// GetTxTimestamp returns transaction timestamp
+func (stub *ChaincodeStub) GetTxTimestamp() (*gp.Timestamp, error) {
+	return stub.securityContext.TxTimestamp, nil
 }
 
 func (stub *ChaincodeStub) getTable(tableName string) (*Table, error) {
