@@ -119,6 +119,10 @@ service Peer {
     // Accepts a stream of Message during chat session, while receiving
     // other Message (e.g. from other peers).
     rpc Chat(stream Message) returns (stream Message) {}
+
+    // Process a transaction from a remote source.
+    rpc ProcessTransaction(Transaction) returns (Response) {}
+
 }
 message PeerAddress {
     string host = 1;
