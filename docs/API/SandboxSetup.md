@@ -25,7 +25,7 @@ To set up the local development environment with security enabled, you must firs
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make membersrvc
-    (cd menbersrvc; ./membersrvc)
+    (cd membersrvc; ./membersrvc)
 
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the 'users' section of the configuration file. To register additional users with the CA for testing, modify the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional enrollmentID and enrollmentPW pairs. Note the integer that precedes the enrollmentPW. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
