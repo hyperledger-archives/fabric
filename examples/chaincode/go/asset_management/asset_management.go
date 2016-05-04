@@ -22,7 +22,8 @@ package main
 import (
 	"errors"
 	"fmt"
-
+	
+	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
