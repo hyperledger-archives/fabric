@@ -7,14 +7,14 @@ Use the following topics to navigate through the project directories and documen
 [Apache License Version 2.0](LICENSE): The Hyperledger Project software license.
 
 ## Installing the fabric
-[Installation](INSTALL.md): Describes how to install the blockchain fabric and use project tools.
+[Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
 
 ## Contributing to the project
 [Contributing](CONTRIBUTING.md): Describes the rules and procedures for contributing to the Hyperledger Project.<br>
 [Issues](https://github.com/hyperledger/fabric/issues): Lists the current work items, which all community members are eligible to work on.
 
 ## Maintaining the project
-[Maintaining](MAINTAINING.md): Lists the project maintainers and contact information.
+[Maintainers](MAINTAINERS.txt): Lists the project maintainers and contact information.
 
 ## Documentation 
 [README](docs/README.md): Project documentation table of contents (linked).
@@ -24,4 +24,4 @@ If you are new to the project, you can begin by reviewing the following document
 
   - [Whitepaper WG](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
   - [Requirements WG](https://github.com/hyperledger/hyperledger/wiki/Requirements-WG)
-  - [Protocol Specification](https://github.com/joshhus/fabric/blob/TOCReal/docs/protocol-spec.md)
+  - [Protocol Specification](docs/protocol-spec.md)
