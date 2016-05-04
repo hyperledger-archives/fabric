@@ -30,7 +30,8 @@ install:
    git clone --branch v4.1 --single-branch --depth 1 https://github.com/facebook/rocksdb.git
    cd rocksdb
    make shared_lib
-   sudo (INSTALL_PATH=/usr/local make install-shared && ldconfig)
+   sudo INSTALL_PATH=/usr/local make install-shared
+   sudo ldconfig
 
 before_script:
 
