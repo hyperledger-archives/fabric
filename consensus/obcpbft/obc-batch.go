@@ -509,7 +509,28 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-// Retrieve the idle channel, only used for testing
-func (op *obcBatch) idleChannel() <-chan struct{} {
-	return op.idleChan
+func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
+	op.pbft.Checkpoint(seqNo, id)
+}
+
+func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	handles := op.stack.GetValidatorHandles(replicas)
+	op.executor.SkipTo(seqNo, id, handles, execInfo)
+}
+
+func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
+	handles := op.stack.GetValidatorHandles(replicas)
+	op.executor.ValidState(seqNo, id, handles, execInfo)
+}
+
+func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
+	return
+}
+
+func (op *obcBatch) idleChan() <-chan struct{} {
+	return op.executor.IdleChan()
+}
+
+func (op *obcBatch) getPBFTCore() *pbftCore {
+	return op.pbft
 }
