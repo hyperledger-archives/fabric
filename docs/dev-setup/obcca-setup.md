@@ -62,12 +62,12 @@ When the CA is started for the first time, it will generate all of its required 
 
 The CA can be built with the following command executed in the `membersrvc` directory:
 
-    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
-    go build
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    make membersrvc
 
-The CA can be started with the following command executed in the directory where the CA binary is located:
+The CA can be started with the following command executed in the directory where the CA binary is located (cd ./membersrvc):
 
     ./membersrvc
 
-	
+
 The CA looks for an `membersrvc.yaml` configuration file in the same location as the server binary.  If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.

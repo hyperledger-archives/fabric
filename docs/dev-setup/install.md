@@ -27,14 +27,14 @@ From within the VM, you can build, run, and test your environment.
 #### 1. Go build
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
-go build -o peer
+make peer
 ```
 
 #### 2. Run
 
 To see what commands are available, simply execute the following command:
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
     ./peer
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](./main.go). Current build will actually create a *peer* executable file).
@@ -82,15 +82,15 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 [Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/bddtests
-behave
+cd $GOPATH/src/github.com/hyperledger/fabric
+make behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
 ```
 behave -D logs=Y
 ```
 
-Note, you must run the unit tests first to build the necessary Peer and Member Services docker images. These images can also be individually built using the commands
+Note, in order to run behave directly, you must run 'make behave-deps' first to build the necessary Peer and Member Services docker images. These images can also be individually built using the commands
 ```
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
@@ -115,7 +115,7 @@ INSTALL_PATH=/usr/local make install-shared
 - Run the following commands:
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
-CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
+make
 ```
 - Make sure that the Docker daemon initialization includes the options
 ```
