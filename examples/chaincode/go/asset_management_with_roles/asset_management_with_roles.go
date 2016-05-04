@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -74,7 +73,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 
 	asset := args[0]
 	owner := []byte(args[1])
-	
+
 	// Recover the role that is allowed to make assignments
 	assignerRole, err := stub.GetState("assignerRole")
 	if err != nil {
@@ -87,7 +86,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	if err != nil {
 		return nil, errors.New("Failed fetching caller role")
 	}
-	
+
 	if string(callerRole[:]) != string(assignerRole[:]) {
 		return nil, errors.New("The caller does not have the rights to invoke assign")
 	}
@@ -124,7 +123,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
-		return nil, fmt.Errorf("Failed retrieveing asset [%s]: [%s]", asset, err)
+		return nil, fmt.Errorf("Failed retrieving asset [%s]: [%s]", asset, err)
 	}
 
 	prvOwner := row.Columns[1].GetBytes()
@@ -237,7 +236,7 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed retrieveing asset " + asset + ". Error " + err.Error() + ". \"}"
+		jsonResp := "{\"Error\":\"Failed retrieving asset " + asset + ". Error " + err.Error() + ". \"}"
 		return nil, errors.New(jsonResp)
 	}
 
