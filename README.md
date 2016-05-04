@@ -1,5 +1,5 @@
 # README
-The open source <b>Linux Foundation Hyperledger Project</b> contains core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications. 
+The open source <b>Linux Foundation Hyperledger Project</b> contains core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications.
 
 Use the following topics to navigate through the project directories and documentation:
 
@@ -16,10 +16,10 @@ Use the following topics to navigate through the project directories and documen
 ## Maintaining the project
 [Maintainers](MAINTAINERS.txt): Lists the project maintainers and contact information.
 
-## Documentation 
+## Documentation
 [README](docs/README.md): Project documentation table of contents (linked).
 
-## Related information 
+## Related information
 If you are new to the project, you can begin by reviewing the following documents:
 
   - [Whitepaper WG](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)

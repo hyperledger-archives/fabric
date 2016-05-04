@@ -40,27 +40,29 @@ To run the tests follow the instructions below.
 
 2. Enable the security and privacy on the peer. To do so, modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the <b>security.enabled</b> value to 'true' and <b>security.privacy</b> value to 'true'. Subsequently, build and run the peer process with the following commands.
 
-```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-go build
-./peer peer  
-```
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    go build
+    ./peer peer  
 
 3. Switch to the HCL directory and run the unit tests with the following commands.
 
-```
-cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
-node test/unit/chain-tests.js | node_modules/.bin/tap-spec
-```
+    cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
+    node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 
-If the first tests fail and you see an error similar to the one below, that implies that you do not have correct port forwarding enabled in Vagrant.
+4. If the tests fail and you see errors similar to the one below, that implies that you do not have correct port forwarding enabled in Vagrant.
 
-```
-tcp_client_posix.c:173] failed to connect to 'ipv6:[::1]:50051': socket error: connection refused
-```
+    tcp_client_posix.c:173] failed to connect to 'ipv6:[::1]:50051': socket error: connection refused
 
 To address this, make sure your Vagrant setup has port forwarding enabled for port 50051 as the tests connect to the membership services on that port. Check your Vagrant file to confirm that the following line is present. If not, modify your Vagrant file to include it, then issue the command `vagrant reload`.
 
-```
-config.vm.network :forwarded_port, guest: 50051, host: 50051 # Membership service
-```
+    config.vm.network :forwarded_port, guest: 50051, host: 50051 # Membership service
+
+If you see errors stating that clients have already been registered/enrolled, keep in mind that you can perform the enrollment process only once, as the enrollmentSecret is a one-time-use password.
+
+    Error: identity or token do not match
+
+or
+
+    Error: user is already registered
+
+To address this, remove any stored crypto material from the CA server by following the instructions [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#removing-temporary-files-when-security-is-enabled).
