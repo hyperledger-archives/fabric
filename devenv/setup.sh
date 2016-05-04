@@ -137,7 +137,9 @@ sudo cp /hyperledger/devenv/limits.conf /etc/security/limits.conf
 # Set our shell prompt to something less ugly than the default from packer
 echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >> /home/vagrant/.bashrc
 
+# configure vagrant specific environment
+cat <<EOF >/etc/profile.d/vagrant-devenv.sh
 # Expose the devenv/tools in the $PATH
-cat <<EOF >/etc/profile.d/devenv-tools.sh
 export PATH=\$PATH:/hyperledger/devenv/tools
+export VAGRANT=1
 EOF

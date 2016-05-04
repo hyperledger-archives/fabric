@@ -15,8 +15,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestCar_BuildImage(t *testing.T) {
-	if os.Getenv("TRAVIS") != "" {
-		t.Skip("skipping test; TravisCI not supported")
+	if os.Getenv("VAGRANT") == "" {
+		t.Skip("skipping test; only supported within vagrant")
 	}
 
 	vm, err := container.NewVM()
