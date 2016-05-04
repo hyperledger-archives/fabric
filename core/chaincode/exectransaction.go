@@ -128,24 +128,25 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
-//succeeded, array element will be nil. returns state hash
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
+//succeeded, array element will be nil. returns []byte of state hash or 
+//error 
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (stateHash []byte, txerrs []error, err error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
-	errs := make([]error, len(xacts)+1)
+	txerrs = make([]error, len(xacts))
 	for i, t := range xacts {
-		_, errs[i] = Execute(ctxt, chain, t)
+		_, txerrs[i] = Execute(ctxt, chain, t)
 	}
-	ledger, hasherr := ledger.GetLedger()
-	var statehash []byte
-	if hasherr == nil {
-		statehash, hasherr = ledger.GetTempStateHash()
+
+	var lgr *ledger.Ledger
+	lgr, err = ledger.GetLedger()
+	if err == nil {
+		stateHash, err = lgr.GetTempStateHash()
 	}
-	errs[len(errs)-1] = hasherr
-	return statehash, errs
+	return stateHash, txerrs, err
 }
 
 // GetSecureContext returns the security context from the context object or error
