@@ -38,7 +38,7 @@ before_script:
  - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
  - go build && echo " STARTING PEER PROCESS "
- - ./peer peer &
+ - ./peer start node &
  - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
 
 script:
