@@ -49,7 +49,7 @@ func deploy() (err error) {
 
 	// 4. Alice constructs a deploy transaction, as described in *application-ACL.md*,  setting the transaction
 	// metadata to *DER(CharlieCert)*.
-	// 5. Alice submits the transaction to the fabric network.
+	// 5. Alice submits th	e transaction to the fabric network.
 	resp, err := deployInternal(alice, bobCert)
 	if err != nil {
 		appLogger.Error("Failed deploying [%s]", err)
@@ -90,8 +90,8 @@ func assignOwnership() (err error) {
 	}
 	appLogger.Debug("Resp [%s]", resp.String())
 
-	appLogger.Debug("Wait 5 seconds")
-	time.Sleep(5 * time.Second)
+	appLogger.Debug("Wait 30 seconds")
+	time.Sleep(30 * time.Second)
 
 	// Check the owner of 'Picasso". It should be charlie
 	appLogger.Debug("Query....")
@@ -124,8 +124,8 @@ func assignOwnership() (err error) {
 	}
 	appLogger.Debug("Charlie is the owner!")
 
-	appLogger.Debug("Wait 5 seconds...")
-	time.Sleep(5 * time.Second)
+	appLogger.Debug("Wait 30 seconds...")
+	time.Sleep(30 * time.Second)
 
 	appLogger.Debug("------------- Done!")
 	return
@@ -153,8 +153,8 @@ func transferOwnership() (err error) {
 	}
 	appLogger.Debug("Resp [%s]", resp.String())
 
-	appLogger.Debug("Wait 5 seconds")
-	time.Sleep(5 * time.Second)
+	appLogger.Debug("Wait 30 seconds")
+	time.Sleep(30 * time.Second)
 
 	appLogger.Debug("Query....")
 	queryTx, theOwnerIs, err := whoIsTheOwner(charlie, "Picasso")
