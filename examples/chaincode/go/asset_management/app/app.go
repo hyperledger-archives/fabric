@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"time"
+	"fmt"
 )
 
 var (
@@ -119,7 +120,7 @@ func assignOwnership() (err error) {
 		appLogger.Debug("Query result  : [% x]", res)
 		appLogger.Debug("Charlie's cert: [% x]", charlieCert.GetCertificate())
 
-		return
+		return fmt.Errorf("Charlie is not the owner.")
 	}
 	appLogger.Debug("Charlie is the owner!")
 
@@ -181,7 +182,7 @@ func transferOwnership() (err error) {
 		appLogger.Debug("Query result  : [% x]", res)
 		appLogger.Debug("Dave's cert: [% x]", daveCert.GetCertificate())
 
-		return
+		return fmt.Errorf("Dave is not the owner.")
 	}
 
 	appLogger.Debug("------------- Done!")
