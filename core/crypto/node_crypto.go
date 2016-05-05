@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/x509"
+
 	ecies "github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 )
 
@@ -18,25 +19,25 @@ func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
 	}
 
 	if err := node.retrieveECACertsChain(enrollID); err != nil {
-		node.error("Failed retrieveing ECA certs chain [%s].", err.Error())
+		node.error("Failed retrieving ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTCACertsChain(enrollID); err != nil {
-		node.error("Failed retrieveing ECA certs chain [%s].", err.Error())
+		node.error("Failed retrieving ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-		node.error("Failed retrieveing enrollment data [%s].", err.Error())
+		node.error("Failed retrieving enrollment data [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.error("Failed retrieveing enrollment data: %s", err)
+		node.error("Failed retrieving enrollment data: %s", err)
 
 		return err
 	}

@@ -1,25 +1,33 @@
-# README
-The open source <b>Linux Foundation Hyperledger Project</b> contains core blockchain fabric code, development environment scripts, and documents for developers to contribute fabric code or work on their own applications. 
+[![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
 
-Use the following topics to navigate through the project directories and documentation:
+# Incubation Notice
+This project is a Hyperledger project in _Incubation_. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what _Incubation_ entails can be found in the [Hyperledger Project Lifecycle document](https://goo.gl/4edNRc).
 
-## License <a name="license"></a>
-[Apache License Version 2.0](LICENSE): The Hyperledger Project software license.
+# Hyperledger Fabric
+The fabric is an implementation of blockchain technology, leveraging familiar and proven technologies. It is a modular architecture allowing pluggable implementations of various function. It features powerful container technology to host any mainstream language for smart contracts development.
+
+## Contributing to the project
+We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+## Maintainers
+The project's [maintainers](MAINTAINERS.txt): are responsible for reviewing and merging all pull requests and they guide the over-all technical direction of the project within the guidelines established by the Hyperledger Project's Technical Steering Committee (TSC).
+
+## Communication <a name="communication"></a>
+We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
 
 ## Installing the fabric
 [Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
 
-## Contributing to the project
-[Contributing](CONTRIBUTING.md): Describes the rules and procedures for contributing to the Hyperledger Project.<br>
-[Issues](https://github.com/hyperledger/fabric/issues): Lists the current work items, which all community members are eligible to work on.
+## Documentation
+[README](docs/README.md): Project documentation.
 
-## Maintaining the project
-[Maintainers](MAINTAINERS.txt): Lists the project maintainers and contact information.
+## Still Have Questions?
+For general purpose questions, please use [StackOverflow](http://stackoverflow.com/questions/tagged/hyperledger).
 
-## Documentation 
-[README](docs/README.md): Project documentation table of contents (linked).
+## License <a name="license"></a>
+The Hyperledger Project uses the [Apache License Version 2.0](LICENSE) software license.
 
-## Related information 
+## Related information
 If you are new to the project, you can begin by reviewing the following documents:
 
   - [Whitepaper WG](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
