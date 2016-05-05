@@ -22,16 +22,18 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 
 	"fmt"
+	"github.com/hyperledger/fabric/consensus/controller"
+	"github.com/hyperledger/fabric/consensus/util"
 	"github.com/hyperledger/fabric/core/chaincode"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"sync"
-	"github.com/hyperledger/fabric/consensus/controller"
 )
 
 type EngineImpl struct {
 	consenter    consensus.Consenter
 	peerEndpoint *pb.PeerEndpoint
+	consensusFan *util.MessageFan
 }
 
 func (eng *EngineImpl) GetHandlerFactory() peer.HandlerFactory {
@@ -65,6 +67,9 @@ func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction
 		if eng.consenter == nil {
 			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Engine not initialized")}
 		}
+		// TODO, do we want to put these requests into a queue? This will block until
+		// the consenter gets around to handling the message, but it also provides some
+		// natural feedback to the REST API to determine how long it takes to queue messages
 		err := eng.consenter.RecvMsg(msg, eng.peerEndpoint.ID)
 		if err != nil {
 			response = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
@@ -95,9 +100,20 @@ func GetEngine(coord peer.MessageHandlerCoordinator) (peer.Engine, error) {
 	var err error
 	engineOnce.Do(func() {
 		engine = new(EngineImpl)
-		engine.consenter = controller.NewConsenter(NewHelper(coord))
+		helper := NewHelper(coord)
+		engine.consenter = controller.NewConsenter(helper)
+		helper.setConsenter(engine.consenter)
 		engine.peerEndpoint, err = coord.GetPeerEndpoint()
+		engine.consensusFan = util.NewMessageFan()
 
+		go func() {
+			logger.Debug("Starting up message thread for consenter")
+
+			// The channel never closes, so this should never break
+			for msg := range engine.consensusFan.GetOutChannel() {
+				engine.consenter.RecvMsg(msg.Msg, msg.Sender)
+			}
+		}()
 	})
 	return engine, err
 }

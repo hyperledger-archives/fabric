@@ -33,8 +33,12 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+func (op *obcSieve) getPBFTCore() *pbftCore {
+	return op.pbft
+}
+
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
-	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
+	// It's not entirely obvious why the compiler likes the parent function, but not newObcSieve directly
 	return newObcSieve(id, config, stack)
 }
 
@@ -85,12 +89,16 @@ func TestSieveNetwork(t *testing.T) {
 	}
 }
 
+// TestSieveNoDecision disables PFBT messages from replica 0 to
+// simulate the sieve leader being byzantine.  Execute and verify
+// replies will make it to replica 0, but the replicas will time out
+// waiting for the verifyset.
 func TestSieveNoDecision(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper, func(ce *consumerEndpoint) {
-		ce.consumer.(*obcSieve).pbft.requestTimeout = 200 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.requestTimeout = 400 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.newViewTimeout = 800 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 800 * time.Millisecond
 	})
 	// net.debug = true // Enable for debug
 	net.testnet.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -206,7 +214,6 @@ func TestSieveNonDeterministic(t *testing.T) {
 	results := make([][]byte, len(net.endpoints))
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		<-cep.idleChan()
 		block, err := cep.consumer.(*obcSieve).stack.GetBlock(1)
 		if err != nil {
 			t.Fatalf("Expected replica %d to have one block", cep.id)

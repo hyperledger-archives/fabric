@@ -27,6 +27,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+func (op *obcBatch) getPBFTCore() *pbftCore {
+	return op.pbft
+}
+
 func obcBatchHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
 	return newObcBatch(id, config, stack)
