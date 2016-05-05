@@ -141,9 +141,13 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
-        # if the given value is not recognized, we will default to noops
-        consensus: noops
+        consensus:
+            # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
+            # if the given value is not recognized, we will default to noops
+            plugin: noops
+
+            # total number of consensus messages which will be buffered per connection before delivery is rejected
+            buffersize: 1000
 
         events:
             # The address that the Event service will be enabled on the validator
@@ -290,6 +294,13 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    car:
+
+        # This is the basis for the CAR Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
+        Dockerfile:  |
+            FROM openblockchain/baseimage
+
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000
@@ -344,9 +355,11 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. Options are
-    # 'buckettree' and 'trie'. If not set, the default data structure is the
-    # 'buckettree'. This CANNOT be changed after the DB has been created.
+    # structures may offer different performance characteristics. 
+    # Options are 'buckettree', 'trie' and 'raw'.
+    # ( Note:'raw' is experimental and incomplete. )
+    # If not set, the default data structure is the 'buckettree'.
+    # This CANNOT be changed after the DB has been created.
     dataStructure:
       # The name of the data structure is for storing the state
       name: buckettree
@@ -408,5 +421,46 @@ security:
       attributes:
         company: IBM
         position: "Software Engineer"
-        
 
+
+################################################################################
+#
+#   SECTION: STATETRANSFER
+#
+#   - This applies to recovery behavior when the replica has detected
+#     a state transfer is required
+#
+#   - This might happen:
+#     - During a view change in response to a faulty primary
+#     - After a network outage which has isolated the replica
+#     - If the current blockchain/state is determined to be corrupt
+#
+################################################################################
+statetransfer:
+
+    # Should a replica attempt to fix damaged blocks?
+    # In general, this should be set to true, setting to false will cause
+    # the replica to panic, and require a human's intervention to intervene
+    # and fix the corruption
+    recoverdamage: true
+
+    # The number of blocks to retrieve per sync request
+    blocksperrequest: 20
+
+    # The maximum number of state deltas to attempt to retrieve
+    # If more than this number of deltas is required to play the state up to date
+    # then instead the state will be flagged as invalid, and a full copy of the state
+    # will be retrieved instead
+    maxdeltas: 200
+
+    # Timeouts
+    timeout:
+
+        # How long may returning a single block take
+        singleblock: 2s
+
+        # How long may returning a single state delta take
+        singlestatedelta: 2s
+
+        # How long may transferring the complete state take
+        fullstate: 60s

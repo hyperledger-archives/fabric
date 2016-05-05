@@ -1,3 +1,19 @@
+#
+# Copyright IBM Corp. 2016 All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import os
 import re
 import time
@@ -105,6 +121,7 @@ def step_impl(context, composeYamlFile):
         bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
+    time.sleep(10)              # Should be replaced with a definitive interlock guaranteeing that all peers/membersrvc are ready
 
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):

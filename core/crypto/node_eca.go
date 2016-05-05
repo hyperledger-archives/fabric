@@ -30,7 +30,8 @@ import (
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	ecies "github.com/hyperledger/fabric/core/crypto/ecies/generic"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -177,7 +178,7 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 
 	// TODO: move this to retrieve
 	pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
-	err = utils.VerifySignCapability(node.enrollPrivKey, pk)
+	err = primitives.VerifySignCapability(node.enrollPrivKey, pk)
 	if err != nil {
 		node.error("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
 
@@ -185,11 +186,11 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 	}
 
 	// Set node ID
-	node.id = utils.Hash(der)
+	node.id = primitives.Hash(der)
 	node.debug("Setting id to [% x].", node.id)
 
 	// Set eCertHash
-	node.enrollCertHash = utils.Hash(der)
+	node.enrollCertHash = primitives.Hash(der)
 	node.debug("Setting enrollCertHash to [% x].", node.enrollCertHash)
 
 	return nil
@@ -336,7 +337,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 	// Run the protocol
 
-	signPriv, err := utils.NewECDSAKey()
+	signPriv, err := primitives.NewECDSAKey()
 	if err != nil {
 		node.error("Failed generating ECDSA key [%s].", err.Error())
 
@@ -349,7 +350,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	encPriv, err := utils.NewECDSAKey()
+	encPriv, err := primitives.NewECDSAKey()
 	if err != nil {
 		node.error("Failed generating Encryption key [%s].", err.Error())
 
@@ -403,7 +404,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	req.Tok.Tok = out
 	req.Sig = nil
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ := proto.Marshal(req)
 	hash.Write(raw)
 
@@ -427,7 +428,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	// Verify response
 
 	// Verify cert for signing
-	node.debug("Enrollment certificate for signing [% x]", utils.Hash(resp.Certs.Sign))
+	node.debug("Enrollment certificate for signing [% x]", primitives.Hash(resp.Certs.Sign))
 
 	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
 	if err != nil {
@@ -451,7 +452,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	// Verify cert for encrypting
-	node.debug("Enrollment certificate for encrypting [% x]", utils.Hash(resp.Certs.Enc))
+	node.debug("Enrollment certificate for encrypting [% x]", primitives.Hash(resp.Certs.Enc))
 
 	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
 	if err != nil {

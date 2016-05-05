@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package helper
@@ -22,11 +19,14 @@ package helper
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core"
-	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/helper/persist"
+	"github.com/hyperledger/fabric/consensus/statetransfer"
+	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
@@ -36,17 +36,31 @@ import (
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
+	consenter   consensus.Consenter
 	coordinator peer.MessageHandlerCoordinator
 	secOn       bool
 	secHelper   crypto.Peer
 	curBatch    []*pb.Transaction // TODO, remove after issue 579
+	persist.PersistHelper
+
+	sts *statetransfer.StateTransferState
 }
 
 // NewHelper constructs the consensus helper object
-func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
-	return &Helper{coordinator: mhc,
-		secOn:     core.SecurityEnabled(),
-		secHelper: mhc.GetSecHelper()}
+func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
+	h := &Helper{
+		coordinator: mhc,
+		secOn:       viper.GetBool("security.enabled"),
+		secHelper:   mhc.GetSecHelper(),
+	}
+	h.sts = statetransfer.NewStateTransferState(h)
+	h.sts.Initiate(nil)
+	h.sts.RegisterListener(h)
+	return h
+}
+
+func (h *Helper) setConsenter(c consensus.Consenter) {
+	h.consenter = c
 }
 
 // GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
@@ -207,21 +221,22 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-// PreviewCommitTxBatch retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
-// As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
-// this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
-// The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
-func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+// PreviewCommitTxBatch retrieves a preview of the block info blob (as
+// returned by GetBlockchainInfoBlob) that would describe the
+// blockchain if CommitTxBatch were invoked.  The blockinfo will
+// change if additional ExecTXs calls are invoked.
+func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this once the underlying API is fixed
-	block, err := ledger.GetTXBatchPreviewBlock(id, h.curBatch, metadata)
+	blockInfo, err := ledger.GetTXBatchPreviewBlockInfo(id, h.curBatch, metadata)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+		return nil, fmt.Errorf("Failed to preview commit: %v", err)
 	}
-	return block, err
+	rawInfo, _ := proto.Marshal(blockInfo)
+	return rawInfo, nil
 }
 
 // GetBlock returns a block from the chain
@@ -356,4 +371,45 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 		Start: start,
 		End:   finish,
 	})
+}
+
+func (h *Helper) GetBlockchainInfoBlob() []byte {
+	ledger, _ := ledger.GetLedger()
+	info, _ := ledger.GetBlockchainInfo()
+	rawInfo, _ := proto.Marshal(info)
+	return rawInfo
+}
+
+func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
+	ledger, err := ledger.GetLedger()
+	if err != nil {
+		return nil, err
+	}
+	head := ledger.GetBlockchainSize()
+	block, err := ledger.GetBlockByNumber(head - 1)
+	if err != nil {
+		return nil, err
+	}
+	return block.ConsensusMetadata, nil
+}
+
+func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	info := &pb.BlockchainInfo{}
+	proto.Unmarshal(id, info)
+	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
+}
+
+func (h *Helper) Initiated() {
+}
+
+func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
+	h.consenter.StateUpdate(m.(uint64), bh)
+}
+
+func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
+	if seqNo, ok := m.(uint64); !ok {
+		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
+	} else {
+		logger.Warning("state transfer reported error for block %d, %s", bn, e)
+	}
 }

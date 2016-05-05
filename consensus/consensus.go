@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package consensus
@@ -28,6 +25,7 @@ import (
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
+	StateUpdate(tag uint64, id []byte)
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -59,6 +57,8 @@ type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() (uint64, error)
+	GetBlockchainInfoBlob() []byte
+	GetBlockHeadMetadata() ([]byte, error)
 }
 
 // UtilLedger contains additional useful utility functions for interrogating the blockchain
@@ -89,7 +89,9 @@ type Executor interface {
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
+
+	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
 // RemoteLedgers is used to interrogate the blockchain of other replicas
@@ -99,16 +101,19 @@ type RemoteLedgers interface {
 	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
-// LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
-type LedgerStack interface {
-	Executor
-	Ledger
-	RemoteLedgers
+type StatePersistor interface {
+	StoreState(key string, value []byte) error
+	ReadState(key string) ([]byte, error)
+	ReadStateSet(prefix string) (map[string][]byte, error)
+	DelState(key string)
 }
 
 // Stack is the set of stack-facing methods available to the consensus plugin
 type Stack interface {
 	NetworkStack
 	SecurityUtils
-	LedgerStack
+	Executor
+	Ledger
+	RemoteLedgers
+	StatePersistor
 }

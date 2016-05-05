@@ -15,14 +15,12 @@ Feature: lanching 3 peers
 #    @wip
   Scenario: Peers list test, single peer issue #827
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/network/peers" from "vp0"
       Then I should get a JSON response with array "peers" contains "1" elements
 
 #    @wip
   Scenario: Peers list test,3 peers issue #827
     Given we compose "docker-compose-3.yml"
-      And I wait "1" seconds
       When requesting "/network/peers" from "vp0"
       Then I should get a JSON response with array "peers" contains "3" elements
 
@@ -31,7 +29,6 @@ Feature: lanching 3 peers
    @issue_767
   Scenario: Range query test, single peer, issue #767
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
       When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/map" with ctor "init" to "vp0"
@@ -91,7 +88,6 @@ Feature: lanching 3 peers
   @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
       When I deploy chaincode "github.com/hyperledger/fabric/bddtests/chaincode/go/table" with ctor "init" to "vp0"
@@ -321,7 +317,6 @@ Feature: lanching 3 peers
 #    @wip
 	Scenario: chaincode example 02 single peer
 	    Given we compose "docker-compose-1.yml"
-	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
@@ -362,7 +357,6 @@ Feature: lanching 3 peers
 #    @wip
 	Scenario: chaincode example02 with 5 peers, issue #520
 	    Given we compose "docker-compose-5.yml"
-	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
@@ -395,7 +389,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #567
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "3" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  |
         And I use the following credentials for querying peers:
@@ -446,7 +439,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "5" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
                      | vp0  |
             And I use the following credentials for querying peers:
@@ -473,7 +465,7 @@ Feature: lanching 3 peers
                     |arg1|arg2|arg3|
                     | b  | a  | 1  |
 	        Then I should have received a transactionID
-	        Then I wait up to "30" seconds for transaction to be committed to peers:
+	        Then I wait up to "60" seconds for transaction to be committed to peers:
                     | vp0  | vp1 | vp2 | vp3 |
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -490,7 +482,7 @@ Feature: lanching 3 peers
 			|arg1|arg2|arg3|
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
-	    Then I wait up to "10" seconds for transaction to be committed to peers:
+	    Then I wait up to "120" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 |
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -504,7 +496,7 @@ Feature: lanching 3 peers
         And I wait "15" seconds
 
         # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
-        When I invoke chaincode "example2" function name "invoke" on "vp0" "6" times
+        When I invoke chaincode "example2" function name "invoke" on "vp0" "10" times
 			|arg1|arg2|arg3|
 			| a  | b  | 10 |
 	    Then I should have received a transactionID
@@ -512,7 +504,7 @@ Feature: lanching 3 peers
             | vp0  | vp1 | vp2 | vp3 |
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "60"
+	    Then I should get a JSON response from peers with "OK" = "20"
             | vp0  | vp1 | vp2 | vp3 |
 
 
@@ -528,7 +520,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #724
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "3" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  |
         And I use the following credentials for querying peers:
@@ -593,7 +584,6 @@ Feature: lanching 3 peers
    Scenario Outline: 4 peers and 1 membersrvc, consensus still works if one backup replica fails
 
       Given we compose "<ComposeFile>"
-      And I wait "10" seconds
       And I use the following credentials for querying peers:
          | peer |   username  |    secret    |
          | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -619,7 +609,7 @@ Feature: lanching 3 peers
            |arg1|arg2|arg3|
            | a  | b  | 1  |
        Then I should have received a transactionID
-       Then I wait up to "10" seconds for transaction to be committed to peers:
+       Then I wait up to "60" seconds for transaction to be committed to peers:
            | vp0  | vp1 | vp2 | vp3 |
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -657,7 +647,6 @@ Feature: lanching 3 peers
  Scenario Outline: 4 peers and 1 membersrvc, consensus fails if 2 backup replicas fail
 
     Given we compose "<ComposeFile>"
-    And I wait "10" seconds
     And I use the following credentials for querying peers:
        | peer |   username  |    secret    |
        | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -683,7 +672,7 @@ Feature: lanching 3 peers
          |arg1|arg2|arg3|
          | a  | b  | 1  |
      Then I should have received a transactionID
-     Then I wait up to "5" seconds for transaction to be committed to peers:
+     Then I wait up to "60" seconds for transaction to be committed to peers:
          | vp0  | vp1 | vp2 | vp3 |
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -719,7 +708,6 @@ Feature: lanching 3 peers
       Scenario Outline: 4 peers and 1 membersrvc, consensus still works if 1 peer (vp3) is byzantine
 
          Given we compose "<ComposeFile>"
-         And I wait "10" seconds
          And I use the following credentials for querying peers:
             | peer |   username  |    secret    |
             | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -744,7 +732,7 @@ Feature: lanching 3 peers
               |arg1|arg2|arg3|
               | a  | b  | 1  |
           Then I should have received a transactionID
-          Then I wait up to "15" seconds for transaction to be committed to peers:
+          Then I wait up to "60" seconds for transaction to be committed to peers:
               | vp0  | vp1 | vp2 |
 
          When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -764,7 +752,6 @@ Feature: lanching 3 peers
   Scenario Outline: chaincode example02 with 4 peers,1 membersrvc, and 1 non-validating peer.
 
       Given we compose "<ComposeFile>"
-      And I wait "5" seconds
       And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
          | nvp0  |
       And I use the following credentials for querying peers:
@@ -790,3 +777,70 @@ Feature: lanching 3 peers
     Examples: Consensus Options
         |          ComposeFile                                                       |   WaitTime   |
         |   docker-compose-4-consensus-batch.yml docker-compose-4-consensus-nvp0.yml |      60      |
+
+  #@doNotDecompose
+  @issue_1000
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, test crash fault
+
+	    Given we compose "<ComposeFile>"
+	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+                     | vp0  |
+            And I use the following credentials for querying peers:
+		     | peer |   username  |    secret    |
+		     | vp0  |  test_user0 | MS9qrN8hFjlE |
+		     | vp1  |  test_user1 | jGlNl6ImkuDo |
+		     | vp2  |  test_user2 | zMflqOKezFiA |
+		     | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+	    When requesting "/chain" from "vp0"
+	        Then I should get a JSON response with "height" = "1"
+
+            # Deploy
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
+                    | arg1 |  arg2 | arg3 | arg4 |
+                    |  a   |  100  |  b   |  200 |
+	        Then I should have received a chaincode name
+	        Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                     | vp0  | vp1 | vp2 | vp3 |
+
+            # Build up a sizable blockchain, to advance the sequence number
+            When I invoke chaincode "example2" function name "invoke" on "vp0" "30" times
+                    |arg1|arg2|arg3|
+                    | b  | a  | 1  |
+	        Then I should have received a transactionID
+	        Then I wait up to "60" seconds for transaction to be committed to peers:
+                    | vp0  | vp1 | vp2 | vp3 |
+
+            When I query chaincode "example2" function name "query" with value "a" on peers:
+                    | vp0  | vp1 | vp2 | vp3 |
+	        Then I should get a JSON response from peers with "OK" = "130"
+                    | vp0  | vp1 | vp2 | vp3 |
+
+        # Stop vp1, vp2, vp3
+        Given I stop peers:
+            | vp1 | vp2 | vp3 |
+
+        # Now start vp1, vp2 again, hopefully retaining pbft state
+        Given I start peers:
+            | vp1 | vp2 |
+        And I wait "15" seconds
+
+        # Invoke 1 more tx, if the crash recovery worked, it will commit, otherwise, it will not
+        When I invoke chaincode "example2" function name "invoke" on "vp0"
+			|arg1|arg2|arg3|
+			| a  | b  | 10 |
+	    Then I should have received a transactionID
+	    Then I wait up to "60" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 |
+        When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 |
+	    Then I should get a JSON response from peers with "OK" = "120"
+            | vp0  | vp1 | vp2 |
+
+
+    Examples: Consensus Options
+        |          ComposeFile                       |   WaitTime   |
+        |   docker-compose-4-consensus-classic.yml   |      60      |
+        |   docker-compose-4-consensus-batch.yml     |      60      |
+        #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
+

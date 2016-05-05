@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/conf"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -33,23 +33,23 @@ func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 	enrollChainKey := client.enrollChainKey.([]byte)
 
 	// Derive key
-	txKey := utils.HMAC(enrollChainKey, tx.Nonce)
+	txKey := primitives.HMAC(enrollChainKey, tx.Nonce)
 
 	//	client.log.Info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
 	//	client.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
 	//	client.log.Info("Derived key  ", utils.EncodeBase64(txKey))
 
 	// Encrypt Payload
-	payloadKey := utils.HMACTruncated(txKey, []byte{1}, utils.AESKeyLength)
-	encryptedPayload, err := utils.CBCPKCS7Encrypt(payloadKey, tx.Payload)
+	payloadKey := primitives.HMACAESTruncated(txKey, []byte{1})
+	encryptedPayload, err := primitives.CBCPKCS7Encrypt(payloadKey, tx.Payload)
 	if err != nil {
 		return err
 	}
 	tx.Payload = encryptedPayload
 
 	// Encrypt ChaincodeID
-	chaincodeIDKey := utils.HMACTruncated(txKey, []byte{2}, utils.AESKeyLength)
-	encryptedChaincodeID, err := utils.CBCPKCS7Encrypt(chaincodeIDKey, tx.ChaincodeID)
+	chaincodeIDKey := primitives.HMACAESTruncated(txKey, []byte{2})
+	encryptedChaincodeID, err := primitives.CBCPKCS7Encrypt(chaincodeIDKey, tx.ChaincodeID)
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
 
 	// Encrypt Metadata
 	if len(tx.Metadata) != 0 {
-		metadataKey := utils.HMACTruncated(txKey, []byte{3}, utils.AESKeyLength)
-		encryptedMetadata, err := utils.CBCPKCS7Encrypt(metadataKey, tx.Metadata)
+		metadataKey := primitives.HMACAESTruncated(txKey, []byte{3})
+		encryptedMetadata, err := primitives.CBCPKCS7Encrypt(metadataKey, tx.Metadata)
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ type chainCodeValidatorMessage1_2 struct {
 
 func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Create (PK_C,SK_C) pair
-	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, conf.GetDefaultCurve())
+	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, primitives.GetDefaultCurve())
 	if err != nil {
 		client.error("Failed generate chaincode keypair: [%s]", err)
 
@@ -92,7 +92,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	switch tx.Type {
 	case obc.Transaction_CHAINCODE_DEPLOY:
 		// Prepare chaincode stateKey and privateKey
-		stateKey, err = utils.GenAESKey()
+		stateKey, err = primitives.GenAESKey()
 		if err != nil {
 			client.error("Failed creating state key: [%s]", err)
 
@@ -109,7 +109,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		break
 	case obc.Transaction_CHAINCODE_QUERY:
 		// Prepare chaincode stateKey and privateKey
-		stateKey = utils.HMACTruncated(client.queryStateKey, append([]byte{6}, tx.Nonce...), utils.AESKeyLength)
+		stateKey = primitives.HMACAESTruncated(client.queryStateKey, append([]byte{6}, tx.Nonce...))
 
 		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {

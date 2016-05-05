@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -26,6 +23,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
@@ -251,8 +250,12 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 	return block, nil
 }
 
-func (mock *MockLedger) PreviewCommitTxBatch(id interface{}, metadata []byte) (*protos.Block, error) {
-	return mock.commonCommitTx(id, metadata, true)
+func (mock *MockLedger) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
+	b, err := mock.commonCommitTx(id, metadata, true)
+	if err != nil {
+		return nil, err
+	}
+	return mock.getBlockInfoBlob(mock.blockHeight+1, b), nil
 }
 
 func (mock *MockLedger) RollbackTxBatch(id interface{}) error {
@@ -620,6 +623,37 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	}
 }
 
+func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
+	b, _ := mock.GetBlock(mock.blockHeight - 1)
+	return mock.getBlockInfoBlob(mock.blockHeight, b)
+}
+
+func (mock *MockLedger) getBlockInfoBlob(height uint64, block *protos.Block) []byte {
+	info := &protos.BlockchainInfo{Height: height}
+	info.CurrentBlockHash, _ = mock.HashBlock(block)
+	h, _ := proto.Marshal(info)
+	return h
+}
+
+func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, error) {
+	b, ok := mock.blocks[mock.blockHeight-1]
+	if !ok {
+		return nil, fmt.Errorf("could not retrieve block from mock ledger")
+	}
+	return b.ConsensusMetadata, nil
+}
+
+func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*protos.PeerID) {
+	info := &protos.BlockchainInfo{}
+	proto.Unmarshal(id, info)
+	fmt.Printf("TEST LEDGER skipping to %+v, %+v", meta, info)
+	for n := mock.blockHeight; n < info.Height; n++ {
+		block := SimpleGetBlock(n)
+		block.ConsensusMetadata = meta
+		mock.PutBlock(n, block)
+	}
+}
+
 // Used when the actual transaction content is irrelevant, useful for testing
 // state transfer, and other situations without requiring a simulated network
 type MockRemoteLedger struct {
@@ -643,6 +677,18 @@ func (mock *MockRemoteLedger) GetBlockchainSize() (uint64, error) {
 
 func (mock *MockRemoteLedger) GetCurrentStateHash() (stateHash []byte, err error) {
 	return SimpleEncodeUint64(SimpleGetState(mock.blockHeight - 1)), nil
+}
+
+func (mock *MockRemoteLedger) GetBlockchainInfoBlob() []byte {
+	info := &protos.BlockchainInfo{Height: mock.blockHeight}
+	b, _ := mock.GetBlock(mock.blockHeight)
+	info.CurrentBlockHash = SimpleHashBlock(b)
+	h, _ := proto.Marshal(info)
+	return h
+}
+
+func (mock *MockRemoteLedger) GetBlockHeadMetadata() ([]byte, error) {
+	panic("don't have this data")
 }
 
 func SimpleEncodeUint64(num uint64) []byte {

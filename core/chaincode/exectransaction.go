@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package chaincode
@@ -51,14 +48,14 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 	}
 
 	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
-		_, err := chain.DeployChaincode(ctxt, t)
+		_, err := chain.Deploy(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
 		}
 
 		//launch and wait for ready
 		markTxBegin(ledger, t)
-		_, _, err = chain.LaunchChaincode(ctxt, t)
+		_, _, err = chain.Launch(ctxt, t)
 		if err != nil {
 			markTxFinish(ledger, t, false)
 			return nil, fmt.Errorf("%s", err)
@@ -66,7 +63,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		markTxFinish(ledger, t, true)
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
-		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
+		cID, cMsg, err := chain.Launch(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}

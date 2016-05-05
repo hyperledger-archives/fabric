@@ -21,30 +21,25 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"math/big"
-	"net"
-	"time"
 )
 
 var (
 	// TCertEncTCertIndex oid for TCertIndex
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
-	
+
 	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
-	
-	// TCertEncAttributesBase is the base ASN1 object identifier for attributes. 
-	// When generating an extension to include the attribute an index will be 
+
+	// TCertEncAttributesBase is the base ASN1 object identifier for attributes.
+	// When generating an extension to include the attribute an index will be
 	// appended to this Object Identifier.
 	TCertEncAttributesBase = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6}
-	
+
 	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
 	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 )
@@ -146,77 +141,6 @@ func GetCriticalExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) ([]
 //
 //	return nil, errors.New("Failed retrieving extension.")
 //}
-
-// NewSelfSignedCert create a self signed certificate
-func NewSelfSignedCert() ([]byte, interface{}, error) {
-	privKey, err := NewECDSAKey()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	testExtKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
-	testUnknownExtKeyUsage := []asn1.ObjectIdentifier{[]int{1, 2, 3}, []int{2, 59, 1}}
-	extraExtensionData := []byte("extra extension")
-	commonName := "test.example.com"
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName:   commonName,
-			Organization: []string{"Σ Acme Co"},
-			Country:      []string{"US"},
-			ExtraNames: []pkix.AttributeTypeAndValue{
-				{
-					Type:  []int{2, 5, 4, 42},
-					Value: "Gopher",
-				},
-				// This should override the Country, above.
-				{
-					Type:  []int{2, 5, 4, 6},
-					Value: "NL",
-				},
-			},
-		},
-		NotBefore: time.Unix(1000, 0),
-		NotAfter:  time.Unix(100000, 0),
-
-		SignatureAlgorithm: x509.ECDSAWithSHA384,
-
-		SubjectKeyId: []byte{1, 2, 3, 4},
-		KeyUsage:     x509.KeyUsageCertSign,
-
-		ExtKeyUsage:        testExtKeyUsage,
-		UnknownExtKeyUsage: testUnknownExtKeyUsage,
-
-		BasicConstraintsValid: true,
-		IsCA: true,
-
-		OCSPServer:            []string{"http://ocsp.example.com"},
-		IssuingCertificateURL: []string{"http://crt.example.com/ca1.crt"},
-
-		DNSNames:       []string{"test.example.com"},
-		EmailAddresses: []string{"gopher@golang.org"},
-		IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1).To4(), net.ParseIP("2001:4860:0:2001::68")},
-
-		PolicyIdentifiers:   []asn1.ObjectIdentifier{[]int{1, 2, 3}},
-		PermittedDNSDomains: []string{".example.com", "example.com"},
-
-		CRLDistributionPoints: []string{"http://crl1.example.com/ca1.crl", "http://crl2.example.com/ca1.crl"},
-
-		ExtraExtensions: []pkix.Extension{
-			{
-				Id:    []int{1, 2, 3, 4},
-				Value: extraExtensionData,
-			},
-		},
-	}
-
-	cert, err := x509.CreateCertificate(rand.Reader, &template, &template, &privKey.PublicKey, privKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cert, privKey, nil
-}
 
 // CheckCertPKAgainstSK checks certificate's publickey against the passed secret key
 func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) error {

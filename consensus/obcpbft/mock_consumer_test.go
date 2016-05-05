@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -23,6 +20,7 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -36,8 +34,28 @@ func (ce *consumerEndpoint) stop() {
 	ce.consumer.Close()
 }
 
-func (ce *consumerEndpoint) idleChan() <-chan struct{} {
-	return ce.consumer.idleChan()
+func (ce *consumerEndpoint) isBusy() bool {
+	if ce.consumer.getPBFTCore().timerActive || ce.consumer.getPBFTCore().currentExec != nil {
+		ce.net.debugMsg("Reporting busy because of timer or currentExec\n")
+		return true
+	}
+
+	select {
+	case <-ce.consumer.idleChannel():
+	default:
+		ce.net.debugMsg("Reporting busy because consumer not idle\n")
+		return true
+	}
+
+	select {
+	case <-ce.consumer.getPBFTCore().idleChan:
+		ce.net.debugMsg("Reporting busy because pbft not idle\n")
+	default:
+		return true
+	}
+	//}
+
+	return false
 }
 
 func (ce *consumerEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
@@ -48,14 +66,24 @@ type completeStack struct {
 	*consumerEndpoint
 	*noopSecurity
 	*MockLedger
+	mockPersist
+}
+
+func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	go func() {
+		meta := &Metadata{tag}
+		metaRaw, _ := proto.Marshal(meta)
+		cs.simulateStateTransfer(metaRaw, id, peers)
+		cs.consumer.StateUpdate(tag, id)
+	}()
 }
 
 type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
-	idleChan() <-chan struct{}
 	Close()
+	idleChannel() <-chan struct{}
 }
 
 type consumerNetwork struct {
