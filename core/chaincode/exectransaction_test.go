@@ -113,7 +113,7 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 
 	// Now create the Transactions message and send to Peer.
 	uuid := util.GenerateUUID()
-	perfutil.CreatePT(uuid)
+	perfutil.PerfTraceHandler(uuid, "exectransaction_test.invoke", 0, true, "CreatePTOP")
 
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
@@ -345,6 +345,7 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 			args := []string{"a"}
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+			perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "", 0, true, "EndPTOP")
 		}
 
 		_, _, err := invoke(ctxt, spec, typ)
