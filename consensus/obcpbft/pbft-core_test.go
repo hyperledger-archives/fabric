@@ -1161,7 +1161,7 @@ func TestReplicaCrash3(t *testing.T) {
 	twoOffline := false
 	threeOffline := true
 	net.filterFn = func(src int, dst int, msg []byte) []byte {
-		if twoOffline && dst == 2 { // 3 is 'offline'
+		if twoOffline && dst == 2 { // 2 is 'offline'
 			return nil
 		}
 		if threeOffline && dst == 3 { // 3 is 'offline'
@@ -1205,7 +1205,7 @@ func TestReplicaCrash3(t *testing.T) {
 	net.pbftEndpoints[0].pbft.recvRequest(mkreq(9))
 	net.process()
 
-	// Now vp0,1,3 should be in sync with 3 executions in view 1, and vp2 should be at 2 executions in view 0
+	// Now vp0,1,3 should be in sync with 9 executions in view 1, and vp2 should be at 8 executions in view 0
 	for i, pep := range net.pbftEndpoints {
 
 		if i == 2 {

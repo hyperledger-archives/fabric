@@ -604,7 +604,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 			logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		}
 	} else {
-		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", digest)
+		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
 	}
 
 	return nil
