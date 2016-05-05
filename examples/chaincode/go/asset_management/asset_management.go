@@ -19,9 +19,9 @@ package main
 import (
 	"errors"
 	"fmt"
-		
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/op/go-logging"
 )
 
 var myLogger = logging.MustGetLogger("asset_mgm")
@@ -35,7 +35,7 @@ type AssetManagementChaincode struct {
 }
 
 func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	myLogger.Info("[AssetManagementChaincode] Init")
+	myLogger.Debug("Init Chaincode...")
 	if len(args) != 0 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
@@ -61,10 +61,14 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 
 	stub.PutState("admin", adminCert)
 
+	myLogger.Debug("Init Chaincode...done")
+
 	return nil, nil
 }
 
 func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	myLogger.Debug("Assign...")
+
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
@@ -100,10 +104,14 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 		return nil, errors.New("Asset was already assigned.")
 	}
 
+	myLogger.Debug("Assign...done!")
+
 	return nil, err
 }
 
 func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	myLogger.Debug("Transfer...")
+
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
@@ -158,10 +166,14 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 		return nil, errors.New("Failed inserting row.")
 	}
 
+	myLogger.Debug("Transfer...done")
+
 	return nil, nil
 }
 
 func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificate []byte) (bool, error) {
+	myLogger.Debug("Check caller...")
+
 	// In order to enforce access control, we require that the
 	// metadata contains the signature under the signing key corresponding
 	// to the verification key inside certificate of
@@ -189,11 +201,22 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 	myLogger.Debug("passed payload [% x]", payload)
 	myLogger.Debug("passed binding [% x]", binding)
 
-	return stub.VerifySignature(
+	ok, err := stub.VerifySignature(
 		certificate,
 		sigma,
 		append(payload, binding...),
 	)
+	if err != nil {
+		myLogger.Error("Failed checking signature [%s]", err)
+		return ok, err
+	}
+	if !ok {
+		myLogger.Error("Invalid signature")
+	}
+
+	myLogger.Debug("Check caller...Verified!")
+
+	return ok, err
 }
 
 // Run callback representing the invocation of a chaincode
@@ -213,6 +236,8 @@ func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function str
 
 // Query callback representing the query of a chaincode
 func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	myLogger.Debug("Query [%s]", function)
+
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
@@ -220,11 +245,14 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 	var err error
 
 	if len(args) != 1 {
+		myLogger.Debug("Incorrect number of arguments. Expecting name of an asset to query")
 		return nil, errors.New("Incorrect number of arguments. Expecting name of an asset to query")
 	}
 
 	// Who is the owner of the asset?
 	asset := args[0]
+
+	myLogger.Debug("Arg [%s]", string(asset))
 
 	var columns []shim.Column
 	col1 := shim.Column{Value: &shim.Column_String_{String_: asset}}
@@ -232,17 +260,17 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed retrieving asset " + asset + ". Error " + err.Error() + ". \"}"
-		return nil, errors.New(jsonResp)
+		myLogger.Debug("Failed retriving asset [%s]: [%s]", string(asset), err)
+		return nil, fmt.Errorf("Failed retriving asset [%s]: [%s]", string(asset), err)
 	}
 
-	jsonResp := "{\"Owner\":\"" + string(row.Columns[1].GetBytes()) + "\"}"
-	fmt.Printf("Query Response:%s\n", jsonResp)
+	myLogger.Debug("Query done [% x]", row.Columns[1].GetBytes())
 
 	return row.Columns[1].GetBytes(), nil
 }
 
 func main() {
+	primitives.SetSecurityLevel("SHA3", 256)
 	err := shim.Start(new(AssetManagementChaincode))
 	if err != nil {
 		fmt.Printf("Error starting AssetManagementChaincode: %s", err)
