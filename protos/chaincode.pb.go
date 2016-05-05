@@ -282,6 +282,9 @@ type ChaincodeMessage struct {
 	Payload         []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid            string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	SecurityContext *ChaincodeSecurityContext  `protobuf:"bytes,5,opt,name=securityContext" json:"securityContext,omitempty"`
+	TraceName       string                     `protobuf:"bytes,6,opt,name=traceName" json:"traceName,omitempty"`
+	Start           int64                      `protobuf:"varint,7,opt,name=start" json:"start,omitempty"`
+	End             int64                      `protobuf:"varint,8,opt,name=end" json:"end,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }

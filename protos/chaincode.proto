@@ -139,6 +139,9 @@ message ChaincodeMessage {
     bytes payload = 3;
     string uuid = 4;
     ChaincodeSecurityContext securityContext = 5;
+    string traceName = 6;
+    int64 start = 7;
+    int64 end = 8;
 }
 
 message PutStateInfo {

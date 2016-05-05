@@ -182,7 +182,7 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 	}
 	// Register on the stream
 	chaincodeLogger.Debug("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
-	handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
+	handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload, TraceName: "REGISTER_CHAINCODE_GRPC", Start: time.Now().UnixNano()})
 	waitc := make(chan struct{})
 	go func() {
 		defer close(waitc)

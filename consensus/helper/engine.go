@@ -20,6 +20,7 @@ package helper
 import (
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/peer"
+	"github.com/hyperledger/fabric/core/perfutil"
 
 	"fmt"
 	"github.com/hyperledger/fabric/consensus/controller"
@@ -42,6 +43,7 @@ func (eng *EngineImpl) GetHandlerFactory() peer.HandlerFactory {
 
 func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response) {
 	//TODO: Do we always verify security, or can we supply a flag on the invoke ot this functions so to bypass check for locally generated transactions?
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "engine.ProcessTransactionMsg", 0, true, "CreatePTOP")
 	if tx.Type == pb.Transaction_CHAINCODE_QUERY {
 		// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 		// cxt := context.WithValue(context.Background(), "security", secHelper)

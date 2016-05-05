@@ -42,6 +42,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -478,6 +479,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 // sendTransactionsToLocalEngine send the transaction to the local engine (This Peer is a validator)
 func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *pb.Response {
 
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "peer.sendTransactionsToLocalEngine", 0, true, "CreatePTOP")
 	peerLogger.Debug("Marshalling transaction %s to send to local engine", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
@@ -556,6 +558,7 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
 func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
+	perfutil.PerfTraceHandler(transaction.Uuid, "peer.ExecuteTransaction", 0, true, "CreatePTOP")
 	if p.isValidator {
 		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {

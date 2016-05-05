@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -112,6 +113,7 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 
 	// Now create the Transactions message and send to Peer.
 	uuid := util.GenerateUUID()
+	perfutil.CreatePT(uuid)
 
 	transaction, err := pb.NewChaincodeExecute(chaincodeInvocationSpec, uuid, typ)
 	if err != nil {
@@ -425,10 +427,17 @@ func TestExecuteQuery(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
+
+	//clear to be safe
+	perfutil.SetTrace(false)
+
+	//turn on trace
+	perfutil.SetTrace(true)
+
 	//start := getNowMillis()
 	//fmt.Fprintf(os.Stderr, "Starting: %d\n", start)
-	numTrans := 2
-	numQueries := 10
+	numTrans := 3
+	numQueries := 2
 	errs := exec(ctxt, chaincodeID, numTrans, numQueries)
 
 	var numerrs int
@@ -451,6 +460,14 @@ func TestExecuteQuery(t *testing.T) {
 	//fmt.Fprintf(os.Stderr, "Elapsed : %d millis\n", end-start)
 	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 	closeListenerAndSleep(lis)
+
+
+	fmt.Printf("Elapsed : millis\n" )
+	//dump stats
+	perfutil.DumpStats()
+
+	//clear stats
+	perfutil.SetTrace(false)
 }
 
 // Test the execution of an invalid transaction.

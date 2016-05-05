@@ -21,6 +21,7 @@ package crypto
 
 import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/perfutil"
 	"sync"
 )
 
@@ -78,6 +79,7 @@ func InitClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client.InitClient", 0, true, "CreatePTOP")
 	log.Info("Initializing client [%s]...", name)
 
 	if entry, ok := clients[name]; ok {

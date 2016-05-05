@@ -45,11 +45,27 @@ func SetupTestLogging() {
 		logging.SetLevel(level, "main")
 		logging.SetLevel(level, "server")
 		logging.SetLevel(level, "peer")
+		logging.SetLevel(level, "chaincode")
+		logging.SetLevel(level, "ledger")
+		logging.SetLevel(level, "buckettree")
+		logging.SetLevel(level, "container")
+		logging.SetLevel(level, "db")
+		logging.SetLevel(level, "statemgmt")
+		logging.SetLevel(level, "indexes")
+		logging.SetLevel(level, "state")
 	} else {
 		chaincodeLog.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.peer"), logging.ERROR, err)
 		logging.SetLevel(logging.ERROR, "main")
 		logging.SetLevel(logging.ERROR, "server")
 		logging.SetLevel(logging.ERROR, "peer")
+		logging.SetLevel(logging.ERROR, "chaincode")
+		logging.SetLevel(logging.ERROR, "ledger")
+		logging.SetLevel(logging.ERROR, "buckettree")
+		logging.SetLevel(logging.ERROR, "container")
+		logging.SetLevel(logging.ERROR, "db")
+		logging.SetLevel(logging.ERROR, "statemgmt")
+		logging.SetLevel(logging.ERROR, "indexes")
+		logging.SetLevel(logging.ERROR, "state")
 	}
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/perfutil"
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
@@ -42,6 +43,7 @@ import (
 
 func (client *clientImpl) initTCertEngine() (err error) {
 	// load TCertOwnerKDFKey
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_tca.initTCertEngine", 0, true, "CreatePTOP")
 	if err = client.loadTCertOwnerKDFKey(); err != nil {
 		return
 	}

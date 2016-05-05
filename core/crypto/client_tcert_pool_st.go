@@ -22,6 +22,7 @@ package crypto
 import (
 	"fmt"
 	"sync"
+	"github.com/hyperledger/fabric/core/perfutil"
 )
 
 type tCertPoolSingleThreadImpl struct {
@@ -38,6 +39,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
 
 	tCertPool.client.debug("Starting TCert Pool...")
 
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_tcert_pool_st.Start", 0, true, "CreatePTOP")
 	// Load unused TCerts if any
 	tCertDERs, err := tCertPool.client.ks.loadUnusedTCerts()
 	if err != nil {

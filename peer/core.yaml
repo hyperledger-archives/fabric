@@ -464,3 +464,15 @@ statetransfer:
 
         # How long may transferring the complete state take
         fullstate: 60s
+
+###############################################################################
+#
+#    Performance Trace section
+#
+###############################################################################
+perfutil:
+
+    # Enable/disable setting for the performance trace service.
+    # It is recommended to disable performance trace service in production deployment.
+    # It is recommended to set logging level to error when performance trace service is enabled.
+    enabled: false
