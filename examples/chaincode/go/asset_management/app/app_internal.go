@@ -15,7 +15,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-	"os"
 )
 
 var (
@@ -35,6 +34,8 @@ func initNVP() (err error) {
 		appLogger.Debug("Failed deploying [%s]", err)
 		return
 	}
+
+	return
 }
 
 func initPeerClient() (err error) {
@@ -61,30 +62,42 @@ func initPeerClient() (err error) {
 func initCryptoClients() error {
 	crypto.Init()
 
-	// Administrator
+	// Initialize the clients mapping alice, bob, charlie and dave
+	// to identities already defined in 'membersrvc.yaml'
+
+	// Alice as jim
 	if err := crypto.RegisterClient("jim", nil, "jim", "6avZQLwcUe9b"); err != nil {
 		return err
 	}
 	var err error
-	administrator, err = crypto.InitClient("jim", nil)
+	alice, err = crypto.InitClient("jim", nil)
 	if err != nil {
 		return err
 	}
 
-	// Alice
+	// Bob as lukas
 	if err := crypto.RegisterClient("lukas", nil, "lukas", "NPKYL39uKbkj"); err != nil {
 		return err
 	}
-	alice, err = crypto.InitClient("lukas", nil)
+	bob, err = crypto.InitClient("lukas", nil)
 	if err != nil {
 		return err
 	}
 
-	// Bob
+	// Charlie
 	if err := crypto.RegisterClient("diego", nil, "diego", "DRJ23pEQl16a"); err != nil {
 		return err
 	}
-	bob, err = crypto.InitClient("diego", nil)
+	charlie, err = crypto.InitClient("diego", nil)
+	if err != nil {
+		return err
+	}
+
+	// Dave as binhn
+	if err := crypto.RegisterClient("binhn", nil, "binhn", "7avZQLwcUe9q"); err != nil {
+		return err
+	}
+	dave, err = crypto.InitClient("binhn", nil)
 	if err != nil {
 		return err
 	}
