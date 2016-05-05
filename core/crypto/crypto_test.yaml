@@ -30,7 +30,7 @@ eca:
             banks:
                 bank_a:
                 bank_b:
-                bank_c:              		
+                bank_c:
             institutions:
                 institution_a:
 
@@ -51,6 +51,18 @@ tca:
     attribute-encryption:
        enabled: false
 
+aca:
+          attributes:
+              attribute-entry-0: user1;bank_a;company;IBM;2015-01-01T00:00:00-03:00;;
+              attribute-entry-1: user1;bank_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
+              attribute-entry-2: user1;bank_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
+              attribute-entry-3: user2,;bank_a;company;IBM;2001-02-02T00:00:00-03:00;;
+              attribute-entry-4: user2;bank_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
+              attribute-entry-5: binhn,;bank_a;company;IBM;2015-01-01T00:00:00-03:00;;
+              attribute-entry-6: binhn;bank_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;             
+          address: localhost:50541
+          server-name: acap     
+          
 pki:
     validity-period:
        # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
@@ -75,7 +87,7 @@ peer:
             paddr: localhost:50541
 
         tls:
-            enabled: true
+            enabled: false
             rootcert:
 
             # The server name use to verify the hostname returned by TLS handshake
