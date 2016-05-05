@@ -17,38 +17,25 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package core
+package discovery
 
 
-import (
-	"strings"
-	"math/rand"
-	"time"
+type Discovery interface {
 
-	"github.com/spf13/viper"
+	// GetRootNode function for providing a bootstrap address for a peer
+	GetRootNode() (string, error)
 
-)
-
-
-
-type StaticDiscovery struct {
-	rootNodes []string
-	random *rand.Rand
-	isValidator bool
 }
 
-func NewStaticDiscovery(isValidator bool) *StaticDiscovery {
-	staticDisc := StaticDiscovery{}
-	staticDisc.rootNodes   = strings.Split(viper.GetString("peer.discovery.rootnode"),",")
-	staticDisc.random      = rand.New(rand.NewSource(time.Now().Unix()))
-	staticDisc.isValidator = isValidator
-	return &staticDisc
+var discInstance Discovery
+
+func SetDiscoveryService(instance Discovery) {
+	discInstance = instance
 }
 
-func (sd *StaticDiscovery) GetRootNode() (string, error) {
-	if sd.isValidator {
-		return sd.rootNodes[0], nil
-	}
-	return sd.rootNodes[sd.random.Int() % (len(sd.rootNodes))], nil
+func GetRootNode() (string, error) {
+	return discInstance.GetRootNode();
 }
+
+
 

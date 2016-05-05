@@ -34,6 +34,8 @@ import (
 	"sync"
 	"path/filepath"
 	"bytes"
+	"net/http"
+
 
 	"golang.org/x/net/context"
 
@@ -57,8 +59,9 @@ import (
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
-	"net/http"
+
 	_ "net/http/pprof"
+	"github.com/hyperledger/fabric/discovery"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -392,6 +395,10 @@ func serve(args []string) error {
 		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 		viper.Set("validator.validity-period.verification", "false")
 	}
+
+	// Install discovery
+	discovery.SetDiscoveryService(core.NewStaticDiscovery(viper.GetBool("peer.validator.enabled")))
+
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
@@ -421,6 +428,8 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
+
+
 
 	logger.Info("Security enabled status: %t", core.SecurityEnabled())
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
@@ -494,9 +503,9 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := core.GetRootNode()
+	rootNode, err := discovery.GetRootNode()
 	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
+		grpclog.Fatalf("Failed to get discovery rootnode valey: %s", err)
 	}
 
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
