@@ -41,3 +41,7 @@ def after_scenario(context, scenario):
                     #print("docker rm {0}".format(containerId))
                     context.compose_output, context.compose_error, context.compose_returncode = \
                         cli_call(context, ["docker",  "rm", "-f", containerId], expect_success=True)
+
+# stop any running peer that could get in the way before starting the tests 
+def before_all(context):
+        cli_call(context, ["../peer/peer", "stop"], expect_success=False)

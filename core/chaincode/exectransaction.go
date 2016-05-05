@@ -51,14 +51,14 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 	}
 
 	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
-		_, err := chain.DeployChaincode(ctxt, t)
+		_, err := chain.Deploy(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
 		}
 
 		//launch and wait for ready
 		markTxBegin(ledger, t)
-		_, _, err = chain.LaunchChaincode(ctxt, t)
+		_, _, err = chain.Launch(ctxt, t)
 		if err != nil {
 			markTxFinish(ledger, t, false)
 			return nil, fmt.Errorf("%s", err)
@@ -66,7 +66,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		markTxFinish(ledger, t, true)
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
-		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
+		cID, cMsg, err := chain.Launch(ctxt, t)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}

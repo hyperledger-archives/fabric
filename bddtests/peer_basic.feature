@@ -15,14 +15,12 @@ Feature: lanching 3 peers
 #    @wip
   Scenario: Peers list test, single peer issue #827
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/network/peers" from "vp0"
       Then I should get a JSON response with array "peers" contains "1" elements
 
 #    @wip
   Scenario: Peers list test,3 peers issue #827
     Given we compose "docker-compose-3.yml"
-      And I wait "1" seconds
       When requesting "/network/peers" from "vp0"
       Then I should get a JSON response with array "peers" contains "3" elements
 
@@ -31,7 +29,6 @@ Feature: lanching 3 peers
    @issue_767
   Scenario: Range query test, single peer, issue #767
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
       When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/map" with ctor "init" to "vp0"
@@ -91,7 +88,6 @@ Feature: lanching 3 peers
   @issue_477
   Scenario: chaincode shim table API, issue 477
     Given we compose "docker-compose-1.yml"
-      And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
       When I deploy chaincode "github.com/hyperledger/fabric/bddtests/chaincode/go/table" with ctor "init" to "vp0"
@@ -321,7 +317,6 @@ Feature: lanching 3 peers
 #    @wip
 	Scenario: chaincode example 02 single peer
 	    Given we compose "docker-compose-1.yml"
-	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
@@ -362,7 +357,6 @@ Feature: lanching 3 peers
 #    @wip
 	Scenario: chaincode example02 with 5 peers, issue #520
 	    Given we compose "docker-compose-5.yml"
-	    And I wait "1" seconds
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
@@ -395,7 +389,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #567
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "3" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  |
         And I use the following credentials for querying peers:
@@ -446,7 +439,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #680 (State transfer)
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "5" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
                      | vp0  |
             And I use the following credentials for querying peers:
@@ -528,7 +520,6 @@ Feature: lanching 3 peers
 	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #724
 
 	    Given we compose "<ComposeFile>"
-	    And I wait "3" seconds
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
              | vp0  |
         And I use the following credentials for querying peers:
@@ -593,7 +584,6 @@ Feature: lanching 3 peers
    Scenario Outline: 4 peers and 1 membersrvc, consensus still works if one backup replica fails
 
       Given we compose "<ComposeFile>"
-      And I wait "10" seconds
       And I use the following credentials for querying peers:
          | peer |   username  |    secret    |
          | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -657,7 +647,6 @@ Feature: lanching 3 peers
  Scenario Outline: 4 peers and 1 membersrvc, consensus fails if 2 backup replicas fail
 
     Given we compose "<ComposeFile>"
-    And I wait "10" seconds
     And I use the following credentials for querying peers:
        | peer |   username  |    secret    |
        | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -719,7 +708,6 @@ Feature: lanching 3 peers
       Scenario Outline: 4 peers and 1 membersrvc, consensus still works if 1 peer (vp3) is byzantine
 
          Given we compose "<ComposeFile>"
-         And I wait "10" seconds
          And I use the following credentials for querying peers:
             | peer |   username  |    secret    |
             | vp0  |  test_user0 | MS9qrN8hFjlE |
@@ -764,7 +752,6 @@ Feature: lanching 3 peers
   Scenario Outline: chaincode example02 with 4 peers,1 membersrvc, and 1 non-validating peer.
 
       Given we compose "<ComposeFile>"
-      And I wait "5" seconds
       And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
          | nvp0  |
       And I use the following credentials for querying peers:

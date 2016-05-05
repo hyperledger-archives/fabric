@@ -22,6 +22,7 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -38,14 +39,14 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	switch queryTx.ConfidentialityProtocolVersion {
 	case "1.1":
 		enrollChainKey := client.enrollChainKey.([]byte)
-		queryKey = utils.HMACTruncated(enrollChainKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
+		queryKey = primitives.HMACAESTruncated(enrollChainKey, append([]byte{6}, queryTx.Nonce...))
 		//	client.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
 		break
 	case "1.2":
-		queryKey = utils.HMACTruncated(client.queryStateKey, append([]byte{6}, queryTx.Nonce...), utils.AESKeyLength)
+		queryKey = primitives.HMACAESTruncated(client.queryStateKey, append([]byte{6}, queryTx.Nonce...))
 	}
 
-	if len(ct) <= utils.NonceSize {
+	if len(ct) <= primitives.NonceSize {
 		return nil, utils.ErrDecrypt
 	}
 

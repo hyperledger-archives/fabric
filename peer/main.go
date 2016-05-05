@@ -313,7 +313,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 	var lis net.Listener
 	var grpcServer *grpc.Server
 	var err error
-	if viper.GetBool("peer.validator.enabled") {
+	if peer.ValidatorEnabled() {
 		lis, err = net.Listen("tcp", viper.GetString("peer.validator.events.address"))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to listen: %v", err)
@@ -321,7 +321,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 
 		//TODO - do we need different SSL material for events ?
 		var opts []grpc.ServerOption
-		if viper.GetBool("peer.tls.enabled") {
+		if peer.TlsEnabled() {
 			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to generate credentials %v", err)
@@ -345,10 +345,10 @@ func getSecHelper() (crypto.Peer, error) {
 	var secHelper crypto.Peer
 	var err error
 	once.Do(func() {
-		if viper.GetBool("security.enabled") {
+		if core.SecurityEnabled() {
 			enrollID := viper.GetString("security.enrollID")
 			enrollSecret := viper.GetString("security.enrollSecret")
-			if viper.GetBool("peer.validator.enabled") {
+			if peer.ValidatorEnabled() {
 				logger.Debug("Registering validator with enroll ID: %s", enrollID)
 				if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 					return
@@ -422,11 +422,11 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
-	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
+	logger.Info("Security enabled status: %t", core.SecurityEnabled())
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
-	if viper.GetBool("peer.tls.enabled") {
+	if peer.TlsEnabled() {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
 			grpclog.Fatalf("Failed to generate credentials %v", err)
@@ -450,15 +450,12 @@ func serve(args []string) error {
 	var peerServer *peer.PeerImpl
 
 	//create the peerServer....
-	if viper.GetBool("peer.validator.enabled") {
-		if viper.GetBool("peer.validator.enabled") {
-			logger.Debug("Running as validating peer - making genesis block if needed")
-			makeGenesisError := genesis.MakeGenesis()
-			if makeGenesisError != nil {
-				return makeGenesisError
-			}
+	if peer.ValidatorEnabled() {
+		logger.Debug("Running as validating peer - making genesis block if needed")
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
 		}
-
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
@@ -504,7 +501,7 @@ func serve(args []string) error {
 
 	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
+		peerEndpoint.Address, rootNode, peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -582,20 +579,19 @@ func stop() (err error) {
 			return
 		}
 		return nil
-	} else {
-		logger.Info("Stopping peer using grpc")
-		serverClient := pb.NewAdminClient(clientConn)
-
-		status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-		if err != nil {
-			fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
-			return nil
-		} else {
-			err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
-			fmt.Println(status)
-			return err
-		}
 	}
+	logger.Info("Stopping peer using grpc")
+	serverClient := pb.NewAdminClient(clientConn)
+
+	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+	if err != nil {
+		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
+		return nil
+	}
+
+	err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
+	fmt.Println(status)
+	return err
 }
 
 // login confirms the enrollmentID and secret password of the client with the
@@ -634,9 +630,8 @@ func login(args []string) (err error) {
 		if pw, err = gopass.GetPasswdMasked(); err != nil {
 			err = fmt.Errorf("Error trying to read password from console: %s", err)
 			return
-		} else {
-			loginPW = string(pw)
 		}
+		loginPW = string(pw)
 	}
 
 	// Log in the user
@@ -740,7 +735,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 			return
 		}
-		for k, _ := range m {
+		for k := range m {
 			switch strings.ToLower(k) {
 			case "function":
 			case "args":
@@ -789,7 +784,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		logger.Debug("Security is enabled. Include security context in deploy spec")
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
@@ -880,7 +875,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
 			return

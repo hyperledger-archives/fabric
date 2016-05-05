@@ -6,7 +6,7 @@ membersrvc:
 
 cli:
   image: hyperledger-peer
-  command: ./scripts/infiniteloop.sh
+  command: ../scripts/infiniteloop.sh
   environment:
     - CORE_VM_ENDPOINT=http://172.17.0.1:4243
     - CORE_PEER_ADDRESSAUTODETECT=true
