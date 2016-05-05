@@ -66,7 +66,9 @@ Before setting up the network, the *fabric/peer/core.yaml* file must be modified
 1. security.enabled = true
 2. security.privacy = true
 
-Moreover, the 'core.yaml' file used to configure the app must point to the fabric network setup above. This can be done by replacing the string '0.0.0.0' with the string 'vp0'.
+Moreover, the 'core.yaml' file used to configure the app must point to the fabric network setup above. This can be done by replacing:
+1. '0.0.0.0' with 'vp0';
+2. 'localhost' with membersrvc. 
 
 ### Run the app
 
