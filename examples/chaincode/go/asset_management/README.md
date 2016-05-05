@@ -27,9 +27,9 @@ For simplicity, there is only one administrator.
 A possible work-flow could be the following:
 
 1. Alice is the deployer of the chaincode;
-2. Alice wants to assign the administrator role to Charlie;
-3. Alice obtains, via an out-of-band channel, a TCert of Charlie, let us call this certificate *CharlieCert*;
-4. Alice constructs a deploy transaction, as described in *application-ACL.md*,  setting the transaction metadata to *DER(CharlieCert)*.
+2. Alice wants to assign the administrator role to Bob;
+3. Alice obtains, via an out-of-band channel, a TCert of Bob, let us call this certificate *BobCert*;
+4. Alice constructs a deploy transaction, as described in *application-ACL.md*,  setting the transaction metadata to *DER(BobCert)*.
 5. Alice submits the transaction to the fabric network.
 
 Notice that Alice can assign to herself the role of administrator.
@@ -42,11 +42,11 @@ Notice that, this function can only be invoked by the administrator of the chain
 
 A possible work-flow could be the following:
 
-1. Charlie is the administrator of the chaincode;
-2. Charlie wants to assign the asset 'Picasso' to Bob;
-3. Charlie obtains, via an out-of-band channel, a TCert of Bob, let us call this certificate *BobCert*;
-4. Charlie constructs an execute transaction, as described in *application-ACL.md*, to invoke the *assign* function passing as parameters *('Picasso', DER(BobCert))*. 
-5. Charlie submits the transaction to the fabric network.
+1. Bob is the administrator of the chaincode;
+2. Bob wants to assign the asset 'Picasso' to Charlie;
+3. Bob obtains, via an out-of-band channel, a TCert of Charlie, let us call this certificate *CharlieCert*;
+4. Bob constructs an execute transaction, as described in *application-ACL.md*, to invoke the *assign* function passing as parameters *('Picasso', DER(CharlieCert))*. 
+5. Bob submits the transaction to the fabric network.
 
 ## *transfer(asset, user)*
 
@@ -56,11 +56,11 @@ Notice that, this function can only be invoked by the owner of *asset* who obtai
 
 A possible work-flow could be the following:
 
-1. Bob is the owner of 'Picasso';
-2. Bob wants to transfer the ownership of 'Picasso' to Dave;
-3. Bob obtains, via an out-of-band channel, a TCert of Dave, let us call this certificate *DaveCert*;
-4. Bob constructs an execute transaction, as described in *application-ACL.md*, to invoke the *transfer* function passing as parameters *('Picasso', DER(DaveCert))*. 
-5. Bob submits the transaction to the fabric network.
+1. Charlie is the owner of 'Picasso';
+2. Charlie wants to transfer the ownership of 'Picasso' to Dave;
+3. Charlie obtains, via an out-of-band channel, a TCert of Dave, let us call this certificate *DaveCert*;
+4. Charlie constructs an execute transaction, as described in *application-ACL.md*, to invoke the *transfer* function passing as parameters *('Picasso', DER(DaveCert))*. 
+5. Charlie submits the transaction to the fabric network.
 
 ## *query(asset)*
 
