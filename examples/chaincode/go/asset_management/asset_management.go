@@ -26,14 +26,16 @@ import (
 
 var myLogger = logging.MustGetLogger("asset_mgm")
 
-// AssetManagementChaincode example simple Asset Management Chaincode implementation
+// AssetManagementChaincode is simple chaincode implementing a basic Asset Management system
 // with access control enforcement at chaincode level.
 // Look here for more information on how to implement access control at chaincode level:
 // https://github.com/openblockchain/obc-docs/blob/master/tech/application-ACL.md
-// An asset is represented by a string
+// An asset is simply represented by a string.
 type AssetManagementChaincode struct {
 }
 
+// Init method will be called during deployment.
+// The deploy transaction metadata is supposed to contain the administrator cert
 func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Debug("Init Chaincode...")
 	if len(args) != 0 {
@@ -219,7 +221,13 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 	return ok, err
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke will be called for every transaction.
+// Supported functions are the following:
+// "assign(asset, owner)": to assign ownership of assets. An asset can be owned by a single entity.
+// Only an administrator can call this function.
+// "transfer(asset, newOwner)": to transfer the ownership of an asset. Only the owner of the specific
+// asset can call this function.
+// An asset is any string to identify it. An owner is representated by one of his ECert/TCert.
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions
@@ -235,6 +243,9 @@ func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function str
 }
 
 // Query callback representing the query of a chaincode
+// Supported functions are the following:
+// "query(asset)": returns the owner of the asset.
+// Anyone can invoke this function.
 func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Debug("Query [%s]", function)
 
