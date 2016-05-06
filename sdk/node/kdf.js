@@ -1,22 +1,18 @@
-/**
- * Copyright 2015 IBM
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
-/**
- * Licensed Materials - Property of IBM
- * © Copyright IBM Corp. 2016
- */
 
 var debug = require('debug')('hlc');
 
@@ -196,34 +192,34 @@ function zeroBuffer(length) {
 }
 
 exports.aesCFBDecryt = function(key,encryptedBytes){
-    
+
     var iv = crypto.randomBytes(16);
     var aes = new aesjs.ModeOfOperation.cfb(key, iv, 16);
-    
+
     debug("encryptedBytes: ",encryptedBytes);
-    
+
     //need to pad encryptedBytes to multiples of 16
     var numMissingBytes = 16 - (encryptedBytes.length%16);
     debug("missingBytes: ",numMissingBytes);
-    
+
     if (numMissingBytes > 0)
     {
         encryptedBytes = Buffer.concat([encryptedBytes,new Buffer(numMissingBytes)]);
     }
-    
+
     debug("encryptedBytes: ",encryptedBytes);
-    
+
     var decryptedBytes = aes.decrypt(encryptedBytes);
-    
+
     return decryptedBytes.slice(16,decryptedBytes.length-numMissingBytes);
-    
+
 };
 
 exports.hkdf = function(ikm, keyBitLength, salt, info, algorithm){
-    
+
     var hash;
     var hashSize;
-    
+
     switch (algorithm)
     {
         case "sha3-256":
@@ -235,15 +231,15 @@ exports.hkdf = function(ikm, keyBitLength, salt, info, algorithm){
             hashSize = 48;
             break;
     }
-    
+
     if (!salt)
         salt = zeroBuffer(hashSize);
-        
+
     if (!info)
         info = "";
-        
+
     var key = hkdf(bytesToBits(new Buffer(ikm)),keyBitLength,bytesToBits(salt),info,hash);
-    
+
     return bitsToBytes(key);
-    
+
 };
