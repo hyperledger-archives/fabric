@@ -562,7 +562,7 @@ func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
 		op.executeVerifySet(vset, seqNo)
 	} else if flush := req.GetFlush(); flush != nil {
 		op.executeFlush(flush)
-		op.pbft.execDoneSync()
+		op.pbft.execDone()
 	} else {
 		logger.Warning("Invalid pbft request")
 	}
@@ -647,7 +647,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 			return
 		}
 	}
-	op.pbft.execDoneSync()
+	op.pbft.execDone()
 	op.execDone()
 }
 
