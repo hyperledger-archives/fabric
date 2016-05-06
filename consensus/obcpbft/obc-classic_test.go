@@ -45,9 +45,13 @@ func TestClassicNetwork(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		ce := ep.(*consumerEndpoint)
-		_, err := ce.consumer.(*obcClassic).stack.GetBlock(1)
+		block, err := ce.consumer.(*obcClassic).stack.GetBlock(1)
 		if nil != err {
 			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
+		}
+		numTrans := len(block.Transactions)
+		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != numTrans {
+			t.Fatalf("Replica %d has %d txResults, expected %d", ce.id, numTxResults, numTrans)
 		}
 	}
 }
