@@ -47,9 +47,11 @@ peer: base-image
 membersrvc:
 	cd membersrvc; CGO_CFLAGS=" " CGO_LDFLAGS="$(CGO_LDFLAGS)" go build
 
-unit-test: base-image
+unit-test: peer-image
 	@echo "Running unit-tests"
+	$(eval CID := $(shell docker run -dit -p 30303:30303 hyperledger-peer peer peer))
 	@go test -timeout=20m $(shell go list $(PKGNAME)/... | grep -v /vendor/ | grep -v /examples/)
+	@docker kill $(CID)
 	@touch .peerimage-dummy
 	@touch .caimage-dummy
 
