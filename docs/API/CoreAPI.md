@@ -680,13 +680,13 @@ You can interface with the peer process from a Node.js application. One way to a
 1. Build and install the [fabric core](https://github.com/hyperledger/fabric/blob/master/README.md#building-the-fabric-core-).
 
     ```
-    cd /opt/gopath/src/github.com/hyperledger/fabric/peer
-    go build
+    cd /opt/gopath/src/github.com/hyperledger/fabric
+    make peer
     ```
 
 2. Run a local peer node only (not a complete network) with:
 
-    `./peer`
+    `cd peer; ./peer`
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows. Subsequently restart the peer process.
 
