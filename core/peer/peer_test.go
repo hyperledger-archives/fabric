@@ -49,6 +49,15 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestMissingMessageHandlerUnicast(t *testing.T) {
+	emptyHandlerMap := handlerMap{m: make(map[pb.PeerID]MessageHandler)}
+	peerImpl := PeerImpl{handlerMap: &emptyHandlerMap}
+	err := peerImpl.Unicast(nil, &pb.PeerID{})
+	if err == nil {
+		t.Error("Expected error with bad receiver handle, but there was none")
+	}
+}
+
 func performChat(t testing.TB, conn *grpc.ClientConn) error {
 	serverClient := pb.NewPeerClient(conn)
 	stream, err := serverClient.Chat(context.Background())

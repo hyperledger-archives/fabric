@@ -442,13 +442,23 @@ func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error 
 	return returnedErrors
 }
 
+func (p *PeerImpl) getMessageHandler(receiverHandle *pb.PeerID) (MessageHandler, error) {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	msgHandler, ok := p.handlerMap.m[*receiverHandle]
+	if !ok {
+		return nil, fmt.Errorf("Message handler not found for receiver %s", receiverHandle.Name)
+	}
+	return msgHandler, nil
+}
+
 // Unicast sends a message to a specific peer.
 func (p *PeerImpl) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
-	p.handlerMap.Lock()
-	msgHandler := p.handlerMap.m[*receiverHandle]
-	//don't lock across SendMessage
-	p.handlerMap.Unlock()
-	err := msgHandler.SendMessage(msg)
+	msgHandler, err := p.getMessageHandler(receiverHandle)
+	if err != nil {
+		return err
+	}
+	err = msgHandler.SendMessage(msg)
 	if err != nil {
 		toPeerEndpoint, _ := msgHandler.To()
 		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
