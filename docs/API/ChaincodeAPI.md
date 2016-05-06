@@ -22,13 +22,16 @@ It's possible for one deployed chaincode to call another deployed chaincode usin
 
 ## Logging
 
-`SetLoggingLevel` allows a Go chaincode to set the logging level of its
-shim. The logging level is a case-insensitive string chosen from CRITICAL,
-ERROR, WARNING, NOTICE, INFO or DEBUG. In the event of errors assume that the
-logging level has not changed. For information on how a chaincode can create
-its own logs, please see [here](../dev-setup/logging-control.md).
+Logging and logging control APIs are introduced below, and fully documented
+with examples [here](../dev-setup/logging-control.md).
 
-`SetLoggingLevel(levelString string) error` - Set the logging level of the shim
+`SetLoggingLevel(LoggingLevel level)` - Control the logging level of the shim
+
+`NewLogger(name string) *ChaincodeLogger` - Create a logging object for use by a chaincode
+
+`(c *ChaincodeLogger) SetLevel(level LoggingLevel)` - Set the logging level of a chaincode logger
+
+`(c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool` - Return true if logs will be generated at the given level
 
 
 ## Future APIs

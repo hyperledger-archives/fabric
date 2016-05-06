@@ -18,39 +18,100 @@ package shim
 
 import (
 	"testing"
-)
 
+	"github.com/op/go-logging"
+)
 
 // Test Go shim functionality that can be tested outside of a real chaincode
 // context.
 
-
-// TestSetLoggingLevel simply tests that the API is working, and
-// case-insensitive strings are accepted. We don't actually test that the logs
-// are printed at the correct level.
-func TestSetLoggingLevel(t *testing.T) {
+// TestShimLogging simply tests that the APIs are working.
+func TestShimLogging(t *testing.T) {
+	SetLoggingLevel(LOG_CRITICAL)
+	if shimLoggingLevel != LOG_CRITICAL {
+		t.Errorf("shimLoggingLevel is not LOG_CRITICAL as expected")
+	}
+	if chaincodeLogger.IsEnabledFor(logging.DEBUG) {
+		t.Errorf("The chaincodeLogger should not be enabled for DEBUG")
+	}
+	if !chaincodeLogger.IsEnabledFor(logging.CRITICAL) {
+		t.Errorf("The chaincodeLogger should be enabled for CRITICAL")
+	}
+	var level LoggingLevel
 	var err error
-	if err = SetLoggingLevel("debug"); err != nil {
-		t.Errorf("SetLoggingLevel(debug) failed : %s", err.Error())
+	level, err = LogLevel("debug")
+	if err != nil {
+		t.Errorf("LogLevel(debug) failed")
 	}
-	if err = SetLoggingLevel("INFO"); err != nil {
-		t.Errorf("SetLoggingLevel(INFO) failed : %s", err.Error())
+	if level != LOG_DEBUG {
+		t.Errorf("LogLevel(debug) did not return LOG_DEBUG")
 	}
-	if err = SetLoggingLevel("Notice"); err != nil {
-		t.Errorf("SetLoggingLevel(Notice) failed : %s", err.Error())
+	level, err = LogLevel("INFO")
+	if err != nil {
+		t.Errorf("LogLevel(INFO) failed")
 	}
-	if err = SetLoggingLevel("WaRnInG"); err != nil {
-		t.Errorf("SetLoggingLevel(WaRnInG) failed : %s", err.Error())
+	if level != LOG_INFO {
+		t.Errorf("LogLevel(INFO) did not return LOG_INFO")
 	}
-	if err = SetLoggingLevel("ERRor"); err != nil {
-		t.Errorf("SetLoggingLevel(ERRor) failed : %s", err.Error())
+	level, err = LogLevel("Notice")
+	if err != nil {
+		t.Errorf("LogLevel(Notice) failed")
 	}
-	if err = SetLoggingLevel("critICAL"); err != nil {
-		t.Errorf("SetLoggingLevel(critiCAL) failed : %s", err.Error())
+	if level != LOG_NOTICE {
+		t.Errorf("LogLevel(Notice) did not return LOG_NOTICE")
 	}
-	if err = SetLoggingLevel("foo"); err == nil {
-		t.Errorf("SetLoggingLevel(foo) should have failed but didn't!")
+	level, err = LogLevel("WaRnInG")
+	if err != nil {
+		t.Errorf("LogLevel(WaRnInG) failed")
+	}
+	if level != LOG_WARNING {
+		t.Errorf("LogLevel(WaRnInG) did not return LOG_WARNING")
+	}
+	level, err = LogLevel("ERRor")
+	if err != nil {
+		t.Errorf("LogLevel(ERRor) failed")
+	}
+	if level != LOG_ERROR {
+		t.Errorf("LogLevel(ERRor) did not return LOG_ERROR")
+	}
+	level, err = LogLevel("critiCAL")
+	if err != nil {
+		t.Errorf("LogLevel(critiCAL) failed")
+	}
+	if level != LOG_CRITICAL {
+		t.Errorf("LogLevel(critiCAL) did not return LOG_CRITICAL")
+	}
+	level, err = LogLevel("foo")
+	if err == nil {
+		t.Errorf("LogLevel(foo) did not fail")
+	}
+	if level != LOG_ERROR {
+		t.Errorf("LogLevel(foo) did not return LOG_ERROR")
 	}
 }
-	
-		
+
+// TestChaincodeLogging tests the logging APIs for chaincodes.
+func TestChaincodeLogging(t *testing.T) {
+	foo := NewLogger("foo")
+	bar := NewLogger("bar")
+	foo.Debugf("Foo is debugging %d", 10)
+	bar.Infof("Bar in informational %d", "yes")
+	foo.Noticef("NOTE NOTE NOTE")
+	bar.Warningf("Danger Danger %s %s", "Will", "Robinson")
+	foo.Errorf("I'm sorry Dave, I'm afraid I can't do that")
+	bar.Criticalf("PI is not equal to 3.14, we computed it as %f", 4.13)
+	foo.SetLevel(LOG_WARNING)
+	if foo.IsEnabledFor(LOG_DEBUG) {
+		t.Errorf("'foo' should not be enabled for DEBUG")
+	}
+	if !foo.IsEnabledFor(LOG_CRITICAL) {
+		t.Errorf("'foo' should be enabled for CRITICAL")
+	}
+	bar.SetLevel(LOG_CRITICAL)
+	if bar.IsEnabledFor(LOG_DEBUG) {
+		t.Errorf("'bar' should not be enabled for DEBUG")
+	}
+	if !bar.IsEnabledFor(LOG_CRITICAL) {
+		t.Errorf("'bar' should be enabled for CRITICAL")
+	}
+}

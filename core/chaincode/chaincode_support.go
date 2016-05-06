@@ -319,7 +319,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	}
 	if err != nil {
 		chaincodeLogger.Debug("stopping due to error while launching %s", err)
-		errIgnore := chaincodeSupport.StopChaincode(ctxt, cds)
+		errIgnore := chaincodeSupport.Stop(ctxt, cds)
 		if errIgnore != nil {
 			chaincodeLogger.Debug("error on stop %s(%s)", errIgnore, err)
 		}

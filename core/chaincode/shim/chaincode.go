@@ -44,7 +44,7 @@ import (
 )
 
 // Logger for the shim package.
-var chaincodeLogger = logging.MustGetLogger("chaincode")
+var chaincodeLogger = logging.MustGetLogger("shim")
 
 // Handler to shim that handles all control logic.
 var handler *Handler
@@ -70,6 +70,15 @@ var peerAddress string
 
 // Start entry point for chaincodes bootstrap.
 func Start(cc Chaincode) error {
+	// If Start() is called, we assume this is a standalone chaincode and set
+	// up formatted logging.
+	format := logging.MustStringFormatter(
+		"%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}",
+	)
+	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	logging.SetBackend(backendFormatter).SetLevel(logging.Level(shimLoggingLevel), "shim")
+	
 	viper.SetEnvPrefix("CORE")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
@@ -248,23 +257,6 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext) {
 	stub.UUID = uuid
 	stub.securityContext = secContext
-}
-
-// ------------- Logging Control ---------------
-
-// SetLoggingLevel allows a Go chaincode to set the logging level of its
-// shim. The logging level is a case-insensitive string chosen from CRITICAL,
-// ERROR, WARNING, NOTICE, INFO or DEBUG. In the event of errors assume that
-// the logging level has not changed. This API uses the string form of the
-// level so as not to require the caller to have imported go-logging.
-func SetLoggingLevel(levelString string) error {
-	level, err := logging.LogLevel(levelString)
-	if err != nil {
-		chaincodeLogger.Warning("Logging level '%s' not recognized; Logging level unchanged : %s", err)
-		return err
-	}
-	logging.SetLevel(level, "chaincode")
-	return nil
 }
 
 // --------- Security functions ----------
@@ -897,4 +889,100 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 	}
 
 	return true, nil
+}
+
+// ------------- Logging Control and Chaincode Loggers ---------------
+
+// These facilities allow a Go language chaincode to control the logging level
+// of its shim and to create its own consistent logging objects, without any
+// knowledge of the underlying implementation or any other package
+// requirements.
+
+type LoggingLevel logging.Level
+
+var LOG_DEBUG    LoggingLevel = LoggingLevel(logging.DEBUG)
+var LOG_INFO     LoggingLevel = LoggingLevel(logging.INFO)
+var LOG_NOTICE   LoggingLevel = LoggingLevel(logging.NOTICE)
+var LOG_WARNING  LoggingLevel = LoggingLevel(logging.WARNING)
+var LOG_ERROR    LoggingLevel = LoggingLevel(logging.ERROR)
+var LOG_CRITICAL LoggingLevel = LoggingLevel(logging.CRITICAL)
+
+var shimLoggingLevel = LOG_DEBUG	// Necessary for correct initialization; See Start()
+
+// SetLoggingLevel allows a Go language chaincode to set the logging level of
+// its shim.
+func SetLoggingLevel(level LoggingLevel) {
+	shimLoggingLevel = level
+	logging.SetLevel(logging.Level(level), "shim")
+}
+
+// LogLevel converts a case-insensitive string chosen from CRITICAL, ERROR,
+// WARNING, NOTICE, INFO or DEBUG into an element of the shim.LoggingLevel
+// type. In the event of errors the level returned is shim.LOG_ERROR.
+func LogLevel(levelString string) (LoggingLevel, error) {
+	l, err := logging.LogLevel(levelString)
+	level := LoggingLevel(l)
+	if err != nil {
+		level = LOG_ERROR
+	}
+	return level, err
+}	
+
+// ------------- Chaincode Loggers ---------------
+
+type ChaincodeLogger struct {
+	logger *logging.Logger
+}
+
+// NewLogger allows a Go language chaincode to create one or more logging
+// objects whose logs will be consistent with, and interleaved with, logs
+// created by the shim interface. The logs created by this object can be
+// distinguished from shim logs by the name provided, which will aoppear in the
+// logs. 
+func NewLogger(name string) *ChaincodeLogger {
+	return &ChaincodeLogger{logging.MustGetLogger(name)}
+}
+
+// SetLevel sets the logging level for a chaincode logger. Note that currently
+// the levels are actually controlled by the name given when the logger is
+// created, so loggers should be given unique names other than "shim".
+func (c *ChaincodeLogger) SetLevel(level LoggingLevel) {
+	logging.SetLevel(logging.Level(level), c.logger.Module)
+}
+
+// IsEnabledFor returns true if the logger is enabled to creates logs at the
+// given logging level. 
+func (c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool {
+	return c.logger.IsEnabledFor(logging.Level(level))
+}
+
+// Note: We're only creating the 'f' forms of the logging functions here for
+// consistency with Go language conventions around formatted I/O routines, and
+// to avoid confusion with the conventions used in the core code. It is
+// possible that some day the core code will also change from using
+// logger.Debug() to logger.Debugf() etc., and we want to protect chaincode
+// writers from that hiccup if it occurs.
+
+func (c *ChaincodeLogger) Debugf(format string, args ...interface{}) {
+	c.logger.Debug(format, args...)
+}
+
+func (c *ChaincodeLogger) Infof(format string, args ...interface{}) {
+	c.logger.Info(format, args...)
+}
+
+func (c *ChaincodeLogger) Noticef(format string, args ...interface{}) {
+	c.logger.Notice(format, args...)
+}
+
+func (c *ChaincodeLogger) Warningf(format string, args ...interface{}) {
+	c.logger.Warning(format, args...)
+}
+
+func (c *ChaincodeLogger) Errorf(format string, args ...interface{}) {
+	c.logger.Error(format, args...)
+}
+
+func (c *ChaincodeLogger) Criticalf(format string, args ...interface{}) {
+	c.logger.Critical(format, args...)
 }
