@@ -64,7 +64,7 @@ images: peer-image ca-image
 behave-deps: images peer
 behave: behave-deps
 	@echo "Running behave tests"
-	@cd bddtests; behave
+	@cd bddtests; behave $(BEHAVE_OPTS)
 
 .peerimage-dummy: .baseimage-dummy
 	go test $(PKGNAME)/core/container -run=BuildImage_Peer
