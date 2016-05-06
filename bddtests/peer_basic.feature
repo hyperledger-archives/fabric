@@ -465,7 +465,7 @@ Feature: lanching 3 peers
                     |arg1|arg2|arg3|
                     | b  | a  | 1  |
 	        Then I should have received a transactionID
-	        Then I wait up to "60" seconds for transaction to be committed to peers:
+	        Then I wait up to "120" seconds for transaction to be committed to peers:
                     | vp0  | vp1 | vp2 | vp3 |
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -490,7 +490,7 @@ Feature: lanching 3 peers
 	    Then I should get a JSON response from peers with "OK" = "120"
             | vp0  | vp1 | vp2 |
 
-        # Now start vp3 again and run 8 more transactions
+        # Now start vp3 again
         Given I start peers:
             | vp3  |
         And I wait "15" seconds
@@ -502,6 +502,8 @@ Feature: lanching 3 peers
 	    Then I should have received a transactionID
 	    Then I wait up to "60" seconds for transaction to be committed to peers:
             | vp0  | vp1 | vp2 | vp3 |
+       # wait a bit longer and let state transfer finish
+       Then I wait "60" seconds
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
 	    Then I should get a JSON response from peers with "OK" = "20"
@@ -843,4 +845,3 @@ Feature: lanching 3 peers
         |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
         #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
-
