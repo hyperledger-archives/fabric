@@ -22,7 +22,8 @@
 #   - membersrvc - builds the ./membersrvc/membersrvc binary
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
-#   - images - ensures pre-requisites are availble for running behave manually
+#   - behave-deps - ensures pre-requisites are availble for running behave manually
+#   - images - ensures all docker images are available
 #   - peer-image - ensures the peer-image is available (for behave, etc)
 #   - ca-image - ensures the ca-image is available (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
@@ -60,7 +61,8 @@ peer-image: .peerimage-dummy
 ca-image: .caimage-dummy
 images: peer-image ca-image
 
-behave: images
+behave-deps: images peer
+behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave
 
