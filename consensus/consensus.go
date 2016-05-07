@@ -100,7 +100,7 @@ type RemoteLedgers interface {
 	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
 	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
-
+// StatePersistor interface to persistent ledger state
 type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
