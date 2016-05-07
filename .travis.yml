@@ -40,7 +40,8 @@ before_script:
  - go build && echo " STARTING PEER PROCESS "
  - ./peer peer &
  - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
-
+ - git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master)
+ 
 script:
 
  - echo "Executing Behave test scripts"
@@ -49,7 +50,7 @@ script:
  - behave -D logs=Y -o testsummary.log
 
 after_failure:
- 
+
  - |
    echo "Click below links to view behave container log files"
    cd $HOME/gopath/src/github.com/hyperledger/fabric
