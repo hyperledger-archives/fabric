@@ -36,11 +36,12 @@ import (
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
-	consenter   consensus.Consenter
-	coordinator peer.MessageHandlerCoordinator
-	secOn       bool
-	secHelper   crypto.Peer
-	curBatch    []*pb.Transaction // TODO, remove after issue 579
+	consenter    consensus.Consenter
+	coordinator  peer.MessageHandlerCoordinator
+	secOn        bool
+	secHelper    crypto.Peer
+	curBatch     []*pb.Transaction       // TODO, remove after issue 579
+	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	persist.PersistHelper
 
 	sts *statetransfer.StateTransferState
@@ -163,7 +164,8 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	if err := ledger.BeginTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 
@@ -176,9 +178,25 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
-	res, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+
+	res, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
-	return res, nil
+
+	//copy errs to results
+	txresults := make([]*pb.TransactionResult, len(txerrs))
+
+	//process errors for each transaction
+	for i, e := range txerrs {
+		//NOTE- it'll be nice if we can have error values. For now success == 0, error == 1
+		if txerrs[i] != nil {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, Error: e.Error(), ErrorCode: 1}
+		} else {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid}
+		}
+	}
+	h.curBatchErrs = append(h.curBatchErrs, txresults...) // TODO, remove after issue 579
+
+	return res, err
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -192,12 +210,13 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this one the ledger has been fixed to implement
-	if err := ledger.CommitTxBatch(id, h.curBatch, nil, metadata); err != nil {
+	if err := ledger.CommitTxBatch(id, h.curBatch, h.curBatchErrs, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 
 	size := ledger.GetBlockchainSize()
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 
 	block, err := ledger.GetBlockByNumber(size - 1)
 	if err != nil {
@@ -217,7 +236,8 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	if err := ledger.RollbackTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 

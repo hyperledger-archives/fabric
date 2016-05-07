@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
 )
 
@@ -92,7 +93,7 @@ func randomString(n int) string {
 // for environment variables.
 //
 func GetConfigString(name string) string {
-	val := os.Getenv("OBCCA_"+strings.Replace(strings.ToUpper(name), ".", "_", -1))
+	val := os.Getenv("OBCCA_" + strings.Replace(strings.ToUpper(name), ".", "_", -1))
 	if val == "" {
 		return viper.GetString(name)
 	}
@@ -109,13 +110,28 @@ func GetConfigString(name string) string {
 // for environment variables.
 //
 func GetConfigInt(name string) int {
-	val := os.Getenv("OBCCA_"+strings.Replace(strings.ToUpper(name), ".", "_", -1))
+	val := os.Getenv("OBCCA_" + strings.Replace(strings.ToUpper(name), ".", "_", -1))
 	if val == "" {
 		return viper.GetInt(name)
 	}
 
 	ival, _ := strconv.Atoi(val)
 	return ival
+}
+
+//
+// MemberRoleToString converts a member role representation from int32 to a string,
+// according to the Role enum defined in ca.proto.
+//
+func MemberRoleToString(roleInt int32) (string, error) {
+	roleMap := pb.Role_name
+
+	roleStr := roleMap[roleInt]
+	if roleStr == "" {
+		return "", errors.New("Undefined user role passed.")
+	}
+
+	return roleStr, nil
 }
 
 // PKCS5Pad adds a PKCS5 padding.

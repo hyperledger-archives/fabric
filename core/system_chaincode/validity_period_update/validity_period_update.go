@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -23,15 +20,15 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 /*
 This is a system chaincode used to update the validity period on the ledger. It needs to be deployed at genesis time to avoid the need of
-a TCert during deployment and It will be invoked by a system component (probably the TCA) who is the source of the validity period value. 
+a TCert during deployment and It will be invoked by a system component (probably the TCA) who is the source of the validity period value.
 
-This component will increment the validity period locally and dispatch an invocation transaction for this chaincode passing the new validity 
+This component will increment the validity period locally and dispatch an invocation transaction for this chaincode passing the new validity
 period as a parameter.
 
 This chaincode is responsible for the verification of the caller's identity, for that we can use an enrolment certificate id or some other
@@ -61,7 +58,7 @@ func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return nil, nil
 }
 
@@ -71,23 +68,23 @@ func (t *systemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	// need to be perfomed:
 	// 1. The identity of the caller should be available somehow for the chaincode to perform a check.
 	// 2. The ability to determine if the chaincode is executed directly or as a part of a nested execution of chaincodes.
-	
+
 	// We need to verify identity of caller and that this is not a nested chaincode invocation
 	directly_called_by_TCA := true // stub.ValidateCaller(expectedCaller, stub.GetActualCaller()) && stub.StackDepth() == 0
-	
+
 	if directly_called_by_TCA {
 		if len(args) != 1 {
 			return nil, errors.New("Incorrect number of arguments. Expecting 1")
 		}
-		
+
 		vp := args[0]
-		
+
 		err := stub.PutState(system_validity_period_key, []byte(vp))
 		if err != nil {
 			return nil, err
 		}
 	}
-	
+
 	return nil, nil
 }
 
@@ -96,17 +93,17 @@ func (t *systemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
-	
+
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
 	}
-	
+
 	key := args[0]
-	
+
 	if key != system_validity_period_key {
 		return nil, errors.New("Incorrect key. Expecting " + system_validity_period_key)
 	}
-	
+
 	// Get the state from the ledger
 	vp, err := stub.GetState(key)
 	if err != nil {
@@ -130,5 +127,3 @@ func main() {
 		fmt.Printf("Error starting System chaincode: %s", err)
 	}
 }
-
-
