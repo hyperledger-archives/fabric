@@ -9,6 +9,7 @@ node-cli/node-cli
 .DS_Store
 tags
 .tags
+.travis.yml.bak
 .vagrant/
 membersrvc/membersrvc
 # Emacs backup files
