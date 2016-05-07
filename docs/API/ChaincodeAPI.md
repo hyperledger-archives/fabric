@@ -27,6 +27,8 @@ with examples [here](../dev-setup/logging-control.md).
 
 `SetLoggingLevel(LoggingLevel level)` - Control the logging level of the shim
 
+`LogLevel(levelString string) (LoggingLevel, error)` - Convert a string to a `LoggingLevel`
+
 `NewLogger(name string) *ChaincodeLogger` - Create a logging object for use by a chaincode
 
 `(c *ChaincodeLogger) SetLevel(level LoggingLevel)` - Set the logging level of a chaincode logger

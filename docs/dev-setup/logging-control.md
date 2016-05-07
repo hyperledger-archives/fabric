@@ -72,13 +72,15 @@ appropriate technique to create their private logs - from simple print
 statements to fully-annotated and level-controlled logs. The chaincode *shim*
 package provides APIs that allow a chaincode to create and manage logging
 objects whose logs will be formatted and interleaved consistently with the
-shim logs.
+*shim* logs.
 
 `NewLogger(name string) *ChaincodeLogger` - Create a logging object for use by a chaincode
 
 `(c *ChaincodeLogger) SetLevel(level LoggingLevel)` - Set the logging level of the logger
 
 `(c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool` - Return true if logs will be generated at the given level
+
+`LogLevel(levelString string) (LoggingLevel, error)` - Convert a string to a `LoggingLevel`
 
 A `LoggingLevel` is a member of the enumeration 
 
@@ -115,13 +117,13 @@ ambiguities, all `ChaincodeLogger` should be given unique names other than
 logger. The *shim* logs as "shim".
 
 Go language chaincodes can also control the logging level of the chaincode
-*shim* interface through the `shim.SetLoggingLevel` API.
+*shim* interface through the `SetLoggingLevel` API.
 
 `SetLoggingLevel(LoggingLevel level)` - Control the logging level of the shim
 
 Below is a simple example of how a chaincode might create a private logging
-object, and also control the amount of logging provided by the shim based on
-an environment variable.
+object logging at the INFO level, and also control the amount of logging
+provided by the *shim* based on an environment variable.
 
 ```
 var logger = shim.NewLogger("myChaincode")
