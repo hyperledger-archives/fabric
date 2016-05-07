@@ -20,22 +20,25 @@ under the License.
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 
 	"github.com/hyperledger/fabric/events/consumer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+// the channel the client uses for listening for events
 type Adapter struct {
 	notfy chan *pb.Event_Block
 }
 
+// GetInterestedEvents returns an array of Interest structs
 func (a *Adapter) GetInterestedEvents() ([]*pb.Interest, error) {
 	return []*pb.Interest{&pb.Interest{"block", pb.Interest_PROTOBUF}}, nil
 }
 
-func (a *Adapter) Recv(msg *pb.Event) (bool, error){
+// Recv adds the event on the adapter channel
+func (a *Adapter) Recv(msg *pb.Event) (bool, error) {
 	switch msg.Event.(type) {
 	case *pb.Event_Block:
 		a.notfy <- msg.Event.(*pb.Event_Block)
@@ -46,9 +49,11 @@ func (a *Adapter) Recv(msg *pb.Event) (bool, error){
 	}
 }
 
+// Disconnected  (no-op for now)
 func (a *Adapter) Disconnected(err error) {
 }
 
+// createEventClient creates an event listener
 func createEventClient(eventAddress string) *Adapter {
 	var obcEHClient *consumer.EventsClient
 
@@ -63,6 +68,8 @@ func createEventClient(eventAddress string) *Adapter {
 
 	return adapter
 }
+
+// main  creates a listener, reads events off the channel and shows whether the transactio results from the block
 func main() {
 	var eventAddress string
 	flag.StringVar(&eventAddress, "events-address", "0.0.0.0:31315", "address of events server")
@@ -78,12 +85,12 @@ func main() {
 
 	for {
 		b := <-a.notfy
-		if b.Block.NonHashData.TransactionResults == nil  {
+		if b.Block.NonHashData.TransactionResults == nil {
 			fmt.Printf("INVALID BLOCK ... NO TRANSACTION RESULTS %v\n", b)
 		} else {
 			fmt.Printf("Received block\n")
 			fmt.Printf("--------------\n")
-			for _,r := range b.Block.NonHashData.TransactionResults {
+			for _, r := range b.Block.NonHashData.TransactionResults {
 				if r.ErrorCode != 0 {
 					fmt.Printf("Err Transaction:\n\t[%v]\n", r)
 				} else {
