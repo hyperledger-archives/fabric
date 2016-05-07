@@ -72,9 +72,7 @@ var peerAddress string
 func Start(cc Chaincode) error {
 	// If Start() is called, we assume this is a standalone chaincode and set
 	// up formatted logging.
-	format := logging.MustStringFormatter(
-		"%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}",
-	)
+	format := logging.MustStringFormatter("%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, format)
 	logging.SetBackend(backendFormatter).SetLevel(logging.Level(shimLoggingLevel), "shim")
