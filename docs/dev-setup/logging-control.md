@@ -121,8 +121,10 @@ Go language chaincodes can also control the logging level of the chaincode
 
 `SetLoggingLevel(LoggingLevel level)` - Control the logging level of the shim
 
+The default logging level for the shim is `LOG_DEBUG`.
+
 Below is a simple example of how a chaincode might create a private logging
-object logging at the INFO level, and also control the amount of logging
+object logging at the LOG_INFO level, and also control the amount of logging
 provided by the *shim* based on an environment variable.
 
 ```
