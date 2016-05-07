@@ -61,6 +61,9 @@ func TestSieveNetwork(t *testing.T) {
 		if len(txs) != 1 {
 			t.Fatalf("Replica %d block %v contains %d transactions, expected 1", cep.id, blockNo, len(txs))
 		}
+		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 {
+			t.Fatalf("Replica %d block %v has %d txResults, expected 1", cep.id, blockNo, numTxResults)
+		}
 
 		msgTx := &pb.Transaction{}
 		proto.Unmarshal(msg.Payload, msgTx)

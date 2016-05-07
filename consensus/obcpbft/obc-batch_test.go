@@ -66,9 +66,13 @@ func TestNetworkBatch(t *testing.T) {
 		if nil != err {
 			t.Fatalf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
 		}
-		if numTrans := len(block.Transactions); numTrans != batchSize {
+		numTrans := len(block.Transactions)
+		if numTrans != batchSize {
 			t.Fatalf("Replica %d executed %d requests, expected %d",
 				ce.id, numTrans, batchSize)
+		}
+		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 /*numTrans*/ {
+			t.Fatalf("Replica %d has %d txResults, expected %d", ce.id, numTxResults, numTrans)
 		}
 	}
 }
