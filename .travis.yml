@@ -2,10 +2,8 @@ language: go
 go:
  - 1.6
 sudo: required
-services:
- - docker
 
-script:
+before_script:
 - golint `git --no-pager diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD master) | grep ".go"`
 
 notifications:
