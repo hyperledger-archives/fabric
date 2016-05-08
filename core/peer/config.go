@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/viper"
 
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/discovery"
 )
 
 // Is the configuration cached?
@@ -85,13 +86,15 @@ func CacheConfiguration() (err error) {
 
 	// getValidatorStreamAddress returns the address to stream requests to
 	getValidatorStreamAddress := func() string {
-		localaddr, _ := getLocalAddress()
+		localAddr, _ := getLocalAddress()
 		if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
-			return localaddr
-		} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
-			return valaddr
+			return localAddr
+		} else if valAddr, err := discovery.GetRootNode(); err == nil{
+			if valAddr != "" {
+				return valAddr
+			}
 		}
-		return localaddr
+		return localAddr
 	}
 
 	// getPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect

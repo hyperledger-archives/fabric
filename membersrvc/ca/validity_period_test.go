@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
+	"github.com/hyperledger/fabric/discovery"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -373,7 +374,8 @@ func startOpenchain(t *testing.T) error {
 	// Create and register the REST service
 	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 
-	rootNode, err := core.GetRootNode()
+	discovery.SetDiscoveryService(core.NewStaticDiscovery(viper.GetBool("peer.validator.enabled")))
+	rootNode, err := discovery.GetRootNode()
 	if err != nil {
 		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
 	}

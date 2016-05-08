@@ -16,9 +16,36 @@ limitations under the License.
 
 package core
 
-import "github.com/spf13/viper"
 
-// GetRootNode place holder function for providing a boostrap address for a Validating Peer.
-func GetRootNode() (string, error) {
-	return viper.GetString("peer.discovery.rootnode"), nil
+import (
+	"strings"
+	"math/rand"
+	"time"
+
+	"github.com/spf13/viper"
+
+)
+
+
+
+type StaticDiscovery struct {
+	rootNodes []string
+	random *rand.Rand
+	isValidator bool
 }
+
+func NewStaticDiscovery(isValidator bool) *StaticDiscovery {
+	staticDisc := StaticDiscovery{}
+	staticDisc.rootNodes   = strings.Split(viper.GetString("peer.discovery.rootnode"),",")
+	staticDisc.random      = rand.New(rand.NewSource(time.Now().Unix()))
+	staticDisc.isValidator = isValidator
+	return &staticDisc
+}
+
+func (sd *StaticDiscovery) GetRootNode() (string, error) {
+	if sd.isValidator {
+		return sd.rootNodes[0], nil
+	}
+	return sd.rootNodes[sd.random.Int() % (len(sd.rootNodes))], nil
+}
+
