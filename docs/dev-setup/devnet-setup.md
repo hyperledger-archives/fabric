@@ -11,7 +11,7 @@ logging output from the `peer` and chaincodes.
 
 ### Setting up Docker image
 To create a Docker image for the `hyperledger/fabric`,
-first clean out any active containers (hyperledger-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful**: do not remove any other images (like busybox or openblockchain/baseimage) as they are needed for a correct execution.
+first clean out any active containers (hyperledger-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful**: do not remove any other images (like busybox or hyperledger/fabric-baseimage) as they are needed for a correct execution.
 
 Now we are ready to build a new docker image:
 
