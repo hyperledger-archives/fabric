@@ -197,7 +197,7 @@ peer:
 
         # The root nodes are used for bootstrapping purposes, and generally
         # supplied through ENV variables
-        # If it's a non-validating peer it can be either a single host or a comma separated list of hosts.
+        # It can be either a single host or a comma separated list of hosts.
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers

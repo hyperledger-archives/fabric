@@ -20,90 +20,80 @@ under the License.
 package core
 
 import (
-
-	"github.com/hyperledger/fabric/discovery"
-
+	"strings"
 	"testing"
-	"github.com/spf13/viper"
+
+	d "github.com/hyperledger/fabric/discovery"
 )
 
 func TestDiscovery_GetEmptyRootNode(t *testing.T) {
-	discovery.SetDiscoveryService(NewStaticDiscovery(true))
-	assertRootNode(t,"")
-
+	assertRandomRootNode(t, "", NewStaticDiscovery(""))
 }
 
-func TestDiscovery_GetSingleValidatingPeer(t *testing.T) {
-	viper.Set("peer.discovery.rootnode","someHost")
-	discovery.SetDiscoveryService(NewStaticDiscovery(true))
-	assertRootNode(t,"someHost")
-}
-
-// Check that function always returns first one
-func TestDiscovery_GetMultiValidatingPeer(t *testing.T) {
-	viper.Set("peer.discovery.rootnode","a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z")
-	discovery.SetDiscoveryService(NewStaticDiscovery(true))
-
-	for i := 0; i < 100; i++ {
-		assertRootNode(t,"a")
+func TestDiscovery_GetEmptyRootNodes(t *testing.T) {
+	discovery := NewStaticDiscovery("")
+	rootNodes := discovery.GetRootNodes()
+	if size := len(rootNodes); size != 1 || rootNodes[0] != "" {
+		t.Fatalf("Needed input is not ['']")
 	}
 }
 
-// Check that function always returns first one
-func TestDiscovery_GetMultiNonValidatingPeer(t *testing.T) {
-	viper.Set("peer.discovery.rootnode","a,b,c,d,e")
-	discovery.SetDiscoveryService(NewStaticDiscovery(false))
-	assertRootNodeRandomValues(t,[]string{"a","b","c","d","e"})
+func TestDiscovery_GetSinglePeer(t *testing.T) {
+	assertRandomRootNode(t, "someHost", NewStaticDiscovery("someHost"))
 }
 
-func assertRootNode(t *testing.T,expected string) {
-	rootNode, err := discovery.GetRootNode()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error getting rootnode:  %s", err)
+func TestDiscovery_GetAllPeers(t *testing.T) {
+	s := "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
+	discovery := (NewStaticDiscovery(s))
+	rootNodes := discovery.GetRootNodes()
+
+	expectedArrSize := strings.Count(s, ",") + 1
+	if len(rootNodes) != expectedArrSize {
+		t.Fatalf("Rootnodes length should have been %d but is %d", expectedArrSize, len(rootNodes))
+		return
 	}
+
+	for _, rootNode := range rootNodes {
+		if !strings.Contains(s, rootNode) {
+			t.Fatalf("%s is not a rootNode of [%s]", rootNode, s)
+		}
+	}
+}
+
+func TestDiscovery_GetMulti(t *testing.T) {
+	assertRootNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewStaticDiscovery("a,b,c,d,e"))
+}
+
+func assertRandomRootNode(t *testing.T, expected string, discovery d.Discovery) {
+	rootNode := discovery.GetRandomNode()
+
 	if rootNode != expected {
-		t.Fail()
-		t.Logf("RootNode's value should be '%s'",expected)
+		t.Fatalf("RootNode's value should be '%s'", expected)
 	}
 }
 
+func assertRootNodeRandomValues(t *testing.T, expected []string, discovery d.Discovery) {
+	rootNode := discovery.GetRandomNode()
 
-func assertRootNodeRandomValues(t *testing.T,expected []string) {
-
-	rootNode, err := discovery.GetRootNode()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error getting rootnode:  %s", err)
-	}
-
-	if ! inArray(rootNode,expected) {
-		t.Fail()
-		t.Logf("RootNode's value should be one of '%v'",expected)
-
+	if !inArray(rootNode, expected) {
+		t.Fatalf("RootNode's value should be one of '%v'", expected)
 	}
 
 	// Now test that a random value is sometimes returned
 	for i := 0; i < 100; i++ {
-		if val, err := discovery.GetRootNode(); err == nil && rootNode != val {
+		if val := discovery.GetRandomNode(); rootNode != val {
 			return
-		} else if err != nil {
-			t.Fail()
-			t.Logf("Error getting rootnode:  %s", err)
 		}
 	}
-	t.Fail()
-	t.Logf("returned value was always %s", rootNode)
+	t.Fatalf("returned value was always %s", rootNode)
 
 }
 
-
-func inArray(element string,array []string) bool {
+func inArray(element string, array []string) bool {
 	for _, val := range array {
 		if val == element {
-			return true;
+			return true
 		}
 	}
 	return false
 }
-

@@ -39,7 +39,6 @@ import (
 	"github.com/spf13/viper"
 
 	pb "github.com/hyperledger/fabric/protos"
-	"github.com/hyperledger/fabric/discovery"
 )
 
 // Is the configuration cached?
@@ -49,7 +48,6 @@ var configurationCached = false
 // getValidatorStreamAddress(), and getPeerEndpoint()
 var localAddress string
 var localAddressError error
-var validatorStreamAddress string
 var peerEndpoint *pb.PeerEndpoint
 var peerEndpointError error
 
@@ -65,7 +63,7 @@ var tlsEnabled bool
 // bit.
 var securityEnabled bool
 
-// CacheConfiguration() computes and caches commonly-used constants and
+// CacheConfiguration computes and caches commonly-used constants and
 // computed constants as package variables. Routines which were previously
 // global have been embedded here to preserve the original abstraction.
 func CacheConfiguration() (err error) {
@@ -87,19 +85,6 @@ func CacheConfiguration() (err error) {
 		return
 	}
 
-	// getValidatorStreamAddress returns the address to stream requests to
-	getValidatorStreamAddress := func() string {
-		localAddr, _ := getLocalAddress()
-		if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
-			return localAddr
-		} else if valAddr, err := discovery.GetRootNode(); err == nil{
-			if valAddr != "" {
-				return valAddr
-			}
-		}
-		return localAddr
-	}
-
 	// getPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		var peerAddress string
@@ -118,7 +103,6 @@ func CacheConfiguration() (err error) {
 
 	localAddress, localAddressError = getLocalAddress()
 	peerEndpoint, peerEndpointError = getPeerEndpoint()
-	validatorStreamAddress = getValidatorStreamAddress()
 
 	syncStateSnapshotChannelSize = viper.GetInt("peer.sync.state.snapshot.channelSize")
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
@@ -151,13 +135,6 @@ func GetLocalAddress() (string, error) {
 		cacheConfiguration()
 	}
 	return localAddress, localAddressError
-}
-
-func getValidatorStreamAddress() string {
-	if !configurationCached {
-		cacheConfiguration()
-	}
-	return validatorStreamAddress
 }
 
 func GetPeerEndpoint() (*pb.PeerEndpoint, error) {

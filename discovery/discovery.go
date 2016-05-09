@@ -19,23 +19,13 @@ under the License.
 
 package discovery
 
-
+// Discovery is the interface that consolidates bootstrap peer membership selection
+// and validating peer selection for non validating peers
 type Discovery interface {
 
-	// GetRootNode function for providing a bootstrap address for a peer
-	GetRootNode() (string, error)
+	// GetRootNode function for providing a random bootstrap address for a peer
+	GetRandomNode() string
 
+	// GetRootNode function for providing all bootstrap addresses for a peer
+	GetRootNodes() []string
 }
-
-var discInstance Discovery
-
-func SetDiscoveryService(instance Discovery) {
-	discInstance = instance
-}
-
-func GetRootNode() (string, error) {
-	return discInstance.GetRootNode();
-}
-
-
-

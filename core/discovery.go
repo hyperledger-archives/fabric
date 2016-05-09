@@ -19,36 +19,34 @@ under the License.
 
 package core
 
-
 import (
-	"strings"
 	"math/rand"
+	"strings"
 	"time"
-
-	"github.com/spf13/viper"
-
 )
 
-
-
+// StaticDiscovery is an implementation of Discovery
 type StaticDiscovery struct {
 	rootNodes []string
-	random *rand.Rand
-	isValidator bool
+	random    *rand.Rand
 }
 
-func NewStaticDiscovery(isValidator bool) *StaticDiscovery {
-	staticDisc := StaticDiscovery{}
-	staticDisc.rootNodes   = strings.Split(viper.GetString("peer.discovery.rootnode"),",")
-	staticDisc.random      = rand.New(rand.NewSource(time.Now().Unix()))
-	staticDisc.isValidator = isValidator
-	return &staticDisc
+// NewStaticDiscovery is a constructor of a Discovery implementation
+// Accepts as a parameter the root node configuration, which is a single node,
+// or a comma separated list of nodes with no spaces
+func NewStaticDiscovery(rootNodesString string) *StaticDiscovery {
+	sd := StaticDiscovery{}
+	sd.rootNodes = strings.Split(rootNodesString, ",")
+	sd.random = rand.New(rand.NewSource(time.Now().Unix()))
+	return &sd
 }
 
-func (sd *StaticDiscovery) GetRootNode() (string, error) {
-	if sd.isValidator {
-		return sd.rootNodes[0], nil
-	}
-	return sd.rootNodes[sd.random.Int() % (len(sd.rootNodes))], nil
+// GetRandomNode returns a random root node out of the nodes the discovery was initialized with
+func (sd *StaticDiscovery) GetRandomNode() string {
+	return sd.rootNodes[sd.random.Intn(len(sd.rootNodes))]
 }
 
+// GetRootNodes returns an array of all the nodes it was initialized with
+func (sd *StaticDiscovery) GetRootNodes() []string {
+	return append([]string{}, sd.rootNodes...)
+}

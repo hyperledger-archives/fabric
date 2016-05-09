@@ -20,22 +20,21 @@ under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
-	"syscall"
 	"sync"
-	"path/filepath"
-	"bytes"
-	"net/http"
-
+	"syscall"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -61,7 +60,6 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 
 	_ "net/http/pprof"
-	"github.com/hyperledger/fabric/discovery"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -258,12 +256,12 @@ func main() {
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-	    peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
-	    viper.AddConfigPath(peerpath)
+		peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
+		viper.AddConfigPath(peerpath)
 	}
 
-	err := viper.ReadInConfig()  // Find and read the config file
-	if err != nil {              // Handle errors reading the config file
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
 
@@ -396,14 +394,11 @@ func serve(args []string) error {
 		viper.Set("validator.validity-period.verification", "false")
 	}
 
-	// Install discovery
-	discovery.SetDiscoveryService(core.NewStaticDiscovery(viper.GetBool("peer.validator.enabled")))
-
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
 
-	//register all system chaincodes. This just registers chaincodes, they must be 
+	//register all system chaincodes. This just registers chaincodes, they must be
 	//still be deployed and launched
 	system_chaincode.RegisterSysCCs()
 	peerEndpoint, err := peer.GetPeerEndpoint()
@@ -428,8 +423,6 @@ func serve(args []string) error {
 	if err != nil {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
-
-
 
 	logger.Info("Security enabled status: %t", core.SecurityEnabled())
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
@@ -458,6 +451,8 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
+	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
+
 	//create the peerServer....
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
@@ -466,10 +461,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
 	}
 
 	if err != nil {
@@ -503,14 +498,11 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := discovery.GetRootNode()
-	if err != nil {
-		grpclog.Fatalf("Failed to get discovery rootnode valey: %s", err)
-	}
+	rootNodes := discInstance.GetRootNodes()
 
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNode, peer.ValidatorEnabled())
+		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -525,7 +517,7 @@ func serve(args []string) error {
 		serve <- grpcErr
 	}()
 
-	if err := writePid(viper.GetString("peer.fileSystemPath") + "/peer.pid", os.Getpid()); err != nil {
+	if err := writePid(viper.GetString("peer.fileSystemPath")+"/peer.pid", os.Getpid()); err != nil {
 		return err
 	}
 
@@ -987,7 +979,7 @@ func network() (err error) {
 	return nil
 }
 
-func writePid (fileName string, pid int) error {
+func writePid(fileName string, pid int) error {
 	err := os.MkdirAll(filepath.Dir(fileName), 0755)
 	if err != nil {
 		return err
@@ -1024,7 +1016,7 @@ func writePid (fileName string, pid int) error {
 	return nil
 }
 
-func readPid (fileName string) (int, error) {
+func readPid(fileName string) (int, error) {
 	fd, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return 0, err
