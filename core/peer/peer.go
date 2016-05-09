@@ -291,11 +291,10 @@ func (p *PeerImpl) ProcessTransaction(ctx context.Context, tx *pb.Transaction) (
 	return p.ExecuteTransaction(tx), err
 }
 
-
 // GetPeers returns the currently registered PeerEndpoints
 func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
-	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
+	p.handlerMap.RLock()
+	defer p.handlerMap.RUnlock()
 	peers := []*pb.PeerEndpoint{}
 	for _, msgHandler := range p.handlerMap.m {
 		peerEndpoint, err := msgHandler.To()
@@ -310,8 +309,8 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 
 // GetRemoteLedger returns the RemoteLedger interface for the remote Peer Endpoint
 func (p *PeerImpl) GetRemoteLedger(receiverHandle *pb.PeerID) (RemoteLedger, error) {
-	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
+	p.handlerMap.RLock()
+	defer p.handlerMap.RUnlock()
 	remoteLedger, ok := p.handlerMap.m[*receiverHandle]
 	if !ok {
 		return nil, fmt.Errorf("Remote ledger not found for receiver %s", receiverHandle.Name)
@@ -321,12 +320,12 @@ func (p *PeerImpl) GetRemoteLedger(receiverHandle *pb.PeerID) (RemoteLedger, err
 
 // PeersDiscovered used by MessageHandlers for notifying this coordinator of discovered PeerEndoints. May include this Peer's PeerEndpoint.
 func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
-	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
 	thisPeersEndpoint, err := GetPeerEndpoint()
 	if err != nil {
 		return fmt.Errorf("Error in processing PeersDiscovered: %s", err)
 	}
+	p.handlerMap.RLock()
+	defer p.handlerMap.RUnlock()
 	for _, peerEndpoint := range peersMessage.Peers {
 		// Filter out THIS Peer's endpoint
 		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
@@ -385,10 +384,10 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 	return nil
 }
 
-//clone the handler so as to avoid lock across SendMessage
+// Clone the handler map to avoid locking across SendMessage
 func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]MessageHandler {
-	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
+	p.handlerMap.RLock()
+	defer p.handlerMap.RUnlock()
 	clone := make(map[pb.PeerID]MessageHandler)
 	for id, msgHandler := range p.handlerMap.m {
 		//pb.PeerEndpoint_UNDEFINED collects all peers
@@ -443,8 +442,8 @@ func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error 
 }
 
 func (p *PeerImpl) getMessageHandler(receiverHandle *pb.PeerID) (MessageHandler, error) {
-	p.handlerMap.Lock()
-	defer p.handlerMap.Unlock()
+	p.handlerMap.RLock()
+	defer p.handlerMap.RUnlock()
 	msgHandler, ok := p.handlerMap.m[*receiverHandle]
 	if !ok {
 		return nil, fmt.Errorf("Message handler not found for receiver %s", receiverHandle.Name)
