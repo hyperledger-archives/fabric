@@ -80,6 +80,7 @@ behave: behave-deps
 	@./scripts/provision/docker.sh 0.0.9
 	@touch $@
 
+.PHONY: protos
 protos:
 	./devenv/compile_protos.sh
 
