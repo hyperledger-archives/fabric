@@ -18,7 +18,7 @@ before_install:
 
 install:
 
- - echo " INSTALLING DEPENDENCIES "
+ - echo " INSTALLING DEPENDENCIES " 
  - |
    echo "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose" > tempsh.sh
    chmod +x tempsh.sh && sudo ./tempsh.sh
@@ -30,19 +30,18 @@ install:
    export CGO_CFLAGS="-I/opt/rocksdb/include" && export CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 
 before_script:
-
+ 
  - echo " CREATING BASE IMAGE "
  - echo " Calling docker.sh to build Openblockchain/baseimage "
- - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts/provision/ && chmod +x docker.sh && ./docker.sh 0.0.9
- - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME
- - cd /$HOME/gopath/src/github.com/hyperledger/$REPO_NAME/peer
+ - cd $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG}/scripts/provision/ && chmod +x docker.sh && ./docker.sh 0.0.9
+ - cd $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG}/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME $REPO_NAME
+ - cd $HOME/gopath/src/github.com/hyperledger/fabric/peer
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
- - go build && echo " STARTING PEER PROCESS "
- - ./peer peer &
+ - go build && ./peer peer &
  - go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
 
 script:
-
+ 
  - echo "Executing Behave test scripts"
  - cd $HOME/gopath/src/github.com/hyperledger/fabric/bddtests
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
@@ -58,6 +57,6 @@ after_failure:
 
 notifications:
 
-  slack: 'hyperledgerproject:azMP8Mw3cfGigXkqi5RujZXr'
-  on_success: always
-  on_failure: always
+ slack: 'hyperledgerproject:azMP8Mw3cfGigXkqi5RujZXr'
+ on_success: always
+ on_failure: always
