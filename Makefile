@@ -18,7 +18,8 @@
 # -------------------------------------------------------------
 # This makefile defines the following targets
 #
-#   - peer (default) - builds the fabric ./peer/peer binary
+#   - all (default) - builds all targets and runs all tests
+#   - peer - builds the fabric ./peer/peer binary
 #   - membersrvc - builds the ./membersrvc/membersrvc binary
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
@@ -38,7 +39,7 @@ EXECUTABLES = go docker
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
-all: peer
+all: peer membersrvc unit-test behave
 
 .PHONY: peer
 peer: base-image
