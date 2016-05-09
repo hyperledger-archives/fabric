@@ -268,6 +268,12 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 		}
 	}
 
+	ledgerPtr, err := ledger.GetLedger()
+	if err != nil {
+		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
+	}
+	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
+
 	peer.engine, err = engFactory(peer)
 	if err != nil {
 		return nil, err
@@ -277,11 +283,6 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
 
-	ledgerPtr, err := ledger.GetLedger()
-	if err != nil {
-		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
-	}
-	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
 	return peer, nil
 }

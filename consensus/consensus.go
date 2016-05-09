@@ -17,7 +17,6 @@ limitations under the License.
 package consensus
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -61,28 +60,6 @@ type ReadOnlyLedger interface {
 	GetBlockHeadMetadata() ([]byte, error)
 }
 
-// UtilLedger contains additional useful utility functions for interrogating the blockchain
-type UtilLedger interface {
-	HashBlock(block *pb.Block) ([]byte, error)
-	VerifyBlockchain(start, finish uint64) (uint64, error)
-}
-
-// WritableLedger is useful for updating the blockchain during state transfer
-type WritableLedger interface {
-	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
-	CommitStateDelta(id interface{}) error
-	RollbackStateDelta(id interface{}) error
-	EmptyState() error
-}
-
-// Ledger is an unrestricted union of reads, utilities, and updates
-type Ledger interface {
-	ReadOnlyLedger
-	UtilLedger
-	WritableLedger
-}
-
 // Executor is used to invoke transactions, potentially modifying the backing ledger
 type Executor interface {
 	BeginTxBatch(id interface{}) error
@@ -92,13 +69,6 @@ type Executor interface {
 	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
 
 	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
-}
-
-// RemoteLedgers is used to interrogate the blockchain of other replicas
-type RemoteLedgers interface {
-	GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
 }
 
 type StatePersistor interface {
@@ -113,7 +83,6 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	Executor
-	Ledger
-	RemoteLedgers
+	ReadOnlyLedger
 	StatePersistor
 }
