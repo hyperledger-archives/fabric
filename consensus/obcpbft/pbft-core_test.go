@@ -1141,3 +1141,89 @@ func TestReplicaCrash2(t *testing.T) {
 		}
 	}
 }
+
+// TestReplicaCrash3 simulates the restart requiring a view change
+// to a checkpoint which was restored from the persistance state
+// Replicas 0,1,2 participate up to a checkpoint, then all crash
+// Then replicas 0,1,3 start back up, and a view change must be
+// triggered to get vp3 up to speed
+func TestReplicaCrash3(t *testing.T) {
+	validatorCount := 4
+	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
+		pep.pbft.K = 2
+		pep.pbft.L = 2 * pep.pbft.K
+	})
+	defer net.stop()
+
+	twoOffline := false
+	threeOffline := true
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if twoOffline && dst == 2 { // 2 is 'offline'
+			return nil
+		}
+		if threeOffline && dst == 3 { // 3 is 'offline'
+			return nil
+		}
+		return msg
+	}
+
+	mkreq := func(n int64) *Request {
+		txTime := &gp.Timestamp{Seconds: n, Nanos: 0}
+		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
+		txPacked, _ := proto.Marshal(tx)
+
+		return &Request{
+			Timestamp: &gp.Timestamp{Seconds: n, Nanos: 0},
+			Payload:   txPacked,
+			ReplicaId: uint64(generateBroadcaster(validatorCount)),
+		}
+	}
+
+	for i := int64(1); i <= 8; i++ {
+		net.pbftEndpoints[0].pbft.recvRequest(mkreq(i))
+	}
+	net.process() // vp0,1,2 should have a stable checkpoint for seqNo 8
+
+	// Create new pbft instances to restore from persistence
+	for id := 0; id < 2; id++ {
+		pe := net.pbftEndpoints[id]
+		os.Setenv("CORE_PBFT_GENERAL_K", "2") // TODO, this is a hacky way to inject config before initialization rather than after, address this in a future changeset
+		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
+		pe.pbft.N = 4
+		pe.pbft.f = (4 - 1) / 3
+		pe.pbft.requestTimeout = 200 * time.Millisecond
+	}
+
+	threeOffline = false
+	twoOffline = true
+
+	// Because vp2 is 'offline', and vp3 is still at the genesis block, the network needs to make a view change
+
+	net.pbftEndpoints[0].pbft.recvRequest(mkreq(9))
+	net.process()
+
+	// Now vp0,1,3 should be in sync with 9 executions in view 1, and vp2 should be at 8 executions in view 0
+	for i, pep := range net.pbftEndpoints {
+
+		if i == 2 {
+			// 2 is 'offline'
+			if pep.pbft.view != 0 {
+				t.Errorf("Expected replica %d to be in view 0, got %d", pep.id, pep.pbft.view)
+			}
+			expectedExecutions := uint64(8)
+			if pep.sc.executions != expectedExecutions {
+				t.Errorf("Expected %d executions on replica %d, got %d", expectedExecutions, pep.id, pep.sc.executions)
+			}
+			continue
+		}
+
+		if pep.pbft.view != 1 {
+			t.Errorf("Expected replica %d to be in view 1, got %d", pep.id, pep.pbft.view)
+		}
+
+		expectedExecutions := uint64(9)
+		if pep.sc.executions != expectedExecutions {
+			t.Errorf("Expected %d executions on replica %d, got %d", expectedExecutions, pep.id, pep.sc.executions)
+		}
+	}
+}
