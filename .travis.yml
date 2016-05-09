@@ -47,6 +47,7 @@ script:
  - cd $HOME/gopath/src/github.com/hyperledger/fabric
  - sed -i -e 's/172.17.0.1:4243\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
  - make behave BEHAVE_OPTS="-D logs=Y -o testsummary.log"
+ - make linter
 
 after_failure:
  

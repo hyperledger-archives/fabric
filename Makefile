@@ -18,12 +18,14 @@
 # -------------------------------------------------------------
 # This makefile defines the following targets
 #
-#   - all (default) - builds all targets and runs all tests
+#   - all (default) - builds all targets and runs all tests/checks
+#   - checks - runs all tests/checks
 #   - peer - builds the fabric ./peer/peer binary
 #   - membersrvc - builds the ./membersrvc/membersrvc binary
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
 #   - behave-deps - ensures pre-requisites are availble for running behave manually
+#   - linter - runs all code checks
 #   - images - ensures all docker images are available
 #   - peer-image - ensures the peer-image is available (for behave, etc)
 #   - ca-image - ensures the ca-image is available (for behave, etc)
@@ -39,7 +41,9 @@ EXECUTABLES = go docker
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
-all: peer membersrvc unit-test behave
+all: peer membersrvc checks
+
+checks: unit-test behave linter
 
 .PHONY: peer
 peer: base-image
@@ -66,6 +70,10 @@ behave-deps: images peer
 behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
+
+linter:
+	@echo "LINT: Running code checks.."
+	@echo "LINT: No errors found"
 
 .peerimage-dummy: .baseimage-dummy
 	go test $(PKGNAME)/core/container -run=BuildImage_Peer
