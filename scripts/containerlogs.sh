@@ -20,4 +20,6 @@ cat $file | curl -sT - chunk.io
 
 done
 
+echo ">>testsummary.log<<"
+
 cat testsummary.log | curl -sT - chunk.io
