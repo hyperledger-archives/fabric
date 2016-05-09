@@ -24,7 +24,7 @@ security:
     # Can be 256 or 384
     # Must be the same as in core.yaml
     level: 256
-    
+
     # Can be SHA2 or SHA3
     # Must be the same as in core.yaml
     hashAlgorithm: SHA3
@@ -52,7 +52,7 @@ eca:
               banks:
                   bank_a:
                   bank_b:
-                  bank_c:              		
+                  bank_c:
               institutions:
                   institution_a:
         users:
@@ -62,6 +62,7 @@ eca:
                 diego: 1 DRJ23pEQl16a institution_a	00003
                 jim: 1 6avZQLwcUe9b bank_a	00004
                 binhn: 1 7avZQLwcUe9q institution_a	00005
+                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 # Node.js UT user. Do not modify.
 
                 vp: 4 f3489fy98ghf
 
@@ -87,15 +88,15 @@ eca:
                 test_user8: 1 W8G0usrU7jRk bank_a	00014
                 test_user9: 1 H80SiB5ODKKQ institution_a	00015
 
-                test_nvp0: 2 iywrPBDEPl0K bank_a       00006        
+                test_nvp0: 2 iywrPBDEPl0K bank_a       00006
                 test_nvp1: 2 DcYXuRSocuqd institution_a        00007
-                test_nvp2: 2 flpChShlY7xt bank_c       00008        
-                test_nvp3: 2 jeruawMomclo bank_a       00009        
+                test_nvp2: 2 flpChShlY7xt bank_c       00008
+                test_nvp3: 2 jeruawMomclo bank_a       00009
                 test_nvp4: 2 RMYVxSZCk370 institution_a        00010
-                test_nvp5: 2 XHYVCIJGZGK7 bank_b       00011        
-                test_nvp6: 2 4cIn63j8ahYp bank_a       00012        
+                test_nvp5: 2 XHYVCIJGZGK7 bank_b       00011
+                test_nvp6: 2 4cIn63j8ahYp bank_a       00012
                 test_nvp7: 2 E7FAJUtWVn2h institution_a        00013
-                test_nvp8: 2 LJu8DkUilBEH bank_a       00014        
+                test_nvp8: 2 LJu8DkUilBEH bank_a       00014
                 test_nvp9: 2 VlEsBsiyXSjw institution_a        00015
 
 tca:

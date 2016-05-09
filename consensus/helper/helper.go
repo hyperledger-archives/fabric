@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package helper
@@ -39,11 +36,12 @@ import (
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
-	consenter   consensus.Consenter
-	coordinator peer.MessageHandlerCoordinator
-	secOn       bool
-	secHelper   crypto.Peer
-	curBatch    []*pb.Transaction // TODO, remove after issue 579
+	consenter    consensus.Consenter
+	coordinator  peer.MessageHandlerCoordinator
+	secOn        bool
+	secHelper    crypto.Peer
+	curBatch     []*pb.Transaction       // TODO, remove after issue 579
+	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	persist.PersistHelper
 
 	sts *statetransfer.StateTransferState
@@ -166,7 +164,8 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	if err := ledger.BeginTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 
@@ -179,9 +178,25 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
-	res, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+
+	res, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
-	return res, nil
+
+	//copy errs to results
+	txresults := make([]*pb.TransactionResult, len(txerrs))
+
+	//process errors for each transaction
+	for i, e := range txerrs {
+		//NOTE- it'll be nice if we can have error values. For now success == 0, error == 1
+		if txerrs[i] != nil {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, Error: e.Error(), ErrorCode: 1}
+		} else {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid}
+		}
+	}
+	h.curBatchErrs = append(h.curBatchErrs, txresults...) // TODO, remove after issue 579
+
+	return res, err
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -195,12 +210,13 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this one the ledger has been fixed to implement
-	if err := ledger.CommitTxBatch(id, h.curBatch, nil, metadata); err != nil {
+	if err := ledger.CommitTxBatch(id, h.curBatch, h.curBatchErrs, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 
 	size := ledger.GetBlockchainSize()
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 
 	block, err := ledger.GetBlockByNumber(size - 1)
 	if err != nil {
@@ -220,7 +236,8 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	if err := ledger.RollbackTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 

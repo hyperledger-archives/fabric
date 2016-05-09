@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package peer
@@ -445,13 +442,23 @@ func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error 
 	return returnedErrors
 }
 
+func (p *PeerImpl) getMessageHandler(receiverHandle *pb.PeerID) (MessageHandler, error) {
+	p.handlerMap.Lock()
+	defer p.handlerMap.Unlock()
+	msgHandler, ok := p.handlerMap.m[*receiverHandle]
+	if !ok {
+		return nil, fmt.Errorf("Message handler not found for receiver %s", receiverHandle.Name)
+	}
+	return msgHandler, nil
+}
+
 // Unicast sends a message to a specific peer.
 func (p *PeerImpl) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
-	p.handlerMap.Lock()
-	msgHandler := p.handlerMap.m[*receiverHandle]
-	//don't lock across SendMessage
-	p.handlerMap.Unlock()
-	err := msgHandler.SendMessage(msg)
+	msgHandler, err := p.getMessageHandler(receiverHandle)
+	if err != nil {
+		return err
+	}
+	err = msgHandler.SendMessage(msg)
 	if err != nil {
 		toPeerEndpoint, _ := msgHandler.To()
 		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)

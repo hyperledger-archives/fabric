@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -567,6 +564,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	}
 
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
+		logger.Debug("Replica %d is primary, issuing pre-prepare for request %s", instance.id, digest)
 		n := instance.seqNo + 1
 		haveOther := false
 
@@ -599,7 +597,11 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}})
 			return instance.maybeSendCommit(digest, instance.view, n)
+		} else {
+			logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		}
+	} else {
+		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
 	}
 
 	return nil
@@ -614,9 +616,11 @@ outer:
 	for d, req := range instance.outstandingReqs {
 		for _, cert := range instance.certStore {
 			if cert.digest == d {
+				logger.Debug("Replica %d already has certificate for request %s not going to resubmit", instance.id, d)
 				continue outer
 			}
 		}
+		logger.Debug("Replica %d has detected request %s must be resubmitted", instance.id, d)
 
 		// This is a request that has not been pre-prepared yet
 		// Trigger request processing again.
@@ -673,6 +677,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		instance.reqStore[digest] = preprep.Request
+		logger.Debug("Replica %d storing request %s in oustanding request store", instance.id, digest)
 		instance.outstandingReqs[digest] = preprep.Request
 		instance.persistRequest(digest)
 	}

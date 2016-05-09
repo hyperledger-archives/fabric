@@ -8,10 +8,10 @@ The purpose of this chaincode is to
 
 2. Demonstrate how to include and use a C library from within a chaincode.
 
-A client for exercising this chaincode is avilable at https://github.com/srderson/obc-utxo-client-java.
+A client for exercising this chaincode is avilable at https://github.com/srderson/hyperledger-fabric-utxo-client-java.
 
 
-The following are instructions for building and deploying the UTXO chaincode in OBC. All commands should be run with vagrant.
+The following are instructions for building and deploying the UTXO chaincode in Hypereledger Fabric. All commands should be run with vagrant.
 
 First, build the Docker image for the UTXO chaincode.
 
@@ -20,7 +20,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/utxo/
 docker build -t utxo:0.1.0 .
 ```
 
-Next, modify the `core.yaml` file in the obc-peer project to point to the local Docker image that was built in the previous step. In the core.yaml file find `chaincode.golang.Dockerfile` and change it from from `openblockchain/baseimage` to `utxo:0.1.0`
+Next, modify the `core.yaml` file in the Hyperledger Fabric project to point to the local Docker image that was built in the previous step. In the core.yaml file find `chaincode.golang.Dockerfile` and change it from from `openblockchain/baseimage` to `utxo:0.1.0`
 
 Start the peer using the following commands
 ```
@@ -31,7 +31,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/peer
 In a second window, deploy the example UTXO chaincode
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/peer
-OPENCHAIN_PEER_ADDRESS=localhost:30303 ./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/utxo -c '{"Function":"init", "Args": []}'
+CORE_PEER_ADDRESS=localhost:30303 ./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/utxo -c '{"Function":"init", "Args": []}'
 ```
 Wait about 30 seconds for the chaincode to be deployed. Output from the window where the peer is running will indicate that this is successful.
 

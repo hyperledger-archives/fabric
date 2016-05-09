@@ -80,7 +80,7 @@ The `node start` command will initiate a peer process, with which one can intera
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
-#### 3.1 Unit Tests
+#### 3.1 Go Unit Tests
 To run all unit tests, in one window, run `./peer node start`. In a second window
 
     cd $GOPATH/src/github.com/hyperledger/fabric
@@ -92,7 +92,11 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
     go test -v -run=TestGetFoo
 
-#### 3.2 Behave Tests
+#### 3.2 Node.js Unit Tests
+
+You must also run the Node.js unit tests to insure that the Node.js client SDK is not broken by your changes. To run the Node.js unit tests, follow the instructions [here](https://github.com/hyperledger/fabric/tree/master/sdk/node#unit-tests).
+
+#### 3.3 Behave Tests
 [Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
