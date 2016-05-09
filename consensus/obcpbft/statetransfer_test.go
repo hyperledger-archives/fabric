@@ -96,7 +96,7 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 		// Do nothing, continue the test
 	}
 
-	if size, _ := ml.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+	if size := ml.GetBlockchainSize(); size != blockNumber+1 {
 		return fmt.Errorf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
 	}
 
@@ -295,7 +295,7 @@ func TestCatchupSyncBlocksAllErrors(t *testing.T) {
 			// Do nothing, continue the test
 		}
 
-		if size, _ := ml.GetBlockchainSize(); size != blockNumber+1 { // Will never fail
+		if size := ml.GetBlockchainSize(); size != blockNumber+1 {
 			t.Fatalf("Blockchain should be caught up to block %d, but is only %d tall", blockNumber, size)
 		}
 

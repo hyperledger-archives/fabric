@@ -56,7 +56,7 @@ type SecurityUtils interface {
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() (uint64, error)
+	GetBlockchainSize() uint64
 	GetBlockchainInfoBlob() []byte
 	GetBlockHeadMetadata() ([]byte, error)
 }

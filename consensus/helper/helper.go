@@ -54,7 +54,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
 	}
-	h.sts = statetransfer.NewStateTransferState(h)
+	h.sts = statetransfer.NewStateTransferState(mhc)
 	h.sts.Initiate(nil)
 	h.sts.RegisterListener(h)
 	return h
@@ -278,12 +278,8 @@ func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 }
 
 // GetBlockchainSize returns the current size of the blockchain
-func (h *Helper) GetBlockchainSize() (uint64, error) {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return 0, fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.GetBlockchainSize(), nil
+func (h *Helper) GetBlockchainSize() uint64 {
+	return h.coordinator.GetBlockchainSize()
 }
 
 // HashBlock returns the hash of the included block, useful for mocking
