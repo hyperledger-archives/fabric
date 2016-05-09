@@ -16,6 +16,8 @@
 
 import os
 import subprocess
+import devops_pb2
+
 
 
 def cli_call(context, arg_list, expect_success=True):
@@ -42,3 +44,53 @@ def cli_call(context, arg_list, expect_success=True):
         if expect_success:
             raise subprocess.CalledProcessError(p.returncode, arg_list, output)
     return output, error, p.returncode
+
+class UserRegistration:
+    def __init__(self, secretMsg, composeService):
+        self.secretMsg = secretMsg
+        self.composeService = composeService   
+        self.tags = {}   
+        self.lastResult = None  
+
+    def getUserName(self):
+        return self.secretMsg['enrollId']
+
+    def getSecret(self):
+        return devops_pb2.Secret(enrollId=self.secretMsg['enrollId'],enrollSecret=self.secretMsg['enrollSecret'])
+
+
+# Registerses a user on a specific composeService
+def registerUser(context, secretMsg, composeService):
+    userName = secretMsg['enrollId']
+    if 'users' in context:
+        pass
+    else:
+        context.users = {}
+    if userName in context.users:
+        raise Exception("User already registered: {0}".format(userName)) 
+    context.users[userName] = UserRegistration(secretMsg, composeService) 
+
+# Registerses a user on a specific composeService
+def getUserRegistration(context, enrollId):
+    userRegistration = None
+    if 'users' in context:
+        pass
+    else:
+        context.users = {}
+    if enrollId in context.users:
+        userRegistration = context.users[enrollId] 
+    else:
+        raise Exception("User has not been registered: {0}".format(enrollId)) 
+    return userRegistration
+
+    
+def ipFromContainerNamePart(namePart, containerDataList):
+    """Returns the IPAddress based upon a name part of the full container name"""
+    ip = None
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    for containerData in containerDataList:
+        if containerData.containerName.startswith(containerNamePrefix + namePart):
+            ip = containerData.ipAddress
+    if ip == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+    return ip

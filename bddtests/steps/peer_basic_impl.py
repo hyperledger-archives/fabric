@@ -91,17 +91,6 @@ def parseComposeOutput(context):
     setattr(context, "compose_containers", newContainerDataList)
     print("")
 
-def ipFromContainerNamePart(namePart, containerDataList):
-	"""Returns the IPAddress based upon a name part of the full container name"""
-	ip = None
-	containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-	for containerData in containerDataList:
-	    if containerData.containerName.startswith(containerNamePrefix + namePart):
-	    	ip = containerData.ipAddress
-	if ip == None:
-		raise Exception("Could not find container with namePart = {0}".format(namePart))
-	return ip
-
 def buildUrl(context, ipAddress, path):
     schema = "http"
     if 'TLS' in context.tags:
@@ -135,7 +124,7 @@ def step_impl(context, composeYamlFile):
 
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, path)
     print("Requesting path = {0}".format(request_url))
     resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
@@ -171,7 +160,7 @@ def step_impl(context, seconds):
 
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
 def step_impl(context, chaincodePath, ctor, containerName):
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/deploy")
     print("Requesting path = {0}".format(request_url))
     args = []
@@ -195,6 +184,8 @@ def step_impl(context, chaincodePath, ctor, containerName):
     }
     if 'userName' in context:
         chaincodeSpec["secureContext"] = context.userName
+    if 'metadata' in context:
+        chaincodeSpec["metadata"] = context.metadata
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -211,6 +202,10 @@ def step_impl(context):
         assert context.chaincodeSpec['chaincodeID']['name'] != ""
         # Set the current transactionID to the name passed back
         context.transactionID = context.chaincodeSpec['chaincodeID']['name']
+    elif 'grpcChaincodeSpec' in context:
+        assert context.grpcChaincodeSpec.chaincodeID.name != ""
+        # Set the current transactionID to the name passed back
+        context.transactionID = context.grpcChaincodeSpec.chaincodeID.name
     else:
         fail('chaincodeSpec not in context')
 
@@ -252,7 +247,7 @@ def invokeChaincode(context, devopsFunc, functionName, containerName):
     chaincodeInvocationSpec = {
         "chaincodeSpec" : context.chaincodeSpec
     }
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
@@ -278,7 +273,7 @@ def step_impl(context, seconds):
 @then(u'I wait "{seconds}" seconds for transaction to be committed to block on "{containerName}"')
 def step_impl(context, seconds, containerName):
     assert 'transactionID' in context, "transactionID not found in context"
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
     print("{0} GETing path = {1}".format(currentTime(), request_url))
 
@@ -481,7 +476,7 @@ def step_impl(context, userName, secret):
 
     # Get list of IPs to login to
     aliases =  context.table.headings
-    ipAddressList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData.ipAddress)
+    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     secretMsg = {
         "enrollId": userName,
@@ -489,14 +484,18 @@ def step_impl(context, userName, secret):
     }
 
     # Login to each container specified
-    for ipAddress in ipAddressList:
-        request_url = buildUrl(context, ipAddress, "/registrar")
+    for containerData in containerDataList:
+        request_url = buildUrl(context, containerData.ipAddress, "/registrar")
         print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         context.response = resp
         print("message = {0}".format(resp.json()))
+    
+        # Create new User entry
+        bdd_test_util.registerUser(context, secretMsg, containerData.composeService)
+
     # Store the username in the context
     context.userName = userName
     # if we already have the chaincodeSpec, change secureContext
@@ -519,7 +518,7 @@ def step_impl(context):
             "enrollSecret" : secret
         }
 
-        ipAddress = ipFromContainerNamePart(peer, context.compose_containers)
+        ipAddress = bdd_test_util.ipFromContainerNamePart(peer, context.compose_containers)
         request_url = buildUrl(context, ipAddress, "/registrar")
         print("POSTing to service = {0}, path = {1}".format(peer, request_url))
 
