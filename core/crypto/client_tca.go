@@ -108,7 +108,8 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Handle Critical Extension TCertEncTCertIndex
-	if _, err = utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex); err != nil {
+	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex);
+	if err != nil {
 		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", der, err)
 
 		return nil, err
@@ -140,7 +141,113 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		return nil, err
 	}
 
-	return &tCertImpl{client, x509Cert, nil}, nil
+	// Try to extract the signing key from the TCert by decrypting the TCertIndex
+
+
+	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
+	// Let TCertIndex = Timestamp, RandValue, 1,2,…
+	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
+	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
+	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
+	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
+	pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+
+	var signingKey interface{}
+	signingKey = nil
+	if err == nil {
+		// Compute ExpansionValue based on TCertIndex
+		TCertIndex := pt
+		//		TCertIndex := []byte(strconv.Itoa(i))
+
+		// TODO: verify that TCertIndex has right format.
+
+		client.debug("TCertIndex: [% x].", TCertIndex)
+		mac := hmac.New(primitives.NewHash, ExpansionKey)
+		mac.Write(TCertIndex)
+		ExpansionValue := mac.Sum(nil)
+
+		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
+		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
+
+		// Compute temporary secret key
+		tempSK := &ecdsa.PrivateKey{
+			PublicKey: ecdsa.PublicKey{
+				Curve: client.enrollPrivKey.Curve,
+				X:     new(big.Int),
+				Y:     new(big.Int),
+			},
+			D: new(big.Int),
+		}
+
+		var k = new(big.Int).SetBytes(ExpansionValue)
+		var one = new(big.Int).SetInt64(1)
+		n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
+		k.Mod(k, n)
+		k.Add(k, one)
+
+		tempSK.D.Add(client.enrollPrivKey.D, k)
+		tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
+
+		// Compute temporary public key
+		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
+		tempSK.PublicKey.X, tempSK.PublicKey.Y =
+		tempSK.PublicKey.Add(
+			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
+			tempX, tempY,
+		)
+
+		// Verify temporary public key is a valid point on the reference curve
+		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
+		if !isOn {
+			client.error("Failed temporary public key IsOnCurve check.")
+
+			goto NO_SK
+		}
+
+		// Check that the derived public key is the same as the one in the certificate
+		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
+
+		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
+			client.error("Derived public key is different on X")
+
+			goto NO_SK
+		}
+
+		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
+			client.error("Derived public key is different on Y")
+
+			goto NO_SK
+		}
+
+		// Verify the signing capability of tempSK
+		err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
+		if err != nil {
+			client.error("Failed verifing signing capability [%s].", err.Error())
+
+			goto NO_SK
+		}
+
+		// Marshall certificate and secret key to be stored in the database
+		if err != nil {
+			client.error("Failed marshalling private key [%s].", err.Error())
+
+			goto NO_SK
+		}
+
+		if err = utils.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
+			client.error("Failed checking TCA cert PK against private key [%s].", err.Error())
+
+			goto NO_SK
+		}
+
+		signingKey = tempSK
+	} else {
+		client.error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+	}
+
+NO_SK:
+	return &tCertImpl{client, x509Cert, signingKey}, nil
 }
 
 func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {

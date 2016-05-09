@@ -382,6 +382,26 @@ func TestClientTCertHandlerSign(t *testing.T) {
 		t.Fatalf("Failed verifying signature: [%s]", err)
 	}
 
+	// Check that deployer can reload the cert handler from DER and sign
+	handlerDeployer2, err := deployer.GetTCertificateHandlerFromDER(handlerDeployer.GetCertificate())
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+
+	msg = []byte("Hello World!!!")
+	signature, err = handlerDeployer2.Sign(msg)
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if signature == nil || len(signature) == 0 {
+		t.Fatalf("Failed getting non-nil signature")
+	}
+
+	err = handlerDeployer2.Verify(signature, msg)
+	if err != nil {
+		t.Fatalf("Failed verifying signature: [%s]", err)
+	}
+
 	// Check that invoker (another party) can verify the signature
 	handlerInvoker, err := invoker.GetTCertificateHandlerFromDER(handlerDeployer.GetCertificate())
 	if err != nil {
