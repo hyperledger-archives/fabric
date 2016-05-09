@@ -2,7 +2,7 @@
 
 ## Overview
 
-The *rbac* chaincode (*rbac.go*) is a very simple chaincode designed to show how to exercise *robe-based access control* at the chaincode level by leveraging the techniques described in this document: [https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md](https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md)
+The *rbac* chaincode (*rbac.go*) is a very simple chaincode designed to show how to exercise *robe-based access control* at the chaincode level by leveraging the techniques described in [Application ACLs](https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md)
 
 The chaincode exposes the following functions:
 
@@ -30,7 +30,7 @@ A possible work-flow could be the following:
 1. Alice is the deployer of the chaincode;
 2. Alice wants to assign the administrator role to Bob;
 3. Alice obtains, via an out-of-band channel, a TCert of Bob, let us call this certificate *BobCert*;
-4. Alice constructs a deploy transaction, as described in *application-ACL.md*,  setting the transaction metadata to *DER(BobCert)*.
+4. Alice constructs a deploy transaction, as described in [Application ACLs](https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md),  setting the transaction metadata to *DER(BobCert)*.
 5. Alice submits the transaction to the fabric network.
 
 Notice that Alice can assign to herself the role of administrator.
@@ -48,24 +48,24 @@ A possible work-flow could be the following:
 3. Bob obtains, via an out-of-band channel, a TCert of Charlie, let us call this certificate *CharlieCert*;
 4. Bob constructs an execute transaction:
 	1. To invoke the *addRole* function passing as parameters *('writer', DER(CharlieCert))*, and
-	2. by setting the metadata field to a signature of a message that consists of the concatenation of *BobCert||<chaincodeInput>||binding* generated using the signing key corresponding to *BobCert*. Please, read *application-ACL.md* for more details on *<chaincodeInput>* and *binding*.
+	2. by setting the metadata field to a signature of a message that consists of the concatenation of *BobCert||chaincodeInput||binding* generated using the signing key corresponding to *BobCert*. Please, read [Application ACLs](https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md) for more details on *chaincodeInput* and *binding*.
 5. Bob submits the transaction to the fabric network.
 2. Bob wants to assign the role 'reader' to Dave;
 3. Bob obtains, via an out-of-band channel, a TCert of Dave, let us call this certificate *DaveCert*;
-4. Bob constructs an execute transaction as above to invoke the *addRole* function passing as parameters *('reader', DER(DaveCert))*. 
+4. Bob constructs an execute transaction as above to invoke the *addRole* function passing as parameters *('reader', DER(DaveCert))*.
 5. Bob submits the transaction to the fabric network.
 
 ## *write(data)*
 
 This function sets the current chaincode's state to *data*.
-Notice that this function ca be invoked only by users who have the role *writer*; 
+Notice that this function ca be invoked only by users who have the role *writer*;
 
 A possible work-flow could be the following:
 
 1. Charlie wants to set chaincode's state to *10*;
 2. Charlie constructs an execute transaction:
 	1. To invoke the *write* function passing as parameters *(data)*, and
-	2. by setting the metadata field to a signature of a message that consists of the concatenation of *CharlieCert||<chaincodeInput>||binding* generated using the signing key corresponding to *CharlieCert*. 
+	2. by setting the metadata field to a signature of a message that consists of the concatenation of *CharlieCert||chaincodeInput||binding* generated using the signing key corresponding to *CharlieCert*.
 3. Charlie submits the transaction to the fabric network.
 
 ## *read()*
@@ -78,5 +78,5 @@ A possible work-flow could be the following:
 1. Dave wants to read the current chaincode's state;
 2. Dave constructs a query transaction:
 	1. To query the *read* function, and
-	2. by setting the metadata field to a signature of a message that consists of the concatenation of *DaveCert||<chaincodeInput>||binding* generated using the signing key corresponding to *DaveCert*. 
+	2. by setting the metadata field to a signature of a message that consists of the concatenation of *DaveCert||chaincodeInput||binding* generated using the signing key corresponding to *DaveCert*.
 3. Dave submits the transaction to the fabric network and waits for the result.
