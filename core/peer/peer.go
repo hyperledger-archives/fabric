@@ -268,6 +268,7 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 		}
 	}
 
+	// Initialize the ledger before the engine, as consensus may want to begin interrogating the ledger immediately
 	ledgerPtr, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
@@ -655,31 +656,31 @@ func (p *PeerImpl) VerifyBlockchain(start, finish uint64) (uint64, error) {
 // To commit the result, call CommitStateDelta, or to roll it back
 // call RollbackStateDelta
 func (p *PeerImpl) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
+	p.ledgerWrapper.Lock()
+	defer p.ledgerWrapper.Unlock()
 	return p.ledgerWrapper.ledger.ApplyStateDelta(id, delta)
 }
 
 // CommitStateDelta makes the result of ApplyStateDelta permanent
 // and releases the resources necessary to rollback the delta
 func (p *PeerImpl) CommitStateDelta(id interface{}) error {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
+	p.ledgerWrapper.Lock()
+	defer p.ledgerWrapper.Unlock()
 	return p.ledgerWrapper.ledger.CommitStateDelta(id)
 }
 
 // RollbackStateDelta undoes the results of ApplyStateDelta to revert
 // the current state back to the state before ApplyStateDelta was invoked
 func (p *PeerImpl) RollbackStateDelta(id interface{}) error {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
+	p.ledgerWrapper.Lock()
+	defer p.ledgerWrapper.Unlock()
 	return p.ledgerWrapper.ledger.RollbackStateDelta(id)
 }
 
 // EmptyState completely empties the state and prepares it to restore a snapshot
 func (p *PeerImpl) EmptyState() error {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
+	p.ledgerWrapper.Lock()
+	defer p.ledgerWrapper.Unlock()
 	return p.ledgerWrapper.ledger.DeleteALLStateKeysAndValues()
 }
 
@@ -699,8 +700,8 @@ func (p *PeerImpl) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, err
 
 // PutBlock inserts a raw block into the blockchain at the specified index, nearly no error checking is performed
 func (p *PeerImpl) PutBlock(blockNumber uint64, block *pb.Block) error {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
+	p.ledgerWrapper.Lock()
+	defer p.ledgerWrapper.Unlock()
 	return p.ledgerWrapper.ledger.PutRawBlock(block, blockNumber)
 }
 
