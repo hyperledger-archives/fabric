@@ -743,10 +743,10 @@ Feature: lanching 3 peers
               | vp0  | vp1 | vp2 |
 
       Examples: Consensus Options
-          |          ComposeFile                                   |   WaitTime   |
-#         |   docker-compose-4-consensus-classic-1-byzantine.yml   |      60      |
-          |   docker-compose-4-consensus-batch-1-byzantine.yml     |      60      |
-#         |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
+          |                                  ComposeFile                                               |   WaitTime   |
+#          |   docker-compose-4-consensus-classic.yml  docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
+          |   docker-compose-4-consensus-batch.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
+#          |   docker-compose-4-consensus-sieve.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
 
 
   #@doNotDecompose
