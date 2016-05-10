@@ -91,7 +91,7 @@ peer:
     networkId: dev
 
     Dockerfile:  |
-        from openblockchain/baseimage:latest
+        from hyperledger/fabric-baseimage:latest
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/hyperledger/db
@@ -252,8 +252,8 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
-    # tcp://localhost:2376
+    # http://localhost:2375
+    # https://localhost:2376
     endpoint: unix:///var/run/docker.sock
 
     # settings for docker vms
@@ -289,7 +289,7 @@ chaincode:
         # This is the basis for the Golang Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from openblockchain/baseimage
+            from hyperledger/fabric-baseimage
             #from utxo:0.1.0
             COPY src $GOPATH/src
             WORKDIR $GOPATH
@@ -299,7 +299,7 @@ chaincode:
         # This is the basis for the CAR Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            FROM openblockchain/baseimage
+            FROM hyperledger/fabric-baseimage
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests

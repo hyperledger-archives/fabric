@@ -30,7 +30,7 @@ func init() {
 	logger = logging.MustGetLogger("consensus/util")
 }
 
-// Messages encapsulates an OpenchainMessage with sender information
+// Message encapsulates an OpenchainMessage with sender information
 type Message struct {
 	Msg    *pb.Message
 	Sender *pb.PeerID
@@ -51,7 +51,7 @@ func NewMessageFan() *MessageFan {
 	}
 }
 
-// registerChannel is intended to be invoked by Handler to add a channel to be fan-ed in
+// RegisterChannel is intended to be invoked by Handler to add a channel to be fan-ed in
 func (fan *MessageFan) RegisterChannel(sender *pb.PeerID, channel <-chan *Message) {
 	fan.lock.Lock()
 	defer fan.lock.Unlock()

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ---------------------------------------------------------------------------
-# Install the openblockchain/baseimage docker environment
+# Install the hyperledger/fabric-baseimage docker environment
 # ---------------------------------------------------------------------------
 #
 # There are some interesting things to note here:
@@ -47,8 +47,8 @@
 #    is a compromise.
 # ---------------------------------------------------------------------------
 
-NAME=openblockchain/baseimage
-RELEASE=$1
+NAME=hyperledger/fabric-baseimage
+RELEASE=`uname -p`-$1
 FQN=$NAME:$RELEASE
 
 CURDIR=`dirname $0`
