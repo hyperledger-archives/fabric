@@ -57,7 +57,7 @@ type PartialStack interface {
 
 // Listener is an interface which allows for other modules to register to receive events about the progress of state transfer
 type Listener interface {
-	Initiated()                                                   // Called when the state transfer thread starts a new state transfer
+	Initiated(uint64, []byte, []*protos.PeerID, interface{})      // Called when the state transfer thread starts a new state transfe
 	Errored(uint64, []byte, []*protos.PeerID, interface{}, error) // Called when an error is encountered during state transfer, only the error is guaranteed to be set, other fields will be set on a best effort basis
 	Completed(uint64, []byte, []*protos.PeerID, interface{})      // Called when the state transfer is completed
 }
@@ -65,29 +65,33 @@ type Listener interface {
 // This provides a simple base implementation of a state transfer listener which implementors can extend anonymously
 // Unset fields result in no action for that event
 type ProtoListener struct {
-	InitiatedImpl func()
+	InitiatedImpl func(uint64, []byte, []*protos.PeerID, interface{})
 	ErroredImpl   func(uint64, []byte, []*protos.PeerID, interface{}, error)
 	CompletedImpl func(uint64, []byte, []*protos.PeerID, interface{})
 }
 
-func (pstl *ProtoListener) Initiated() {
+// Initiated invokes the corresponding InitiatedImpl if it has been overwritten
+func (pstl *ProtoListener) Initiated(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}) {
 	if nil != pstl.InitiatedImpl {
-		pstl.InitiatedImpl()
+		pstl.InitiatedImpl(bn, bh, pids, m)
 	}
 }
 
+// Errored invokes the corresponding ErroredImpl if it has been overwritten
 func (pstl *ProtoListener) Errored(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}, e error) {
 	if nil != pstl.ErroredImpl {
 		pstl.ErroredImpl(bn, bh, pids, m, e)
 	}
 }
 
+// Completed invokes the corresponding CompletedImpl if it has been overwritten
 func (pstl *ProtoListener) Completed(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}) {
 	if nil != pstl.CompletedImpl {
 		pstl.CompletedImpl(bn, bh, pids, m)
 	}
 }
 
+// StateTransferState is the structure used to manage the state of state transfer
 type StateTransferState struct {
 	stack PartialStack
 
@@ -170,24 +174,9 @@ func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64,
 	<-result
 }
 
-// Starts the state sync process, without blocking
-// For the sync to complete, a call to AddTarget(hash, peerIDs) must be made
-// If peerIDs is nil, all peer will be considered sync candidates
-func (sts *StateTransferState) Initiate(peerIDs []*protos.PeerID) {
-	logger.Debug("%v attempting to issue a state transfer request", sts.id)
-	select {
-	case sts.initiateStateSync <- &syncMark{
-		blockNumber: 0,
-		peerIDs:     peerIDs,
-	}:
-		sts.asynchronousTransferInProgress = true // To prevent a race this needs to be done in the initiating thread
-	case <-sts.threadExit:
-		logger.Error("Attempted to start state transfer after thread shutdown called")
-	}
-}
-
 // Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
-// If the peerIDs are nil, then all peers are assumed to have the given block
+// If the peerIDs are nil, then all peers are assumed to have the given block.  If state transfer has not been initiated already,
+// this will kick state transfer off
 func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
 	logger.Debug("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
 	blockHashReply := &blockHashReply{
@@ -197,6 +186,26 @@ func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, p
 		},
 		blockHash: blockHash,
 		metadata:  metadata,
+	}
+
+	sts.stateTransferListenersLock.Lock()
+	if sts.asynchronousTransferInProgress {
+		logger.Debug("%v state transfer already in progress, not kicking off", sts.id)
+		sts.stateTransferListenersLock.Unlock()
+	} else {
+		sts.asynchronousTransferInProgress = true
+		sts.stateTransferListenersLock.Unlock()
+		select {
+		case sts.initiateStateSync <- &syncMark{
+			blockNumber: 0,
+			peerIDs:     peerIDs,
+		}:
+			logger.Debug("%v initiating a new state transfer request", sts.id)
+			sts.informListeners(blockNumber, blockHash, peerIDs, metadata, nil, Initiated)
+		case <-sts.threadExit:
+			logger.Debug("%v state transfer has been told to exit", sts.id)
+			return
+		}
 	}
 
 	for {
@@ -283,7 +292,9 @@ func (sts *StateTransferState) Stop() {
 // constructors
 // =============================================================================
 
-func ThreadlessNewStateTransferState(stack PartialStack) *StateTransferState {
+// threadlessNewStateTransferState constructs StateTransferState, but does not start any of its threads
+// this is useful primarily for testing
+func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	var err error
 	sts := &StateTransferState{}
 
@@ -298,8 +309,6 @@ func ThreadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	}
 
 	sts.id = ep.ID
-
-	sts.asynchronousTransferInProgress = false
 
 	sts.RecoverDamage = viper.GetBool("statetransfer.recoverdamage")
 
@@ -347,7 +356,7 @@ func ThreadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 }
 
 func NewStateTransferState(stack PartialStack) *StateTransferState {
-	sts := ThreadlessNewStateTransferState(stack)
+	sts := threadlessNewStateTransferState(stack)
 
 	go sts.stateThread()
 	go sts.blockThread()
@@ -893,8 +902,6 @@ func (sts *StateTransferState) stateThread() {
 		case mark := <-sts.initiateStateSync:
 			sts.stateThreadIdle = false
 
-			sts.informListeners(0, nil, mark.peerIDs, nil, nil, Initiated)
-
 			logger.Debug("%v is initiating state transfer", sts.id)
 
 			var currentStateBlockNumber uint64
@@ -973,7 +980,7 @@ func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []b
 	for _, listener := range sts.stateTransferListeners {
 		switch update {
 		case Initiated:
-			listener.Initiated()
+			listener.Initiated(blockNumber, blockHash, peerIDs, metadata)
 		case Errored:
 			listener.Errored(blockNumber, blockHash, peerIDs, metadata, err)
 		case Completed:

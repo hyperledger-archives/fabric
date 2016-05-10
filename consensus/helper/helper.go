@@ -54,7 +54,6 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secHelper:   mhc.GetSecHelper(),
 	}
 	h.sts = statetransfer.NewStateTransferState(mhc)
-	h.sts.Initiate(nil)
 	h.sts.RegisterListener(h)
 	return h
 }
@@ -311,7 +310,7 @@ func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 }
 
 // Initiated is called when state transfer is kicked off, this occurs if SkipTo is invoked while statetransfer is not currently running
-func (h *Helper) Initiated() {
+func (h *Helper) Initiated(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
 	h.consenter.StateUpdating(m.(uint64), bh)
 }
 
