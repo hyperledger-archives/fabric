@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/op/go-logging"
 )
 
 var myLogger = logging.MustGetLogger("asset_mgm")
@@ -29,11 +29,12 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 // AssetManagementChaincode example simple Asset Management Chaincode implementation
 // with access control enforcement at chaincode level.
 // Look here for more information on how to implement access control at chaincode level:
-// https://github.com/openblockchain/obc-docs/blob/master/tech/application-ACL.md
+// https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md
 // An asset is represented by a string
 type AssetManagementChaincode struct {
 }
 
+// Init initialization
 func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Info("[AssetManagementChaincode] Init")
 	if len(args) != 0 {
@@ -198,7 +199,7 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 	)
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke runs callback representing the invocation of a chaincode
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions

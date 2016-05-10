@@ -22,23 +22,23 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/hyperledger/fabric/events/consumer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-// the channel the client uses for listening for events
-type Adapter struct {
+type adapter struct {
 	notfy chan *pb.Event_Block
 }
 
-// GetInterestedEvents returns an array of Interest structs
-func (a *Adapter) GetInterestedEvents() ([]*pb.Interest, error) {
-	return []*pb.Interest{&pb.Interest{"block", pb.Interest_PROTOBUF}}, nil
+//GetInterestedEvents implements consumer.EventAdapter interface for registering interested events
+func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
+	return []*pb.Interest{&pb.Interest{EventType: "block", ResponseType: pb.Interest_PROTOBUF}}, nil
 }
 
-// Recv adds the event on the adapter channel
-func (a *Adapter) Recv(msg *pb.Event) (bool, error) {
+//Recv implements consumer.EventAdapter interface for receiving events
+func (a *adapter) Recv(msg *pb.Event) (bool, error) {
 	switch msg.Event.(type) {
 	case *pb.Event_Block:
 		a.notfy <- msg.Event.(*pb.Event_Block)
@@ -49,16 +49,17 @@ func (a *Adapter) Recv(msg *pb.Event) (bool, error) {
 	}
 }
 
-// Disconnected  (no-op for now)
-func (a *Adapter) Disconnected(err error) {
+//Disconnected implements consumer.EventAdapter interface for disconnecting
+func (a *adapter) Disconnected(err error) {
+	fmt.Printf("Disconnected...exiting\n")
+	os.Exit(1)
 }
 
-// createEventClient creates an event listener
-func createEventClient(eventAddress string) *Adapter {
+func createEventClient(eventAddress string) *adapter {
 	var obcEHClient *consumer.EventsClient
 
 	done := make(chan *pb.Event_Block)
-	adapter := &Adapter{notfy: done}
+	adapter := &adapter{notfy: done}
 	obcEHClient = consumer.NewEventsClient(eventAddress, adapter)
 	if err := obcEHClient.Start(); err != nil {
 		fmt.Printf("could not start chat %s\n", err)
@@ -69,7 +70,6 @@ func createEventClient(eventAddress string) *Adapter {
 	return adapter
 }
 
-// main  creates a listener, reads events off the channel and shows whether the transactio results from the block
 func main() {
 	var eventAddress string
 	flag.StringVar(&eventAddress, "events-address", "0.0.0.0:31315", "address of events server")
