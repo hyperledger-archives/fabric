@@ -64,6 +64,8 @@ unit-test: peer-image
 base-image: .baseimage-dummy
 peer-image: .peerimage-dummy
 ca-image: .caimage-dummy
+
+.PHONY: images
 images: peer-image ca-image
 
 behave-deps: images peer
