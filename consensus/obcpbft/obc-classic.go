@@ -28,8 +28,6 @@ import (
 
 type obcClassic struct {
 	obcGeneric
-	stack consensus.Stack
-	pbft  *pbftCore
 
 	persistForward
 
@@ -38,8 +36,7 @@ type obcClassic struct {
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
-		obcGeneric: obcGeneric{stack},
-		stack:      stack,
+		obcGeneric: obcGeneric{stack: stack},
 	}
 
 	op.persistForward.persistor = stack
@@ -82,11 +79,6 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 	op.pbft.receive(ocMsg.Payload, senderID)
 
 	return nil
-}
-
-// StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcClassic) StateUpdate(seqNo uint64, id []byte) {
-	op.pbft.stateUpdate(seqNo, id)
 }
 
 // Close tells us to release resources we are holding

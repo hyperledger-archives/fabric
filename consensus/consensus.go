@@ -23,8 +23,9 @@ import (
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
-	StateUpdate(tag uint64, id []byte)
+	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error // Called serially with incoming messages from gRPC
+	StateUpdated(tag uint64, id []byte)                     // Called when state transfer completes, serial with StateUpdating
+	StateUpdating(tag uint64, id []byte)                    // Called when SkipTo causes state transfer to start serial with StateUpdated
 }
 
 // Inquirer is used to retrieve info about the validating network
