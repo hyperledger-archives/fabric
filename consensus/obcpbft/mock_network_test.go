@@ -131,12 +131,12 @@ func (te *testEndpoint) SetWhitelistCap(cap int) {
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (ep *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
-	ep.net.broadcastFilter(ep, msg.Payload)
+func (te *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+	te.net.broadcastFilter(te, msg.Payload)
 	return nil
 }
 
-func (te *testEndpoint) Unicast(msg *pb.OpenchainMessage, handle *pb.PeerID) error {
+func (te *testEndpoint) Unicast(msg *pb.Message, handle *pb.PeerID) error {
 	var err error
 	receiverID := te.GetValidatorID(handle)
 	if err != nil {

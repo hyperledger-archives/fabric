@@ -33,12 +33,6 @@ func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
 	pe.pbft.receive(msg, senderID)
 }
 
-func (pe *pbftEndpoint) idleChan() <-chan struct{} {
-	res := make(chan struct{})
-	close(res)
-	return res
-}
-
 func (pe *pbftEndpoint) stop() {
 	pe.pbft.close()
 }

@@ -65,6 +65,7 @@ func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []bytes) {
 		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
+			logger.Debug("******** got whitelist, replica ID = %v", id)
 			break
 		}
 		time.Sleep(1 * time.Second)

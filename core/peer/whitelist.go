@@ -24,8 +24,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/core/util"
+	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
 )

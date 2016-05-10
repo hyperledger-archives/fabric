@@ -508,6 +508,7 @@ func (p *PeerImpl) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
 		return err
 	}
 	err = msgHandler.SendMessage(msg)
+
 	if err != nil {
 		toPeerEndpoint, _ := msgHandler.To()
 		return fmt.Errorf("Error unicasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)

@@ -18,7 +18,6 @@ vp0:
     service: vp
   environment:
     - CORE_PEER_ID=vp0
-    - CORE_PEER_VALIDATOR_REPLICAS_IPS=vp0:30303 vp1:30303 vp2:30303 vp3:30303
     - CORE_SECURITY_ENROLLID=test_vp0
     - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
 

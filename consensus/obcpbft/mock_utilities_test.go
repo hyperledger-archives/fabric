@@ -18,6 +18,7 @@ package obcpbft
 
 import (
 	"fmt"
+	gp "google/protobuf"
 	"math/rand"
 	"time"
 
@@ -113,8 +114,8 @@ type omniProto struct {
 	GetConnectedValidatorsImpl func() (handles []*pb.PeerID)
 	CheckWhitelistExistsImpl   func() (size int)
 	SetWhitelistCapImpl        func(cap int)
-	BroadcastImpl              func(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error
-	UnicastImpl                func(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+	BroadcastImpl              func(msg *pb.Message, peerType pb.PeerEndpoint_Type) error
+	UnicastImpl                func(msg *pb.Message, receiverHandle *pb.PeerID) error
 	SignImpl                   func(msg []byte) ([]byte, error)
 	VerifyImpl                 func(peerID *pb.PeerID, signature []byte, message []byte) error
 	GetBlockImpl               func(id uint64) (block *pb.Block, err error)
