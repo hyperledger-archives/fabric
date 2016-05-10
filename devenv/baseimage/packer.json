@@ -98,7 +98,7 @@
                 "only": [
                     "docker"
                 ],
-                "repository": "openblockchain/{{user `artifact`}}",
+                "repository": "hyperledger/fabric-{{user `artifact`}}",
                 "tag": "{{user `release`}}"
             },
             {
