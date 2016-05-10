@@ -29,16 +29,19 @@ import (
 	"sync"
 )
 
+// EngineImpl implements a struct to hold consensus.Consenter, PeerEndpoint and MessageFan
 type EngineImpl struct {
 	consenter    consensus.Consenter
 	peerEndpoint *pb.PeerEndpoint
 	consensusFan *util.MessageFan
 }
 
+// GetHandlerFactory returns new NewConsensusHandler
 func (eng *EngineImpl) GetHandlerFactory() peer.HandlerFactory {
 	return NewConsensusHandler
 }
 
+// ProcessTransactionMsg processes a Message in context of a Transaction
 func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response) {
 	//TODO: Do we always verify security, or can we supply a flag on the invoke ot this functions so to bypass check for locally generated transactions?
 	if tx.Type == pb.Transaction_CHAINCODE_QUERY {
@@ -95,6 +98,7 @@ func getEngineImpl() *EngineImpl {
 	return engine
 }
 
+// GetEngine returns initialized peer.Engine
 func GetEngine(coord peer.MessageHandlerCoordinator) (peer.Engine, error) {
 	var err error
 	engineOnce.Do(func() {
