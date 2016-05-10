@@ -96,3 +96,44 @@ func TestClassicStateTransfer(t *testing.T) {
 		}
 	}
 }
+
+func TestClassicBackToBackStateTransfer(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, obcClassicHelper, func(ce *consumerEndpoint) {
+		ce.consumer.(*obcClassic).pbft.K = 2
+		ce.consumer.(*obcClassic).pbft.L = 4
+	})
+	defer net.stop()
+	net.debug = true
+
+	filterMsg := true
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if filterMsg && dst == 3 { // 3 is byz
+			return nil
+		}
+		return msg
+	}
+
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+
+	net.process()
+	filterMsg = false
+	for n := 2; n <= 20; n++ {
+		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
+	}
+
+	net.process()
+
+	for _, ep := range net.endpoints {
+		ce := ep.(*consumerEndpoint)
+		obc := ce.consumer.(*obcClassic)
+		_, err := obc.stack.GetBlock(20)
+		if nil != err {
+			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
+		}
+		if !obc.pbft.activeView || obc.pbft.view != 0 {
+			t.Errorf("Replica %d not active in view 0, is %v %d", ce.id, obc.pbft.activeView, obc.pbft.view)
+		}
+	}
+}
