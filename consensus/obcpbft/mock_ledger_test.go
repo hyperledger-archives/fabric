@@ -54,7 +54,7 @@ func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
 func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
 	network = make([]*protos.PeerEndpoint, len(hd.remoteLedgers)+1)
 	i := 0
-	for peerID, _ := range hd.remoteLedgers {
+	for peerID := range hd.remoteLedgers {
 		peerID := peerID // Get a memory address which will not be overwritten
 		network[i] = &protos.PeerEndpoint{
 			ID:   &peerID,

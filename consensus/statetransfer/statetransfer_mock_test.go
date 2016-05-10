@@ -87,7 +87,7 @@ func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
 func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
 	network = make([]*protos.PeerEndpoint, len(hd.remoteLedgers)+1)
 	i := 0
-	for peerID, _ := range hd.remoteLedgers {
+	for peerID := range hd.remoteLedgers {
 		peerID := peerID // Get a memory address which will not be overwritten
 		network[i] = &protos.PeerEndpoint{
 			ID:   &peerID,
@@ -120,7 +120,7 @@ func (hd *HashLedgerDirectory) GetNetworkHandles() (self *protos.PeerID, network
 	return
 }
 
-const MAGIC_DELTA_KEY string = "The only key/string we ever use for deltas"
+const MagicDeltaKey string = "The only key/string we ever use for deltas"
 
 type MockLedger struct {
 	cleanML       *MockLedger
@@ -632,14 +632,14 @@ func SimpleBytesToStateDelta(bDelta []byte) *statemgmt.StateDelta {
 		RollBackwards: false,
 	}
 	mDelta.ChaincodeStateDeltas = make(map[string]*statemgmt.ChaincodeStateDelta)
-	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY] = &statemgmt.ChaincodeStateDelta{}
-	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs = make(map[string]*statemgmt.UpdatedValue)
-	mDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY] = &statemgmt.UpdatedValue{Value: bDelta}
+	mDelta.ChaincodeStateDeltas[MagicDeltaKey] = &statemgmt.ChaincodeStateDelta{}
+	mDelta.ChaincodeStateDeltas[MagicDeltaKey].UpdatedKVs = make(map[string]*statemgmt.UpdatedValue)
+	mDelta.ChaincodeStateDeltas[MagicDeltaKey].UpdatedKVs[MagicDeltaKey] = &statemgmt.UpdatedValue{Value: bDelta}
 	return mDelta
 }
 
 func SimpleStateDeltaToBytes(sDelta *statemgmt.StateDelta) []byte {
-	return sDelta.ChaincodeStateDeltas[MAGIC_DELTA_KEY].UpdatedKVs[MAGIC_DELTA_KEY].Value
+	return sDelta.ChaincodeStateDeltas[MagicDeltaKey].UpdatedKVs[MagicDeltaKey].Value
 }
 
 func SimpleGetConsensusMetadata(blockNumber uint64) []byte {
