@@ -60,38 +60,38 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Overview (Vagrant/Docker) 
      - Prerequisites (Git, Go, Vagrant, VirtualBox, BIOS)
      - Steps (GOPATH, Windows, Clone Peer, VM Vagrant
-- [Building the fabric core](../README.md#building-the-fabric-core-)
-- [Building outside of Vagrant](../README.md#building-outside-of-vagrant-)
-- [Code contributions](../README.md#code-contributions-)
-- [Coding Golang](../README.md#coding-golang-)
+- [Building the fabric core](dev-setup/install.md#building-the-fabric-core-)
+- [Building outside of Vagrant](dev-setup/install.md#building-outside-of-vagrant-)
+- [Code contributions](../CONTRIBUTING.md)
+- [Coding Golang](dev-setup/install.md#coding-golang-)
 - [Headers](dev-setup/headers.txt)
-- [Writing Chaincode](../README.md#writing-chaincode-)
+- [Writing Chaincode](dev-setup/install.md#writing-chaincode-)
 - [Writing, Building, and Running Chaincode in a Development Environment](API/SandboxSetup.md)
 - [Chaincode FAQ](FAQ/chaincode_FAQ.md)
-- [Setting Up a Network](../README.md#setting-up-a-network-)
+- [Setting Up a Network](dev-setup/install.md#setting-up-a-network-)
 - [Setting Up a Network For Development](dev-setup/devnet-setup.md):
      - Docker
      - Validating Peers
      - Run chaincode
      - Consensus Plugin
-- [Working with CLI, REST, and Node.js](../README.md#working-with-cli-rest-and-nodejs-)
+- [Working with CLI, REST, and Node.js](dev-setup/install.md#working-with-cli-rest-and-nodejs-)
 - [APIs - CLI, REST, and Node.js](API/CoreAPI.md): 
      - [CLI](API/CoreAPI.md#cli)
      - [REST](API/CoreAPI.md#rest-api)
      - [Node.js Application](API/CoreAPI.md#nodejs-application)
-- [Configuration](../README.md#configuration-)
-- [Logging](../README.md#logging-)
+- [Configuration](dev-setup/install.md#configuration-)
+- [Logging](dev-setup/install.md#logging-)
 - [Logging control](dev-setup/logging-control.md): 
      - Overview 
      - Peer
      - Go 
-- [Generating grpc code](../README.md#generating-grpc-code-)
-- [Adding or updating Go packages](../README.md#adding-or-updating-go-packages-)
+- [Generating grpc code](dev-setup/install.md#generating-grpc-code-)
+- [Adding or updating Go packages](dev-setup/install.md#adding-or-updating-go-packages-)
 - [SDK](wiki-images)
 
 ### Network operations docs:
 
-- [Setting Up a Network](../README.md#setting-up-a-network-)
+- [Setting Up a Network](dev-setup/install.md#setting-up-a-network-)
 - [Consensus Algorithms](FAQ/consensus_FAQ.md)
 
 ### Security administration docs:
