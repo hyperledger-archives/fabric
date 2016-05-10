@@ -5,7 +5,7 @@
 ---
 <table border="0">
 <col>
-<col>
+<col>t
 <tr>
 <td width="20%"><b>Chain Member</b></td>
 <td>
@@ -268,7 +268,7 @@ Transactions between confidential chains and main chains. Chaincodes in a confid
 <tr>
 <td width="20%"><b>Non Validating Node (Peer)</b></td>
 <td>
-  Purpose: Constructs transactions and forwards them to validating nodes. Peer nodes keep a copy of all transaction records so that solution providers can query them locally. (Dev Team name: NVP - Non Validating Peer)
+  Purpose: Constructs transactions and forwards them to validating nodes. Peer nodes keep a copy of all transaction records so that solution providers can query them locally. 
   <p><p>
   Key Roles:<p>
   1)	Manages and maintains user certificates issued by the membership service<p>
