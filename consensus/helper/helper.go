@@ -303,23 +303,24 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	return block.ConsensusMetadata, nil
 }
 
-// SkipTo skips ahead to the block identified by tag (blockNumber)
+// SkipTo is invoked to tell state transfer of a possible sync target, if state transfer is not already executing, it is initiated
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
 	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
 }
 
-// Initiated does nothing ATM
+// Initiated is called when state transfer is kicked off, this occurs if SkipTo is invoked while statetransfer is not currently running
 func (h *Helper) Initiated() {
+	h.consenter.StateUpdating(m.(uint64), bh)
 }
 
-// Completed updates state on Consenter
+// Completed is called when state transfer finishes moving the state to some point added via SkipTo
 func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
-	h.consenter.StateUpdate(m.(uint64), bh)
+	h.consenter.StateUpdated(m.(uint64), bh)
 }
 
-// Errored logs a warning
+// Errored is called when state transfer encounters an error, this is not necessarily fatal
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
 	if seqNo, ok := m.(uint64); !ok {
 		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)

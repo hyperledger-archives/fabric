@@ -278,7 +278,7 @@ func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*p
 	fmt.Printf("TEST LEDGER skipping to %+v, %+v", meta, info)
 	p := 0
 	if mock.blockHeight >= info.Height {
-		panic("Asked to skip to a block lower than our current height")
+		panic(fmt.Sprintf("Asked to skip to a block (%d) which is lower than our current height of %d", info.Height, mock.blockHeight))
 	}
 	for n := mock.blockHeight; n < info.Height; n++ {
 		block, err := remoteLedger.GetBlock(n)
