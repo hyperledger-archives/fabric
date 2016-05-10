@@ -26,8 +26,8 @@ From within the VM, you can build, run, and test your environment.
 
 #### 1. Go build
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-go build
+cd $GOPATH/src/github.com/hyperledger/fabric
+make peer
 ```
 
 #### 2. Run/Execute
@@ -68,12 +68,10 @@ The `peer` command will initiate a peer process, with which one can interact by 
 New code must be accompanied by test cases both in unit and Behave tests.
 
 #### 3.1 Go Unit Tests
-To run all unit tests, in one window, run `./peer peer`. In a second window
+Use the following sequence to run all unit tests
 
     cd $GOPATH/src/github.com/hyperledger/fabric
-    go test -timeout=20m $(go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/)
-
-Note that the first time the tests are run, they can take some time due to the need to download a docker image that is about 1GB in size. This is why the timeout flag is added to the above command.
+    make unit-test
 
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and call/excecute
 
@@ -87,15 +85,15 @@ You must also run the Node.js unit tests to insure that the Node.js client SDK i
 [Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/bddtests
-behave
+cd $GOPATH/src/github.com/hyperledger/fabric
+make behave
 ```
 Some of the Behave tests run inside Docker containers. If a test fails and you want to have the logs from the Docker containers, run the tests with this option
 ```
 behave -D logs=Y
 ```
 
-Note, you must run the unit tests first to build the necessary `peer` and `member services` docker images. These images can also be individually built when `go test` is called with the following parameters:
+Note, in order to run behave directly, you must run 'make images' first to build the necessary `peer` and `member services` docker images. These images can also be individually built when `go test` is called with the following parameters:
 ```
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
@@ -119,8 +117,8 @@ INSTALL_PATH=/usr/local make install-shared
 ```
 - Execute the following commands:
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
+cd $GOPATH/src/github.com/hyperledger/fabric
+make
 ```
 - Make sure that the Docker daemon initialization includes the options
 ```
@@ -179,7 +177,8 @@ See [specific logging control](logging-control.md) instructions when running the
 If you modify any `.proto` files, run the following command to generate/update the respective `.pb.go` files.
 
 ```
-$GOPATH/src/github.com/hyperledger/fabric/devenv/compile_protos.sh
+cd $GOPATH/src/github.com/hyperledger/fabric
+make protos
 ```
 
 ## Adding or updating Go packages <a name="vendoring"></a>
