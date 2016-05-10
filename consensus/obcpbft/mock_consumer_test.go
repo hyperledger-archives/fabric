@@ -17,6 +17,9 @@ limitations under the License.
 package obcpbft
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -71,6 +74,8 @@ type completeStack struct {
 
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	go func() {
+		// State transfer takes time, not simulating this hides bugs
+		time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
 		meta := &Metadata{tag}
 		metaRaw, _ := proto.Marshal(meta)
 		cs.simulateStateTransfer(metaRaw, id, peers)
