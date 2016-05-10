@@ -393,6 +393,7 @@ func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64
 	})
 }
 
+// GetBlockchainInfoBlob marshals a ledger's BlockchainInfo into a protobuf
 func (h *Helper) GetBlockchainInfoBlob() []byte {
 	ledger, _ := ledger.GetLedger()
 	info, _ := ledger.GetBlockchainInfo()
@@ -400,6 +401,7 @@ func (h *Helper) GetBlockchainInfoBlob() []byte {
 	return rawInfo
 }
 
+// GetBlockHeadMetadata returns metadata from block at the head of the blockchain
 func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -413,19 +415,23 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	return block.ConsensusMetadata, nil
 }
 
+// SkipTo skips ahead to the block identified by tag (blockNumber)
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
 	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
 }
 
+// Initiated does nothing ATM
 func (h *Helper) Initiated() {
 }
 
+// Completed updates state on Consenter
 func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
 	h.consenter.StateUpdate(m.(uint64), bh)
 }
 
+// Errored logs a warning
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
 	if seqNo, ok := m.(uint64); !ok {
 		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
