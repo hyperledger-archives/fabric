@@ -252,8 +252,7 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
-    # tcp://localhost:2376
+    # http://localhost:2375
     endpoint: unix:///var/run/docker.sock
 
     # settings for docker vms
