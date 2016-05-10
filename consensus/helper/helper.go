@@ -41,7 +41,7 @@ type Helper struct {
 	secHelper    crypto.Peer
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
-	persist.PersistHelper
+	persist.Helper
 
 	sts *statetransfer.StateTransferState
 }
