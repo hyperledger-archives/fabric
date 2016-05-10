@@ -64,7 +64,7 @@ Roles: Chain Transactor, Chain Validator
 <tr>
 <td width="20%"><b>Network Owner</b></td>
 <td>
-Owners are full members who can validate transactions. After a network is first launched, its proprietor (who then becomes an owner) will invite business partners to co-own the network (by assigning them validating nodes). Any new owner added to a network must be approved by existing members.
+Owners are stakeholders of a network that can validate transactions. After a network is first launched, its proprietor (who then becomes an owner) will invite business partners to co-own the network (by assigning them validating nodes). Any new owner added to a network must be approved by its existing owners.
 <p><p>
 Roles: Chain Transactor, Chain Validator
 </td>
@@ -156,7 +156,7 @@ A special purpose chain created to run confidential business logic that is only 
 <tr>
 <td width="20%"><b>Owner Registration</b></td>
 <td>
-The process of registering and inviting new owner(s) to a blockchain network. Approval from network owner is required when adding or deleting a participant with ownership right  
+The process of registering and inviting new owner(s) to a blockchain network. Approval from existing network owners is required when adding or deleting a participant with ownership right
 </td>
 </tr>
 <tr>
@@ -210,9 +210,15 @@ A transaction with its payload in the open. Anyone with access to a chain networ
 </td>
 </tr>
 <tr>
+<td width="20%"><b>Confidential Transaction</b></td>
+<td>
+A transaction with its payload cryptographically hidden such that no one besides the stakeholders of a transaction can interrogate its content.
+</td>
+</tr>
+<tr>
 <td width="20%"><b>Confidential Chaincode Transaction</b></td>
 <td>
-A transaction with its payload encrypted such that only stakeholders can decrypt them. Chaincode confidentiality is determined during deploy time. If a chaincode is a deployed as a confidential chaincode, then the payload of all subsequent invocation transactions to that chaincode will be encrypted.
+A transaction with its payload encrypted such that only validators can decrypt them. Chaincode confidentiality is determined during deploy time. If a chaincode is deployed as a confidential chaincode, then the payload of all subsequent invocation transactions to that chaincode will be encrypted.
 </td>
 </tr>
 </table>
@@ -293,7 +299,7 @@ Transactions between confidential chains and main chains. Chaincodes in a confid
   Key Roles:<p>
   1)	Issues enrollment certificate to each end user and organization<p>
   2)	Issues transaction certificates associated to each end user and organization<p>
-  3)	Issues TLS certificates for secured communication between OBC entities<p>
+  3)	Issues TLS certificates for secured communication between Hyperledger fabric entities<p>
   4)	Issues chain specific keys
   <p><p>
   Owned by: Third party service provider
@@ -335,7 +341,7 @@ Issues TLS certificates to systems that transmit messages in a chain network. TL
 
 &nbsp;
 
-## OBC Entities
+## Hyperledger Fabric Entities
 
 #### _Chaincode_
 ---
@@ -371,7 +377,7 @@ Chaincodes deployed by confidential transactions that also embed the tokens of a
 <tr>
 <td width="20%"><b>Chaincode-State</b></td>
 <td>
-OBC provides state support; Chaincodes access internal state storage through state APIs. States are created and updated by transactions calling chaincode functions with state accessing logic.
+HPL provides state support; Chaincodes access internal state storage through state APIs. States are created and updated by transactions calling chaincode functions with state accessing logic.
 </td>
 </tr>
 <tr>
@@ -409,7 +415,7 @@ The main module on a node that is responsible to process transactions, deploy an
 <tr>
 <td width="20%"><b>Consensus</b></td>
 <td>
-The default consensus algorithm of OBC is called Sieve. It is a new algorithm, enhancing the “classic” PBFT mechanism in that it allows validating nodes to do a best effort in identifying non-deterministic transactions.
+The default consensus algorithm of Hyperledger fabric is called Sieve. It is a new algorithm, enhancing the “classic” PBFT mechanism in that it allows validating nodes to do a best effort in identifying non-deterministic transactions.
 </td>
 </tr>
 </table>
