@@ -28,6 +28,7 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
 )
 
@@ -71,6 +72,16 @@ type HashLedgerDirectory struct {
 func (hd *HashLedgerDirectory) GetLedgerByPeerID(peerID *protos.PeerID) (consensus.ReadOnlyLedger, bool) {
 	ledger, ok := hd.remoteLedgers[*peerID]
 	return ledger, ok
+}
+
+func (hd *HashLedgerDirectory) GetPeers() (*protos.PeersMessage, error) {
+	_, network, err := hd.GetNetworkInfo()
+	return &protos.PeersMessage{network}, err
+}
+
+func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
+	self, _, err := hd.GetNetworkInfo()
+	return self, err
 }
 
 func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, network []*protos.PeerEndpoint, err error) {
@@ -269,12 +280,12 @@ func (mock *MockLedger) RollbackTxBatch(id interface{}) error {
 	return nil
 }
 
-func (mock *MockLedger) GetBlockchainSize() (uint64, error) {
+func (mock *MockLedger) GetBlockchainSize() uint64 {
 	mock.mutex.Lock()
 	defer func() {
 		mock.mutex.Unlock()
 	}()
-	return mock.blockHeight, nil
+	return mock.blockHeight
 }
 
 func (mock *MockLedger) GetBlock(id uint64) (*protos.Block, error) {
@@ -289,8 +300,34 @@ func (mock *MockLedger) GetBlock(id uint64) (*protos.Block, error) {
 	return block, nil
 }
 
+func (mock *MockLedger) GetBlockByNumber(blockNumber uint64) (block *protos.Block, err error) {
+	return mock.GetBlock(blockNumber)
+}
+
 func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 	return SimpleHashBlock(block), nil
+}
+
+type remoteLedger struct {
+	mockLedger *MockLedger
+	peerID     *protos.PeerID
+}
+
+func (rl *remoteLedger) RequestBlocks(rng *protos.SyncBlockRange) (<-chan *protos.SyncBlocks, error) {
+	return rl.mockLedger.GetRemoteBlocks(rl.peerID, rng.Start, rng.End)
+}
+func (rl *remoteLedger) RequestStateSnapshot() (<-chan *protos.SyncStateSnapshot, error) {
+	return rl.mockLedger.GetRemoteStateSnapshot(rl.peerID)
+}
+func (rl *remoteLedger) RequestStateDeltas(rng *protos.SyncBlockRange) (<-chan *protos.SyncStateDeltas, error) {
+	return rl.mockLedger.GetRemoteStateDeltas(rl.peerID, rng.Start, rng.End)
+}
+
+func (mock *MockLedger) GetRemoteLedger(peerID *protos.PeerID) (peer.RemoteLedger, error) {
+	return &remoteLedger{
+		mockLedger: mock,
+		peerID:     peerID,
+	}, nil
 }
 
 func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
@@ -375,7 +412,7 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 		return nil, fmt.Errorf("Bad peer ID %v", peerID)
 	}
 
-	remoteBlockHeight, _ := rl.GetBlockchainSize()
+	remoteBlockHeight := rl.GetBlockchainSize()
 	res := make(chan *protos.SyncStateSnapshot, remoteBlockHeight) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncSnapshot, peerID)
 	switch ft {
@@ -671,8 +708,8 @@ func (mock *MockRemoteLedger) GetBlock(blockNumber uint64) (block *protos.Block,
 	return SimpleGetBlock(blockNumber), nil
 }
 
-func (mock *MockRemoteLedger) GetBlockchainSize() (uint64, error) {
-	return mock.blockHeight, nil
+func (mock *MockRemoteLedger) GetBlockchainSize() uint64 {
+	return mock.blockHeight
 }
 
 func (mock *MockRemoteLedger) GetCurrentStateHash() (stateHash []byte, err error) {

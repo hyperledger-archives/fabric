@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -45,12 +45,17 @@ func init() {
 // public methods and structure definitions
 // =============================================================================
 
+// PartialStack is a subset of peer.MessageHandlerCoordinator functionality which is necessary to perform state transfer
 type PartialStack interface {
-	consensus.Ledger
-	consensus.RemoteLedgers
-	consensus.Inquirer
+	peer.BlockChainAccessor
+	peer.BlockChainModifier
+	peer.BlockChainUtil
+	GetPeers() (*protos.PeersMessage, error)
+	GetPeerEndpoint() (*protos.PeerEndpoint, error)
+	GetRemoteLedger(receiver *protos.PeerID) (peer.RemoteLedger, error)
 }
 
+// Listener is an interface which allows for other modules to register to receive events about the progress of state transfer
 type Listener interface {
 	Initiated()                                                   // Called when the state transfer thread starts a new state transfer
 	Errored(uint64, []byte, []*protos.PeerID, interface{}, error) // Called when an error is encountered during state transfer, only the error is guaranteed to be set, other fields will be set on a best effort basis
@@ -285,12 +290,14 @@ func ThreadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	sts.stateTransferListenersLock = &sync.Mutex{}
 
 	sts.stack = stack
-	sts.id, _, err = stack.GetNetworkHandles()
+	ep, err := stack.GetPeerEndpoint()
 
 	if nil != err {
 		logger.Debug("Error resolving our own PeerID, this shouldn't happen")
 		sts.id = &protos.PeerID{"ERROR_RESOLVING_ID"}
 	}
+
+	sts.id = ep.ID
 
 	sts.asynchronousTransferInProgress = false
 
@@ -412,21 +419,19 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 
 	if nil == passedPeerIDs {
 		logger.Debug("%v tryOverPeers, no peerIDs given, discovering", sts.id)
-		self, network, err := sts.stack.GetNetworkInfo()
-		if nil != err {
-			return fmt.Errorf("Error attempting to get network info: %s", err)
+
+		peersMsg, err := sts.stack.GetPeers()
+		if err != nil {
+			return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
 		}
-
-		for _, endpoint := range network {
-			if endpoint.Type != protos.PeerEndpoint_VALIDATOR {
-				continue
+		peers := peersMsg.GetPeers()
+		for _, endpoint := range peers {
+			if endpoint.Type == protos.PeerEndpoint_VALIDATOR {
+				if endpoint.ID.Name == sts.id.Name {
+					continue
+				}
+				peerIDs = append(peerIDs, endpoint.ID)
 			}
-
-			if endpoint == self {
-				continue
-			}
-
-			peerIDs = append(peerIDs, endpoint.ID)
 		}
 
 		logger.Debug("%v discovered %d peerIDs", sts.id, len(peerIDs))
@@ -468,7 +473,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	var block *protos.Block
 
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
-		blockChan, err := sts.stack.GetRemoteBlocks(peerID, blockCursor, lowBlock)
+		blockChan, err := sts.GetRemoteBlocks(peerID, blockCursor, lowBlock)
 		if nil != err {
 			logger.Warning("%v failed to get blocks from %d to %d from %v: %s",
 				sts.id, blockCursor, lowBlock, peerID, err)
@@ -513,7 +518,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 					if !sts.RecoverDamage {
 
 						// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
-						if oldBlock, err := sts.stack.GetBlock(blockCursor); err == nil && oldBlock != nil {
+						if oldBlock, err := sts.stack.GetBlockByNumber(blockCursor); err == nil && oldBlock != nil {
 							oldBlockHash, err := sts.stack.HashBlock(oldBlock)
 							if nil == err {
 								if !bytes.Equal(oldBlockHash, validBlockHash) {
@@ -560,11 +565,7 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 
 	logger.Debug("%v is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
 
-	blockchainSize, err := sts.stack.GetBlockchainSize()
-
-	if nil != err {
-		panic("We can't determine how long our blockchain is, this is irrecoverable")
-	}
+	blockchainSize := sts.stack.GetBlockchainSize()
 
 	if blockSyncReq.blockNumber+1 < blockchainSize {
 		if !sts.RecoverDamage {
@@ -599,16 +600,13 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 
 	if 0 == len(sts.validBlockRanges) {
-		size, err := sts.stack.GetBlockchainSize()
-		if nil != err {
-			panic("We cannot determine how long our blockchain is, this is irrecoverable")
-		}
+		size := sts.stack.GetBlockchainSize()
 		if 0 == size {
 			logger.Warning("%v has no blocks in its blockchain, including the genesis block", sts.id)
 			return false
 		}
 
-		block, err := sts.stack.GetBlock(size - 1)
+		block, err := sts.stack.GetBlockByNumber(size - 1)
 		if nil != err {
 			logger.Warning("%v could not retrieve its head block %d: %s", sts.id, size, err)
 			return false
@@ -643,7 +641,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 			// Ranges are not distinct (or are adjacent), we will collapse them or discard the lower if it does not chain
 			if sts.validBlockRanges[1].lowBlock < lowBlock {
 				// Range overlaps or is adjacent
-				block, err := sts.stack.GetBlock(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
+				block, err := sts.stack.GetBlockByNumber(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
 				if nil != err {
 					logger.Warning("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 				} else {
@@ -690,7 +688,7 @@ func (sts *StateTransferState) VerifyAndRecoverBlockchain() bool {
 
 		sts.validBlockRanges[0].lowBlock = targetBlock
 
-		block, err := sts.stack.GetBlock(targetBlock)
+		block, err := sts.stack.GetBlockByNumber(targetBlock)
 		if nil != err {
 			logger.Warning("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 			return false
@@ -780,11 +778,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 
 		logger.Debug("%v completed state transfer to block %d", sts.id, *currentStateBlockNumber)
 	} else {
-		*currentStateBlockNumber, err = sts.stack.GetBlockchainSize()
-		if nil != err {
-			panic(fmt.Errorf("Cannot get our blockchain size, this is irrecoverable: %s", err))
-		}
-		*currentStateBlockNumber-- // The block height is one more than the latest block number
+		*currentStateBlockNumber = sts.stack.GetBlockchainSize() - 1 // The block height is one more than the latest block number
 	}
 
 	// TODO, eventually we should allow lower block numbers and rewind transactions as needed
@@ -859,7 +853,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 
 	}
 
-	block, err := sts.stack.GetBlock(*currentStateBlockNumber)
+	block, err := sts.stack.GetBlockByNumber(*currentStateBlockNumber)
 	if nil != err {
 		*blocksValid = false
 		return fmt.Errorf("%v believed its state for block %d to be valid, but it could not retrieve it : %s", sts.id, *currentStateBlockNumber, err)
@@ -993,7 +987,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 
-		deltaMessages, err := sts.stack.GetRemoteStateDeltas(peerID, currentBlock, toBlockNumber)
+		deltaMessages, err := sts.GetRemoteStateDeltas(peerID, currentBlock, toBlockNumber)
 		if err != nil {
 			return fmt.Errorf("%v received an error while trying to get the state deltas for blocks %d through %d from %d", sts.id, fromBlockNumber, toBlockNumber, peerID)
 		}
@@ -1019,7 +1013,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 
 				success := false
 
-				testBlock, err := sts.stack.GetBlock(deltaMessage.Range.End)
+				testBlock, err := sts.stack.GetBlockByNumber(deltaMessage.Range.End)
 
 				if nil != err {
 					logger.Warning("%v could not retrieve block %d, though it should be present", sts.id, deltaMessage.Range.End)
@@ -1083,7 +1077,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 			logger.Error("Could not empty the current state: %s", err)
 		}
 
-		stateChan, err := sts.stack.GetRemoteStateSnapshot(peerID)
+		stateChan, err := sts.GetRemoteStateSnapshot(peerID)
 
 		if err != nil {
 			return err
@@ -1127,4 +1121,39 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 	})
 
 	return currentStateBlock, ok
+}
+
+// The below were stolen from helper.go, they should eventually be removed there, and probably made private here
+
+// GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
+func (sts *StateTransferState) GetRemoteBlocks(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
+	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestBlocks(&protos.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
+}
+
+// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
+func (sts *StateTransferState) GetRemoteStateSnapshot(replicaID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
+	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateSnapshot()
+}
+
+// GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
+func (sts *StateTransferState) GetRemoteStateDeltas(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
+	if nil != err {
+		return nil, err
+	}
+	return remoteLedger.RequestStateDeltas(&protos.SyncBlockRange{
+		Start: start,
+		End:   finish,
+	})
 }
