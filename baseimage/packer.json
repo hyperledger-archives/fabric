@@ -5,7 +5,7 @@
     },
     "variables": {
         "artifact": "baseimage",
-        "release": "0.0.9",
+        "release": "{{env `BASEIMAGE_RELEASE`}}",
         "dockerhub_email": "{{env `DOCKERHUB_EMAIL`}}",
         "dockerhub_username": "{{env `DOCKERHUB_USERNAME`}}",
         "dockerhub_password": "{{env `DOCKERHUB_PASSWORD`}}"
@@ -26,13 +26,6 @@
                         "scripts/vagrant/zerodisk.sh"
                     ],
                     "execute_command": "echo 'vagrant'|sudo -S {{.Vars}} bash '{{.Path}}'"
-                },
-                "docker": {
-                    "scripts": [
-                        "scripts/common/init.sh",
-                        "scripts/docker/init.sh",
-                        "scripts/common/setup.sh"
-                    ]
                 }
             }
         }
@@ -84,35 +77,9 @@
                 ["modifyvm", "{{.Name}}", "--pae", "off"],
                 ["modifyvm", "{{.Name}}", "--paravirtprovider", "legacy"]
             ]
-        },
-        {
-            "type": "docker",
-            "image": "ubuntu:trusty",
-            "commit": true
         }
     ],
     "post-processors": [
-        [
-            {
-                "type": "docker-tag",
-                "only": [
-                    "docker"
-                ],
-                "repository": "hyperledger/fabric-{{user `artifact`}}",
-                "tag": "{{user `release`}}"
-            },
-            {
-                "type": "docker-push",
-                "only": [
-                    "docker"
-                ],
-                "login": true,
-                "login_email": "{{user `dockerhub_email`}}",
-                "login_username": "{{user `dockerhub_username`}}",
-                "login_password": "{{user `dockerhub_password`}}"
-            }
-
-        ],
         [
             {
                 "type": "vagrant",
