@@ -1699,7 +1699,7 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 // middleware and routes.
 func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	// Initialize the REST service object
-	restLogger.Info("Initializing the REST service...")
+	restLogger.Info("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[peer.TlsEnabled()])
 	router := web.New(ServerOpenchainREST{})
 
 	// Record the pointer to the underlying ServerOpenchain and Devops objects.
