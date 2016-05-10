@@ -45,6 +45,7 @@ func init() {
 // public methods and structure definitions
 // =============================================================================
 
+// PartialStack is a subset of peer.MessageHandlerCoordinator functionality which is necessary to perform state transfer
 type PartialStack interface {
 	peer.BlockChainAccessor
 	peer.BlockChainModifier
@@ -54,6 +55,7 @@ type PartialStack interface {
 	GetRemoteLedger(receiver *protos.PeerID) (peer.RemoteLedger, error)
 }
 
+// Listener is an interface which allows for other modules to register to receive events about the progress of state transfer
 type Listener interface {
 	Initiated()                                                   // Called when the state transfer thread starts a new state transfer
 	Errored(uint64, []byte, []*protos.PeerID, interface{}, error) // Called when an error is encountered during state transfer, only the error is guaranteed to be set, other fields will be set on a best effort basis

@@ -71,6 +71,7 @@ type Executor interface {
 	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
+// StatePersistor is used to store consensus state which should survive a process crash
 type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
