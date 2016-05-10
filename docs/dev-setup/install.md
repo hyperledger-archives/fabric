@@ -3,7 +3,7 @@ Install the blockchain fabric by completing the following tasks:
 
 * [Building the fabric core](#building-the-fabric-core-)
 * [Building outside of Vagrant](#building-outside-of-vagrant-)
-* [Code contributions](#code-contributions-)
+* [Code contributions](../../CONTRIBUTING.md)
 * [Communication](#communication-)
 * [Coding Golang](#coding-golang-)
 * [Writing Chaincode](#writing-chaincode-)
