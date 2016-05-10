@@ -54,7 +54,6 @@ type SecurityUtils interface {
 // ReadOnlyLedger is used for interrogating the blockchain
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
 	GetBlockchainSize() uint64
 	GetBlockchainInfoBlob() []byte
 	GetBlockHeadMetadata() ([]byte, error)
