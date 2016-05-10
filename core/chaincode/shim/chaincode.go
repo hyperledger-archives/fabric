@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package shim provides APIs for the chaincode to access its state
+// variables, transaction context and call other chaincodes.
 package shim
 
 import (
@@ -63,7 +65,8 @@ type Chaincode interface {
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 
-// ChaincodeStub for shim side handling.
+// ChaincodeStub is an object passed to chaincode for shim side handling of
+// APIs.
 type ChaincodeStub struct {
 	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
@@ -72,7 +75,8 @@ type ChaincodeStub struct {
 // Peer address derived from command line or env var
 var peerAddress string
 
-// Start entry point for chaincodes bootstrap.
+// Start is the entry point for chaincodes bootstrap. It is not an API for
+// chaincodes.
 func Start(cc Chaincode) error {
 	// If Start() is called, we assume this is a standalone chaincode and set
 	// up formatted logging.
@@ -115,7 +119,8 @@ func Start(cc Chaincode) error {
 	return err
 }
 
-// StartInProc entry point for system chaincodes bootstrap.
+// StartInProc is an entry point for system chaincodes bootstrap. It is not an
+// API for chaincodes.
 func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
 	logging.SetLevel(logging.DEBUG, "chaincode")
 	chaincodeLogger.Debug("in proc %v", args)
@@ -266,29 +271,29 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 
 // ------------- Call Chaincode functions ---------------
 
-// InvokeChaincode function can be invoked by a chaincode to execute another chaincode.
+// InvokeChaincode locally calls the specified chaincode `Invoke`.
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
 }
 
-// QueryChaincode function can be invoked by a chaincode to query another chaincode.
+// QueryChaincode locally calls the specified chaincode `Query`.
 func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }
 
 // --------- State functions ----------
 
-// GetState function can be invoked by a chaincode to get a state from the ledger.
+// GetState returns the byte array value specified by the `key`.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)
 }
 
-// PutState function can be invoked by a chaincode to put state into the ledger.
+// PutState writes the specified `value` and `key` into the ledger.
 func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 	return handler.handlePutState(key, value, stub.UUID)
 }
 
-// DelState function can be invoked by a chaincode to delete state from the ledger.
+// DelState removes the specified `key` and its value from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
@@ -315,7 +320,7 @@ func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 
 }
 
-// CertAttributes answers all the attributes stored in the CallerCert
+// CertAttributes returns all the attributes stored in the transaction tCert.
 func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -345,7 +350,7 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	return attributes, nil
 }
 
-// ReadCertAttribute reads the attribute with name 'attributeName' from CallerCert.
+// ReadCertAttribute returns the value specified by `attributeName` from the transaction tCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -527,7 +532,7 @@ func (stub *ChaincodeStub) GetTable(tableName string) (*Table, error) {
 	return stub.getTable(tableName)
 }
 
-// DeleteTable deletes and entire table and all associated row
+// DeleteTable deletes an entire table and all associated rows.
 func (stub *ChaincodeStub) DeleteTable(tableName string) error {
 	tableNameKey, err := getTableNameKey(tableName)
 	if err != nil {
@@ -678,7 +683,8 @@ func (stub *ChaincodeStub) DeleteRow(tableName string, key []Column) error {
 	return nil
 }
 
-// VerifySignature ...
+// VerifySignature verifies the transaction signature and returns `true` if
+// correct and `false` otherwise
 func (stub *ChaincodeStub) VerifySignature(certificate, signature, message []byte) (bool, error) {
 	// Instantiate a new SignatureVerifier
 	sv := ecdsa.NewX509ECDSASignatureVerifier()
@@ -697,17 +703,20 @@ func (stub *ChaincodeStub) GetCallerMetadata() ([]byte, error) {
 	return stub.securityContext.Metadata, nil
 }
 
-// GetBinding returns tx binding
+// GetBinding returns the transaction binding
 func (stub *ChaincodeStub) GetBinding() ([]byte, error) {
 	return stub.securityContext.Binding, nil
 }
 
-// GetPayload returns tx payload
+// GetPayload returns transaction payload, which is a `ChaincodeSpec` defined
+// in fabric/protos/chaincode.proto
 func (stub *ChaincodeStub) GetPayload() ([]byte, error) {
 	return stub.securityContext.Payload, nil
 }
 
-// GetTxTimestamp returns transaction timestamp
+// GetTxTimestamp returns transaction created timestamp, which is currently
+// taken from the peer receiving the transaction. Note that this timestamp
+// may not be the same with the other peers' time.
 func (stub *ChaincodeStub) GetTxTimestamp() (*gp.Timestamp, error) {
 	return stub.securityContext.TxTimestamp, nil
 }
