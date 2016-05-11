@@ -56,6 +56,46 @@ To work on something, whether a new feature or a bugfix:
 
 After your pull request has been reviewed and signed off, a maintainer will merge it into the master branch.
 
+## Coding guidelines
+
+### Coding Golang <a name="coding-go"></a>
+- We require a file [header](headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
+- We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
+and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
+  - [golint](https://github.com/golang/lint)
+  - [go vet](https://golang.org/cmd/vet/)
+  - [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports)
+
+  ## Generating gRPC code <a name="gRPC"></a>
+
+  If you modify any `.proto` files, run the following command to generate/update the respective `.pb.go` files.
+
+  ```
+  cd $GOPATH/src/github.com/hyperledger/fabric
+  make protos
+  ```
+
+  ## Adding or updating Go packages <a name="vendoring"></a>
+
+  The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the `vendor` folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the `vendor` folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
+
+  ```
+  # Add external packages.
+  govendor add +external
+
+  # Add a specific package.
+  govendor add github.com/kardianos/osext
+
+  # Update vendor packages.
+  govendor update +vendor
+
+  # Revert back to normal GOPATH packages.
+  govendor remove +vendor
+
+  # List package.
+  govendor list
+  ```
+
 ### Becoming a maintainer
 This project is managed under open governance model as described in our  [charter](https://www.hyperledger.org/about/charter). Projects or sub-projects will be lead by a set of maintainers. New projects can designate an initial set of maintainers that will be approved by the Technical Steering Committee when the project is first approved. The project's maintainers will, from time-to-time, consider adding a new maintainer. An existing maintainer will post a pull request to the [MAINTAINERS.txt](MAINTAINERS.txt) file. If a majority of the maintainers concur in the comments, the pull request is then merged and the individual becomes a maintainer.
 
