@@ -112,6 +112,7 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
+// StateUpdate does nothing
 func (i *Noops) StateUpdate(seqNo uint64, id []byte) {
 	// ignored
 }
