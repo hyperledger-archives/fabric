@@ -271,12 +271,16 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 
 // ------------- Call Chaincode functions ---------------
 
-// InvokeChaincode locally calls the specified chaincode `Invoke`.
+// InvokeChaincode locally calls the specified chaincode `Invoke` using the
+// same transaction context; that is, chaincode calling chaincode doesn't
+// create a new transaction message.
 func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
 }
 
-// QueryChaincode locally calls the specified chaincode `Query`.
+// QueryChaincode locally calls the specified chaincode `Query` using the
+// same transaction context; that is, chaincode calling chaincode doesn't
+// create a new transaction message.
 func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }
