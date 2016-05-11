@@ -17,20 +17,20 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
-	"syscall"
 	"sync"
-	"path/filepath"
-	"bytes"
+	"syscall"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -44,6 +44,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
@@ -54,8 +57,6 @@ import (
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
-	"net/http"
-	_ "net/http/pprof"
 )
 
 var logger = logging.MustGetLogger("main")
@@ -252,12 +253,12 @@ func main() {
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-	    peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
-	    viper.AddConfigPath(peerpath)
+		peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
+		viper.AddConfigPath(peerpath)
 	}
 
-	err := viper.ReadInConfig()  // Find and read the config file
-	if err != nil {              // Handle errors reading the config file
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
 
@@ -296,7 +297,7 @@ func main() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer: %s", err))
 	}
 
 	// On failure Cobra prints the usage message and error string, so we only
@@ -513,7 +514,7 @@ func serve(args []string) error {
 		serve <- grpcErr
 	}()
 
-	if err := writePid(viper.GetString("peer.fileSystemPath") + "/peer.pid", os.Getpid()); err != nil {
+	if err := writePid(viper.GetString("peer.fileSystemPath")+"/peer.pid", os.Getpid()); err != nil {
 		return err
 	}
 
@@ -975,7 +976,7 @@ func network() (err error) {
 	return nil
 }
 
-func writePid (fileName string, pid int) error {
+func writePid(fileName string, pid int) error {
 	err := os.MkdirAll(filepath.Dir(fileName), 0755)
 	if err != nil {
 		return err
@@ -1012,7 +1013,7 @@ func writePid (fileName string, pid int) error {
 	return nil
 }
 
-func readPid (fileName string) (int, error) {
+func readPid(fileName string) (int, error) {
 	fd, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return 0, err
@@ -1033,7 +1034,7 @@ func readPid (fileName string) (int, error) {
 
 	pid, err := strconv.Atoi(string(bytes.TrimSpace(data)))
 	if err != nil {
-		return 0, fmt.Errorf("error parsing pid from %s: %s", fd, err)
+		return 0, fmt.Errorf("error parsing pid from %s: %s", fd.Name(), err)
 	}
 
 	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); err != nil {
