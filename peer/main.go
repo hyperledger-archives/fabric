@@ -528,7 +528,7 @@ func serve(args []string) error {
 			profileListenAddress := viper.GetString("peer.profile.listenAddress")
 			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
 			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
-				logger.Error("Error starting profiler: %s", profileErr)
+				logger.Errorf("Error starting profiler: %s", profileErr)
 			}
 		}()
 	}
