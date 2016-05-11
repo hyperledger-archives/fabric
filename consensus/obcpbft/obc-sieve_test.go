@@ -120,16 +120,16 @@ func TestSieveNoDecision(t *testing.T) {
 
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
-	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	time.Sleep(3 * time.Second)
 	net.stop()
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
 		newBlocks := cep.consumer.(*obcSieve).stack.GetBlockchainSize() - 1
-		if newBlocks != 1 {
+		if newBlocks != 2 {
 			t.Errorf("replica %d executed %d requests, expected %d",
-				cep.id, newBlocks, 1)
+				cep.id, newBlocks, 2)
 		}
 
 		if cep.consumer.(*obcSieve).epoch != 1 {
@@ -245,5 +245,36 @@ func TestSieveRequestHash(t *testing.T) {
 	txID := fmt.Sprintf("%v", net.mockLedgers[0].txID)
 	if len(txID) == 0 || len(txID) > 1000 {
 		t.Fatalf("invalid transaction id hash length %d", len(txID))
+	}
+}
+
+func TestSieveCustody(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+		config.Set("general.timeout.request", "800ms")
+		config.Set("general.timeout.viewchange", "1600ms")
+		return newObcSieve(id, config, stack)
+	})
+	net.filterFn = func(src int, dst int, payload []byte) []byte {
+		logger.Info("msg from %d to %d", src, dst)
+		if src == 0 {
+			return nil
+		}
+		return payload
+	}
+
+	go net.processContinually()
+	r2 := net.endpoints[2].(*consumerEndpoint).consumer
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
+	time.Sleep(6 * time.Second)
+	net.stop()
+
+	for _, inst := range net.endpoints {
+		inst := inst.(*consumerEndpoint)
+		_, err := inst.consumer.(*obcSieve).stack.GetBlock(1)
+		if err != nil {
+			t.Errorf("Expected replica %d to have one block", inst.id)
+			continue
+		}
 	}
 }
