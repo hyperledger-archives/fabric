@@ -46,7 +46,7 @@ To work on something, whether a new feature or a bugfix:
 
   7. Pull Request (PR)
 
-  When you need feedback or help, or you think the branch is ready for merging, open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](https://github.com/hyperledger/fabric#3-test)).
+  When you need feedback or help, or you think the branch is ready for merging, open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](docs/dev-setup/install.md#3-test)).
 
    _Note: if your PR does not merge cleanly, use ```git rebase master``` in your feature branch to update your pull request rather than using ```git merge master```_.
 
