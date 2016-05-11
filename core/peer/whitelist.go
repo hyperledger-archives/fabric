@@ -24,13 +24,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/db"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
 )
 
 const whitelistFile = "/tmp/whitelist.dat"
+const dbkey = "consensus.whitelist"
 
 // Gatekeeper is used to manage the list of validating peers a validator should connect to
 type Gatekeeper interface {
@@ -50,7 +51,9 @@ func (p *PeerImpl) CheckWhitelistExists() (size int) {
 // LoadWhitelist loads the validator's whitelist of validating peers from disk into memory
 // Sets p.whitelist and p.whitelistedMap
 func (p *PeerImpl) LoadWhitelist() (err error) {
-	data, err := util.LoadFromDisk(whitelistFile)
+
+	db := db.GetDBHandle()
+	data, err := db.Get(db.PersistCF, []byte(dbkey))
 	if err != nil {
 		return err
 	}
@@ -101,13 +104,9 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 		return fmt.Errorf("Unable to marshal whitelist: %v", err)
 	}
 
-	// save to disk
-	err = util.SaveToDisk(whitelistFile, data)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// save to database
+	db := db.GetDBHandle()
+	return db.Put(db.PersistCF, []byte(dbkey), data)
 }
 
 // GetWhitelist retrieves the map and sorted list of whitelisted peer keys
