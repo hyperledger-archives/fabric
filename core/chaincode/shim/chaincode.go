@@ -29,10 +29,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"encoding/asn1"
 
 	"golang.org/x/net/context"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/abac"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	pb "github.com/hyperledger/fabric/protos"
@@ -282,64 +283,14 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
-func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) { 
-	tokens :=  strings.Split(header, "#")
-	answer := make(map[string]int)
-	
-	for _, token := range tokens {
-		pair:= strings.Split(token, "->")
-		
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil { 
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-	
-	return answer, nil
-	
-}
-
 // Read the attribute with name 'attributeName' from CallerCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
 	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
+	if err != nil { 
 		return nil, err
 	}
-	
-	var header_raw []byte
-	if header_raw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		return nil, err
-	}
-
-	header_str := string(header_raw)	
-	var header map[string]int
-	header, err = stub.parseHeader(header_str)
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	position := header[attributeName]
-	
-
-	
-	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
-	}
-
-    oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-    
-    var value []byte
-    if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		return nil, err
-	}
-    return value, nil
+	return abac.ReadTCertAttribute(tcert, attributeName)
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of

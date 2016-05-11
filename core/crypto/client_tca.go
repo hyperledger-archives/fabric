@@ -25,13 +25,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/hmac"
-	"encoding/asn1"
 
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/abac"
+
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
@@ -556,34 +557,5 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 		return nil, err
 	}
 
-	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-
-	headerStr := string(headerRaw)
-	var header map[string]int
-	header, err = client.parseHeader(headerStr)
-
-	if err != nil {
-		return nil, err
-	}
-
-	position := header[attributeName]
-
-	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
-	}
-
-	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-
-	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
-		return nil, err
-	}
-
-	return value, nil
+	return abac.ReadTCertAttribute(tcert, attributeName)
 }

@@ -34,14 +34,7 @@ var (
 
 	// TCertEncEnrollmentID is the ASN1 object identifier of the TCert index.
 	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
-
-	// TCertEncAttributesBase is the base ASN1 object identifier for attributes. 
-	// When generating an extension to include the attribute an index will be 
-	// appended to this Object Identifier.
-	TCertEncAttributesBase = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6}
-
-	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
-	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
+	
 )  
 
 // DERToX509Certificate converts der to x509
@@ -191,3 +184,4 @@ func CheckCertAgainstSKAndRoot(x509Cert *x509.Certificate, privateKey interface{
 
 	return nil
 }
+

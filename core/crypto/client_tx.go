@@ -1,10 +1,16 @@
 package crypto
 
 import (
+	"errors"
+	"strings"
+	
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/core/crypto/abac"
+	"github.com/spf13/viper"
+
 )
 
 func (client *clientImpl) createTransactionNonce() ([]byte, error) {
@@ -17,7 +23,7 @@ func (client *clientImpl) createTransactionNonce() ([]byte, error) {
 	return nonce, err
 }
 
-func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte, tCert tCert, attributes... string) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
@@ -26,8 +32,13 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeDeploymentSpec.ChaincodeSpec.Metadata
-
+	tx.Metadata, err = getMetadata(chaincodeDeploymentSpec.GetChaincodeSpec(), tCert, attributes...)
+	if err != nil {
+		client.error("Failed creating new transaction [%s].", err.Error())
+		return nil, err
+	}
+	
+	
 	if nonce == nil {
 		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
@@ -59,7 +70,21 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	return tx, nil
 }
 
-func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
+func getMetadata(chaincodeSpec *obc.ChaincodeSpec, tCert tCert, attributes... string) ([]byte, error) { 
+	isAbac := viper.GetString("security.abac.enabled")
+	if strings.Compare(isAbac, "true") != 0 { 
+		return chaincodeSpec.Metadata, nil
+	}
+	
+	if tCert == nil { 
+		return nil, errors.New("Invalid TCert.")
+	}
+	
+	return abac.CreateABACMetadata(tCert.GetCertificate().Raw, chaincodeSpec.Metadata, tCert.GetPreK0(), attributes)
+	
+}
+
+func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attributes... string) (*obc.Transaction, error) {
 	/// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
@@ -68,8 +93,11 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
-
+	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attributes...)
+	if err != nil {
+		client.error("Failed creating new transaction [%s].", err.Error())
+		return nil, err
+	}
 	if nonce == nil {
 		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
@@ -101,7 +129,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	return tx, nil
 }
 
-func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
+func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attributes...string) (*obc.Transaction, error) {
 	// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
 	if err != nil {
@@ -110,8 +138,11 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata = chaincodeInvocation.ChaincodeSpec.Metadata
-
+	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attributes...)
+	if err != nil {
+		client.error("Failed creating new transaction [%s].", err.Error())
+		return nil, err
+	}
 	if nonce == nil {
 		tx.Nonce, err = primitives.GetRandomNonce()
 		if err != nil {
@@ -145,7 +176,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 
 func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributeNames []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
-	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
+	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce, tCert, attributeNames...)
 	if err != nil {
 		client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
@@ -182,7 +213,7 @@ func (client *clientImpl) newChaincodeDeployUsingTCert(chaincodeDeploymentSpec *
 
 func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeKeys  []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
-	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
+	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce, tCert, attributeKeys...)
 	if err != nil {
 		client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
@@ -219,7 +250,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 
 func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string,  attributeNames []string, tCert tCert, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
-	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
+	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce, tCert, attributeNames...)
 	if err != nil {
 		client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
@@ -256,7 +287,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 
 func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
-	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce)
+	tx, err := client.createDeployTx(chaincodeDeploymentSpec, uuid, nonce, nil)
 	if err != nil {
 		client.error("Failed creating new deploy transaction [%s].", err.Error())
 		return nil, err
@@ -293,7 +324,7 @@ func (client *clientImpl) newChaincodeDeployUsingECert(chaincodeDeploymentSpec *
 
 func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
 	/// Create a new transaction
-	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce)
+	tx, err := client.createExecuteTx(chaincodeInvocation, uuid, nonce, nil)
 	if err != nil {
 		client.error("Failed creating new execute transaction [%s].", err.Error())
 		return nil, err
@@ -330,7 +361,7 @@ func (client *clientImpl) newChaincodeExecuteUsingECert(chaincodeInvocation *obc
 
 func (client *clientImpl) newChaincodeQueryUsingECert(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte) (*obc.Transaction, error) {
 	// Create a new transaction
-	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce)
+	tx, err := client.createQueryTx(chaincodeInvocation, uuid, nonce, nil)
 	if err != nil {
 		client.error("Failed creating new query transaction [%s].", err.Error())
 		return nil, err
