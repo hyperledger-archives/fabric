@@ -147,6 +147,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes map[string]s
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
+	
 	attributesHash := tCertPool.CalculateAttributesHash(attributes)
 	
 	poolLen := tCertPool.length[attributesHash]

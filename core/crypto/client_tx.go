@@ -2,8 +2,7 @@ package crypto
 
 import (
 	"errors"
-	"strings"
-	
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -71,8 +70,8 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 }
 
 func getMetadata(chaincodeSpec *obc.ChaincodeSpec, tCert tCert, attributes... string) ([]byte, error) { 
-	isAbac := viper.GetString("security.abac.enabled")
-	if strings.Compare(isAbac, "true") != 0 { 
+	isAbac := viper.GetBool("security.abac.enabled")
+	if !isAbac { 
 		return chaincodeSpec.Metadata, nil
 	}
 	

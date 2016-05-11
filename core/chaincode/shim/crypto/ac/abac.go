@@ -20,78 +20,121 @@ under the License.
 package ac
 
 import (
+	"errors"
+	"bytes" 
+	"fmt"
+	
 	"crypto/x509"
 
-	pb "github.com/hyperledger/fabric/protos"
+	abacpb "github.com/hyperledger/fabric/core/crypto/abac/proto"
 
-	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/crypto/abac"
-
-
+	
 )
 
 type Attribute struct { 
-	name 			string
-	valueHash		[]byte
+	Name 			string
+	Value    		[]byte
 }
 
 // ABACVerifier verifies attributes
 type ABACVerifier interface {
 
 	// VerifyAttributes verifies passed attributes within the message..
-	VerifyAttributes(securityContext *ChaincodeSecurityContext, attrs...Attribute) (bool, error)
+	VerifyAttributes(attrs...*Attribute) (bool, error)
 }
 
 type ABACVerifierImpl struct {
 	cert        *x509.Certificate
-	preKey0		[]byte
-	signatures	[][]byte
-	keys		*map[string][]byte
-	cache	    *map[string][]byte
-}
-
-//Reads the preK0 from the security context.
-func GetPreK0(securityContext *pb.ChaincodeSecurityContext) ([]byte, error) {
-	
-}
-
-//Creates a certificate object from the security context.
-func GetCertificate(securityContext *pb.ChaincodeSecurityContext) (*x509.Certificate, error) {
-	return utils.DERToX509Certificate(securityContext.CallerCert)
-}
-
-//Gets the attribute signatures from the security context.
-func GetAttributeSignatures(securityContext *pb.ChaincodeSecurityContext) ([][]byte, error) {
-
+	signature   map[string][]byte
+	keys		map[string][]byte
 }
 
 //Creates a new ABACVerifierImpl from a pb.ChaincodeSecurityContext object.
-func NewABACVerifierImpl(securityContext *pb.ChaincodeSecurityContext) (*ABACVerifierImpl, error) { 
-	preK0, err := GetPreKey0(securityContext)
+func NewABACVerifierImpl(stub *shim.ChaincodeStub) (*ABACVerifierImpl, error) { 
+	// Getting certificate
+	cert_raw, err := stub.GetCallerCertificate()
 	if err != nil { 
 		return nil, err
 	}
-	
 	var tcert *x509.Certificate
-	tcert, err = GetCertificate(securityContext)
+	tcert, err = utils.DERToX509Certificate(cert_raw)
 	if err != nil {
 		return nil, err
 	}
 
-	
-	var signatures [][]byte
-	signatures, err = GetAttributeSignatures(securityContext)
-	if err!= nil { 
+	//Getting ABAC Metadata from security context.
+	var abacMetadata *abacpb.ABACMetadata
+	var raw_metadata []byte
+	raw_metadata, err = stub.GetCallerMetadata()
+	if err != nil {
+		return nil, err
+	}
+	abacMetadata, err = abac.GetABACMetadata(raw_metadata) 
+	if err != nil { 
 		return nil, err
 	}
 	
-	keys := &make(map[string][]byte)
-	cache := &make(map[string][]byte)
-	return &ABACVerifierImpl{tcert, preK0, signatures, keys, cache}
+	fmt.Printf("Metadata created attributes %v .\n", len(abacMetadata.Entries))
+	
+	keys := make(map[string][]byte)
+	for _,entry := range(abacMetadata.Entries) { 
+		keys[entry.AttributeName] = entry.AttributeKey
+	}
+	
+	signatures := make(map[string][]byte)
+	for attributeName,_ := range(keys) { 
+		value, err := abac.ReadTCertAttribute(tcert, attributeName)
+		if err != nil { 
+			return nil, err
+		}
+		signatures[attributeName] = value
+	}
+	
+	return &ABACVerifierImpl{tcert, signatures, keys}, nil
 }
 
-func (abacVerifier *ABACVerifierImpl) VerifyAttributes(securityContext *ChaincodeSecurityContext, attrs...Attribute) (bool, error) { 
-	
-	abac
+func (abacVerifier *ABACVerifierImpl) getValueHash(attributeName string) ([]byte, error) { 
+		return abacVerifier.signature[attributeName], nil	
+}
+
+func (abacVerifier *ABACVerifierImpl) getCalculateValueHash(attribute *Attribute) ([]byte, error) { 
+	key := abacVerifier.keys[attribute.Name]
+	if key == nil { 
+		return nil, errors.New("The key to the attribute '"+attribute.Name+"' could not be found.")
+	}
+	return abac.EncryptAttributeValue(key, attribute.Value)
+}
+
+//Verfies the attribute "attribute".
+func (abacVerifier *ABACVerifierImpl) VerifyAttribute(attribute *Attribute) (bool, error) { 
+	valueHash, err := abacVerifier.getValueHash(attribute.Name)	
+	if err != nil { 
+		return false, err
+	}
+	calculateValue, err := abacVerifier.getCalculateValueHash(attribute)
+	if err != nil { 
+		return false, err
+	}
+	fmt.Printf("Expected %v calculated %v \n", valueHash, calculateValue)
+
+	return bytes.Compare(valueHash, calculateValue) == 0, nil
+}
+
+//Verifies all the attributes included in attrs.
+func (abacVerifier *ABACVerifierImpl) VerifyAttributes(attrs...*Attribute) (bool, error) { 
+	fmt.Println("Verifing attributes...")
+	for _, attribute := range(attrs) { 
+		val, err := abacVerifier.VerifyAttribute(attribute)
+		fmt.Printf("Verfied attribute %v \n", val)
+		if err != nil { 
+			return false, nil
+		}
+		if !val { 
+			return val, nil
+		}
+	}
+	return true, nil
 }

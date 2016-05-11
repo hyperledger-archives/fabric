@@ -20,6 +20,7 @@ under the License.
 package abac
 
 import (
+	"fmt"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
@@ -87,7 +88,7 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string) ([]byte, 
 	position := header[attributeName]
 	
 	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
+		return nil, errors.New("Failed attribute '"+attributeName+"' doesn't exists in the TCert.")
 	}
 
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
@@ -103,6 +104,11 @@ func pkcs5Unpad(src []byte) []byte {
 	len := len(src)
 	unpad := int(src[len-1])
 	return src[:(len - unpad)]
+}
+
+func EncryptAttributeValue(attributeKey []byte, attributeValue []byte) ([]byte, error) { 
+	value := append(attributeValue, Padding...)
+	return primitives.CBCEncrypt(attributeKey, value)
 }
 
 //Derives the K for the attribute "attributeName". 
@@ -143,6 +149,7 @@ func createABACMetadataEntry(cert *x509.Certificate, attributeName string, preK0
 func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) (*pb.ABACMetadata, error) { 
 	entries := make([]*pb.ABACMetadataEntry,0)
 	for _, key := range(attributeKeys) { 
+		fmt.Printf("Attribute %v \n", key)
 		entry, err := createABACMetadataEntry(cert, key, preK0)
 		if err != nil { 
 			return nil, err
@@ -158,16 +165,25 @@ func CreateABACMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 [
 	if err != nil { 
 		return nil, err
 	}
+	fmt.Printf("CreateABACMetadataFromCert() entries %v \n", len(abac_metadata.Entries))
+
 	
 	return proto.Marshal(abac_metadata)
 }
 
 //Create the ABACMetadata from the original metadata
 func CreateABACMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) { 
+	fmt.Printf("CreateABACMetadata() %v \n", len(attributeKeys))
 	cert, err := utils.DERToX509Certificate(raw)
 	if err != nil { 
 		return nil, err
 	}
 	
 	return CreateABACMetadataFromCert(cert, metadata, preK0, attributeKeys) 
+}
+
+func GetABACMetadata(metadata []byte) (*pb.ABACMetadata, error) { 
+	abacMetadata := &pb.ABACMetadata{}
+	err := proto.Unmarshal(metadata, abacMetadata)
+	return abacMetadata, err
 }

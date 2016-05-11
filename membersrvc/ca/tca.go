@@ -40,6 +40,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
@@ -491,8 +492,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 			mac.Write([]byte(a.AttributeName))
 			attributeKey := mac.Sum(nil)[:32]
 
-			value = append(value, Padding...)
-			value, err = CBCEncrypt(attributeKey, value)
+			value, err = abac.EncryptAttributeValue(attributeKey, value)
 			if err != nil {
 				return nil, nil, err
 			}

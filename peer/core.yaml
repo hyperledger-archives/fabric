@@ -413,6 +413,7 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  200
-        
+        size:  1
+    abac:
+      enabled: false        
 
