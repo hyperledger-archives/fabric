@@ -62,7 +62,7 @@ func (t *RBACChaincode) Init(stub *shim.ChaincodeStub, function string, args []s
 		return nil, errors.New("Failed getting metadata.")
 	}
 	if len(deployer) == 0 {
-		return nil, errors.New("Invalid admin certificate. Empty.")
+		return nil, errors.New("An admin certificate must be provided in the metadata field.")
 	}
 
 	myLogger.Debug("Add admin [% x][%s]", deployer, "admin")
