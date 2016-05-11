@@ -1012,14 +1012,21 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			// Execute the chaincode
 			//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
 			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
-			err = execErr
-			res = response.Payload
+
+			//payload is marshalled and send to the calling chaincode's shim which unmarshals and
+			//sends it to chaincode
+			res = nil
+			if execErr != nil {
+				err = execErr
+			} else {
+				res, err = proto.Marshal(response)
+			}
 		}
 
 		if err != nil {
 			// Send error msg back to chaincode and trigger event
 			payload := []byte(err.Error())
-			chaincodeLogger.Debug("[%s]Failed to handle %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Failed to handle %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_ERROR))
 			triggerNextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -1278,8 +1285,17 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		}
 
 		// Send response msg back to chaincode.
-		chaincodeLogger.Debug("[%s]Completed %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
-		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: response.Payload, Uuid: msg.Uuid}
+
+		//this is need to send the payload directly to calling chaincode without
+		//interpreting (in particular, don't look for errors)
+		if respBytes, err := proto.Marshal(response); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error marshaling response. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR))
+			payload := []byte(execErr.Error())
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		} else {
+			chaincodeLogger.Debug("[%s]Completed %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: respBytes, Uuid: msg.Uuid}
+		}
 	}()
 }
 

@@ -324,7 +324,7 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 	return alreadyRunning, err
 }
 
-//StopChaincode stops a chaincode if running
+//Stop stops a chaincode if running
 func (chaincodeSupport *ChaincodeSupport) Stop(context context.Context, cds *pb.ChaincodeDeploymentSpec) error {
 	chaincode := cds.ChaincodeSpec.ChaincodeID.Name
 	if chaincode == "" {
@@ -356,7 +356,7 @@ func (chaincodeSupport *ChaincodeSupport) Stop(context context.Context, cds *pb.
 	return err
 }
 
-// LaunchChaincode will launch the chaincode if not running (if running return nil) and will wait for handler of the chaincode to get into FSM ready state.
+// Launch will launch the chaincode if not running (if running return nil) and will wait for handler of the chaincode to get into FSM ready state.
 func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.Transaction) (*pb.ChaincodeID, *pb.ChaincodeInput, error) {
 	//build the chaincode
 	var cID *pb.ChaincodeID
@@ -494,7 +494,7 @@ func (chaincodeSupport *ChaincodeSupport) getVMType(cds *pb.ChaincodeDeploymentS
 	return container.DOCKER, nil
 }
 
-// DeployChaincode deploys the chaincode if not in development mode where user is running the chaincode.
+// Deploy deploys the chaincode if not in development mode where user is running the chaincode.
 func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
@@ -592,9 +592,8 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 	var ccresp *pb.ChaincodeMessage
 	select {
 	case ccresp = <-notfy:
-		if ccresp.Type == pb.ChaincodeMessage_ERROR || ccresp.Type == pb.ChaincodeMessage_QUERY_ERROR {
-			err = fmt.Errorf(string(ccresp.Payload))
-		}
+		//response is sent to user or calling chaincode. ChaincodeMessage_ERROR and ChaincodeMessage_QUERY_ERROR
+		//are typically treated as error
 	case <-time.After(timeout):
 		err = fmt.Errorf("Timeout expired while executing transaction")
 	}
