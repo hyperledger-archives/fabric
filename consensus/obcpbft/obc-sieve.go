@@ -714,8 +714,7 @@ func (op *obcSieve) commit() {
 
 func (op *obcSieve) restoreBlockNumber() {
 	var err error
-	op.blockNumber, err = op.stack.GetBlockchainSize()
-	op.blockNumber-- // The highest block number is one less than the size
+	op.blockNumber = op.stack.GetBlockchainSize() - 1 // The highest block number is one less than the size
 	if err != nil {
 		logger.Error("Sieve replica %d could not update its blockNumber", op.id)
 		return

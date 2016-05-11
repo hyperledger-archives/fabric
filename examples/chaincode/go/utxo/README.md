@@ -20,7 +20,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/utxo/
 docker build -t utxo:0.1.0 .
 ```
 
-Next, modify the `core.yaml` file in the Hyperledger Fabric project to point to the local Docker image that was built in the previous step. In the core.yaml file find `chaincode.golang.Dockerfile` and change it from from `openblockchain/baseimage` to `utxo:0.1.0`
+Next, modify the `core.yaml` file in the Hyperledger Fabric project to point to the local Docker image that was built in the previous step. In the core.yaml file find `chaincode.golang.Dockerfile` and change it from from `hyperledger/fabric-baseimage` to `utxo:0.1.0`
 
 Start the peer using the following commands
 ```

@@ -20,6 +20,22 @@ It's possible for one deployed chaincode to call another deployed chaincode usin
 
 `QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error)` - Queries the specified chaincode from the current chaincode.
 
+## Logging
+
+Logging and logging control APIs are introduced below, and fully documented
+with examples [here](../dev-setup/logging-control.md).
+
+`SetLoggingLevel(LoggingLevel level)` - Control the logging level of the shim
+
+`LogLevel(levelString string) (LoggingLevel, error)` - Convert a string to a `LoggingLevel`
+
+`NewLogger(name string) *ChaincodeLogger` - Create a logging object for use by a chaincode
+
+`(c *ChaincodeLogger) SetLevel(level LoggingLevel)` - Set the logging level of a chaincode logger
+
+`(c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool` - Return true if logs will be generated at the given level
+
+
 ## Future APIs
 
 The APIs available today are just a start. Future APIs will allow chaincode to query transactions, blocks, and possibly previous state. Open an issue in the [repository](https://github.com/hyperledger/fabric/issues) to add your support for APIs you would like to see.

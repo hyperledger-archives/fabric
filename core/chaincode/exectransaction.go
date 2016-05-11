@@ -128,8 +128,8 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
-//succeeded, array element will be nil. returns []byte of state hash or 
-//error 
+//succeeded, array element will be nil. returns []byte of state hash or
+//error
 func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (stateHash []byte, txerrs []error, err error) {
 	var chain = GetChain(cname)
 	if chain == nil {

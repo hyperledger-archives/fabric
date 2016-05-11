@@ -29,7 +29,6 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/peer"
 	pb "github.com/hyperledger/fabric/protos"
 )
@@ -54,7 +53,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
 	}
-	h.sts = statetransfer.NewStateTransferState(h)
+	h.sts = statetransfer.NewStateTransferState(mhc)
 	h.sts.Initiate(nil)
 	h.sts.RegisterListener(h)
 	return h
@@ -278,121 +277,11 @@ func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 }
 
 // GetBlockchainSize returns the current size of the blockchain
-func (h *Helper) GetBlockchainSize() (uint64, error) {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return 0, fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.GetBlockchainSize(), nil
+func (h *Helper) GetBlockchainSize() uint64 {
+	return h.coordinator.GetBlockchainSize()
 }
 
-// HashBlock returns the hash of the included block, useful for mocking
-func (h *Helper) HashBlock(block *pb.Block) ([]byte, error) {
-	return block.GetHash()
-}
-
-// PutBlock inserts a raw block into the blockchain at the specified index, nearly no error checking is performed
-func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.PutRawBlock(block, blockNumber)
-}
-
-// ApplyStateDelta applies a state delta to the current state
-// The result of this function can be retrieved using GetCurrentStateDelta
-// To commit the result, call CommitStateDelta, or to roll it back
-// call RollbackStateDelta
-func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.ApplyStateDelta(id, delta)
-}
-
-// CommitStateDelta makes the result of ApplyStateDelta permanent
-// and releases the resources necessary to rollback the delta
-func (h *Helper) CommitStateDelta(id interface{}) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.CommitStateDelta(id)
-}
-
-// RollbackStateDelta undoes the results of ApplyStateDelta to revert
-// the current state back to the state before ApplyStateDelta was invoked
-func (h *Helper) RollbackStateDelta(id interface{}) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.RollbackStateDelta(id)
-}
-
-// EmptyState completely empties the state and prepares it to restore a snapshot
-func (h *Helper) EmptyState() error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.DeleteALLStateKeysAndValues()
-}
-
-// VerifyBlockchain checks the integrity of the blockchain between indices start and finish,
-// returning the first block who's PreviousBlockHash field does not match the hash of the previous block
-func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return finish, fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.VerifyChain(start, finish)
-}
-
-func (h *Helper) getRemoteLedger(peerID *pb.PeerID) (peer.RemoteLedger, error) {
-	remoteLedger, err := h.coordinator.GetRemoteLedger(peerID)
-	if nil != err {
-		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", peerID, err)
-	}
-
-	return remoteLedger, nil
-}
-
-// GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
-func (h *Helper) GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
-		return nil, err
-	}
-	return remoteLedger.RequestBlocks(&pb.SyncBlockRange{
-		Start: start,
-		End:   finish,
-	})
-}
-
-// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
-func (h *Helper) GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
-		return nil, err
-	}
-	return remoteLedger.RequestStateSnapshot()
-}
-
-// GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
-func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
-		return nil, err
-	}
-	return remoteLedger.RequestStateDeltas(&pb.SyncBlockRange{
-		Start: start,
-		End:   finish,
-	})
-}
-
+// GetBlockchainInfoBlob marshals a ledger's BlockchainInfo into a protobuf
 func (h *Helper) GetBlockchainInfoBlob() []byte {
 	ledger, _ := ledger.GetLedger()
 	info, _ := ledger.GetBlockchainInfo()
@@ -400,6 +289,7 @@ func (h *Helper) GetBlockchainInfoBlob() []byte {
 	return rawInfo
 }
 
+// GetBlockHeadMetadata returns metadata from block at the head of the blockchain
 func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
@@ -413,19 +303,23 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	return block.ConsensusMetadata, nil
 }
 
+// SkipTo skips ahead to the block identified by tag (blockNumber)
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
 	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
 }
 
+// Initiated does nothing ATM
 func (h *Helper) Initiated() {
 }
 
+// Completed updates state on Consenter
 func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
 	h.consenter.StateUpdate(m.(uint64), bh)
 }
 
+// Errored logs a warning
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
 	if seqNo, ok := m.(uint64); !ok {
 		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)

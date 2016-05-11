@@ -74,8 +74,7 @@ func TestSieveNetwork(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		blockchainSize, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize()
-		blockchainSize--
+		blockchainSize := cep.consumer.(*obcSieve).stack.GetBlockchainSize() - 1
 		if blockchainSize != 2 {
 			t.Errorf("Replica %d has incorrect blockchain size; is %d, should be 2", cep.id, blockchainSize)
 		}
@@ -127,8 +126,7 @@ func TestSieveNoDecision(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		newBlocks, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize() // Doesn't fail
-		newBlocks--
+		newBlocks := cep.consumer.(*obcSieve).stack.GetBlockchainSize() - 1
 		if newBlocks != 1 {
 			t.Errorf("replica %d executed %d requests, expected %d",
 				cep.id, newBlocks, 1)
@@ -176,7 +174,7 @@ func TestSieveReqBackToBack(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		newBlocks, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize() // Doesn't fail
+		newBlocks := cep.consumer.(*obcSieve).stack.GetBlockchainSize()
 		newBlocks--
 		if newBlocks != 2 {
 			t.Errorf("Replica %d executed %d requests, expected %d",

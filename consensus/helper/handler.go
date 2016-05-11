@@ -38,6 +38,7 @@ func init() {
 }
 
 const (
+	// DefaultConsensusQueueSize value of 1000
 	DefaultConsensusQueueSize int = 1000
 )
 
