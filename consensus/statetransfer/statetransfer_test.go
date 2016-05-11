@@ -417,7 +417,7 @@ func executeBlockRecovery(ml *MockLedger, millisTimeout int, mrls *MockRemoteHas
 	w := make(chan struct{})
 
 	go func() {
-		for !sts.VerifyAndRecoverBlockchain() {
+		for !sts.verifyAndRecoverBlockchain() {
 		}
 		w <- struct{}{}
 	}()
@@ -449,7 +449,7 @@ func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int, mrls *Mock
 			recover()
 			w <- true
 		}()
-		for !sts.VerifyAndRecoverBlockchain() {
+		for !sts.verifyAndRecoverBlockchain() {
 		}
 		w <- false
 	}()
@@ -599,7 +599,7 @@ func TestIdle(t *testing.T) {
 
 	idle := make(chan struct{})
 	go func() {
-		sts.BlockUntilIdle()
+		sts.blockUntilIdle()
 		idle <- struct{}{}
 	}()
 
@@ -609,7 +609,7 @@ func TestIdle(t *testing.T) {
 		t.Fatalf("Timed out waiting for state transfer to become idle")
 	}
 
-	if !sts.IsIdle() {
+	if !sts.isIdle() {
 		t.Fatalf("State transfer unblocked from idle but did not remain that way")
 	}
 }
