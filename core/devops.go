@@ -447,7 +447,7 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
 		}
 
-		tid := executeWithBinding.ChaincodeInvocationSpec.ChaincodeSpec.ChaincodeID.Name
+		tid := util.GenerateUUID()
 
 		tx, err := txHandler.NewChaincodeExecute(executeWithBinding.ChaincodeInvocationSpec, tid)
 		if err != nil {
