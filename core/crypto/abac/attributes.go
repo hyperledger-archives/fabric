@@ -20,7 +20,6 @@ under the License.
 package abac
 
 import (
-	"fmt"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
@@ -47,6 +46,9 @@ var (
 	
 	//Header 
 	HeaderPrefix = "00HEAD"
+	
+	//Name used to derivate the k.
+	HeaderAttributeName = "attributeHeader"
 )
 
 //Parse a string and return a map with the attributes.
@@ -75,34 +77,46 @@ func ParseAttributesHeader(header string) (map[string]int, error) {
 	return result, nil
 }
 
-//Reads the attribute with name "attributeName" and return the value.
-func ReadTCertAttribute(tcert *x509.Certificate, attributeName string) ([]byte, error) {
+//Reads the attribute with name "attributeName" return the value and a boolean indicating if the returned value is encrypted or not.
+func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey []byte) ([]byte, bool, error) {
 	var err error
 	var header_raw []byte
+	encrypted := false
 	if header_raw, err = utils.GetCriticalExtension(tcert, TCertAttributesHeaders); err != nil {
-		return nil, err
+		return nil, encrypted, err
 	}
-
 	header_str := string(header_raw)	
 	var header map[string]int
 	header, err = ParseAttributesHeader(header_str)
-	
 	if err != nil {
-		return nil, err
+		if headerKey == nil { 
+			return nil, false, errors.New("Is not possible read an attribute encrypted without the headerKey")
+		}
+		header_raw, err = DecryptAttributeValue(headerKey, header_raw)
+
+		if err != nil { 
+			return nil, encrypted, err		
+		}
+		header_str = string(header_raw)	
+		header, err = ParseAttributesHeader(header_str)
+		if err != nil { 
+			return nil, encrypted, err		
+		}
+		encrypted = true
 	}
 	
 	position := header[attributeName]
 	if position == 0 {
-		return nil, errors.New("Failed attribute '"+attributeName+"' doesn't exists in the TCert.")
+		return nil, encrypted, errors.New("Failed attribute '"+attributeName+"' doesn't exists in the TCert.")
 	}
 
     oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
     
     var value []byte
     if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		return nil, err
+		return nil, encrypted, err
 	}
-    return value, nil
+    return value, encrypted, nil
 }
 
 //Encrypts "attributeValue" using "attributeKey"
@@ -139,18 +153,19 @@ func DecryptAttributeValue(attributeKey []byte, encryptedValue []byte) ([]byte, 
 
 //Derives K for the attribute "attributeName", checks the value padding and returns both key and decrypted value
 func getKAndValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certificate) ([]byte, []byte, error) {
+	headerKey := getAttributeKey(preK0, HeaderAttributeName)
+	value, encrypted, err := ReadTCertAttribute(cert, attributeName, headerKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	
 	attributeKey := getAttributeKey(preK0, attributeName)
-	
-	attribute, err := ReadTCertAttribute(cert, attributeName)
-	if err != nil {
-		return nil, nil, err
+	if encrypted { 
+		value, err = DecryptAttributeValue(attributeKey, value)
+		if err != nil {
+			return nil, nil, err
+		}	
 	}
-	
-	value, err := DecryptAttributeValue(attributeKey, attribute)
-	if err != nil {
-		return nil, nil, err
-	}
-	
 	return attributeKey, value, nil
 	
 /*	
@@ -175,12 +190,13 @@ func  GetValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certif
 	return value, err
 }
 
-func createABACMetadataEntry(cert *x509.Certificate, attributeName string, preK0 []byte) (*pb.ABACMetadataEntry, error) {
-	attKey, err := GetKForAttribute(attributeName, preK0, cert)
-	if err != nil { 
-		return nil, err
-	}
-	
+func createABACHeaderEntry(preK0 []byte) (*pb.ABACMetadataEntry, error) {
+	attKey := getAttributeKey(preK0, HeaderAttributeName)
+	return &pb.ABACMetadataEntry{HeaderAttributeName, attKey}, nil
+}
+
+func createABACMetadataEntry(attributeName string, preK0 []byte) (*pb.ABACMetadataEntry, error) {
+	attKey := getAttributeKey(preK0, attributeName)
 	return &pb.ABACMetadataEntry{attributeName, attKey}, nil
 }
 
@@ -191,10 +207,14 @@ func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, p
 		if len(key) == 0 { 
 			continue
 		}
-		entry, err := createABACMetadataEntry(cert, key, preK0)
+		entry, err := createABACMetadataEntry(key, preK0)
 		if err == nil { 
 			entries = append(entries, entry)
 		}
+	}
+	headerEntry, err := createABACHeaderEntry(preK0)
+	if err == nil { 
+		entries = append(entries, headerEntry)
 	}
 	return &pb.ABACMetadata{metadata, entries}, nil
 } 
@@ -205,9 +225,6 @@ func CreateABACMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 [
 	if err != nil { 
 		return nil, err
 	}
-	fmt.Printf("CreateABACMetadataFromCert() entries %v \n", len(abac_metadata.Entries))
-
-	
 	return proto.Marshal(abac_metadata)
 }
 

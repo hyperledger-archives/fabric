@@ -20,7 +20,6 @@ package shim
 
 import (
 	"bytes"
-	"encoding/asn1"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,10 +29,8 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
 	"github.com/op/go-logging"
