@@ -53,7 +53,7 @@ var (
 	TCertEncTCertIndex = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7}
 
 	// TCertEncEnrollmentID is the ASN1 object identifier of the enrollment id.
-	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}
+	TCertEncEnrollmentID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 8}	
 
 	// TCertAttributesHeaders is the ASN1 object identifier of attributes header.
 	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
