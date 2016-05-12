@@ -529,5 +529,6 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 		return nil, err
 	}
-	return abac.ReadTCertAttribute(tcert, attributeName)
+	value, _ , err := abac.ReadTCertAttribute(tcert, attributeName, nil)
+	return value, err
 }

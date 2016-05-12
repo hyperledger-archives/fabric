@@ -104,17 +104,21 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 		if abacHandler.cache[attributeName] != nil { 
 			return abacHandler.cache[attributeName], nil
 		}
-		
-		value, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName)
+		value, encrypted, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName, abacHandler.keys[abac.HeaderAttributeName])
 		if err != nil { 
 			return nil, err
 		}
-		
 		if abacHandler.keys[attributeName] == nil { 
 			return nil, errors.New("There isn't a key")
 		}
-		
-		return abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
+		if encrypted { 
+			value, err = abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
+			if err != nil { 
+				return nil, err
+			}	
+		}
+		abacHandler.cache[attributeName] = value
+		return value, nil
 }
 
 // VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
