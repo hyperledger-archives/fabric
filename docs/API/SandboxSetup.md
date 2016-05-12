@@ -41,11 +41,11 @@ Build and run the peer process to enable security and privacy after setting <b>s
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
     cd ./peer
-    ./peer peer --peer-chaincodedev
+    ./peer node start --peer-chaincodedev
 
 Alternatively, enable security and privacy on the peer with environment variables:
 
-    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer peer --peer-chaincodedev
+    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer node start --peer-chaincodedev
 
 ###Vagrant Terminal 2 (chaincode)
 
@@ -85,7 +85,7 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 Register the user though the CLI, substituting for `<username>` appropriately:
 
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
-    ./peer login <username>
+    ./peer network login <username>
 
 The command will prompt for a password, which must match the <b>enrollmentPW</b> listed for the target user in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the <b>enrollmentPW</b>, an error will result.
 

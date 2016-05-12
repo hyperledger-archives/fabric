@@ -41,7 +41,7 @@ logging:
     # defined at runtime and are not checked for validity during option
     # processing.
 
-    # Default logging levels are specified here for each of the obc-peer
+    # Default logging levels are specified here for each of the peer
     # commands. For commands that have subcommands, the defaults also apply to
     # all subcommands of the command. These logging levels can be overridden
     # on the command line using the --logging-level command-line option, or by

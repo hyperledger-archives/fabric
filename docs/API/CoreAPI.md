@@ -27,11 +27,8 @@ You will see output similar to the example below (**NOTE:** rootcommand below is
       peer [command]
 
     Available Commands:
-      peer        Runs the peer.
-      status      Returns status of the peer.
-      stop        Stops the running peer.
-      login       Logs in a user on CLI.
-      network     Lists all network peers.
+      node        node specific commands.
+      network     network specific commands.
       chaincode   chaincode specific commands.
       help        Help about any command
 
@@ -52,11 +49,11 @@ below:
 
 Command | **stdout** result in the event of success
 --- | ---
-`peer`             | N/A
-`status`           | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
-`stop`             | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
-`login`            | N/A
-`vm`               | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
+`node start`       | N/A
+`node status`      | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
+`node stop`        | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
+`network login`    | N/A
+`network list`     | The list of network connections to the peer node.
 `chaincode deploy` | The chaincode container name (hash) required for subsequent `chaincode invoke` and `chaincode query` commands
 `chaincode invoke` | The transaction ID (UUID)
 `chaincode query`  | By default, the query result is formatted as a printable string. Command line options support writing this value as raw bytes (-r, --raw), or formatted as the hexadecimal representation of the raw bytes (-x, --hex). If the query response is empty then nothing is output.
@@ -654,7 +651,7 @@ For additional information on the REST endpoints and more detailed examples, ple
 
     ```
     cd /opt/gopath/src/github.com/hyperledger/fabric
-    ./peer
+    ./peer node start
     ```
 
 8. If you need to construct a test blockchain on the local peer node, run the the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a blockchain with 5 blocks. Subsequently restart the peer process.
@@ -686,7 +683,7 @@ You can interface with the peer process from a Node.js application. One way to a
 
 2. Run a local peer node only (not a complete network) with:
 
-    `cd peer; ./peer`
+    `cd peer; ./peer node start`
 
 3. Set up a test blockchain data structure (with 5 blocks only) by running a test from within Vagrant as follows. Subsequently restart the peer process.
 
