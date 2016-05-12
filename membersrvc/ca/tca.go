@@ -488,17 +488,10 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		attributesHeader[a.AttributeName] = count
 
 		if viper.GetBool("tca.attribute-encryption.enabled") {
-			mac = hmac.New(primitives.GetDefaultHash(), preK_0)
-			mac.Write([]byte(a.AttributeName))
-			attributeKey := mac.Sum(nil)[:32]
-
-			value, err = abac.EncryptAttributeValue(attributeKey, value)
+			value, err = abac.EncryptAttributeValuePK0(preK_0, a.AttributeName, value)
 			if err != nil {
 				return nil, nil, err
 			}
-
-			// save k used to encrypt attribute
-			//ks[a.AttributeName] = attributeKey
 		}
 
 		// Generate an ObjectIdentifier for the extension holding the attribute
@@ -516,7 +509,14 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 
 	// Append the attributes header if there was attributes to include in the TCert
 	if len(attributes) > 0 {
-		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: BuildAttributesHeader(attributesHeader)})
+		headerValue := abac.BuildAttributesHeader(attributesHeader)
+		if viper.GetBool("tca.attribute-encryption.enabled") {
+			value, err = abac.EncryptAttributeValuePK0(preK_0, "header", headerValue)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: headerValue})
 	}
 	
 	return extensions, preK_0, nil

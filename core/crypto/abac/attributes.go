@@ -26,8 +26,7 @@ import (
 	"errors"
 	"strings"
 	"strconv"
-	"bytes"
-	
+		
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
@@ -45,11 +44,18 @@ var (
 	TCertAttributesHeaders = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9}
 	
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	
+	//Header 
+	HeaderPrefix = "00HEAD"
 )
 
 //Parse a string and return a map with the attributes.
 func ParseAttributesHeader(header string) (map[string]int, error) { 
-	tokens :=  strings.Split(header, "#")
+	if !strings.HasPrefix(header, HeaderPrefix) { 
+		return nil, errors.New("Invalid header")
+	} 
+	headerBody := strings.Replace(header, HeaderPrefix, "", 1)
+	tokens :=  strings.Split(headerBody, "#")
 	result := make(map[string]int)
 	
 	for _, token := range tokens {
@@ -86,7 +92,6 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string) ([]byte, 
 	}
 	
 	position := header[attributeName]
-	
 	if position == 0 {
 		return nil, errors.New("Failed attribute '"+attributeName+"' doesn't exists in the TCert.")
 	}
@@ -100,40 +105,74 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string) ([]byte, 
     return value, nil
 }
 
-func pkcs5Unpad(src []byte) []byte {
-	len := len(src)
-	unpad := int(src[len-1])
-	return src[:(len - unpad)]
-}
-
+//Encrypts "attributeValue" using "attributeKey"
 func EncryptAttributeValue(attributeKey []byte, attributeValue []byte) ([]byte, error) { 
-	value := append(attributeValue, Padding...)
+	value := primitives.PKCS7Padding(attributeValue)
 	return primitives.CBCEncrypt(attributeKey, value)
 }
 
-//Derives the K for the attribute "attributeName". 
-func  GetKForAttribute(attributeName string, preK0 []byte, cert *x509.Certificate) ([]byte, error) {
-	attributeKey := primitives.HMACTruncated(preK0, []byte(attributeName), 32)
+//Returns the attributeKey derived from the preK0 to the attributeName.
+func getAttributeKey(preK0 []byte, attributeName string) []byte { 
+	return primitives.HMACTruncated(preK0, []byte(attributeName), 32)
+}
+
+//Encrypts "attributeValue" using a key derived from preK0.
+func EncryptAttributeValuePK0(preK0 []byte, attributeName string, attributeValue []byte) ([]byte, error) { 
+	attributeKey := getAttributeKey(preK0, attributeName)
+	return EncryptAttributeValue(attributeKey, attributeValue)
+} 
+
+//Decrypts "encryptedValue" using "attributeKey" and return the decrypted value.
+func DecryptAttributeValue(attributeKey []byte, encryptedValue []byte) ([]byte, error) {
+	value, err := primitives.CBCDecrypt(attributeKey, encryptedValue)
+	if err != nil {
+		return nil, err
+	}
+	
+	value, err = primitives.PKCS7UnPadding(value)
+	if err != nil {
+		return nil, err
+	}
+	
+	return value, nil
+}
+
+//Derives K for the attribute "attributeName", checks the value padding and returns both key and decrypted value
+func getKAndValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certificate) ([]byte, []byte, error) {
+	attributeKey := getAttributeKey(preK0, attributeName)
 	
 	attribute, err := ReadTCertAttribute(cert, attributeName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	
-	value, err := primitives.CBCDecrypt(attributeKey, attribute)
+	value, err := DecryptAttributeValue(attributeKey, attribute)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	
-	value = pkcs5Unpad(value)
+	return attributeKey, value, nil
 	
+/*	
 	lenPadding := len(Padding)
 	lenValue := len(value)
 	if bytes.Compare(Padding[0:lenPadding], value[lenValue - lenPadding:lenValue]) == 0 {
 		return attributeKey, nil
 	}
 
-	return nil, errors.New("Error generating decryption key for attribute "+ attributeName + ". Decryption verification failed.")
+	return nil, errors.New("Error generating decryption key for attribute "+ attributeName + ". Decryption verification failed.")*/
+}
+
+//Derives the K for the attribute "attributeName" and returns the key
+func  GetKForAttribute(attributeName string, preK0 []byte, cert *x509.Certificate) ([]byte, error) {
+	key, _ , err := getKAndValueForAttribute(attributeName, preK0, cert)
+	return key, err
+}
+
+//Derives the K for the attribute "attributeName" and returns the value
+func  GetValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certificate) ([]byte, error) {
+	_, value , err := getKAndValueForAttribute(attributeName, preK0, cert)
+	return value, err
 }
 
 func createABACMetadataEntry(cert *x509.Certificate, attributeName string, preK0 []byte) (*pb.ABACMetadataEntry, error) {
@@ -149,12 +188,13 @@ func createABACMetadataEntry(cert *x509.Certificate, attributeName string, preK0
 func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) (*pb.ABACMetadata, error) { 
 	entries := make([]*pb.ABACMetadataEntry,0)
 	for _, key := range(attributeKeys) { 
-		fmt.Printf("Attribute %v \n", key)
-		entry, err := createABACMetadataEntry(cert, key, preK0)
-		if err != nil { 
-			return nil, err
+		if len(key) == 0 { 
+			continue
 		}
-		entries = append(entries, entry)
+		entry, err := createABACMetadataEntry(cert, key, preK0)
+		if err == nil { 
+			entries = append(entries, entry)
+		}
 	}
 	return &pb.ABACMetadata{metadata, entries}, nil
 } 
@@ -173,7 +213,6 @@ func CreateABACMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 [
 
 //Create the ABACMetadata from the original metadata
 func CreateABACMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) { 
-	fmt.Printf("CreateABACMetadata() %v \n", len(attributeKeys))
 	cert, err := utils.DERToX509Certificate(raw)
 	if err != nil { 
 		return nil, err
@@ -182,8 +221,21 @@ func CreateABACMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys
 	return CreateABACMetadataFromCert(cert, metadata, preK0, attributeKeys) 
 }
 
+//GetABACMetadata object from the original metadata "metadata".
 func GetABACMetadata(metadata []byte) (*pb.ABACMetadata, error) { 
 	abacMetadata := &pb.ABACMetadata{}
 	err := proto.Unmarshal(metadata, abacMetadata)
 	return abacMetadata, err
+}
+
+//Build a header attribute from a map of attribute names and positions.
+func BuildAttributesHeader(attributesHeader map[string]int) []byte{
+	var header []byte
+	var headerString string
+	for k,v := range attributesHeader	{
+		v_str := strconv.Itoa(v)
+		headerString = headerString + k + "->" + v_str + "#"
+	}
+	header = []byte(HeaderPrefix+headerString)
+	return header
 }

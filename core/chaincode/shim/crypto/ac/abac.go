@@ -22,13 +22,9 @@ package ac
 import (
 	"errors"
 	"bytes" 
-	"fmt"
-	
 	"crypto/x509"
 
 	abacpb "github.com/hyperledger/fabric/core/crypto/abac/proto"
-
-	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/crypto/abac"
 	
@@ -39,23 +35,40 @@ type Attribute struct {
 	Value    		[]byte
 }
 
-// ABACVerifier verifies attributes
-type ABACVerifier interface {
+// ChaincodeHolder is the struct that hold the certificate and the metadata. An implementation is ChaincodeStub
+type ChaincodeHolder interface { 
+	// GetCallerCertificate returns caller certificate
+	GetCallerCertificate() ([]byte, error)
+	
+	// GetCallerMetadata returns caller metadata
+	GetCallerMetadata() ([]byte, error)
+	
+}
+
+// ABACHandler verifies attributes
+type ABACHandler interface {
 
 	// VerifyAttributes verifies passed attributes within the message..
 	VerifyAttributes(attrs...*Attribute) (bool, error)
+	
+	// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
+	VerifyAttribute(attributeName string, attributeValue []byte) (bool, error)
+	
+	
+	//Returns the value on the certificate of the attribute with name "attributeName".	
+	GetValue(attributeName string) ([]byte, error) 
 }
 
-type ABACVerifierImpl struct {
+type ABACHandlerImpl struct {
 	cert        *x509.Certificate
-	signature   map[string][]byte
+	cache   map[string][]byte
 	keys		map[string][]byte
 }
 
-//Creates a new ABACVerifierImpl from a pb.ChaincodeSecurityContext object.
-func NewABACVerifierImpl(stub *shim.ChaincodeStub) (*ABACVerifierImpl, error) { 
+//Creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
+func NewABACHandlerImpl(holder ChaincodeHolder) (*ABACHandlerImpl, error) { 
 	// Getting certificate
-	cert_raw, err := stub.GetCallerCertificate()
+	cert_raw, err := holder.GetCallerCertificate()
 	if err != nil { 
 		return nil, err
 	}
@@ -68,7 +81,7 @@ func NewABACVerifierImpl(stub *shim.ChaincodeStub) (*ABACVerifierImpl, error) {
 	//Getting ABAC Metadata from security context.
 	var abacMetadata *abacpb.ABACMetadata
 	var raw_metadata []byte
-	raw_metadata, err = stub.GetCallerMetadata()
+	raw_metadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
 	}
@@ -77,58 +90,46 @@ func NewABACVerifierImpl(stub *shim.ChaincodeStub) (*ABACVerifierImpl, error) {
 		return nil, err
 	}
 	
-	fmt.Printf("Metadata created attributes %v .\n", len(abacMetadata.Entries))
-	
 	keys := make(map[string][]byte)
 	for _,entry := range(abacMetadata.Entries) { 
 		keys[entry.AttributeName] = entry.AttributeKey
 	}
 	
-	signatures := make(map[string][]byte)
-	for attributeName,_ := range(keys) { 
-		value, err := abac.ReadTCertAttribute(tcert, attributeName)
+	cache := make(map[string][]byte)	
+	return &ABACHandlerImpl{tcert, cache, keys}, nil
+}
+
+//Returns the value on the certificate of the attribute with name "attributeName".
+func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, error) { 
+		if abacHandler.cache[attributeName] != nil { 
+			return abacHandler.cache[attributeName], nil
+		}
+		
+		value, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName)
 		if err != nil { 
 			return nil, err
 		}
-		signatures[attributeName] = value
-	}
-	
-	return &ABACVerifierImpl{tcert, signatures, keys}, nil
+		
+		if abacHandler.keys[attributeName] == nil { 
+			return nil, errors.New("There isn't a key")
+		}
+		
+		return abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
 }
 
-func (abacVerifier *ABACVerifierImpl) getValueHash(attributeName string) ([]byte, error) { 
-		return abacVerifier.signature[attributeName], nil	
-}
-
-func (abacVerifier *ABACVerifierImpl) getCalculateValueHash(attribute *Attribute) ([]byte, error) { 
-	key := abacVerifier.keys[attribute.Name]
-	if key == nil { 
-		return nil, errors.New("The key to the attribute '"+attribute.Name+"' could not be found.")
-	}
-	return abac.EncryptAttributeValue(key, attribute.Value)
-}
-
-//Verfies the attribute "attribute".
-func (abacVerifier *ABACVerifierImpl) VerifyAttribute(attribute *Attribute) (bool, error) { 
-	valueHash, err := abacVerifier.getValueHash(attribute.Name)	
+// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
+func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error){
+	valueHash, err := abacHandler.GetValue(attributeName)	
 	if err != nil { 
 		return false, err
 	}
-	calculateValue, err := abacVerifier.getCalculateValueHash(attribute)
-	if err != nil { 
-		return false, err
-	}
-	fmt.Printf("Expected %v calculated %v \n", valueHash, calculateValue)
-
-	return bytes.Compare(valueHash, calculateValue) == 0, nil
+	return bytes.Compare(valueHash, attributeValue) == 0, nil
 }
 
 //Verifies all the attributes included in attrs.
-func (abacVerifier *ABACVerifierImpl) VerifyAttributes(attrs...*Attribute) (bool, error) { 
-	fmt.Println("Verifing attributes...")
+func (abacHandler *ABACHandlerImpl) VerifyAttributes(attrs...*Attribute) (bool, error) { 
 	for _, attribute := range(attrs) { 
-		val, err := abacVerifier.VerifyAttribute(attribute)
-		fmt.Printf("Verfied attribute %v \n", val)
+		val, err := abacHandler.VerifyAttribute(attribute.Name, attribute.Value)
 		if err != nil { 
 			return false, nil
 		}

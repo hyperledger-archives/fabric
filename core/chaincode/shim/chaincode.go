@@ -31,12 +31,10 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/abac"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -285,13 +283,31 @@ func (stub *ChaincodeStub) DelState(key string) error {
 
 // Read the attribute with name 'attributeName' from CallerCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
-	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil { 
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
 		return nil, err
 	}
-	return abac.ReadTCertAttribute(tcert, attributeName)
+	return abacHandler.GetValue(attributeName)
 }
+
+// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
+func (stub *ChaincodeStub) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		return false, err
+	}
+	return abacHandler.VerifyAttribute(attributeName, attributeValue)
+}
+
+//Verifies all the attributes included in attrs.
+func (stub *ChaincodeStub) VerifyAttributes(attrs...*ac.Attribute)  (bool, error) {
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		return false, err
+	}
+	return abacHandler.VerifyAttributes(attrs...)
+}
+
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of
 // key/value pairs in the state.

@@ -100,7 +100,7 @@ eca:
 
 tca:
           attribute-encryption:
-                 enabled: false
+                 enabled: true
 aca:
           attributes:
               attribute-entry-0: diego;institution_a;company;IBM;2015-01-01T00:00:00-03:00;;

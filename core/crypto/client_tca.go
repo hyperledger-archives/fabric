@@ -36,8 +36,6 @@ import (
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -526,28 +524,6 @@ func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[st
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
 }
 
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
 // Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -556,6 +532,5 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 		return nil, err
 	}
-
 	return abac.ReadTCertAttribute(tcert, attributeName)
 }
