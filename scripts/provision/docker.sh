@@ -57,8 +57,8 @@ echo "BUILD-CACHE: Pulling \"$DOCKERHUB_NAME\" from dockerhub.."
 docker pull $DOCKERHUB_NAME
 docker inspect $DOCKERHUB_NAME 2>&1 > /dev/null
 if [ "$?" == "0" ]; then
-   echo "BUILD-CACHE: Success!"
-   BASENAME=$DOCKERHUB_NAME
+    echo "BUILD-CACHE: Success!"
+    BASENAME=$DOCKERHUB_NAME
 else
     echo "BUILD-CACHE: WARNING - Build-cache unavailable, attempting local build but this should be fixed ASAP"
     (cd $CURDIR/../../baseimage && make docker DOCKER_TAG=localbuild)
