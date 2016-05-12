@@ -75,7 +75,11 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	X, err = strconv.Atoi(args[0])
 	Aval = Aval - X
 	Bval = Bval + X
-	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
+	ts, err2 := stub.GetTxTimestamp()
+	if err2 != nil {
+		fmt.Printf("Error getting transaction timestamp: %s", err2)
+	}
+	fmt.Printf("Transaction Time: %v,Aval = %d, Bval = %d\n", ts, Aval, Bval)
 	return nil, err
 }
 

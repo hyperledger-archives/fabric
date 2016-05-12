@@ -52,6 +52,7 @@ message request {
     google.protobuf.Timestamp timestamp = 1;  // Generated at the client level. Ensures that client's requests are atomically ordered.
     bytes payload = 2;  // opaque payload
     uint64 replica_id = 3;
+    bytes signature = 4;
 }
 
 message pre_prepare {
@@ -126,10 +127,15 @@ message fetch_request {
 
 // batch
 
+message request_block {
+    repeated request requests = 1;
+};
+
 message batch_message {
     oneof payload {
-        bytes request = 1;
+        request request = 1;
         bytes pbft_message = 4;
+        request complaint = 5;    // like request, but processed everywhere
     }
 }
 
@@ -137,17 +143,18 @@ message batch_message {
 
 message sieve_message {
     oneof payload {
-        bytes request = 1;
+        request request = 1;      // only processed at leader
         execute execute = 2;
         verify verify = 3;
         bytes pbft_message = 4;
+        request complaint = 5;    // like request, but processed everywhere
     }
 }
 
 message execute {
     uint64 view = 1;
     uint64 block_number = 2;
-    bytes request = 3;
+    request request = 3;
     uint64 replica_id = 4;
 }
 

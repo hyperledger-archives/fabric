@@ -222,7 +222,7 @@ peer:
         enabled:    true
 
         # number of workers that
-        # tastes the peers for being
+        # test the peers for being
         # online [1..10]
         workers: 8
 

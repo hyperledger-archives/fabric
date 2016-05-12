@@ -153,9 +153,9 @@ func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 	}
 }
 
-func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
+func (net *testnet) deliverFilter(msg taggedMsg) {
 	net.debugMsg("TEST: deliver\n")
-	senderHandle := net.endpoints[senderID].getHandle()
+	senderHandle := net.endpoints[msg.src].getHandle()
 	if msg.dst == -1 {
 		net.debugMsg("TEST: Sending broadcast %v\n", net.endpoints)
 		wg := &sync.WaitGroup{}
@@ -168,7 +168,7 @@ func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
 				defer wg.Done()
 				if msg.src == lid {
 					if net.debug {
-						net.debugMsg("TEST: Skipping local delivery %d %d\n", lid, senderID)
+						net.debugMsg("TEST: Skipping local delivery %d %d\n", lid, msg.src)
 					}
 					// do not deliver to local replica
 					return
@@ -181,15 +181,22 @@ func (net *testnet) deliverFilter(msg taggedMsg, senderID int) {
 				net.debugMsg("TEST: Delivering %d\n", lid)
 				if payload != nil {
 					net.debugMsg("TEST: Sending message %d\n", lid)
-					lep.deliver(msg.msg, senderHandle)
+					lep.deliver(payload, senderHandle)
 					net.debugMsg("TEST: Sent message %d\n", lid)
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
-		net.debugMsg("TEST: Sending unicast\n")
-		net.endpoints[msg.dst].deliver(msg.msg, senderHandle)
+		payload := msg.msg
+		net.debugMsg("TEST: Filtering %d\n", msg.dst)
+		if net.filterFn != nil {
+			payload = net.filterFn(msg.src, msg.dst, payload)
+		}
+		if payload != nil {
+			net.debugMsg("TEST: Sending unicast\n")
+			net.endpoints[msg.dst].deliver(msg.msg, senderHandle)
+		}
 	}
 }
 
@@ -199,7 +206,7 @@ func (net *testnet) processMessageFromChannel(msg taggedMsg, ok bool) bool {
 		return false
 	}
 	net.debugMsg("TEST: new message, delivering\n")
-	net.deliverFilter(msg, msg.src)
+	net.deliverFilter(msg)
 	return true
 }
 

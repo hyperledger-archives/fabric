@@ -26,7 +26,6 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
-	"github.com/hyperledger/fabric/core/util"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -1195,9 +1194,4 @@ func (instance *pbftCore) stopTimer() {
 	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
-}
-
-func hashReq(req *Request) (digest string) {
-	reqRaw, _ := proto.Marshal(req)
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(reqRaw))
 }
