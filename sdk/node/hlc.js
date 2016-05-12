@@ -1,7 +1,23 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 /**
  * "hlc" stands for "HyperLedger Client".
  * The Hyperledger Client SDK provides APIs through which a client can interact with a hyperledger blockchain.
- * 
+ *
  * Terminology:
  * 1) member - an identity for participating in the blockchain.  There are different types of members (users, peers, etc).
  * 2) member services - services related to obtaining and managing members
@@ -11,7 +27,7 @@
  * 4) enrollment - Think of this as completing the registration process.  It may be done by the new member with a secret
  *               that it has obtained out-of-band from a registrar, or it may be performed by a middle-man who has
  *               delegated authority to act on behalf of the new member.
- * 
+ *
  * These APIs have been designed to support two pluggable components.
  * 1) Pluggable key value store which is used to retrieve and store keys associated with a member.
  *    Call Chain.setKeyValStore() to override the default key value store implementation.
@@ -24,6 +40,7 @@
  */
 
 var debug = require('debug')('hlc');   // 'hlc' stands for 'HyperLedger Client'
+
 var fs = require('fs');
 var urlParser = require('url');
 var grpc = require('grpc');
@@ -47,7 +64,7 @@ var _chains = {};
 var DEFAULT_TCERT_BATCH_SIZE = 200;
 
 /**
- * Create a new chain.  If it already exists, throws an Error. 
+ * Create a new chain.  If it already exists, throws an Error.
  * @param name {string} Name of the chain.  It can be any name and has value only for the client.
  * @returns
  */
@@ -163,7 +180,7 @@ Chain.prototype.setMemberServices = function(memberServices) {
 
 /**
  * Configure the key value store.
- * @param {Object} config Configuration for the default key value store of the form: TBD 
+ * @param {Object} config Configuration for the default key value store of the form: TBD
  */
 Chain.prototype.configureKeyValStore  = function(config) {
 	if (config.dir) {
@@ -205,9 +222,16 @@ Chain.prototype.getMember = function(name,cb) {
 	cb = cb || nullCB;
 	if (!self.keyValStore) return cb(Error("No key value store was found.  You must first call Chain.configureKeyValStore or Chain.setKeyValStore"));
 	if (!self.memberServices) return cb(Error("No member services was found.  You must first call Chain.configureMemberServices or Chain.setMemberServices"));
-	self._getMember(name,function(err,member) {
+
+	debug("Chain keyValStore and memberServices configured!");
+
+	self._getMember(name, function(err,member) {
 		if (err) return cb(err);
+
+		debug("Registrar Member ---> " + self.registrar);
 		if (!self.registrar) return cb(null,member);
+
+		debug("ready to registerAndEnroll");
 		member.registerAndEnroll(self.registrar,function(err) {
 			if (err) return cb(err);
 			cb(null,member);
@@ -215,13 +239,19 @@ Chain.prototype.getMember = function(name,cb) {
 	});
 };
 
-Chain.prototype._getMember = function(name,cb) {
+Chain.prototype._getMember = function(name, cb) {
+	debug("enter _getMember function with " + name);
+
 	var self = this;
+
 	// Try to get the member state from the cache
 	var member = self.members[name];
+
 	if (member) return cb(null,member);
+
 	// Create the member and try to restore it's state from the key value store (if found).
 	member = new Member(name,self);
+
 	member.restoreState(function(err) {
 		if (err) return cb(err);
 		cb(null,member);
@@ -244,16 +274,26 @@ Chain.prototype.sendTransaction = function(tx,eventEmitter) {
 };
 
 /**
- * Constructor for a member.
- * @param name The member name.
+ * Constructor for a member object.
+ *
+ * @param cfg The member configuration, which may be an object or just a name string.
  * @returns {Member} A member who is neither registered nor enrolled.
  */
-function Member(name,chain) {
-	this.state = {name:name};
+
+function Member(cfg, chain) {
+	if (util.isString(cfg)) {
+		this.state = {name: cfg};
+	} else if (util.isObject(cfg)) {
+		this.state = {name: cfg.name,
+									role: cfg.role,
+								  account: cfg.account,
+								  affiliation: cfg.affiliation
+								};
+	}
 	this.chain = chain;
 	this.memberServices = chain.getMemberServices();
 	this.keyValStore = chain.getKeyValStore();
-	this.keyValStoreName = toKeyValStoreName(name);
+	this.keyValStoreName = toKeyValStoreName(this.state.name);
 	this.tcerts = [];
 	this.tcertBatchSize = chain.getTCertBatchSize();
 }
@@ -262,14 +302,44 @@ function Member(name,chain) {
  * Get the member name.
  * @returns {string} The member name.
  */
+
 Member.prototype.getName = function() {
 	return this.state.name;
+};
+
+
+/**
+ * Get the member role.
+ * @returns {int} The member role.
+ */
+
+Member.prototype.getRole = function() {
+	return this.state.role;
+};
+
+/**
+ * Get the member account.
+ * @returns {string} The member account.
+ */
+
+Member.prototype.getAccount = function() {
+	return this.state.account;
+};
+
+/**
+ * Get the member affilitaion.
+ * @returns {string} The member affilitaion.
+ */
+
+Member.prototype.getAffiliation = function() {
+	return this.state.affiliation;
 };
 
 /**
  * Get the chain.
  * @returns {Chain} The chain.
  */
+
 Member.prototype.getChain = function() {
 	return this.chain;
 };
@@ -309,9 +379,11 @@ Member.prototype.isEnrolled = function() {
 
 /**
  * Register the member.
- * @param req Registration request with the following fields: name, role 
+ * @param req Registration request with the following fields: name (EnrollmentID),
+ * role (1:client, 2: peer, 4: validator, 8: auditor), account and affiliation.
  * @param cb Callback of the form: {function(err,enrollmentSecret)}
  */
+
 Member.prototype.register = function(registrar,cb) {
 	var self = this;
 	cb = cb || nullCB;
@@ -320,7 +392,19 @@ Member.prototype.register = function(registrar,cb) {
 		debug("previously registered, enrollmentSecret=%s",enrollmentSecret);
 		return cb(null,enrollmentSecret);
 	}
-	self.memberServices.register( {name:self.getName()}, function(err,enrollmentSecret) {
+	debug("no enrollmentSecret set, never registered");
+
+	// Create the registration request
+	req = {
+		name: self.getName(),
+		role: self.getRole(),
+		account: self.getAccount(),
+		affiliation: self.getAffiliation()
+	};
+
+	debug(JSON.stringify(req));
+
+	self.memberServices.register(req, function(err,enrollmentSecret) {
 		debug("memberServices.register err=%s, secret=%s",err,enrollmentSecret);
 		if (err) return cb(err);
 		self.state.enrollmentSecret = enrollmentSecret;
@@ -336,6 +420,7 @@ Member.prototype.register = function(registrar,cb) {
  * @param enrollmentSecret The enrollment secret as returned by register.
  * @param cb Callback of the form: {function(err,{key,cert,chainKey})}
  */
+
 Member.prototype.enroll = function(enrollmentSecret, cb) {
 	var self = this;
 	cb = cb || nullCB;
@@ -368,6 +453,8 @@ Member.prototype.registerAndEnroll = function(registrar,cb) {
 		debug("previously enrolled, enrollment=%j",enrollment);
 		return cb(null,enrollment);
 	}
+	debug("user NOT previously enrolled");
+
 	self.register(registrar, function(err,enrollmentSecret) {
 		if (err) return cb(err);
 		self.enroll(enrollmentSecret, cb);
@@ -376,7 +463,7 @@ Member.prototype.registerAndEnroll = function(registrar,cb) {
 
 /**
  * Issue a build request on behalf of this member.
- * @param buildRequest {Object} 
+ * @param buildRequest {Object}
  * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
  */
 Member.prototype.build = function(buildRequest) {
@@ -387,7 +474,7 @@ Member.prototype.build = function(buildRequest) {
 
 /**
  * Issue a deploy request on behalf of this member.
- * @param deployRequest {Object} 
+ * @param deployRequest {Object}
  * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
  */
 Member.prototype.deploy = function(deployRequest) {
@@ -398,7 +485,7 @@ Member.prototype.deploy = function(deployRequest) {
 
 /**
  * Issue a invoke request on behalf of this member.
- * @param invokeRequest {Object} 
+ * @param invokeRequest {Object}
  * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
  */
 Member.prototype.invoke = function(invokeRequest) {
@@ -409,7 +496,7 @@ Member.prototype.invoke = function(invokeRequest) {
 
 /**
  * Issue a query request on behalf of this member.
- * @param queryRequest {Object} 
+ * @param queryRequest {Object}
  * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
  */
 Member.prototype.query = function(queryRequest) {
@@ -581,7 +668,7 @@ TransactionContext.prototype._getMyTCert = function(cb) {
 
 /**
  * Constructor for a peer given the endpoint config for the peer.
- * @param {string} url The URL of 
+ * @param {string} url The URL of
  * @param {Chain} The chain of which this peer is a member.
  * @returns {Peer} The new peer.
  */
@@ -657,21 +744,39 @@ function MemberServices(url) {
 }
 
 /**
- * Register the member and return an enrollment secret.
- * @param req Registration request with the following fields: name, role 
+ * Register the member and return an enrollment secret (one time password).
+ * @param req Registration request with the following fields: name (EnrollmentID),
+ * role (1:client, 2: peer, 4: validator, 8: auditor), account and affiliation.
  * @param cb Callback of the form: {function(err,enrollmentSecret)}
  */
-MemberServices.prototype.register = function(req,cb) {
+
+MemberServices.prototype.register = function(req, cb) {
+	debug("registering user:" + req.name);
+
 	var self = this;
-	if (!req.name) return cb(new Error("missing req.name"));
+
+	// Fields name, account, and affiliation are required within the registration request
+	if (!req.name) return cb(new Error("Missing 'name' field in registration request"));
+	if (!req.account) return cb(new Error("Missing 'account' field in registration request"));
+	if (!req.affiliation) return cb(new Error("Missing 'affiliation' field in registration request"));
+
+	// Set incoming role or assume 1 for client role
 	var role = req.role || 1;
-    var protoReq = new _caProto.RegisterUserReq();
-    protoReq.setId({ id: req.name });
-    protoReq.setRole(role);
-    self.ecaaClient.registerUser(protoReq, function (err, token) {
-    	debug("register %j: err=%j, token=%s",protoReq,err,token);
-    	if (cb) return cb(err,token?token.tok.toString():null);
-    });
+
+	// Create the CA registration request
+  var protoReq = new _caProto.RegisterUserReq();
+
+  protoReq.setId({ id: req.name });
+  protoReq.setRole(role);
+	protoReq.setAccount(req.account);
+	protoReq.setAffiliation(req.affiliation);
+
+	debug("registering user with: " + JSON.stringify(protoReq));
+
+  self.ecaaClient.registerUser(protoReq, function (err, token) {
+  	debug("register %j: err=%j, token=%s",protoReq,err,token);
+  	if (cb) return cb(err,token?token.tok.toString():null);
+  });
 };
 
 /**
@@ -693,7 +798,7 @@ MemberServices.prototype.enroll = function (req, cb) {
     // 2) encryption key
     var ecKeypair2 = KEYUTIL.generateKeypair("EC", "secp384r1");
     var spki2 = new asn1.x509.SubjectPublicKeyInfo(ecKeypair2.pubKeyObj);
-    
+
     // create the proto message
     var eCertCreateRequest = new _caProto.ECertCreateReq();
     var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
@@ -708,7 +813,7 @@ MemberServices.prototype.enroll = function (req, cb) {
             key: new Buffer(spki.getASN1Object().getEncodedHex(), 'hex')
         });
     eCertCreateRequest.setSign(signPubKey);
-    
+
     // public encryption key (ecdsa)
     var encPubKey = new _caProto.PublicKey(
         {
@@ -739,7 +844,7 @@ MemberServices.prototype.enroll = function (req, cb) {
         var EC = elliptic.ec;
         var curve = elliptic.curves.p384;
         var ecdsa = new EC(curve);
-        
+
         // convert bytes to usable key object
         var ephPubKey = ecdsa.keyFromPublic(ephemeralPublicKeyBytes.toString('hex'), 'hex');
         var encPrivKey = ecdsa.keyFromPrivate(ecKeypair2.prvKeyObj.prvKeyHex, 'hex');
@@ -748,9 +853,9 @@ MemberServices.prototype.enroll = function (req, cb) {
         var aesKey = kdf.hkdf(secret.toArray(), 256, null, null, 'sha3-256');
 
         // debug('aesKey: ',aesKey);
-        
+
         var decryptedTokBytes = kdf.aesCFBDecryt(aesKey, encryptedTokBytes);
-        
+
         // debug(decryptedTokBytes);
         debug(decryptedTokBytes.toString());
 
@@ -798,16 +903,16 @@ MemberServices.prototype.getTransactionCerts = function (req, cb) {
     cb = cb || nullCB;
 
     var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
-    
+
     // create the proto
     var tCertCreateSetReq = new _caProto.TCertCreateSetReq();
     tCertCreateSetReq.setTs(timestamp);
     tCertCreateSetReq.setId({ id: req.name });
     tCertCreateSetReq.setNum(req.num);
-    
+
     // serialize proto
     var buf = tCertCreateSetReq.toBuffer();
-    
+
     // sign the transaction using enrollment key
     var EC = elliptic.ec;
     var curve = elliptic.curves.p384;
@@ -921,8 +1026,13 @@ function newInvokeOrQueryTransaction(request,isInvokeRequest) {
    return tx;
 }
 
+//
+// This function generates the name for the key store file for a particular user.
+// It returns member.<member_name> as the file name.
+//
+
 function toKeyValStoreName(name) {
-   return "member."+name;	
+   return "member." + name;
 }
 
 /**
@@ -931,7 +1041,7 @@ function toKeyValStoreName(name) {
 function bluemixInit() {
    var vcap = process.env.VCAP_SERVICES;
    if (!vcap) return false; // not in bluemix
-   // TODO: Pilfer logic from marbles app   
+   // TODO: Pilfer logic from marbles app
 }
 
 function nullCB() {}

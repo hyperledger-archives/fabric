@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
@@ -90,13 +87,13 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
-// GetTXBatchPreviewBlock returns a preview block that will have the same
-// block.GetHash() result as the block commited to the database if
-// ledger.CommitTxBatch is called with the same parameters. If the state is modified
-// by a transaction between these two calls, the hash will be different. The
-// preview block does not include non-hashed data such as the local timestamp.
-func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
-	transactions []*protos.Transaction, metadata []byte) (*protos.Block, error) {
+// GetTXBatchPreviewBlockInfo returns a preview block info that will
+// contain the same information as GetBlockchainInfo will return after
+// ledger.CommitTxBatch is called with the same parameters. If the
+// state is modified by a transaction between these two calls, the
+// contained hash will be different.
+func (ledger *Ledger) GetTXBatchPreviewBlockInfo(id interface{},
+	transactions []*protos.Transaction, metadata []byte) (*protos.BlockchainInfo, error) {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return nil, err
@@ -105,7 +102,9 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash), nil
+	block := ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash)
+	info := ledger.blockchain.getBlockchainInfoForBlock(ledger.blockchain.getSize()+1, block)
+	return info, nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed

@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package db
@@ -37,8 +34,15 @@ const blockchainCF = "blockchainCF"
 const stateCF = "stateCF"
 const stateDeltaCF = "stateDeltaCF"
 const indexesCF = "indexesCF"
+const persistCF = "persistCF"
 
-var columnfamilies = []string{blockchainCF, stateCF, stateDeltaCF, indexesCF}
+var columnfamilies = []string{
+	blockchainCF, // blocks of the block chain
+	stateCF,      // world state
+	stateDeltaCF, // open transaction state
+	indexesCF,    // tx uuid -> blockno
+	persistCF,    // persistent per-peer state (consensus)
+}
 
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
@@ -47,6 +51,7 @@ type OpenchainDB struct {
 	StateCF      *gorocksdb.ColumnFamilyHandle
 	StateDeltaCF *gorocksdb.ColumnFamilyHandle
 	IndexesCF    *gorocksdb.ColumnFamilyHandle
+	PersistCF    *gorocksdb.ColumnFamilyHandle
 }
 
 var openchainDB *OpenchainDB
@@ -80,12 +85,6 @@ func CreateDB() error {
 
 	defer db.Close()
 
-	for _, cf := range columnfamilies {
-		_, err = db.CreateColumnFamily(opts, cf)
-		if err != nil {
-			return err
-		}
-	}
 	dbLogger.Debug("DB created at [%s]", dbPath)
 	return nil
 }
@@ -111,7 +110,7 @@ func GetDBHandle() *OpenchainDB {
 
 // GetFromBlockchainCF get value for given key from column family - blockchainCF
 func (openchainDB *OpenchainDB) GetFromBlockchainCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.BlockchainCF, key)
+	return openchainDB.Get(openchainDB.BlockchainCF, key)
 }
 
 // GetFromBlockchainCFSnapshot get value for given key from column family in a DB snapshot - blockchainCF
@@ -121,27 +120,27 @@ func (openchainDB *OpenchainDB) GetFromBlockchainCFSnapshot(snapshot *gorocksdb.
 
 // GetFromStateCF get value for given key from column family - stateCF
 func (openchainDB *OpenchainDB) GetFromStateCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateCF, key)
+	return openchainDB.Get(openchainDB.StateCF, key)
 }
 
 // GetFromStateDeltaCF get value for given key from column family - stateDeltaCF
 func (openchainDB *OpenchainDB) GetFromStateDeltaCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.StateDeltaCF, key)
+	return openchainDB.Get(openchainDB.StateDeltaCF, key)
 }
 
 // GetFromIndexesCF get value for given key from column family - indexCF
 func (openchainDB *OpenchainDB) GetFromIndexesCF(key []byte) ([]byte, error) {
-	return openchainDB.get(openchainDB.IndexesCF, key)
+	return openchainDB.Get(openchainDB.IndexesCF, key)
 }
 
 // GetBlockchainCFIterator get iterator for column family - blockchainCF
 func (openchainDB *OpenchainDB) GetBlockchainCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.BlockchainCF)
+	return openchainDB.GetIterator(openchainDB.BlockchainCF)
 }
 
 // GetStateCFIterator get iterator for column family - stateCF
 func (openchainDB *OpenchainDB) GetStateCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateCF)
+	return openchainDB.GetIterator(openchainDB.StateCF)
 }
 
 // GetStateCFSnapshotIterator get iterator for column family - stateCF. This iterator
@@ -153,7 +152,7 @@ func (openchainDB *OpenchainDB) GetStateCFSnapshotIterator(snapshot *gorocksdb.S
 
 // GetStateDeltaCFIterator get iterator for column family - stateDeltaCF
 func (openchainDB *OpenchainDB) GetStateDeltaCFIterator() *gorocksdb.Iterator {
-	return openchainDB.getIterator(openchainDB.StateDeltaCF)
+	return openchainDB.GetIterator(openchainDB.StateDeltaCF)
 }
 
 // GetSnapshot returns a point-in-time view of the DB. You MUST call snapshot.Release()
@@ -199,15 +198,24 @@ func openDB() (*OpenchainDB, error) {
 	defer opts.Destroy()
 
 	opts.SetCreateIfMissing(false)
-	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath,
-		[]string{"default", blockchainCF, stateCF, stateDeltaCF, indexesCF},
-		[]*gorocksdb.Options{opts, opts, opts, opts, opts})
+	opts.SetCreateIfMissingColumnFamilies(true)
+
+	cfNames := []string{"default"}
+	cfNames = append(cfNames, columnfamilies...)
+	var cfOpts []*gorocksdb.Options
+	for _ = range cfNames {
+		cfOpts = append(cfOpts, opts)
+	}
+
+	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath, cfNames, cfOpts)
+
 	if err != nil {
 		fmt.Println("Error opening DB", err)
 		return nil, err
 	}
 	isOpen = true
-	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4]}, nil
+	// XXX should we close cfHandlers[0]?
+	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4], cfHandlers[5]}, nil
 }
 
 // CloseDB releases all column family handles and closes rocksdb
@@ -215,6 +223,8 @@ func (openchainDB *OpenchainDB) CloseDB() {
 	openchainDB.BlockchainCF.Destroy()
 	openchainDB.StateCF.Destroy()
 	openchainDB.StateDeltaCF.Destroy()
+	openchainDB.IndexesCF.Destroy()
+	openchainDB.PersistCF.Destroy()
 	openchainDB.DB.Close()
 	isOpen = false
 }
@@ -248,7 +258,7 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 	return nil
 }
 
-func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
+func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
 	slice, err := openchainDB.DB.GetCF(opt, cfHandler, key)
@@ -259,6 +269,28 @@ func (openchainDB *OpenchainDB) get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	defer slice.Free()
 	data := append([]byte(nil), slice.Data()...)
 	return data, nil
+}
+
+func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte, value []byte) error {
+	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
+	err := openchainDB.DB.PutCF(opt, cfHandler, key, value)
+	if err != nil {
+		fmt.Println("Error while trying to write key:", key)
+		return err
+	}
+	return nil
+}
+
+func (openchainDB *OpenchainDB) Delete(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) error {
+	opt := gorocksdb.NewDefaultWriteOptions()
+	defer opt.Destroy()
+	err := openchainDB.DB.DeleteCF(opt, cfHandler, key)
+	if err != nil {
+		fmt.Println("Error while trying to delete key:", key)
+		return err
+	}
+	return nil
 }
 
 func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
@@ -275,7 +307,7 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 	return data, nil
 }
 
-func (openchainDB *OpenchainDB) getIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
+func (openchainDB *OpenchainDB) GetIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	opt.SetFillCache(true)
 	defer opt.Destroy()

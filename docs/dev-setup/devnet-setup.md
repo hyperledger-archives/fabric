@@ -7,11 +7,11 @@ See [Logging Control](logging-control.md) for information on controlling
 logging output from the `peer` and chaincodes.
 
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in openchain.yaml variables paddr of eca, tca and tlsca.
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca.
 
 ### Setting up Docker image
 To create a Docker image for the `hyperledger/fabric`,
-first clean out any active containers (hyperledger-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful**: do not remove any other images (like busybox or openblockchain/baseimage) as they are needed for a correct execution.
+first clean out any active containers (hyperledger-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful**: do not remove any other images (like busybox or hyperledger/fabric-baseimage) as they are needed for a correct execution.
 
 Now we are ready to build a new docker image:
 
@@ -47,13 +47,13 @@ By default, we are using a consensus plugin called `NOOPS`, which doesn't really
 #### Start up the first validating peer:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger-peer peer node start
 ```
 
 If started with security, enviroment variables regarding security enabling, CA address and peer's ID and password have to be changed:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=XX  hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=XX  hyperledger-peer peer node start
 ```
 
 Additionally, validating peer (enrollID vp0 and enrollSecret XX) has to be added to membersrvc.yaml file (in fabric/membersrvc).
@@ -62,7 +62,7 @@ Additionally, validating peer (enrollID vp0 and enrollSecret XX) has to be added
 We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (eg 172.17.0.2). We'll use "vp2" as the ID for the second validating peer.
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:4243 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer node start
 ```
 
 You can start up a few more validating peers in the similar manner as you wish. Remember to change the ID.
@@ -131,4 +131,4 @@ A consensus plugin might require some specific configuration that you need to se
 
 See `core.yaml` and `consensus/obcpbft/config.yaml` for more detail.
 
-All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS=pbft` or `CORE_PBFT_GENERAL_MODE=sieve`
+All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=sieve`

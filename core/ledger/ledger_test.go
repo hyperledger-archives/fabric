@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
@@ -679,19 +676,14 @@ func TestPreviewTXBatchBlock(t *testing.T) {
 	ledger.TxFinished("txUuid1", true)
 	transaction, _ := buildTestTx(t)
 
-	previewBlock, err := ledger.GetTXBatchPreviewBlock(0, []*protos.Transaction{transaction}, []byte("proof"))
-	testutil.AssertNoError(t, err, "Error fetching preview block.")
+	previewBlockInfo, err := ledger.GetTXBatchPreviewBlockInfo(0, []*protos.Transaction{transaction}, []byte("proof"))
+	testutil.AssertNoError(t, err, "Error fetching preview block info.")
 
 	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-	commitedBlock := ledgerTestWrapper.GetBlockByNumber(0)
-
-	previewBlockHash, err := previewBlock.GetHash()
-	testutil.AssertNoError(t, err, "Error fetching preview block hash.")
-
-	commitedBlockHash, err := commitedBlock.GetHash()
+	commitedBlockInfo, err := ledger.GetBlockchainInfo()
 	testutil.AssertNoError(t, err, "Error fetching committed block hash.")
 
-	testutil.AssertEquals(t, previewBlockHash, commitedBlockHash)
+	testutil.AssertEquals(t, previewBlockInfo, commitedBlockInfo)
 }
 
 func TestGetTransactionByUUID(t *testing.T) {
@@ -880,12 +872,12 @@ func TestGetSetMultipleKeys(t *testing.T) {
 	l := ledgerTestWrapper.ledger
 	l.BeginTxBatch(1)
 	l.TxBegin("txUUID")
-	l.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1":[]byte("value1"), "key2":[]byte("value2")})
+	l.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
 	l.TxFinished("txUUID", true)
-	tx,_ := buildTestTx(t)
+	tx, _ := buildTestTx(t)
 	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
 
-	values,_ := l.GetStateMultipleKeys("chaincodeID", []string{"key1", "key2"}, true)
+	values, _ := l.GetStateMultipleKeys("chaincodeID", []string{"key1", "key2"}, true)
 	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2")})
 }
 
@@ -894,19 +886,19 @@ func TestCopyState(t *testing.T) {
 	l := ledgerTestWrapper.ledger
 	l.BeginTxBatch(1)
 	l.TxBegin("txUUID")
-	l.SetStateMultipleKeys("chaincodeID1", map[string][]byte{"key1":[]byte("value1"), "key2":[]byte("value2")})
+	l.SetStateMultipleKeys("chaincodeID1", map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
 	l.SetState("chaincodeID1", "key3", []byte("value3"))
 	l.TxFinished("txUUID", true)
-	tx,_ := buildTestTx(t)
+	tx, _ := buildTestTx(t)
 	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
 
 	l.BeginTxBatch(2)
 	l.TxBegin("txUUID")
 	l.CopyState("chaincodeID1", "chaincodeID2")
 	l.TxFinished("txUUID", true)
-	tx,_ = buildTestTx(t)
+	tx, _ = buildTestTx(t)
 	l.CommitTxBatch(2, []*protos.Transaction{tx}, nil, nil)
 
-	values,_ := l.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2", "key3"}, true)
+	values, _ := l.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2", "key3"}, true)
 	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")})
 }

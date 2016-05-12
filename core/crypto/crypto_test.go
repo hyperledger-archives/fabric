@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
@@ -798,6 +795,14 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			if !bytes.Equal(pt, aPt) {
 				t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
 			}
+			// Try to decrypt nil. It should return nil with no error
+			out, err := seOne.Decrypt(nil)
+			if err != nil {
+				t.Fatal("Decrypt should not fail on nil input")
+			}
+			if out != nil {
+				t.Fatal("Nil input should decrypt to nil")
+			}
 
 			// Second invokeTx
 			seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
@@ -810,6 +815,14 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			}
 			if !bytes.Equal(pt, aPt2) {
 				t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
+			}
+			// Try to decrypt nil. It should return nil with no error
+			out, err = seTwo.Decrypt(nil)
+			if err != nil {
+				t.Fatal("Decrypt should not fail on nil input")
+			}
+			if out != nil {
+				t.Fatal("Nil input should decrypt to nil")
 			}
 
 			// queryTx
@@ -826,7 +839,6 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			if !bytes.Equal(aPt2, aPt3) {
 				t.Fatalf("Failed decrypting query result [%s != %s]: %s", string(aPt2), string(aPt3), err)
 			}
-
 		}
 	}
 }
@@ -882,6 +894,15 @@ func TestValidatorStateEncryptor(t *testing.T) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
 	}
 
+	// Try to decrypt nil. It should return nil with no error
+	out, err := seOne.Decrypt(nil)
+	if err != nil {
+		t.Fatal("Decrypt should not fail on nil input")
+	}
+	if out != nil {
+		t.Fatal("Nil input should decrypt to nil")
+	}
+
 	seTwo, err := validator.GetStateEncryptor(deployTx, invokeTxTwo)
 	if err != nil {
 		t.Fatalf("Failed creating state encryptor [%s].", err)
@@ -892,6 +913,15 @@ func TestValidatorStateEncryptor(t *testing.T) {
 	}
 	if !bytes.Equal(pt, aPt2) {
 		t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
+	}
+
+	// Try to decrypt nil. It should return nil with no error
+	out, err = seTwo.Decrypt(nil)
+	if err != nil {
+		t.Fatal("Decrypt should not fail on nil input")
+	}
+	if out != nil {
+		t.Fatal("Nil input should decrypt to nil")
 	}
 
 }

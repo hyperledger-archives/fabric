@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 syntax = "proto3";
@@ -101,6 +98,10 @@ message ChaincodeInvocationSpec {
 
 }
 
+// This structure contain transaction data that we send to the chaincode
+// container shim and allow the chaincode to access through the shim interface.
+// TODO: Consider remove this message and just pass the transaction object
+// to the shim and/or allow the chaincode to query transactions.
 message ChaincodeSecurityContext {
     bytes callerCert = 1;
     bytes callerSign = 2;
@@ -108,6 +109,7 @@ message ChaincodeSecurityContext {
     bytes binding = 4;
     bytes metadata = 5;
     bytes parentMetadata = 6;
+    google.protobuf.Timestamp txTimestamp = 7; // transaction timestamp
 }
 
 message ChaincodeMessage {

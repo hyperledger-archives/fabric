@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ca
@@ -432,20 +429,44 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 }
 
 func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
+	Trace.Println("Validating affiliation: " + affiliation)
+
 	var count int
 	var err error
 	err = ca.db.QueryRow("SELECT count(row) FROM AffiliationGroups WHERE name=?", affiliation).Scan(&count)
 	if err != nil {
+		Trace.Println("Affiliation <" + affiliation + "> is INVALID.")
+
 		return false, err
 	}
+	Trace.Println("Affiliation <" + affiliation + "> is VALID.")
+
 	return count == 1, nil
 }
 
+//
+// Determine if affiliation is required for a given registration request.
+//
+// Affiliation is required if the role is client or peer.
+// Affiliation is not required if the role is validator or auditor.
+// 1: client, 2: peer, 4: validator, 8: auditor
+//
+
 func (ca *CA) requireAffiliation(role int) bool {
+	roleStr, _ := MemberRoleToString(int32(role))
+	Trace.Println("Assigned role is: " + roleStr + ".")
+
 	return role != 4 && role != 8
 }
 
 func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role int) (string, error) {
+	roleStr, _ := MemberRoleToString(int32(role))
+	Trace.Println("Validating and generating enrollId for user id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliation_role + ", role: " + roleStr + ".")
+
+	// Check whether the affiliation is required for the current user.
+	//
+	// Affiliation is required if the role is client or peer.
+	// Affiliation is not required if the role is validator or auditor.
 	if ca.requireAffiliation(role) {
 		valid, err := ca.isValidAffiliation(affiliation)
 		if err != nil {
@@ -453,6 +474,7 @@ func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role stri
 		}
 
 		if !valid {
+			Trace.Println("Invalid affiliation group: ")
 			return "", errors.New("Invalid affiliation group " + affiliation)
 		}
 
@@ -462,7 +484,13 @@ func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role stri
 	return "", nil
 }
 
+//
+// This method registers a new member with the CA.
+//
 func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, opt ...string) (string, error) {
+	roleStr, _ := MemberRoleToString(int32(role))
+	Trace.Println("Received request to register user with id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliation_role + ", role: " + roleStr + ".")
+
 	var tok string
 	var err error
 	var enrollID string
@@ -479,7 +507,8 @@ func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, o
 }
 
 func (ca *CA) registerUserWithErollId(id string, enrollId string, role int, opt ...string) (string, error) {
-	Trace.Println("Registering user " + id + " as " + strconv.FormatInt(int64(role), 2) + ".")
+	roleStr, _ := MemberRoleToString(int32(role))
+	Trace.Println("Registering user " + id + " as " + roleStr + ".")
 
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
