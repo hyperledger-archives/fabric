@@ -159,14 +159,14 @@ def step_impl(context, seconds):
     time.sleep(float(seconds))
 
 
-@when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
-def step_impl(context, chaincodePath, ctor, containerName):
+@when(u'I deploy chaincode "{chaincodePath}" with input "{input}" to "{containerName}"')
+def step_impl(context, chaincodePath, input, containerName):
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/deploy")
     print("Requesting path = {0}".format(request_url))
     args = []
     if 'table' in context:
-	   # There is ctor arguments
+	   # There is input arguments
 	   args = context.table[0].cells
     typeGolang = 1
 
@@ -177,8 +177,8 @@ def step_impl(context, chaincodePath, ctor, containerName):
             "path" : chaincodePath,
             "name" : ""
         },
-        "ctorMsg":  {
-            "function" : ctor,
+        "input":  {
+            "function" : input,
             "args" : args
         },
         #"secureContext" : "binhn"
@@ -227,13 +227,13 @@ def step_impl(context, chaincodeName, functionName, containerName):
 
 def invokeChaincode(context, devopsFunc, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    # Update hte chaincodeSpec ctorMsg for invoke
+    # Update hte chaincodeSpec input for invoke
     args = []
     if 'table' in context:
-       # There is ctor arguments
+       # There is input arguments
        args = context.table[0].cells
-    context.chaincodeSpec['ctorMsg']['function'] = functionName
-    context.chaincodeSpec['ctorMsg']['args'] = args
+    context.chaincodeSpec['input']['function'] = functionName
+    context.chaincodeSpec['input']['args'] = args
     # Invoke the POST
     chaincodeInvocationSpec = {
         "chaincodeSpec" : context.chaincodeSpec
@@ -381,13 +381,13 @@ def step_impl(context, seconds):
 def step_impl(context, chaincodeName, functionName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     assert 'compose_containers' in context, "compose_containers not found in context"
-    # Update the chaincodeSpec ctorMsg for invoke
+    # Update the chaincodeSpec input for invoke
     args = []
     if 'table' in context:
-       # There is ctor arguments
+       # There is input arguments
        args = context.table[0].cells
-    context.chaincodeSpec['ctorMsg']['function'] = functionName
-    context.chaincodeSpec['ctorMsg']['args'] = args #context.table[0].cells if ('table' in context) else []
+    context.chaincodeSpec['input']['function'] = functionName
+    context.chaincodeSpec['input']['args'] = args #context.table[0].cells if ('table' in context) else []
     # Invoke the POST
     chaincodeInvocationSpec = {
         "chaincodeSpec" : context.chaincodeSpec
@@ -412,9 +412,9 @@ def step_impl(context, chaincodeName, functionName, value):
     aliases =  context.table.headings
     containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
-    # Update the chaincodeSpec ctorMsg for invoke
-    context.chaincodeSpec['ctorMsg']['function'] = functionName
-    context.chaincodeSpec['ctorMsg']['args'] = [value]
+    # Update the chaincodeSpec input for invoke
+    context.chaincodeSpec['input']['function'] = functionName
+    context.chaincodeSpec['input']['args'] = [value]
     # Invoke the POST
     # Make deep copy of chaincodeSpec as we will be changing the SecurityContext per call.
     chaincodeInvocationSpec = {

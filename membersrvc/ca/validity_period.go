@@ -58,7 +58,7 @@ func updateValidityPeriod() {
 	initialize()
 
 	for {
-		chaincodeInvocation.ChaincodeSpec.CtorMsg.Args[0] = strconv.FormatInt(time.Now().Unix(), 10)
+		chaincodeInvocation.ChaincodeSpec.Input.Args[0] = strconv.FormatInt(time.Now().Unix(), 10)
 
 		err := invokeChaincode(chaincodeInvocation)
 		if err != nil && !invocationErrorAlreadyReported {
@@ -127,7 +127,7 @@ func invokeChaincode(chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
 func createChaincodeInvocation(validityPeriod string, token string) *obc.ChaincodeInvocationSpec {
 	spec := &obc.ChaincodeSpec{Type: obc.ChaincodeSpec_GOLANG,
 		ChaincodeID: &obc.ChaincodeID{Name: viper.GetString("pki.validity-period.chaincodeHash")},
-		CtorMsg: &obc.ChaincodeInput{Function: function,
+		Input: &obc.ChaincodeInput{Function: function,
 			Args: []string{validityPeriod},
 		},
 	}

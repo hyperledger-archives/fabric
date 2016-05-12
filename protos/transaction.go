@@ -18,6 +18,7 @@ package protos
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/util"
 )
@@ -45,20 +46,7 @@ func NewTransaction(chaincodeID ChaincodeID, uuid string, function string, argum
 	transaction.ChaincodeID = data
 	transaction.Uuid = uuid
 	transaction.Timestamp = util.CreateUtcTimestamp()
-	/*
-		// Build the spec
-		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-			ChaincodeID: chaincodeID, ChaincodeInput: &pb.ChaincodeInput{Function: function, Args: arguments}}
 
-		// Build the ChaincodeInvocationSpec message
-		invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-
-		data, err := proto.Marshal(invocation)
-		if err != nil {
-			return nil, fmt.Errorf("Could not marshal payload for chaincode invocation: %s", err)
-		}
-		transaction.Payload = data
-	*/
 	return transaction, nil
 }
 
@@ -76,10 +64,7 @@ func NewChaincodeDeployTransaction(chaincodeDeploymentSpec *ChaincodeDeploymentS
 		}
 		transaction.ChaincodeID = data
 	}
-	//if chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg() != nil {
-	//	transaction.Function = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Function
-	//	transaction.Args = chaincodeDeploymentSpec.ChaincodeSpec.GetCtorMsg().Args
-	//}
+
 	data, err := proto.Marshal(chaincodeDeploymentSpec)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error mashalling payload for chaincode deployment: %s", err))

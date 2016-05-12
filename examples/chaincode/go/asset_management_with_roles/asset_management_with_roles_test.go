@@ -22,6 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,9 +40,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"reflect"
 )
@@ -161,7 +162,7 @@ func deploy(admCert crypto.CertificateHandler) error {
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:              &pb.ChaincodeInput{Function: "init", Args: []string{}},
+		Input:                &pb.ChaincodeInput{Function: "init", Args: []string{}},
 		Metadata:             []byte("assigner"),
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
@@ -224,7 +225,7 @@ func assignOwnership(admCert crypto.CertificateHandler, asset string, newOwnerCe
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:              chaincodeInput,
+		Input:                chaincodeInput,
 		Metadata:             sigma, // Proof of identity
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
@@ -284,7 +285,7 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:              chaincodeInput,
+		Input:                chaincodeInput,
 		Metadata:             sigma, // Proof of identity
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
@@ -319,7 +320,7 @@ func whoIsTheOwner(asset string) ([]byte, error) {
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:              chaincodeInput,
+		Input:                chaincodeInput,
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
 

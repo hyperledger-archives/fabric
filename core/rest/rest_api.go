@@ -737,11 +737,11 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		}
 	}
 
-	// Check that the CtorMsg is not left blank.
-	if (spec.CtorMsg == nil) || (spec.CtorMsg.Function == "") {
+	// Check that the Input is not left blank.
+	if (spec.Input == nil) || (spec.Input.Function == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
-		restLogger.Error("{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
+		restLogger.Error("{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
 
 		return
 	}
@@ -873,11 +873,11 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the CtorMsg is not left blank.
-	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
+	// Check that the Input is not left blank.
+	if (spec.ChaincodeSpec.Input == nil) || (spec.ChaincodeSpec.Input.Function == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
-		restLogger.Error("{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
+		restLogger.Error("{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
 
 		return
 	}
@@ -1009,11 +1009,11 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	// Check that the CtorMsg is not left blank.
-	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
+	// Check that the Input is not left blank.
+	if (spec.ChaincodeSpec.Input == nil) || (spec.ChaincodeSpec.Input.Function == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
-		restLogger.Error("{\"Error\": \"Payload must contain a CtorMsg with a Chaincode function name.\"}")
+		fmt.Fprintf(rw, "{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
+		restLogger.Error("{\"Error\": \"Payload must contain a Input with a Chaincode function name.\"}")
 
 		return
 	}
@@ -1369,11 +1369,11 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 		}
 	}
 
-	// Check that the CtorMsg is not left blank.
-	if (spec.CtorMsg == nil) || (spec.CtorMsg.Function == "") {
+	// Check that the Input is not left blank.
+	if (spec.Input == nil) || (spec.Input.Function == "") {
 		// Format the error appropriately for further processing
-		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a CtorMsg with a Chaincode function name.")
-		restLogger.Error("Payload must contain a CtorMsg with a Chaincode function name.")
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a Input with a Chaincode function name.")
+		restLogger.Error("Payload must contain a Input with a Chaincode function name.")
 
 		return error
 	}
@@ -1497,11 +1497,11 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		return error
 	}
 
-	// Check that the CtorMsg is not left blank.
-	if (spec.ChaincodeSpec.CtorMsg == nil) || (spec.ChaincodeSpec.CtorMsg.Function == "") {
+	// Check that the Input is not left blank.
+	if (spec.ChaincodeSpec.Input == nil) || (spec.ChaincodeSpec.Input.Function == "") {
 		// Format the error appropriately for further processing
-		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a CtorMsg with a Chaincode function name.")
-		restLogger.Error("Payload must contain a CtorMsg with a Chaincode function name.")
+		error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Payload must contain a Input with a Chaincode function name.")
+		restLogger.Error("Payload must contain a Input with a Chaincode function name.")
 
 		return error
 	}

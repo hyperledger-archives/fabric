@@ -114,7 +114,7 @@ POST localhost:3000/registrar
 First, send a chaincode deploy transaction, only once, to the validating peer. The CLI connects to the validating peer using the properties defined in the core.yaml file. **Note:** The deploy transaction typically requires a 'path' parameter to locate, build, and deploy the chaincode. However, because these instructions are specific to local development mode and the chaincode is deployed manually, the 'name' parameter is used instead.
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -n mycc -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 Alternatively, you can run the chaincode deploy transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
@@ -131,7 +131,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "name": "mycc"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "100", "b", "200"]
     }
@@ -154,7 +154,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and the REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element.
 
- 	  ./peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	  ./peer chaincode deploy -u jim -n mycc -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 <b>REST Request:</b>
 ```
@@ -168,7 +168,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "name": "mycc"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "100", "b", "200"]
     },
@@ -187,7 +187,7 @@ The deploy transaction initializes the chaincode by executing a target initializ
 
 Run the chaincode invoking transaction on the CLI as many times as desired. The <b>-n</b> argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-	./peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	./peer chaincode invoke -l golang -n mycc -i '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 Alternatively, run the chaincode invoking transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
 
@@ -203,7 +203,7 @@ POST host:port/chaincode
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg": {
+      "input": {
          "function":"invoke",
          "args":["a", "b", "10"]
       }
@@ -226,7 +226,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element.
 
-	 ./peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	 ./peer chaincode invoke -u jim -l golang -n mycc -i '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 <b> REST Request:</b>
 ```
@@ -240,7 +240,7 @@ POST host:port/chaincode
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg": {
+      "input": {
          "function":"invoke",
          "args":["a", "b", "10"]
       },
@@ -259,7 +259,7 @@ The invoking transaction runs the specified chaincode function name "invoke" wit
 
 Run a query on the chaincode to retrieve the desired values. The <b>-n</b> argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-    ./peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+    ./peer chaincode query -l golang -n mycc -i '{"Function": "query", "Args": ["b"]}'
 
 The response should be similar to the following:
 
@@ -283,7 +283,7 @@ POST host:port/chaincode
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg": {
+      "input": {
          "function":"query",
          "args":["a"]
       }
@@ -306,7 +306,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the <b>enrollmentID</b> of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the <b>enrollmentID</b> is passed with the <b>-u</b> parameter; in the REST API, the <b>enrollmentID</b> is passed with the <b>'secureContext'</b> element:
 
-    ./peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+    ./peer chaincode query -u jim -l golang -n mycc -i '{"Function": "query", "Args": ["b"]}'
 
 <b>REST Request:</b>
 ```
@@ -320,7 +320,7 @@ POST host:port/chaincode
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg": {
+      "input": {
          "function":"query",
          "args":["a"]
       },

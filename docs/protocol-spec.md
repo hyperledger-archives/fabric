@@ -382,7 +382,7 @@ message ChaincodeSpec {
     }
     Type type = 1;
     ChaincodeID chaincodeID = 2;
-    ChaincodeInput ctorMsg = 3;
+    ChaincodeInput input = 3;
     int32 timeout = 4;
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
@@ -402,7 +402,7 @@ message ChaincodeInput {
 
 **Definition of fields:**
 - `chaincodeID` - The chaincode source code path and name.
-- `ctorMsg` - Function name and argument parameters to call.
+- `input` - Function name and argument parameters to call.
 - `timeout` - Time in milliseconds to execute the transaction.
 - `confidentialityLevel` - Confidentiality level of this transaction.
 - `secureContext` - Security context of the transactor.
@@ -2663,7 +2663,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "1000", "b", "2000"]
     }
@@ -2698,7 +2698,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "path":"github.com/hyperledger/fabic/examples/chaincode/go/chaincode_example02"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "1000", "b", "2000"]
     },
@@ -2724,7 +2724,7 @@ POST host:port/chaincode
     "chaincodeID":{
       "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
     },
-  	"ctorMsg": {
+  	"input": {
     	"function":"invoke",
       	"args":["a", "b", "100"]
   	}
@@ -2757,7 +2757,7 @@ Invoke Request with security enabled:
     "chaincodeID":{
       "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
     },
-  	"ctorMsg": {
+  	"input": {
     	"function":"invoke",
       	"args":["a", "b", "100"]
   	},
@@ -2783,7 +2783,7 @@ POST host:port/chaincode/
     "chaincodeID":{
       "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
     },
-  	"ctorMsg": {
+  	"input": {
     	"function":"query",
       	"args":["a"]
   	}
@@ -2816,7 +2816,7 @@ Query Request with security enabled:
     "chaincodeID":{
       "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
     },
-  	"ctorMsg": {
+  	"input": {
     	"function":"query",
       	"args":["a"]
   	},
@@ -3128,13 +3128,13 @@ You can also pass a password for the user with `-p` parameter. An example is bel
 The CLI `deploy` command creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
 
 ```
-./peer chaincode deploy -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 #### 6.3.1.4 chaincode invoke
@@ -3142,13 +3142,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `invoke` command executes a specified function within the target chaincode. An example is below.
 
 ```
-./peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -n <name_value_returned_from_deploy_command> -i '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+./peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -i '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 #### 6.3.1.5 chaincode query
@@ -3156,13 +3156,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `query` command triggers a specified query method within the target chaincode. The response that is returned depends on the chaincode implementation. An example is below.
 
 ```
-./peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -i '{"Function": "query", "Args": ["a"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+./peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -i '{"Function": "query", "Args": ["a"]}'
 ```
 
 
